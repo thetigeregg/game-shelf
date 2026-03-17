@@ -1,6 +1,6 @@
 name: Bug
 description: Report a bug
-labels: ['fix']
+labels: ["fix"]
 
 body:
   - type: textarea

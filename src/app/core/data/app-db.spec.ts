@@ -19,7 +19,7 @@ describe('AppDb', () => {
       'outbox',
       'syncMeta',
       'tags',
-      'views'
+      'views',
     ]);
 
     db.close();
@@ -29,7 +29,7 @@ describe('AppDb', () => {
     const legacy = new Dexie(dbName);
     legacy.version(3).stores({
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
-      tags: '++id,&name,createdAt,updatedAt'
+      tags: '++id,&name,createdAt,updatedAt',
     });
     await legacy.open();
     await legacy.table('games').add({
@@ -39,7 +39,7 @@ describe('AppDb', () => {
       platformIgdbId: '',
       platform: '',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z'
+      updatedAt: '2026-01-01T00:00:00.000Z',
     });
     legacy.close();
 
@@ -60,7 +60,7 @@ describe('AppDb', () => {
     const legacy = new Dexie(dbName);
     legacy.version(3).stores({
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
-      tags: '++id,&name,createdAt,updatedAt'
+      tags: '++id,&name,createdAt,updatedAt',
     });
     await legacy.open();
     await legacy.table('games').bulkAdd([
@@ -71,7 +71,7 @@ describe('AppDb', () => {
         platformIgdbId: '',
         platform: 'PC',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         externalId: '789::6',
@@ -80,8 +80,8 @@ describe('AppDb', () => {
         platformIgdbId: '42',
         platform: '  Nintendo Switch  ',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
-      }
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 
@@ -110,7 +110,7 @@ describe('AppDb', () => {
       views: '++id,listType,name,updatedAt,createdAt',
       imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
       outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-      syncMeta: '&key,updatedAt'
+      syncMeta: '&key,updatedAt',
     });
     await legacy.open();
 
@@ -124,7 +124,7 @@ describe('AppDb', () => {
         metacriticScore: 89,
         metacriticUrl: 'https://www.metacritic.com/game/legacy/',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '101',
@@ -136,8 +136,8 @@ describe('AppDb', () => {
         reviewUrl: 'https://www.mobygames.com/game/101/review-only/',
         reviewSource: 'mobygames',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
-      }
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 
@@ -153,7 +153,7 @@ describe('AppDb', () => {
         reviewUrl: 'https://www.metacritic.com/game/legacy/',
         reviewSource: 'metacritic',
         metacriticScore: 89,
-        metacriticUrl: 'https://www.metacritic.com/game/legacy/'
+        metacriticUrl: 'https://www.metacritic.com/game/legacy/',
       })
     );
     expect(games[1]).toEqual(
@@ -161,7 +161,7 @@ describe('AppDb', () => {
         igdbGameId: '101',
         reviewScore: 76,
         reviewUrl: 'https://www.mobygames.com/game/101/review-only/',
-        reviewSource: 'mobygames'
+        reviewSource: 'mobygames',
       })
     );
     expect((games[1] as Record<string, unknown>)['metacriticScore']).toBeUndefined();
@@ -179,7 +179,7 @@ describe('AppDb', () => {
       views: '++id,listType,name,updatedAt,createdAt',
       imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
       outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-      syncMeta: '&key,updatedAt'
+      syncMeta: '&key,updatedAt',
     });
     await legacy.open();
     await legacy.table('games').bulkAdd([
@@ -193,7 +193,7 @@ describe('AppDb', () => {
         reviewUrl: 'https://www.mobygames.com/game/999/shining-force/',
         mobygamesGameId: 999,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '201',
@@ -204,8 +204,8 @@ describe('AppDb', () => {
         reviewSource: 'metacritic',
         reviewUrl: 'https://www.metacritic.com/game/test/',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
-      }
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 
@@ -229,7 +229,7 @@ describe('AppDb', () => {
       views: '++id,listType,name,updatedAt,createdAt',
       imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
       outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-      syncMeta: '&key,updatedAt'
+      syncMeta: '&key,updatedAt',
     });
     await legacy.open();
     await legacy.table('games').bulkAdd([
@@ -243,7 +243,7 @@ describe('AppDb', () => {
         reviewScore: 88,
         mobyScore: 8.8,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '301',
@@ -254,7 +254,7 @@ describe('AppDb', () => {
         reviewSource: 'mobygames',
         reviewScore: 88,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '302',
@@ -265,7 +265,7 @@ describe('AppDb', () => {
         reviewSource: 'mobygames',
         reviewScore: 8.8,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '303',
@@ -276,7 +276,7 @@ describe('AppDb', () => {
         reviewSource: 'metacritic',
         reviewScore: 90,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       {
         igdbGameId: '304',
@@ -287,8 +287,8 @@ describe('AppDb', () => {
         reviewSource: 'mobygames',
         reviewScore: 0,
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
-      }
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 

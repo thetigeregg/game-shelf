@@ -98,8 +98,8 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
         font-weight: 700;
         line-height: 1;
       }
-    `
-  ]
+    `,
+  ],
 })
 export class DetailShortcutsFabComponent {
   @ViewChild('fab') private fab?: IonFab;
@@ -121,7 +121,7 @@ export class DetailShortcutsFabComponent {
       documentText,
       book,
       logoGoogle,
-      logoYoutube
+      logoYoutube,
     });
   }
 

@@ -21,7 +21,7 @@ function getCurrentWorktreePath() {
   try {
     const toplevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
-      maxBuffer: DEFAULT_MAX_BUFFER
+      maxBuffer: DEFAULT_MAX_BUFFER,
     }).trim();
 
     if (toplevel) {
@@ -43,7 +43,7 @@ function runGit(args, options = {}) {
     return execFileSync('git', args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
-      ...execOptions
+      ...execOptions,
     });
   } catch (error) {
     const commandString = ['git', ...args].join(' ');
@@ -155,7 +155,7 @@ const worktrees = worktreesOutput
 
     return {
       path: pathMatch?.[1]?.trim(),
-      branch: branchMatch?.[1]?.trim()
+      branch: branchMatch?.[1]?.trim(),
     };
   })
   .filter((w) => w.path && w.branch);

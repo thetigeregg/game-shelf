@@ -105,7 +105,7 @@ try {
 // Allow CI/e2e/runtime environment variables to override local .env values.
 const envValues = {
   ...dotenvValues,
-  ...process.env
+  ...process.env,
 };
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
@@ -117,7 +117,7 @@ const firebaseWebConfig = {
   projectId: String(envValues.FIREBASE_WEB_PROJECT_ID ?? ''),
   storageBucket: String(envValues.FIREBASE_WEB_STORAGE_BUCKET ?? ''),
   messagingSenderId: String(envValues.FIREBASE_WEB_MESSAGING_SENDER_ID ?? ''),
-  appId: String(envValues.FIREBASE_WEB_APP_ID ?? '')
+  appId: String(envValues.FIREBASE_WEB_APP_ID ?? ''),
 };
 const firebaseVapidKey = String(envValues.FIREBASE_WEB_VAPID_KEY ?? '');
 

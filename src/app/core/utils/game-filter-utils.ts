@@ -2,7 +2,7 @@ import {
   GameRatingFilterOption,
   GameStatusFilterOption,
   GameType,
-  isGameRating
+  isGameRating,
 } from '../models/game.models';
 
 export function normalizeStringList(value: unknown): string[] {
@@ -15,7 +15,7 @@ export function normalizeStringList(value: unknown): string[] {
       value
         .map((item) => (typeof item === 'string' ? item.trim() : ''))
         .filter((item) => item.length > 0)
-    )
+    ),
   ];
 }
 

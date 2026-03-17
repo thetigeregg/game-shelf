@@ -3,7 +3,7 @@ import {
   HttpClient,
   HttpHeaders,
   provideHttpClient,
-  withInterceptorsFromDi
+  withInterceptorsFromDi,
 } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -11,7 +11,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
-  ClientWriteAuthService
+  ClientWriteAuthService,
 } from '../services/client-write-auth.service';
 import { ClientWriteTokenInterceptor } from './client-write-token.interceptor';
 
@@ -29,9 +29,9 @@ describe('ClientWriteTokenInterceptor', () => {
         {
           provide: HTTP_INTERCEPTORS,
           useClass: ClientWriteTokenInterceptor,
-          multi: true
-        }
-      ]
+          multi: true,
+        },
+      ],
     });
 
     localStorage.clear();
@@ -99,8 +99,8 @@ describe('ClientWriteTokenInterceptor', () => {
         {},
         {
           headers: new HttpHeaders({
-            [CLIENT_WRITE_TOKEN_HEADER_NAME]: 'caller-token'
-          })
+            [CLIENT_WRITE_TOKEN_HEADER_NAME]: 'caller-token',
+          }),
         }
       )
     );

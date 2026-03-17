@@ -71,7 +71,7 @@ class GamePoolMock {
         this.rowsByIdentity.set(key, { payload: merged });
         return Promise.resolve({
           rows: [{ previous_payload: existing, next_payload: merged }],
-          rowCount: 1
+          rowCount: 1,
         });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
@@ -92,14 +92,14 @@ class GamePoolMock {
         rows: [
           {
             setting_key: 'game-shelf:notifications:release:enabled',
-            setting_value: 'true'
+            setting_value: 'true',
           },
           {
             setting_key: 'game-shelf:notifications:release:events',
-            setting_value: JSON.stringify({ sale: true })
-          }
+            setting_value: JSON.stringify({ sale: true }),
+          },
         ],
-        rowCount: 2
+        rowCount: 2,
       });
     }
 
@@ -158,12 +158,12 @@ void test('Steam route returns unsupported_platform for non-Windows IGDB platfor
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=1&platformIgdbId=48'
+    url: '/v1/steam/prices?igdbGameId=1&platformIgdbId=48',
   });
 
   assert.equal(response.statusCode, 200);
@@ -183,7 +183,7 @@ void test('Steam route returns missing_steam_app_id when payload is not enriched
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6',
   });
 
   assert.equal(response.statusCode, 200);
@@ -213,23 +213,23 @@ void test('Steam route accepts query steamAppId when game row is not present', a
                   currency: 'CHF',
                   initial: 2999,
                   final: 1999,
-                  discount_percent: 33
-                }
-              }
-            }
+                  discount_percent: 33,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&steamAppId=570&cc=CH'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&steamAppId=570&cc=CH',
   });
 
   assert.equal(response.statusCode, 200);
@@ -248,7 +248,7 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   const pool = new GamePoolMock();
   pool.seed('960', 6, {
     title: 'Grand Theft Auto IV',
-    steamAppId: 204100
+    steamAppId: 204100,
   });
 
   const requests: string[] = [];
@@ -273,26 +273,26 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
                     currency: 'CHF',
                     initial: 6999,
                     final: 4999,
-                    discount_percent: 29
-                  }
-                }
-              }
+                    discount_percent: 29,
+                  },
+                },
+              },
             }),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' }
+              headers: { 'content-type': 'application/json' },
             }
           )
         );
       }
 
       return Promise.resolve(new Response('{}', { status: 404 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&cc=CH'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&cc=CH',
   });
 
   assert.equal(response.statusCode, 200);
@@ -336,7 +336,7 @@ void test('Steam route suppresses sync event writes for discovery rows', async (
   pool.seed('960', 6, {
     listType: 'discovery',
     title: 'Grand Theft Auto IV',
-    steamAppId: 204100
+    steamAppId: 204100,
   });
 
   await registerSteamPricesRoute(app, pool as unknown as Pool, {
@@ -352,22 +352,22 @@ void test('Steam route suppresses sync event writes for discovery rows', async (
                   currency: 'CHF',
                   initial: 6999,
                   final: 4999,
-                  discount_percent: 29
-                }
-              }
-            }
+                  discount_percent: 29,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&cc=CH'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&cc=CH',
   });
 
   assert.equal(response.statusCode, 200);
@@ -388,7 +388,7 @@ void test('Steam route uses cached value when fresh for matching cc', async () =
     steamPriceCurrency: 'CHF',
     steamPriceDiscountPercent: 50,
     steamPriceIsFree: false,
-    steamPriceUrl: 'https://store.steampowered.com/app/570'
+    steamPriceUrl: 'https://store.steampowered.com/app/570',
   });
 
   let fetchCalls = 0;
@@ -397,12 +397,12 @@ void test('Steam route uses cached value when fresh for matching cc', async () =
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=1520&platformIgdbId=6&cc=ch'
+    url: '/v1/steam/prices?igdbGameId=1520&platformIgdbId=6&cc=ch',
   });
 
   assert.equal(response.statusCode, 200);
@@ -427,7 +427,7 @@ void test('Steam route bypasses cache when query steamAppId differs from persist
     steamPriceCurrency: 'CHF',
     steamPriceDiscountPercent: 50,
     steamPriceIsFree: false,
-    steamPriceUrl: 'https://store.steampowered.com/app/570'
+    steamPriceUrl: 'https://store.steampowered.com/app/570',
   });
 
   let fetchCalls = 0;
@@ -449,23 +449,23 @@ void test('Steam route bypasses cache when query steamAppId differs from persist
                   currency: 'CHF',
                   initial: 1599,
                   final: 999,
-                  discount_percent: 37
-                }
-              }
-            }
+                  discount_percent: 37,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=1520&platformIgdbId=6&cc=CH&steamAppId=730'
+    url: '/v1/steam/prices?igdbGameId=1520&platformIgdbId=6&cc=CH&steamAppId=730',
   });
 
   assert.equal(response.statusCode, 200);
@@ -487,7 +487,7 @@ void test('Steam route serves stale cache and schedules revalidation', async () 
     steamPriceCountry: 'DE',
     steamPriceFetchedAt: '2026-03-08T08:00:00.000Z',
     steamPriceAmount: 9.99,
-    steamPriceCurrency: 'EUR'
+    steamPriceCurrency: 'EUR',
   });
 
   const queuedPayloads: Record<string, unknown>[] = [];
@@ -513,23 +513,23 @@ void test('Steam route serves stale cache and schedules revalidation', async () 
                   currency: 'EUR',
                   initial: 1299,
                   final: 999,
-                  discount_percent: 23
-                }
-              }
-            }
+                  discount_percent: 23,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6&cc=de'
+    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6&cc=de',
   });
 
   assert.equal(response.statusCode, 200);
@@ -551,7 +551,7 @@ void test('Steam route refetches when cache country differs', async () => {
     steamPriceCountry: 'CH',
     steamPriceFetchedAt: '2026-03-10T11:00:00.000Z',
     steamPriceAmount: 5,
-    steamPriceCurrency: 'CHF'
+    steamPriceCurrency: 'CHF',
   });
 
   let fetchCalls = 0;
@@ -573,23 +573,23 @@ void test('Steam route refetches when cache country differs', async () => {
                   currency: 'EUR',
                   initial: 1299,
                   final: 999,
-                  discount_percent: 23
-                }
-              }
-            }
+                  discount_percent: 23,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6&cc=de'
+    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6&cc=de',
   });
 
   assert.equal(response.statusCode, 200);
@@ -609,7 +609,7 @@ void test('Steam route returns cached unavailable snapshot without upstream fetc
     steamPriceFetchedAt: '2026-03-10T09:00:00.000Z',
     steamPriceAmount: null,
     steamPriceCurrency: null,
-    steamPriceIsFree: null
+    steamPriceIsFree: null,
   });
 
   let fetchCalls = 0;
@@ -618,12 +618,12 @@ void test('Steam route returns cached unavailable snapshot without upstream fetc
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=100&platformIgdbId=6&cc=ch'
+    url: '/v1/steam/prices?igdbGameId=100&platformIgdbId=6&cc=ch',
   });
 
   assert.equal(response.statusCode, 200);
@@ -648,7 +648,7 @@ void test('Steam route preserves existing unified fields when upstream is unavai
     priceIsFree: false,
     priceUrl: 'https://store.steampowered.com/app/730',
     steamPriceAmount: 9.99,
-    steamPriceCurrency: 'EUR'
+    steamPriceCurrency: 'EUR',
   });
 
   await registerSteamPricesRoute(app, pool as unknown as Pool, {
@@ -657,20 +657,20 @@ void test('Steam route preserves existing unified fields when upstream is unavai
         new Response(
           JSON.stringify({
             '730': {
-              success: false
-            }
+              success: false,
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6'
+    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6',
   });
 
   assert.equal(response.statusCode, 200);
@@ -699,7 +699,7 @@ void test('Steam route reaches wishlist sale notification checks during discount
     priceAmount: 69.99,
     priceRegularAmount: 69.99,
     priceDiscountPercent: 0,
-    priceIsFree: false
+    priceIsFree: false,
   });
 
   await registerSteamPricesRoute(app, pool as unknown as Pool, {
@@ -715,22 +715,22 @@ void test('Steam route reaches wishlist sale notification checks during discount
                   currency: 'USD',
                   initial: 6999,
                   final: 3999,
-                  discount_percent: 43
-                }
-              }
-            }
+                  discount_percent: 43,
+                },
+              },
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6',
   });
 
   assert.equal(response.statusCode, 200);
@@ -746,12 +746,12 @@ void test('Steam route returns 502 on Steam upstream failure', async () => {
   pool.seed('960', 6, { steamAppId: 204100 });
 
   await registerSteamPricesRoute(app, pool as unknown as Pool, {
-    fetchImpl: () => Promise.resolve(new Response('bad gateway', { status: 502 }))
+    fetchImpl: () => Promise.resolve(new Response('bad gateway', { status: 502 })),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6'
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6',
   });
 
   assert.equal(response.statusCode, 502);

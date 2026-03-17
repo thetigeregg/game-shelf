@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
-  ClientWriteAuthService
+  ClientWriteAuthService,
 } from '../services/client-write-auth.service';
 
 const MUTATING_HTTP_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -36,8 +36,8 @@ export class ClientWriteTokenInterceptor implements HttpInterceptor {
     return next.handle(
       request.clone({
         setHeaders: {
-          [CLIENT_WRITE_TOKEN_HEADER_NAME]: token
-        }
+          [CLIENT_WRITE_TOKEN_HEADER_NAME]: token,
+        },
       })
     );
   }

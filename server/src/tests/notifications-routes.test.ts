@@ -67,7 +67,7 @@ class MockNotificationsPool {
         is_active: true,
         timezone,
         app_version: appVersion,
-        user_agent: userAgent ?? previous?.user_agent ?? null
+        user_agent: userAgent ?? previous?.user_agent ?? null,
       });
 
       return Promise.resolve({ rows: [] });
@@ -83,7 +83,7 @@ class MockNotificationsPool {
       if (existing) {
         this.tokens.set(token, {
           ...existing,
-          is_active: false
+          is_active: false,
         });
       }
       return Promise.resolve({ rows: [] });
@@ -98,9 +98,9 @@ class MockNotificationsPool {
         rows: [
           {
             active_tokens: String(this.tokens.size),
-            inactive_tokens: String(this.inactiveTokens.size)
-          }
-        ]
+            inactive_tokens: String(this.inactiveTokens.size),
+          },
+        ],
       });
     }
 
@@ -110,13 +110,13 @@ class MockNotificationsPool {
 
     if (normalizedSql.startsWith('select event_type, count(*)::text as event_count')) {
       return Promise.resolve({
-        rows: [{ event_type: 'release_date_set', event_count: '2', sent_total: '3' }]
+        rows: [{ event_type: 'release_date_set', event_count: '2', sent_total: '3' }],
       });
     }
 
     if (normalizedSql.startsWith('select token from fcm_tokens where is_active = true')) {
       return Promise.resolve({
-        rows: [...this.tokens.keys()].map((token) => ({ token }))
+        rows: [...this.tokens.keys()].map((token) => ({ token })),
       });
     }
 
@@ -177,15 +177,15 @@ function parseObservabilityBody(raw: string): {
       invalidatedLast24h:
         typeof candidate.tokens?.invalidatedLast24h === 'number'
           ? candidate.tokens.invalidatedLast24h
-          : 0
+          : 0,
     },
     events: Array.isArray(candidate.events)
       ? candidate.events.map((entry) => ({
           eventType: typeof entry.eventType === 'string' ? entry.eventType : '',
           eventCount: typeof entry.eventCount === 'number' ? entry.eventCount : 0,
-          sentTotal: typeof entry.sentTotal === 'number' ? entry.sentTotal : 0
+          sentTotal: typeof entry.sentTotal === 'number' ? entry.sentTotal : 0,
         }))
-      : []
+      : [],
   };
 }
 
@@ -198,7 +198,7 @@ function parseTestBody(raw: string): { ok: boolean; successCount: number; failur
   return {
     ok: candidate.ok === true,
     successCount: typeof candidate.successCount === 'number' ? candidate.successCount : 0,
-    failureCount: typeof candidate.failureCount === 'number' ? candidate.failureCount : 0
+    failureCount: typeof candidate.failureCount === 'number' ? candidate.failureCount : 0,
   };
 }
 
@@ -210,7 +210,7 @@ void test('FCM register keeps existing active tokens on other devices', async ()
     is_active: true,
     timezone: 'Europe/Zurich',
     app_version: '17.4',
-    user_agent: 'ua-ios'
+    user_agent: 'ua-ios',
   });
 
   const app = Fastify();
@@ -224,8 +224,8 @@ void test('FCM register keeps existing active tokens on other devices', async ()
       platform: 'web',
       timezone: 'Europe/Zurich',
       appVersion: 'Firefox',
-      userAgent: 'ua-web'
-    }
+      userAgent: 'ua-web',
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -245,8 +245,8 @@ void test('FCM register rejects oversized tokens', async () => {
     url: '/v1/notifications/fcm/register',
     payload: {
       token: `token-${'x'.repeat(600)}`,
-      platform: 'web'
-    }
+      platform: 'web',
+    },
   });
 
   assert.equal(response.statusCode, 400);
@@ -266,7 +266,7 @@ void test('FCM unregister deactivates only the requested token', async () => {
     is_active: true,
     timezone: null,
     app_version: null,
-    user_agent: null
+    user_agent: null,
   });
   pool.seedToken({
     token: 'token-b-bbbbbbbbbbbb',
@@ -274,7 +274,7 @@ void test('FCM unregister deactivates only the requested token', async () => {
     is_active: true,
     timezone: null,
     app_version: null,
-    user_agent: null
+    user_agent: null,
   });
 
   const app = Fastify();
@@ -284,8 +284,8 @@ void test('FCM unregister deactivates only the requested token', async () => {
     method: 'POST',
     url: '/v1/notifications/fcm/unregister',
     payload: {
-      token: 'token-a-aaaaaaaaaaaa'
-    }
+      token: 'token-a-aaaaaaaaaaaa',
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -311,7 +311,7 @@ void test('notifications observability is gated and requires auth when enabled',
 
     const disabledResponse = await app.inject({
       method: 'GET',
-      url: '/v1/notifications/observability'
+      url: '/v1/notifications/observability',
     });
     assert.equal(disabledResponse.statusCode, 404);
 
@@ -319,7 +319,7 @@ void test('notifications observability is gated and requires auth when enabled',
 
     const unauthorizedResponse = await app.inject({
       method: 'GET',
-      url: '/v1/notifications/observability'
+      url: '/v1/notifications/observability',
     });
     assert.equal(unauthorizedResponse.statusCode, 401);
 
@@ -327,8 +327,8 @@ void test('notifications observability is gated and requires auth when enabled',
       method: 'GET',
       url: '/v1/notifications/observability',
       headers: {
-        'x-game-shelf-client-token': 'client-write-token'
-      }
+        'x-game-shelf-client-token': 'client-write-token',
+      },
     });
     assert.equal(clientTokenUnauthorizedResponse.statusCode, 401);
 
@@ -336,8 +336,8 @@ void test('notifications observability is gated and requires auth when enabled',
       method: 'GET',
       url: '/v1/notifications/observability',
       headers: {
-        authorization: 'Bearer admin-token'
-      }
+        authorization: 'Bearer admin-token',
+      },
     });
     assert.equal(authorizedResponse.statusCode, 200);
 
@@ -361,7 +361,7 @@ void test('notifications test endpoint is gated and requires auth when enabled',
     is_active: true,
     timezone: null,
     app_version: null,
-    user_agent: null
+    user_agent: null,
   });
   const app = Fastify();
 
@@ -382,7 +382,7 @@ void test('notifications test endpoint is gated and requires auth when enabled',
     const disabledResponse = await app.inject({
       method: 'POST',
       url: '/v1/notifications/test',
-      payload: {}
+      payload: {},
     });
     assert.equal(disabledResponse.statusCode, 404);
 
@@ -391,7 +391,7 @@ void test('notifications test endpoint is gated and requires auth when enabled',
     const unauthorizedResponse = await app.inject({
       method: 'POST',
       url: '/v1/notifications/test',
-      payload: {}
+      payload: {},
     });
     assert.equal(unauthorizedResponse.statusCode, 401);
 
@@ -400,8 +400,8 @@ void test('notifications test endpoint is gated and requires auth when enabled',
       url: '/v1/notifications/test',
       payload: {},
       headers: {
-        'x-game-shelf-client-token': 'client-write-token'
-      }
+        'x-game-shelf-client-token': 'client-write-token',
+      },
     });
     assert.equal(clientTokenUnauthorizedResponse.statusCode, 401);
 
@@ -410,8 +410,8 @@ void test('notifications test endpoint is gated and requires auth when enabled',
       url: '/v1/notifications/test',
       payload: {},
       headers: {
-        authorization: 'Bearer admin-token'
-      }
+        authorization: 'Bearer admin-token',
+      },
     });
     assert.equal(authorizedResponse.statusCode, 200);
     const body = parseTestBody(authorizedResponse.body);

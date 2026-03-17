@@ -44,7 +44,7 @@ export async function registerCacheObservabilityRoutes(
     mobygamesEntryCount: null,
     steamPriceEntryCount: null,
     pspricesPriceEntryCount: null,
-    dbError: null
+    dbError: null,
   };
 
   const refreshSnapshot = async (): Promise<void> => {
@@ -78,7 +78,7 @@ export async function registerCacheObservabilityRoutes(
           pspricesPriceCountResult.rows[0]?.count ?? '0',
           10
         ),
-        dbError: null
+        dbError: null,
       };
     } catch (error) {
       snapshot = {
@@ -88,7 +88,7 @@ export async function registerCacheObservabilityRoutes(
         mobygamesEntryCount: null,
         steamPriceEntryCount: null,
         pspricesPriceEntryCount: null,
-        dbError: error instanceof Error ? error.message : String(error)
+        dbError: error instanceof Error ? error.message : String(error),
       };
     }
   };
@@ -110,8 +110,8 @@ export async function registerCacheObservabilityRoutes(
     config: {
       rateLimit: {
         max: cacheStatsMaxRequestsPerWindow,
-        timeWindow: `${String(Math.floor(cacheStatsRateLimitWindowMs / 1000))} seconds`
-      }
+        timeWindow: `${String(Math.floor(cacheStatsRateLimitWindowMs / 1000))} seconds`,
+      },
     },
     handler: async (_request, reply) => {
       const metrics = getCacheMetrics();
@@ -125,10 +125,10 @@ export async function registerCacheObservabilityRoutes(
           metacriticEntries: snapshot.metacriticEntryCount,
           mobygamesEntries: snapshot.mobygamesEntryCount,
           steamPriceEntries: snapshot.steamPriceEntryCount,
-          pspricesPriceEntries: snapshot.pspricesPriceEntryCount
+          pspricesPriceEntries: snapshot.pspricesPriceEntryCount,
         },
-        dbError: snapshot.dbError
+        dbError: snapshot.dbError,
       });
-    }
+    },
   });
 }

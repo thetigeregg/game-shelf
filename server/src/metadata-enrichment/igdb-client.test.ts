@@ -24,7 +24,7 @@ void test('extracts steam app id from external_game_source uid', async () => {
         return Promise.resolve(
           new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         );
       }
@@ -39,19 +39,19 @@ void test('extracts steam app id from external_game_source uid', async () => {
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ external_game_source: 1, uid: '570' }]
-              }
+                external_games: [{ external_game_source: 1, uid: '570' }],
+              },
             ]),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' }
+              headers: { 'content-type': 'application/json' },
             }
           )
         );
       }
 
       return Promise.resolve(new Response('{}', { status: 404 }));
-    }
+    },
   });
 
   const map = await client.fetchGameMetadataByIds(['10']);
@@ -76,7 +76,7 @@ void test('falls back to deprecated category steam enum for steam app id', async
         return Promise.resolve(
           new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         );
       }
@@ -91,19 +91,19 @@ void test('falls back to deprecated category steam enum for steam app id', async
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ category: 1, uid: '730' }]
-              }
+                external_games: [{ category: 1, uid: '730' }],
+              },
             ]),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' }
+              headers: { 'content-type': 'application/json' },
             }
           )
         );
       }
 
       return Promise.resolve(new Response('{}', { status: 404 }));
-    }
+    },
   });
 
   const map = await client.fetchGameMetadataByIds(['11']);
@@ -124,7 +124,7 @@ void test('falls back to parsing steam app id from URL when uid is missing', asy
         return Promise.resolve(
           new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         );
       }
@@ -143,21 +143,21 @@ void test('falls back to parsing steam app id from URL when uid is missing', asy
                   {
                     external_game_source: 1,
                     uid: null,
-                    url: 'https://store.steampowered.com/app/1245620/ELDEN_RING/'
-                  }
-                ]
-              }
+                    url: 'https://store.steampowered.com/app/1245620/ELDEN_RING/',
+                  },
+                ],
+              },
             ]),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' }
+              headers: { 'content-type': 'application/json' },
             }
           )
         );
       }
 
       return Promise.resolve(new Response('{}', { status: 404 }));
-    }
+    },
   });
 
   const map = await client.fetchGameMetadataByIds(['12']);
@@ -178,7 +178,7 @@ void test('ignores non-steam external ids', async () => {
         return Promise.resolve(
           new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         );
       }
@@ -193,19 +193,19 @@ void test('ignores non-steam external ids', async () => {
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ external_game_source: 5, uid: 'gog-12345' }]
-              }
+                external_games: [{ external_game_source: 5, uid: 'gog-12345' }],
+              },
             ]),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' }
+              headers: { 'content-type': 'application/json' },
             }
           )
         );
       }
 
       return Promise.resolve(new Response('{}', { status: 404 }));
-    }
+    },
   });
 
   const map = await client.fetchGameMetadataByIds(['13']);

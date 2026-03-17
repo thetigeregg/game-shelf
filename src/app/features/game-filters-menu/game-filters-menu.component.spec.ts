@@ -13,7 +13,7 @@ describe('GameFiltersMenuComponent', () => {
   function createFilters(sortField: GameListFilters['sortField']): GameListFilters {
     return {
       ...DEFAULT_GAME_LIST_FILTERS,
-      sortField
+      sortField,
     };
   }
 
@@ -126,7 +126,7 @@ describe('GameFiltersMenuComponent', () => {
     component.draftFilters = {
       ...component.draftFilters,
       hltbMainHoursMin: 12,
-      hltbMainHoursMax: 5
+      hltbMainHoursMax: 5,
     };
 
     component.onReleaseDateFromChange('2026-04-05T12:30:00.000Z');

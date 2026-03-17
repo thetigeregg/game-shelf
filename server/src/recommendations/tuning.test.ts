@@ -28,7 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -43,14 +43,14 @@ void test('tuneRecommendationWeights falls back when sample is too small', () =>
     tasteWeight: 1,
     semanticWeight: 2,
     criticWeight: 1,
-    runtimeWeight: 1
+    runtimeWeight: 1,
   };
 
   const tuned = tuneRecommendationWeights({
     games: [buildGame({ rating: 5 })],
     semanticSimilarityByGame: new Map(),
     minimumRated: 8,
-    defaults
+    defaults,
   });
 
   assert.deepEqual(tuned, defaults);
@@ -61,7 +61,7 @@ void test('tuneRecommendationWeights preserves mobygames 0-100 critic variance',
     tasteWeight: 1,
     semanticWeight: 2,
     criticWeight: 1,
-    runtimeWeight: 1
+    runtimeWeight: 1,
   };
 
   const games: NormalizedGameRecord[] = [
@@ -72,14 +72,14 @@ void test('tuneRecommendationWeights preserves mobygames 0-100 critic variance',
     buildGame({ igdbGameId: 'g5', rating: 3, reviewScore: 60, reviewSource: 'mobygames' }),
     buildGame({ igdbGameId: 'g6', rating: 2.5, reviewScore: 50, reviewSource: 'mobygames' }),
     buildGame({ igdbGameId: 'g7', rating: 2, reviewScore: 40, reviewSource: 'mobygames' }),
-    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 30, reviewSource: 'mobygames' })
+    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 30, reviewSource: 'mobygames' }),
   ];
 
   const tuned = tuneRecommendationWeights({
     games,
     semanticSimilarityByGame: new Map(),
     minimumRated: 8,
-    defaults
+    defaults,
   });
 
   assert.equal(tuned.criticWeight > 0, true);
@@ -95,7 +95,7 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
     tasteWeight: 1,
     semanticWeight: 2,
     criticWeight: 1,
-    runtimeWeight: 1
+    runtimeWeight: 1,
   };
 
   const games: NormalizedGameRecord[] = [
@@ -104,21 +104,21 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
       rating: Number.NaN,
       metacriticScore: 88,
       runtimeHours: 70,
-      genres: ['RPG']
+      genres: ['RPG'],
     }),
     buildGame({
       igdbGameId: 'g2',
       rating: 4.5,
       metacriticScore: 82,
       runtimeHours: 12,
-      genres: ['RPG']
+      genres: ['RPG'],
     }),
     buildGame({
       igdbGameId: 'g3',
       rating: 4,
       mobyScore: 8.2,
       runtimeHours: 25,
-      genres: ['Action']
+      genres: ['Action'],
     }),
     buildGame({
       igdbGameId: 'g4',
@@ -126,7 +126,7 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
       reviewScore: 8.5,
       reviewSource: 'mobygames',
       runtimeHours: 5,
-      genres: ['Action']
+      genres: ['Action'],
     }),
     buildGame({ igdbGameId: 'g5', rating: 3, reviewScore: 60, runtimeHours: 18, genres: ['RPG'] }),
     buildGame({
@@ -134,10 +134,10 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
       rating: 2.5,
       metacriticScore: 50,
       runtimeHours: null,
-      genres: []
+      genres: [],
     }),
     buildGame({ igdbGameId: 'g7', rating: 2, mobyScore: 5.5, runtimeHours: 55, genres: [] }),
-    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 35, runtimeHours: 3, genres: [] })
+    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 35, runtimeHours: 3, genres: [] }),
   ];
 
   const tuned = tuneRecommendationWeights({
@@ -149,10 +149,10 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
       ['g5::1', 0.4],
       ['g6::1', 0.2],
       ['g7::1', 0.1],
-      ['g8::1', 0.05]
+      ['g8::1', 0.05],
     ]),
     minimumRated: 7,
-    defaults
+    defaults,
   });
 
   assert.equal(Number.isFinite(tuned.tasteWeight), true);

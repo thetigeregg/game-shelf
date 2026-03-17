@@ -18,7 +18,7 @@ import {
   parseOptionalText,
   parsePositiveInteger,
   parsePositiveIntegerArray,
-  parseStringArray
+  parseStringArray,
 } from './settings-import-export.utils';
 
 describe('settings-import-export.utils', () => {
@@ -94,7 +94,7 @@ describe('settings-import-export.utils', () => {
         sortField: 'metacritic',
         sortDirection: 'desc',
         hltbMainHoursMin: 20.2,
-        hltbMainHoursMax: 10.1
+        hltbMainHoursMax: 10.1,
       }),
       DEFAULT_GAME_LIST_FILTERS
     );
@@ -121,7 +121,7 @@ describe('settings-import-export.utils', () => {
     const parsed = parseFilters(
       JSON.stringify({
         sortField: 'tas',
-        sortDirection: 'asc'
+        sortDirection: 'asc',
       }),
       DEFAULT_GAME_LIST_FILTERS
     );
@@ -135,7 +135,7 @@ describe('settings-import-export.utils', () => {
     const parsed = parseFilters(
       JSON.stringify({
         sortField: 'tas',
-        sortDirection: 'asc'
+        sortDirection: 'asc',
       }),
       DEFAULT_GAME_LIST_FILTERS
     );
@@ -148,7 +148,7 @@ describe('settings-import-export.utils', () => {
     const parsed = parseFilters(
       JSON.stringify({
         sortField: 'price',
-        sortDirection: 'desc'
+        sortDirection: 'desc',
       }),
       DEFAULT_GAME_LIST_FILTERS,
       { listType: 'collection' }
@@ -162,7 +162,7 @@ describe('settings-import-export.utils', () => {
     const parsed = parseFilters(
       JSON.stringify({
         sortField: 'price',
-        sortDirection: 'desc'
+        sortDirection: 'desc',
       }),
       DEFAULT_GAME_LIST_FILTERS,
       { listType: 'wishlist' }

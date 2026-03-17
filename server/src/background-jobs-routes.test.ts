@@ -19,10 +19,10 @@ class PoolMock {
             running_count: '1',
             failed_count: '0',
             succeeded_count: '5',
-            oldest_pending_seconds: '100.2'
-          }
+            oldest_pending_seconds: '100.2',
+          },
         ],
-        rowCount: 1
+        rowCount: 1,
       });
     }
 
@@ -38,16 +38,16 @@ class PoolMock {
             updated_at: '2026-01-01T00:00:00.000Z',
             finished_at: '2026-01-01T00:01:00.000Z',
             last_error: 'failed',
-            payload: { igdb_game_id: '100' }
-          }
+            payload: { igdb_game_id: '100' },
+          },
         ],
-        rowCount: 1
+        rowCount: 1,
       });
     }
 
     return Promise.resolve({
       rows: [{ id: 4 }, { id: 5 }],
-      rowCount: 2
+      rowCount: 2,
     });
   }
 }
@@ -63,7 +63,7 @@ void test('background jobs routes expose stats, failed list, and replay', async 
 
     const statsResponse = await app.inject({
       method: 'GET',
-      url: '/v1/background-jobs/stats'
+      url: '/v1/background-jobs/stats',
     });
     assert.equal(statsResponse.statusCode, 200);
     const statsBody = JSON.parse(statsResponse.body) as {
@@ -77,8 +77,8 @@ void test('background jobs routes expose stats, failed list, and replay', async 
       method: 'GET',
       url: '/v1/background-jobs/failed?jobType=release_monitor_game&limit=10',
       headers: {
-        authorization: 'Bearer test-admin-token'
-      }
+        authorization: 'Bearer test-admin-token',
+      },
     });
     assert.equal(failedResponse.statusCode, 200);
     const failedBody = JSON.parse(failedResponse.body) as { count: number };
@@ -88,9 +88,9 @@ void test('background jobs routes expose stats, failed list, and replay', async 
       method: 'POST',
       url: '/v1/background-jobs/replay',
       headers: {
-        authorization: 'Bearer test-admin-token'
+        authorization: 'Bearer test-admin-token',
       },
-      payload: { jobType: 'release_monitor_game', limit: 10 }
+      payload: { jobType: 'release_monitor_game', limit: 10 },
     });
     assert.equal(replayResponse.statusCode, 200);
     const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
@@ -114,14 +114,14 @@ void test('background jobs failed and replay routes reject unauthorized requests
 
     const failedResponse = await app.inject({
       method: 'GET',
-      url: '/v1/background-jobs/failed'
+      url: '/v1/background-jobs/failed',
     });
     assert.equal(failedResponse.statusCode, 401);
 
     const replayResponse = await app.inject({
       method: 'POST',
       url: '/v1/background-jobs/replay',
-      payload: {}
+      payload: {},
     });
     assert.equal(replayResponse.statusCode, 401);
   } finally {
@@ -144,8 +144,8 @@ void test('background jobs routes normalize invalid filters to safe defaults', a
       method: 'GET',
       url: '/v1/background-jobs/failed?jobType=%20%20&failedBefore=not-a-date&limit=0',
       headers: {
-        authorization: 'Bearer test-admin-token'
-      }
+        authorization: 'Bearer test-admin-token',
+      },
     });
     assert.equal(failedResponse.statusCode, 200);
     const failedBody = JSON.parse(failedResponse.body) as { count: number };
@@ -155,13 +155,13 @@ void test('background jobs routes normalize invalid filters to safe defaults', a
       method: 'POST',
       url: '/v1/background-jobs/replay',
       headers: {
-        authorization: 'Bearer test-admin-token'
+        authorization: 'Bearer test-admin-token',
       },
       payload: {
         jobType: 'unknown_job_type',
         failedBefore: '   ',
-        limit: -5
-      }
+        limit: -5,
+      },
     });
     assert.equal(replayResponse.statusCode, 200);
     const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };

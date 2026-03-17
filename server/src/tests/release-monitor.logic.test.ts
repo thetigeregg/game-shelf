@@ -24,16 +24,16 @@ void test('release events include set/changed/removed/day transitions', () => {
       marker: null,
       date: null,
       year: null,
-      display: null
+      display: null,
     },
     releaseAfter: {
       precision: 'day',
       marker: '2026-12-01',
       date: '2026-12-01',
       year: 2026,
-      display: '2026-12-01'
+      display: '2026-12-01',
     },
-    now
+    now,
   });
   assert.deepEqual(
     setEvents.map((entry) => entry.type),
@@ -49,16 +49,16 @@ void test('release events include set/changed/removed/day transitions', () => {
       marker: '2026-12-01',
       date: '2026-12-01',
       year: 2026,
-      display: '2026-12-01'
+      display: '2026-12-01',
     },
     releaseAfter: {
       precision: 'day',
       marker: '2026-03-06',
       date: '2026-03-06',
       year: 2026,
-      display: '2026-03-06'
+      display: '2026-03-06',
     },
-    now
+    now,
   });
   assert.deepEqual(
     changedAndDayEvents.map((entry) => entry.type),
@@ -74,16 +74,16 @@ void test('release events include set/changed/removed/day transitions', () => {
       marker: '2026-12-01',
       date: '2026-12-01',
       year: 2026,
-      display: '2026-12-01'
+      display: '2026-12-01',
     },
     releaseAfter: {
       precision: 'unknown',
       marker: null,
       date: null,
       year: null,
-      display: null
+      display: null,
     },
-    now
+    now,
   });
   assert.deepEqual(
     removedEvents.map((entry) => entry.type),
@@ -99,16 +99,16 @@ void test('release events include set/changed/removed/day transitions', () => {
       marker: '2026',
       date: null,
       year: 2026,
-      display: '2026'
+      display: '2026',
     },
     releaseAfter: {
       precision: 'quarter',
       marker: '2026-Q4',
       date: null,
       year: 2026,
-      display: 'Q4 2026'
+      display: 'Q4 2026',
     },
-    now
+    now,
   });
   assert.deepEqual(
     impreciseChangedEvents.map((entry) => entry.type),
@@ -127,7 +127,7 @@ void test('unknown release date cadence is weekly for future/unknown year and ye
         marker: null,
         date: null,
         year: 2026,
-        display: null
+        display: null,
       },
       now,
       false,
@@ -146,7 +146,7 @@ void test('unknown release date cadence is weekly for future/unknown year and ye
         marker: null,
         date: null,
         year: 1980,
-        display: null
+        display: null,
       },
       now,
       false,
@@ -172,7 +172,7 @@ void test('notification preferences default to disabled when setting is missing'
     changed: true,
     removed: true,
     day: true,
-    sale: true
+    sale: true,
   });
 });
 
@@ -180,7 +180,7 @@ void test('notification preferences parse string and numeric falsey values', asy
   const pool = new NotificationSettingsPoolMock([
     {
       setting_key: 'game-shelf:notifications:release:enabled',
-      setting_value: '1'
+      setting_value: '1',
     },
     {
       setting_key: 'game-shelf:notifications:release:events',
@@ -189,9 +189,9 @@ void test('notification preferences parse string and numeric falsey values', asy
         changed: '0',
         removed: 'no',
         day: 0,
-        sale: 'false'
-      })
-    }
+        sale: 'false',
+      }),
+    },
   ]);
 
   const preferences = await releaseMonitorInternals.readNotificationPreferences(
@@ -204,30 +204,30 @@ void test('notification preferences parse string and numeric falsey values', asy
     changed: false,
     removed: false,
     day: false,
-    sale: false
+    sale: false,
   });
 });
 
 void test('release marker parser supports day/month/quarter/year and natural quarter format', () => {
   assert.deepEqual(releaseMonitorInternals.parseReleaseMarkerFromString('2026-11-19'), {
     precision: 'day',
-    marker: '2026-11-19'
+    marker: '2026-11-19',
   });
   assert.deepEqual(releaseMonitorInternals.parseReleaseMarkerFromString('2026-11'), {
     precision: 'month',
-    marker: '2026-11'
+    marker: '2026-11',
   });
   assert.deepEqual(releaseMonitorInternals.parseReleaseMarkerFromString('2026-Q4'), {
     precision: 'quarter',
-    marker: '2026-Q4'
+    marker: '2026-Q4',
   });
   assert.deepEqual(releaseMonitorInternals.parseReleaseMarkerFromString('Q4 2026'), {
     precision: 'quarter',
-    marker: '2026-Q4'
+    marker: '2026-Q4',
   });
   assert.deepEqual(releaseMonitorInternals.parseReleaseMarkerFromString('2026'), {
     precision: 'year',
-    marker: '2026'
+    marker: '2026',
   });
   assert.equal(releaseMonitorInternals.parseReleaseMarkerFromString('TBD'), null);
 });
@@ -237,7 +237,7 @@ void test('deriveReleaseInfo prefers precision+marker and falls back to releaseD
     marker: '2026-Q4',
     precision: 'quarter',
     releaseDate: null,
-    releaseYear: null
+    releaseYear: null,
   });
   assert.equal(fromPrecision.precision, 'quarter');
   assert.equal(fromPrecision.marker, '2026-Q4');
@@ -247,7 +247,7 @@ void test('deriveReleaseInfo prefers precision+marker and falls back to releaseD
     marker: null,
     precision: null,
     releaseDate: '2026-11-19',
-    releaseYear: null
+    releaseYear: null,
   });
   assert.equal(fromDate.precision, 'day');
   assert.equal(fromDate.date, '2026-11-19');
@@ -256,7 +256,7 @@ void test('deriveReleaseInfo prefers precision+marker and falls back to releaseD
     marker: null,
     precision: null,
     releaseDate: null,
-    releaseYear: 2026
+    releaseYear: 2026,
   });
   assert.equal(fromYear.precision, 'year');
   assert.equal(fromYear.marker, '2026');
@@ -269,7 +269,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
       marker: '2026-11-19',
       date: '2026-11-19',
       year: 2026,
-      display: '2026-11-19'
+      display: '2026-11-19',
     }),
     Date.parse('2026-11-19T00:00:00.000Z')
   );
@@ -279,7 +279,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
       marker: '2026-11',
       date: null,
       year: 2026,
-      display: '2026-11'
+      display: '2026-11',
     }),
     Date.parse('2026-11-01T00:00:00.000Z')
   );
@@ -289,7 +289,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
       marker: '2026-Q4',
       date: null,
       year: 2026,
-      display: 'Q4 2026'
+      display: 'Q4 2026',
     }),
     Date.parse('2026-10-01T00:00:00.000Z')
   );
@@ -299,7 +299,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
       marker: '2026',
       date: null,
       year: 2026,
-      display: '2026'
+      display: '2026',
     }),
     Date.parse('2026-01-01T00:00:00.000Z')
   );
@@ -359,7 +359,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2026-03-07',
         date: '2026-03-07',
         year: 2026,
-        display: '2026-03-07'
+        display: '2026-03-07',
       },
       now
     ),
@@ -372,7 +372,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2026-01',
         date: null,
         year: 2026,
-        display: '2026-01'
+        display: '2026-01',
       },
       now
     ),
@@ -385,7 +385,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: 'bad',
         date: null,
         year: 2026,
-        display: 'bad'
+        display: 'bad',
       },
       now
     ),
@@ -399,7 +399,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2025',
         date: null,
         year: 2025,
-        display: '2025'
+        display: '2025',
       },
       now,
       3
@@ -413,7 +413,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2010',
         date: null,
         year: 2010,
-        display: '2010'
+        display: '2010',
       },
       now,
       3
@@ -427,7 +427,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: 'bad',
         date: null,
         year: 2026,
-        display: 'bad'
+        display: 'bad',
       },
       now,
       3
@@ -441,7 +441,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2027',
         date: null,
         year: 2027,
-        display: '2027'
+        display: '2027',
       },
       now,
       3
@@ -455,7 +455,7 @@ void test('derive release state and past-years checks handle precision edge case
         marker: '2026-03-06',
         date: '2026-03-06',
         year: 2026,
-        display: '2026-03-06'
+        display: '2026-03-06',
       },
       now,
       3
@@ -475,7 +475,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
         marker: '2026-03-10',
         date: '2026-03-10',
         year: 2026,
-        display: '2026-03-10'
+        display: '2026-03-10',
       },
       now,
       false,
@@ -493,7 +493,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
         marker: '2026-11',
         date: null,
         year: 2026,
-        display: '2026-11'
+        display: '2026-11',
       },
       now,
       false,
@@ -511,7 +511,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
         marker: '2025-Q1',
         date: null,
         year: 2025,
-        display: 'Q1 2025'
+        display: 'Q1 2025',
       },
       now,
       false,
@@ -529,7 +529,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
         marker: '2027',
         date: null,
         year: 2027,
-        display: '2027'
+        display: '2027',
       },
       now,
       false,
@@ -547,7 +547,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
         marker: '2026-12-01',
         date: '2026-12-01',
         year: 2026,
-        display: '2026-12-01'
+        display: '2026-12-01',
       },
       now,
       true,
@@ -570,7 +570,7 @@ void test('computeNextCheckAt ignores refresh cadence when provider refresh is i
         marker: '2026-12-01',
         date: '2026-12-01',
         year: 2026,
-        display: '2026-12-01'
+        display: '2026-12-01',
       },
       now,
       false,
@@ -594,7 +594,7 @@ void test('computeNextCheckAt covers released and invalid-imprecise fallback bra
         marker: '2025-12-01',
         date: '2025-12-01',
         year: 2025,
-        display: '2025-12-01'
+        display: '2025-12-01',
       },
       now,
       false,
@@ -612,7 +612,7 @@ void test('computeNextCheckAt covers released and invalid-imprecise fallback bra
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       },
       now,
       false,
@@ -630,7 +630,7 @@ void test('computeNextCheckAt covers released and invalid-imprecise fallback bra
         marker: '2024',
         date: null,
         year: 2024,
-        display: '2024'
+        display: '2024',
       },
       now,
       false,
@@ -653,14 +653,14 @@ void test('resolvePlatformReleaseFromDates prefers the most precise valid match'
       { platformIgdbId: 167, precision: 'month', marker: null },
       { platformIgdbId: 167, precision: 'banana', marker: '2026' },
       { platformIgdbId: 167, precision: 'unknown', marker: null },
-      { platformIgdbId: 48, precision: 'day', marker: '2026-01-01' }
+      { platformIgdbId: 48, precision: 'day', marker: '2026-01-01' },
     ],
     167
   );
 
   assert.deepEqual(resolved, {
     releaseMarker: '2026-11-19',
-    releasePrecision: 'day'
+    releasePrecision: 'day',
   });
 });
 
@@ -681,7 +681,7 @@ void test('normalizers handle invalid marker and precision inputs', () => {
     marker: null,
     date: null,
     year: null,
-    display: null
+    display: null,
   });
   assert.deepEqual(
     releaseMonitorInternals.normalizeReleaseInfoFromPrecision('quarter', '2026-Q9'),
@@ -690,7 +690,7 @@ void test('normalizers handle invalid marker and precision inputs', () => {
       marker: null,
       date: null,
       year: null,
-      display: null
+      display: null,
     }
   );
   assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('day', 'not-a-day'), {
@@ -698,7 +698,7 @@ void test('normalizers handle invalid marker and precision inputs', () => {
     marker: null,
     date: null,
     year: null,
-    display: null
+    display: null,
   });
   assert.equal(releaseMonitorInternals.normalizeReleasePrecision('month'), 'month');
   assert.equal(releaseMonitorInternals.normalizeReleasePrecision('n/a'), null);
@@ -716,11 +716,11 @@ void test('metacritic merge does not overwrite non-metacritic review source fiel
       reviewScore: 91,
       reviewUrl: 'https://opencritic.example/game',
       metacriticScore: null,
-      metacriticUrl: null
+      metacriticUrl: null,
     },
     {
       metacriticScore: 88.5,
-      metacriticUrl: 'https://metacritic.example/game'
+      metacriticUrl: 'https://metacritic.example/game',
     }
   );
 
@@ -739,7 +739,7 @@ void test('refresh query resolvers prefer persisted override fields', () => {
       platform: 'Fallback Platform',
       hltbMatchQueryTitle: 'Custom HLTB Title',
       hltbMatchQueryReleaseYear: 2007,
-      hltbMatchQueryPlatform: 'Wii'
+      hltbMatchQueryPlatform: 'Wii',
     },
     'Default Title',
     'Default Platform'
@@ -747,7 +747,7 @@ void test('refresh query resolvers prefer persisted override fields', () => {
   assert.deepEqual(hltbResolved, {
     title: 'Custom HLTB Title',
     releaseYear: 2007,
-    platform: 'Wii'
+    platform: 'Wii',
   });
 
   const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
@@ -758,7 +758,7 @@ void test('refresh query resolvers prefer persisted override fields', () => {
       reviewMatchQueryTitle: 'Custom Review Title',
       reviewMatchQueryReleaseYear: 2010,
       reviewMatchQueryPlatform: 'PlayStation 5',
-      reviewMatchPlatformIgdbId: 167
+      reviewMatchPlatformIgdbId: 167,
     },
     'Default Title',
     'Default Platform',
@@ -769,7 +769,7 @@ void test('refresh query resolvers prefer persisted override fields', () => {
     releaseYear: 2010,
     platform: 'PlayStation 5',
     platformIgdbId: 167,
-    reviewMatchMobygamesGameId: null
+    reviewMatchMobygamesGameId: null,
   });
 });
 
@@ -780,11 +780,11 @@ void test('metacritic merge preserves zero score when review source is metacriti
       reviewScore: 72,
       reviewUrl: 'https://metacritic.example/old',
       metacriticScore: 72,
-      metacriticUrl: 'https://metacritic.example/old'
+      metacriticUrl: 'https://metacritic.example/old',
     },
     {
       metacriticScore: 0,
-      metacriticUrl: 'https://metacritic.example/new'
+      metacriticUrl: 'https://metacritic.example/new',
     }
   );
 
@@ -799,7 +799,7 @@ void test('review refresh query resolver carries persisted mobygames override id
   const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
     {
       title: 'Fallback Title',
-      reviewMatchMobygamesGameId: 12345
+      reviewMatchMobygamesGameId: 12345,
     },
     'Default Title',
     'Default Platform',
@@ -812,7 +812,7 @@ void test('review refresh query resolver falls back to platform id when persiste
   const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
     {
       title: 'Fallback Title',
-      reviewMatchPlatformIgdbId: 0
+      reviewMatchPlatformIgdbId: 0,
     },
     'Default Title',
     'Default Platform',
@@ -826,14 +826,14 @@ void test('unified review merge applies mobygames payload and respects existing 
     {
       reviewSource: 'opencritic',
       reviewScore: 91,
-      reviewUrl: 'https://opencritic.example/game'
+      reviewUrl: 'https://opencritic.example/game',
     },
     {
       source: 'mobygames',
       mobygamesGameId: 9876,
       mobyScore: 8.4,
       reviewScore: 84,
-      reviewUrl: 'https://www.mobygames.com/game/9876'
+      reviewUrl: 'https://www.mobygames.com/game/9876',
     }
   );
 
@@ -849,14 +849,14 @@ void test('unified review merge sets review fields for mobygames source when all
     {
       reviewSource: 'mobygames',
       reviewScore: 70,
-      reviewUrl: 'https://www.mobygames.com/game/old'
+      reviewUrl: 'https://www.mobygames.com/game/old',
     },
     {
       source: 'mobygames',
       mobygamesGameId: 9876,
       mobyScore: 8.4,
       reviewScore: 84,
-      reviewUrl: 'https://www.mobygames.com/game/9876'
+      reviewUrl: 'https://www.mobygames.com/game/9876',
     }
   );
 
@@ -886,23 +886,23 @@ void test('startReleaseMonitor returns inert monitor when disabled', async () =>
 void test('loadActiveTokenSet paginates active tokens with stable ordering', async () => {
   const seenParams: unknown[][] = [];
   const firstPage = Array.from({ length: 1000 }, (_, index) => ({
-    token: `token-${String(index).padStart(4, '0')}`
+    token: `token-${String(index).padStart(4, '0')}`,
   }));
   const pool = {
     query: (_sql: string, params: unknown[]) => {
       seenParams.push(params);
       if (params.length === 1) {
         return Promise.resolve({
-          rows: firstPage
+          rows: firstPage,
         });
       }
       if (params[0] === 'token-0999') {
         return Promise.resolve({
-          rows: [{ token: 'token-1000' }]
+          rows: [{ token: 'token-1000' }],
         });
       }
       return Promise.resolve({ rows: [] });
-    }
+    },
   };
 
   const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);
@@ -921,10 +921,10 @@ void test('loadActiveTokenSet caps token volume per run to avoid unbounded memor
       page += 1;
       return Promise.resolve({
         rows: Array.from({ length: 1000 }, (_, index) => ({
-          token: `cap-token-${String(pageStart + index).padStart(5, '0')}`
-        }))
+          token: `cap-token-${String(pageStart + index).padStart(5, '0')}`,
+        })),
       });
-    }
+    },
   };
 
   const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);

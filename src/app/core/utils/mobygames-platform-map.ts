@@ -66,7 +66,7 @@ const IGDB_TO_MOBYGAMES_PLATFORM_ENTRIES: ReadonlyArray<readonly [number, number
   [274, 59],
   [339, 103],
   [472, 323],
-  [508, 333]
+  [508, 333],
 ] as const;
 
 export const IGDB_TO_MOBYGAMES_PLATFORM_ID_MAP = new Map<number, number>(

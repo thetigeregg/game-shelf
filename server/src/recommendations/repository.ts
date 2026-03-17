@@ -2,7 +2,7 @@ import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from '../background-jobs.js';
 import {
   buildDiscoveryEnrichmentSelectionParams,
-  LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
+  LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL,
 } from './discovery-enrichment-query.js';
 import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
@@ -13,7 +13,7 @@ import {
   buildRecommendationLanesInsertBatch,
   buildRecommendationsInsertBatch,
   buildSimilarityInsertBatch,
-  chunkItems
+  chunkItems,
 } from './batch-sql.js';
 import {
   DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
@@ -30,7 +30,7 @@ import {
   RecommendationScoreComponents,
   RecommendationTarget,
   SimilarityEdge,
-  StoredGameEmbedding
+  StoredGameEmbedding,
 } from './types.js';
 
 interface Queryable {
@@ -154,7 +154,7 @@ export class RecommendationRepository {
     return this.withAdvisoryLock({
       namespace: RECOMMENDATION_LOCK_NAMESPACE,
       key: targetKey,
-      callback
+      callback,
     });
   }
 
@@ -337,7 +337,7 @@ export class RecommendationRepository {
         params.maxAttempts,
         params.nowIso,
         params.rearmAfterDays,
-        params.rearmMinReleaseYear
+        params.rearmMinReleaseYear,
       ]
     );
 
@@ -347,7 +347,7 @@ export class RecommendationRepository {
       payload:
         row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
           ? (row.payload as Record<string, unknown>)
-          : {}
+          : {},
     }));
   }
 
@@ -416,14 +416,14 @@ export class RecommendationRepository {
       target: params.target,
       force: params.force,
       triggeredBy: params.triggeredBy,
-      reason: params.reason
+      reason: params.reason,
     };
     return this.backgroundJobs.enqueue({
       jobType: 'recommendations_rebuild',
       payload,
       dedupeKey,
       priority: 100,
-      maxAttempts: 5
+      maxAttempts: 5,
     });
   }
 
@@ -525,7 +525,7 @@ export class RecommendationRepository {
           const insertBatch = buildRecommendationsInsertBatch({
             runId: params.runId,
             runtimeMode,
-            items: batch
+            items: batch,
           });
 
           await params.client.query(
@@ -543,7 +543,7 @@ export class RecommendationRepository {
           'exploration',
           'blended',
           'popular',
-          'recent'
+          'recent',
         ] as RecommendationLaneKey[]) {
           const items = lanes[lane];
 
@@ -554,7 +554,7 @@ export class RecommendationRepository {
               runtimeMode,
               lane,
               items: batch,
-              rankOffset
+              rankOffset,
             });
             rankOffset += batch.length;
 
@@ -572,7 +572,7 @@ export class RecommendationRepository {
           runId: params.runId,
           target: params.target,
           runtimeMode: 'NEUTRAL',
-          edges: batch
+          edges: batch,
         });
 
         await params.client.query(
@@ -656,13 +656,13 @@ export class RecommendationRepository {
         params.runtimeMode,
         statusFilter.listType,
         statusFilter.allowedStatuses,
-        params.limit
+        params.limit,
       ]
     );
 
     return {
       run,
-      items: itemResult.rows.map(mapRecommendationRow)
+      items: itemResult.rows.map(mapRecommendationRow),
     };
   }
 
@@ -705,7 +705,7 @@ export class RecommendationRepository {
       exploration: [],
       blended: [],
       popular: [],
-      recent: []
+      recent: [],
     };
 
     for (const row of rows.rows) {
@@ -719,7 +719,7 @@ export class RecommendationRepository {
 
     return {
       run,
-      lanes
+      lanes,
     };
   }
 
@@ -788,7 +788,7 @@ export class RecommendationRepository {
         params.platformIgdbId,
         statusFilter.listType,
         statusFilter.allowedStatuses,
-        params.limit
+        params.limit,
       ]
     );
 
@@ -797,7 +797,7 @@ export class RecommendationRepository {
       platformIgdbId: row.similar_platform_igdb_id,
       similarity:
         typeof row.similarity === 'string' ? Number.parseFloat(row.similarity) : row.similarity,
-      reasons: row.reasons
+      reasons: row.reasons,
     }));
   }
 
@@ -821,7 +821,7 @@ export class RecommendationRepository {
     for (const row of result.rows) {
       map.set(buildGameKey(row.igdb_game_id, row.platform_igdb_id), {
         recommendationCount: row.recommendation_count,
-        lastRecommendedAt: row.last_recommended_at
+        lastRecommendedAt: row.last_recommended_at,
       });
     }
 
@@ -851,7 +851,7 @@ export class RecommendationRepository {
         embeddingModel: row.embedding_model,
         sourceHash: row.source_hash,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
       }))
       .filter((row) => row.embedding.length > 0);
   }
@@ -890,7 +890,7 @@ export class RecommendationRepository {
           row.platformIgdbId,
           serializeEmbeddingVector(row.embedding),
           row.embeddingModel,
-          row.sourceHash
+          row.sourceHash,
         ]
       );
     }
@@ -917,20 +917,20 @@ function buildStatusFilterForTarget(target: RecommendationTarget): {
   if (target === 'BACKLOG') {
     return {
       listType: 'collection',
-      allowedStatuses: ['', 'wantToPlay']
+      allowedStatuses: ['', 'wantToPlay'],
     };
   }
 
   if (target === 'DISCOVERY') {
     return {
       listType: 'discovery',
-      allowedStatuses: [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES]
+      allowedStatuses: [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES],
     };
   }
 
   return {
     listType: 'wishlist',
-    allowedStatuses: ['', 'wantToPlay', 'playing', 'paused', 'replay']
+    allowedStatuses: ['', 'wantToPlay', 'playing', 'paused', 'replay'],
   };
 }
 
@@ -943,7 +943,7 @@ function mapRunSummary(row: RunRow): RecommendationRunSummary {
     inputHash: row.input_hash,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
-    error: row.error
+    error: row.error,
   };
 }
 
@@ -955,7 +955,7 @@ function mapRecommendationRow(row: RecommendationRow | LaneRow): RankedRecommend
     scoreTotal:
       typeof row.score_total === 'string' ? Number.parseFloat(row.score_total) : row.score_total,
     scoreComponents: row.score_components,
-    explanations: row.explanations
+    explanations: row.explanations,
   };
 }
 

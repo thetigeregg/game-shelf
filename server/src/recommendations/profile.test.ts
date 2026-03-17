@@ -28,7 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -44,7 +44,7 @@ void test('preference profile applies shrinkage to token weights', () => {
   const games: NormalizedGameRecord[] = [
     buildGame({ igdbGameId: '1', rating: 5, genres: ['RPG'] }),
     buildGame({ igdbGameId: '2', rating: 5, genres: ['RPG', 'Action'] }),
-    buildGame({ igdbGameId: '3', rating: 1, genres: ['Action'] })
+    buildGame({ igdbGameId: '3', rating: 1, genres: ['Action'] }),
   ];
 
   const profile = buildPreferenceProfile(games);

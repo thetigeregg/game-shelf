@@ -8,7 +8,7 @@ import type {
   HltbMatchCandidate,
   MetacriticMatchCandidate,
   PriceMatchCandidate,
-  ReviewMatchCandidate
+  ReviewMatchCandidate,
 } from '../core/models/game.models';
 
 vi.mock('@ionic/angular/standalone', () => {
@@ -38,12 +38,12 @@ vi.mock('@ionic/angular/standalone', () => {
     IonTitle: Stub,
     IonToolbar: Stub,
     LoadingController: Stub,
-    ToastController: Stub
+    ToastController: Stub,
   };
 });
 
 vi.mock('../features/game-list/game-list-bulk-actions', () => ({
-  runBulkActionWithRetry: vi.fn()
+  runBulkActionWithRetry: vi.fn(),
 }));
 
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
@@ -96,7 +96,7 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     priceRegularAmount: partial.priceRegularAmount ?? null,
     priceDiscountPercent: partial.priceDiscountPercent ?? null,
     priceIsFree: partial.priceIsFree ?? null,
-    priceUrl: partial.priceUrl ?? null
+    priceUrl: partial.priceUrl ?? null,
   };
 }
 
@@ -146,7 +146,7 @@ function createPageHarness(): {
     refreshGameMetacriticScoreWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame())),
     refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame())),
     refreshGamePricing: vi.fn((_a, _b) => Promise.resolve(createGame())),
-    refreshGamePricingWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame()))
+    refreshGamePricingWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame())),
   };
   const presentToast = vi.fn(() => Promise.resolve(undefined));
   const loadingController = { create: vi.fn() };
@@ -155,10 +155,10 @@ function createPageHarness(): {
 
   setField(page, 'gameShelfService', shelf);
   setField(page, 'platformCustomizationService', {
-    getDisplayNameWithoutAlias: vi.fn((name: string) => name)
+    getDisplayNameWithoutAlias: vi.fn((name: string) => name),
   });
   setField(page, 'toastController', {
-    create: vi.fn(() => Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) }))
+    create: vi.fn(() => Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) })),
   });
   setField(page, 'loadingController', loadingController);
   setField(page, 'router', { navigateByUrl: vi.fn(() => Promise.resolve(true)) });
@@ -212,25 +212,25 @@ describe('MetadataValidatorPage', () => {
         {
           provide: GameShelfService,
           useValue: {
-            watchList: vi.fn(() => of([]))
-          }
+            watchList: vi.fn(() => of([])),
+          },
         },
         {
           provide: PlatformCustomizationService,
-          useValue: { getDisplayNameWithoutAlias: vi.fn((name: string) => name) }
+          useValue: { getDisplayNameWithoutAlias: vi.fn((name: string) => name) },
         },
         { provide: ToastController, useValue: { create: vi.fn() } },
         { provide: LoadingController, useValue: { create: vi.fn() } },
         { provide: Router, useValue: { navigateByUrl: vi.fn() } },
-        { provide: DebugLogService, useValue: { trace: vi.fn() } }
-      ]
+        { provide: DebugLogService, useValue: { trace: vi.fn() } },
+      ],
     });
 
     const page = TestBed.runInInjectionContext(() => new MetadataValidatorPage());
     expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
       'hltb',
       'metacritic',
-      'nonPcTheGamesDbImage'
+      'nonPcTheGamesDbImage',
     ]);
     expect(page.isBulkRefreshingMetacritic).toBe(false);
     expect(page.isMetacriticPickerModalOpen).toBe(false);
@@ -259,7 +259,7 @@ describe('MetadataValidatorPage', () => {
     expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
       'hltb',
       'metacritic',
-      'nonPcTheGamesDbImage'
+      'nonPcTheGamesDbImage',
     ]);
 
     page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
@@ -277,7 +277,7 @@ describe('MetadataValidatorPage', () => {
       'hltb',
       'metacritic',
       'pricing',
-      'nonPcTheGamesDbImage'
+      'nonPcTheGamesDbImage',
     ]);
 
     page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
@@ -324,7 +324,7 @@ describe('MetadataValidatorPage', () => {
   it('handles platform label fallback and metadata predicates', () => {
     const { page, shelf } = createPageHarness();
     setField(page, 'platformCustomizationService', {
-      getDisplayNameWithoutAlias: vi.fn(() => '  ')
+      getDisplayNameWithoutAlias: vi.fn(() => '  '),
     });
     expect(page.getPlatformLabel(createGame())).toBe('Unknown platform');
 
@@ -397,7 +397,7 @@ describe('MetadataValidatorPage', () => {
     runBulkMock.mockResolvedValueOnce([
       { game, ok: true, value: createGame({ hltbMainHours: 4 }) },
       { game, ok: true, value: createGame() },
-      { game, ok: false, value: null }
+      { game, ok: false, value: null },
     ]);
 
     await page.refreshHltbForSelectedGames();
@@ -431,7 +431,7 @@ describe('MetadataValidatorPage', () => {
     runBulkMock.mockResolvedValueOnce([
       { game: supported, ok: true, value: createGame({ metacriticScore: 84 }) },
       { game: supported, ok: true, value: createGame() },
-      { game: supported, ok: false, value: null }
+      { game: supported, ok: false, value: null },
     ]);
 
     await page.refreshMetacriticForSelectedGames();
@@ -440,7 +440,7 @@ describe('MetadataValidatorPage', () => {
       {
         action: (game: GameEntry) => Promise<GameEntry | null>;
         delay: (ms: number) => Promise<void>;
-      }
+      },
     ];
     const firstBulkCall = firstCall[0];
     expect(typeof firstBulkCall.action).toBe('function');
@@ -516,10 +516,10 @@ describe('MetadataValidatorPage', () => {
           igdbGameId: '1',
           platformIgdbId: 6,
           listType: 'wishlist',
-          priceAmount: 29.9
-        })
+          priceAmount: 29.9,
+        }),
       },
-      { game: pc, ok: false, value: null }
+      { game: pc, ok: false, value: null },
     ]);
 
     await page.refreshPricingForSelectedGames();
@@ -542,13 +542,13 @@ describe('MetadataValidatorPage', () => {
       igdbGameId: '2',
       platformIgdbId: 167,
       title: 'PS Game',
-      listType: 'wishlist'
+      listType: 'wishlist',
     });
     const steamGame = createGame({
       igdbGameId: '3',
       platformIgdbId: 6,
       title: 'Steam Game',
-      listType: 'wishlist'
+      listType: 'wishlist',
     });
 
     await page.refreshPricingForGame(psGame);
@@ -569,7 +569,7 @@ describe('MetadataValidatorPage', () => {
       platform: 'PC',
       hltbMainHours: 5,
       hltbMainExtraHours: 8,
-      hltbCompletionistHours: 12
+      hltbCompletionistHours: 12,
     };
     const reviewCandidate: ReviewMatchCandidate = {
       title: 'Doom',
@@ -579,7 +579,7 @@ describe('MetadataValidatorPage', () => {
       reviewUrl: 'https://www.metacritic.com/game/doom/',
       reviewSource: 'metacritic',
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/doom/'
+      metacriticUrl: 'https://www.metacritic.com/game/doom/',
     };
     const pricingCandidate: PriceMatchCandidate = {
       title: 'Doom',
@@ -589,7 +589,7 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 25,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/123/doom',
-      score: 96
+      score: 96,
     };
 
     setField(page, 'hltbPickerQuery', 'a');
@@ -652,7 +652,7 @@ describe('MetadataValidatorPage', () => {
       igdbGameId: '42',
       platformIgdbId: 167,
       title: 'Target',
-      platform: 'PS5'
+      platform: 'PS5',
     });
     setField(page, 'pricingPickerTargetGame', target);
 
@@ -664,11 +664,11 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 28,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target',
-      score: 97
+      score: 97,
     });
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('42', 167, {
       title: 'Target',
-      preferredUrl: 'https://psprices.com/region-ch/game/target'
+      preferredUrl: 'https://psprices.com/region-ch/game/target',
     });
 
     shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
@@ -676,7 +676,7 @@ describe('MetadataValidatorPage', () => {
         igdbGameId: '42',
         platformIgdbId: 167,
         priceAmount: null,
-        priceIsFree: null
+        priceIsFree: null,
       })
     );
     setField(page, 'pricingPickerTargetGame', target);
@@ -688,7 +688,7 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 28,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target',
-      score: 97
+      score: 97,
     });
     expect(presentToast).toHaveBeenCalledWith('No pricing match found for Target.', 'warning');
 
@@ -702,7 +702,7 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 28,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target',
-      score: 97
+      score: 97,
     });
     expect(presentToast).toHaveBeenCalledWith('Unable to update pricing for Target.', 'danger');
 
@@ -711,7 +711,7 @@ describe('MetadataValidatorPage', () => {
         igdbGameId: '42',
         platformIgdbId: 167,
         priceAmount: 39.9,
-        priceCurrency: 'CHF'
+        priceCurrency: 'CHF',
       })
     );
     setField(page, 'pricingPickerTargetGame', target);
@@ -725,7 +725,7 @@ describe('MetadataValidatorPage', () => {
       igdbGameId: '42',
       platformIgdbId: 167,
       title: 'Target',
-      platform: 'PlayStation 5'
+      platform: 'PlayStation 5',
     });
 
     setField(page, 'hltbPickerTargetGame', target);
@@ -737,14 +737,14 @@ describe('MetadataValidatorPage', () => {
       hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: 3,
       hltbMainExtraHours: 4,
-      hltbCompletionistHours: 6
+      hltbCompletionistHours: 6,
     });
     expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('42', 167, {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PlayStation 5',
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002'
+      preferredUrl: 'https://howlongtobeat.com/game/7002',
     });
 
     setField(page, 'hltbPickerTargetGame', target);
@@ -756,14 +756,14 @@ describe('MetadataValidatorPage', () => {
       hltbUrl: null,
       hltbMainHours: 5,
       hltbMainExtraHours: 6,
-      hltbCompletionistHours: 7
+      hltbCompletionistHours: 7,
     });
     expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('42', 167, {
       title: 'Target',
       releaseYear: 1994,
       platform: 'PlayStation 5',
       preferredGameId: null,
-      preferredUrl: null
+      preferredUrl: null,
     });
 
     setField(page, 'metacriticPickerTargetGame', target);
@@ -777,7 +777,7 @@ describe('MetadataValidatorPage', () => {
       mobyScore: null,
       mobygamesGameId: 1234,
       metacriticScore: 90,
-      metacriticUrl: 'https://www.metacritic.com/game/target-alt/'
+      metacriticUrl: 'https://www.metacritic.com/game/target-alt/',
     });
     expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenLastCalledWith('42', 167, {
       title: 'Target',
@@ -785,7 +785,7 @@ describe('MetadataValidatorPage', () => {
       platform: 'PlayStation 5',
       platformIgdbId: 167,
       mobygamesGameId: 1234,
-      preferredUrl: 'https://www.metacritic.com/game/target-alt/'
+      preferredUrl: 'https://www.metacritic.com/game/target-alt/',
     });
 
     setField(page, 'pricingPickerTargetGame', target);
@@ -797,11 +797,11 @@ describe('MetadataValidatorPage', () => {
       discountPercent: null,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target-alt',
-      score: 95
+      score: 95,
     });
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenLastCalledWith('42', 167, {
       title: 'Target',
-      preferredUrl: 'https://psprices.com/region-ch/game/target-alt'
+      preferredUrl: 'https://psprices.com/region-ch/game/target-alt',
     });
   });
 
@@ -811,13 +811,13 @@ describe('MetadataValidatorPage', () => {
       igdbGameId: '50',
       platformIgdbId: 3,
       title: 'Unsupported',
-      listType: 'wishlist'
+      listType: 'wishlist',
     });
     const steam = createGame({
       igdbGameId: '51',
       platformIgdbId: 6,
       title: 'Steam',
-      listType: 'wishlist'
+      listType: 'wishlist',
     });
 
     await page.refreshPricingForGame(unsupported);
@@ -849,7 +849,7 @@ describe('MetadataValidatorPage', () => {
       igdbGameId: '61',
       platformIgdbId: 167,
       title: 'Target',
-      platform: 'PS5'
+      platform: 'PS5',
     });
 
     page.onPricingPickerQueryChange({ detail: { value: '  ff7  ' } } as unknown as Event);
@@ -878,7 +878,7 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 28,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target',
-      score: 97
+      score: 97,
     });
     expect(shelf.refreshGamePricingWithQuery).not.toHaveBeenCalled();
 
@@ -894,7 +894,7 @@ describe('MetadataValidatorPage', () => {
       discountPercent: 28,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/target',
-      score: 97
+      score: 97,
     });
     expect(presentToast).toHaveBeenCalledWith('Updated pricing for Target.');
 
@@ -929,14 +929,14 @@ describe('MetadataValidatorPage', () => {
       hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: 3,
       hltbMainExtraHours: 4,
-      hltbCompletionistHours: 6
+      hltbCompletionistHours: 6,
     });
     expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalledWith('42', 6, {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PC',
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002'
+      preferredUrl: 'https://howlongtobeat.com/game/7002',
     });
     expect(presentToast).toHaveBeenCalledWith('Updated HLTB for Target.');
 
@@ -950,7 +950,7 @@ describe('MetadataValidatorPage', () => {
       hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: null,
       hltbMainExtraHours: null,
-      hltbCompletionistHours: null
+      hltbCompletionistHours: null,
     });
     expect(presentToast).toHaveBeenCalledWith('No HLTB match found for Target.', 'warning');
 
@@ -968,7 +968,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1993,
       platform: 'PC',
       metacriticScore: 90,
-      metacriticUrl: 'https://www.metacritic.com/game/target/'
+      metacriticUrl: 'https://www.metacritic.com/game/target/',
     });
     expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('42', 6, {
       title: 'Target',
@@ -976,7 +976,7 @@ describe('MetadataValidatorPage', () => {
       platform: 'PC',
       platformIgdbId: 6,
       mobygamesGameId: null,
-      preferredUrl: 'https://www.metacritic.com/game/target/'
+      preferredUrl: 'https://www.metacritic.com/game/target/',
     });
     expect(presentToast).toHaveBeenCalledWith('Updated review for Target.');
 
@@ -1000,7 +1000,7 @@ describe('MetadataValidatorPage', () => {
       platform: null,
       hltbMainHours: null,
       hltbMainExtraHours: null,
-      hltbCompletionistHours: null
+      hltbCompletionistHours: null,
     });
     await page.useOriginalHltbLookup();
     await page.applySelectedMetacriticCandidate({
@@ -1008,7 +1008,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: null,
       platform: null,
       metacriticScore: null,
-      metacriticUrl: null
+      metacriticUrl: null,
     });
     await page.useOriginalMetacriticLookup();
 
@@ -1067,14 +1067,14 @@ describe('MetadataValidatorPage', () => {
           igdbGameId: '10',
           platformIgdbId: 167,
           listType: 'wishlist',
-          priceAmount: 39.9
+          priceAmount: 39.9,
         }),
         createGame({
           igdbGameId: '11',
           platformIgdbId: 6,
           listType: 'collection',
-          priceAmount: null
-        })
+          priceAmount: null,
+        }),
       ],
       ['pricing']
     ) as GameEntry[];
@@ -1093,7 +1093,7 @@ describe('MetadataValidatorPage', () => {
         hltbGameId: 1,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
+        hltbCompletionistHours: null,
       },
       {
         title: 'X',
@@ -1102,8 +1102,8 @@ describe('MetadataValidatorPage', () => {
         hltbGameId: 2,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
-      }
+        hltbCompletionistHours: null,
+      },
     ]) as HltbMatchCandidate[];
     expect(hltbDeduped.length).toBe(2);
 
@@ -1116,7 +1116,7 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: null,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
+        hltbCompletionistHours: null,
       },
       {
         title: 'X',
@@ -1126,8 +1126,8 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: null,
         hltbMainHours: 2,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
-      }
+        hltbCompletionistHours: null,
+      },
     ]) as HltbMatchCandidate[];
     expect(hltbDedupedWithoutIdentity.length).toBe(1);
 
@@ -1140,7 +1140,7 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: null,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
+        hltbCompletionistHours: null,
       },
       {
         title: 'X',
@@ -1150,8 +1150,8 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: null,
         hltbMainHours: 2,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
-      }
+        hltbCompletionistHours: null,
+      },
     ]) as HltbMatchCandidate[];
     expect(hltbDedupedWithPartialIdentity.length).toBe(1);
 
@@ -1164,7 +1164,7 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: 'https://howlongtobeat.com/game/2',
         hltbMainHours: 1,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
+        hltbCompletionistHours: null,
       },
       {
         title: 'X',
@@ -1174,14 +1174,14 @@ describe('MetadataValidatorPage', () => {
         hltbUrl: 'https://howlongtobeat.com/game/2',
         hltbMainHours: 2,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null
-      }
+        hltbCompletionistHours: null,
+      },
     ]) as HltbMatchCandidate[];
     expect(hltbDedupedWithUrlOnlyIdentity.length).toBe(1);
 
     const mcDeduped = callPrivate(page, 'dedupeMetacriticCandidates', [
       { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null },
-      { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null }
+      { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null },
     ]) as MetacriticMatchCandidate[];
     expect(mcDeduped.length).toBe(1);
 
@@ -1195,7 +1195,7 @@ describe('MetadataValidatorPage', () => {
         reviewScore: null,
         reviewUrl: null,
         reviewSource: null,
-        imageUrl: null
+        imageUrl: null,
       },
       {
         title: 'Y',
@@ -1204,8 +1204,8 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/y/',
         reviewSource: 'metacritic' as const,
-        imageUrl: null
-      }
+        imageUrl: null,
+      },
     ]) as ReviewMatchCandidate[];
     expect(reviewDeduped.length).toBe(1);
     expect(reviewDeduped[0].reviewScore).toBe(85);
@@ -1218,7 +1218,7 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/y/a',
         reviewSource: 'metacritic' as const,
-        imageUrl: null
+        imageUrl: null,
       },
       {
         title: 'Y',
@@ -1227,8 +1227,8 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/y/b',
         reviewSource: 'metacritic' as const,
-        imageUrl: null
-      }
+        imageUrl: null,
+      },
     ]) as ReviewMatchCandidate[];
     expect(reviewDistinctUrls.length).toBe(2);
 
@@ -1240,7 +1240,7 @@ describe('MetadataValidatorPage', () => {
         reviewScore: null,
         reviewUrl: 'https://www.metacritic.com/game/y/identity',
         reviewSource: 'metacritic' as const,
-        imageUrl: null
+        imageUrl: null,
       },
       {
         title: 'Y',
@@ -1249,8 +1249,8 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: null,
         reviewSource: 'metacritic' as const,
-        imageUrl: 'https://images.example/y.jpg'
-      }
+        imageUrl: 'https://images.example/y.jpg',
+      },
     ]) as ReviewMatchCandidate[];
     expect(reviewKeepsIdentity.length).toBe(1);
     expect(reviewKeepsIdentity[0].reviewUrl).toBe('https://www.metacritic.com/game/y/identity');
@@ -1263,7 +1263,7 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: null,
         reviewSource: 'metacritic' as const,
-        imageUrl: null
+        imageUrl: null,
       },
       {
         title: 'Y',
@@ -1272,8 +1272,8 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/y/identity-upgrade',
         reviewSource: 'metacritic' as const,
-        imageUrl: null
-      }
+        imageUrl: null,
+      },
     ]) as ReviewMatchCandidate[];
     expect(reviewGainsIdentity.length).toBe(1);
     expect(reviewGainsIdentity[0].reviewUrl).toBe(
@@ -1288,7 +1288,7 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: null,
         reviewSource: 'metacritic' as const,
-        imageUrl: null
+        imageUrl: null,
       },
       {
         title: 'Y',
@@ -1297,8 +1297,8 @@ describe('MetadataValidatorPage', () => {
         reviewScore: 85,
         reviewUrl: null,
         reviewSource: 'metacritic' as const,
-        imageUrl: null
-      }
+        imageUrl: null,
+      },
     ]) as ReviewMatchCandidate[];
     expect(reviewDistinctPlatform.length).toBe(2);
 
@@ -1357,8 +1357,8 @@ describe('MetadataValidatorPage', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 1,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null
-        }
+          hltbCompletionistHours: null,
+        },
       ])
     );
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
@@ -1367,7 +1367,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1993,
       platform: 'PC',
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002'
+      preferredUrl: 'https://howlongtobeat.com/game/7002',
     });
 
     shelf.searchHltbCandidates.mockReturnValueOnce(
@@ -1380,8 +1380,8 @@ describe('MetadataValidatorPage', () => {
           hltbUrl: null,
           hltbMainHours: 2,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null
-        }
+          hltbCompletionistHours: null,
+        },
       ])
     );
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
@@ -1390,7 +1390,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1994,
       platform: 'PC',
       preferredGameId: null,
-      preferredUrl: null
+      preferredUrl: null,
     });
 
     shelf.searchReviewCandidates.mockReturnValueOnce(
@@ -1402,8 +1402,8 @@ describe('MetadataValidatorPage', () => {
           reviewScore: 70,
           reviewUrl: 'https://www.metacritic.com/game/test/',
           reviewSource: 'metacritic' as const,
-          mobygamesGameId: null
-        }
+          mobygamesGameId: null,
+        },
       ])
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
@@ -1413,7 +1413,7 @@ describe('MetadataValidatorPage', () => {
       platform: 'PC',
       platformIgdbId: 6,
       mobygamesGameId: null,
-      preferredUrl: 'https://www.metacritic.com/game/test/'
+      preferredUrl: 'https://www.metacritic.com/game/test/',
     });
 
     shelf.searchReviewCandidates.mockReturnValueOnce(
@@ -1427,8 +1427,8 @@ describe('MetadataValidatorPage', () => {
           reviewSource: 'metacritic' as const,
           mobygamesGameId: null,
           metacriticScore: 71,
-          metacriticUrl: 'https://www.metacritic.com/game/test-fallback/'
-        }
+          metacriticUrl: 'https://www.metacritic.com/game/test-fallback/',
+        },
       ])
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
@@ -1438,7 +1438,7 @@ describe('MetadataValidatorPage', () => {
       platform: 'PC',
       platformIgdbId: 6,
       mobygamesGameId: null,
-      preferredUrl: 'https://www.metacritic.com/game/test-fallback/'
+      preferredUrl: 'https://www.metacritic.com/game/test-fallback/',
     });
   });
 
@@ -1459,14 +1459,14 @@ describe('MetadataValidatorPage', () => {
         {
           title: 'PS Test Candidate',
           amount: 19.9,
-          url: 'https://psprices.com/region-ch/game/ps-test-candidate'
-        } as PriceMatchCandidate
+          url: 'https://psprices.com/region-ch/game/ps-test-candidate',
+        } as PriceMatchCandidate,
       ])
     );
     await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('21', 167, {
       title: 'PS Test Candidate',
-      preferredUrl: 'https://psprices.com/region-ch/game/ps-test-candidate'
+      preferredUrl: 'https://psprices.com/region-ch/game/ps-test-candidate',
     });
 
     shelf.searchPricingCandidates.mockReturnValueOnce(
@@ -1530,7 +1530,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1993,
       platform: 'PC',
       metacriticScore: 10,
-      metacriticUrl: null
+      metacriticUrl: null,
     });
     expect(presentToast).toHaveBeenCalledWith('No review match found for Target.', 'warning');
 
@@ -1548,7 +1548,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1993,
       platform: 'PC',
       metacriticScore: 80,
-      metacriticUrl: null
+      metacriticUrl: null,
     });
     expect(presentToast).toHaveBeenCalledWith('Unable to update review for Target.', 'danger');
 
@@ -1561,7 +1561,7 @@ describe('MetadataValidatorPage', () => {
       releaseYear: 1993,
       platform: 'PC',
       metacriticScore: 80,
-      metacriticUrl: null
+      metacriticUrl: null,
     });
     expect(presentToast).toHaveBeenCalledWith('Rate limited. Retry after 7s.', 'warning');
 
@@ -1590,7 +1590,7 @@ describe('MetadataValidatorPage', () => {
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'real',
-        color: 'danger'
+        color: 'danger',
       })
     );
   });

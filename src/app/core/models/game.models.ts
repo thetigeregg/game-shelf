@@ -518,7 +518,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   hltbMainHoursMin: null,
   hltbMainHoursMax: null,
   releaseDateFrom: null,
-  releaseDateTo: null
+  releaseDateTo: null,
 };
 
 export interface GameListView {

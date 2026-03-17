@@ -10,21 +10,21 @@ export function buildRecommendationLanes(params: {
   const overall = selectLaneItems({
     items,
     fallback: items,
-    laneLimit
+    laneLimit,
   });
   const hiddenGems = selectLaneItems({
     items: items.filter(
       (item) => item.scoreComponents.semantic >= 0.4 && item.scoreComponents.criticBoost <= 0.2
     ),
     fallback: items,
-    laneLimit
+    laneLimit,
   });
   const exploration = selectLaneItems({
     items: [...items].sort(
       (left, right) => right.scoreComponents.exploration - left.scoreComponents.exploration
     ),
     fallback: items,
-    laneLimit
+    laneLimit,
   });
 
   return {
@@ -33,7 +33,7 @@ export function buildRecommendationLanes(params: {
     exploration,
     blended: overall,
     popular: hiddenGems,
-    recent: exploration
+    recent: exploration,
   };
 }
 

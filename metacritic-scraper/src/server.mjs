@@ -395,14 +395,18 @@ function rankCandidate(
 
 async function searchMetacriticInBrowser(page, query) {
   const searchUrl = buildMetacriticSearchUrl(query);
-  const readyTimeoutMs = Math.max(1_000, Math.min(browserTimeoutMs, 5_000));
-  const settleDelayMs = Math.max(100, Math.min(Math.floor(browserTimeoutMs / 100), 300));
+  const readyTimeoutMs = Math.max(0, Math.min(browserTimeoutMs, 5_000));
+  const settleDelayMs = Math.max(0, Math.min(Math.floor(browserTimeoutMs / 100), 300));
 
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
-  await page
-    .waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, { timeout: readyTimeoutMs })
-    .catch(() => undefined);
-  await page.waitForTimeout(settleDelayMs);
+  if (readyTimeoutMs > 0) {
+    await page
+      .waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, { timeout: readyTimeoutMs })
+      .catch(() => undefined);
+  }
+  if (settleDelayMs > 0) {
+    await page.waitForTimeout(settleDelayMs);
+  }
 
   const items = await page.evaluate(extractMetacriticSearchResults, {
     rowSelector: METACRITIC_SEARCH_RESULT_ROW_SELECTOR,

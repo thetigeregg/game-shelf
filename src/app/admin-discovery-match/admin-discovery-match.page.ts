@@ -25,6 +25,12 @@ import {
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import {
+  HltbMatchCandidate,
+  PriceMatchCandidate,
+  ReviewMatchCandidate,
+} from '../core/models/game.models';
+import { GameShelfService } from '../core/services/game-shelf.service';
+import {
   AdminDiscoveryDetailResponse,
   AdminDiscoveryListItem,
   AdminDiscoveryMatchProvider,
@@ -32,6 +38,7 @@ import {
   AdminDiscoveryMatchStateStatus,
 } from '../core/services/admin-discovery-match.service';
 import { AdminApiAuthService } from '../core/services/admin-api-auth.service';
+import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
 
@@ -96,6 +103,21 @@ export class AdminDiscoveryMatchPage {
   isSaving = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
   activeModalProvider: AdminDiscoveryMatchProvider = 'hltb';
+  hltbSearchQuery = '';
+  hltbSearchResults: HltbMatchCandidate[] = [];
+  hltbSearchError: string | null = null;
+  isHltbSearchLoading = false;
+  hltbSearchHasRun = false;
+  reviewSearchQuery = '';
+  reviewSearchResults: ReviewMatchCandidate[] = [];
+  reviewSearchError: string | null = null;
+  isReviewSearchLoading = false;
+  reviewSearchHasRun = false;
+  pricingSearchQuery = '';
+  pricingSearchResults: PriceMatchCandidate[] = [];
+  pricingSearchError: string | null = null;
+  isPricingSearchLoading = false;
+  pricingSearchHasRun = false;
 
   hltbForm = {
     hltbGameId: '',
@@ -137,6 +159,7 @@ export class AdminDiscoveryMatchPage {
 
   private readonly adminMatchService = inject(AdminDiscoveryMatchService);
   private readonly adminAuth = inject(AdminApiAuthService);
+  private readonly gameShelfService = inject(GameShelfService);
   private readonly toastController = inject(ToastController);
 
   constructor() {
@@ -263,6 +286,7 @@ export class AdminDiscoveryMatchPage {
     this.isDetailLoading = false;
     this.isSaving = false;
     this.activeDetail = null;
+    this.resetCandidateSearchState();
   }
 
   async saveActiveProvider(): Promise<void> {
@@ -350,6 +374,73 @@ export class AdminDiscoveryMatchPage {
     return 'medium';
   }
 
+  async searchActiveProviderCandidates(): Promise<void> {
+    if (this.activeModalProvider === 'hltb') {
+      await this.runHltbCandidateSearch();
+      return;
+    }
+
+    if (this.activeModalProvider === 'review') {
+      await this.runReviewCandidateSearch();
+      return;
+    }
+
+    await this.runPricingCandidateSearch();
+  }
+
+  applyHltbCandidate(candidate: HltbMatchCandidate): void {
+    this.hltbForm = {
+      ...this.hltbForm,
+      hltbGameId: this.formatNumber(candidate.hltbGameId ?? null),
+      hltbUrl: candidate.hltbUrl ?? '',
+      hltbMainHours: this.formatNumber(candidate.hltbMainHours),
+      hltbMainExtraHours: this.formatNumber(candidate.hltbMainExtraHours),
+      hltbCompletionistHours: this.formatNumber(candidate.hltbCompletionistHours),
+      queryTitle: candidate.title,
+      queryReleaseYear: this.formatNumber(candidate.releaseYear),
+      queryPlatform: candidate.platform ?? '',
+    };
+  }
+
+  applyReviewCandidate(candidate: ReviewMatchCandidate): void {
+    const candidateSource = candidate.reviewSource ?? 'metacritic';
+    this.reviewForm = {
+      ...this.reviewForm,
+      reviewSource: candidateSource,
+      reviewScore: this.formatNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null),
+      reviewUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? '',
+      metacriticScore:
+        candidateSource === 'metacritic'
+          ? this.formatNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null)
+          : this.reviewForm.metacriticScore,
+      metacriticUrl:
+        candidateSource === 'metacritic'
+          ? (candidate.reviewUrl ?? candidate.metacriticUrl ?? '')
+          : this.reviewForm.metacriticUrl,
+      mobygamesGameId: this.formatNumber(candidate.mobygamesGameId ?? null),
+      mobyScore: this.formatNumber(candidate.mobyScore ?? null),
+      queryTitle: candidate.title,
+      queryReleaseYear: this.formatNumber(candidate.releaseYear),
+      queryPlatform: candidate.platform ?? '',
+    };
+  }
+
+  applyPricingCandidate(candidate: PriceMatchCandidate): void {
+    this.pricingForm = {
+      ...this.pricingForm,
+      priceSource: 'psprices',
+      priceAmount: this.formatNumber(candidate.amount),
+      priceCurrency: candidate.currency ?? '',
+      priceRegularAmount: this.formatNumber(candidate.regularAmount),
+      priceDiscountPercent: this.formatNumber(candidate.discountPercent),
+      priceIsFree: candidate.isFree === true,
+      priceUrl: candidate.url ?? '',
+      psPricesUrl: candidate.url ?? '',
+      psPricesTitle: candidate.title,
+      psPricesPlatform: '',
+    };
+  }
+
   private buildUpdateRequest(provider: AdminDiscoveryMatchProvider) {
     if (provider === 'hltb') {
       return {
@@ -435,6 +526,11 @@ export class AdminDiscoveryMatchPage {
       psPricesTitle: detail.providers.pricing.psPricesTitle ?? '',
       psPricesPlatform: detail.providers.pricing.psPricesPlatform ?? '',
     };
+
+    this.hltbSearchQuery = detail.providers.hltb.queryTitle ?? detail.title ?? '';
+    this.reviewSearchQuery = detail.providers.review.queryTitle ?? detail.title ?? '';
+    this.pricingSearchQuery = detail.providers.pricing.psPricesTitle ?? detail.title ?? '';
+    this.resetCandidateSearchResults();
   }
 
   private replaceVisibleItem(detail: AdminDiscoveryDetailResponse): void {
@@ -458,6 +554,218 @@ export class AdminDiscoveryMatchPage {
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {
     return this.providerOptions.find((option) => option.value === provider)?.label ?? provider;
+  }
+
+  private async runHltbCandidateSearch(): Promise<void> {
+    const detail = this.activeDetail;
+    const normalized = this.hltbSearchQuery.trim();
+
+    if (!detail) {
+      return;
+    }
+
+    if (normalized.length < 2) {
+      this.hltbSearchResults = [];
+      this.hltbSearchError = 'Enter at least 2 characters.';
+      this.hltbSearchHasRun = false;
+      return;
+    }
+
+    this.isHltbSearchLoading = true;
+    this.hltbSearchError = null;
+    this.hltbSearchHasRun = true;
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchHltbCandidates(
+          normalized,
+          this.parseInteger(this.hltbForm.queryReleaseYear) ?? detail.releaseYear,
+          this.normalizeString(this.hltbForm.queryPlatform) ?? detail.platform
+        )
+      );
+      this.hltbSearchResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.hltbSearchResults = [];
+      this.hltbSearchError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
+    } finally {
+      this.isHltbSearchLoading = false;
+    }
+  }
+
+  private async runReviewCandidateSearch(): Promise<void> {
+    const detail = this.activeDetail;
+    const normalized = this.reviewSearchQuery.trim();
+
+    if (!detail) {
+      return;
+    }
+
+    if (normalized.length < 2) {
+      this.reviewSearchResults = [];
+      this.reviewSearchError = 'Enter at least 2 characters.';
+      this.reviewSearchHasRun = false;
+      return;
+    }
+
+    this.isReviewSearchLoading = true;
+    this.reviewSearchError = null;
+    this.reviewSearchHasRun = true;
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchReviewCandidates(
+          normalized,
+          this.parseInteger(this.reviewForm.queryReleaseYear) ?? detail.releaseYear,
+          this.normalizeString(this.reviewForm.queryPlatform) ?? detail.platform,
+          detail.platformIgdbId
+        )
+      );
+      this.reviewSearchResults = this.dedupeReviewCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.reviewSearchResults = [];
+      this.reviewSearchError = formatRateLimitedUiError(
+        error,
+        'Unable to search reviews right now.'
+      );
+    } finally {
+      this.isReviewSearchLoading = false;
+    }
+  }
+
+  private async runPricingCandidateSearch(): Promise<void> {
+    const detail = this.activeDetail;
+    const normalized = this.pricingSearchQuery.trim();
+
+    if (!detail) {
+      return;
+    }
+
+    if (normalized.length < 2) {
+      this.pricingSearchResults = [];
+      this.pricingSearchError = 'Enter at least 2 characters.';
+      this.pricingSearchHasRun = false;
+      return;
+    }
+
+    this.isPricingSearchLoading = true;
+    this.pricingSearchError = null;
+    this.pricingSearchHasRun = true;
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchPricingCandidates(
+          detail.igdbGameId,
+          detail.platformIgdbId,
+          normalized
+        )
+      );
+      this.pricingSearchResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.pricingSearchResults = [];
+      this.pricingSearchError = formatRateLimitedUiError(
+        error,
+        'Unable to search pricing right now.'
+      );
+    } finally {
+      this.isPricingSearchLoading = false;
+    }
+  }
+
+  private resetCandidateSearchState(): void {
+    this.hltbSearchQuery = '';
+    this.reviewSearchQuery = '';
+    this.pricingSearchQuery = '';
+    this.resetCandidateSearchResults();
+  }
+
+  private resetCandidateSearchResults(): void {
+    this.hltbSearchResults = [];
+    this.hltbSearchError = null;
+    this.isHltbSearchLoading = false;
+    this.hltbSearchHasRun = false;
+    this.reviewSearchResults = [];
+    this.reviewSearchError = null;
+    this.isReviewSearchLoading = false;
+    this.reviewSearchHasRun = false;
+    this.pricingSearchResults = [];
+    this.pricingSearchError = null;
+    this.isPricingSearchLoading = false;
+    this.pricingSearchHasRun = false;
+  }
+
+  private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
+    const byKey = new Map<string, HltbMatchCandidate>();
+
+    candidates.forEach((candidate) => {
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.hltbGameId ?? '')}::${candidate.hltbUrl ?? ''}`;
+
+      if (!byKey.has(key)) {
+        byKey.set(key, candidate);
+      }
+    });
+
+    return [...byKey.values()];
+  }
+
+  private dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
+    const deduped: ReviewMatchCandidate[] = [];
+
+    candidates.forEach((candidate) => {
+      const candidateIdentityUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? '';
+      const existingIndex = deduped.findIndex((entry) => {
+        if (
+          entry.title !== candidate.title ||
+          entry.releaseYear !== candidate.releaseYear ||
+          entry.platform !== candidate.platform
+        ) {
+          return false;
+        }
+
+        const entryIdentityUrl = entry.reviewUrl ?? entry.metacriticUrl ?? '';
+        return (
+          entryIdentityUrl === candidateIdentityUrl ||
+          entryIdentityUrl.length === 0 ||
+          candidateIdentityUrl.length === 0
+        );
+      });
+
+      if (existingIndex === -1) {
+        deduped.push(candidate);
+        return;
+      }
+
+      const existing = deduped[existingIndex];
+      const existingIdentityUrl = existing.reviewUrl ?? existing.metacriticUrl ?? '';
+      const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
+      const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+      const wouldDropIdentityUrl =
+        existingIdentityUrl.length > 0 && candidateIdentityUrl.length === 0;
+      const gainsIdentityUrl = existingIdentityUrl.length === 0 && candidateIdentityUrl.length > 0;
+      const shouldReplace =
+        !wouldDropIdentityUrl &&
+        (gainsIdentityUrl ||
+          (existing.imageUrl == null && candidate.imageUrl != null) ||
+          (existingScore == null && candidateScore != null));
+
+      if (shouldReplace) {
+        deduped[existingIndex] = candidate;
+      }
+    });
+
+    return deduped;
+  }
+
+  private dedupePricingCandidates(candidates: PriceMatchCandidate[]): PriceMatchCandidate[] {
+    const byKey = new Map<string, PriceMatchCandidate>();
+
+    candidates.forEach((candidate) => {
+      const key = `${candidate.title}::${candidate.url ?? ''}::${String(candidate.amount ?? '')}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, candidate);
+      }
+    });
+
+    return [...byKey.values()];
   }
 
   private parseInteger(value: string): number | null {

@@ -1090,6 +1090,33 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getActivePopularityItems()).toEqual([{ id: '301' }]);
   });
 
+  it('caches visible popularity items until ownership or feed data changes', () => {
+    const page = createPage() as unknown as {
+      activePopularityItems: Array<{ id: string }>;
+      getVisiblePopularityItems: () => Array<{ id: string }>;
+      markGameIdAsOwned: (igdbGameId: string) => void;
+    };
+
+    page.activePopularityItems = [{ id: '300' }, { id: '301' }];
+
+    const firstVisibleItems = page.getVisiblePopularityItems();
+    const secondVisibleItems = page.getVisiblePopularityItems();
+
+    expect(secondVisibleItems).toBe(firstVisibleItems);
+
+    page.markGameIdAsOwned('300');
+
+    const filteredVisibleItems = page.getVisiblePopularityItems();
+    expect(filteredVisibleItems).toEqual([{ id: '301' }]);
+    expect(filteredVisibleItems).not.toBe(firstVisibleItems);
+
+    page.activePopularityItems = [{ id: '302' }];
+
+    const refreshedVisibleItems = page.getVisiblePopularityItems();
+    expect(refreshedVisibleItems).toEqual([{ id: '302' }]);
+    expect(refreshedVisibleItems).not.toBe(filteredVisibleItems);
+  });
+
   it('covers recommendation visibility helpers and hidden-stack navigation branches', () => {
     const page = createPage() as unknown as {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';

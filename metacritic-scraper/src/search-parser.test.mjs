@@ -3,6 +3,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   extractMetacriticSearchResults,
+  METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
   METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
 } from './search-parser.mjs';
@@ -122,6 +123,7 @@ test.after(async () => {
 async function parseHtml(html) {
   await page.setContent(html, { waitUntil: 'domcontentloaded' });
   return await page.evaluate(extractMetacriticSearchResults, {
+    gameLinkSelector: METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
     rowSelector: METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   });
 }
@@ -174,6 +176,7 @@ test('extractMetacriticSearchResults falls back to link scanning when rowSelecto
 test('extractMetacriticSearchResults keeps link-row titles when the row is the game anchor', async () => {
   await page.setContent(linkRowDirectTextHtml, { waitUntil: 'domcontentloaded' });
   const results = await page.evaluate(extractMetacriticSearchResults, {
+    gameLinkSelector: METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
     rowSelector: 'a[href*="/game/"]',
   });
 
@@ -215,5 +218,8 @@ test('search selector exports keep browser wait and parser row selection aligned
     new RegExp(METACRITIC_SEARCH_RESULT_ROW_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   );
   assert.match(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, /\[data-testid="search-results"\]/u);
-  assert.equal(METACRITIC_SEARCH_RESULTS_READY_SELECTOR.includes('a[href*="/game/"]'), false);
+  assert.match(
+    METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
+    new RegExp(METACRITIC_SEARCH_RESULT_LINK_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  );
 });

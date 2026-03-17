@@ -72,6 +72,46 @@ jobs:
           MIGRATION_DRIFT_TEST_DATABASE_URL: postgresql://drift:drift@127.0.0.1:55432/drift_test
         run: npm run test:backend:coverage
 
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/app/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
+
+      - name: Upload server coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./server/coverage/lcov.info
+          flags: server
+          name: server-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
+
+      - name: Upload worker coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./worker/coverage/lcov.info
+          flags: worker
+          name: worker-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
+
+      - name: Upload raw coverage artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: |
+            coverage/app/lcov.info
+            server/coverage/lcov.info
+            worker/coverage/lcov.info
+          if-no-files-found: error
+
       - name: Backup ops smoke test
         run: npm run test:backup:ops
 
@@ -94,27 +134,6 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
-
-      - name: Upload coverage to Codecov
-        if: success()
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/app/lcov.info,./server/coverage/lcov.info,./worker/coverage/lcov.info
-          flags: frontend,server,worker
-          fail_ci_if_error: true
-          disable_search: true
-          use_oidc: true
-
-      - name: Upload raw coverage artifacts
-        if: success()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-reports
-          path: |
-            coverage/app/lcov.info
-            server/coverage/lcov.info
-            worker/coverage/lcov.info
-          if-no-files-found: error
 
   docker_build_validation:
     name: Docker Build Validation

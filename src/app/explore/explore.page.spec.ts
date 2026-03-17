@@ -375,12 +375,12 @@ describe('ExplorePage explore modes UX', () => {
         firstReleaseDate: number | null;
         platforms: Array<{ id: number; name: string }>;
       }) => Promise<void>;
-      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
       selectedGameDetail: { igdbGameId: string } | null;
     };
 
     const deferredResolves = new Map<string, (value: unknown) => void>();
-    vi.spyOn(page, 'fetchRecommendationCatalogResult').mockImplementation(
+    vi.spyOn(page, 'fetchCatalogResult').mockImplementation(
       (igdbGameId: string) =>
         new Promise((resolve) => {
           deferredResolves.set(igdbGameId, resolve);
@@ -2062,7 +2062,7 @@ describe('ExplorePage explore modes UX', () => {
   it('covers remaining PSPrices parser guard and catalog fetch failure branches', async () => {
     const page = createPage() as unknown as {
       parsePsPricesLookupResponse: (value: unknown) => unknown;
-      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
     };
 
     expect(page.parsePsPricesLookupResponse({ status: 'not_ok', bestPrice: {} })).toBeNull();
@@ -2071,7 +2071,7 @@ describe('ExplorePage explore modes UX', () => {
     ).toBeNull();
 
     igdbProxyServiceMock.getGameById.mockReturnValueOnce(throwError(() => new Error('boom')));
-    await expect(page.fetchRecommendationCatalogResult('999')).resolves.toBeNull();
+    await expect(page.fetchCatalogResult('999')).resolves.toBeNull();
   });
 
   it('covers title hint and local pricing helper branches', () => {
@@ -2271,21 +2271,36 @@ describe('ExplorePage explore modes UX', () => {
     await Promise.all([firstRun, secondRun]);
   });
 
-  it('hydrates visible popularity catalog on load-more pagination', async () => {
+  it('does not block popularity load-more while catalog hydration runs', async () => {
     const page = createPage() as unknown as {
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
       loadMorePopularity: (event: Event) => Promise<void>;
     };
 
+    let resolveHydration: (() => void) | null = null;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
     const hydrateSpy = vi
       .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
-      .mockResolvedValue(undefined);
+      .mockReturnValue(hydrationPromise);
     const complete = vi.fn().mockResolvedValue(undefined);
 
-    await page.loadMorePopularity({ target: { complete } } as unknown as Event);
+    const loadMorePromise = page.loadMorePopularity({ target: { complete } } as unknown as Event);
+
+    let loadMoreSettled = false;
+    void loadMorePromise.then(() => {
+      loadMoreSettled = true;
+    });
+
+    await flushAsync();
 
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
     expect(complete).toHaveBeenCalledTimes(1);
+    expect(loadMoreSettled).toBe(true);
+
+    resolveHydration?.();
+    await hydrationPromise;
   });
 
   it('single-flights visible popularity catalog hydration across overlapping calls', async () => {
@@ -2295,7 +2310,7 @@ describe('ExplorePage explore modes UX', () => {
       visiblePopularityCount: number;
       popularityCatalogHydrationAttempted: Set<string>;
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
-      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
     };
 
     page.selectedExploreMode = 'popularity';
@@ -2308,7 +2323,7 @@ describe('ExplorePage explore modes UX', () => {
     });
 
     const fetchSpy = vi
-      .spyOn(page, 'fetchRecommendationCatalogResult')
+      .spyOn(page, 'fetchCatalogResult')
       .mockImplementation(() => hydrationPromise);
 
     const firstRun = page.ensureVisiblePopularityCatalogHydrated();
@@ -2329,7 +2344,7 @@ describe('ExplorePage explore modes UX', () => {
       activePopularityItems: Array<{ id: string; platformIgdbId: number }>;
       visiblePopularityCount: number;
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
-      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
     };
 
     page.selectedExploreMode = 'popularity';
@@ -2348,7 +2363,7 @@ describe('ExplorePage explore modes UX', () => {
     });
 
     const fetchSpy = vi
-      .spyOn(page, 'fetchRecommendationCatalogResult')
+      .spyOn(page, 'fetchCatalogResult')
       .mockImplementation((igdbGameId) =>
         ['1300', '1301', '1302', '1303'].includes(igdbGameId)
           ? firstBatchPromise

@@ -60,10 +60,6 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
-function isSecurityBot(comment) {
-  return comment.author?.login === 'github-advanced-security';
-}
-
 function isActionableThread(thread) {
   return !thread.isResolved && !thread.isOutdated;
 }
@@ -429,8 +425,6 @@ function buildInlineReviewTasks(threads, { copilotOnly = false } = {}) {
     if (!comments.length) continue;
 
     const reviewerComment = [...comments].reverse().find((comment) => {
-      if (isSecurityBot(comment)) return false;
-
       const author = comment.author?.login || '';
       if (!includeReviewItem(comment.body, author)) return false;
       if (!copilotOnly) return true;

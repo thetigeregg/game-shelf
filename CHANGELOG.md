@@ -2416,3 +2416,20 @@
 - b9d1db11 Merge pull request #235 from thetigeregg/feat/popularity-ui
 - 0bf473e8 fix(ui): harden game detail swiper lifecycle and add carousel unit tests
 - 1d2776bb fix(ui): migrate game detail swiper to TypeScript init and refresh
+
+## v1.5.4 - 2026-03-17
+- 5c34dc1c Merge pull request #237 from thetigeregg/feat/format
+- fff3641f fix(lint-staged): update lint-staged configuration to include additional file types for prettier
+- 1bbbe3c1 style: format code
+- e27cce62 fix(prettier): update .prettierignore to include additional directories and file types
+- babeeb74 Revert "style: format code"
+- bc14c438 fix(prettier): add configuration for docker-compose YAML files
+- e363bc22 fix(lint-staged): simplify lint-staged configuration for file types
+- 430f29e7 fix(pre-commit): disable concurrency for lint-staged
+- d7ad80d2 fix: update order
+- 0601e5bf fix: prevent concurrency issues
+- fccfac92 style: format code
+- 658aa5f5 fix(lint-staged): update Prettier command to ignore unknown file types
+- 685b3aa3 fix(prettier): update configuration for improved formatting and overrides
+- f5f6a294 fix(lint): update lint-staged configuration to apply Prettier to all file types
+

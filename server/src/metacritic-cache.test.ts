@@ -31,7 +31,7 @@ function buildExpectedCacheKey(params: {
     params.releaseYear,
     params.platform?.toLowerCase() ?? null,
     params.platformIgdbId,
-    params.includeCandidates
+    params.includeCandidates,
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -66,7 +66,7 @@ class MetacriticPoolMock {
       const nowMs = this.options.now ? this.options.now() : Date.now();
       this.rowsByKey.set(key, {
         response_json: payload,
-        updated_at: new Date(nowMs).toISOString()
+        updated_at: new Date(nowMs).toISOString(),
       });
       return Promise.resolve({ rows: [] });
     }
@@ -87,7 +87,7 @@ class MetacriticPoolMock {
   seed(cacheKey: string, payload: unknown, updatedAt: string): void {
     this.rowsByKey.set(cacheKey, {
       response_json: payload,
-      updated_at: updatedAt
+      updated_at: updatedAt,
     });
   }
 }
@@ -129,14 +129,14 @@ void test('METACRITIC cache stores on miss and serves on hit', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { metacriticScore: 20 }, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii'
+    url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii',
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -144,7 +144,7 @@ void test('METACRITIC cache stores on miss and serves on hit', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=wii'
+    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=wii',
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
@@ -170,19 +170,19 @@ void test('METACRITIC cache supports candidates when includeCandidates is enable
       return new Response(
         JSON.stringify({
           item: null,
-          candidates: [{ metacriticScore: 18 }]
+          candidates: [{ metacriticScore: 18 }],
         }),
         {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         }
       );
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami&includeCandidates=true'
+    url: '/v1/metacritic/search?q=okami&includeCandidates=true',
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -190,7 +190,7 @@ void test('METACRITIC cache supports candidates when includeCandidates is enable
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami&includeCandidates=true'
+    url: '/v1/metacritic/search?q=okami&includeCandidates=true',
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
@@ -212,21 +212,21 @@ void test('METACRITIC cache normalizes includeCandidates and platformIgdbId in q
       observedUrls.push(request.url);
       return new Response(JSON.stringify({ item: { metacriticScore: 40 } }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=Wii&platformIgdbId=5&includeCandidates=yes'
+    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=Wii&platformIgdbId=5&includeCandidates=yes',
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=Wii&platformIgdbId=5&includeCandidates=true'
+    url: '/v1/metacritic/search?q=okami&releaseYear=2006&platform=Wii&platformIgdbId=5&includeCandidates=true',
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
@@ -238,7 +238,7 @@ void test('METACRITIC cache normalizes includeCandidates and platformIgdbId in q
     releaseYear: 2006,
     platform: 'Wii',
     platformIgdbId: 5,
-    includeCandidates: true
+    includeCandidates: true,
   });
   pool.seed(expectedKey, { item: { metacriticScore: 41 } }, new Date().toISOString());
   assert.equal(pool.getEntryCount() >= 1, true);
@@ -260,7 +260,7 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
       if (fetchCalls === 1) {
         return new Response(JSON.stringify({ item: { metacriticScore: 5 } }), {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         });
       }
 
@@ -270,7 +270,7 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
 
       return new Response('not-json', {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
     },
     now: () => nowMs,
@@ -278,25 +278,25 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
     staleTtlSeconds: 100,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
-    }
+    },
   });
 
   await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=chrono'
+    url: '/v1/metacritic/search?q=chrono',
   });
 
   nowMs += 2_000;
   const staleOne = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=chrono'
+    url: '/v1/metacritic/search?q=chrono',
   });
   assert.equal(staleOne.headers['x-gameshelf-metacritic-cache'], 'HIT_STALE');
   assert.equal(staleOne.headers['x-gameshelf-metacritic-revalidate'], 'scheduled');
 
   const staleTwo = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=chrono'
+    url: '/v1/metacritic/search?q=chrono',
   });
   assert.equal(staleTwo.headers['x-gameshelf-metacritic-cache'], 'HIT_STALE');
   assert.equal(staleTwo.headers['x-gameshelf-metacritic-revalidate'], 'skipped');
@@ -308,7 +308,7 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
   nowMs += 2_000;
   await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=chrono'
+    url: '/v1/metacritic/search?q=chrono',
   });
   const taskTwo = pendingTask;
   assert.ok(taskTwo);
@@ -332,7 +332,7 @@ void test('METACRITIC cache treats invalid cache timestamps as expired and refre
     releaseYear: null,
     platform: null,
     platformIgdbId: null,
-    includeCandidates: false
+    includeCandidates: false,
   });
   pool.seed(key, { item: { metacriticScore: 10 } }, 'invalid-date');
 
@@ -341,14 +341,14 @@ void test('METACRITIC cache treats invalid cache timestamps as expired and refre
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { metacriticScore: 55 } }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami'
+    url: '/v1/metacritic/search?q=okami',
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -371,18 +371,18 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
       if (fetchCalls === 1) {
         return new Response(JSON.stringify({ item: { metacriticScore: 20 } }), {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         });
       }
       if (fetchCalls === 2) {
         return new Response('not-json', {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         });
       }
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
     },
     now: () => nowMs,
@@ -390,7 +390,7 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
     staleTtlSeconds: 100,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
-    }
+    },
   });
 
   await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
@@ -426,18 +426,18 @@ void test('METACRITIC cache bypasses cache when query is too short', async () =>
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=a'
+    url: '/v1/metacritic/search?q=a',
   });
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=a'
+    url: '/v1/metacritic/search?q=a',
   });
 
   assert.equal(first.statusCode, 200);
@@ -468,14 +468,14 @@ void test('METACRITIC cache deletes stale invalid payload and fetches fresh resp
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { metacriticScore: 12 }, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=okami'
+    url: '/v1/metacritic/search?q=okami',
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -499,13 +499,13 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
       return new Response(
         JSON.stringify({
           item: {
-            metacriticScore: fetchCalls === 1 ? 10 : 11
+            metacriticScore: fetchCalls === 1 ? 10 : 11,
           },
-          candidates: []
+          candidates: [],
         }),
         {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         }
       );
     },
@@ -514,12 +514,12 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
     staleTtlSeconds: 100,
     scheduleBackgroundRefresh: (task) => {
       pendingRefreshTask = task;
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
+    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
   });
   assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
@@ -528,7 +528,7 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
 
   const stale = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
+    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
   });
   assert.equal(stale.headers['x-gameshelf-metacritic-cache'], 'HIT_STALE');
   assert.equal(stale.headers['x-gameshelf-metacritic-revalidate'], 'scheduled');
@@ -543,7 +543,7 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
 
   const freshAfterRefresh = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
+    url: '/v1/metacritic/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
   });
   assert.equal(freshAfterRefresh.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
   const payload = JSON.parse(freshAfterRefresh.body) as { item: { metacriticScore: number } };
@@ -568,14 +568,14 @@ void test('METACRITIC cache is fail-open when cache read throws', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Super%20Metroid&releaseYear=1994&platform=SNES'
+    url: '/v1/metacritic/search?q=Super%20Metroid&releaseYear=1994&platform=SNES',
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-metacritic-cache'], 'BYPASS');
@@ -600,14 +600,14 @@ void test('METACRITIC null item responses are not cached', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       });
-    }
+    },
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203'
+    url: '/v1/metacritic/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -615,7 +615,7 @@ void test('METACRITIC null item responses are not cached', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/metacritic/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203'
+    url: '/v1/metacritic/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-metacritic-cache'], 'MISS');
@@ -632,7 +632,7 @@ void test('METACRITIC default worker fetch returns 503 when base URL is missing'
   await withEnv(
     {
       METACRITIC_SCRAPER_BASE_URL: '',
-      METACRITIC_SCRAPER_TOKEN_FILE: undefined
+      METACRITIC_SCRAPER_TOKEN_FILE: undefined,
     },
     async () => {
       resetCacheMetrics();
@@ -643,7 +643,7 @@ void test('METACRITIC default worker fetch returns 503 when base URL is missing'
 
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/metacritic/search?q=Okami'
+        url: '/v1/metacritic/search?q=Okami',
       });
 
       assert.equal(response.statusCode, 503);
@@ -673,7 +673,7 @@ void test('METACRITIC default worker fetch forwards auth and query params', asyn
     return Promise.resolve(
       new Response(JSON.stringify({ item: { metacriticScore: 88 } }), {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     );
   }) as typeof fetch;
@@ -683,7 +683,7 @@ void test('METACRITIC default worker fetch forwards auth and query params', asyn
     await withEnv(
       {
         METACRITIC_SCRAPER_BASE_URL: 'https://scraper.internal',
-        METACRITIC_SCRAPER_TOKEN_FILE: tokenPath
+        METACRITIC_SCRAPER_TOKEN_FILE: tokenPath,
       },
       async () => {
         resetCacheMetrics();
@@ -694,7 +694,7 @@ void test('METACRITIC default worker fetch forwards auth and query params', asyn
 
         const response = await app.inject({
           method: 'GET',
-          url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii'
+          url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii',
         });
 
         assert.equal(response.statusCode, 200);
@@ -722,7 +722,7 @@ void test('METACRITIC default worker fetch handles fetch failures with 502', asy
   try {
     await withEnv(
       {
-        METACRITIC_SCRAPER_BASE_URL: 'https://scraper.internal'
+        METACRITIC_SCRAPER_BASE_URL: 'https://scraper.internal',
       },
       async () => {
         resetCacheMetrics();
@@ -733,7 +733,7 @@ void test('METACRITIC default worker fetch handles fetch failures with 502', asy
 
         const response = await app.inject({
           method: 'GET',
-          url: '/v1/metacritic/search?q=Okami'
+          url: '/v1/metacritic/search?q=Okami',
         });
 
         assert.equal(response.statusCode, 502);
@@ -753,8 +753,8 @@ void test('METACRITIC sendWebResponse forwards text and binary payloads', async 
     new Response('plain-text', { status: 200, headers: { 'content-type': 'text/plain' } }),
     new Response(new Uint8Array([1, 2, 3]), {
       status: 200,
-      headers: { 'content-type': 'application/octet-stream' }
-    })
+      headers: { 'content-type': 'application/octet-stream' },
+    }),
   ];
   const fetchMock = (() => {
     const next = calls.shift();
@@ -768,7 +768,7 @@ void test('METACRITIC sendWebResponse forwards text and binary payloads', async 
   try {
     await withEnv(
       {
-        METACRITIC_SCRAPER_BASE_URL: 'https://scraper.internal'
+        METACRITIC_SCRAPER_BASE_URL: 'https://scraper.internal',
       },
       async () => {
         resetCacheMetrics();
@@ -779,14 +779,14 @@ void test('METACRITIC sendWebResponse forwards text and binary payloads', async 
 
         const textResponse = await app.inject({
           method: 'GET',
-          url: '/v1/metacritic/search?q=Okami'
+          url: '/v1/metacritic/search?q=Okami',
         });
         assert.equal(textResponse.statusCode, 200);
         assert.equal(textResponse.body, 'plain-text');
 
         const binaryResponse = await app.inject({
           method: 'GET',
-          url: '/v1/metacritic/search?q=Okami2'
+          url: '/v1/metacritic/search?q=Okami2',
         });
         assert.equal(binaryResponse.statusCode, 200);
         assert.equal(binaryResponse.rawPayload.length > 0, true);
@@ -808,7 +808,7 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
     releaseYear: 2006,
     platform: 'Wii',
     platformIgdbId: 5,
-    includeCandidates: true
+    includeCandidates: true,
   });
 
   assert.equal(
@@ -828,18 +828,18 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
     releaseYear: 2006,
     platform: 'Wii',
     platformIgdbId: 5,
-    includeCandidates: false
+    includeCandidates: false,
   };
   assert.equal(
     __metacriticCacheTestables.isCacheableMetacriticPayload(query, {
-      item: { metacriticScore: 85 }
+      item: { metacriticScore: 85 },
     }),
     true
   );
 
   const pool = new MetacriticPoolMock();
   const request = {
-    log: { warn: () => undefined }
+    log: { warn: () => undefined },
   } as unknown as import('fastify').FastifyRequest;
   const cacheKey = buildExpectedCacheKey(query);
   await __metacriticCacheTestables.persistMetacriticCacheEntry(
@@ -860,7 +860,7 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
       Promise.resolve(
         new Response('not-json', {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       ),
     pool as unknown as Pool,
@@ -879,7 +879,7 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
       Promise.resolve(
         new Response(JSON.stringify({ item: null, candidates: [] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       ),
     pool as unknown as Pool,

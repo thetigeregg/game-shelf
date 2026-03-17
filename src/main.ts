@@ -2,7 +2,7 @@ import {
   RouteReuseStrategy,
   provideRouter,
   withPreloading,
-  PreloadAllModules
+  PreloadAllModules,
 } from '@angular/router';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
@@ -33,7 +33,7 @@ function hasFirebaseMessagingConfig(): boolean {
     'apiKey',
     'appId',
     'projectId',
-    'messagingSenderId'
+    'messagingSenderId',
   ];
 
   return requiredKeys.every((key) => {
@@ -45,7 +45,7 @@ function hasFirebaseMessagingConfig(): boolean {
 const firebaseProviders = hasFirebaseMessagingConfig()
   ? [
       provideFirebaseApp(() => initializeApp(getFirebaseWebConfig())),
-      provideMessaging(() => getMessaging())
+      provideMessaging(() => getMessaging()),
     ]
   : [];
 
@@ -63,9 +63,9 @@ bootstrapApplication(AppComponent, {
     ...firebaseProviders,
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000'
-    })
-  ]
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
+  ],
 }).catch((err: unknown) => {
   console.error(err);
 });

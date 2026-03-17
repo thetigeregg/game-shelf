@@ -14,7 +14,7 @@ export type RecommendationLaneKey =
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export const DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES: ReadonlyArray<GameStatus | ''> = [
   '',
-  'wantToPlay'
+  'wantToPlay',
 ];
 
 export type TokenFamily =

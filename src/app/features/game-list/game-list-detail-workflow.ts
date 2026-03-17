@@ -2,7 +2,7 @@ import {
   GameEntry,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
-  ReviewMatchCandidate
+  ReviewMatchCandidate,
 } from '../../core/models/game.models';
 
 export interface ImagePickerState {
@@ -54,7 +54,7 @@ export function normalizeMetadataOptions(values: string[] | undefined): string[]
       values
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
         .filter((value) => value.length > 0)
-    )
+    ),
   ];
 }
 
@@ -82,7 +82,7 @@ export function createOpenedImagePickerState(
     imagePickerResults: [],
     imagePickerError: null,
     isImagePickerLoading: false,
-    isImagePickerModalOpen: true
+    isImagePickerModalOpen: true,
   };
 }
 
@@ -93,7 +93,7 @@ export function createClosedImagePickerState(previousRequestId: number): ImagePi
     imagePickerResults: [],
     imagePickerError: null,
     isImagePickerLoading: false,
-    isImagePickerModalOpen: false
+    isImagePickerModalOpen: false,
   };
 }
 
@@ -105,7 +105,7 @@ export function createOpenedHltbPickerState(game: GameEntry): HltbPickerState {
     hltbPickerQuery: game.title,
     hltbPickerResults: [],
     hltbPickerError: null,
-    hltbPickerTargetGame: game
+    hltbPickerTargetGame: game,
   };
 }
 
@@ -117,7 +117,7 @@ export function createClosedHltbPickerState(): HltbPickerState {
     hltbPickerQuery: '',
     hltbPickerResults: [],
     hltbPickerError: null,
-    hltbPickerTargetGame: null
+    hltbPickerTargetGame: null,
   };
 }
 
@@ -137,7 +137,7 @@ export function dedupeReviewCandidates<
     imageUrl?: string | null;
     reviewScore?: number | null;
     metacriticScore?: number | null;
-  }
+  },
 >(candidates: T[]): T[] {
   const deduped: T[] = [];
 
@@ -197,7 +197,7 @@ export function createOpenedMetacriticPickerState(game: GameEntry): MetacriticPi
     metacriticPickerQuery: nextState.reviewPickerQuery,
     metacriticPickerResults: nextState.reviewPickerResults as MetacriticMatchCandidate[],
     metacriticPickerError: nextState.reviewPickerError,
-    metacriticPickerTargetGame: nextState.reviewPickerTargetGame
+    metacriticPickerTargetGame: nextState.reviewPickerTargetGame,
   };
 }
 
@@ -209,7 +209,7 @@ export function createOpenedReviewPickerState(game: GameEntry): ReviewPickerStat
     reviewPickerQuery: game.title,
     reviewPickerResults: [],
     reviewPickerError: null,
-    reviewPickerTargetGame: game
+    reviewPickerTargetGame: game,
   };
 }
 
@@ -222,7 +222,7 @@ export function createClosedMetacriticPickerState(): MetacriticPickerState {
     metacriticPickerQuery: nextState.reviewPickerQuery,
     metacriticPickerResults: nextState.reviewPickerResults as MetacriticMatchCandidate[],
     metacriticPickerError: nextState.reviewPickerError,
-    metacriticPickerTargetGame: nextState.reviewPickerTargetGame
+    metacriticPickerTargetGame: nextState.reviewPickerTargetGame,
   };
 }
 
@@ -234,6 +234,6 @@ export function createClosedReviewPickerState(): ReviewPickerState {
     reviewPickerQuery: '',
     reviewPickerResults: [],
     reviewPickerError: null,
-    reviewPickerTargetGame: null
+    reviewPickerTargetGame: null,
   };
 }

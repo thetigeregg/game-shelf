@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import {
   RECOMMENDATION_IGNORED_STORAGE_KEY,
-  RecommendationIgnoreService
+  RecommendationIgnoreService,
 } from './recommendation-ignore.service';
 import { SyncEventsService } from './sync-events.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
@@ -11,7 +11,7 @@ import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 describe('RecommendationIgnoreService', () => {
   let changed$: Subject<void>;
   const outboxWriterMock = {
-    enqueueOperation: vi.fn().mockResolvedValue(undefined)
+    enqueueOperation: vi.fn().mockResolvedValue(undefined),
   };
 
   function configureTestingModule(includeOutboxWriter = true): void {
@@ -21,20 +21,20 @@ describe('RecommendationIgnoreService', () => {
       {
         provide: SyncEventsService,
         useValue: {
-          changed$: changed$.asObservable()
-        }
-      }
+          changed$: changed$.asObservable(),
+        },
+      },
     ];
 
     if (includeOutboxWriter) {
       providers.push({
         provide: SYNC_OUTBOX_WRITER,
-        useValue: outboxWriterMock
+        useValue: outboxWriterMock,
       });
     }
 
     TestBed.configureTestingModule({
-      providers
+      providers,
     });
   }
 
@@ -94,7 +94,7 @@ describe('RecommendationIgnoreService', () => {
           entityType: 'setting' | 'game' | 'tag' | 'view';
           operation: 'upsert' | 'delete';
           payload: { key?: string };
-        }
+        },
       ]
     >;
     const hasUpsert = calls.some(
@@ -137,8 +137,8 @@ describe('RecommendationIgnoreService', () => {
       JSON.stringify({
         version: 999,
         entries: [
-          { igdbGameId: '101', title: 'Chrono Trigger', ignoredAt: '2026-03-09T00:00:00.000Z' }
-        ]
+          { igdbGameId: '101', title: 'Chrono Trigger', ignoredAt: '2026-03-09T00:00:00.000Z' },
+        ],
       })
     );
     const service = TestBed.inject(RecommendationIgnoreService);
@@ -168,8 +168,8 @@ describe('RecommendationIgnoreService', () => {
         entries: [
           { igdbGameId: '15', title: 'zeta', ignoredAt: '2026-01-01T00:00:00.000Z' },
           { igdbGameId: '2', title: 'Alpha', ignoredAt: '2026-01-01T00:00:00.000Z' },
-          { igdbGameId: '10', title: 'alpha', ignoredAt: '2026-01-01T00:00:00.000Z' }
-        ]
+          { igdbGameId: '10', title: 'alpha', ignoredAt: '2026-01-01T00:00:00.000Z' },
+        ],
       })
     );
     const service = TestBed.inject(RecommendationIgnoreService);
@@ -185,15 +185,15 @@ describe('RecommendationIgnoreService', () => {
         version: 1,
         entries: [
           { igdbGameId: 'abc', title: 'Invalid', ignoredAt: '2026-01-01T00:00:00.000Z' },
-          { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' }
-        ]
+          { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' },
+        ],
       })
     );
     const service = TestBed.inject(RecommendationIgnoreService);
     service.refreshFromStorage();
 
     expect(service.listIgnored()).toEqual([
-      { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' }
+      { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' },
     ]);
   });
 
@@ -207,15 +207,15 @@ describe('RecommendationIgnoreService', () => {
           123,
           { igdbGameId: '55', title: 'Valid 55', ignoredAt: '2026-01-01T00:00:00.000Z' },
           'bad',
-          { igdbGameId: 'bad-id', title: 'Invalid', ignoredAt: '2026-01-01T00:00:00.000Z' }
-        ]
+          { igdbGameId: 'bad-id', title: 'Invalid', ignoredAt: '2026-01-01T00:00:00.000Z' },
+        ],
       })
     );
     const service = TestBed.inject(RecommendationIgnoreService);
     service.refreshFromStorage();
 
     expect(service.listIgnored()).toEqual([
-      { igdbGameId: '55', title: 'Valid 55', ignoredAt: '2026-01-01T00:00:00.000Z' }
+      { igdbGameId: '55', title: 'Valid 55', ignoredAt: '2026-01-01T00:00:00.000Z' },
     ]);
   });
 

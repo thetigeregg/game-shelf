@@ -13,6 +13,8 @@ interface SeedRow {
 
 class PoolMock {
   private readonly rows = new Map<string, SeedRow>();
+  private readonly backgroundJobs = new Map<string, number>();
+  private nextBackgroundJobId = 1000;
 
   seed(row: SeedRow): void {
     this.rows.set(this.key(row.igdbGameId, row.platformIgdbId), structuredClone(row));
@@ -98,6 +100,34 @@ class PoolMock {
         payload: nextPayload,
       });
       return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('insert into background_jobs')) {
+      const dedupeKey =
+        typeof params[1] === 'string' && params[1].trim().length > 0 ? params[1] : null;
+      if (dedupeKey !== null) {
+        const existingId = this.backgroundJobs.get(dedupeKey);
+        if (typeof existingId === 'number') {
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        }
+        const id = this.nextBackgroundJobId;
+        this.nextBackgroundJobId += 1;
+        this.backgroundJobs.set(dedupeKey, id);
+        return Promise.resolve({ rows: [{ id }], rowCount: 1 });
+      }
+
+      const id = this.nextBackgroundJobId;
+      this.nextBackgroundJobId += 1;
+      return Promise.resolve({ rows: [{ id }], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('select id from background_jobs where dedupe_key = $1')) {
+      const dedupeKey = typeof params[0] === 'string' ? params[0] : '';
+      const existingId = this.backgroundJobs.get(dedupeKey);
+      if (typeof existingId !== 'number') {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      return Promise.resolve({ rows: [{ id: existingId }], rowCount: 1 });
     }
 
     throw new Error(`Unsupported SQL in PoolMock: ${sql}`);
@@ -364,6 +394,66 @@ void test('admin discovery clear permanent miss route resets selected review ret
         nextTryAt: null,
         permanentMiss: true,
       },
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
+});
+
+void test('admin discovery requeue enrichment route enqueues the discovery job and dedupes repeated requests', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+
+  pool.seed({
+    igdbGameId: '30',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Queue Me',
+      platform: 'PC',
+      releaseYear: 2025,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const firstResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/games/30/6/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(firstResponse.statusCode, 200);
+    assert.deepEqual(JSON.parse(firstResponse.body), {
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 1000,
+    });
+
+    const secondResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/games/30/6/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(secondResponse.statusCode, 200);
+    assert.deepEqual(JSON.parse(secondResponse.body), {
+      ok: true,
+      queued: false,
+      deduped: true,
+      jobId: 1000,
     });
   } finally {
     config.requireAuth = originalRequireAuth;

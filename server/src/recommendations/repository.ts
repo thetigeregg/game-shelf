@@ -351,6 +351,44 @@ export class RecommendationRepository {
     }));
   }
 
+  async listDiscoveryRowsByGameKeys(
+    gameKeys: string[],
+    queryable: Queryable = this.pool
+  ): Promise<
+    Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>
+  > {
+    const normalizedKeys = [
+      ...new Set(gameKeys.map((key) => key.trim()).filter((key) => key.length > 0)),
+    ];
+    if (normalizedKeys.length === 0) {
+      return [];
+    }
+
+    const result = await queryable.query<DiscoveryGameRow>(
+      `
+      SELECT igdb_game_id, platform_igdb_id, payload
+      FROM games
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+        AND (igdb_game_id || '::' || platform_igdb_id::text) = ANY($1::text[])
+      ORDER BY updated_at DESC
+      `,
+      [normalizedKeys]
+    );
+
+    return result.rows.map((row) => ({
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id,
+      payload:
+        row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+          ? (row.payload as Record<string, unknown>)
+          : {},
+    }));
+  }
+
   async updateGamePayload(params: {
     client?: Queryable;
     igdbGameId: string;

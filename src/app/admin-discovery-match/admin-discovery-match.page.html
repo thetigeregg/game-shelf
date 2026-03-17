@@ -98,7 +98,7 @@
         @if (isListRequeueing) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
-        Queue discovery run
+        Queue current results
       </ion-button>
       <ion-button
         fill="outline"
@@ -111,7 +111,8 @@
         Clear visible permanent misses
       </ion-button>
       <ion-note color="medium">
-        {{ items.length }} shown · {{ scannedCount }} scanned · queues one global enrichment pass
+        {{ items.length }} shown · {{ scannedCount }} scanned · queues targeted enrichment for the
+        visible rows
       </ion-note>
     </div>
 

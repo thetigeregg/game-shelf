@@ -1390,6 +1390,10 @@ export class ExplorePage implements OnInit {
 
   private async runVisiblePopularityCatalogHydration(): Promise<void> {
     for (;;) {
+      if (!this.isPopularityExploreModeSelected()) {
+        return;
+      }
+
       this.popularityCatalogHydrationRerunRequested = false;
 
       const visibleItems = this.getActivePopularityItems();
@@ -1435,6 +1439,10 @@ export class ExplorePage implements OnInit {
       const ids = Array.from(candidateGameIds);
 
       for (let index = 0; index < ids.length; index += batchSize) {
+        if (!this.isPopularityExploreModeSelected()) {
+          return;
+        }
+
         const batch = ids.slice(index, index + batchSize);
         await Promise.all(
           batch.map(async (igdbGameId) => {
@@ -1457,6 +1465,10 @@ export class ExplorePage implements OnInit {
 
   private isPopularityCatalogHydrationRerunRequested(): boolean {
     return this.popularityCatalogHydrationRerunRequested;
+  }
+
+  private isPopularityExploreModeSelected(): boolean {
+    return this.selectedExploreMode === 'popularity';
   }
 
   getEmptyStateMessage(): string {

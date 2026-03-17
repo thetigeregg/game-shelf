@@ -10,38 +10,6 @@
 <ion-content [fullscreen]="true">
   <ion-list class="admin-match-list">
     <ion-list-header>
-      <ion-label>Admin Access</ion-label>
-    </ion-list-header>
-
-    <ion-item>
-      <ion-input
-        label="Admin API token"
-        labelPlacement="stacked"
-        type="password"
-        [value]="tokenDraft"
-        (ionInput)="tokenDraft = $any($event).detail.value || ''"
-      ></ion-input>
-    </ion-item>
-
-    <div class="toolbar-row">
-      <ion-button size="small" (click)="saveAdminToken()">Save token</ion-button>
-      <ion-button
-        size="small"
-        fill="outline"
-        color="medium"
-        [disabled]="!hasAdminToken"
-        (click)="clearAdminToken()"
-      >
-        Clear token
-      </ion-button>
-      <ion-note color="medium">
-        {{ hasAdminToken ? 'Configured on this device' : 'Required for admin routes' }}
-      </ion-note>
-    </div>
-  </ion-list>
-
-  <ion-list class="admin-match-list">
-    <ion-list-header>
       <ion-label>Discovery Queue Matches</ion-label>
     </ion-list-header>
 
@@ -83,7 +51,7 @@
     </ion-item>
 
     <div class="toolbar-row">
-      <ion-button [disabled]="!hasAdminToken || isLoading" (click)="loadItems()">
+      <ion-button [disabled]="!hasAccessToken || isLoading" (click)="loadItems()">
         @if (isLoading) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
@@ -92,7 +60,7 @@
       <ion-button
         fill="outline"
         color="secondary"
-        [disabled]="!hasAdminToken || isLoading || isListRequeueing || items.length === 0"
+        [disabled]="!hasAccessToken || isLoading || isListRequeueing || items.length === 0"
         (click)="requeueDiscoveryRun()"
       >
         @if (isListRequeueing) {
@@ -111,8 +79,12 @@
         Clear visible permanent misses
       </ion-button>
       <ion-note color="medium">
-        {{ items.length }} shown · {{ scannedCount }} scanned · queues targeted enrichment for the
-        visible rows
+        @if (hasAccessToken) {
+          {{ items.length }} shown · {{ scannedCount }} scanned · queues targeted enrichment for the
+          visible rows
+        } @else {
+          Uses the device write token from Settings.
+        }
       </ion-note>
     </div>
 
@@ -137,9 +109,9 @@
       <ion-item lines="none">
         <ion-label color="medium">
           {{
-            hasAdminToken
+            hasAccessToken
               ? 'No discovery games match the current filter.'
-              : 'Save an admin token to query the admin routes.'
+              : 'Set a device write token in Settings to use discovery match controls.'
           }}
         </ion-label>
       </ion-item>

@@ -3,11 +3,14 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AdminApiAuthService } from './admin-api-auth.service';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService,
+} from './client-write-auth.service';
 import { AdminDiscoveryMatchService } from './admin-discovery-match.service';
 
-class AdminApiAuthServiceMock {
-  token: string | null = 'admin-token-1';
+class ClientWriteAuthServiceMock {
+  token: string | null = 'device-token-1';
 
   getToken(): string | null {
     return this.token;
@@ -17,16 +20,16 @@ class AdminApiAuthServiceMock {
 describe('AdminDiscoveryMatchService', () => {
   let service: AdminDiscoveryMatchService;
   let httpMock: HttpTestingController;
-  let authService: AdminApiAuthServiceMock;
+  let authService: ClientWriteAuthServiceMock;
 
   beforeEach(() => {
-    authService = new AdminApiAuthServiceMock();
+    authService = new ClientWriteAuthServiceMock();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         AdminDiscoveryMatchService,
-        { provide: AdminApiAuthService, useValue: authService },
+        { provide: ClientWriteAuthService, useValue: authService },
       ],
     });
 
@@ -38,7 +41,7 @@ describe('AdminDiscoveryMatchService', () => {
     httpMock.verify();
   });
 
-  it('lists unmatched discovery rows with auth header and filters', async () => {
+  it('lists unmatched discovery rows with client token header and filters', async () => {
     const promise = firstValueFrom(
       service.listUnmatched({
         provider: 'hltb',
@@ -58,7 +61,7 @@ describe('AdminDiscoveryMatchService', () => {
       );
     });
 
-    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
     req.flush({ count: 0, scanned: 0, items: [] });
 
     await expect(promise).resolves.toEqual({ count: 0, scanned: 0, items: [] });
@@ -72,14 +75,14 @@ describe('AdminDiscoveryMatchService', () => {
     );
 
     expect(req.request.method).toBe('POST');
-    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
     expect(req.request.body).toEqual({ provider: 'review', gameKeys: ['1::6', '2::48'] });
     req.flush({ ok: true, provider: 'review', cleared: 2 });
 
     await expect(promise).resolves.toEqual({ ok: true, provider: 'review', cleared: 2 });
   });
 
-  it('omits auth header when no admin token is configured', async () => {
+  it('omits client token header when no device write token is configured', async () => {
     authService.token = null;
     const promise = firstValueFrom(service.getMatchState('123', 6));
 
@@ -87,7 +90,7 @@ describe('AdminDiscoveryMatchService', () => {
       `${environment.gameApiBaseUrl}/v1/admin/discovery/games/123/6/match-state`
     );
 
-    expect(req.request.headers.has('Authorization')).toBe(false);
+    expect(req.request.headers.has(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe(false);
     req.flush({
       igdbGameId: '123',
       platformIgdbId: 6,
@@ -172,7 +175,7 @@ describe('AdminDiscoveryMatchService', () => {
     );
 
     expect(req.request.method).toBe('POST');
-    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
     expect(req.request.body).toEqual({});
     req.flush({ ok: true, queued: true, deduped: false, jobId: 41 });
 
@@ -192,7 +195,7 @@ describe('AdminDiscoveryMatchService', () => {
     );
 
     expect(req.request.method).toBe('POST');
-    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
     expect(req.request.body).toEqual({ gameKeys: ['123::48', '456::6'] });
     req.flush({ ok: true, queued: false, deduped: true, jobId: 41 });
 

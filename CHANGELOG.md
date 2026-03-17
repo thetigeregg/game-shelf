@@ -2464,3 +2464,8 @@
 - 3972b029 fix(ui): hide newly added popularity games from popularity list
 - bb5870f7 fix(explore): prehydrate visible popularity catalog details before modal open
 
+## v1.5.6 - 2026-03-17
+- 61b22f62 Merge pull request #244 from thetigeregg/feat/popularity-ui
+- f64fe145 Merge branch 'main' into feat/popularity-ui
+- 53fadc90 fix(styles): change swiper imports to use url() syntax
+

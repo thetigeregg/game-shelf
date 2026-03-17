@@ -2480,3 +2480,11 @@
 - 3cb527ed Revert "chore: update tiptap and angular-eslint dependencies to latest versions"
 - 97252e80 chore: update tiptap and angular-eslint dependencies to latest versions
 
+## v1.5.8 - 2026-03-17
+- 5ef3cce7 Merge pull request #246 from thetigeregg/feat/scriptsz
+- 7e76862d fix: suggestions
+- d612b1f1 fix: scripts
+- 5083734a fix(scripts): include GitHub Advanced Security review comments in PR tasks
+- d4b2ec11 fix(scripts): skip empty security reviews in PR prompt generation
+- 5057b4a8 fix(scripts): skip outdated and security bot review threads
+

@@ -2353,7 +2353,7 @@ describe('ExplorePage explore modes UX', () => {
       { id: '1301', platformIgdbId: 6 },
       { id: '1302', platformIgdbId: 6 },
       { id: '1303', platformIgdbId: 6 },
-      { id: '1304', platformIgdbId: 6 }
+      { id: '1304', platformIgdbId: 6 },
     ];
     page.visiblePopularityCount = 10;
 

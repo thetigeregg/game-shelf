@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
-import { extractMetacriticSearchResults } from './search-parser.mjs';
+import {
+  extractMetacriticSearchResults,
+  METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
+  METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
+} from './search-parser.mjs';
 
 let browser;
 let page;
@@ -102,7 +106,9 @@ test.after(async () => {
 
 async function parseHtml(html) {
   await page.setContent(html, { waitUntil: 'domcontentloaded' });
-  return await page.evaluate(extractMetacriticSearchResults);
+  return await page.evaluate(extractMetacriticSearchResults, {
+    rowSelector: METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
+  });
 }
 
 test('extractMetacriticSearchResults parses legacy search result rows', async () => {
@@ -154,4 +160,13 @@ test('extractMetacriticSearchResults does not infer PC from unrelated words', as
   assert.equal(results.length, 1);
   assert.equal(results[0].title, 'Epic Quest');
   assert.equal(results[0].platform, null);
+});
+
+test('search selector exports keep browser wait and parser row selection aligned', () => {
+  assert.match(
+    METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
+    new RegExp(METACRITIC_SEARCH_RESULT_ROW_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  );
+  assert.match(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, /\[data-testid="search-results"\]/u);
+  assert.equal(METACRITIC_SEARCH_RESULTS_READY_SELECTOR.includes('a[href*="/game/"]'), false);
 });

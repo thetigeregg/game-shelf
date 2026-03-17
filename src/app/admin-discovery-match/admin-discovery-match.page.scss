@@ -1,0 +1,35 @@
+.admin-match-list {
+  padding-bottom: 12px;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 0 16px 12px;
+}
+
+.game-row {
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.modal-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 240px;
+}
+
+.modal-actions {
+  padding-top: 16px;
+  padding-bottom: 24px;
+}

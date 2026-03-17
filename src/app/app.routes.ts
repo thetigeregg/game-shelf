@@ -2,6 +2,13 @@ import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
+    path: 'admin/discovery-matches',
+    loadComponent: () =>
+      import('./admin-discovery-match/admin-discovery-match.page').then(
+        (m) => m.AdminDiscoveryMatchPage
+      ),
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings.page').then((m) => m.SettingsPage),
   },

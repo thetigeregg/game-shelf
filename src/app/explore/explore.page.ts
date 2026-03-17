@@ -256,7 +256,7 @@ export class ExplorePage implements OnInit {
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
-  private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  private readonly catalogCache = new Map<string, GameCatalogResult>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
   private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
@@ -447,8 +447,11 @@ export class ExplorePage implements OnInit {
 
   async loadMorePopularity(event: Event): Promise<void> {
     this.visiblePopularityCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    await this.ensureVisiblePopularityCatalogHydrated();
-    await completeIonInfiniteScroll(event);
+    try {
+      await completeIonInfiniteScroll(event);
+    } finally {
+      this.scheduleVisiblePopularityCatalogHydration();
+    }
   }
 
   getVisibleSimilarRecommendationItems(): RecommendationSimilarItem[] {
@@ -778,7 +781,7 @@ export class ExplorePage implements OnInit {
   async openPopularityGameDetail(item: PopularityFeedItem): Promise<void> {
     const requestedIdentityKey = this.buildIdentityKey(item.id, item.platformIgdbId);
     const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
-    const cachedCatalog = this.getRecommendationCatalogResult(item.id);
+    const cachedCatalog = this.getCatalogResult(item.id);
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
@@ -808,7 +811,7 @@ export class ExplorePage implements OnInit {
     if (!local) {
       try {
         if (!initialCatalog) {
-          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.id);
+          const fetchedCatalog = await this.fetchCatalogResult(item.id);
           if (fetchedCatalog && this.hasSelectedDetailIdentity(requestedIdentityKey)) {
             this.selectedGameDetail = this.withCatalogPlatformContext(
               fetchedCatalog,
@@ -847,7 +850,7 @@ export class ExplorePage implements OnInit {
     }
 
     const local = this.getLocalGame(item);
-    const cachedCatalog = this.getRecommendationCatalogResult(item.igdbGameId);
+    const cachedCatalog = this.getCatalogResult(item.igdbGameId);
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
@@ -881,7 +884,7 @@ export class ExplorePage implements OnInit {
     if (!local) {
       try {
         if (!initialCatalog) {
-          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.igdbGameId);
+          const fetchedCatalog = await this.fetchCatalogResult(item.igdbGameId);
           if (
             fetchedCatalog &&
             this.activeDetailRecommendation.igdbGameId === item.igdbGameId &&
@@ -1413,7 +1416,7 @@ export class ExplorePage implements OnInit {
           continue;
         }
 
-        if (this.recommendationCatalogCache.has(igdbGameId)) {
+        if (this.catalogCache.has(igdbGameId)) {
           continue;
         }
 
@@ -1448,7 +1451,7 @@ export class ExplorePage implements OnInit {
           batch.map(async (igdbGameId) => {
             this.popularityCatalogHydrationInFlight.add(igdbGameId);
             try {
-              await this.fetchRecommendationCatalogResult(igdbGameId);
+              await this.fetchCatalogResult(igdbGameId);
             } finally {
               this.popularityCatalogHydrationInFlight.delete(igdbGameId);
               this.popularityCatalogHydrationAttempted.add(igdbGameId);
@@ -1773,8 +1776,8 @@ export class ExplorePage implements OnInit {
     );
   }
 
-  private getRecommendationCatalogResult(igdbGameId: string): GameCatalogResult | null {
-    return this.recommendationCatalogCache.get(igdbGameId) ?? null;
+  private getCatalogResult(igdbGameId: string): GameCatalogResult | null {
+    return this.catalogCache.get(igdbGameId) ?? null;
   }
 
   private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
@@ -2112,8 +2115,7 @@ export class ExplorePage implements OnInit {
       await Promise.all(
         batch.map(async ([igdbGameId, platformIds]) => {
           const catalog =
-            this.recommendationCatalogCache.get(igdbGameId) ??
-            (await this.fetchRecommendationCatalogResult(igdbGameId));
+            this.catalogCache.get(igdbGameId) ?? (await this.fetchCatalogResult(igdbGameId));
 
           if (!catalog) {
             return;
@@ -2384,12 +2386,10 @@ export class ExplorePage implements OnInit {
     return formatter;
   }
 
-  private async fetchRecommendationCatalogResult(
-    igdbGameId: string
-  ): Promise<GameCatalogResult | null> {
+  private async fetchCatalogResult(igdbGameId: string): Promise<GameCatalogResult | null> {
     try {
       const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
-      this.recommendationCatalogCache.set(igdbGameId, catalog);
+      this.catalogCache.set(igdbGameId, catalog);
       return catalog;
     } catch {
       return null;

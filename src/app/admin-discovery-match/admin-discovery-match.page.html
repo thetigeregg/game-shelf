@@ -118,7 +118,12 @@
 
     @if (listQueueStatusMessage) {
       <ion-item lines="none">
-        <ion-label [color]="listQueueStatusTone">{{ listQueueStatusMessage }}</ion-label>
+        <ion-label>
+          <div [class]="'ion-text-' + listQueueStatusTone">{{ listQueueStatusMessage }}</div>
+          @if (listQueueStatusDetail) {
+            <p class="queue-status-detail">{{ listQueueStatusDetail }}</p>
+          }
+        </ion-label>
       </ion-item>
     }
 
@@ -708,7 +713,14 @@
 
           @if (activeQueueStatusMessage) {
             <ion-item lines="none">
-              <ion-label [color]="activeQueueStatusTone">{{ activeQueueStatusMessage }}</ion-label>
+              <ion-label>
+                <div [class]="'ion-text-' + activeQueueStatusTone">
+                  {{ activeQueueStatusMessage }}
+                </div>
+                @if (activeQueueStatusDetail) {
+                  <p class="queue-status-detail">{{ activeQueueStatusDetail }}</p>
+                }
+              </ion-label>
             </ion-item>
           }
         </ion-list>

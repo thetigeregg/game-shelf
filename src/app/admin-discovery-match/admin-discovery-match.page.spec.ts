@@ -175,10 +175,12 @@ function createPageHarness(): {
     },
   ]);
   setField(page, 'listQueueStatusMessage', null);
+  setField(page, 'listQueueStatusDetail', null);
   setField(page, 'listQueueStatusTone', 'success');
   setField(page, 'isListRequeueing', false);
   setField(page, 'isRequeueing', false);
   setField(page, 'activeQueueStatusMessage', null);
+  setField(page, 'activeQueueStatusDetail', null);
   setField(page, 'activeQueueStatusTone', 'success');
   setField(page, 'hltbSearchQuery', 'Chrono Trigger');
   setField(page, 'hltbSearchResults', []);
@@ -353,6 +355,7 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.activeQueueStatusMessage).toBe(
       'Targeted discovery enrichment queued for this game.'
     );
+    expect(page.activeQueueStatusDetail).toBe('Targeted row: Chrono Trigger (PlayStation, 1999)');
     expect(page.activeQueueStatusTone).toBe('success');
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -370,6 +373,7 @@ describe('AdminDiscoveryMatchPage', () => {
 
     expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
     expect(page.listQueueStatusMessage).toBe('Targeted discovery enrichment is already queued.');
+    expect(page.listQueueStatusDetail).toBe('1 row targeted: Chrono Trigger (PlayStation, 1999)');
     expect(page.listQueueStatusTone).toBe('warning');
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -393,10 +397,65 @@ describe('AdminDiscoveryMatchPage', () => {
 
       expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
       expect(page.listQueueStatusMessage).toBe('queue offline');
+      expect(page.listQueueStatusDetail).toBe('1 row targeted: Chrono Trigger (PlayStation, 1999)');
       expect(page.listQueueStatusTone).toBe('danger');
       expect(page.isListRequeueing).toBe(false);
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it('summarizes multiple targeted rows in the persistent list status detail', async () => {
+    const { page, adminMatchService } = createPageHarness();
+
+    page.items = [
+      {
+        igdbGameId: '123',
+        platformIgdbId: 48,
+        title: 'Chrono Trigger',
+        platform: 'PlayStation',
+        releaseYear: 1999,
+        matchState: createDetail().matchState,
+      },
+      {
+        igdbGameId: '200',
+        platformIgdbId: 6,
+        title: 'Half-Life',
+        platform: 'PC',
+        releaseYear: 1998,
+        matchState: createDetail().matchState,
+      },
+      {
+        igdbGameId: '300',
+        platformIgdbId: 167,
+        title: 'Astro Bot',
+        platform: 'PlayStation 5',
+        releaseYear: 2024,
+        matchState: createDetail().matchState,
+      },
+      {
+        igdbGameId: '400',
+        platformIgdbId: 130,
+        title: 'Nioh',
+        platform: 'PlayStation 4',
+        releaseYear: 2017,
+        matchState: createDetail().matchState,
+      },
+    ];
+    adminMatchService.requeueEnrichmentRun.mockReturnValue(
+      of({ ok: true, queued: true, deduped: false, jobId: 71 })
+    );
+
+    await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
+
+    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith([
+      '123::48',
+      '200::6',
+      '300::167',
+      '400::130',
+    ]);
+    expect(page.listQueueStatusDetail).toBe(
+      '4 rows targeted: Chrono Trigger (PlayStation, 1999), Half-Life (PC, 1998), Astro Bot (PlayStation 5, 2024), +1 more'
+    );
   });
 });

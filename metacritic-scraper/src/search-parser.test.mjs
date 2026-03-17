@@ -253,7 +253,7 @@ test('extractMetacriticSearchResults falls back to the Nuxt payload when no resu
     platform: 'Nintendo Switch',
     metacriticScore: 89,
     metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
-    imageUrl: 'https://www.metacritic.com/provider/6/3/6-1-853953-13.jpg',
+    imageUrl: null,
   });
 });
 

@@ -280,19 +280,12 @@ export class AdminDiscoveryMatchPage {
       const response = await firstValueFrom(
         this.adminMatchService.requeueEnrichmentRun(targetedKeys)
       );
-      this.setListQueueStatus(
-        response.deduped
-          ? 'Targeted discovery enrichment is already queued.'
-          : 'Targeted discovery enrichment queued for the current results.',
-        this.describeTargetedRows(this.items),
-        response.deduped ? 'warning' : 'success'
-      );
-      await this.presentToast(
-        response.deduped
-          ? 'Targeted discovery enrichment is already queued.'
-          : 'Targeted discovery enrichment queued for the current results.',
-        'success'
-      );
+      const queueTone: QueueStatusTone = response.deduped ? 'warning' : 'success';
+      const queueMessage = response.deduped
+        ? 'Targeted discovery enrichment is already queued.'
+        : 'Targeted discovery enrichment queued for the current results.';
+      this.setListQueueStatus(queueMessage, this.describeTargetedRows(this.items), queueTone);
+      await this.presentToast(queueMessage, queueTone);
     } catch (error) {
       this.setListQueueStatus(
         this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
@@ -409,19 +402,12 @@ export class AdminDiscoveryMatchPage {
           this.activeDetail.platformIgdbId
         )
       );
-      this.setActiveQueueStatus(
-        response.deduped
-          ? 'Targeted discovery enrichment is already queued.'
-          : 'Targeted discovery enrichment queued for this game.',
-        this.describeActiveTarget(),
-        response.deduped ? 'warning' : 'success'
-      );
-      await this.presentToast(
-        response.deduped
-          ? 'Targeted discovery enrichment is already queued.'
-          : 'Targeted discovery enrichment queued for this game.',
-        'success'
-      );
+      const queueTone: QueueStatusTone = response.deduped ? 'warning' : 'success';
+      const queueMessage = response.deduped
+        ? 'Targeted discovery enrichment is already queued.'
+        : 'Targeted discovery enrichment queued for this game.';
+      this.setActiveQueueStatus(queueMessage, this.describeActiveTarget(), queueTone);
+      await this.presentToast(queueMessage, queueTone);
     } catch (error) {
       this.setActiveQueueStatus(
         this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),

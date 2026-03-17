@@ -110,7 +110,8 @@ test('extractMetacriticSearchResults parses legacy search result rows', async ()
 
   assert.equal(results.length, 1);
   assert.deepEqual(results[0], {
-    title: "Super Mario 3D World + Bowser's Fury",
+    // prettier-ignore
+    title: 'Super Mario 3D World + Bowser\'s Fury',
     releaseYear: 2021,
     platform: 'Nintendo Switch',
     metacriticScore: 89,
@@ -124,7 +125,8 @@ test('extractMetacriticSearchResults parses current link-first layout without le
 
   assert.equal(results.length, 1);
   assert.deepEqual(results[0], {
-    title: "Super Mario 3D World + Bowser's Fury",
+    // prettier-ignore
+    title: 'Super Mario 3D World + Bowser\'s Fury',
     releaseYear: 2021,
     platform: 'Nintendo Switch',
     metacriticScore: 89,

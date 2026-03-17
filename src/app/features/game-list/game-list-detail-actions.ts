@@ -3,7 +3,7 @@ import {
   GameRating,
   GameStatus,
   Tag,
-  isGameRating
+  isGameRating,
 } from '../../core/models/game.models';
 
 export function hasHltbData(game: GameEntry): boolean {
@@ -53,7 +53,7 @@ export function buildTagInput(
     type: 'checkbox',
     label: tag.name,
     value: String(tagId),
-    checked: selectedTagIds.includes(tagId)
+    checked: selectedTagIds.includes(tagId),
   };
 }
 
@@ -79,7 +79,7 @@ export function normalizeTagIds(tagIds: number[] | undefined): number[] {
       tagIds
         .filter((tagId) => Number.isInteger(tagId) && tagId > 0)
         .map((tagId) => Math.trunc(tagId))
-    )
+    ),
   ];
 }
 

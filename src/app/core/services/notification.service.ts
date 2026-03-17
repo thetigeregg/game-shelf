@@ -27,7 +27,7 @@ export class NotificationService {
   private readonly router = inject(Router);
   private readonly messaging = inject(Messaging, { optional: true });
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
-    optional: true
+    optional: true,
   });
   private initialized = false;
   private initializing: Promise<void> | null = null;
@@ -116,7 +116,7 @@ export class NotificationService {
         changed: coercePreferenceBoolean(parsed['changed'], true),
         removed: coercePreferenceBoolean(parsed['removed'], true),
         day: coercePreferenceBoolean(parsed['day'], true),
-        sale: coercePreferenceBoolean(parsed['sale'], true)
+        sale: coercePreferenceBoolean(parsed['sale'], true),
       };
     } catch {
       return { set: true, changed: true, removed: true, day: true, sale: true };
@@ -239,7 +239,7 @@ export class NotificationService {
     const backendUnregisterOk = storedToken
       ? await firstValueFrom(
           this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`, {
-            token: storedToken
+            token: storedToken,
           })
         )
           .then(() => true)
@@ -264,7 +264,7 @@ export class NotificationService {
 
     return {
       ok: false,
-      message: 'Notifications were disabled locally, but device unregister did not fully complete.'
+      message: 'Notifications were disabled locally, but device unregister did not fully complete.',
     };
   }
 
@@ -288,7 +288,7 @@ export class NotificationService {
 
     const token = await getToken(this.messaging, {
       vapidKey,
-      serviceWorkerRegistration
+      serviceWorkerRegistration,
     }).catch((error: unknown) => {
       console.error('[notifications] token_registration_failed', error);
       return null;
@@ -298,7 +298,7 @@ export class NotificationService {
       return {
         ok: false,
         message:
-          'Unable to register the device for notifications. Check Firebase web config/VAPID values.'
+          'Unable to register the device for notifications. Check Firebase web config/VAPID values.',
       };
     }
 
@@ -308,7 +308,7 @@ export class NotificationService {
         platform: this.resolveDevicePlatform(),
         appVersion: getAppVersion(),
         userAgent: navigator.userAgent,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
     ).catch((error: unknown) => {
       console.error('[notifications] backend_register_failed', error);
@@ -318,7 +318,7 @@ export class NotificationService {
     if (!registeredOnBackend) {
       return {
         ok: false,
-        message: 'Unable to save this device token on the server.'
+        message: 'Unable to save this device token on the server.',
       };
     }
 
@@ -383,7 +383,7 @@ export class NotificationService {
     const showWindowNotification = (): void => {
       const notification = new Notification(title, {
         body,
-        data: notificationData
+        data: notificationData,
       });
 
       notification.onclick = () => {
@@ -410,7 +410,7 @@ export class NotificationService {
             // keeps in-tab router navigation.
             return registration.showNotification(title, {
               body,
-              data: notificationData
+              data: notificationData,
             });
           }
 
@@ -452,7 +452,7 @@ export class NotificationService {
     void this.outboxWriter.enqueueOperation({
       entityType: 'setting',
       operation: 'upsert',
-      payload: { key, value }
+      payload: { key, value },
     });
   }
 }

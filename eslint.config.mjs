@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const compat = new FlatCompat({
   baseDirectory: __dirname,
   recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all
+  allConfig: js.configs.all,
 });
 const jsTsFiles = ['**/*.{js,mjs,cjs,jsx,mjsx,ts,tsx,mtsx}'];
 const tsFiles = ['**/*.{ts,tsx,mts,cts}'];
@@ -24,20 +24,20 @@ export default defineConfig([
     'dist/**/*',
     'www/**/*',
     '.angular/**/*',
-    'test-results/**/*'
+    'test-results/**/*',
   ]),
 
   {
     ...importX.flatConfigs.recommended,
-    files: jsTsFiles
+    files: jsTsFiles,
   },
   {
     ...importX.flatConfigs.typescript,
-    files: jsTsFiles
+    files: jsTsFiles,
   },
   ...tseslintConfigs.strictTypeChecked.map((config) => ({
     ...config,
-    files: tsFiles
+    files: tsFiles,
   })),
   {
     files: ['**/*.ts'],
@@ -49,7 +49,7 @@ export default defineConfig([
 
     plugins: {
       'import-x': importX,
-      'unused-imports': unusedImports
+      'unused-imports': unusedImports,
     },
 
     languageOptions: {
@@ -58,8 +58,8 @@ export default defineConfig([
 
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: __dirname
-      }
+        tsconfigRootDir: __dirname,
+      },
     },
 
     rules: {
@@ -72,8 +72,8 @@ export default defineConfig([
           vars: 'all',
           varsIgnorePattern: '^_',
           args: 'after-used',
-          argsIgnorePattern: '^_'
-        }
+          argsIgnorePattern: '^_',
+        },
       ],
 
       '@angular-eslint/prefer-standalone': 'off',
@@ -81,8 +81,8 @@ export default defineConfig([
       '@angular-eslint/component-class-suffix': [
         'error',
         {
-          suffixes: ['Page', 'Component']
-        }
+          suffixes: ['Page', 'Component'],
+        },
       ],
 
       '@angular-eslint/component-selector': [
@@ -90,8 +90,8 @@ export default defineConfig([
         {
           type: 'element',
           prefix: 'app',
-          style: 'kebab-case'
-        }
+          style: 'kebab-case',
+        },
       ],
 
       '@angular-eslint/directive-selector': [
@@ -99,8 +99,8 @@ export default defineConfig([
         {
           type: 'attribute',
           prefix: 'app',
-          style: 'camelCase'
-        }
+          style: 'camelCase',
+        },
       ],
 
       'no-restricted-properties': [
@@ -109,20 +109,20 @@ export default defineConfig([
           object: 'window',
           property: 'Capacitor',
           message:
-            'Do not use window.Capacitor directly. Import Capacitor plugins from their @capacitor/* packages.'
+            'Do not use window.Capacitor directly. Import Capacitor plugins from their @capacitor/* packages.',
         },
         {
           object: 'Capacitor',
           property: 'Plugins',
           message:
-            'Do not use Capacitor.Plugins directly. Import Capacitor plugins from their @capacitor/* packages.'
-        }
-      ]
-    }
+            'Do not use Capacitor.Plugins directly. Import Capacitor plugins from their @capacitor/* packages.',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.html'],
     extends: compat.extends('plugin:@angular-eslint/template/recommended'),
-    rules: {}
-  }
+    rules: {},
+  },
 ]);

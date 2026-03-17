@@ -17,8 +17,8 @@ export function registerRecommendationRoutes(
     config: {
       rateLimit: {
         max: 30,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
@@ -50,7 +50,7 @@ export function registerRecommendationRoutes(
           const fallbackQueue = await service.enqueueRebuild({
             target,
             force: false,
-            triggeredBy: 'stale-read'
+            triggeredBy: 'stale-read',
           });
           responseJobId = fallbackQueue.jobId;
           responseReason = 'missing';
@@ -60,7 +60,7 @@ export function registerRecommendationRoutes(
           status: 'QUEUED',
           jobId: responseJobId,
           reason: responseReason,
-          error: 'No recommendations available yet. Rebuild has been queued.'
+          error: 'No recommendations available yet. Rebuild has been queued.',
         });
         return;
       }
@@ -73,9 +73,9 @@ export function registerRecommendationRoutes(
         staleRefreshQueued: queueState.queued,
         staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
         staleRefreshJobId: queueState.jobId,
-        items: result.items
+        items: result.items,
       });
-    }
+    },
   });
 
   app.route({
@@ -84,8 +84,8 @@ export function registerRecommendationRoutes(
     config: {
       rateLimit: {
         max: 30,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
@@ -117,7 +117,7 @@ export function registerRecommendationRoutes(
           const fallbackQueue = await service.enqueueRebuild({
             target,
             force: false,
-            triggeredBy: 'stale-read'
+            triggeredBy: 'stale-read',
           });
           responseJobId = fallbackQueue.jobId;
           responseReason = 'missing';
@@ -127,7 +127,7 @@ export function registerRecommendationRoutes(
           status: 'QUEUED',
           jobId: responseJobId,
           reason: responseReason,
-          error: 'No recommendations available yet. Rebuild has been queued.'
+          error: 'No recommendations available yet. Rebuild has been queued.',
         });
         return;
       }
@@ -140,9 +140,9 @@ export function registerRecommendationRoutes(
         staleRefreshQueued: queueState.queued,
         staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
         staleRefreshJobId: queueState.jobId,
-        lanes: result.lanes
+        lanes: result.lanes,
       });
-    }
+    },
   });
 
   app.route({
@@ -151,8 +151,8 @@ export function registerRecommendationRoutes(
     config: {
       rateLimit: {
         max: 10,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as RebuildBody;
@@ -169,9 +169,9 @@ export function registerRecommendationRoutes(
         target,
         status: 'QUEUED',
         jobId: result.jobId,
-        deduped: result.deduped
+        deduped: result.deduped,
       });
-    }
+    },
   });
 
   app.route({
@@ -180,8 +180,8 @@ export function registerRecommendationRoutes(
     config: {
       rateLimit: {
         max: 30,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const params = request.params as { igdbGameId?: unknown };
@@ -229,18 +229,18 @@ export function registerRecommendationRoutes(
         platformIgdbId,
         target,
         runtimeMode,
-        limit
+        limit,
       });
 
       reply.send({
         source: {
           igdbGameId,
-          platformIgdbId
+          platformIgdbId,
         },
         runtimeMode: result.runtimeMode,
-        items: result.items
+        items: result.items,
       });
-    }
+    },
   });
 
   return Promise.resolve();

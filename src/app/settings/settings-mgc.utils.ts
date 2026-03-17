@@ -78,7 +78,7 @@ export function parseMgcLabels(raw: string): string[] {
         .split(',')
         .map((value) => value.trim())
         .filter((value) => value.length > 0)
-    )
+    ),
   ];
 }
 

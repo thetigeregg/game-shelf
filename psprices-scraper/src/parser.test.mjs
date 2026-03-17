@@ -15,7 +15,7 @@ test('normalizeCandidate parses CHF amount and discount fields', () => {
     collectionTagCount: 2,
     hasMostEngagingTag: 'true',
     metacriticScore: '92',
-    openCriticScore: '91'
+    openCriticScore: '91',
   });
 
   assert.ok(candidate);
@@ -38,7 +38,7 @@ test('normalizeCandidate treats free labels as zero amount', () => {
     priceText: 'Free',
     oldPriceText: '',
     discountText: '',
-    url: 'https://psprices.com/region-ch/game/4490375/fortnite-fortnite'
+    url: 'https://psprices.com/region-ch/game/4490375/fortnite-fortnite',
   });
 
   assert.ok(candidate);
@@ -53,7 +53,7 @@ test('normalizeCandidate treats localized free labels as zero amount', () => {
     priceText: 'Kostenlos',
     oldPriceText: '',
     discountText: '',
-    url: 'https://psprices.com/region-us/game/6764113/fortnite-battle-royale'
+    url: 'https://psprices.com/region-us/game/6764113/fortnite-battle-royale',
   });
 
   assert.ok(candidate);
@@ -67,7 +67,7 @@ test('normalizeCandidate handles PS+ text and keeps base amount', () => {
     priceText: 'CHF 2.73 2.53 PS+',
     oldPriceText: 'CHF 4.20',
     discountText: '-35%',
-    url: 'https://psprices.com/region-ch/game/7800090/connect-pictures-of-dog'
+    url: 'https://psprices.com/region-ch/game/7800090/connect-pictures-of-dog',
   });
 
   assert.ok(candidate);
@@ -84,7 +84,7 @@ test('normalizeCandidate can infer currency from symbols', () => {
     priceText: '\u20ac19.99',
     oldPriceText: '',
     discountText: '',
-    url: 'https://psprices.com/region-ch/game/123/example-game'
+    url: 'https://psprices.com/region-ch/game/123/example-game',
   });
 
   assert.ok(candidate);
@@ -97,7 +97,7 @@ test('normalizeCandidate keeps normalized cover image URLs when present', () => 
     title: 'Example Game',
     priceText: 'CHF 19.99',
     imageUrl: '//image.api.playstation.com/example.jpg',
-    url: 'https://psprices.com/region-ch/game/123/example-game'
+    url: 'https://psprices.com/region-ch/game/123/example-game',
   });
 
   assert.ok(candidate);

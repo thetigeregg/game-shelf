@@ -7,7 +7,7 @@ import {
   readDiscoveryEnrichmentApiBaseUrl,
   readPositiveIntegerEnv,
   shouldRunPricingRefreshPhase,
-  stringOrEmpty
+  stringOrEmpty,
 } from './background-worker.js';
 
 void test('background worker reads discovery enrich API base URL with trim + fallback', () => {
@@ -111,7 +111,7 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
       trigger: 'startup',
       nowMs,
       lastRunMs,
-      intervalMinutes: 60
+      intervalMinutes: 60,
     }),
     false
   );
@@ -122,7 +122,7 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
       trigger: 'startup',
       nowMs,
       lastRunMs,
-      intervalMinutes: 60
+      intervalMinutes: 60,
     }),
     true
   );
@@ -133,7 +133,7 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
       trigger: 'interval',
       nowMs,
       lastRunMs,
-      intervalMinutes: 60
+      intervalMinutes: 60,
     }),
     false
   );
@@ -144,7 +144,7 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
       trigger: 'interval',
       nowMs,
       lastRunMs: nowMs - 60 * 60 * 1000,
-      intervalMinutes: 60
+      intervalMinutes: 60,
     }),
     true
   );
@@ -153,7 +153,7 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
 void test('pricing freshness ignores provider attempt timestamps without unified price value', () => {
   const payload = {
     steamPriceFetchedAt: '2026-03-12T07:00:00.000Z',
-    psPricesFetchedAt: '2026-03-12T07:00:00.000Z'
+    psPricesFetchedAt: '2026-03-12T07:00:00.000Z',
   } satisfies Record<string, unknown>;
 
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(payload), null);
@@ -162,11 +162,11 @@ void test('pricing freshness ignores provider attempt timestamps without unified
 void test('pricing freshness uses unified priceFetchedAt for paid/free snapshots', () => {
   const paidPayload = {
     priceAmount: 19.99,
-    priceFetchedAt: '2026-03-12T07:00:00.000Z'
+    priceFetchedAt: '2026-03-12T07:00:00.000Z',
   } satisfies Record<string, unknown>;
   const freePayload = {
     priceIsFree: true,
-    priceFetchedAt: '2026-03-12T08:00:00.000Z'
+    priceFetchedAt: '2026-03-12T08:00:00.000Z',
   } satisfies Record<string, unknown>;
 
   assert.equal(
@@ -182,11 +182,11 @@ void test('pricing freshness uses unified priceFetchedAt for paid/free snapshots
 void test('pricing freshness returns null for invalid/blank unified priceFetchedAt', () => {
   const blankPayload = {
     priceAmount: 9.99,
-    priceFetchedAt: '   '
+    priceFetchedAt: '   ',
   } satisfies Record<string, unknown>;
   const invalidPayload = {
     priceIsFree: true,
-    priceFetchedAt: 'not-a-date'
+    priceFetchedAt: 'not-a-date',
   } satisfies Record<string, unknown>;
 
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(blankPayload), null);
@@ -196,14 +196,14 @@ void test('pricing freshness returns null for invalid/blank unified priceFetched
 void test('PSPrices revalidation title prefers saved match query title over game title', () => {
   const withOverride = {
     title: 'Pokemon Violet',
-    psPricesMatchQueryTitle: 'Pokemon Scarlet'
+    psPricesMatchQueryTitle: 'Pokemon Scarlet',
   } satisfies Record<string, unknown>;
   const withoutOverride = {
-    title: 'Pokemon Violet'
+    title: 'Pokemon Violet',
   } satisfies Record<string, unknown>;
   const blankValues = {
     title: '   ',
-    psPricesMatchQueryTitle: ''
+    psPricesMatchQueryTitle: '',
   } satisfies Record<string, unknown>;
 
   assert.equal(
@@ -221,15 +221,15 @@ void test('PSPrices revalidation URL prefers psPricesUrl and falls back to pspri
   const explicitUrl = {
     psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
     priceSource: 'psprices',
-    priceUrl: 'https://psprices.com/region-ch/game/9999/ignored'
+    priceUrl: 'https://psprices.com/region-ch/game/9999/ignored',
   } satisfies Record<string, unknown>;
   const sourceFallback = {
     priceSource: 'psprices',
-    priceUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+    priceUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
   } satisfies Record<string, unknown>;
   const nonPsprices = {
     priceSource: 'steam_store',
-    priceUrl: 'https://store.steampowered.com/app/730'
+    priceUrl: 'https://store.steampowered.com/app/730',
   } satisfies Record<string, unknown>;
 
   assert.equal(

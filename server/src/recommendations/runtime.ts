@@ -3,7 +3,7 @@ import { RecommendationRuntimeMode } from './types.js';
 export const RECOMMENDATION_RUNTIME_MODES: RecommendationRuntimeMode[] = [
   'NEUTRAL',
   'SHORT',
-  'LONG'
+  'LONG',
 ];
 
 export function parseRecommendationRuntimeMode(value: unknown): RecommendationRuntimeMode | null {

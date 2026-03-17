@@ -28,7 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -39,22 +39,22 @@ void test('similarity graph stores only top K entries per source', () => {
       title: 'Mario A',
       collections: ['Mario'],
       genres: ['Platformer'],
-      developers: ['Nintendo']
+      developers: ['Nintendo'],
     }),
     buildGame({
       igdbGameId: '2',
       title: 'Mario B',
       collections: ['Mario'],
       genres: ['Platformer'],
-      developers: ['Nintendo']
+      developers: ['Nintendo'],
     }),
     buildGame({
       igdbGameId: '3',
       title: 'Zelda',
       collections: ['Zelda'],
       genres: ['Adventure'],
-      developers: ['Nintendo']
-    })
+      developers: ['Nintendo'],
+    }),
   ];
 
   const edges = buildSimilarityGraph({ games, topK: 1 });
@@ -74,20 +74,20 @@ void test('similarity graph excludes same game across different platforms', () =
       igdbGameId: '1',
       platformIgdbId: 6,
       title: 'Game One (PC)',
-      collections: ['Series A']
+      collections: ['Series A'],
     }),
     buildGame({
       igdbGameId: '1',
       platformIgdbId: 48,
       title: 'Game One (PS5)',
-      collections: ['Series A']
+      collections: ['Series A'],
     }),
     buildGame({
       igdbGameId: '2',
       platformIgdbId: 6,
       title: 'Game Two',
-      collections: ['Series A']
-    })
+      collections: ['Series A'],
+    }),
   ];
 
   const edges = buildSimilarityGraph({ games, topK: 5 });
@@ -109,27 +109,27 @@ void test('similarity series overlap de-duplicates shared collection+franchise l
     igdbGameId: '1',
     title: 'Mario Source',
     collections: ['Mario'],
-    franchises: ['Mario']
+    franchises: ['Mario'],
   });
 
   const targetWithBoth = buildGame({
     igdbGameId: '2',
     title: 'Mario Both',
     collections: ['Mario'],
-    franchises: ['Mario']
+    franchises: ['Mario'],
   });
 
   const targetCollectionOnly = buildGame({
     igdbGameId: '3',
     title: 'Mario Collection Only',
     collections: ['Mario'],
-    franchises: []
+    franchises: [],
   });
 
   const edges = buildSimilarityGraph({
     games: [baseGame, targetWithBoth, targetCollectionOnly],
     topK: 5,
-    embeddingsByGame: new Map()
+    embeddingsByGame: new Map(),
   });
 
   const edgeWithBoth = edges.find(

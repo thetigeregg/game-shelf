@@ -51,7 +51,7 @@ export function tuneRecommendationWeights(params: {
     tasteWeight: clamp(structuredCorrelation * 3, 0.5, 3),
     semanticWeight: clamp(semanticCorrelation * 3, 0.5, 3),
     criticWeight: clamp(criticCorrelation * 2, 0, 2),
-    runtimeWeight: clamp(runtimeCorrelation * 2, 0, 2)
+    runtimeWeight: clamp(runtimeCorrelation * 2, 0, 2),
   };
 }
 

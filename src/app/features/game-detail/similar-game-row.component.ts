@@ -34,7 +34,10 @@ export interface SimilarGameRowBadge {
         @if (headlineLines.length > 0) {
           <div class="similar-row-headline">
             @for (line of headlineLines; track line) {
-              <p><span aria-hidden="true">&bull;</span> {{ line }}</p>
+              <p>
+                <span aria-hidden="true">&bull;</span>
+                {{ line }}
+              </p>
             }
           </div>
         }
@@ -92,8 +95,8 @@ export interface SimilarGameRowBadge {
       .similar-row-headline p {
         margin: 0 0 4px;
       }
-    `
-  ]
+    `,
+  ],
 })
 export class SimilarGameRowComponent {
   @Input({ required: true }) title!: string;

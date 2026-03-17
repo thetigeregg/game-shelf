@@ -8,7 +8,7 @@ import {
   MetacriticMatchCandidate,
   MetacriticScoreResult,
   ReviewMatchCandidate,
-  ReviewScoreResult
+  ReviewScoreResult,
 } from '../models/game.models';
 
 export interface GameSearchApi {

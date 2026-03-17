@@ -58,7 +58,7 @@ export class E2eFixtureService {
         this.db.views.clear(),
         this.db.imageCache.clear(),
         this.db.outbox.clear(),
-        this.db.syncMeta.clear()
+        this.db.syncMeta.clear(),
       ]);
     }
 
@@ -119,7 +119,7 @@ export class E2eFixtureService {
       status: null,
       rating: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
   }
 

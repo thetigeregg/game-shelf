@@ -131,6 +131,31 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     }
   );
 
+  app.post(
+    '/v1/admin/discovery/requeue-enrichment',
+    {
+      config: {
+        rateLimit: MUTATION_RATE_LIMIT,
+      },
+    },
+    async (request, reply) => {
+      if (!isAdminAuthorized(request, reply)) {
+        return;
+      }
+
+      const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
+        requestedBy: 'admin-discovery-match-list',
+      });
+
+      reply.send({
+        ok: true,
+        queued: !enqueueResult.deduped,
+        deduped: enqueueResult.deduped,
+        jobId: enqueueResult.jobId,
+      });
+    }
+  );
+
   app.get(
     '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/match-state',
     {
@@ -265,17 +290,10 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
-      const enqueueResult = await backgroundJobs.enqueue({
-        jobType: 'discovery_enrichment_run',
-        dedupeKey: 'discovery-enrichment:run',
-        payload: {
-          requestedAt: new Date().toISOString(),
-          requestedBy: 'admin-discovery-match',
-          igdbGameId: game.igdbGameId,
-          platformIgdbId: game.platformIgdbId,
-        },
-        priority: 95,
-        maxAttempts: 3,
+      const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
+        requestedBy: 'admin-discovery-match',
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId,
       });
 
       reply.send({
@@ -345,6 +363,30 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       });
     }
   );
+}
+
+function enqueueDiscoveryEnrichmentRun(
+  backgroundJobs: BackgroundJobRepository,
+  params: {
+    requestedBy: string;
+    igdbGameId?: string;
+    platformIgdbId?: number;
+  }
+): Promise<{ jobId: number; deduped: boolean }> {
+  return backgroundJobs.enqueue({
+    jobType: 'discovery_enrichment_run',
+    dedupeKey: 'discovery-enrichment:run',
+    payload: {
+      requestedAt: new Date().toISOString(),
+      requestedBy: params.requestedBy,
+      ...(typeof params.igdbGameId === 'string' ? { igdbGameId: params.igdbGameId } : {}),
+      ...(typeof params.platformIgdbId === 'number'
+        ? { platformIgdbId: params.platformIgdbId }
+        : {}),
+    },
+    priority: 95,
+    maxAttempts: 3,
+  });
 }
 
 function buildDetailResponse(

@@ -91,6 +91,17 @@
       </ion-button>
       <ion-button
         fill="outline"
+        color="secondary"
+        [disabled]="!hasAdminToken || isLoading || isListRequeueing || items.length === 0"
+        (click)="requeueDiscoveryRun()"
+      >
+        @if (isListRequeueing) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Queue discovery run
+      </ion-button>
+      <ion-button
+        fill="outline"
         color="warning"
         [disabled]="
           selectedProvider === 'pricing' || visiblePermanentMissKeys.length === 0 || isLoading
@@ -99,7 +110,9 @@
       >
         Clear visible permanent misses
       </ion-button>
-      <ion-note color="medium">{{ items.length }} shown · {{ scannedCount }} scanned</ion-note>
+      <ion-note color="medium">
+        {{ items.length }} shown · {{ scannedCount }} scanned · queues one global enrichment pass
+      </ion-note>
     </div>
 
     @if (errorMessage) {

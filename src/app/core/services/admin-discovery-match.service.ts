@@ -130,6 +130,13 @@ interface ClearPermanentMissResponse {
   cleared: number;
 }
 
+export interface AdminDiscoveryRequeueResponse {
+  ok: boolean;
+  queued: boolean;
+  deduped: boolean;
+  jobId: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminDiscoveryMatchService {
   private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
@@ -209,6 +216,19 @@ export class AdminDiscoveryMatchService {
         provider,
         ...(Array.isArray(gameKeys) && gameKeys.length > 0 ? { gameKeys } : {}),
       },
+      {
+        headers: this.buildHeaders(),
+      }
+    );
+  }
+
+  requeueEnrichment(
+    igdbGameId: string,
+    platformIgdbId: number
+  ): Observable<AdminDiscoveryRequeueResponse> {
+    return this.httpClient.post<AdminDiscoveryRequeueResponse>(
+      `${this.baseUrl}/games/${encodeURIComponent(igdbGameId)}/${String(platformIgdbId)}/requeue-enrichment`,
+      {},
       {
         headers: this.buildHeaders(),
       }

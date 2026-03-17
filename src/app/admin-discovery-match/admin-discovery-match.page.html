@@ -659,6 +659,17 @@
           }
 
           <div class="toolbar-row modal-actions">
+            <ion-button
+              fill="outline"
+              color="secondary"
+              [disabled]="isSaving || isRequeueing"
+              (click)="requeueActiveGameEnrichment()"
+            >
+              @if (isRequeueing) {
+                <ion-spinner name="crescent" slot="start"></ion-spinner>
+              }
+              Requeue enrichment
+            </ion-button>
             <ion-button color="primary" [disabled]="isSaving" (click)="saveActiveProvider()">
               @if (isSaving) {
                 <ion-spinner name="crescent" slot="start"></ion-spinner>

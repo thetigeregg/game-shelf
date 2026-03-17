@@ -163,4 +163,24 @@ describe('AdminDiscoveryMatchService', () => {
 
     await expect(promise).resolves.toMatchObject({ igdbGameId: '123', platformIgdbId: 6 });
   });
+
+  it('posts requeue enrichment request for a discovery game', async () => {
+    const promise = firstValueFrom(service.requeueEnrichment('987', 167));
+
+    const req = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/admin/discovery/games/987/167/requeue-enrichment`
+    );
+
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.body).toEqual({});
+    req.flush({ ok: true, queued: true, deduped: false, jobId: 41 });
+
+    await expect(promise).resolves.toEqual({
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 41,
+    });
+  });
 });

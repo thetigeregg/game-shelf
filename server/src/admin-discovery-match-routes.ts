@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool, QueryResultRow } from 'pg';
+import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { isAuthorizedMutatingRequest } from './request-security.js';
@@ -96,6 +97,8 @@ const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
 
 export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Pool): void {
+  const backgroundJobs = new BackgroundJobRepository(pool);
+
   app.get(
     '/v1/admin/discovery/matches/unmatched',
     {
@@ -239,6 +242,47 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         changed,
         provider,
         item: buildDetailResponse(game.igdbGameId, game.platformIgdbId, nextPayload),
+      });
+    }
+  );
+
+  app.post(
+    '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/requeue-enrichment',
+    {
+      config: {
+        rateLimit: MUTATION_RATE_LIMIT,
+      },
+    },
+    async (request, reply) => {
+      if (!isAdminAuthorized(request, reply)) {
+        return;
+      }
+
+      const params = request.params as DetailParams;
+      const game = await getDiscoveryGame(pool, params.igdbGameId, params.platformIgdbId);
+      if (!game) {
+        reply.code(404).send({ error: 'Discovery game not found.' });
+        return;
+      }
+
+      const enqueueResult = await backgroundJobs.enqueue({
+        jobType: 'discovery_enrichment_run',
+        dedupeKey: 'discovery-enrichment:run',
+        payload: {
+          requestedAt: new Date().toISOString(),
+          requestedBy: 'admin-discovery-match',
+          igdbGameId: game.igdbGameId,
+          platformIgdbId: game.platformIgdbId,
+        },
+        priority: 95,
+        maxAttempts: 3,
+      });
+
+      reply.send({
+        ok: true,
+        queued: !enqueueResult.deduped,
+        deduped: enqueueResult.deduped,
+        jobId: enqueueResult.jobId,
       });
     }
   );

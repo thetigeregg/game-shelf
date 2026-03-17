@@ -101,6 +101,7 @@ export class AdminDiscoveryMatchPage {
   isManageModalOpen = false;
   isDetailLoading = false;
   isSaving = false;
+  isRequeueing = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
   activeModalProvider: AdminDiscoveryMatchProvider = 'hltb';
   hltbSearchQuery = '';
@@ -285,6 +286,7 @@ export class AdminDiscoveryMatchPage {
     this.isManageModalOpen = false;
     this.isDetailLoading = false;
     this.isSaving = false;
+    this.isRequeueing = false;
     this.activeDetail = null;
     this.resetCandidateSearchState();
   }
@@ -342,6 +344,35 @@ export class AdminDiscoveryMatchPage {
       );
     } finally {
       this.isSaving = false;
+    }
+  }
+
+  async requeueActiveGameEnrichment(): Promise<void> {
+    if (!this.activeDetail || this.isRequeueing) {
+      return;
+    }
+
+    this.isRequeueing = true;
+    try {
+      const response = await firstValueFrom(
+        this.adminMatchService.requeueEnrichment(
+          this.activeDetail.igdbGameId,
+          this.activeDetail.platformIgdbId
+        )
+      );
+      await this.presentToast(
+        response.deduped
+          ? 'Discovery enrichment is already queued.'
+          : 'Discovery enrichment queued.',
+        'success'
+      );
+    } catch (error) {
+      await this.presentToast(
+        this.toErrorMessage(error, 'Unable to queue discovery enrichment.'),
+        'danger'
+      );
+    } finally {
+      this.isRequeueing = false;
     }
   }
 

@@ -129,6 +129,10 @@ function createPageHarness(): {
     searchReviewCandidates: ReturnType<typeof vi.fn>;
     searchPricingCandidates: ReturnType<typeof vi.fn>;
   };
+  adminMatchService: {
+    requeueEnrichment: ReturnType<typeof vi.fn>;
+  };
+  toastCreate: ReturnType<typeof vi.fn>;
 } {
   const page = Object.create(AdminDiscoveryMatchPage.prototype) as AdminDiscoveryMatchPage;
   const gameShelfService = {
@@ -136,6 +140,12 @@ function createPageHarness(): {
     searchReviewCandidates: vi.fn(() => of([])),
     searchPricingCandidates: vi.fn(() => of([])),
   };
+  const adminMatchService = {
+    requeueEnrichment: vi.fn(() => of({ ok: true, queued: true, deduped: false, jobId: 55 })),
+  };
+  const toastCreate = vi.fn(() =>
+    Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) })
+  );
 
   setField(page, 'providerOptions', [
     { value: 'hltb', label: 'HLTB' },
@@ -147,13 +157,12 @@ function createPageHarness(): {
     { value: 'mobygames', label: 'MobyGames' },
   ]);
   setField(page, 'gameShelfService', gameShelfService);
-  setField(page, 'adminMatchService', {} as AdminDiscoveryMatchService);
+  setField(page, 'adminMatchService', adminMatchService as unknown as AdminDiscoveryMatchService);
   setField(page, 'adminAuth', { getToken: vi.fn(() => null), hasToken: vi.fn(() => false) });
-  setField(page, 'toastController', {
-    create: vi.fn(() => Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) })),
-  });
+  setField(page, 'toastController', { create: toastCreate });
   setField(page, 'activeDetail', createDetail());
   setField(page, 'activeModalProvider', 'hltb');
+  setField(page, 'isRequeueing', false);
   setField(page, 'hltbSearchQuery', 'Chrono Trigger');
   setField(page, 'hltbSearchResults', []);
   setField(page, 'hltbSearchError', null);
@@ -205,7 +214,7 @@ function createPageHarness(): {
     psPricesPlatform: '',
   });
 
-  return { page, gameShelfService };
+  return { page, gameShelfService, adminMatchService, toastCreate };
 }
 
 describe('AdminDiscoveryMatchPage', () => {
@@ -314,5 +323,19 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.pricingForm.priceUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
+  });
+
+  it('requeues discovery enrichment for the active game and surfaces a toast', async () => {
+    const { page, adminMatchService, toastCreate } = createPageHarness();
+
+    await (
+      page as { requeueActiveGameEnrichment: () => Promise<void> }
+    ).requeueActiveGameEnrichment();
+
+    expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48);
+    expect(toastCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Discovery enrichment queued.', color: 'success' })
+    );
+    expect(page.isRequeueing).toBe(false);
   });
 });

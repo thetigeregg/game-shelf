@@ -1,6 +1,13 @@
 import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import { parsePositiveEnvInt } from './env-utils.mjs';
+import {
+  extractMetacriticSearchResults,
+  METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
+  METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
+  METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
+} from './search-parser.mjs';
 import {
   buildMetacriticSearchUrl,
   buildSearchTitleVariants,
@@ -19,11 +26,8 @@ function readEnvOrFile(name) {
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8789', 10);
 const apiToken = readEnvOrFile('METACRITIC_SCRAPER_TOKEN');
-const browserTimeoutMs = Number.parseInt(process.env.METACRITIC_SCRAPER_TIMEOUT_MS ?? '25000', 10);
-const browserIdleTtlMs = Number.parseInt(
-  process.env.METACRITIC_SCRAPER_BROWSER_IDLE_MS ?? '30000',
-  10
-);
+const browserTimeoutMs = parsePositiveEnvInt('METACRITIC_SCRAPER_TIMEOUT_MS', 25_000);
+const browserIdleTtlMs = parsePositiveEnvInt('METACRITIC_SCRAPER_BROWSER_IDLE_MS', 30_000);
 const debugLogsEnabled =
   String(process.env.DEBUG_METACRITIC_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const igdbToMetacriticPlatformDisplayById = loadIgdbToMetacriticPlatformDisplayById();
@@ -390,124 +394,22 @@ function rankCandidate(
 
 async function searchMetacriticInBrowser(page, query) {
   const searchUrl = buildMetacriticSearchUrl(query);
+  const readyTimeoutMs = Math.max(0, Math.min(browserTimeoutMs, 5_000));
+  const settleDelayMs = Math.max(0, Math.min(Math.floor(browserTimeoutMs / 100), 300));
 
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
-  await page.waitForTimeout(300);
+  if (readyTimeoutMs > 0) {
+    await page
+      .waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, { timeout: readyTimeoutMs })
+      .catch(() => undefined);
+  }
+  if (settleDelayMs > 0) {
+    await page.waitForTimeout(settleDelayMs);
+  }
 
-  const items = await page.evaluate(() => {
-    const parseMetacriticScoreInPage = (rawValue) => {
-      const text = String(rawValue ?? '')
-        .toLowerCase()
-        .trim();
-      if (text.length === 0 || text.includes('tbd') || text.includes('null')) {
-        return null;
-      }
-
-      const match = text.match(/\b([1-9]\d?|100)\b/);
-      if (!match) {
-        return null;
-      }
-
-      const parsed = Number.parseInt(match[1], 10);
-      return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
-    };
-
-    const rows = Array.from(
-      document.querySelectorAll(
-        '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard'
-      )
-    );
-
-    const normalizePlatformTextInPage = (rawValue) =>
-      String(rawValue ?? '')
-        .replace(/^[\s\u2022·\-:]+/u, '')
-        .replace(/\s*,?\s*and more\s*$/i, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const parsed = [];
-
-    for (const row of rows) {
-      const hrefOnRow = String(row.getAttribute('href') ?? '').trim();
-      const resultTypeTag = String(
-        row.querySelector(
-          '[data-testid="tag-list"] .c-tagList_button, [data-testid="tag-list"] span'
-        )?.textContent ?? ''
-      )
-        .toLowerCase()
-        .trim();
-      const isGameByHref = hrefOnRow.startsWith('/game/') || hrefOnRow.includes('/game/');
-      const isGameByTag = resultTypeTag === 'game';
-      if (!isGameByHref && !isGameByTag) {
-        continue;
-      }
-
-      const titleEl =
-        row.querySelector(
-          '[data-testid="product-title"], h3, .c-finderProductCard_title, a.c-finderProductCard_container'
-        ) || row.querySelector('a[href*="/game/"]');
-      const title = titleEl ? String(titleEl.textContent ?? '').trim() : '';
-      if (!title) {
-        continue;
-      }
-
-      const linkEl = row.matches('a[href*="/game/"]')
-        ? row
-        : row.querySelector('a[href*="/game/"]');
-      const href = linkEl ? String(linkEl.getAttribute('href') ?? '').trim() : '';
-      const url = href.startsWith('http')
-        ? href
-        : href.startsWith('/')
-          ? `https://www.metacritic.com${href}`
-          : null;
-
-      const scoreEl =
-        row.querySelector(
-          '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
-        ) ??
-        row.querySelector(
-          '[data-testid="product-metascore"] [aria-label*="Metascore"], [data-testid="product-metascore"] [title*="Metascore"], [aria-label*="Metascore"], [title*="Metascore"]'
-        );
-      const scoreRaw = scoreEl
-        ? String(
-            scoreEl.textContent ??
-              scoreEl.getAttribute('aria-label') ??
-              scoreEl.getAttribute('title') ??
-              ''
-          ).trim()
-        : '';
-      const scoreValue = parseMetacriticScoreInPage(scoreRaw);
-
-      const releaseDateText = String(
-        row.querySelector('[data-testid="product-release-date"], time, .c-finderProductCard_meta')
-          ?.textContent ?? ''
-      ).trim();
-      const yearMatch =
-        releaseDateText.match(/\b(19|20)\d{2}\b/) ??
-        title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
-      const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
-
-      const platformEl = row.querySelector(
-        '[data-testid="product-platform"], [data-testid="platform"], .c-finderProductCard_meta'
-      );
-      const platform = platformEl
-        ? normalizePlatformTextInPage(platformEl.textContent ?? '')
-        : null;
-
-      const imageEl = row.querySelector('img');
-      const imageUrl = imageEl ? String(imageEl.getAttribute('src') ?? '').trim() : null;
-
-      parsed.push({
-        title,
-        releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
-        platform: platform && platform.length > 0 ? platform : null,
-        metacriticScore: scoreValue,
-        metacriticUrl: url,
-        imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,
-      });
-    }
-
-    return parsed;
+  const items = await page.evaluate(extractMetacriticSearchResults, {
+    gameLinkSelector: METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
+    rowSelector: METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   });
 
   return items;

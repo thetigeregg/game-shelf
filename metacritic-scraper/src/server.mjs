@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import {
   buildMetacriticSearchUrl,
   buildSearchTitleVariants,
-  normalizeTitle
+  normalizeTitle,
 } from './search-utils.mjs';
 
 function readEnvOrFile(name) {
@@ -114,7 +114,7 @@ const variantTokens = new Set([
   'complete',
   'director',
   'deluxe',
-  'hd'
+  'hd',
 ]);
 
 function hasVariantToken(normalizedTitle) {
@@ -137,7 +137,7 @@ const romanToArabicSeriesMap = new Map([
   ['vii', '7'],
   ['viii', '8'],
   ['ix', '9'],
-  ['x', '10']
+  ['x', '10'],
 ]);
 
 function canonicalizeSeriesToken(token) {
@@ -503,7 +503,7 @@ async function searchMetacriticInBrowser(page, query) {
         platform: platform && platform.length > 0 ? platform : null,
         metacriticScore: scoreValue,
         metacriticUrl: url,
-        imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null
+        imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,
       });
     }
 
@@ -544,7 +544,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
     const browser = await getSharedBrowser();
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     });
     try {
       const page = await context.newPage();
@@ -562,7 +562,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
             platform,
             platformIgdbId,
             includeCandidates,
-            candidateCount: candidates.length
+            candidateCount: candidates.length,
           });
         }
         for (const candidate of candidates) {
@@ -571,7 +571,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
             candidate.title ?? '',
             String(candidate.releaseYear ?? ''),
             candidate.platform ?? '',
-            String(candidate.metacriticScore ?? '')
+            String(candidate.metacriticScore ?? ''),
           ].join('::');
           if (seenCandidateKeys.has(key)) {
             continue;
@@ -585,7 +585,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
       const rankedWithScores = allCandidates
         .map((candidate) => ({
           candidate,
-          score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate)
+          score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate),
         }))
         .filter((entry) => entry.score >= 0)
         .sort((left, right) => right.score - left.score);
@@ -599,7 +599,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
         best && bestScore >= confidenceThreshold
           ? {
               metacriticScore: best.metacriticScore ?? null,
-              metacriticUrl: best.metacriticUrl ?? null
+              metacriticUrl: best.metacriticUrl ?? null,
             }
           : null;
 
@@ -613,7 +613,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
           rankedCount: ranked.length,
           bestScore,
           matched: item !== null,
-          bestCandidate: best
+          bestCandidate: best,
         });
       }
 
@@ -625,7 +625,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
   } catch (error) {
     console.error('[metacritic-scraper] request_failed', {
       query,
-      message: error instanceof Error ? error.message : String(error)
+      message: error instanceof Error ? error.message : String(error),
     });
     res.status(502).json({ error: 'Unable to fetch Metacritic data.' });
   }

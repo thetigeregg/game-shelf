@@ -33,14 +33,14 @@ export async function sendFcmMulticast(
   payload: FcmSendPayload
 ): Promise<FcmSendResult> {
   const activeTokens = [
-    ...new Set(tokens.map((token) => token.trim()).filter((token) => token.length > 0))
+    ...new Set(tokens.map((token) => token.trim()).filter((token) => token.length > 0)),
   ];
 
   if (activeTokens.length === 0) {
     return {
       successCount: 0,
       failureCount: 0,
-      invalidTokens: []
+      invalidTokens: [],
     };
   }
 
@@ -48,7 +48,7 @@ export async function sendFcmMulticast(
     return {
       successCount: 0,
       failureCount: activeTokens.length,
-      invalidTokens: []
+      invalidTokens: [],
     };
   }
 
@@ -60,9 +60,9 @@ export async function sendFcmMulticast(
         tokens: tokenChunk,
         notification: {
           title: payload.title,
-          body: payload.body
+          body: payload.body,
         },
-        data: payload.data
+        data: payload.data,
       });
     })
   );
@@ -98,7 +98,7 @@ export async function sendFcmMulticast(
   return {
     successCount,
     failureCount,
-    invalidTokens: [...new Set(invalidTokens)]
+    invalidTokens: [...new Set(invalidTokens)],
   };
 }
 
@@ -119,7 +119,7 @@ function resolveMessaging(): Messaging {
   const parsed = resolveServiceAccount();
   try {
     initializeApp({
-      credential: cert(parsed)
+      credential: cert(parsed),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

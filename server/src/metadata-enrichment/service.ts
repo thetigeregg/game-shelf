@@ -4,7 +4,7 @@ import { MetadataEnrichmentRepository } from './repository.js';
 import {
   IgdbMetadataRecord,
   MetadataEnrichmentGameRow,
-  MetadataEnrichmentSummary
+  MetadataEnrichmentSummary,
 } from './types.js';
 
 export interface MetadataEnrichmentServiceOptions {
@@ -33,7 +33,7 @@ export class MetadataEnrichmentService {
       () => {
         void this.runOnce().catch((error: unknown) => {
           console.warn('[metadata_enrichment] startup_run_failed', {
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
           });
         });
       },
@@ -52,7 +52,7 @@ export class MetadataEnrichmentService {
         uniqueGamesRequested: 0,
         updatedRows: 0,
         skippedRows: 0,
-        failedBatches: 0
+        failedBatches: 0,
       };
 
       if (rows.length === 0) {
@@ -79,7 +79,7 @@ export class MetadataEnrichmentService {
           summary.failedBatches += 1;
           console.warn('[metadata_enrichment] igdb_batch_failed', {
             batchSize: batch.length,
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -92,7 +92,7 @@ export class MetadataEnrichmentService {
           metadataFetched: needsMetadata && successfullyFetchedGameIds.has(row.igdbGameId),
           needsSyncBackfill:
             !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
-          completedAt
+          completedAt,
         });
         const changed = Object.keys(payloadPatch).length > 0;
 
@@ -105,7 +105,7 @@ export class MetadataEnrichmentService {
           client,
           igdbGameId: row.igdbGameId,
           platformIgdbId: row.platformIgdbId,
-          payloadPatch
+          payloadPatch,
         });
         summary.updatedRows += 1;
       }
@@ -120,7 +120,7 @@ export class MetadataEnrichmentService {
 
     console.info('[metadata_enrichment] completed', {
       ...lockResult.value,
-      completedAt: new Date(this.now()).toISOString()
+      completedAt: new Date(this.now()).toISOString(),
     });
     return lockResult.value;
   }

@@ -149,7 +149,7 @@ export function getFirebaseWebConfig(): {
     storageBucket: normalizeRuntimeString(candidate.storageBucket) ?? fallback.storageBucket,
     messagingSenderId:
       normalizeRuntimeString(candidate.messagingSenderId) ?? fallback.messagingSenderId,
-    appId: normalizeRuntimeString(candidate.appId) ?? fallback.appId
+    appId: normalizeRuntimeString(candidate.appId) ?? fallback.appId,
   };
 }
 

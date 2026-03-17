@@ -6,7 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
-  writeFileSync
+  writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -65,7 +65,7 @@ function parseEnvEntries(content, options = {}) {
       }
       entries.push({
         key: commentedMatch[1],
-        value: commentedMatch[2]
+        value: commentedMatch[2],
       });
       continue;
     }
@@ -75,7 +75,7 @@ function parseEnvEntries(content, options = {}) {
     }
     entries.push({
       key: match[1],
-      value: match[2]
+      value: match[2],
     });
   }
 
@@ -272,7 +272,7 @@ async function main() {
   const exampleContent = readFileSync(examplePath, 'utf8');
   const exampleEntries = parseEnvEntries(exampleContent);
   const allowedExampleEntries = parseEnvEntries(exampleContent, {
-    includeCommentedAssignments: true
+    includeCommentedAssignments: true,
   });
   const exampleMap = toLastEntryMap(exampleEntries);
   const allowedExampleMap = toLastEntryMap(allowedExampleEntries);

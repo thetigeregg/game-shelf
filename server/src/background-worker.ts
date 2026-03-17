@@ -1,7 +1,7 @@
 import {
   BackgroundJobRepository,
   BackgroundJobType,
-  ClaimedBackgroundJob
+  ClaimedBackgroundJob,
 } from './background-jobs.js';
 import { config } from './config.js';
 import { createPool } from './db.js';
@@ -25,7 +25,7 @@ import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
 import {
   DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
   RecommendationRuntimeMode,
-  RecommendationTarget
+  RecommendationTarget,
 } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
 import type { QueryResultRow } from 'pg';
@@ -183,7 +183,7 @@ export const __backgroundWorkerTestables = {
   resolvePriceFetchedAtMs,
   resolvePspricesRevalidationTitle,
   resolvePspricesRevalidationUrl,
-  isProviderMatchLocked
+  isProviderMatchLocked,
 };
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -199,7 +199,7 @@ export function readBackgroundWorkerMode(): BackgroundWorkerMode {
 
   if (raw.length > 0) {
     console.warn('[background-worker] invalid BACKGROUND_WORKER_MODE; falling back to all', {
-      rawValue
+      rawValue,
     });
   }
 
@@ -216,7 +216,7 @@ async function main(): Promise<void> {
     nodeEnv: process.env.NODE_ENV ?? '',
     workerMode,
     runGeneralWork,
-    runRecommendationRebuildWork
+    runRecommendationRebuildWork,
   });
   const pool = await createPool(config.postgresUrl);
   const jobs = new BackgroundJobRepository(pool);
@@ -225,18 +225,18 @@ async function main(): Promise<void> {
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
     dimensions: config.recommendationsEmbeddingDimensions,
-    timeoutMs: config.recommendationsEmbeddingTimeoutMs
+    timeoutMs: config.recommendationsEmbeddingTimeoutMs,
   });
   const discoveryIgdbClient = new DiscoveryIgdbClient({
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
-    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
+    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond,
   });
   const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs,
   });
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
       backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
       backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
       rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
     },
     () => Date.now(),
     metadataEnrichmentClient
@@ -294,12 +294,12 @@ async function main(): Promise<void> {
       discoveryPopularRefreshHours: config.recommendationsDiscoveryPopularRefreshHours,
       discoveryRecentRefreshHours: config.recommendationsDiscoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
-      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
+      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond,
     },
     {
       embeddingClient,
       discoveryClient: discoveryIgdbClient,
-      discoveryEnrichmentService
+      discoveryEnrichmentService,
     }
   );
   const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
@@ -310,7 +310,7 @@ async function main(): Promise<void> {
       enabled: config.igdbMetadataEnrichEnabled,
       batchSize: config.igdbMetadataEnrichBatchSize,
       maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
-      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
+      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs,
     }
   );
   const popularityIngestService = new PopularityIngestService(pool, {
@@ -319,7 +319,7 @@ async function main(): Promise<void> {
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
     requestTimeoutMs: config.popularityIngestIgdbRequestTimeoutMs,
-    maxRequestsPerSecond: config.popularityIngestIgdbMaxRequestsPerSecond
+    maxRequestsPerSecond: config.popularityIngestIgdbMaxRequestsPerSecond,
   });
   const workerHost = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME : '';
   const workerId = `background-worker:${workerMode}:${workerHost}:${String(process.pid)}`;
@@ -451,13 +451,13 @@ async function main(): Promise<void> {
       poolCloseErrorMessage = error instanceof Error ? error.message : String(error);
       console.error('[background-worker] failed to close database pool during shutdown', {
         signal,
-        error: poolCloseErrorMessage
+        error: poolCloseErrorMessage,
       });
     }
     console.info('[background-worker] stopped', {
       signal,
       dbPoolClosed,
-      poolCloseErrorMessage
+      poolCloseErrorMessage,
     });
   };
 
@@ -496,17 +496,17 @@ async function main(): Promise<void> {
           target,
           queued: result.queued,
           reason: result.reason,
-          jobId: result.jobId
+          jobId: result.jobId,
         });
       } catch (error) {
         failedCount += 1;
         targetResults.push({
           target,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         console.error('[background-worker] recommendation_scheduler_tick_failed', {
           target,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -517,7 +517,7 @@ async function main(): Promise<void> {
       staleCount,
       failedCount,
       durationMs: Date.now() - startedAt,
-      targets: targetResults
+      targets: targetResults,
     });
   };
 
@@ -531,19 +531,19 @@ async function main(): Promise<void> {
         dedupeKey: 'metadata-enrichment:run',
         payload: {
           requestedAt: new Date().toISOString(),
-          requestedBy: 'background-worker'
+          requestedBy: 'background-worker',
         },
         priority: 90,
-        maxAttempts: 3
+        maxAttempts: 3,
       });
       console.info('[background-worker] metadata_enrichment_enqueue', {
         queued: !enqueueResult.deduped,
         deduped: enqueueResult.deduped,
-        jobId: enqueueResult.jobId
+        jobId: enqueueResult.jobId,
       });
     } catch (error) {
       console.error('[background-worker] metadata_enrichment_enqueue_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -558,19 +558,19 @@ async function main(): Promise<void> {
         dedupeKey: 'discovery-enrichment:run',
         payload: {
           requestedAt: new Date().toISOString(),
-          requestedBy: 'background-worker'
+          requestedBy: 'background-worker',
         },
         priority: 95,
-        maxAttempts: 3
+        maxAttempts: 3,
       });
       console.info('[background-worker] discovery_enrichment_enqueue', {
         queued: !enqueueResult.deduped,
         deduped: enqueueResult.deduped,
-        jobId: enqueueResult.jobId
+        jobId: enqueueResult.jobId,
       });
     } catch (error) {
       console.error('[background-worker] discovery_enrichment_enqueue_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -585,19 +585,19 @@ async function main(): Promise<void> {
         dedupeKey: 'igdb-popularity-ingest:run',
         payload: {
           requestedAt: new Date().toISOString(),
-          requestedBy: 'background-worker'
+          requestedBy: 'background-worker',
         },
         priority: 85,
-        maxAttempts: 3
+        maxAttempts: 3,
       });
       console.info('[background-worker] popularity_ingest_enqueue', {
         queued: !enqueueResult.deduped,
         deduped: enqueueResult.deduped,
-        jobId: enqueueResult.jobId
+        jobId: enqueueResult.jobId,
       });
     } catch (error) {
       console.error('[background-worker] popularity_ingest_enqueue_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -609,18 +609,18 @@ async function main(): Promise<void> {
     try {
       const result = await jobs.purgeFinishedOlderThan({
         retentionDays: jobsRetentionDays,
-        limit: jobsCleanupBatchSize
+        limit: jobsCleanupBatchSize,
       });
       if (result.deletedCount > 0) {
         console.info('[background-worker] background_jobs_cleanup', {
           deletedCount: result.deletedCount,
           retentionDays: jobsRetentionDays,
-          batchSize: jobsCleanupBatchSize
+          batchSize: jobsCleanupBatchSize,
         });
       }
     } catch (error) {
       console.error('[background-worker] background_jobs_cleanup_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -636,17 +636,17 @@ async function main(): Promise<void> {
           pending: acc.pending + row.pending,
           running: acc.running + row.running,
           failed: acc.failed + row.failed,
-          succeeded: acc.succeeded + row.succeeded
+          succeeded: acc.succeeded + row.succeeded,
         }),
         { pending: 0, running: 0, failed: 0, succeeded: 0 }
       );
       console.info('[background-worker] queue_pressure', {
         totals,
-        byType: typeStats
+        byType: typeStats,
       });
     } catch (error) {
       console.error('[background-worker] queue_pressure_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -658,34 +658,34 @@ async function main(): Promise<void> {
     try {
       const staleJobs = await jobs.requeueStaleRunning({
         maxAgeMinutes: staleJobRecoveryMinutes,
-        recoveryError: 'stale running lock recovered by background worker'
+        recoveryError: 'stale running lock recovered by background worker',
       });
       if (staleJobs.requeuedCount > 0) {
         console.warn('[background-worker] stale_jobs_requeued', {
           requeuedCount: staleJobs.requeuedCount,
-          maxAgeMinutes: staleJobRecoveryMinutes
+          maxAgeMinutes: staleJobRecoveryMinutes,
         });
       }
     } catch (error) {
       console.error('[background-worker] stale_jobs_requeue_failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
 
     try {
       const staleRuns = await recommendationRepository.failStaleRunningRuns({
         maxAgeMinutes: recommendationRunRecoveryMinutes,
-        errorMessage: 'orphaned RUNNING run recovered after worker loss'
+        errorMessage: 'orphaned RUNNING run recovered after worker loss',
       });
       if (staleRuns.failedCount > 0) {
         console.warn('[background-worker] stale_recommendation_runs_recovered', {
           failedCount: staleRuns.failedCount,
-          maxAgeMinutes: recommendationRunRecoveryMinutes
+          maxAgeMinutes: recommendationRunRecoveryMinutes,
         });
       }
     } catch (error) {
       console.error('[background-worker] stale_recommendation_runs_failed_recovery', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   };
@@ -701,7 +701,7 @@ async function main(): Promise<void> {
       staleEligible: 0,
       enqueued: 0,
       deduped: 0,
-      skippedMissingData: 0
+      skippedMissingData: 0,
     };
     const steamCountry = config.steamDefaultCountry;
     const pspricesRegion = config.pspricesRegionPath.toLowerCase();
@@ -740,10 +740,10 @@ async function main(): Promise<void> {
             igdbGameId: row.igdb_game_id,
             platformIgdbId: row.platform_igdb_id,
             cc: steamCountry,
-            steamAppId
+            steamAppId,
           },
           priority: 120,
-          maxAttempts: 3
+          maxAttempts: 3,
         });
 
         if (enqueueResult.deduped) {
@@ -777,10 +777,10 @@ async function main(): Promise<void> {
           igdbGameId: row.igdb_game_id,
           platformIgdbId: row.platform_igdb_id,
           title,
-          psPricesUrl
+          psPricesUrl,
         },
         priority: 120,
-        maxAttempts: 3
+        maxAttempts: 3,
       });
 
       if (enqueueResult.deduped) {
@@ -822,7 +822,7 @@ async function main(): Promise<void> {
           rows: rows.rows,
           queueLimit,
           staleThresholdMs,
-          dedupePrefix: 'pricing-refresh:wishlist'
+          dedupePrefix: 'pricing-refresh:wishlist',
         });
 
         console.info('[background-worker] pricing_refresh_wishlist_phase_done', {
@@ -830,13 +830,13 @@ async function main(): Promise<void> {
           batchSize: queueLimit,
           staleHours: config.pricingRefreshStaleHours,
           durationMs: Date.now() - startedAt,
-          marker: 'wishlist_phase_done'
+          marker: 'wishlist_phase_done',
         });
 
         return stats;
       } catch (error) {
         console.error('[background-worker] pricing_refresh_wishlist_phase_failed', {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         return null;
       }
@@ -901,7 +901,7 @@ async function main(): Promise<void> {
             DISCOVERY_RUNTIME_MODES,
             [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES],
             perModeTopLimit,
-            scanLimit
+            scanLimit,
           ]
         );
 
@@ -909,7 +909,7 @@ async function main(): Promise<void> {
           rows: rows.rows,
           queueLimit,
           staleThresholdMs,
-          dedupePrefix: 'pricing-refresh:discovery'
+          dedupePrefix: 'pricing-refresh:discovery',
         });
 
         console.info('[background-worker] pricing_refresh_discovery_phase_done', {
@@ -919,13 +919,13 @@ async function main(): Promise<void> {
           discoveryRuntimeModes: DISCOVERY_RUNTIME_MODES,
           perModeTopLimit,
           durationMs: Date.now() - startedAt,
-          marker: 'discovery_phase_done'
+          marker: 'discovery_phase_done',
         });
 
         return stats;
       } catch (error) {
         console.error('[background-worker] pricing_refresh_discovery_phase_failed', {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         return null;
       }
@@ -943,14 +943,14 @@ async function main(): Promise<void> {
       trigger,
       nowMs,
       lastRunMs: lastWishlistPricingRefreshRunMs,
-      intervalMinutes: config.pricingRefreshIntervalMinutes
+      intervalMinutes: config.pricingRefreshIntervalMinutes,
     });
     const shouldRunDiscovery = shouldRunPricingRefreshPhase({
       enabled: config.discoveryPricingRefreshEnabled,
       trigger,
       nowMs,
       lastRunMs: lastDiscoveryPricingRefreshRunMs,
-      intervalMinutes: config.discoveryPricingRefreshIntervalMinutes
+      intervalMinutes: config.discoveryPricingRefreshIntervalMinutes,
     });
 
     let wishlistStats: PricingRefreshEnqueueStats | null = null;
@@ -980,7 +980,7 @@ async function main(): Promise<void> {
       shouldRunDiscovery,
       wishlistEnqueued: wishlistStats?.enqueued ?? 0,
       discoveryEnqueued: discoveryStats?.enqueued ?? 0,
-      durationMs: Date.now() - cycleStartedAt
+      durationMs: Date.now() - cycleStartedAt,
     });
   };
 
@@ -1000,7 +1000,7 @@ async function main(): Promise<void> {
         const result = await recommendationService.rebuild({
           target,
           force: job.payload['force'] === true,
-          triggeredBy
+          triggeredBy,
         });
         return { runResult: result };
       }
@@ -1023,21 +1023,21 @@ async function main(): Promise<void> {
       case 'hltb_cache_revalidate': {
         await processQueuedHltbCacheRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
-          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+          requestUrl: stringOrEmpty(job.payload['requestUrl']),
         });
         return { revalidated: true };
       }
       case 'metacritic_cache_revalidate': {
         await processQueuedMetacriticCacheRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
-          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+          requestUrl: stringOrEmpty(job.payload['requestUrl']),
         });
         return { revalidated: true };
       }
       case 'mobygames_cache_revalidate': {
         await processQueuedMobyGamesCacheRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
-          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+          requestUrl: stringOrEmpty(job.payload['requestUrl']),
         });
         return { revalidated: true };
       }
@@ -1053,7 +1053,7 @@ async function main(): Promise<void> {
           steamAppId:
             typeof job.payload['steamAppId'] === 'number'
               ? job.payload['steamAppId']
-              : Number.parseInt(stringOrEmpty(job.payload['steamAppId']), 10)
+              : Number.parseInt(stringOrEmpty(job.payload['steamAppId']), 10),
         });
         return { revalidated: true };
       }
@@ -1066,7 +1066,7 @@ async function main(): Promise<void> {
               ? job.payload['platformIgdbId']
               : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
           title: stringOrEmpty(job.payload['title']),
-          psPricesUrl: stringOrEmpty(job.payload['psPricesUrl'])
+          psPricesUrl: stringOrEmpty(job.payload['psPricesUrl']),
         });
         return { revalidated: true };
       }
@@ -1084,7 +1084,7 @@ async function main(): Promise<void> {
   const buildJobContext = (job: ClaimedBackgroundJob): Record<string, unknown> => {
     const context: Record<string, unknown> = {
       jobId: job.id,
-      jobType: job.jobType
+      jobType: job.jobType,
     };
 
     if (job.jobType === 'recommendations_rebuild') {
@@ -1116,7 +1116,7 @@ async function main(): Promise<void> {
           } catch (error) {
             console.error('[background-worker] claim_failed', {
               jobType,
-              error: error instanceof Error ? error.message : String(error)
+              error: error instanceof Error ? error.message : String(error),
             });
             await sleep(1_000);
             continue;
@@ -1145,7 +1145,7 @@ async function main(): Promise<void> {
                   .catch((error: unknown) => {
                     console.warn('[background-worker] job_heartbeat_failed', {
                       ...jobContext,
-                      error: error instanceof Error ? error.message : String(error)
+                      error: error instanceof Error ? error.message : String(error),
                     });
                   });
               },
@@ -1156,7 +1156,7 @@ async function main(): Promise<void> {
               await jobs.complete(claimed.id, result);
               console.info('[background-worker] job_succeeded', {
                 ...jobContext,
-                durationMs: Date.now() - startedAt
+                durationMs: Date.now() - startedAt,
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
@@ -1164,7 +1164,7 @@ async function main(): Promise<void> {
               console.error('[background-worker] job_failed', {
                 ...jobContext,
                 durationMs: Date.now() - startedAt,
-                error: message
+                error: message,
               });
             } finally {
               clearInterval(heartbeatTimer);
@@ -1309,7 +1309,7 @@ async function main(): Promise<void> {
     runRecommendationRebuildWork,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,
-    discoveryEnrichApiBaseUrl: readDiscoveryEnrichmentApiBaseUrl()
+    discoveryEnrichApiBaseUrl: readDiscoveryEnrichmentApiBaseUrl(),
   });
 
   await new Promise<void>((resolve) => {

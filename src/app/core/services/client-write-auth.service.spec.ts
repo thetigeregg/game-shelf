@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CLIENT_WRITE_TOKEN_STORAGE_KEY,
-  ClientWriteAuthService
+  ClientWriteAuthService,
 } from './client-write-auth.service';
 
 describe('ClientWriteAuthService', () => {

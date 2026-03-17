@@ -6,7 +6,7 @@ import {
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeHeadersForDebugLogs,
-  sanitizeUrlForDebugLogs
+  sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 
 function withEnv(
@@ -88,7 +88,7 @@ void test('sanitizeHeadersForDebugLogs redacts sensitive header values', () => {
     authorization: 'Bearer mysecrettoken',
     'x-api-key': 'keyvalue',
     'api-key': 'another-key',
-    'content-type': 'application/json'
+    'content-type': 'application/json',
   });
   const result = sanitizeHeadersForDebugLogs(headers);
   assert.equal(result['authorization'], '***');
@@ -127,12 +127,12 @@ void test('logUpstreamRequest logs when debug is enabled', async () => {
       request.log = {
         info: (obj: unknown) => {
           loggedMessages.push(obj);
-        }
+        },
       } as typeof request.log;
       logUpstreamRequest(request, {
         method: 'GET',
         url: 'https://api.example.com/v2/games?api_key=secret',
-        headers: { authorization: 'Bearer tok' }
+        headers: { authorization: 'Bearer tok' },
       });
       void reply.send({ ok: true });
     });
@@ -158,7 +158,7 @@ void test('logUpstreamResponse does nothing when debug logs are disabled', async
       await logUpstreamResponse(request, {
         method: 'GET',
         url: 'https://example.com',
-        response: new Response('ok', { status: 200 })
+        response: new Response('ok', { status: 200 }),
       });
       void reply.send({ ok: true });
     });
@@ -178,15 +178,15 @@ void test('logUpstreamResponse logs JSON response body preview when debug is ena
       request.log = {
         info: (obj: unknown) => {
           loggedMessages.push(obj);
-        }
+        },
       } as typeof request.log;
       await logUpstreamResponse(request, {
         method: 'GET',
         url: 'https://api.example.com/v2/games?api_key=s3cr3t',
         response: new Response(JSON.stringify({ games: [] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' }
-        })
+          headers: { 'content-type': 'application/json' },
+        }),
       });
       void reply.send({ ok: true });
     });
@@ -213,15 +213,15 @@ void test('logUpstreamResponse sets null bodyPreview for binary content type', a
       request.log = {
         info: (obj: unknown) => {
           loggedMessages.push(obj);
-        }
+        },
       } as typeof request.log;
       await logUpstreamResponse(request, {
         method: 'GET',
         url: 'https://example.com/image.png',
         response: new Response(Buffer.from([0x89, 0x50]), {
           status: 200,
-          headers: { 'content-type': 'image/png' }
-        })
+          headers: { 'content-type': 'image/png' },
+        }),
       });
       void reply.send({ ok: true });
     });
@@ -245,15 +245,15 @@ void test('logUpstreamResponse captures bodyPreview for text content type', asyn
       request.log = {
         info: (obj: unknown) => {
           loggedMessages.push(obj);
-        }
+        },
       } as typeof request.log;
       await logUpstreamResponse(request, {
         method: 'GET',
         url: 'https://example.com/data.txt',
         response: new Response('plain text response', {
           status: 200,
-          headers: { 'content-type': 'text/plain' }
-        })
+          headers: { 'content-type': 'text/plain' },
+        }),
       });
       void reply.send({ ok: true });
     });

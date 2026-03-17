@@ -386,7 +386,7 @@
           [(ngModel)]="externalMetadataProvider"
           interface="alert"
           [interfaceOptions]="{
-            header: externalMetadataPendingAction === 'fix' ? 'Fix match' : 'Refresh data'
+            header: externalMetadataPendingAction === 'fix' ? 'Fix match' : 'Refresh data',
           }"
           (ionChange)="onExternalMetadataProviderChange($event)"
           (ionDismiss)="onExternalMetadataProviderDismiss()"
@@ -570,9 +570,9 @@
               getTotalSimilarDiscoveryGames() === 0
             ) {
               <ion-item>
-                <ion-label color="medium"
-                  >No discovery suggestions available for this game.</ion-label
-                >
+                <ion-label color="medium">
+                  No discovery suggestions available for this game.
+                </ion-label>
               </ion-item>
             }
             @if (
@@ -724,7 +724,7 @@
       <ion-toolbar>
         <ion-title>Customize</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" (click)="closeEditMetadataModal()"> Close </ion-button>
+          <ion-button fill="clear" (click)="closeEditMetadataModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -843,9 +843,9 @@
 
       @if (manualPickerError) {
         <ion-item lines="none">
-          <ion-label [color]="manualCatalogUnavailable ? 'warning' : 'medium'">{{
-            manualPickerError
-          }}</ion-label>
+          <ion-label [color]="manualCatalogUnavailable ? 'warning' : 'medium'">
+            {{ manualPickerError }}
+          </ion-label>
         </ion-item>
       }
 
@@ -1071,7 +1071,7 @@
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
-                    <span> · {{ candidate.platform }}</span>
+                    <span>· {{ candidate.platform }}</span>
                   }
                 </p>
                 <p>
@@ -1178,7 +1178,7 @@
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
-                    <span> · {{ candidate.platform }}</span>
+                    <span>· {{ candidate.platform }}</span>
                   }
                 </p>
                 <p>
@@ -1362,7 +1362,7 @@
       </ion-range>
 
       @if (clearRatingOnSave) {
-        <ion-note color="danger"> Rating will be cleared when saved. </ion-note>
+        <ion-note color="danger">Rating will be cleared when saved.</ion-note>
       }
     </ion-content>
   </ng-template>

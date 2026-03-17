@@ -26,7 +26,7 @@ services:
     depends_on:
       - api
     ports:
-      - '127.0.0.1:${EDGE_HOST_PORT:-8080}:8080'
+      - "127.0.0.1:${EDGE_HOST_PORT:-8080}:8080"
     volumes:
       - ./nas-data/manuals:/manuals:ro
     restart: unless-stopped
@@ -420,5 +420,5 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '${BACKUP_CPU_LIMIT:-0.5}'
-          memory: '${BACKUP_MEMORY_LIMIT:-512M}'
+          cpus: "${BACKUP_CPU_LIMIT:-0.5}"
+          memory: "${BACKUP_MEMORY_LIMIT:-512M}"

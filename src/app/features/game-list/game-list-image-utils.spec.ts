@@ -4,7 +4,7 @@ import {
   encodeCanvasAsDataUrl,
   getApproximateStringBytes,
   getCompressionOutputMimeType,
-  loadImageFromDataUrl
+  loadImageFromDataUrl,
 } from './game-list-image-utils';
 
 const RealImage = globalThis.Image;
@@ -46,12 +46,12 @@ describe('game-list-image-utils', () => {
 
   it('accepts only valid image data urls from canvas encoding', () => {
     const canvas = {
-      toDataURL: vi.fn<() => string>().mockReturnValue('data:image/webp;base64,abc123')
+      toDataURL: vi.fn<() => string>().mockReturnValue('data:image/webp;base64,abc123'),
     } as unknown as HTMLCanvasElement;
     expect(encodeCanvasAsDataUrl(canvas, 'image/webp', 0.8)).toBe('data:image/webp;base64,abc123');
 
     const invalidCanvas = {
-      toDataURL: vi.fn<() => string>().mockReturnValue('blob:https://example.com/x')
+      toDataURL: vi.fn<() => string>().mockReturnValue('blob:https://example.com/x'),
     } as unknown as HTMLCanvasElement;
     expect(encodeCanvasAsDataUrl(invalidCanvas, 'image/jpeg', 0.75)).toBeNull();
   });

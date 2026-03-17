@@ -268,13 +268,15 @@ test('search selector exports keep browser wait and parser row selection aligned
 test('search readiness selector matches current link-first result cards', async () => {
   await page.setContent(currentHtml, { waitUntil: 'domcontentloaded' });
 
-  const handle = await page.waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, {
-    timeout: 100,
-  });
-
-  const matchedFallbackSelector = await handle.evaluate(
-    (node, selector) => node.matches(selector),
-    METACRITIC_SEARCH_RESULT_FALLBACK_READY_SELECTOR
+  const matchedFallbackSelector = await page.evaluate(
+    ({ readySelector, fallbackSelector }) => {
+      const node = document.querySelector(readySelector);
+      return Boolean(node?.matches(fallbackSelector));
+    },
+    {
+      readySelector: METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
+      fallbackSelector: METACRITIC_SEARCH_RESULT_FALLBACK_READY_SELECTOR,
+    }
   );
 
   assert.equal(matchedFallbackSelector, true);
@@ -283,9 +285,10 @@ test('search readiness selector matches current link-first result cards', async 
 test('search readiness selector ignores navigation links outside the results container', async () => {
   await page.setContent(navLinkBeforeResultsHtml, { waitUntil: 'domcontentloaded' });
 
-  const handle = await page
-    .waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, { timeout: 100 })
-    .catch(() => null);
+  const handle = await page.evaluate(
+    (selector) => document.querySelector(selector),
+    METACRITIC_SEARCH_RESULTS_READY_SELECTOR
+  );
 
   assert.equal(handle, null);
 });

@@ -65,10 +65,7 @@ function isSecurityBot(comment) {
 }
 
 function isActionableThread(thread) {
-  if (thread.isResolved) return false;
-  if (thread.isOutdated) return false;
-
-  return true;
+  return !thread.isResolved && !thread.isOutdated;
 }
 
 function runGh(args, options = {}) {
@@ -319,6 +316,13 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
     const author = review.author?.login || 'reviewer';
     if (!includeReviewItem(review.body, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
+
+    if (
+      author === 'github-advanced-security' &&
+      (!review.body || review.body.trim().length === 0)
+    ) {
+      continue;
+    }
 
     results.push({
       author,

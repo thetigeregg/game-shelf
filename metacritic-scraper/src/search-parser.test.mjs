@@ -86,6 +86,17 @@ const payloadOnlyMultiRowHtml = `
   </main>
 `;
 
+const payloadRegexMultiScriptHtml = `
+  <main>
+    <script>
+      window.__NUXT_DATA__ = [0,"game-title",13,"First Quest","first-quest","2021-02-12",2021,[],{"name":"Genre"},"Genre",[],{"name":"Nintendo Switch"},"Nintendo Switch","https://images.example/first.jpg","/game/first-quest/critic-reviews/",91];
+    </script>
+    <script>
+      window.__NUXT_DATA__ = [0,"game-title",13,"Second Quest","second-quest","2022-03-10",2022,[],{"name":"Genre"},"Genre",[],{"name":"PC"},"PC","https://images.example/second.jpg","/game/second-quest/critic-reviews/",87];
+    </script>
+  </main>
+`;
+
 const hostileAbsoluteUrlHtml = `
   <div data-testid="search-results">
     <div data-testid="search-result-item">
@@ -279,6 +290,28 @@ test('extractMetacriticSearchResults keeps multiple payload rows with year and p
     metacriticUrl:
       'https://www.metacritic.com/game/mario-and-luigi-bowsers-inside-story-plus-bowser/',
     imageUrl: 'https://images.example/bowser.jpg',
+  });
+});
+
+test('extractMetacriticSearchResults resets regex payload matching between multiple scripts', async () => {
+  const results = await parseHtml(payloadRegexMultiScriptHtml);
+
+  assert.equal(results.length, 2);
+  assert.deepEqual(results[0], {
+    title: 'First Quest',
+    releaseYear: 2021,
+    platform: 'Nintendo Switch',
+    metacriticScore: 91,
+    metacriticUrl: 'https://www.metacritic.com/game/first-quest/',
+    imageUrl: 'https://images.example/first.jpg',
+  });
+  assert.deepEqual(results[1], {
+    title: 'Second Quest',
+    releaseYear: 2022,
+    platform: 'PC',
+    metacriticScore: 87,
+    metacriticUrl: 'https://www.metacritic.com/game/second-quest/',
+    imageUrl: 'https://images.example/second.jpg',
   });
 });
 

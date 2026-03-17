@@ -394,10 +394,11 @@ async function searchMetacriticInBrowser(page, query) {
   // Current search-card selectors observed on 2026-03-17.
   const rowSelector =
     '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+  const readySelector = `${rowSelector}, a[href*="/game/"]`;
 
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
-  await page.waitForSelector(rowSelector, { timeout: 3000 }).catch(() => undefined);
-  await page.waitForTimeout(500);
+  await page.waitForSelector(readySelector, { timeout: 800 }).catch(() => undefined);
+  await page.waitForTimeout(250);
 
   const items = await page.evaluate(extractMetacriticSearchResults);
 

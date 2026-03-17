@@ -1362,6 +1362,11 @@ export class ExplorePage implements OnInit {
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
     for (;;) {
+      if (!this.isPopularityExploreModeSelected()) {
+        this.popularityCatalogHydrationRerunRequested = false;
+        return;
+      }
+
       const currentRun = this.popularityCatalogHydrationRunPromise;
       if (currentRun) {
         this.popularityCatalogHydrationRerunRequested = true;

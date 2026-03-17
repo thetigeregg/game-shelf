@@ -2290,6 +2290,7 @@ describe('ExplorePage explore modes UX', () => {
 
   it('single-flights visible popularity catalog hydration across overlapping calls', async () => {
     const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
       activePopularityItems: Array<{ id: string; platformIgdbId: number }>;
       visiblePopularityCount: number;
       popularityCatalogHydrationAttempted: Set<string>;
@@ -2297,6 +2298,7 @@ describe('ExplorePage explore modes UX', () => {
       fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
     };
 
+    page.selectedExploreMode = 'popularity';
     page.activePopularityItems = [{ id: '1300', platformIgdbId: 6 }];
     page.visiblePopularityCount = 10;
 
@@ -2319,6 +2321,52 @@ describe('ExplorePage explore modes UX', () => {
     await Promise.all([firstRun, secondRun]);
 
     expect(page.popularityCatalogHydrationAttempted.has('1300')).toBe(true);
+  });
+
+  it('stops popularity catalog hydration when switching away from popularity mode', async () => {
+    const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
+      activePopularityItems: Array<{ id: string; platformIgdbId: number }>;
+      visiblePopularityCount: number;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+    };
+
+    page.selectedExploreMode = 'popularity';
+    page.activePopularityItems = [
+      { id: '1300', platformIgdbId: 6 },
+      { id: '1301', platformIgdbId: 6 },
+      { id: '1302', platformIgdbId: 6 },
+      { id: '1303', platformIgdbId: 6 },
+      { id: '1304', platformIgdbId: 6 }
+    ];
+    page.visiblePopularityCount = 10;
+
+    let resolveFirstBatch: (() => void) | null = null;
+    const firstBatchPromise = new Promise<void>((resolve) => {
+      resolveFirstBatch = resolve;
+    });
+
+    const fetchSpy = vi
+      .spyOn(page, 'fetchRecommendationCatalogResult')
+      .mockImplementation((igdbGameId) =>
+        ['1300', '1301', '1302', '1303'].includes(igdbGameId)
+          ? firstBatchPromise
+          : Promise.resolve(undefined)
+      );
+
+    const hydrationPromise = page.ensureVisiblePopularityCatalogHydrated();
+    await flushAsync();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+
+    page.selectedExploreMode = 'recommendations';
+    resolveFirstBatch?.();
+
+    await hydrationPromise;
+
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy).not.toHaveBeenCalledWith('1304');
   });
 
   it('reruns popularity catalog hydration when a request lands after await and before cleanup', async () => {

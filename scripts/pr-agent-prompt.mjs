@@ -308,17 +308,19 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   }
 
   for (const review of reviews) {
-    const body = formatReviewBody(review.body, review.state);
     const author = review.author?.login || 'reviewer';
-    if (!includeReviewItem(body, author, review.state)) continue;
+    const normalizedAuthor = author.toLowerCase();
+    if (!includeReviewItem(review.body, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
     if (
-      author.toLowerCase() === 'github-advanced-security' &&
+      normalizedAuthor.includes('github-advanced-security') &&
       (!review.body || review.body.trim().length === 0)
     ) {
       continue;
     }
+
+    const body = formatReviewBody(review.body, review.state);
 
     results.push({
       author,

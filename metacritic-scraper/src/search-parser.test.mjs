@@ -111,6 +111,11 @@ async function parseHtml(html) {
   });
 }
 
+async function parseHtmlWithDefaultConfig(html) {
+  await page.setContent(html, { waitUntil: 'domcontentloaded' });
+  return await page.evaluate(extractMetacriticSearchResults);
+}
+
 test('extractMetacriticSearchResults parses legacy search result rows', async () => {
   const results = await parseHtml(legacyHtml);
 
@@ -139,6 +144,16 @@ test('extractMetacriticSearchResults parses current link-first layout without le
     metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
     imageUrl: 'https://images.example/current.jpg',
   });
+});
+
+test('extractMetacriticSearchResults uses its internal default row selector in page.evaluate', async () => {
+  const results = await parseHtmlWithDefaultConfig(legacyHtml);
+
+  assert.equal(results.length, 1);
+  assert.equal(
+    results[0].metacriticUrl,
+    'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/'
+  );
 });
 
 test('extractMetacriticSearchResults rejects hostile absolute URLs outside Metacritic', async () => {

@@ -101,12 +101,12 @@ jobs:
         with:
           files: ./coverage/app/lcov.info,./server/coverage/lcov.info,./worker/coverage/lcov.info
           flags: frontend,server,worker
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           disable_search: true
           use_oidc: true
 
       - name: Upload raw coverage artifacts
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v7
         with:
           name: coverage-reports

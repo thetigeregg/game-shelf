@@ -69,7 +69,7 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   const repository = new RepositoryMock();
   repository.rows = [
     { igdbGameId: '1520', platformIgdbId: 6, payload: { title: 'Mario' } },
-    { igdbGameId: '1520', platformIgdbId: 48, payload: { title: 'Mario' } },
+    { igdbGameId: '1520', platformIgdbId: 48, payload: { title: 'Mario' } }
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
@@ -82,9 +82,9 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           keywordIds: [100],
           screenshots: [],
           videos: [],
-          steamAppId: 12345,
-        },
-      ],
+          steamAppId: 12345
+        }
+      ]
     ])
   );
 
@@ -92,7 +92,7 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
     enabled: true,
     batchSize: 200,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const summary = await service.runOnce();
@@ -121,7 +121,7 @@ void test('metadata enrichment skips when advisory lock is not acquired', async 
       enabled: true,
       batchSize: 200,
       maxGamesPerRun: 5000,
-      startupDelayMs: 0,
+      startupDelayMs: 0
     }
   );
 
@@ -134,7 +134,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
   const repository = new RepositoryMock();
   repository.rows = [
     { igdbGameId: '1', platformIgdbId: 6, payload: { title: 'One' } },
-    { igdbGameId: '2', platformIgdbId: 6, payload: { title: 'Two' } },
+    { igdbGameId: '2', platformIgdbId: 6, payload: { title: 'Two' } }
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
@@ -147,8 +147,8 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [11],
           screenshots: [],
           videos: [],
-          steamAppId: 101,
-        },
+          steamAppId: 101
+        }
       ],
       [
         '2',
@@ -159,9 +159,9 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [22],
           screenshots: [],
           videos: [],
-          steamAppId: 202,
-        },
-      ],
+          steamAppId: 202
+        }
+      ]
     ])
   );
   igdbClient.failuresForBatchContaining.add('2');
@@ -169,7 +169,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
     enabled: true,
     batchSize: 1,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const summary = await service.runOnce();
@@ -200,9 +200,9 @@ void test('metadata enrichment is idempotent on rerun', async () => {
           keywordIds: [4],
           screenshots: [],
           videos: [],
-          steamAppId: 999,
-        },
-      ],
+          steamAppId: 999
+        }
+      ]
     ])
   );
 
@@ -210,7 +210,7 @@ void test('metadata enrichment is idempotent on rerun', async () => {
     enabled: true,
     batchSize: 200,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const first = await service.runOnce();
@@ -231,7 +231,7 @@ void test('metadata enrichment marks no_data when IGDB returns no row for a fetc
     enabled: true,
     batchSize: 200,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const summary = await service.runOnce();
@@ -260,16 +260,16 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         themes: ['Action'],
         keywords: ['Shooter'],
         screenshots: [],
-        videos: [],
-      },
-    },
+        videos: []
+      }
+    }
   ];
   const igdbClient = new IgdbClientMock(new Map());
   const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
     enabled: true,
     batchSize: 200,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const summary = await service.runOnce();
@@ -294,9 +294,9 @@ void test('metadata enrichment patch updates preserve manual override lock field
         listType: 'wishlist',
         hltbMatchLocked: true,
         reviewMatchLocked: true,
-        psPricesMatchLocked: true,
-      },
-    },
+        psPricesMatchLocked: true
+      }
+    }
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
@@ -309,9 +309,9 @@ void test('metadata enrichment patch updates preserve manual override lock field
           keywordIds: [8],
           screenshots: [],
           videos: [],
-          steamAppId: 4242,
-        },
-      ],
+          steamAppId: 4242
+        }
+      ]
     ])
   );
 
@@ -319,7 +319,7 @@ void test('metadata enrichment patch updates preserve manual override lock field
     enabled: true,
     batchSize: 200,
     maxGamesPerRun: 5000,
-    startupDelayMs: 0,
+    startupDelayMs: 0
   });
 
   const summary = await service.runOnce();
@@ -345,9 +345,9 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
-        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
-      },
-    },
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z'
+      }
+    }
   ];
 
   const service = new MetadataEnrichmentService(
@@ -357,7 +357,7 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
       enabled: true,
       batchSize: 200,
       maxGamesPerRun: 5000,
-      startupDelayMs: 0,
+      startupDelayMs: 0
     }
   );
 

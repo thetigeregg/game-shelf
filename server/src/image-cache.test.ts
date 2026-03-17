@@ -82,7 +82,7 @@ class ImagePoolMock {
         content_type: this.toSafeString(params[2]),
         file_path: this.toSafeString(params[3]),
         size_bytes: Number(params[4] ?? 0),
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       this.rowsByKey.set(row.cache_key, row);
       return Promise.resolve({ rows: [] });
@@ -104,9 +104,9 @@ void test('Image cache stores on miss and serves on hit', async () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
-        headers: { 'content-type': 'image/jpeg' },
+        headers: { 'content-type': 'image/jpeg' }
       });
-    },
+    }
   });
 
   const imageUrl = encodeURIComponent(
@@ -114,7 +114,7 @@ void test('Image cache stores on miss and serves on hit', async () => {
   );
   const first = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${imageUrl}`,
+    url: `/v1/images/proxy?url=${imageUrl}`
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
@@ -122,7 +122,7 @@ void test('Image cache stores on miss and serves on hit', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${imageUrl}`,
+    url: `/v1/images/proxy?url=${imageUrl}`
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'HIT');
@@ -150,49 +150,49 @@ void test('Image proxy validates URLs and handles upstream timeout/errors', asyn
         throw new Error('timeout');
       }
       return new Response('oops', { status: 503 });
-    },
+    }
   });
 
   const invalid = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=http://example.com/not-allowed.jpg',
+    url: '/v1/images/proxy?url=http://example.com/not-allowed.jpg'
   });
   assert.equal(invalid.statusCode, 400);
 
   const invalidPort = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com:444/igdb/image/upload/bad-port.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com:444/igdb/image/upload/bad-port.jpg'
   });
   assert.equal(invalidPort.statusCode, 400);
 
   const encodedPathTraversal = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/%2e%2e/admin.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/%2e%2e/admin.jpg'
   });
   assert.equal(encodedPathTraversal.statusCode, 400);
 
   const withQueryString = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/abc123.jpg?redirect=http://127.0.0.1',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/abc123.jpg?redirect=http://127.0.0.1'
   });
   assert.equal(withQueryString.statusCode, 400);
 
   // Explicit :443 is normalized to the default HTTPS port and should pass validation
   const explicitStandardPort = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com:443/igdb/image/upload/explicit-443.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com:443/igdb/image/upload/explicit-443.jpg'
   });
   assert.equal(explicitStandardPort.statusCode, 502);
 
   const timeout = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/timeout.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/timeout.jpg'
   });
   assert.equal(timeout.statusCode, 504);
 
   const upstreamError = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/upstream.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/upstream.jpg'
   });
   assert.equal(upstreamError.statusCode, 502);
 
@@ -220,28 +220,28 @@ void test('Image proxy enforces size limits and rejects empty upstream payloads'
           status: 200,
           headers: {
             'content-type': 'image/png',
-            'content-length': '10',
-          },
+            'content-length': '10'
+          }
         });
       }
       return new Response(new Uint8Array([]), {
         status: 200,
         headers: {
-          'content-type': 'image/png',
-        },
+          'content-type': 'image/png'
+        }
       });
-    },
+    }
   });
 
   const oversized = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/oversized.png',
+    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/oversized.png'
   });
   assert.equal(oversized.statusCode, 413);
 
   const empty = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/empty.png',
+    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/empty.png'
   });
   assert.equal(empty.statusCode, 502);
 
@@ -265,14 +265,14 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
         fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+            headers: { 'content-type': 'image/jpeg' }
+          })
       }
     );
 
     const response = await app.inject({
       method: 'GET',
-      url: `/v1/images/proxy?url=${encoded}`,
+      url: `/v1/images/proxy?url=${encoded}`
     });
     assert.equal(response.statusCode, 200);
     await app.close();
@@ -288,14 +288,14 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
         fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+            headers: { 'content-type': 'image/jpeg' }
+          })
       }
     );
 
     const response = await app.inject({
       method: 'GET',
-      url: `/v1/images/proxy?url=${encoded}`,
+      url: `/v1/images/proxy?url=${encoded}`
     });
     assert.equal(response.statusCode, 200);
     await app.close();
@@ -311,14 +311,14 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
         fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+            headers: { 'content-type': 'image/jpeg' }
+          })
       }
     );
     const purge = await app.inject({
       method: 'POST',
       url: '/v1/images/cache/purge',
-      payload: { urls: [sourceUrl] },
+      payload: { urls: [sourceUrl] }
     });
     assert.equal(purge.statusCode, 200);
     await app.close();
@@ -346,13 +346,13 @@ void test('Image proxy handles stale DB record with missing file and fallback ex
       new Response(Buffer.from([1, 2, 3]), {
         status: 200,
         headers: {
-          'content-type': 'application/octet-stream',
-        },
-      }),
+          'content-type': 'application/octet-stream'
+        }
+      })
   });
   await primingApp.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encoded}`,
+    url: `/v1/images/proxy?url=${encoded}`
   });
   await primingApp.close();
 
@@ -367,14 +367,14 @@ void test('Image proxy handles stale DB record with missing file and fallback ex
       new Response(Buffer.from([9, 9, 9]), {
         status: 200,
         headers: {
-          'content-type': 'application/octet-stream',
-        },
-      }),
+          'content-type': 'application/octet-stream'
+        }
+      })
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encoded}`,
+    url: `/v1/images/proxy?url=${encoded}`
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-image-cache'], 'MISS');
@@ -391,7 +391,7 @@ void test('Image proxy logs non-Error database failures and still responds', asy
     failReads: true,
     readFailureValue: 'read_failure_string',
     failWrites: true,
-    writeFailureValue: 'write_failure_string',
+    writeFailureValue: 'write_failure_string'
   });
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
@@ -399,14 +399,14 @@ void test('Image proxy logs non-Error database failures and still responds', asy
       new Response(Buffer.from([0xaa, 0xbb, 0xcc]), {
         status: 200,
         headers: {
-          'content-type': 'image/unknown',
-        },
-      }),
+          'content-type': 'image/unknown'
+        }
+      })
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/nonerror',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/nonerror'
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-image-cache'], 'MISS');
@@ -426,20 +426,20 @@ void test('Image proxy handles missing url parameter and null upstream body', as
       new Response(null, {
         status: 200,
         headers: {
-          'content-type': 'image/png',
-        },
-      }),
+          'content-type': 'image/png'
+        }
+      })
   });
 
   const missingUrl = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy',
+    url: '/v1/images/proxy'
   });
   assert.equal(missingUrl.statusCode, 400);
 
   const nullBody = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/null-body.png',
+    url: '/v1/images/proxy?url=https://cdn.thegamesdb.net/images/original/null-body.png'
   });
   assert.equal(nullBody.statusCode, 502);
 
@@ -459,16 +459,16 @@ void test('Image cache purge endpoint removes cached assets by source URL', asyn
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
-        headers: { 'content-type': 'image/jpeg' },
+        headers: { 'content-type': 'image/jpeg' }
       });
-    },
+    }
   });
 
   const sourceUrl = 'https://cdn.thegamesdb.net/images/original/boxart/front/123.jpg';
   const encodedUrl = encodeURIComponent(sourceUrl);
   const first = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encodedUrl}`,
+    url: `/v1/images/proxy?url=${encodedUrl}`
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
@@ -477,14 +477,14 @@ void test('Image cache purge endpoint removes cached assets by source URL', asyn
   const purge = await app.inject({
     method: 'POST',
     url: '/v1/images/cache/purge',
-    payload: { urls: [sourceUrl] },
+    payload: { urls: [sourceUrl] }
   });
   assert.equal(purge.statusCode, 200);
   assert.deepEqual(purge.json(), { deleted: 1 });
 
   const second = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encodedUrl}`,
+    url: `/v1/images/proxy?url=${encodedUrl}`
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
@@ -504,21 +504,21 @@ void test('Image proxy route rate limits by client IP', async () => {
     fetchImpl: () =>
       new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      }),
+        headers: { 'content-type': 'image/jpeg' }
+      })
   });
 
   for (let index = 0; index < 50; index += 1) {
     const response = await app.inject({
       method: 'GET',
-      url: `/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-${String(index)}.jpg`,
+      url: `/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-${String(index)}.jpg`
     });
     assert.equal(response.statusCode, 200);
   }
 
   const limited = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-final.jpg',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-final.jpg'
   });
   assert.equal(limited.statusCode, 429);
   assert.ok(typeof limited.headers['retry-after'] === 'string');
@@ -540,7 +540,7 @@ void test('Image purge route rate limits by client IP', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/v1/images/cache/purge',
-      payload: { urls: [`${url}-${String(index)}`] },
+      payload: { urls: [`${url}-${String(index)}`] }
     });
     assert.equal(response.statusCode, 200);
   }
@@ -548,7 +548,7 @@ void test('Image purge route rate limits by client IP', async () => {
   const limited = await app.inject({
     method: 'POST',
     url: '/v1/images/cache/purge',
-    payload: { urls: [`${url}-final`] },
+    payload: { urls: [`${url}-final`] }
   });
   assert.equal(limited.statusCode, 429);
   assert.ok(typeof limited.headers['retry-after'] === 'string');

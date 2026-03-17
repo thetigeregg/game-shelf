@@ -6,7 +6,7 @@ vi.mock('@ionic/angular/standalone', () => {
   return {
     IonBadge: Stub,
     IonItem: Stub,
-    IonLabel: Stub,
+    IonLabel: Stub
   };
 });
 
@@ -46,7 +46,7 @@ describe('SimilarGameRowComponent', () => {
       'Theme overlap',
       'Strong semantic match',
       'Low critic profile',
-      'Exploration',
+      'Exploration'
     ]);
   });
 });

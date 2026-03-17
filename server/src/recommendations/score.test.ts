@@ -29,7 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -39,7 +39,7 @@ void test('ranking is deterministic for the same input data', () => {
     buildGame({ igdbGameId: 'h2', rating: 5, genres: ['RPG'], developers: ['Alpha'] }),
     buildGame({ igdbGameId: 'h3', rating: 4.5, genres: ['RPG'], developers: ['Beta'] }),
     buildGame({ igdbGameId: 'h4', rating: 4, genres: ['Action'], developers: ['Gamma'] }),
-    buildGame({ igdbGameId: 'h5', rating: 2, genres: ['Puzzle'], developers: ['Delta'] }),
+    buildGame({ igdbGameId: 'h5', rating: 2, genres: ['Puzzle'], developers: ['Delta'] })
   ];
   const candidates: NormalizedGameRecord[] = [
     buildGame({
@@ -50,7 +50,7 @@ void test('ranking is deterministic for the same input data', () => {
       developers: ['Alpha'],
       runtimeHours: 14,
       reviewScore: 90,
-      reviewSource: 'metacritic',
+      reviewSource: 'metacritic'
     }),
     buildGame({
       igdbGameId: 'c2',
@@ -60,14 +60,14 @@ void test('ranking is deterministic for the same input data', () => {
       developers: ['Delta'],
       runtimeHours: 42,
       reviewScore: 70,
-      reviewSource: 'metacritic',
-    }),
+      reviewSource: 'metacritic'
+    })
   ];
 
   const profile = buildPreferenceProfile([...history, ...candidates]);
   const semanticSimilarityByGame = new Map<string, number>([
     ['c1::1', 0.3],
-    ['c2::1', -0.4],
+    ['c2::1', -0.4]
   ]);
   const params = {
     candidates,
@@ -80,14 +80,14 @@ void test('ranking is deterministic for the same input data', () => {
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map<string, { recommendationCount: number }>(),
+    historyByGame: new Map<string, { recommendationCount: number }>()
   };
 
   const first = buildRankedScores(params);
@@ -102,7 +102,7 @@ void test('ranking is deterministic for the same input data', () => {
 
 void test('cold start disables taste contribution when rated games are fewer than five', () => {
   const history: NormalizedGameRecord[] = [
-    buildGame({ igdbGameId: 'h1', rating: 5, genres: ['RPG'], developers: ['Alpha'] }),
+    buildGame({ igdbGameId: 'h1', rating: 5, genres: ['RPG'], developers: ['Alpha'] })
   ];
   const candidates: NormalizedGameRecord[] = [
     buildGame({
@@ -111,8 +111,8 @@ void test('cold start disables taste contribution when rated games are fewer tha
       status: 'wantToPlay',
       genres: ['RPG'],
       developers: ['Alpha'],
-      runtimeHours: 12,
-    }),
+      runtimeHours: 12
+    })
   ];
 
   const profile = buildPreferenceProfile([...history, ...candidates]);
@@ -127,14 +127,14 @@ void test('cold start disables taste contribution when rated games are fewer tha
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map([['c1::1', { recommendationCount: 3 }]]),
+    historyByGame: new Map([['c1::1', { recommendationCount: 3 }]])
   });
 
   assert.equal(ranked[0]?.components.taste, 0);
@@ -148,7 +148,7 @@ void test('critic boost handles mobygames reviewScore values on 0-100 scale', ()
     buildGame({ igdbGameId: 'h2', rating: 4.5, genres: ['RPG'] }),
     buildGame({ igdbGameId: 'h3', rating: 4, genres: ['RPG'] }),
     buildGame({ igdbGameId: 'h4', rating: 3.5, genres: ['RPG'] }),
-    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] })
   ];
   const candidates: NormalizedGameRecord[] = [
     buildGame({
@@ -156,8 +156,8 @@ void test('critic boost handles mobygames reviewScore values on 0-100 scale', ()
       status: 'wantToPlay',
       reviewScore: 87,
       reviewSource: 'mobygames',
-      mobyScore: 8.7,
-    }),
+      mobyScore: 8.7
+    })
   ];
 
   const ranked = buildRankedScores({
@@ -171,14 +171,14 @@ void test('critic boost handles mobygames reviewScore values on 0-100 scale', ()
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map(),
+    historyByGame: new Map()
   });
 
   assert.equal((ranked[0]?.components.criticBoost ?? 0) > 0, true);
@@ -190,10 +190,10 @@ void test('exploration uses raw semantic similarity, not weighted semantic score
     buildGame({ igdbGameId: 'h2', rating: 4.5, genres: ['RPG'] }),
     buildGame({ igdbGameId: 'h3', rating: 4, genres: ['RPG'] }),
     buildGame({ igdbGameId: 'h4', rating: 3.5, genres: ['RPG'] }),
-    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] })
   ];
   const candidates: NormalizedGameRecord[] = [
-    buildGame({ igdbGameId: 'c1', status: 'wantToPlay' }),
+    buildGame({ igdbGameId: 'c1', status: 'wantToPlay' })
   ];
 
   const ranked = buildRankedScores({
@@ -207,14 +207,14 @@ void test('exploration uses raw semantic similarity, not weighted semantic score
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map(),
+    historyByGame: new Map()
   });
 
   assert.equal(ranked[0]?.components.exploration, 0.045);
@@ -226,7 +226,7 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
     buildGame({ igdbGameId: 'h2', rating: 4.5, collections: ['Mario'], franchises: ['Mario'] }),
     buildGame({ igdbGameId: 'h3', rating: 4, collections: ['Mario'], franchises: ['Mario'] }),
     buildGame({ igdbGameId: 'h4', rating: 3.5, collections: ['Mario'], franchises: ['Mario'] }),
-    buildGame({ igdbGameId: 'h5', rating: 3, collections: ['Mario'], franchises: ['Mario'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, collections: ['Mario'], franchises: ['Mario'] })
   ];
 
   const withOverlap = buildRankedScores({
@@ -235,8 +235,8 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
         igdbGameId: 'c1',
         status: 'wantToPlay',
         collections: ['Mario'],
-        franchises: ['Mario'],
-      }),
+        franchises: ['Mario']
+      })
     ],
     profile: buildPreferenceProfile(history),
     target: 'BACKLOG',
@@ -247,14 +247,14 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map(),
+    historyByGame: new Map()
   });
 
   const collectionOnly = buildRankedScores({
@@ -263,8 +263,8 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
         igdbGameId: 'c2',
         status: 'wantToPlay',
         collections: ['Mario'],
-        franchises: [],
-      }),
+        franchises: []
+      })
     ],
     profile: buildPreferenceProfile(history),
     target: 'BACKLOG',
@@ -275,14 +275,14 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1,
+      runtimeWeight: 1
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map(),
+    historyByGame: new Map()
   });
 
   assert.equal(

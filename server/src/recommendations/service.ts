@@ -19,7 +19,7 @@ import {
   buildGameKey,
   buildTasteProfileEmbedding,
   clampSemanticScore,
-  cosineSimilarity,
+  cosineSimilarity
 } from './semantic.js';
 import { buildSimilarityGraph } from './similarity.js';
 import { tuneRecommendationWeights } from './tuning.js';
@@ -35,7 +35,7 @@ import {
   RecommendationTarget,
   SimilarityReasons,
   StoredGameEmbedding,
-  TunedRecommendationWeights,
+  TunedRecommendationWeights
 } from './types.js';
 
 const RANKING_DEDUPE_BUFFER = 25;
@@ -172,7 +172,7 @@ export class RecommendationService implements RecommendationServiceApi {
       new OpenAiEmbeddingClient({
         apiKey: '',
         model: this.options.embeddingModel,
-        dimensions: this.options.embeddingDimensions,
+        dimensions: this.options.embeddingDimensions
       });
     this.nowProvider = dependencies.nowProvider ?? (() => Date.now());
     this.discoveryClient =
@@ -181,7 +181,7 @@ export class RecommendationService implements RecommendationServiceApi {
         twitchClientId: '',
         twitchClientSecret: '',
         requestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
-        maxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
+        maxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond
       });
     this.discoveryEnrichmentService = dependencies.discoveryEnrichmentService ?? null;
   }
@@ -200,7 +200,7 @@ export class RecommendationService implements RecommendationServiceApi {
       if (!force && triggeredBy !== 'manual' && this.isFailureBackoffActive(latestRun)) {
         return {
           target: params.target,
-          status: 'BACKOFF_SKIPPED' as const,
+          status: 'BACKOFF_SKIPPED' as const
         };
       }
 
@@ -209,7 +209,7 @@ export class RecommendationService implements RecommendationServiceApi {
         await this.refreshDiscoveryPool({
           client,
           force,
-          games,
+          games
         });
         games = await this.repository.listNormalizedGames(client);
       }
@@ -228,7 +228,7 @@ export class RecommendationService implements RecommendationServiceApi {
           target: params.target,
           runId: latestSuccess.id,
           status: 'SKIPPED' as const,
-          reusedRunId: latestSuccess.id,
+          reusedRunId: latestSuccess.id
         };
       }
 
@@ -239,18 +239,18 @@ export class RecommendationService implements RecommendationServiceApi {
         target: params.target,
         settingsHash,
         inputHash,
-        triggeredBy,
+        triggeredBy
       });
 
       try {
         const embeddingsByGame = await this.ensureEmbeddings({
           client,
           games,
-          embeddingKeywordsByGame: keywordArtifacts.embeddingKeywordsByGame,
+          embeddingKeywordsByGame: keywordArtifacts.embeddingKeywordsByGame
         });
         const semanticSimilarityByGame = this.buildSemanticSimilarityMap({
           games,
-          embeddingsByGame,
+          embeddingsByGame
         });
         const tunedWeights = this.buildTunedWeights(games, semanticSimilarityByGame);
         const recommendationsByMode = this.buildRecommendationsByMode({
@@ -259,12 +259,12 @@ export class RecommendationService implements RecommendationServiceApi {
           semanticSimilarityByGame,
           tunedWeights,
           histories,
-          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame,
+          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame
         });
         const lanesByMode = this.buildLanesByMode({
           target: params.target,
           games,
-          recommendationsByMode,
+          recommendationsByMode
         });
         const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
         const similarityTargets = selectCandidates(games, params.target);
@@ -283,8 +283,8 @@ export class RecommendationService implements RecommendationServiceApi {
             series: this.options.similaritySeriesWeight,
             developers: this.options.similarityDeveloperWeight,
             publishers: this.options.similarityPublisherWeight,
-            keywords: this.options.similarityKeywordWeight,
-          },
+            keywords: this.options.similarityKeywordWeight
+          }
         });
         await this.repository.finalizeRunSuccess({
           client,
@@ -293,13 +293,13 @@ export class RecommendationService implements RecommendationServiceApi {
           recommendationsByMode,
           lanesByMode,
           historyUpdates,
-          similarityEdges,
+          similarityEdges
         });
 
         return {
           target: params.target,
           runId,
-          status: 'SUCCESS' as const,
+          status: 'SUCCESS' as const
         };
       } catch (error) {
         const errorMessage =
@@ -307,13 +307,13 @@ export class RecommendationService implements RecommendationServiceApi {
         await this.repository.markRunFailed({
           client,
           runId,
-          errorMessage,
+          errorMessage
         });
 
         return {
           target: params.target,
           runId,
-          status: 'FAILED' as const,
+          status: 'FAILED' as const
         };
       }
     });
@@ -321,7 +321,7 @@ export class RecommendationService implements RecommendationServiceApi {
     if (!locked.acquired) {
       return {
         target: params.target,
-        status: 'LOCKED',
+        status: 'LOCKED'
       };
     }
 
@@ -341,7 +341,7 @@ export class RecommendationService implements RecommendationServiceApi {
     return this.rebuild({
       target,
       force: false,
-      triggeredBy,
+      triggeredBy
     });
   }
 
@@ -364,12 +364,12 @@ export class RecommendationService implements RecommendationServiceApi {
       target,
       force: false,
       triggeredBy,
-      reason,
+      reason
     });
     return {
       queued: true,
       reason,
-      jobId: queued.jobId,
+      jobId: queued.jobId
     };
   }
 
@@ -382,7 +382,7 @@ export class RecommendationService implements RecommendationServiceApi {
       target: params.target,
       force: params.force,
       triggeredBy: params.triggeredBy,
-      reason: params.force ? 'forced' : 'stale',
+      reason: params.force ? 'forced' : 'stale'
     });
   }
 
@@ -415,7 +415,7 @@ export class RecommendationService implements RecommendationServiceApi {
     const result = await this.repository.readTopRecommendations({
       target,
       runtimeMode: resolvedRuntimeMode,
-      limit: safeLimit,
+      limit: safeLimit
     });
 
     if (!result) {
@@ -424,7 +424,7 @@ export class RecommendationService implements RecommendationServiceApi {
 
     return {
       ...result,
-      runtimeMode: resolvedRuntimeMode,
+      runtimeMode: resolvedRuntimeMode
     };
   }
 
@@ -442,7 +442,7 @@ export class RecommendationService implements RecommendationServiceApi {
     const result = await this.repository.readRecommendationLanes({
       target,
       runtimeMode: resolvedRuntimeMode,
-      limit: safeLimit,
+      limit: safeLimit
     });
 
     if (!result) {
@@ -451,7 +451,7 @@ export class RecommendationService implements RecommendationServiceApi {
 
     return {
       ...result,
-      runtimeMode: resolvedRuntimeMode,
+      runtimeMode: resolvedRuntimeMode
     };
   }
 
@@ -477,7 +477,7 @@ export class RecommendationService implements RecommendationServiceApi {
       platformIgdbId: params.platformIgdbId,
       target: params.target,
       runtimeMode: resolvedRuntimeMode,
-      limit: safeLimit,
+      limit: safeLimit
     });
     const dedupedRows = dedupeSimilarRows(rows, safeLimit);
 
@@ -487,8 +487,8 @@ export class RecommendationService implements RecommendationServiceApi {
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
         similarity: row.similarity,
-        reasons: row.reasons,
-      })),
+        reasons: row.reasons
+      }))
     };
   }
 
@@ -515,7 +515,7 @@ export class RecommendationService implements RecommendationServiceApi {
     for (const game of games) {
       const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
       const text = buildEmbeddingText(game, {
-        keywords: embeddingKeywordsByGame.get(key) ?? [],
+        keywords: embeddingKeywordsByGame.get(key) ?? []
       });
       const sourceHash = sha256({ text });
       const existing = existingByKey.get(key);
@@ -555,7 +555,7 @@ export class RecommendationService implements RecommendationServiceApi {
           platformIgdbId: entry.game.platformIgdbId,
           embedding: vector,
           embeddingModel: this.options.embeddingModel,
-          sourceHash: entry.sourceHash,
+          sourceHash: entry.sourceHash
         });
 
         existingByKey.set(entry.key, {
@@ -565,7 +565,7 @@ export class RecommendationService implements RecommendationServiceApi {
           embeddingModel: this.options.embeddingModel,
           sourceHash: entry.sourceHash,
           createdAt: new Date(this.nowProvider()).toISOString(),
-          updatedAt: new Date(this.nowProvider()).toISOString(),
+          updatedAt: new Date(this.nowProvider()).toISOString()
         });
       }
     }
@@ -573,7 +573,7 @@ export class RecommendationService implements RecommendationServiceApi {
     if (generatedRows.length > 0) {
       await this.embeddingRepository.upsertGameEmbeddings({
         client,
-        rows: generatedRows,
+        rows: generatedRows
       });
     }
 
@@ -600,7 +600,7 @@ export class RecommendationService implements RecommendationServiceApi {
       const map = await this.repository.listRecommendationHistory({
         target,
         runtimeMode: mode,
-        queryable: client,
+        queryable: client
       });
 
       const normalized = new Map<string, { recommendationCount: number }>();
@@ -651,8 +651,8 @@ export class RecommendationService implements RecommendationServiceApi {
         tasteWeight: 1,
         semanticWeight: this.options.semanticWeight,
         criticWeight: 1,
-        runtimeWeight: 1,
-      },
+        runtimeWeight: 1
+      }
     });
   }
 
@@ -670,7 +670,7 @@ export class RecommendationService implements RecommendationServiceApi {
       semanticSimilarityByGame,
       tunedWeights,
       histories,
-      structuredKeywordsByGame,
+      structuredKeywordsByGame
     } = params;
     const profile = buildPreferenceProfile(games);
     const candidates = selectCandidates(games, target);
@@ -699,8 +699,8 @@ export class RecommendationService implements RecommendationServiceApi {
           developers: 1.1,
           genres: 1,
           publishers: 0.7,
-          keywords: this.options.keywordsWeight,
-        },
+          keywords: this.options.keywordsWeight
+        }
       });
 
       const materialized = ranked.map((item, index) => ({
@@ -711,8 +711,8 @@ export class RecommendationService implements RecommendationServiceApi {
         scoreComponents: item.components,
         explanations: buildExplanation({
           components: item.components,
-          tasteMatches: item.tasteMatches,
-        }),
+          tasteMatches: item.tasteMatches
+        })
       }));
 
       return dedupeByGameId(materialized, this.options.topLimit);
@@ -730,7 +730,7 @@ export class RecommendationService implements RecommendationServiceApi {
       return createModeRecord((runtimeMode) =>
         buildRecommendationLanes({
           items: recommendationsByMode[runtimeMode],
-          laneLimit: this.options.laneLimit,
+          laneLimit: this.options.laneLimit
         })
       );
     }
@@ -751,7 +751,7 @@ export class RecommendationService implements RecommendationServiceApi {
       buildDiscoveryRecommendationLanes({
         items: recommendationsByMode[runtimeMode],
         laneLimit: this.options.laneLimit,
-        discoverySourceByGame,
+        discoverySourceByGame
       })
     );
   }
@@ -778,7 +778,7 @@ export class RecommendationService implements RecommendationServiceApi {
           target,
           runtimeMode: mode,
           igdbGameId: item.igdbGameId,
-          platformIgdbId: item.platformIgdbId,
+          platformIgdbId: item.platformIgdbId
         });
       }
     }
@@ -824,7 +824,7 @@ export class RecommendationService implements RecommendationServiceApi {
       discoveryRecentRefreshHours: this.options.discoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
       discoveryIgdbMaxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
-      modelVersion: 'recommendation-v3-discovery-source-lanes',
+      modelVersion: 'recommendation-v3-discovery-source-lanes'
     });
   }
 
@@ -860,7 +860,7 @@ export class RecommendationService implements RecommendationServiceApi {
         developers: [...game.developers].sort(),
         publishers: [...game.publishers].sort(),
         franchises: [...game.franchises].sort(),
-        collections: [...game.collections].sort(),
+        collections: [...game.collections].sort()
       }))
       .sort((left, right) => {
         if (left.igdbGameId !== right.igdbGameId) {
@@ -879,8 +879,8 @@ export class RecommendationService implements RecommendationServiceApi {
           .sort((left, right) => left.key.localeCompare(right.key, 'en')),
         structured: [...keywordArtifacts.structuredKeywordsByGame.entries()]
           .map(([key, keywords]) => ({ key, keywords: [...keywords].sort() }))
-          .sort((left, right) => left.key.localeCompare(right.key, 'en')),
-      },
+          .sort((left, right) => left.key.localeCompare(right.key, 'en'))
+      }
     });
   }
 
@@ -903,13 +903,13 @@ export class RecommendationService implements RecommendationServiceApi {
         structuredMaxRatio: this.options.keywordsStructuredMaxRatio,
         minLibraryCount: this.options.keywordsMinLibraryCount,
         structuredMax: this.options.keywordsStructuredMax,
-        embeddingMax: this.options.keywordsEmbeddingMax,
-      },
+        embeddingMax: this.options.keywordsEmbeddingMax
+      }
     });
 
     return {
       embeddingKeywordsByGame: selection.embeddingKeywordsByGame,
-      structuredKeywordsByGame: selection.structuredKeywordsByGame,
+      structuredKeywordsByGame: selection.structuredKeywordsByGame
     };
   }
 
@@ -925,7 +925,7 @@ export class RecommendationService implements RecommendationServiceApi {
           .filter((game) => game.listType === 'collection' || game.listType === 'wishlist')
           .map((game) => game.platformIgdbId)
           .filter((id) => Number.isInteger(id) && id > 0)
-      ),
+      )
     ];
     const strictExcludedGameIds = new Set(
       games
@@ -945,7 +945,7 @@ export class RecommendationService implements RecommendationServiceApi {
       const refreshMarker = await this.repository.getSetting(refreshMarkerKey, client);
       const latestUpdatedAt = await this.repository.getDiscoveryPoolLatestUpdatedAt({
         queryable: client,
-        source,
+        source
       });
 
       const referenceTimestamp = Date.parse(refreshMarker ?? latestUpdatedAt ?? '');
@@ -964,7 +964,7 @@ export class RecommendationService implements RecommendationServiceApi {
       const fetched = await this.discoveryClient.fetchDiscoveryCandidatesBySource({
         source,
         poolSize: this.options.discoveryPoolSize,
-        preferredPlatformIds,
+        preferredPlatformIds
       });
 
       const upsertRows = fetched
@@ -972,14 +972,14 @@ export class RecommendationService implements RecommendationServiceApi {
         .map((row) => ({
           igdbGameId: row.igdbGameId,
           platformIgdbId: row.platformIgdbId,
-          payload: buildDiscoveryPayload(row),
+          payload: buildDiscoveryPayload(row)
         }));
 
       const sourceHash = sha256(
         upsertRows
           .map((row) => ({
             key: buildGameKey(row.igdbGameId, row.platformIgdbId),
-            payload: row.payload,
+            payload: row.payload
           }))
           .sort((left, right) => left.key.localeCompare(right.key, 'en'))
       );
@@ -989,32 +989,32 @@ export class RecommendationService implements RecommendationServiceApi {
       if (force || existingHash !== sourceHash) {
         await this.repository.upsertDiscoveryGames({
           client,
-          rows: upsertRows,
+          rows: upsertRows
         });
         const keepKeys = upsertRows.map((row) => buildGameKey(row.igdbGameId, row.platformIgdbId));
         await this.repository.pruneDiscoveryGamesBySource({
           client,
           source,
-          keepKeys,
+          keepKeys
         });
         await this.repository.upsertSetting({
           queryable: client,
           settingKey: sourceHashKey,
-          settingValue: sourceHash,
+          settingValue: sourceHash
         });
       }
 
       await this.repository.upsertSetting({
         queryable: client,
         settingKey: refreshMarkerKey,
-        settingValue: nowIso,
+        settingValue: nowIso
       });
     }
 
     if (this.discoveryEnrichmentService) {
       await this.discoveryEnrichmentService.enrichNow({
         limit: this.options.discoveryPoolSize,
-        queryable: client,
+        queryable: client
       });
     }
   }
@@ -1052,7 +1052,7 @@ function createModeRecord<T>(
   return {
     NEUTRAL: factory('NEUTRAL'),
     SHORT: factory('SHORT'),
-    LONG: factory('LONG'),
+    LONG: factory('LONG')
   };
 }
 
@@ -1072,7 +1072,7 @@ function dedupeByGameId(
     seen.add(item.igdbGameId);
     deduped.push({
       ...item,
-      rank: deduped.length + 1,
+      rank: deduped.length + 1
     });
 
     if (deduped.length >= safeLimit) {
@@ -1133,7 +1133,7 @@ function buildDiscoveryRecommendationLanes(params: {
   const blended = selectUniqueLaneItems({
     primary: items,
     fallback: items,
-    laneLimit,
+    laneLimit
   });
   const popular = selectUniqueLaneItems({
     primary: items.filter(
@@ -1141,7 +1141,7 @@ function buildDiscoveryRecommendationLanes(params: {
         discoverySourceByGame.get(buildGameKey(item.igdbGameId, item.platformIgdbId)) === 'popular'
     ),
     fallback: items,
-    laneLimit,
+    laneLimit
   });
   const recent = selectUniqueLaneItems({
     primary: items.filter(
@@ -1149,7 +1149,7 @@ function buildDiscoveryRecommendationLanes(params: {
         discoverySourceByGame.get(buildGameKey(item.igdbGameId, item.platformIgdbId)) === 'recent'
     ),
     fallback: items,
-    laneLimit,
+    laneLimit
   });
 
   return {
@@ -1158,7 +1158,7 @@ function buildDiscoveryRecommendationLanes(params: {
     exploration: recent,
     blended,
     popular,
-    recent,
+    recent
   };
 }
 
@@ -1230,7 +1230,7 @@ function buildDiscoveryPayload(row: DiscoveryCandidateRecord): Record<string, un
     createdAt: null,
     updatedAt: null,
     discoverySource: row.source,
-    discoverySourceScore: row.sourceScore,
+    discoverySourceScore: row.sourceScore
   };
 }
 

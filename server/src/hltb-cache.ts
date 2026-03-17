@@ -8,7 +8,7 @@ import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
-  sanitizeUrlForDebugLogs,
+  sanitizeUrlForDebugLogs
 } from './http-debug-log.js';
 
 interface HltbCacheRow {
@@ -78,8 +78,8 @@ export async function registerHltbCachedRoute(
     config: {
       rateLimit: {
         max: config.hltbSearchRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       const normalized = normalizeHltbQuery(request.url);
@@ -132,7 +132,7 @@ export async function registerHltbCachedRoute(
           cacheOutcome = 'BYPASS';
           request.log.warn({
             msg: 'hltb_cache_read_failed',
-            error: error instanceof Error ? error.message : String(error),
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       }
@@ -164,7 +164,7 @@ export async function registerHltbCachedRoute(
 
       reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
-    },
+    }
   });
 }
 
@@ -198,7 +198,7 @@ function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {
     platform,
     includeCandidates,
     preferredHltbGameId,
-    preferredHltbUrl,
+    preferredHltbUrl
   };
 }
 
@@ -209,7 +209,7 @@ function buildCacheKey(query: NormalizedHltbQuery): string {
     query.platform?.toLowerCase() ?? null,
     query.includeCandidates,
     query.preferredHltbGameId,
-    query.preferredHltbUrl,
+    query.preferredHltbUrl
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -250,7 +250,7 @@ function scheduleHltbRevalidation(
     incrementHltbMetric('revalidateScheduled');
     enqueueRevalidationJob({
       cacheKey,
-      requestUrl: request.url,
+      requestUrl: request.url
     });
     return true;
   }
@@ -297,7 +297,7 @@ function scheduleHltbRevalidation(
       incrementHltbMetric('revalidateFailed');
       request.log.warn({
         msg: 'hltb_cache_revalidate_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     } finally {
       revalidationInFlightByKey.delete(cacheKey);
@@ -343,7 +343,7 @@ export async function processQueuedHltbCacheRevalidation(
       normalizedQuery.releaseYear,
       normalizedQuery.platform,
       normalizedQuery.includeCandidates,
-      JSON.stringify(finalizedPayload),
+      JSON.stringify(finalizedPayload)
     ]
   );
 }
@@ -353,7 +353,7 @@ async function fetchHltbFromScraper(query: NormalizedHltbQuery): Promise<Respons
   if (!baseUrl) {
     return new Response(JSON.stringify({ error: 'HLTB scraper base URL is not configured' }), {
       status: 503,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     });
   }
 
@@ -386,7 +386,7 @@ async function fetchHltbFromScraper(query: NormalizedHltbQuery): Promise<Respons
   } catch {
     return new Response(JSON.stringify({ error: 'HLTB scraper request failed' }), {
       status: 502,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     });
   }
 }
@@ -414,7 +414,7 @@ async function persistHltbCacheEntry(
         normalizedQuery.releaseYear,
         normalizedQuery.platform,
         normalizedQuery.includeCandidates,
-        JSON.stringify(payload),
+        JSON.stringify(payload)
       ]
     );
     incrementHltbMetric('writes');
@@ -422,7 +422,7 @@ async function persistHltbCacheEntry(
     incrementHltbMetric('writeErrors');
     request.log.warn({
       msg: 'hltb_cache_write_failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -541,7 +541,7 @@ function normalizePromotedHltbItem(
     ...candidateRecord,
     ...(hltbMainHours !== null ? { hltbMainHours } : {}),
     ...(hltbMainExtraHours !== null ? { hltbMainExtraHours } : {}),
-    ...(hltbCompletionistHours !== null ? { hltbCompletionistHours } : {}),
+    ...(hltbCompletionistHours !== null ? { hltbCompletionistHours } : {})
   };
 }
 
@@ -577,7 +577,7 @@ function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unkn
 
   return {
     ...payloadRecord,
-    item: normalizedPreferredItem,
+    item: normalizedPreferredItem
   };
 }
 
@@ -675,7 +675,7 @@ async function deleteHltbCacheEntry(
     incrementHltbMetric('writeErrors');
     request.log.warn({
       msg: 'hltb_cache_delete_failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -687,8 +687,8 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
     return new Response(JSON.stringify({ error: 'HLTB scraper base URL is not configured' }), {
       status: 503,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 
@@ -714,30 +714,30 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
     logUpstreamRequest(request, {
       method: 'GET',
       url: targetUrl.toString(),
-      headers,
+      headers
     });
     const response = await fetch(targetUrl.toString(), {
       method: 'GET',
-      headers,
+      headers
     });
     await logUpstreamResponse(request, {
       method: 'GET',
       url: targetUrl.toString(),
-      response,
+      response
     });
     return response;
   } catch (error) {
     request.log.warn({
       msg: 'hltb_scraper_request_failed',
       url: sanitizeUrlForDebugLogs(targetUrl.toString()),
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
 
     return new Response(JSON.stringify({ error: 'HLTB scraper request failed' }), {
       status: 502,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 }

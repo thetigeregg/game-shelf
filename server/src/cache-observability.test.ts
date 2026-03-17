@@ -10,7 +10,7 @@ import {
   incrementMobygamesMetric,
   incrementPspricesPriceMetric,
   incrementSteamPriceMetric,
-  resetCacheMetrics,
+  resetCacheMetrics
 } from './cache-metrics.js';
 
 type CacheStatsPayload = {
@@ -117,7 +117,7 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(response.statusCode, 200);
@@ -156,7 +156,7 @@ void test('Cache stats endpoint stringifies non-Error db failures', async () => 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(response.statusCode, 200);
@@ -174,7 +174,7 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(response.statusCode, 200);
@@ -204,7 +204,7 @@ void test('Cache stats endpoint returns 0 count when db rows are empty', async (
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(response.statusCode, 200);
@@ -229,7 +229,7 @@ void test('Cache stats endpoint is rate limited', async () => {
   for (let i = 0; i < 10; i += 1) {
     const response = await app.inject({
       method: 'GET',
-      url: '/v1/cache/stats',
+      url: '/v1/cache/stats'
     });
 
     assert.equal(response.statusCode, 200);
@@ -237,7 +237,7 @@ void test('Cache stats endpoint is rate limited', async () => {
 
   const limitedResponse = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(limitedResponse.statusCode, 429);
@@ -251,18 +251,18 @@ void test('Cache stats endpoint honors custom rate-limit options', async () => {
   const app = Fastify();
   await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool, {
     cacheStatsRateLimitWindowMs: 1000,
-    cacheStatsMaxRequestsPerWindow: 1,
+    cacheStatsMaxRequestsPerWindow: 1
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
   assert.equal(first.statusCode, 200);
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
   assert.equal(second.statusCode, 429);
 

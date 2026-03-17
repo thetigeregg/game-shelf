@@ -26,7 +26,7 @@ function queryResult<T extends QueryResultRow>(rows: T[], rowCount = rows.length
     rowCount,
     oid: 0,
     fields: [],
-    rows,
+    rows
   } as QueryResult<T>;
 }
 
@@ -76,7 +76,7 @@ function baseOptions(
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 10_000,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -86,7 +86,7 @@ void test('runOnce returns disabled summary when ingest is disabled', async () =
     connect: () => {
       connectCalled = true;
       return Promise.reject(new Error('connect should not be called when ingest is disabled'));
-    },
+    }
   } as unknown as Pool;
 
   let fetchCalls = 0;
@@ -134,7 +134,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
     ) {
       return queryResult([
         { igdb_game_id: '10', platform_igdb_id: 6 } as QueryResultRow,
-        { igdb_game_id: '11', platform_igdb_id: 6 } as QueryResultRow,
+        { igdb_game_id: '11', platform_igdb_id: 6 } as QueryResultRow
       ]);
     }
 
@@ -162,7 +162,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -171,7 +171,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       return Promise.resolve(
         new Response(JSON.stringify([{ id: 1 }, { id: 2 }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -184,11 +184,11 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
             JSON.stringify([
               { game_id: 10, popularity_type: 1, value: 10 },
               { game_id: 10, popularity_type: 1, value: 99 },
-              { game_id: 11, popularity_type: 1, value: 50 },
+              { game_id: 11, popularity_type: 1, value: 50 }
             ]),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' },
+              headers: { 'content-type': 'application/json' }
             }
           )
         );
@@ -197,7 +197,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       return Promise.resolve(
         new Response(JSON.stringify([{ game_id: 11, popularity_type: 2, value: 40 }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -210,18 +210,18 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
               id: 10,
               name: 'Ten',
               game_type: { type: 'main_game' },
-              platforms: [{ id: 6, name: 'PC' }],
+              platforms: [{ id: 6, name: 'PC' }]
             },
             {
               id: 11,
               name: 'Eleven',
               game_type: { type: 'main_game' },
-              platforms: [{ id: 6, name: 'PC' }],
-            },
+              platforms: [{ id: 6, name: 'PC' }]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -304,7 +304,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -314,7 +314,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       return Promise.resolve(
         new Response(JSON.stringify([{ id: 7 }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -323,12 +323,12 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       const rows = Array.from({ length: 501 }, (_unused, index) => ({
         game_id: index + 1,
         popularity_type: 7,
-        value: 1000 - index,
+        value: 1000 - index
       }));
       return Promise.resolve(
         new Response(JSON.stringify(rows), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -346,12 +346,12 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
         id,
         name: `Game ${String(id)}`,
         game_type: { type: 'main_game' },
-        platforms: [{ id: 6, name: 'PC' }],
+        platforms: [{ id: 6, name: 'PC' }]
       }));
       return Promise.resolve(
         new Response(JSON.stringify(games), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -465,7 +465,7 @@ void test('runOnce returns zero-signal summary when primitive rows normalize to 
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -474,7 +474,7 @@ void test('runOnce returns zero-signal summary when primitive rows normalize to 
       return Promise.resolve(
         new Response(JSON.stringify([{ game_id: 0, popularity_type: 7, value: 'bad' }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -553,7 +553,7 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -562,7 +562,7 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
       return Promise.resolve(
         new Response(JSON.stringify([{ game_id: 10, popularity_type: 7, value: 90 }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -586,19 +586,19 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
                 {
                   developer: true,
                   publisher: false,
-                  company: { name: 'Studio One' },
+                  company: { name: 'Studio One' }
                 },
                 {
                   developer: false,
                   publisher: true,
-                  company: { name: 'Publisher Two' },
-                },
-              ],
-            },
+                  company: { name: 'Publisher Two' }
+                }
+              ]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -700,7 +700,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -711,7 +711,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
           JSON.stringify([{ game_id: 347668, popularity_type: 34, value: 0.043734385195718 }]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -729,12 +729,12 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
               hypes: 309,
               rating: 89.06299654196357,
               game_type: { type: 'main_game' },
-              platforms: [{ id: 6, name: 'PC' }],
-            },
+              platforms: [{ id: 6, name: 'PC' }]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -784,7 +784,7 @@ void test('runOnce applies cooldown when popularity type fetch is rate limited',
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -867,7 +867,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -879,7 +879,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
         return Promise.resolve(
           new Response(JSON.stringify([{ game_id: 10, popularity_type: 1, value: 90 }]), {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           })
         );
       }
@@ -897,12 +897,12 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
               id: 10,
               name: 'Ten',
               game_type: { type: 'main_game' },
-              platforms: [{ id: 6, name: 'PC' }],
-            },
+              platforms: [{ id: 6, name: 'PC' }]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -957,7 +957,7 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }
@@ -966,7 +966,7 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
       return Promise.resolve(
         new Response(JSON.stringify([{ game_id: 10, popularity_type: 7, value: 90 }]), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     }

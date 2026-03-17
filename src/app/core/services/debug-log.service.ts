@@ -4,7 +4,7 @@ import {
   NavigationEnd,
   NavigationError,
   NavigationStart,
-  Router,
+  Router
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -54,7 +54,7 @@ export class DebugLogService {
         message: event.message,
         source: event.filename,
         line: event.lineno,
-        column: event.colno,
+        column: event.colno
       });
     });
 
@@ -139,7 +139,7 @@ export class DebugLogService {
       `Game Shelf Debug Logs`,
       `Generated: ${new Date().toISOString()}`,
       `Entries: ${String(this.entries.length)}`,
-      '',
+      ''
     ];
     const lines = this.entries.map((entry) => {
       const base = `[${entry.ts}] [${entry.level.toUpperCase()}] ${entry.message}`;
@@ -169,7 +169,7 @@ export class DebugLogService {
         ts: new Date(this.lastEntryAtMs).toISOString(),
         level: 'debug',
         message: 'log.duplicates',
-        details: this.safeStringify({ count: this.duplicateCount }),
+        details: this.safeStringify({ count: this.duplicateCount })
       });
       this.duplicateCount = 0;
     }
@@ -178,7 +178,7 @@ export class DebugLogService {
       ts: new Date().toISOString(),
       level,
       message: normalizedMessage,
-      details,
+      details
     });
     this.lastEntryFingerprint = fingerprint;
     this.lastEntryAtMs = now;
@@ -291,7 +291,7 @@ export class DebugLogService {
       log: console.log.bind(console),
       info: console.info.bind(console),
       warn: console.warn.bind(console),
-      error: console.error.bind(console),
+      error: console.error.bind(console)
     };
     consoleLike.__gsDebugCapture = original;
     consoleLike.__gsDebugCaptureInstalled = true;
@@ -345,7 +345,7 @@ export class DebugLogService {
           method,
           url: requestUrl,
           status: response.status,
-          durationMs: Date.now() - startedAt,
+          durationMs: Date.now() - startedAt
         });
         return response;
       } catch (error: unknown) {
@@ -353,7 +353,7 @@ export class DebugLogService {
           method,
           url: requestUrl,
           durationMs: Date.now() - startedAt,
-          error: this.normalizeUnknown(error),
+          error: this.normalizeUnknown(error)
         });
         throw error;
       }
@@ -459,7 +459,7 @@ export class DebugLogService {
           method,
           url,
           status: this.status,
-          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now()),
+          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now())
         });
       });
 
@@ -467,7 +467,7 @@ export class DebugLogService {
         logger?.error('http.xhr.error', {
           method,
           url,
-          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now()),
+          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now())
         });
       });
 
@@ -492,13 +492,13 @@ export class DebugLogService {
         this.warn('router.navigation_cancel', {
           id: event.id,
           url: event.url,
-          reason: event.reason,
+          reason: event.reason
         });
       } else if (event instanceof NavigationError) {
         this.error('router.navigation_error', {
           id: event.id,
           url: event.url,
-          error: this.normalizeUnknown(event.error),
+          error: this.normalizeUnknown(event.error)
         });
       }
     });
@@ -509,7 +509,7 @@ export class DebugLogService {
       return JSON.stringify({
         name: value.name,
         message: value.message,
-        stack: value.stack,
+        stack: value.stack
       });
     }
 
@@ -563,7 +563,7 @@ export class DebugLogService {
       return {
         name: value.name,
         message: value.message,
-        stack: value.stack,
+        stack: value.stack
       };
     }
 

@@ -35,12 +35,12 @@ vi.mock('@ionic/angular/standalone', () => {
     IonReorderGroup: {},
     IonReorder: {},
     IonInput: {},
-    IonToggle: {},
+    IonToggle: {}
   };
 });
 
 vi.mock('ionicons', () => ({
-  addIcons: vi.fn(),
+  addIcons: vi.fn()
 }));
 
 vi.mock('ionicons/icons', () => ({
@@ -55,7 +55,7 @@ vi.mock('ionicons/icons', () => ({
   layers: {},
   bug: {},
   key: {},
-  eyeOff: {},
+  eyeOff: {}
 }));
 
 import { AlertController, ToastController } from '@ionic/angular/standalone';
@@ -72,11 +72,11 @@ import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
   RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
-  RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY
 } from '../core/services/notification.service';
 import {
   TimePreferenceService,
-  TIME_PREFERENCE_STORAGE_KEY,
+  TIME_PREFERENCE_STORAGE_KEY
 } from '../core/services/time-preference.service';
 import { RECOMMENDATION_IGNORED_STORAGE_KEY } from '../core/services/recommendation-ignore.service';
 
@@ -131,7 +131,7 @@ function makeGameRow(overrides: Record<string, string> = {}): Record<string, str
     value: '',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -158,7 +158,7 @@ describe('SettingsPage CSV review fields', () => {
     repositoryMock = {
       listAll: vi.fn().mockResolvedValue([] as GameEntry[]),
       listTags: vi.fn().mockResolvedValue([] as Tag[]),
-      listViews: vi.fn().mockResolvedValue([] as GameListView[]),
+      listViews: vi.fn().mockResolvedValue([] as GameListView[])
     };
     timePreferenceServiceMock = {
       getTimePreference: vi.fn().mockImplementation(() => timePreference),
@@ -172,85 +172,85 @@ describe('SettingsPage CSV review fields', () => {
         if (Number.isFinite(parsed)) {
           timePreference = Math.max(5, Math.min(Math.round(parsed), 100));
         }
-      }),
+      })
     };
     outboxWriterMock = {
-      enqueueOperation: vi.fn().mockResolvedValue(undefined),
+      enqueueOperation: vi.fn().mockResolvedValue(undefined)
     };
 
     TestBed.configureTestingModule({
       providers: [
         {
           provide: GAME_REPOSITORY,
-          useValue: repositoryMock,
+          useValue: repositoryMock
         },
         {
           provide: ThemeService,
           useValue: {
             getColorSchemePreference: vi.fn().mockReturnValue('system'),
-            setColorSchemePreference: vi.fn(),
-          },
+            setColorSchemePreference: vi.fn()
+          }
         },
         {
           provide: GameShelfService,
-          useValue: {},
+          useValue: {}
         },
         {
           provide: ImageCacheService,
           useValue: {
             getLimitMb: vi.fn().mockReturnValue(200),
             setLimitMb: vi.fn().mockImplementation((value: number) => value),
-            getUsageBytes: vi.fn().mockResolvedValue(0),
-          },
+            getUsageBytes: vi.fn().mockResolvedValue(0)
+          }
         },
         {
           provide: PlatformOrderService,
-          useValue: { refreshFromStorage: vi.fn() },
+          useValue: { refreshFromStorage: vi.fn() }
         },
         {
           provide: PlatformCustomizationService,
-          useValue: { refreshFromStorage: vi.fn() },
+          useValue: { refreshFromStorage: vi.fn() }
         },
         {
           provide: ToastController,
           useValue: {
-            create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
-          },
+            create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
+          }
         },
         {
           provide: AlertController,
           useValue: {
-            create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
-          },
+            create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
+          }
         },
         {
           provide: Router,
           useValue: {
-            navigateByUrl: vi.fn().mockResolvedValue(true),
-          },
+            navigateByUrl: vi.fn().mockResolvedValue(true)
+          }
         },
         {
           provide: DebugLogService,
           useValue: {
             isVerboseTracingEnabled: vi.fn().mockReturnValue(false),
-            setVerboseTracingEnabled: vi.fn(),
-          },
+            setVerboseTracingEnabled: vi.fn()
+          }
         },
         {
           provide: ClientWriteAuthService,
           useValue: {
-            hasToken: vi.fn().mockReturnValue(false),
-          },
+            hasToken: vi.fn().mockReturnValue(false)
+          }
         },
         {
           provide: TimePreferenceService,
-          useValue: timePreferenceServiceMock,
+          useValue: timePreferenceServiceMock
         },
         {
           provide: SYNC_OUTBOX_WRITER,
-          useValue: outboxWriterMock,
-        },
-      ],
+          useValue: outboxWriterMock
+        }
+      ]
     });
   });
 
@@ -273,7 +273,7 @@ describe('SettingsPage CSV review fields', () => {
       reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
       reviewSource: 'mobygames',
       mobyScore: '8.6',
-      mobygamesGameId: '4501',
+      mobygamesGameId: '4501'
     });
 
     const preview = page['validateImportRecord'](
@@ -309,7 +309,7 @@ describe('SettingsPage CSV review fields', () => {
     const record = makeGameRow({
       reviewScore: '8.6',
       reviewSource: 'mobygames',
-      mobyScore: '',
+      mobyScore: ''
     });
 
     const preview = page['validateImportRecord'](
@@ -341,7 +341,7 @@ describe('SettingsPage CSV review fields', () => {
     const record = makeGameRow({
       reviewScore: '0.5',
       reviewSource: 'mobygames',
-      mobyScore: '',
+      mobyScore: ''
     });
 
     const preview = page['validateImportRecord'](
@@ -373,7 +373,7 @@ describe('SettingsPage CSV review fields', () => {
     const record = makeGameRow({
       reviewScore: '80',
       reviewSource: 'mobygames',
-      mobyScore: '12',
+      mobyScore: '12'
     });
 
     const preview = page['validateImportRecord'](
@@ -395,7 +395,7 @@ describe('SettingsPage CSV review fields', () => {
     const record = makeGameRow({
       reviewScore: '80',
       reviewSource: 'mobygames',
-      mobyScore: '0',
+      mobyScore: '0'
     });
 
     const preview = page['validateImportRecord'](
@@ -422,7 +422,7 @@ describe('SettingsPage CSV review fields', () => {
         mobyScore: '',
         mobygamesGameId: '',
         metacriticScore: '',
-        metacriticUrl: '',
+        metacriticUrl: ''
       })
     );
     const values = headers.map((header) => {
@@ -470,8 +470,8 @@ describe('SettingsPage CSV review fields', () => {
         mobyScore: 8.6,
         mobygamesGameId: 4501,
         metacriticScore: null,
-        metacriticUrl: null,
-      } as GameEntry,
+        metacriticUrl: null
+      } as GameEntry
     ]);
 
     const csv = await page['buildExportCsv']();
@@ -498,8 +498,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '42',
-      },
+        value: '42'
+      }
     });
 
     page.onTimePreferenceChange('bad');
@@ -533,8 +533,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '100',
-      },
+        value: '100'
+      }
     });
   });
 
@@ -547,8 +547,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '27',
-      },
+        value: '27'
+      }
     ]);
 
     expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
@@ -558,8 +558,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '27',
-      },
+        value: '27'
+      }
     });
   });
 
@@ -572,8 +572,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: 'not-a-number',
-      },
+        value: 'not-a-number'
+      }
     ]);
 
     expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
@@ -584,8 +584,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '15',
-      },
+        value: '15'
+      }
     });
   });
 
@@ -596,13 +596,13 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: 'game-shelf-primary-color',
-        value: '#ff0000',
+        value: '#ff0000'
       },
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '33',
-      },
+        value: '33'
+      }
     ]);
 
     expect(localStorage.getItem('game-shelf-primary-color')).toBeNull();
@@ -613,8 +613,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
-        value: '33',
-      },
+        value: '33'
+      }
     });
   });
 
@@ -626,16 +626,16 @@ describe('SettingsPage CSV review fields', () => {
         { igdbGameId: '9', title: 'Alpha', ignoredAt: '2025-01-01T00:00:00.000Z' },
         { igdbGameId: '9', title: 'Alpha Updated', ignoredAt: '2025-02-01T00:00:00.000Z' },
         { igdbGameId: 'not-an-id', title: 'Invalid', ignoredAt: '2025-01-01T00:00:00.000Z' },
-        { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' },
-      ],
+        { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' }
+      ]
     });
 
     await page['applyImportedSettings']([
       {
         kind: 'setting',
         key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-        value: importedValue,
-      },
+        value: importedValue
+      }
     ]);
 
     const persisted = localStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
@@ -649,15 +649,15 @@ describe('SettingsPage CSV review fields', () => {
     expect(parsedPersisted.version).toBe(1);
     expect(parsedPersisted.entries).toEqual([
       { igdbGameId: '9', title: 'Alpha Updated', ignoredAt: '2025-02-01T00:00:00.000Z' },
-      { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' },
+      { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' }
     ]);
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
       payload: {
         key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-        value: persisted,
-      },
+        value: persisted
+      }
     });
   });
 
@@ -668,8 +668,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-        value: '{bad json',
-      },
+        value: '{bad json'
+      }
     ]);
 
     expect(localStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY)).toBeNull();
@@ -677,8 +677,8 @@ describe('SettingsPage CSV review fields', () => {
       entityType: 'setting',
       operation: 'delete',
       payload: {
-        key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-      },
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY
+      }
     });
   });
 
@@ -697,8 +697,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
-        value: 'true',
-      },
+        value: 'true'
+      }
     ]);
 
     expect(registerSpy).toHaveBeenCalledOnce();
@@ -721,8 +721,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
-        value: 'false',
-      },
+        value: 'false'
+      }
     ]);
 
     expect(registerSpy).not.toHaveBeenCalled();
@@ -747,8 +747,8 @@ describe('SettingsPage CSV review fields', () => {
       {
         kind: 'setting',
         key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
-        value: 'false',
-      },
+        value: 'false'
+      }
     ]);
 
     expect(registerSpy).not.toHaveBeenCalled();
@@ -770,9 +770,9 @@ describe('SettingsPage CSV review fields', () => {
           changed: 'yes',
           removed: null,
           day: 1,
-          sale: 0,
-        }),
-      },
+          sale: 0
+        })
+      }
     ]);
 
     expect(page.releaseNotificationEvents).toEqual({
@@ -780,7 +780,7 @@ describe('SettingsPage CSV review fields', () => {
       changed: true,
       removed: true,
       day: true,
-      sale: false,
+      sale: false
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
       '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}'
@@ -790,8 +790,8 @@ describe('SettingsPage CSV review fields', () => {
       operation: 'upsert',
       payload: {
         key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
-        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}',
-      },
+        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}'
+      }
     });
   });
 
@@ -807,9 +807,9 @@ describe('SettingsPage CSV review fields', () => {
           changed: '0',
           removed: 'no',
           day: 'false',
-          sale: '0',
-        }),
-      },
+          sale: '0'
+        })
+      }
     ]);
 
     expect(page.releaseNotificationEvents).toEqual({
@@ -817,7 +817,7 @@ describe('SettingsPage CSV review fields', () => {
       changed: false,
       removed: false,
       day: false,
-      sale: false,
+      sale: false
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
       '{"set":false,"changed":false,"removed":false,"day":false,"sale":false}'
@@ -831,7 +831,7 @@ describe('SettingsPage CSV review fields', () => {
       .spyOn(notificationService, 'disableReleaseNotifications')
       .mockResolvedValue({
         ok: true,
-        message: 'disabled',
+        message: 'disabled'
       });
     const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
     page.releaseNotificationsEnabled = true;
@@ -850,7 +850,7 @@ describe('SettingsPage CSV review fields', () => {
       .spyOn(notificationService, 'disableReleaseNotifications')
       .mockResolvedValue({
         ok: false,
-        message: 'failed',
+        message: 'failed'
       });
     const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
     page.releaseNotificationsEnabled = true;

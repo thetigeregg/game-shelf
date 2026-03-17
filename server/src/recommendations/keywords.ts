@@ -3,7 +3,7 @@ const KEYWORD_SYNONYM_MAP: Record<string, string> = {
   'turn-based rpg': 'turn-based combat',
   'party system': 'party-based combat',
   'party-based': 'party-based combat',
-  jrpg: 'japanese rpg',
+  jrpg: 'japanese rpg'
 };
 
 const KEYWORD_PLATFORM_ARTIFACT_RE = /\b(playstation|xbox|switch)\b/i;
@@ -40,7 +40,7 @@ export function normalizeKeywords(values: string[]): string[] {
       values
         .map((value) => normalizeKeyword(value))
         .filter((value): value is string => Boolean(value))
-    ),
+    )
   ];
 }
 

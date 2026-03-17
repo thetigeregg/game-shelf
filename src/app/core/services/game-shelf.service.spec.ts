@@ -7,7 +7,7 @@ import {
   DEFAULT_GAME_LIST_FILTERS,
   GameCatalogResult,
   GameEntry,
-  GameListView,
+  GameListView
 } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 import { PlatformOrderService } from './platform-order.service';
@@ -51,7 +51,7 @@ describe('GameShelfService', () => {
       getView: vi.fn(),
       createView: vi.fn(),
       updateView: vi.fn(),
-      deleteView: vi.fn(),
+      deleteView: vi.fn()
     };
 
     searchApi = {
@@ -67,7 +67,7 @@ describe('GameShelfService', () => {
       lookupReviewCandidates: vi.fn(),
       lookupSteamPrice: vi.fn(),
       lookupPsPrices: vi.fn(),
-      lookupPsPricesCandidates: vi.fn(),
+      lookupPsPricesCandidates: vi.fn()
     };
 
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
@@ -78,10 +78,10 @@ describe('GameShelfService', () => {
       imageCache: {
         where: vi.fn().mockReturnValue({
           equals: vi.fn().mockReturnValue({
-            delete: vi.fn().mockResolvedValue(undefined),
-          }),
-        }),
-      },
+            delete: vi.fn().mockResolvedValue(undefined)
+          })
+        })
+      }
     };
 
     TestBed.configureTestingModule({
@@ -89,8 +89,8 @@ describe('GameShelfService', () => {
         GameShelfService,
         { provide: GAME_REPOSITORY, useValue: repository },
         { provide: GAME_SEARCH_API, useValue: searchApi },
-        { provide: AppDb, useValue: appDb },
-      ],
+        { provide: AppDb, useValue: appDb }
+      ]
     });
 
     service = TestBed.inject(GameShelfService);
@@ -124,7 +124,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -133,7 +133,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -160,7 +160,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       steamAppId: 12345,
       releaseDate: '2012-08-21T00:00:00.000Z',
-      releaseYear: 2012,
+      releaseYear: 2012
     };
 
     const lookupSteamPrice = vi.fn(() => of({ status: 'unsupported_platform' }));
@@ -176,7 +176,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     repository.exists.mockResolvedValue({
       ...mario,
@@ -184,7 +184,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -205,7 +205,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       steamAppId: 12345,
       releaseDate: '2012-08-21T00:00:00.000Z',
-      releaseYear: 2012,
+      releaseYear: 2012
     };
 
     const lookupSteamPrice = vi.fn(() => of({ status: 'unsupported_platform' }));
@@ -221,7 +221,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     repository.exists.mockResolvedValue({
       ...mario,
@@ -229,7 +229,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 6,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -249,7 +249,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: '2022-11-18T00:00:00.000Z',
-      releaseYear: 2022,
+      releaseYear: 2022
     };
 
     const lookupPsPrices = vi.fn(() => of({ status: 'ok' }));
@@ -263,13 +263,13 @@ describe('GameShelfService', () => {
       ...game,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     repository.exists.mockResolvedValue({
       ...game,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -289,14 +289,14 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     searchApi.lookupCompletionTimes.mockReturnValue(
       of({
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
-        hltbCompletionistHours: 30,
+        hltbCompletionistHours: 30
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -305,7 +305,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(mario, 'collection');
@@ -318,7 +318,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         igdbGameId: '123',
         platform: 'Switch',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
       'collection'
     );
@@ -327,7 +327,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
-        hltbCompletionistHours: 30,
+        hltbCompletionistHours: 30
       }),
       'collection'
     );
@@ -344,7 +344,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -353,7 +353,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -378,14 +378,14 @@ describe('GameShelfService', () => {
       reviewUrl: 'https://www.metacritic.com/game/already-scored/',
       reviewSource: 'metacritic',
       releaseDate: null,
-      releaseYear: 2022,
+      releaseYear: 2022
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
       ...game,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -406,14 +406,14 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       reviewScore: 150,
       releaseDate: null,
-      releaseYear: 2022,
+      releaseYear: 2022
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
       ...game,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -437,14 +437,14 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     searchApi.lookupReviewScore.mockReturnValue(
       of({
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -453,7 +453,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -468,7 +468,7 @@ describe('GameShelfService', () => {
         reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
         reviewSource: 'metacritic',
         metacriticScore: 85,
-        metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/'
       }),
       'collection'
     );
@@ -484,7 +484,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     searchApi.lookupCompletionTimes.mockReturnValue(throwError(() => new Error('HLTB down')));
@@ -494,7 +494,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -518,7 +518,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     searchApi.lookupReviewScore.mockReturnValue(throwError(() => new Error('reviews down')));
@@ -528,7 +528,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -552,7 +552,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -561,7 +561,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -584,8 +584,8 @@ describe('GameShelfService', () => {
         platform: null,
         platformIgdbId: null,
         releaseDate: null,
-        releaseYear: null,
-      },
+        releaseYear: null
+      }
     ];
     searchApi.searchGames.mockReturnValue(of(expected));
 
@@ -617,7 +617,7 @@ describe('GameShelfService', () => {
       platform: 'PlayStation',
       platformIgdbId: 7,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
     searchApi.getGameById.mockReturnValue(of(expected));
 
@@ -642,7 +642,7 @@ describe('GameShelfService', () => {
       platform: null,
       platformIgdbId: null,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
     searchApi.getGameById.mockReturnValue(of(expected));
 
@@ -672,8 +672,8 @@ describe('GameShelfService', () => {
         coverSource: 'thegamesdb',
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
 
     await service.migratePreferredPlatformCoversToIgdb();
@@ -694,8 +694,8 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
     searchApi.getGameById.mockReturnValue(
       of({
@@ -707,7 +707,7 @@ describe('GameShelfService', () => {
         platformIgdbId: 167,
         platforms: ['PlayStation 5'],
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
     repository.updateCover.mockResolvedValue({
@@ -719,7 +719,7 @@ describe('GameShelfService', () => {
       coverSource: 'igdb',
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     } as GameEntry);
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
@@ -750,8 +750,8 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
     searchApi.getGameById.mockReturnValue(throwError(() => new Error('IGDB unavailable')));
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
@@ -774,8 +774,8 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
     searchApi.getGameById.mockReturnValue(
       of({
@@ -787,7 +787,7 @@ describe('GameShelfService', () => {
         platform: 'PlayStation 5',
         platformIgdbId: 167,
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
     const fetchSpy = vi
@@ -825,8 +825,8 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
     searchApi.getGameById.mockReturnValue(
       of({
@@ -838,7 +838,7 @@ describe('GameShelfService', () => {
         platformIgdbId: 167,
         platforms: ['PlayStation 5'],
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
     repository.updateCover.mockResolvedValue({
@@ -850,7 +850,7 @@ describe('GameShelfService', () => {
       coverSource: 'igdb',
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     } as GameEntry);
 
     let capturedHeaders: HeadersInit | undefined;
@@ -872,7 +872,7 @@ describe('GameShelfService', () => {
     searchApi.listPlatforms.mockReturnValue(
       of([
         { id: 6, name: 'PC (Microsoft Windows)' },
-        { id: 130, name: 'Nintendo Switch' },
+        { id: 130, name: 'Nintendo Switch' }
       ])
     );
 
@@ -881,7 +881,7 @@ describe('GameShelfService', () => {
     expect(searchApi.listPlatforms).toHaveBeenCalled();
     expect(result).toEqual([
       { id: 130, name: 'Nintendo Switch' },
-      { id: 6, name: 'PC (Microsoft Windows)' },
+      { id: 6, name: 'PC (Microsoft Windows)' }
     ]);
   });
 
@@ -894,8 +894,8 @@ describe('GameShelfService', () => {
           platform: 'SNES',
           hltbMainHours: 7.5,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 13,
-        },
+          hltbCompletionistHours: 13
+        }
       ])
     );
 
@@ -926,7 +926,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist' as const,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const refreshedCatalog: GameCatalogResult = {
@@ -942,7 +942,7 @@ describe('GameShelfService', () => {
       platform: null,
       platformIgdbId: null,
       releaseDate: '2026-01-02T00:00:00.000Z',
-      releaseYear: 2026,
+      releaseYear: 2026
     };
 
     const updatedEntry: GameEntry = {
@@ -953,7 +953,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: refreshedCatalog.releaseDate,
-      releaseYear: refreshedCatalog.releaseYear,
+      releaseYear: refreshedCatalog.releaseYear
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -970,7 +970,7 @@ describe('GameShelfService', () => {
         coverUrl: 'https://example.com/current-cover.jpg',
         coverSource: 'thegamesdb',
         platform: 'Nintendo Switch',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
       'wishlist'
     );
@@ -990,14 +990,14 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: 14,
       hltbMainExtraHours: 18,
-      hltbCompletionistHours: 24,
+      hltbCompletionistHours: 24
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1005,7 +1005,7 @@ describe('GameShelfService', () => {
       of({
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
-        hltbCompletionistHours: 24,
+        hltbCompletionistHours: 24
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1014,7 +1014,7 @@ describe('GameShelfService', () => {
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: null,
-      preferredUrl: null,
+      preferredUrl: null
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1026,7 +1026,7 @@ describe('GameShelfService', () => {
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
         platform: 'Wii',
-        platformIgdbId: 5,
+        platformIgdbId: 5
       }),
       'collection'
     );
@@ -1050,14 +1050,14 @@ describe('GameShelfService', () => {
       hltbMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: 14,
       hltbMainExtraHours: 18,
-      hltbCompletionistHours: 24,
+      hltbCompletionistHours: 24
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1065,7 +1065,7 @@ describe('GameShelfService', () => {
       of({
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
-        hltbCompletionistHours: 24,
+        hltbCompletionistHours: 24
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1074,14 +1074,14 @@ describe('GameShelfService', () => {
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: null,
-      preferredUrl: null,
+      preferredUrl: null
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchQueryTitle: 'Zack & Wiki',
         hltbMatchQueryReleaseYear: 2007,
         hltbMatchQueryPlatform: 'Wii',
-        hltbMatchLocked: true,
+        hltbMatchLocked: true
       }),
       'collection'
     );
@@ -1107,7 +1107,7 @@ describe('GameShelfService', () => {
       hltbMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1117,27 +1117,27 @@ describe('GameShelfService', () => {
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
         hltbGameId: 7002,
-        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        hltbUrl: 'https://howlongtobeat.com/game/7002'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
       ...existingEntry,
       hltbMainHours: 14,
       hltbMainExtraHours: 18,
-      hltbCompletionistHours: 24,
+      hltbCompletionistHours: 24
     });
 
     await service.refreshGameCompletionTimes('123', 167);
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002',
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchGameId: 7002,
         hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
-        hltbMatchLocked: true,
+        hltbMatchLocked: true
       }),
       'collection'
     );
@@ -1156,14 +1156,14 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: 21,
       hltbMainExtraHours: 35,
-      hltbCompletionistHours: 48,
+      hltbCompletionistHours: 48
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1171,7 +1171,7 @@ describe('GameShelfService', () => {
       of({
         hltbMainHours: 21,
         hltbMainExtraHours: 35,
-        hltbCompletionistHours: 48,
+        hltbCompletionistHours: 48
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1179,19 +1179,19 @@ describe('GameShelfService', () => {
     const result = await service.refreshGameCompletionTimesWithQuery('123', 5, {
       title: 'Zack & Wiki',
       releaseYear: 2007,
-      platform: 'Wii',
+      platform: 'Wii'
     });
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: null,
-      preferredUrl: null,
+      preferredUrl: null
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchQueryTitle: 'Zack & Wiki',
         hltbMatchQueryReleaseYear: 2007,
         hltbMatchQueryPlatform: 'Wii',
-        hltbMatchLocked: true,
+        hltbMatchLocked: true
       }),
       'collection'
     );
@@ -1211,7 +1211,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1221,14 +1221,14 @@ describe('GameShelfService', () => {
         hltbMainExtraHours: 35,
         hltbCompletionistHours: 48,
         hltbGameId: 7002,
-        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        hltbUrl: 'https://howlongtobeat.com/game/7002'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
       ...existingEntry,
       hltbMainHours: 21,
       hltbMainExtraHours: 35,
-      hltbCompletionistHours: 48,
+      hltbCompletionistHours: 48
     });
 
     await service.refreshGameCompletionTimesWithQuery('123', 5, {
@@ -1236,18 +1236,18 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       platform: 'Wii',
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002',
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: 7002,
-      preferredUrl: 'https://howlongtobeat.com/game/7002',
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchGameId: 7002,
         hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
-        hltbMatchLocked: true,
+        hltbMatchLocked: true
       }),
       'collection'
     );
@@ -1272,7 +1272,7 @@ describe('GameShelfService', () => {
       hltbMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1283,12 +1283,12 @@ describe('GameShelfService', () => {
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
       preferredGameId: null,
-      preferredUrl: 'https://howlongtobeat.com/game/7002',
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchGameId: null,
-        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002'
       }),
       'collection'
     );
@@ -1310,14 +1310,14 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: null,
       hltbMainExtraHours: null,
-      hltbCompletionistHours: null,
+      hltbCompletionistHours: null
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1330,7 +1330,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
+        hltbCompletionistHours: null
       }),
       'collection'
     );
@@ -1350,13 +1350,13 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1364,7 +1364,7 @@ describe('GameShelfService', () => {
       of({
         reviewScore: 87,
         reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1382,7 +1382,7 @@ describe('GameShelfService', () => {
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
       }),
       'collection'
     );
@@ -1410,13 +1410,13 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1424,7 +1424,7 @@ describe('GameShelfService', () => {
       of({
         reviewScore: 87,
         reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1446,7 +1446,7 @@ describe('GameShelfService', () => {
         reviewMatchQueryPlatform: 'Wii',
         reviewMatchPlatformIgdbId: 5,
         reviewMatchMobygamesGameId: 777,
-        reviewMatchLocked: true,
+        reviewMatchLocked: true
       }),
       'collection'
     );
@@ -1468,13 +1468,13 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       metacriticScore: 90,
-      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1482,7 +1482,7 @@ describe('GameShelfService', () => {
       of({
         reviewScore: 90,
         reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1490,7 +1490,7 @@ describe('GameShelfService', () => {
     const result = await service.refreshGameMetacriticScoreWithQuery('123', 5, {
       title: 'Zack & Wiki',
       releaseYear: 2007,
-      platform: 'Wii',
+      platform: 'Wii'
     });
 
     expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
@@ -1508,7 +1508,7 @@ describe('GameShelfService', () => {
         reviewMatchQueryPlatform: 'Wii',
         reviewMatchPlatformIgdbId: 5,
         reviewMatchMobygamesGameId: 777,
-        reviewMatchLocked: true,
+        reviewMatchLocked: true
       }),
       'collection'
     );
@@ -1528,7 +1528,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     const updatedEntry: GameEntry = {
       ...existingEntry,
@@ -1536,7 +1536,7 @@ describe('GameShelfService', () => {
       reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
       reviewSource: 'metacritic',
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1544,7 +1544,7 @@ describe('GameShelfService', () => {
     searchApi.lookupMetacriticScore.mockReturnValue(
       of({
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1554,7 +1554,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       platform: 'PlayStation 5',
       platformIgdbId: 167,
-      preferredUrl: '  https://www.metacritic.com/game/night-in-the-woods-alt/  ',
+      preferredUrl: '  https://www.metacritic.com/game/night-in-the-woods-alt/  '
     });
 
     expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith(
@@ -1569,7 +1569,7 @@ describe('GameShelfService', () => {
         reviewScore: 87,
         reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
         reviewSource: 'metacritic',
-        reviewMatchLocked: true,
+        reviewMatchLocked: true
       }),
       'collection'
     );
@@ -1595,7 +1595,7 @@ describe('GameShelfService', () => {
       reviewMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1607,13 +1607,13 @@ describe('GameShelfService', () => {
         mobyScore: null,
         mobygamesGameId: null,
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
       ...existingEntry,
       reviewScore: 87,
-      reviewSource: 'metacritic',
+      reviewSource: 'metacritic'
     });
 
     await service.refreshGameReviewScore('123', 167);
@@ -1630,7 +1630,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         reviewMatchLocked: true,
         reviewMatchQueryTitle: 'Night In The Woods',
-        reviewMatchQueryPlatform: 'PlayStation 5',
+        reviewMatchQueryPlatform: 'PlayStation 5'
       }),
       'collection'
     );
@@ -1656,7 +1656,7 @@ describe('GameShelfService', () => {
       reviewMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1668,13 +1668,13 @@ describe('GameShelfService', () => {
         mobyScore: null,
         mobygamesGameId: null,
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
       ...existingEntry,
       reviewScore: 87,
-      reviewSource: 'metacritic',
+      reviewSource: 'metacritic'
     });
 
     await service.refreshGameReviewScore('123', 167);
@@ -1709,7 +1709,7 @@ describe('GameShelfService', () => {
       reviewMatchLocked: true,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1721,13 +1721,13 @@ describe('GameShelfService', () => {
         mobyScore: null,
         mobygamesGameId: null,
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
       ...existingEntry,
       reviewScore: 87,
-      reviewSource: 'metacritic',
+      reviewSource: 'metacritic'
     });
 
     await service.refreshGameReviewScore('123', 167);
@@ -1755,7 +1755,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1768,7 +1768,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       platform: 'PlayStation 5',
       platformIgdbId: 167,
-      preferredUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      preferredUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
 
     expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith(
@@ -1782,7 +1782,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         reviewScore: null,
         reviewUrl: null,
-        reviewSource: null,
+        reviewSource: null
       }),
       'collection'
     );
@@ -1822,7 +1822,7 @@ describe('GameShelfService', () => {
       releaseYear: 2008,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     const updatedEntry: GameEntry = {
       ...existingEntry,
@@ -1833,7 +1833,7 @@ describe('GameShelfService', () => {
       priceDiscountPercent: 50,
       priceIsFree: false,
       priceUrl: 'https://store.steampowered.com/app/204100',
-      priceFetchedAt: '2026-03-10T11:00:00.000Z',
+      priceFetchedAt: '2026-03-10T11:00:00.000Z'
     };
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1846,8 +1846,8 @@ describe('GameShelfService', () => {
           initialAmount: 39.99,
           discountPercent: 50,
           isFree: false,
-          url: 'https://store.steampowered.com/app/204100',
-        },
+          url: 'https://store.steampowered.com/app/204100'
+        }
       })
     );
     (
@@ -1866,7 +1866,7 @@ describe('GameShelfService', () => {
         priceCurrency: 'CHF',
         priceRegularAmount: 39.99,
         priceDiscountPercent: 50,
-        priceIsFree: false,
+        priceIsFree: false
       }),
       'wishlist'
     );
@@ -1888,7 +1888,7 @@ describe('GameShelfService', () => {
       releaseYear: 1995,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue({
@@ -1899,7 +1899,7 @@ describe('GameShelfService', () => {
       priceRegularAmount: null,
       priceDiscountPercent: null,
       priceIsFree: null,
-      priceUrl: null,
+      priceUrl: null
     } as GameEntry);
 
     await service.refreshGamePricing('77', 32);
@@ -1908,7 +1908,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         priceSource: null,
         priceAmount: null,
-        priceCurrency: null,
+        priceCurrency: null
       }),
       'wishlist'
     );
@@ -1926,7 +1926,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     const updatedEntry: GameEntry = {
       ...existingEntry,
@@ -1936,7 +1936,7 @@ describe('GameShelfService', () => {
       priceRegularAmount: null,
       priceDiscountPercent: null,
       priceIsFree: false,
-      priceUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      priceUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1948,19 +1948,19 @@ describe('GameShelfService', () => {
           amount: 19.9,
           currency: 'CHF',
           isFree: false,
-          url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
-        },
+          url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+        }
       })
     );
 
     const result = await service.refreshGamePricingWithQuery('10148', 167, {
       title: 'Night In The Woods',
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
 
     expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
       title: 'Night In The Woods',
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
     expect(result).toEqual(updatedEntry);
   });
@@ -1978,12 +1978,12 @@ describe('GameShelfService', () => {
       psPricesMatchLocked: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
-      psPricesMatchLocked: true,
+      psPricesMatchLocked: true
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -1991,21 +1991,21 @@ describe('GameShelfService', () => {
     searchApi.lookupPsPrices.mockReturnValue(
       of({
         status: 'unavailable',
-        bestPrice: null,
+        bestPrice: null
       })
     );
 
     await service.refreshGamePricingWithQuery('10148', 167, {
-      preferredUrl: '  https://psprices.com/region-ch/game/5825037/night-in-the-woods  ',
+      preferredUrl: '  https://psprices.com/region-ch/game/5825037/night-in-the-woods  '
     });
 
     expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
       title: null,
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
-        psPricesMatchLocked: true,
+        psPricesMatchLocked: true
       }),
       'wishlist'
     );
@@ -2023,7 +2023,7 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -2031,17 +2031,17 @@ describe('GameShelfService', () => {
     searchApi.lookupPsPrices.mockReturnValue(
       of({
         status: 'unavailable',
-        bestPrice: null,
+        bestPrice: null
       })
     );
 
     await service.refreshGamePricingWithQuery('10148', 167, {
-      title: '  Night In The Woods  ',
+      title: '  Night In The Woods  '
     });
 
     expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
       title: 'Night In The Woods',
-      preferredUrl: null,
+      preferredUrl: null
     });
   });
 
@@ -2057,13 +2057,13 @@ describe('GameShelfService', () => {
       releaseYear: 2017,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.exists.mockResolvedValue(existingEntry);
 
     const result = await service.refreshGamePricingWithQuery('10148', 167, {
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
 
     expect(searchApi.lookupPsPrices).not.toHaveBeenCalled();
@@ -2092,14 +2092,14 @@ describe('GameShelfService', () => {
       releaseYear: 2008,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue(existingEntry);
     const lookupSteamPrice = vi.fn(() =>
       of({
         status: 'unavailable',
-        bestPrice: null,
+        bestPrice: null
       })
     );
     (
@@ -2117,7 +2117,7 @@ describe('GameShelfService', () => {
         priceCurrency: 'CHF',
         priceRegularAmount: 39.99,
         priceDiscountPercent: 50,
-        priceIsFree: false,
+        priceIsFree: false
       }),
       'wishlist'
     );
@@ -2139,7 +2139,7 @@ describe('GameShelfService', () => {
       releaseYear: 2008,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
     repository.exists.mockResolvedValue(existingEntry);
     const lookupSteamPrice = vi.fn();
@@ -2179,7 +2179,7 @@ describe('GameShelfService', () => {
       of({
         bestPrice: {
           title: 'Candidate A',
-          url: '//psprices.com/region-ch/game/123',
+          url: '//psprices.com/region-ch/game/123'
         },
         candidates: [
           {
@@ -2191,11 +2191,11 @@ describe('GameShelfService', () => {
             isFree: false,
             url: '//psprices.com/region-ch/game/123',
             score: 88.888,
-            imageUrl: '//cdn.psprices.com/candidate-a.jpg',
+            imageUrl: '//cdn.psprices.com/candidate-a.jpg'
           },
           {
             title: '   ',
-            amount: 10,
+            amount: 10
           },
           {
             title: 'Candidate B',
@@ -2205,9 +2205,9 @@ describe('GameShelfService', () => {
             discountPercent: 999,
             isFree: 'true',
             url: 'notaurl',
-            score: Number.NaN,
-          },
-        ],
+            score: Number.NaN
+          }
+        ]
       })
     );
 
@@ -2224,7 +2224,7 @@ describe('GameShelfService', () => {
         url: 'https://psprices.com/region-ch/game/123',
         score: 88.89,
         isRecommended: true,
-        imageUrl: 'https://cdn.psprices.com/candidate-a.jpg',
+        imageUrl: 'https://cdn.psprices.com/candidate-a.jpg'
       },
       {
         title: 'Candidate B',
@@ -2235,8 +2235,8 @@ describe('GameShelfService', () => {
         isFree: null,
         url: null,
         score: null,
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
     expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');
   });
@@ -2246,7 +2246,7 @@ describe('GameShelfService', () => {
       of({
         bestPrice: {
           title: 'Candidate B',
-          url: null,
+          url: null
         },
         candidates: [
           {
@@ -2257,7 +2257,7 @@ describe('GameShelfService', () => {
             discountPercent: 50,
             isFree: false,
             url: 'https://psprices.com/region-ch/game/123',
-            score: 88,
+            score: 88
           },
           {
             title: '  Candidate B  ',
@@ -2267,9 +2267,9 @@ describe('GameShelfService', () => {
             discountPercent: 37.5,
             isFree: false,
             url: null,
-            score: 95,
-          },
-        ],
+            score: 95
+          }
+        ]
       })
     );
 
@@ -2285,7 +2285,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
-        isRecommended: false,
+        isRecommended: false
       },
       {
         title: 'Candidate B',
@@ -2296,8 +2296,8 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
-        isRecommended: true,
-      },
+        isRecommended: true
+      }
     ]);
   });
 
@@ -2306,7 +2306,7 @@ describe('GameShelfService', () => {
       of({
         bestPrice: {
           title: 'Candidate B',
-          url: null,
+          url: null
         },
         candidates: [
           {
@@ -2317,7 +2317,7 @@ describe('GameShelfService', () => {
             discountPercent: 50,
             isFree: false,
             url: null,
-            score: 88,
+            score: 88
           },
           {
             title: 'Candidate B',
@@ -2327,7 +2327,7 @@ describe('GameShelfService', () => {
             discountPercent: 37.5,
             isFree: false,
             url: null,
-            score: 95,
+            score: 95
           },
           {
             title: 'Candidate C',
@@ -2337,9 +2337,9 @@ describe('GameShelfService', () => {
             discountPercent: 25,
             isFree: false,
             url: null,
-            score: 90,
-          },
-        ],
+            score: 90
+          }
+        ]
       })
     );
 
@@ -2355,7 +2355,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 88,
-        isRecommended: false,
+        isRecommended: false
       },
       {
         title: 'Candidate B',
@@ -2366,7 +2366,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Candidate C',
@@ -2377,8 +2377,8 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 90,
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
   });
 
@@ -2387,9 +2387,9 @@ describe('GameShelfService', () => {
       of({
         bestPrice: {
           title: 'Candidate A',
-          url: 'https://psprices.com/region-ch/game/123',
+          url: 'https://psprices.com/region-ch/game/123'
         },
-        candidates: [],
+        candidates: []
       })
     );
 
@@ -2403,7 +2403,7 @@ describe('GameShelfService', () => {
       of({
         bestPrice: {
           title: 'Missing Candidate',
-          url: 'https://psprices.com/region-ch/game/999',
+          url: 'https://psprices.com/region-ch/game/999'
         },
         candidates: [
           {
@@ -2414,7 +2414,7 @@ describe('GameShelfService', () => {
             discountPercent: 50,
             isFree: false,
             url: 'https://psprices.com/region-ch/game/123',
-            score: 88,
+            score: 88
           },
           {
             title: 'Candidate B',
@@ -2424,9 +2424,9 @@ describe('GameShelfService', () => {
             discountPercent: 37.5,
             isFree: false,
             url: 'https://psprices.com/region-ch/game/456',
-            score: 95,
-          },
-        ],
+            score: 95
+          }
+        ]
       })
     );
 
@@ -2442,7 +2442,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Candidate B',
@@ -2453,8 +2453,8 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/456',
         score: 95,
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
   });
 
@@ -2468,7 +2468,7 @@ describe('GameShelfService', () => {
         priceAmount: 10,
         priceRegularAmount: 20,
         priceDiscountPercent: null,
-        priceIsFree: false,
+        priceIsFree: false
       })
     ).toBe(true);
     expect(
@@ -2476,7 +2476,7 @@ describe('GameShelfService', () => {
         priceAmount: 10,
         priceRegularAmount: 10,
         priceDiscountPercent: 5,
-        priceIsFree: false,
+        priceIsFree: false
       })
     ).toBe(true);
     expect(
@@ -2484,7 +2484,7 @@ describe('GameShelfService', () => {
         priceAmount: 10,
         priceRegularAmount: 20,
         priceDiscountPercent: 50,
-        priceIsFree: true,
+        priceIsFree: true
       })
     ).toBe(false);
     expect(
@@ -2492,7 +2492,7 @@ describe('GameShelfService', () => {
         priceAmount: null,
         priceRegularAmount: null,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       })
     ).toBe(false);
   });
@@ -2574,7 +2574,7 @@ describe('GameShelfService', () => {
         platform: 'PC (Microsoft Windows)',
         platformIgdbId: 6,
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
 
@@ -2610,7 +2610,7 @@ describe('GameShelfService', () => {
         platform: 'Android',
         platformIgdbId: 34,
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
 
@@ -2638,7 +2638,7 @@ describe('GameShelfService', () => {
         platform: 'Android',
         platformIgdbId: 34,
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       } as GameCatalogResult)
     );
 
@@ -2649,7 +2649,7 @@ describe('GameShelfService', () => {
       'SteamVR',
       'visionOS',
       'PlayStation 5',
-      'Nintendo Switch 2',
+      'Nintendo Switch 2'
     ];
 
     for (const platformName of platformNames) {
@@ -2676,7 +2676,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
     };
 
     repository.updateCover.mockResolvedValue(updatedEntry);
@@ -2705,7 +2705,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
     };
 
     repository.updateCover.mockResolvedValue(updatedEntry);
@@ -2736,7 +2736,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
     await expect(service.addGame(base, 'collection')).rejects.toThrow('IGDB game id is required.');
@@ -2780,7 +2780,7 @@ describe('GameShelfService', () => {
       notes: 'remember to try hard mode',
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const replacement: GameCatalogResult = {
@@ -2793,7 +2793,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: '2021-01-01T00:00:00.000Z',
-      releaseYear: 2021,
+      releaseYear: 2021
     };
 
     const upserted: GameEntry = {
@@ -2805,7 +2805,7 @@ describe('GameShelfService', () => {
       coverSource: 'igdb',
       status: null,
       rating: null,
-      tagIds: [],
+      tagIds: []
     };
 
     repository.exists.mockResolvedValue(current);
@@ -2816,18 +2816,18 @@ describe('GameShelfService', () => {
       ...upserted,
       status: 'playing',
       rating: 4,
-      tagIds: [1, 2],
+      tagIds: [1, 2]
     });
     repository.setGameNotes.mockResolvedValue({
       ...upserted,
       status: 'playing',
       rating: 4,
       tagIds: [1, 2],
-      notes: 'remember to try hard mode',
+      notes: 'remember to try hard mode'
     });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -2840,7 +2840,7 @@ describe('GameShelfService', () => {
         platformIgdbId: 130,
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
+        hltbCompletionistHours: null
       }),
       'collection'
     );
@@ -2869,7 +2869,7 @@ describe('GameShelfService', () => {
       rating: null,
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     };
 
     const replacement: GameCatalogResult = {
@@ -2881,7 +2881,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
     repository.exists.mockResolvedValue(current);
@@ -2907,7 +2907,7 @@ describe('GameShelfService', () => {
         platform: 'Nintendo Switch',
         platformIgdbId: 130,
         releaseDate: null,
-        releaseYear: null,
+        releaseYear: null
       })
     ).rejects.toThrow('Game entry no longer exists.');
   });
@@ -2934,7 +2934,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.setGameTags.mockResolvedValue(base);
@@ -2943,7 +2943,7 @@ describe('GameShelfService', () => {
     repository.setGameNotes.mockResolvedValue({ ...base, notes: 'checkpoint before boss' });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
 
     const tagged = await service.setGameTags('123', 130, [1, 2]);
@@ -2972,7 +2972,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: 'x',
       updatedAt: 'x',
-      rating: null,
+      rating: null
     } as GameEntry);
     repository.listTags.mockResolvedValue([]);
     await service.setGameRating('123', 130, 99 as never);
@@ -3010,7 +3010,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     };
 
     repository.listByType.mockResolvedValue([]);
@@ -3025,7 +3025,7 @@ describe('GameShelfService', () => {
       service.setGameStatusForGames(
         [
           { igdbGameId: '123', platformIgdbId: 130 },
-          { igdbGameId: '456', platformIgdbId: 6 },
+          { igdbGameId: '456', platformIgdbId: 6 }
         ],
         'playing'
       )
@@ -3039,7 +3039,7 @@ describe('GameShelfService', () => {
       service.moveGamesToList(
         [
           { igdbGameId: '123', platformIgdbId: 130 },
-          { igdbGameId: '456', platformIgdbId: 6 },
+          { igdbGameId: '456', platformIgdbId: 6 }
         ],
         'wishlist'
       )
@@ -3052,7 +3052,7 @@ describe('GameShelfService', () => {
     await expect(
       service.removeGames([
         { igdbGameId: '123', platformIgdbId: 130 },
-        { igdbGameId: '456', platformIgdbId: 6 },
+        { igdbGameId: '456', platformIgdbId: 6 }
       ])
     ).rejects.toThrow('boom');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -3064,7 +3064,7 @@ describe('GameShelfService', () => {
       service.setGameTagsForGames(
         [
           { igdbGameId: '123', platformIgdbId: 130 },
-          { igdbGameId: '456', platformIgdbId: 6 },
+          { igdbGameId: '456', platformIgdbId: 6 }
         ],
         [1]
       )
@@ -3081,7 +3081,7 @@ describe('GameShelfService', () => {
       name: 'Backlog',
       color: '#3880ff',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     });
 
     await expect(service.createTag(' ', '#ffffff')).rejects.toThrow('Tag name is required.');
@@ -3098,7 +3098,7 @@ describe('GameShelfService', () => {
 
   it('supports list/get/delete tags and watch streams', async () => {
     repository.listTags.mockResolvedValue([
-      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' }
     ]);
     repository.listByType.mockResolvedValue([
       {
@@ -3114,8 +3114,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
     repository.listAll.mockResolvedValue([
       {
@@ -3131,8 +3131,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
 
     expect(await service.listTags()).toHaveLength(1);
@@ -3148,7 +3148,7 @@ describe('GameShelfService', () => {
   it('normalizes tag ids and skips invalid tag records in watch streams', async () => {
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 0, name: 'Invalid', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 0, name: 'Invalid', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
     repository.listByType.mockResolvedValue([
       {
@@ -3164,8 +3164,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
     repository.listAll.mockResolvedValue([
       {
@@ -3181,8 +3181,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
 
     const list = await firstValueFrom(service.watchList('collection'));
@@ -3206,7 +3206,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const refreshedCatalog: GameCatalogResult = {
@@ -3222,12 +3222,12 @@ describe('GameShelfService', () => {
       platformOptions: [
         { id: -1, name: 'Bad Id' },
         { id: 130, name: 'Nintendo Switch Alias' },
-        { id: null, name: '' },
+        { id: null, name: '' }
       ],
       platform: null,
       platformIgdbId: null,
       releaseDate: null,
-      releaseYear: 2026,
+      releaseYear: 2026
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -3240,7 +3240,7 @@ describe('GameShelfService', () => {
         createdAt: existingEntry.createdAt,
         updatedAt: existingEntry.updatedAt,
         platform: catalog.platform,
-        platformIgdbId: catalog.platformIgdbId,
+        platformIgdbId: catalog.platformIgdbId
       };
       return merged;
     });
@@ -3250,7 +3250,7 @@ describe('GameShelfService', () => {
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         platform: 'Nintendo Switch Alias',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
       'collection'
     );
@@ -3266,7 +3266,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     });
     repository.updateView.mockResolvedValueOnce({
       id: 11,
@@ -3275,7 +3275,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'y',
+      updatedAt: 'y'
     });
     repository.updateView.mockResolvedValueOnce({
       id: 11,
@@ -3284,7 +3284,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'platform',
       createdAt: 'x',
-      updatedAt: 'z',
+      updatedAt: 'z'
     });
     repository.getView.mockResolvedValue({
       id: 11,
@@ -3293,7 +3293,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'z',
+      updatedAt: 'z'
     } as GameListView);
     repository.listViews.mockResolvedValue([
       {
@@ -3303,8 +3303,8 @@ describe('GameShelfService', () => {
         filters: DEFAULT_GAME_LIST_FILTERS,
         groupBy: 'none',
         createdAt: 'x',
-        updatedAt: 'z',
-      },
+        updatedAt: 'z'
+      }
     ] as GameListView[]);
 
     await service.createView(' My View ', 'collection', DEFAULT_GAME_LIST_FILTERS, 'none');
@@ -3318,7 +3318,7 @@ describe('GameShelfService', () => {
       name: 'My View',
       listType: 'collection',
       filters: DEFAULT_GAME_LIST_FILTERS,
-      groupBy: 'none',
+      groupBy: 'none'
     });
     expect(repository.deleteView).toHaveBeenCalledWith(11);
 

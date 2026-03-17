@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
-  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
 } from './discovery-enrichment-defaults.js';
 
 export interface DiscoveryEnrichmentSelectionOptions {
@@ -54,6 +54,6 @@ export function buildDiscoveryEnrichmentSelectionParams(
     maxAttempts,
     nowIso,
     rearmAfterDays,
-    rearmMinReleaseYear,
+    rearmMinReleaseYear
   };
 }

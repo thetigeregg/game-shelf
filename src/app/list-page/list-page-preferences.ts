@@ -1,7 +1,7 @@
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameGroupByField,
-  GameListFilters,
+  GameListFilters
 } from '../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -9,7 +9,7 @@ import {
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
   normalizeStringList,
-  normalizeTagFilterList,
+  normalizeTagFilterList
 } from '../core/utils/game-filter-utils';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
@@ -22,7 +22,7 @@ const VALID_GROUP_BY_VALUES: readonly GameGroupByField[] = [
   'tag',
   'genre',
   'publisher',
-  'releaseYear',
+  'releaseYear'
 ];
 
 export interface ListPagePreferences {
@@ -77,7 +77,7 @@ export function normalizeListPageStoredFilters(
         ? hltbMainHoursMin
         : hltbMainHoursMax,
     releaseDateFrom: normalizeDateOnly(parsed['releaseDateFrom']),
-    releaseDateTo: normalizeDateOnly(parsed['releaseDateTo']),
+    releaseDateTo: normalizeDateOnly(parsed['releaseDateTo'])
   };
 }
 
@@ -99,7 +99,7 @@ export function parseListPagePreferences(
     const filterSource = isRecord(parsed['filters']) ? parsed['filters'] : parsed;
     return {
       filters: normalizeListPageStoredFilters(filterSource, noneTagFilterValue),
-      groupBy: normalizeListPageGroupBy(parsed['groupBy']),
+      groupBy: normalizeListPageGroupBy(parsed['groupBy'])
     };
   } catch {
     return null;
@@ -112,7 +112,7 @@ export function serializeListPagePreferences(value: ListPagePreferences): string
     groupBy: value.groupBy,
     // Keep legacy top-level fields for older clients that read the original shape.
     sortField: value.filters.sortField,
-    sortDirection: value.filters.sortDirection,
+    sortDirection: value.filters.sortDirection
   });
 }
 

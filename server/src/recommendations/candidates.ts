@@ -6,7 +6,7 @@ const BACKLOG_EXCLUDED = new Set<NormalizedGameRecord['status']>([
   'dropped',
   'playing',
   'paused',
-  'replay',
+  'replay'
 ]);
 const WISHLIST_EXCLUDED = new Set<NormalizedGameRecord['status']>(['completed', 'dropped']);
 const DISCOVERY_EXCLUDED = new Set<NormalizedGameRecord['status']>([
@@ -14,7 +14,7 @@ const DISCOVERY_EXCLUDED = new Set<NormalizedGameRecord['status']>([
   'dropped',
   'playing',
   'paused',
-  'replay',
+  'replay'
 ]);
 
 export function selectCandidates(

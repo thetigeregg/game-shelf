@@ -25,7 +25,7 @@ import {
   IonTitle,
   IonToolbar,
   LoadingController,
-  ToastController,
+  ToastController
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
@@ -36,7 +36,7 @@ import {
   HltbMatchCandidate,
   ListType,
   PriceMatchCandidate,
-  ReviewMatchCandidate,
+  ReviewMatchCandidate
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -74,8 +74,8 @@ type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesD
     IonSelectOption,
     IonSpinner,
     IonTitle,
-    IonToolbar,
-  ],
+    IonToolbar
+  ]
 })
 export class MetadataValidatorPage {
   private static readonly BULK_HLTB_CONCURRENCY = 2;
@@ -97,7 +97,7 @@ export class MetadataValidatorPage {
     { value: 'hltb', label: 'Missing HLTB' },
     { value: 'metacritic', label: 'Missing Review' },
     { value: 'pricing', label: 'Missing Pricing (supported platforms)' },
-    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image' },
+    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image' }
   ];
 
   selectedListType: ListType | null = null;
@@ -143,7 +143,7 @@ export class MetadataValidatorPage {
     this.selectedListType$.pipe(
       switchMap((listType) => (listType ? this.gameShelfService.watchList(listType) : of([])))
     ),
-    this.selectedMissingFilters$,
+    this.selectedMissingFilters$
   ]).pipe(
     map(([games, filters]) => this.applyMissingMetadataFilters(games, filters)),
     tap((games) => {
@@ -412,13 +412,13 @@ export class MetadataValidatorPage {
     const games = this.getSelectedGames();
     this.debugLogService.trace('metadata_validator.bulk_hltb.start', {
       selectedCount: games.length,
-      selectedGameKeys: games.map((game) => this.getGameKey(game)),
+      selectedGameKeys: games.map((game) => this.getGameKey(game))
     });
 
     if (games.length === 0 || this.isBulkRefreshingHltb) {
       this.debugLogService.trace('metadata_validator.bulk_hltb.skipped', {
         selectedCount: games.length,
-        isBulkRefreshingHltb: this.isBulkRefreshingHltb,
+        isBulkRefreshingHltb: this.isBulkRefreshingHltb
       });
       return;
     }
@@ -433,15 +433,15 @@ export class MetadataValidatorPage {
           loadingPrefix: 'Updating HLTB data',
           concurrency: MetadataValidatorPage.BULK_HLTB_CONCURRENCY,
           interItemDelayMs: MetadataValidatorPage.BULK_HLTB_INTER_ITEM_DELAY_MS,
-          itemTimeoutMs: MetadataValidatorPage.BULK_HLTB_ITEM_TIMEOUT_MS,
+          itemTimeoutMs: MetadataValidatorPage.BULK_HLTB_ITEM_TIMEOUT_MS
         },
         retryConfig: {
           maxAttempts: MetadataValidatorPage.BULK_HLTB_MAX_ATTEMPTS,
           retryBaseDelayMs: MetadataValidatorPage.BULK_HLTB_RETRY_BASE_DELAY_MS,
-          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_HLTB_RATE_LIMIT_COOLDOWN_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_HLTB_RATE_LIMIT_COOLDOWN_MS
         },
         action: (game) => this.refreshHltbForBulkGame(game),
-        delay: (ms: number) => this.delay(ms),
+        delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
       const succeededCount = results.length - failedCount;
@@ -452,7 +452,7 @@ export class MetadataValidatorPage {
         selectedCount: results.length,
         succeededCount,
         matchedCount,
-        failedCount,
+        failedCount
       });
 
       if (matchedCount === 0 && failedCount === 0) {
@@ -491,15 +491,15 @@ export class MetadataValidatorPage {
           loadingPrefix: 'Updating review data',
           concurrency: MetadataValidatorPage.BULK_METACRITIC_CONCURRENCY,
           interItemDelayMs: MetadataValidatorPage.BULK_METACRITIC_INTER_ITEM_DELAY_MS,
-          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS,
+          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS
         },
         retryConfig: {
           maxAttempts: MetadataValidatorPage.BULK_METACRITIC_MAX_ATTEMPTS,
           retryBaseDelayMs: MetadataValidatorPage.BULK_METACRITIC_RETRY_BASE_DELAY_MS,
-          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS
         },
         action: (game) => this.refreshReviewForBulkGame(game),
-        delay: (ms: number) => this.delay(ms),
+        delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
       const succeededCount = results.length - failedCount;
@@ -547,15 +547,15 @@ export class MetadataValidatorPage {
           loadingPrefix: 'Updating pricing',
           concurrency: MetadataValidatorPage.BULK_METACRITIC_CONCURRENCY,
           interItemDelayMs: 0,
-          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS,
+          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS
         },
         retryConfig: {
           maxAttempts: MetadataValidatorPage.BULK_METACRITIC_MAX_ATTEMPTS,
           retryBaseDelayMs: MetadataValidatorPage.BULK_METACRITIC_RETRY_BASE_DELAY_MS,
-          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS
         },
         action: (game) => this.refreshPricingForBulkGame(game),
-        delay: (ms: number) => this.delay(ms),
+        delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
       const updatedCount = results.filter((result) => result.ok).length;
@@ -725,7 +725,7 @@ export class MetadataValidatorPage {
           releaseYear: candidate.releaseYear,
           platform: candidate.platform,
           preferredGameId: candidate.hltbGameId ?? null,
-          preferredUrl: candidate.hltbUrl ?? null,
+          preferredUrl: candidate.hltbUrl ?? null
         }
       );
       this.closeHltbPickerModal();
@@ -862,7 +862,7 @@ export class MetadataValidatorPage {
           platform: candidate.platform,
           platformIgdbId: target.platformIgdbId,
           mobygamesGameId: candidate.mobygamesGameId ?? null,
-          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null,
+          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
         }
       );
       this.closeReviewPickerModal();
@@ -932,7 +932,7 @@ export class MetadataValidatorPage {
         target.platformIgdbId,
         {
           title: candidate.title,
-          preferredUrl: candidate.url,
+          preferredUrl: candidate.url
         }
       );
       this.closePricingPickerModal();
@@ -1194,7 +1194,7 @@ export class MetadataValidatorPage {
       title,
       releaseYear: game.releaseYear,
       platform: game.platform,
-      platformIgdbId: game.platformIgdbId,
+      platformIgdbId: game.platformIgdbId
     });
 
     if (title.length >= 2) {
@@ -1203,7 +1203,7 @@ export class MetadataValidatorPage {
           gameKey: this.getGameKey(game),
           title,
           releaseYear: game.releaseYear,
-          platform: game.platform,
+          platform: game.platform
         });
         const candidates = await firstValueFrom(
           this.gameShelfService.searchHltbCandidates(title, game.releaseYear, game.platform)
@@ -1217,9 +1217,9 @@ export class MetadataValidatorPage {
               ? {
                   title: candidate.title,
                   releaseYear: candidate.releaseYear,
-                  platform: candidate.platform,
+                  platform: candidate.platform
                 }
-              : null,
+              : null
         });
 
         if (candidate !== null) {
@@ -1227,7 +1227,7 @@ export class MetadataValidatorPage {
             gameKey: this.getGameKey(game),
             candidateTitle: candidate.title,
             candidateReleaseYear: candidate.releaseYear,
-            candidatePlatform: candidate.platform,
+            candidatePlatform: candidate.platform
           });
           return await this.gameShelfService.refreshGameCompletionTimesWithQuery(
             game.igdbGameId,
@@ -1237,7 +1237,7 @@ export class MetadataValidatorPage {
               releaseYear: candidate.releaseYear,
               platform: candidate.platform,
               preferredGameId: candidate.hltbGameId ?? null,
-              preferredUrl: candidate.hltbUrl ?? null,
+              preferredUrl: candidate.hltbUrl ?? null
             }
           );
         }
@@ -1247,14 +1247,14 @@ export class MetadataValidatorPage {
           throw error;
         }
         this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_failed', {
-          gameKey: this.getGameKey(game),
+          gameKey: this.getGameKey(game)
         });
         // Fall back to the default lookup when candidate search fails.
       }
     }
 
     this.debugLogService.trace('metadata_validator.bulk_hltb.fallback_lookup', {
-      gameKey: this.getGameKey(game),
+      gameKey: this.getGameKey(game)
     });
     return this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
   }
@@ -1284,7 +1284,7 @@ export class MetadataValidatorPage {
               platform: candidate.platform,
               platformIgdbId: game.platformIgdbId,
               mobygamesGameId: candidate.mobygamesGameId ?? null,
-              preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null,
+              preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
             }
           );
         }
@@ -1324,7 +1324,7 @@ export class MetadataValidatorPage {
             game.platformIgdbId,
             {
               title: candidate.title,
-              preferredUrl: candidate.url,
+              preferredUrl: candidate.url
             }
           );
         }
@@ -1363,7 +1363,7 @@ export class MetadataValidatorPage {
       message,
       duration: 1600,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();

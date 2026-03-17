@@ -3,7 +3,7 @@ import {
   RecommendationLaneKey,
   RecommendationRuntimeMode,
   RecommendationTarget,
-  SimilarityEdge,
+  SimilarityEdge
 } from './types.js';
 
 export interface SqlBatch {
@@ -49,7 +49,7 @@ export function buildRecommendationsInsertBatch(params: {
 
   return {
     sqlValues: tuples.join(',\n'),
-    values,
+    values
   };
 }
 
@@ -84,7 +84,7 @@ export function buildRecommendationLanesInsertBatch(params: {
 
   return {
     sqlValues: tuples.join(',\n'),
-    values,
+    values
   };
 }
 
@@ -117,7 +117,7 @@ export function buildSimilarityInsertBatch(params: {
 
   return {
     sqlValues: tuples.join(',\n'),
-    values,
+    values
   };
 }
 
@@ -142,7 +142,7 @@ export function buildHistoryUpsertBatch(
 
   return {
     sqlValues: tuples.join(',\n'),
-    values,
+    values
   };
 }
 

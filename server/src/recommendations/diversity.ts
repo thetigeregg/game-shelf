@@ -20,7 +20,7 @@ export function calculateDiversityPenalty(params: {
     semanticSimilarityByGame,
     diversityPenaltyWeight,
     structuredWeight,
-    semanticWeight,
+    semanticWeight
   } = params;
 
   if (selected.length === 0 || diversityPenaltyWeight <= 0) {

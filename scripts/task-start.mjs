@@ -65,7 +65,7 @@ function commandExists(command) {
 
 function getWorktreePathForBranch(branchName) {
   const output = execSync('git worktree list --porcelain', {
-    encoding: 'utf8',
+    encoding: 'utf8'
   });
   const normalizedOutput = output.replace(/\r\n/g, '\n');
   const targetRef = `refs/heads/${branchName}`;
@@ -95,7 +95,7 @@ try {
   Prevent starting a task with a dirty repo
   */
   const statusOutput = execSync('git status --porcelain', {
-    encoding: 'utf8',
+    encoding: 'utf8'
   }).trim();
   if (statusOutput) {
     console.error('\nWorking directory has uncommitted changes.');
@@ -138,7 +138,7 @@ try {
       try {
         const mainWorktreeStatus = execSync('git status --porcelain', {
           cwd: mainWorktreePath,
-          encoding: 'utf8',
+          encoding: 'utf8'
         }).trim();
 
         if (mainWorktreeStatus) {
@@ -159,7 +159,7 @@ try {
       }
 
       run('git merge --ff-only origin/main', {
-        cwd: mainWorktreePath,
+        cwd: mainWorktreePath
       });
     } else {
       run('git branch -f main origin/main');
@@ -177,7 +177,7 @@ try {
 
   try {
     run(`node scripts/worktree-dev.mjs bootstrap`, {
-      cwd: worktreePath,
+      cwd: worktreePath
     });
   } catch (error) {
     console.error('\nBootstrap script failed.');

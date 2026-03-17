@@ -14,7 +14,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonContent: Stub,
     IonCard: Stub,
     IonCardHeader: Stub,
-    IonCardTitle: Stub,
+    IonCardTitle: Stub
   };
 });
 
@@ -27,10 +27,10 @@ describe('DetailVideosModalComponent', () => {
         {
           provide: DomSanitizer,
           useValue: {
-            bypassSecurityTrustResourceUrl: vi.fn((value: string) => `safe:${value}`),
-          },
-        },
-      ],
+            bypassSecurityTrustResourceUrl: vi.fn((value: string) => `safe:${value}`)
+          }
+        }
+      ]
     });
   });
 
@@ -45,9 +45,9 @@ describe('DetailVideosModalComponent', () => {
         id: 1,
         name: 'Trailer',
         videoId: 'PIF_fqFZEuk',
-        url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk',
+        url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
       },
-      { id: 2, name: 'Bad', videoId: 'invalid', url: 'https://example.com' },
+      { id: 2, name: 'Bad', videoId: 'invalid', url: 'https://example.com' }
     ];
 
     component.ngOnChanges();
@@ -66,7 +66,7 @@ describe('DetailVideosModalComponent', () => {
     const component = createComponent();
     component.videos = [
       { id: 10, name: null, videoId: 'PIF_fqFZEuk', url: '' },
-      { id: 11, name: 'Duplicate', videoId: 'PIF_fqFZEuk', url: '' },
+      { id: 11, name: 'Duplicate', videoId: 'PIF_fqFZEuk', url: '' }
     ];
 
     component.ngOnChanges();
@@ -88,7 +88,7 @@ describe('DetailVideosModalComponent', () => {
       { id: 7, name: ' A ', videoId: 'PIF_fqFZEuk', url: '' },
       { id: 7, name: 'A2', videoId: 'PIF_fqFZEuk', url: '' },
       { id: null, name: 'B', videoId: 'PIF_fqFZEuk', url: '' },
-      { id: null, name: '', videoId: 'bad-id', url: '' },
+      { id: null, name: '', videoId: 'bad-id', url: '' }
     ];
 
     component.ngOnChanges();

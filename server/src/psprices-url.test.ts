@@ -30,7 +30,7 @@ void test('resolvePreferredPsPricesUrl prefers explicit psPricesUrl and falls ba
     resolvePreferredPsPricesUrl({
       psPricesUrl: 'http://www.psprices.com/region-ch/game/123/night-in-the-woods',
       priceSource: 'psprices',
-      priceUrl: 'https://example.com/ignored',
+      priceUrl: 'https://example.com/ignored'
     }),
     'https://psprices.com/region-ch/game/123/night-in-the-woods'
   );
@@ -39,7 +39,7 @@ void test('resolvePreferredPsPricesUrl prefers explicit psPricesUrl and falls ba
     resolvePreferredPsPricesUrl({
       psPricesUrl: 'https://example.com/not-psprices',
       priceSource: 'psprices',
-      priceUrl: '//psprices.com/region-ch/game/456/night-in-the-woods',
+      priceUrl: '//psprices.com/region-ch/game/456/night-in-the-woods'
     }),
     'https://psprices.com/region-ch/game/456/night-in-the-woods'
   );
@@ -47,7 +47,7 @@ void test('resolvePreferredPsPricesUrl prefers explicit psPricesUrl and falls ba
   assert.equal(
     resolvePreferredPsPricesUrl({
       priceSource: 'steam',
-      priceUrl: 'https://psprices.com/region-ch/game/456/night-in-the-woods',
+      priceUrl: 'https://psprices.com/region-ch/game/456/night-in-the-woods'
     }),
     null
   );

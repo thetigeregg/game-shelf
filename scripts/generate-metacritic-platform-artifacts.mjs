@@ -64,7 +64,7 @@ async function main() {
 
   const formattedFrontendSource = await format(buildFrontendSupportSource(platformIds), {
     ...prettierConfig,
-    filepath: frontendSupportPath,
+    filepath: frontendSupportPath
   });
 
   await fs.writeFile(scraperMapPath, stringifyJson(parsedCanonical), 'utf8');

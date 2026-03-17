@@ -23,7 +23,7 @@ export const RECOMMENDATION_IGNORED_STORAGE_KEY = 'game-shelf:recommendation-ign
 export class RecommendationIgnoreService {
   private readonly syncEvents = inject(SyncEventsService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
-    optional: true,
+    optional: true
   });
   private readonly entriesSubject = new BehaviorSubject<RecommendationIgnoredEntry[]>(
     this.readEntriesFromStorage()
@@ -52,7 +52,7 @@ export class RecommendationIgnoreService {
 
     const payload: RecommendationIgnoredPayload = {
       version: RECOMMENDATION_IGNORED_PAYLOAD_VERSION,
-      entries: this.entriesSubject.value,
+      entries: this.entriesSubject.value
     };
     return JSON.stringify(payload);
   }
@@ -81,7 +81,7 @@ export class RecommendationIgnoreService {
     nextEntries.push({
       igdbGameId,
       title: title.length > 0 ? title : (existing?.title ?? `Game #${igdbGameId}`),
-      ignoredAt: existing?.ignoredAt ?? now,
+      ignoredAt: existing?.ignoredAt ?? now
     });
     this.persistEntries(nextEntries);
   }
@@ -117,7 +117,7 @@ export class RecommendationIgnoreService {
 
     const payload: RecommendationIgnoredPayload = {
       version: RECOMMENDATION_IGNORED_PAYLOAD_VERSION,
-      entries: normalizedEntries,
+      entries: normalizedEntries
     };
 
     try {
@@ -180,7 +180,7 @@ export class RecommendationIgnoreService {
       byGameId.set(igdbGameId, {
         igdbGameId,
         title: title.length > 0 ? title : `Game #${igdbGameId}`,
-        ignoredAt,
+        ignoredAt
       });
     }
 
@@ -217,8 +217,8 @@ export class RecommendationIgnoreService {
       operation: 'upsert',
       payload: {
         key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-        value,
-      },
+        value
+      }
     });
   }
 
@@ -231,8 +231,8 @@ export class RecommendationIgnoreService {
       entityType: 'setting',
       operation: 'delete',
       payload: {
-        key: RECOMMENDATION_IGNORED_STORAGE_KEY,
-      },
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY
+      }
     });
   }
 }

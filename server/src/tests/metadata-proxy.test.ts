@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   fetchMetadataFromWorker,
   fetchMetadataPathFromWorker,
-  sendWebResponse,
+  sendWebResponse
 } from '../metadata.js';
 
 class ReplyMock {
@@ -33,7 +33,7 @@ void test('fetchMetadataPathFromWorker forwards query params and returns respons
     query: 'fable',
     limit: 10,
     includeScreens: true,
-    skip: null,
+    skip: null
   });
 
   assert.equal(response instanceof Response, true);
@@ -43,7 +43,7 @@ void test('fetchMetadataFromWorker creates proxy request from fastify request', 
   const request = {
     url: '/igdb/search?query=halo',
     method: 'GET',
-    headers: {},
+    headers: {}
   } as unknown as FastifyRequest;
 
   const response = await fetchMetadataFromWorker(request);
@@ -56,7 +56,7 @@ void test('sendWebResponse handles empty, text/json, and binary bodies', async (
     emptyReply as unknown as FastifyReply,
     new Response(null, {
       status: 204,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     })
   );
   assert.equal(emptyReply.statusCode, 204);
@@ -67,7 +67,7 @@ void test('sendWebResponse handles empty, text/json, and binary bodies', async (
     jsonReply as unknown as FastifyReply,
     new Response(JSON.stringify({ ok: true }), {
       status: 200,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     })
   );
   assert.equal(jsonReply.payload, JSON.stringify({ ok: true }));
@@ -77,7 +77,7 @@ void test('sendWebResponse handles empty, text/json, and binary bodies', async (
     textReply as unknown as FastifyReply,
     new Response('hello', {
       status: 200,
-      headers: { 'content-type': 'text/plain' },
+      headers: { 'content-type': 'text/plain' }
     })
   );
   assert.equal(textReply.payload, 'hello');
@@ -87,7 +87,7 @@ void test('sendWebResponse handles empty, text/json, and binary bodies', async (
     binaryReply as unknown as FastifyReply,
     new Response(Uint8Array.from([1, 2, 3]), {
       status: 200,
-      headers: { 'content-type': 'application/octet-stream' },
+      headers: { 'content-type': 'application/octet-stream' }
     })
   );
   assert.equal(Buffer.isBuffer(binaryReply.payload), true);

@@ -21,7 +21,7 @@ export function normalizeHistoryMap(
   for (const [key, entry] of map.entries()) {
     result.set(key, {
       recommendationCount: Math.max(0, Math.floor(entry.recommendationCount)),
-      lastRecommendedAt: entry.lastRecommendedAt,
+      lastRecommendedAt: entry.lastRecommendedAt
     });
   }
 

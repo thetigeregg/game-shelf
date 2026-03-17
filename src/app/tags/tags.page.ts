@@ -18,7 +18,7 @@ import {
   IonFabButton,
   IonPopover,
   IonModal,
-  IonInput,
+  IonInput
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -51,8 +51,8 @@ import { ellipsisVertical, add } from 'ionicons/icons';
     IonFabButton,
     IonPopover,
     IonModal,
-    IonInput,
-  ],
+    IonInput
+  ]
 })
 export class TagsPage implements OnInit {
   tags$!: Observable<TagSummary[]>;
@@ -106,14 +106,14 @@ export class TagsPage implements OnInit {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Delete',
           role: 'confirm',
-          cssClass: 'alert-button-danger',
-        },
-      ],
+          cssClass: 'alert-button-danger'
+        }
+      ]
     });
 
     await confirm.present();
@@ -175,7 +175,7 @@ export class TagsPage implements OnInit {
       message,
       duration: 1500,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();

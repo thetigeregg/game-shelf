@@ -61,7 +61,7 @@ async function main() {
 
   const formattedFrontendSource = await format(buildFrontendSupportSource(entries), {
     ...prettierConfig,
-    filepath: frontendSupportPath,
+    filepath: frontendSupportPath
   });
 
   await fs.writeFile(frontendSupportPath, formattedFrontendSource, 'utf8');

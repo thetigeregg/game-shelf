@@ -32,7 +32,7 @@ import { startReleaseMonitor } from './release-monitor.js';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
   isAuthorizedMutatingRequest,
-  shouldRequireAuth,
+  shouldRequireAuth
 } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     recommendationsSchedulerEnabled: config.recommendationsSchedulerEnabled,
     recommendationsDiscoveryEnabled: config.recommendationsDiscoveryEnabled,
     recommendationsDiscoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,
-    popularityIngestEnabled: config.popularityIngestEnabled,
+    popularityIngestEnabled: config.popularityIngestEnabled
   });
   validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
 
   const app = Fastify({
     bodyLimit: config.requestBodyLimitBytes,
-    logger: true,
+    logger: true
   });
   const requestStartedAtMs = new Map<string, number>();
   let closeHookRegistered = false;
@@ -69,18 +69,18 @@ async function main(): Promise<void> {
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
     dimensions: config.recommendationsEmbeddingDimensions,
-    timeoutMs: config.recommendationsEmbeddingTimeoutMs,
+    timeoutMs: config.recommendationsEmbeddingTimeoutMs
   });
   const discoveryIgdbClient = new DiscoveryIgdbClient({
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
-    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond,
+    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
   const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
   });
   const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
     backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
     rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
   };
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,
@@ -139,12 +139,12 @@ async function main(): Promise<void> {
       discoveryPopularRefreshHours: config.recommendationsDiscoveryPopularRefreshHours,
       discoveryRecentRefreshHours: config.recommendationsDiscoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
-      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond,
+      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
     },
     {
       embeddingClient,
       discoveryClient: discoveryIgdbClient,
-      discoveryEnrichmentService,
+      discoveryEnrichmentService
     }
   );
 
@@ -153,12 +153,12 @@ async function main(): Promise<void> {
     await app.register(rateLimit, {
       global: true,
       max: config.globalRateLimitMaxRequests,
-      timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`,
+      timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`
     });
 
     await app.register(cors, {
       origin: true,
-      credentials: true,
+      credentials: true
     });
 
     await ensureMiddieRegistered(app);
@@ -176,7 +176,7 @@ async function main(): Promise<void> {
         url: request.url,
         route: request.routeOptions.url,
         statusCode: reply.statusCode,
-        durationMs,
+        durationMs
       });
     });
 
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
           apiToken: config.apiToken,
           clientWriteTokens: config.clientWriteTokens,
           authorizationHeader: request.headers.authorization,
-          clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
+          clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
         })
       ) {
         response.statusCode = 401;
@@ -211,8 +211,8 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: 50,
-          timeWindow: '1 minute',
-        },
+          timeWindow: '1 minute'
+        }
       },
       handler: async (request, reply) => {
         try {
@@ -221,7 +221,7 @@ async function main(): Promise<void> {
         } catch {
           reply.code(503).send({ ok: false });
         }
-      },
+      }
     });
 
     // Metadata proxy routes — FIXED FOR CODEQL
@@ -231,10 +231,10 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: 50,
-          timeWindow: '1 minute',
-        },
+          timeWindow: '1 minute'
+        }
       },
-      handler: proxyMetadataToWorker,
+      handler: proxyMetadataToWorker
     });
 
     app.route({
@@ -243,10 +243,10 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: 50,
-          timeWindow: '1 minute',
-        },
+          timeWindow: '1 minute'
+        }
       },
-      handler: proxyMetadataToWorker,
+      handler: proxyMetadataToWorker
     });
 
     app.route({
@@ -255,10 +255,10 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: 50,
-          timeWindow: '1 minute',
-        },
+          timeWindow: '1 minute'
+        }
       },
-      handler: proxyMetadataToWorker,
+      handler: proxyMetadataToWorker
     });
 
     app.route({
@@ -267,10 +267,10 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: 50,
-          timeWindow: '1 minute',
-        },
+          timeWindow: '1 minute'
+        }
       },
-      handler: proxyMetadataToWorker,
+      handler: proxyMetadataToWorker
     });
 
     // Register modular routes AFTER rateLimit
@@ -290,9 +290,9 @@ async function main(): Promise<void> {
           dedupeKey: 'manuals-catalog-refresh',
           payload,
           priority: 110,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
 
     releaseMonitor = startReleaseMonitor(pool);
@@ -303,9 +303,9 @@ async function main(): Promise<void> {
           dedupeKey: `hltb-cache-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
     await registerMetacriticCachedRoute(app, pool, {
       enqueueRevalidationJob: (payload) => {
@@ -314,9 +314,9 @@ async function main(): Promise<void> {
           dedupeKey: `metacritic-cache-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
     await registerMobyGamesCachedRoute(app, pool, {
       enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
@@ -328,9 +328,9 @@ async function main(): Promise<void> {
           dedupeKey: `mobygames-cache-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
     await registerSteamPricesRoute(app, pool, {
       enableStaleWhileRevalidate: config.steamPriceCacheEnableStaleWhileRevalidate,
@@ -342,9 +342,9 @@ async function main(): Promise<void> {
           dedupeKey: `steam-price-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
     await registerPsPricesRoute(app, pool, {
       enableStaleWhileRevalidate: config.pspricesPriceCacheEnableStaleWhileRevalidate,
@@ -356,20 +356,20 @@ async function main(): Promise<void> {
           dedupeKey: `psprices-price-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
-          maxAttempts: 3,
+          maxAttempts: 3
         });
-      },
+      }
     });
     await registerPopularityRoutes(app, pool, {
       rowLimit: config.popularityFeedRowLimit,
-      threshold: config.popularityScoreThreshold,
+      threshold: config.popularityScoreThreshold
     });
     await registerRecommendationRoutes(app, recommendationService);
 
     app.setNotFoundHandler((request, reply) => {
       reply.code(404).send({
         error: 'Not found',
-        path: request.url,
+        path: request.url
       });
     });
 
@@ -381,12 +381,12 @@ async function main(): Promise<void> {
 
     await app.listen({
       host: config.host,
-      port: config.port,
+      port: config.port
     });
     console.info('[api] started', {
       pid: process.pid,
       host: config.host,
-      port: config.port,
+      port: config.port
     });
 
     let shuttingDown = false;
@@ -403,7 +403,7 @@ async function main(): Promise<void> {
       } catch (error) {
         console.error('[api] stop_failed', {
           signal,
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error)
         });
         return false;
       }
@@ -429,7 +429,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     console.error('[api] startup_failed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);

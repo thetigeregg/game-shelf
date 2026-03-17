@@ -3,7 +3,7 @@ import {
   RecommendationExplanationBullet,
   RecommendationScoreComponents,
   TasteMatch,
-  TokenFamily,
+  TokenFamily
 } from './types.js';
 import { getTopPositiveTasteMatches, tasteFamilyLabel } from './score.js';
 
@@ -26,7 +26,7 @@ export function buildExplanation(params: {
               .join(', ')}`
           : 'Matches your rated-game preferences',
       evidence,
-      delta: components.taste,
+      delta: components.taste
     });
   }
 
@@ -38,7 +38,7 @@ export function buildExplanation(params: {
           ? 'Semantic match with games you rate highly'
           : 'Lower semantic match with your liked games',
       evidence: ['semantic:embedding-cosine'],
-      delta: components.semantic,
+      delta: components.semantic
     });
   }
 
@@ -47,7 +47,7 @@ export function buildExplanation(params: {
       type: 'runtime',
       label: 'Runtime fit adjusted for selected runtime mode',
       evidence: ['runtime:mode'],
-      delta: components.runtimeFit,
+      delta: components.runtimeFit
     });
   }
 
@@ -56,7 +56,7 @@ export function buildExplanation(params: {
       type: 'critic',
       label: 'Critic score contributed positively',
       evidence: ['critic:normalized'],
-      delta: components.criticBoost,
+      delta: components.criticBoost
     });
   }
 
@@ -65,7 +65,7 @@ export function buildExplanation(params: {
       type: 'recency',
       label: 'Older backlog entry received a recency boost',
       evidence: ['recency:backlog-age'],
-      delta: components.recencyBoost,
+      delta: components.recencyBoost
     });
   }
 
@@ -74,7 +74,7 @@ export function buildExplanation(params: {
       type: 'exploration',
       label: 'Exploration bonus for lower profile similarity',
       evidence: ['exploration:semantic-distance'],
-      delta: components.exploration,
+      delta: components.exploration
     });
   }
 
@@ -86,7 +86,7 @@ export function buildExplanation(params: {
           ? 'Reduced score to keep the list diverse'
           : 'Boosted for variety against similar picks',
       evidence: ['novelty:jaccard'],
-      delta: components.novelty,
+      delta: components.novelty
     });
   }
 
@@ -95,7 +95,7 @@ export function buildExplanation(params: {
       type: 'diversity',
       label: 'Diversity penalty applied to avoid near-duplicate picks',
       evidence: ['diversity:blended-similarity'],
-      delta: components.diversityPenalty,
+      delta: components.diversityPenalty
     });
   }
 
@@ -104,7 +104,7 @@ export function buildExplanation(params: {
       type: 'repeat',
       label: 'Penalty applied for repeated recent recommendations',
       evidence: ['repeat:history-count'],
-      delta: components.repeatPenalty,
+      delta: components.repeatPenalty
     });
   }
 
@@ -114,9 +114,9 @@ export function buildExplanation(params: {
     headline: buildHeadline(components, topMatches),
     bullets: bullets.map((bullet) => ({
       ...bullet,
-      delta: round4(bullet.delta),
+      delta: round4(bullet.delta)
     })),
-    matchedTokens,
+    matchedTokens
   };
 }
 
@@ -127,7 +127,7 @@ function buildHeadline(components: RecommendationScoreComponents, matches: Taste
     { key: 'runtimeFit', value: components.runtimeFit },
     { key: 'criticBoost', value: components.criticBoost },
     { key: 'recencyBoost', value: components.recencyBoost },
-    { key: 'exploration', value: components.exploration },
+    { key: 'exploration', value: components.exploration }
   ].filter((entry) => entry.value > 0);
 
   positiveContributors.sort((left, right) => right.value - left.value);
@@ -174,7 +174,7 @@ function buildMatchedTokens(matches: TasteMatch[]): RecommendationExplanation['m
     franchises: [],
     collections: [],
     themes: [],
-    keywords: [],
+    keywords: []
   };
 
   for (const match of matches) {

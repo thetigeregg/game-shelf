@@ -62,7 +62,7 @@ export class PlatformOrderService {
 
   sortPlatformNamesByCustomOrder(platformNames: string[]): string[] {
     const deduped = [
-      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0)),
+      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0))
     ];
 
     return deduped.sort((left, right) => this.comparePlatformNamesByCustomOrder(left, right));
@@ -70,7 +70,7 @@ export class PlatformOrderService {
 
   sortPlatformNames(platformNames: string[]): string[] {
     const deduped = [
-      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0)),
+      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0))
     ];
 
     return deduped.sort((left, right) => this.comparePlatformNames(left, right));

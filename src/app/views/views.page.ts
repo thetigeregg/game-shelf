@@ -22,7 +22,7 @@ import {
   IonPopover,
   IonModal,
   IonInput,
-  IonNote,
+  IonNote
 } from '@ionic/angular/standalone';
 import { Observable } from 'rxjs';
 import {
@@ -30,7 +30,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameListView,
-  ListType,
+  ListType
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { addIcons } from 'ionicons';
@@ -61,8 +61,8 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
     IonPopover,
     IonModal,
     IonInput,
-    IonNote,
-  ],
+    IonNote
+  ]
 })
 export class ViewsPage implements OnInit {
   views$!: Observable<GameListView[]>;
@@ -96,7 +96,7 @@ export class ViewsPage implements OnInit {
     if (state.filters) {
       this.currentFilters = {
         ...DEFAULT_GAME_LIST_FILTERS,
-        ...state.filters,
+        ...state.filters
       };
       this.hasCurrentConfiguration = true;
     }
@@ -228,14 +228,14 @@ export class ViewsPage implements OnInit {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Delete',
           role: 'confirm',
-          cssClass: 'alert-button-danger',
-        },
-      ],
+          cssClass: 'alert-button-danger'
+        }
+      ]
     });
 
     await alert.present();
@@ -342,7 +342,7 @@ export class ViewsPage implements OnInit {
       message,
       duration: 1600,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();

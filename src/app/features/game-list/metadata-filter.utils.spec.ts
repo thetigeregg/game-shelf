@@ -2,7 +2,7 @@ import { DEFAULT_GAME_LIST_FILTERS, GameEntry } from '../../core/models/game.mod
 import {
   applyMetadataSelectionToFilters,
   getMetadataSelectionTitle,
-  getMetadataSelectionValues,
+  getMetadataSelectionValues
 } from './metadata-filter.utils';
 
 function makeGame(partial: Partial<GameEntry>): GameEntry {
@@ -18,14 +18,14 @@ function makeGame(partial: Partial<GameEntry>): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...partial,
+    ...partial
   };
 }
 
 describe('metadata-filter utils', () => {
   it('returns genre values and title for genre selection', () => {
     const game = makeGame({
-      genres: ['RPG', 'Action'],
+      genres: ['RPG', 'Action']
     });
 
     expect(getMetadataSelectionValues(game, 'genre')).toEqual(['RPG', 'Action']);
@@ -46,7 +46,7 @@ describe('metadata-filter utils', () => {
       developers: ['Dev A'],
       franchises: ['Franchise A'],
       genres: ['Action'],
-      publishers: ['Publisher A'],
+      publishers: ['Publisher A']
     });
 
     expect(getMetadataSelectionValues(game, 'series')).toEqual(['Series A']);
@@ -64,7 +64,7 @@ describe('metadata-filter utils', () => {
 
     expect(nextFilters).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      genres: ['RPG'],
+      genres: ['RPG']
     });
   });
 
@@ -85,7 +85,7 @@ describe('metadata-filter utils', () => {
       )
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      collections: ['Zelda'],
+      collections: ['Zelda']
     });
 
     expect(
@@ -95,7 +95,7 @@ describe('metadata-filter utils', () => {
       )
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      developers: ['Nintendo'],
+      developers: ['Nintendo']
     });
 
     expect(
@@ -105,7 +105,7 @@ describe('metadata-filter utils', () => {
       )
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      franchises: ['Mario'],
+      franchises: ['Mario']
     });
 
     expect(
@@ -115,7 +115,7 @@ describe('metadata-filter utils', () => {
       )
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      publishers: ['Nintendo'],
+      publishers: ['Nintendo']
     });
   });
 });

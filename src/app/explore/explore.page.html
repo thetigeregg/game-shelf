@@ -122,7 +122,7 @@
                   bullets: getExplanationBullets(item),
                   showWhyThis: hasExplanationDetails(item),
                   kind: 'recommendation',
-                  row: item,
+                  row: item
                 }
               "
             ></ng-container>
@@ -205,7 +205,7 @@
                   bullets: [],
                   showWhyThis: false,
                   kind: 'popularity',
-                  row: item,
+                  row: item
                 }
               "
             ></ng-container>
@@ -309,11 +309,11 @@
       @if (activeDetailRecommendation) {
         <div class="similar-section">
           <ion-list-header>
-            <ion-label>More Like This</ion-label>
+            <ion-label> More Like This </ion-label>
           </ion-list-header>
 
           <ion-item lines="full" class="similar-header">
-            <ion-note>{{ selectedTarget }} • {{ selectedRuntimeMode }} mode</ion-note>
+            <ion-note> {{ selectedTarget }} • {{ selectedRuntimeMode }} mode </ion-note>
           </ion-item>
 
           @if (isLoadingSimilar) {
@@ -409,7 +409,7 @@
         <p>
           {{ platformLabel }}
           @if (year) {
-            <span>• {{ year }}</span>
+            <span> • {{ year }}</span>
           }
         </p>
         @if (kind === 'similar') {
@@ -503,7 +503,7 @@
       </ion-range>
 
       @if (clearRatingOnSave) {
-        <ion-note color="danger">Rating will be cleared when saved.</ion-note>
+        <ion-note color="danger"> Rating will be cleared when saved. </ion-note>
       }
     </ion-content>
   </ng-template>

@@ -9,7 +9,7 @@ import {
   Output,
   SimpleChanges,
   ViewChild,
-  inject,
+  inject
 } from '@angular/core';
 import {
   IonBadge,
@@ -24,7 +24,7 @@ import {
   IonRow,
   IonSelect,
   IonSelectOption,
-  IonToolbar,
+  IonToolbar
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -45,14 +45,14 @@ import {
   pricetags,
   star,
   time,
-  trophy,
+  trophy
 } from 'ionicons/icons';
 import {
   GameCatalogResult,
   GameEntry,
   GameRating,
   GameScreenshot,
-  GameStatus,
+  GameStatus
 } from '../../core/models/game.models';
 import SwiperClass from 'swiper';
 import { Pagination, Zoom } from 'swiper/modules';
@@ -84,8 +84,8 @@ type DetailMediaSlide = { key: string; src: string };
     IonSelect,
     IonSelectOption,
     IonIcon,
-    IonToolbar,
-  ],
+    IonToolbar
+  ]
 })
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
@@ -116,7 +116,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   detailTextExpanded = {
     summary: false,
-    storyline: false,
+    storyline: false
   };
 
   private swiperInstance: SwiperClass | null = null;
@@ -145,7 +145,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       pricetags,
       star,
       time,
-      trophy,
+      trophy
     });
   }
 
@@ -195,8 +195,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         el: '.swiper-pagination',
         dynamicBullets: true,
         dynamicMainBullets: 3,
-        clickable: false,
-      },
+        clickable: false
+      }
     });
   }
 
@@ -416,7 +416,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         color:
           typeof tag.color === 'string' && tag.color.trim().length > 0
             ? tag.color.trim()
-            : '#808080',
+            : '#808080'
       }))
       .filter((tag) => tag.name.length > 0);
   }
@@ -578,7 +578,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return new Date(timestamp).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
+      day: 'numeric'
     });
   }
 
@@ -588,7 +588,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     const normalized = [
-      ...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)),
+      ...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))
     ];
 
     return normalized.length > 0 ? normalized.join(', ') : 'None';
@@ -622,13 +622,13 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     try {
       return new Intl.NumberFormat(undefined, {
         style: 'currency',
-        currency: currencyCode,
+        currency: currencyCode
       }).format(amount);
     } catch {
       try {
         return new Intl.NumberFormat(undefined, {
           style: 'currency',
-          currency: GameDetailContentComponent.DEFAULT_PRICE_CURRENCY,
+          currency: GameDetailContentComponent.DEFAULT_PRICE_CURRENCY
         }).format(amount);
       } catch {
         return `${amount.toFixed(2)} ${currencyCode}`;
@@ -760,7 +760,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
           gameCatalogLike.platforms
             .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
             .filter((platform) => platform.length > 0)
-        ),
+        )
       ].map((platform) => this.getAliasedPlatformLabel(platform, null));
     }
 
@@ -772,7 +772,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         this.getAliasedPlatformLabel(
           gameCatalogLike.platform,
           gameCatalogLike.platformIgdbId ?? null
-        ),
+        )
       ];
     }
 

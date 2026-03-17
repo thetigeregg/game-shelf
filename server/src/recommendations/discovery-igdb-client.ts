@@ -73,7 +73,7 @@ export class DiscoveryIgdbClient {
     const mainGameTypeIds = await this.getMainGameTypeIds();
     const [popularGames, recentGames] = await Promise.all([
       this.fetchBySource('popular', targetSize, mainGameTypeIds),
-      this.fetchBySource('recent', targetSize, mainGameTypeIds),
+      this.fetchBySource('recent', targetSize, mainGameTypeIds)
     ]);
 
     const merged = [...popularGames, ...recentGames];
@@ -131,7 +131,7 @@ export class DiscoveryIgdbClient {
         source,
         offset,
         limit: Math.min(IGDB_PAGE_SIZE, desired),
-        mainGameTypeIds,
+        mainGameTypeIds
       });
       if (chunk.length === 0) {
         break;
@@ -160,16 +160,16 @@ export class DiscoveryIgdbClient {
       source: params.source,
       offset: params.offset,
       limit: params.limit,
-      mainGameTypeIds: params.mainGameTypeIds,
+      mainGameTypeIds: params.mainGameTypeIds
     });
     const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
         'Client-ID': this.options.twitchClientId,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+        'Content-Type': 'text/plain'
       },
-      body,
+      body
     });
 
     if (!response.ok) {
@@ -228,7 +228,7 @@ export class DiscoveryIgdbClient {
         hltbCompletionistHours: null,
         status: null,
         rating: null,
-        listType: 'discovery',
+        listType: 'discovery'
       };
 
       for (const platform of platforms) {
@@ -240,10 +240,10 @@ export class DiscoveryIgdbClient {
             platformIgdbId: platform.id,
             platform: platform.name,
             platforms: [platform.name],
-            platformOptions: [{ id: platform.id, name: platform.name }],
+            platformOptions: [{ id: platform.id, name: platform.name }]
           },
           source: params.source,
-          sourceScore: score,
+          sourceScore: score
         });
       }
     }
@@ -266,9 +266,9 @@ export class DiscoveryIgdbClient {
       headers: {
         'Client-ID': this.options.twitchClientId,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+        'Content-Type': 'text/plain'
       },
-      body: 'fields id,type;',
+      body: 'fields id,type;'
     });
 
     if (!response.ok) {
@@ -298,7 +298,7 @@ export class DiscoveryIgdbClient {
 
     this.gameTypeCache = {
       mainGameTypeIds,
-      expiresAtMs: now + GAME_TYPES_CACHE_TTL_MS,
+      expiresAtMs: now + GAME_TYPES_CACHE_TTL_MS
     };
 
     return mainGameTypeIds;
@@ -327,7 +327,7 @@ export class DiscoveryIgdbClient {
     tokenUrl.searchParams.set('grant_type', 'client_credentials');
 
     const response = await this.fetchWithTimeout(tokenUrl.toString(), {
-      method: 'POST',
+      method: 'POST'
     });
     if (!response.ok) {
       throw new Error(`Twitch token fetch failed with status ${String(response.status)}`);
@@ -342,7 +342,7 @@ export class DiscoveryIgdbClient {
 
     this.tokenCache = {
       accessToken,
-      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000)),
+      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
     };
 
     return accessToken;
@@ -357,7 +357,7 @@ export class DiscoveryIgdbClient {
     try {
       return await this.fetchImpl(url, {
         ...options,
-        signal: controller.signal,
+        signal: controller.signal
       });
     } finally {
       clearTimeout(timeoutId);
@@ -390,7 +390,7 @@ function buildGamesQuery(params: {
     sourceWhereClause,
     sortClause,
     `limit ${String(params.limit)};`,
-    `offset ${String(params.offset)};`,
+    `offset ${String(params.offset)};`
   ].join(' ');
 }
 
@@ -441,7 +441,7 @@ function normalizeNamedList(value: unknown): string[] {
           return typeof name === 'string' ? name.trim() : '';
         })
         .filter((entry) => entry.length > 0)
-    ),
+    )
   ];
 }
 
@@ -467,7 +467,7 @@ function normalizeCompanies(value: unknown, mode: 'developer' | 'publisher'): st
           return typeof name === 'string' ? name.trim() : '';
         })
         .filter((entry) => entry.length > 0)
-    ),
+    )
   ];
 }
 

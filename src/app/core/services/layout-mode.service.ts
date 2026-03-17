@@ -5,7 +5,7 @@ import { distinctUntilChanged } from 'rxjs/operators';
 import { DESKTOP_LAYOUT_MEDIA_QUERY, LayoutMode } from '../layout/layout-mode';
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class LayoutModeService {
   private readonly destroyRef = inject(DestroyRef);

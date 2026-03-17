@@ -191,6 +191,77 @@
 
           @if (activeModalProvider === 'hltb') {
             <ion-item>
+              <ion-searchbar
+                [value]="hltbSearchQuery"
+                placeholder="Search HLTB candidates"
+                show-clear-button="focus"
+                (ionInput)="hltbSearchQuery = $any($event).detail.value || ''"
+              ></ion-searchbar>
+            </ion-item>
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isHltbSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isHltbSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (hltbSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ hltbSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isHltbSearchLoading &&
+              hltbSearchHasRun &&
+              !hltbSearchError &&
+              hltbSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No HLTB candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (hltbSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (
+                  candidate of hltbSearchResults;
+                  track candidate.hltbUrl ?? candidate.hltbGameId ?? candidate.title
+                ) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyHltbCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.releaseYear || 'Unknown year' }}
+                        @if (candidate.platform) {
+                          <span>· {{ candidate.platform }}</span>
+                        }
+                      </p>
+                      <p>
+                        Main: {{ candidate.hltbMainHours ?? '?' }}h · Main + Extra:
+                        {{ candidate.hltbMainExtraHours ?? '?' }}h · Completionist:
+                        {{ candidate.hltbCompletionistHours ?? '?' }}h
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
+            <ion-item>
               <ion-input
                 label="HLTB game ID"
                 labelPlacement="stacked"
@@ -257,6 +328,82 @@
           }
 
           @if (activeModalProvider === 'review') {
+            <ion-item>
+              <ion-searchbar
+                [value]="reviewSearchQuery"
+                placeholder="Search review candidates"
+                show-clear-button="focus"
+                (ionInput)="reviewSearchQuery = $any($event).detail.value || ''"
+              ></ion-searchbar>
+            </ion-item>
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isReviewSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isReviewSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (reviewSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ reviewSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isReviewSearchLoading &&
+              reviewSearchHasRun &&
+              !reviewSearchError &&
+              reviewSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No review candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (reviewSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (
+                  candidate of reviewSearchResults;
+                  track candidate.reviewUrl ?? candidate.metacriticUrl ?? candidate.title
+                ) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyReviewCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.releaseYear || 'Unknown year' }}
+                        @if (candidate.platform) {
+                          <span>· {{ candidate.platform }}</span>
+                        }
+                      </p>
+                      <p>
+                        {{ candidate.reviewSource === 'mobygames' ? 'MobyGames' : 'Metacritic' }} ·
+                        Score:
+                        {{
+                          candidate.reviewScore ??
+                            candidate.metacriticScore ??
+                            candidate.mobyScore ??
+                            '?'
+                        }}
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
             <ion-item>
               <ion-select
                 label="Review source"
@@ -345,6 +492,78 @@
           }
 
           @if (activeModalProvider === 'pricing') {
+            <ion-item>
+              <ion-searchbar
+                [value]="pricingSearchQuery"
+                placeholder="Search PSPrices candidates"
+                show-clear-button="focus"
+                (ionInput)="pricingSearchQuery = $any($event).detail.value || ''"
+              ></ion-searchbar>
+            </ion-item>
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isPricingSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isPricingSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (pricingSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ pricingSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isPricingSearchLoading &&
+              pricingSearchHasRun &&
+              !pricingSearchError &&
+              pricingSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No pricing candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (pricingSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (candidate of pricingSearchResults; track candidate.url ?? candidate.title) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyPricingCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.currency || 'Currency unknown' }}
+                        @if (candidate.amount !== null) {
+                          <span>· {{ candidate.amount }}</span>
+                        }
+                        @if (candidate.discountPercent !== null) {
+                          <span>· {{ candidate.discountPercent }}% off</span>
+                        }
+                      </p>
+                      <p>
+                        Score: {{ candidate.score ?? '?' }}
+                        @if (candidate.isFree === true) {
+                          <span>· Free</span>
+                        }
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
             <ion-item>
               <ion-input
                 label="Price source"

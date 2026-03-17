@@ -2418,6 +2418,7 @@
 - 1d2776bb fix(ui): migrate game detail swiper to TypeScript init and refresh
 
 ## v1.5.4 - 2026-03-17
+
 - 5c34dc1c Merge pull request #237 from thetigeregg/feat/format
 - fff3641f fix(lint-staged): update lint-staged configuration to include additional file types for prettier
 - 1bbbe3c1 style: format code
@@ -2432,4 +2433,3 @@
 - 658aa5f5 fix(lint-staged): update Prettier command to ignore unknown file types
 - 685b3aa3 fix(prettier): update configuration for improved formatting and overrides
 - f5f6a294 fix(lint): update lint-staged configuration to apply Prettier to all file types
-

@@ -155,6 +155,7 @@ export class ExplorePage implements OnInit {
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
   private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
+  private static readonly POPULARITY_CATALOG_HYDRATION_CONCURRENCY = 4;
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
   private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
@@ -204,7 +205,15 @@ export class ExplorePage implements OnInit {
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
   isLoadingPopularity = false;
   popularityError = '';
-  activePopularityItems: PopularityFeedItem[] = [];
+  get activePopularityItems(): PopularityFeedItem[] {
+    return this._activePopularityItems;
+  }
+
+  set activePopularityItems(items: PopularityFeedItem[]) {
+    this._activePopularityItems = items;
+    this.invalidatePopularityVisibility();
+  }
+
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
@@ -247,18 +256,26 @@ export class ExplorePage implements OnInit {
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
-  private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  private readonly catalogCache = new Map<string, GameCatalogResult>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
+  private _activePopularityItems: PopularityFeedItem[] = [];
+  private readonly popularityCatalogHydrationInFlight = new Set<string>();
+  private readonly popularityCatalogHydrationAttempted = new Set<string>();
+  private popularityCatalogHydrationRunPromise: Promise<void> | null = null;
+  private popularityCatalogHydrationRerunRequested = false;
   private readonly discoveryPricingHydrationInFlight = new Set<string>();
   private readonly discoveryPricingHydrationAttempted = new Set<string>();
   private discoveryPricingHydrationRunPromise: Promise<void> | null = null;
   private discoveryPricingHydrationRerunRequested = false;
   private ignoredRecommendationGameIds = new Set<string>();
   private recommendationVisibilityRevision = 0;
+  private popularityVisibilityRevision = 0;
   private similarVisibilityRevision = 0;
   private cachedVisibleRecommendationItemsRevision = -1;
+  private cachedVisiblePopularityItemsRevision = -1;
   private cachedVisibleSimilarItemsRevision = -1;
   private cachedVisibleRecommendationItems: RecommendationItem[] = [];
+  private cachedVisiblePopularityItems: PopularityFeedItem[] = [];
   private cachedVisibleSimilarItems: RecommendationSimilarItem[] = [];
   @ViewChild('detailContent') private detailContent?: IonContent;
 
@@ -415,11 +432,11 @@ export class ExplorePage implements OnInit {
   }
 
   getActivePopularityItems(): PopularityFeedItem[] {
-    return this.activePopularityItems.slice(0, this.visiblePopularityCount);
+    return this.getVisiblePopularityItems().slice(0, this.visiblePopularityCount);
   }
 
   canLoadMorePopularity(): boolean {
-    return this.visiblePopularityCount < this.activePopularityItems.length;
+    return this.visiblePopularityCount < this.getVisiblePopularityItems().length;
   }
 
   async loadMoreRecommendations(event: Event): Promise<void> {
@@ -430,7 +447,11 @@ export class ExplorePage implements OnInit {
 
   async loadMorePopularity(event: Event): Promise<void> {
     this.visiblePopularityCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
+    try {
+      await completeIonInfiniteScroll(event);
+    } finally {
+      this.scheduleVisiblePopularityCatalogHydration();
+    }
   }
 
   getVisibleSimilarRecommendationItems(): RecommendationSimilarItem[] {
@@ -760,7 +781,7 @@ export class ExplorePage implements OnInit {
   async openPopularityGameDetail(item: PopularityFeedItem): Promise<void> {
     const requestedIdentityKey = this.buildIdentityKey(item.id, item.platformIgdbId);
     const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
-    const cachedCatalog = this.getRecommendationCatalogResult(item.id);
+    const cachedCatalog = this.getCatalogResult(item.id);
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
@@ -790,7 +811,7 @@ export class ExplorePage implements OnInit {
     if (!local) {
       try {
         if (!initialCatalog) {
-          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.id);
+          const fetchedCatalog = await this.fetchCatalogResult(item.id);
           if (fetchedCatalog && this.hasSelectedDetailIdentity(requestedIdentityKey)) {
             this.selectedGameDetail = this.withCatalogPlatformContext(
               fetchedCatalog,
@@ -829,7 +850,7 @@ export class ExplorePage implements OnInit {
     }
 
     const local = this.getLocalGame(item);
-    const cachedCatalog = this.getRecommendationCatalogResult(item.igdbGameId);
+    const cachedCatalog = this.getCatalogResult(item.igdbGameId);
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
@@ -863,7 +884,7 @@ export class ExplorePage implements OnInit {
     if (!local) {
       try {
         if (!initialCatalog) {
-          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.igdbGameId);
+          const fetchedCatalog = await this.fetchCatalogResult(item.igdbGameId);
           if (
             fetchedCatalog &&
             this.activeDetailRecommendation.igdbGameId === item.igdbGameId &&
@@ -1297,10 +1318,15 @@ export class ExplorePage implements OnInit {
       return;
     }
 
+    if (forceRefresh) {
+      this.popularityCatalogHydrationAttempted.clear();
+    }
+
     const cached = this.popularityFeedCache.get(this.selectedPopularityFeed);
     if (!forceRefresh && cached) {
       this.activePopularityItems = cached;
       this.popularityError = '';
+      this.scheduleVisiblePopularityCatalogHydration();
       return;
     }
 
@@ -1315,6 +1341,7 @@ export class ExplorePage implements OnInit {
       this.activePopularityItems = items;
       this.popularityFeedCache.set(this.selectedPopularityFeed, items);
       this.replaceLocalGameCache(localGames);
+      this.scheduleVisiblePopularityCatalogHydration();
     } catch (error) {
       if (error instanceof Error && error.message.trim().length > 0) {
         this.popularityError = error.message;
@@ -1327,6 +1354,129 @@ export class ExplorePage implements OnInit {
     } finally {
       this.isLoadingPopularity = false;
     }
+  }
+
+  private scheduleVisiblePopularityCatalogHydration(): void {
+    void this.ensureVisiblePopularityCatalogHydrated().catch(() => undefined);
+  }
+
+  private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
+    for (;;) {
+      if (!this.isPopularityExploreModeSelected()) {
+        this.popularityCatalogHydrationRerunRequested = false;
+        return;
+      }
+
+      const currentRun = this.popularityCatalogHydrationRunPromise;
+      if (currentRun) {
+        this.popularityCatalogHydrationRerunRequested = true;
+        await currentRun;
+        if (
+          this.popularityCatalogHydrationRunPromise !== null ||
+          this.isPopularityCatalogHydrationRerunRequested()
+        ) {
+          continue;
+        }
+        return;
+      }
+
+      const nextRun = this.runVisiblePopularityCatalogHydration();
+      this.popularityCatalogHydrationRunPromise = nextRun;
+      try {
+        await nextRun;
+      } finally {
+        if (this.popularityCatalogHydrationRunPromise === nextRun) {
+          this.popularityCatalogHydrationRunPromise = null;
+        }
+      }
+
+      if (!this.popularityCatalogHydrationRerunRequested) {
+        return;
+      }
+    }
+  }
+
+  private async runVisiblePopularityCatalogHydration(): Promise<void> {
+    for (;;) {
+      if (!this.isPopularityExploreModeSelected()) {
+        return;
+      }
+
+      this.popularityCatalogHydrationRerunRequested = false;
+
+      const visibleItems = this.getActivePopularityItems();
+      if (visibleItems.length === 0) {
+        return;
+      }
+
+      const candidateGameIds = new Set<string>();
+
+      for (const item of visibleItems) {
+        const igdbGameId = item.id.trim();
+        if (igdbGameId.length === 0) {
+          continue;
+        }
+
+        if (this.getLocalGameByIdentity(igdbGameId, item.platformIgdbId)) {
+          continue;
+        }
+
+        if (this.catalogCache.has(igdbGameId)) {
+          continue;
+        }
+
+        if (this.popularityCatalogHydrationInFlight.has(igdbGameId)) {
+          continue;
+        }
+
+        if (this.popularityCatalogHydrationAttempted.has(igdbGameId)) {
+          continue;
+        }
+
+        candidateGameIds.add(igdbGameId);
+      }
+
+      if (candidateGameIds.size === 0) {
+        if (!this.isPopularityCatalogHydrationRerunRequested()) {
+          break;
+        }
+        continue;
+      }
+
+      const batchSize = ExplorePage.POPULARITY_CATALOG_HYDRATION_CONCURRENCY;
+      const ids = Array.from(candidateGameIds);
+
+      for (let index = 0; index < ids.length; index += batchSize) {
+        if (!this.isPopularityExploreModeSelected()) {
+          return;
+        }
+
+        const batch = ids.slice(index, index + batchSize);
+        await Promise.all(
+          batch.map(async (igdbGameId) => {
+            this.popularityCatalogHydrationInFlight.add(igdbGameId);
+            try {
+              await this.fetchCatalogResult(igdbGameId);
+            } finally {
+              this.popularityCatalogHydrationInFlight.delete(igdbGameId);
+              this.popularityCatalogHydrationAttempted.add(igdbGameId);
+            }
+          })
+        );
+      }
+
+      if (!this.isPopularityCatalogHydrationRerunRequested()) {
+        break;
+      }
+    }
+  }
+
+  private isPopularityCatalogHydrationRerunRequested(): boolean {
+    return this.popularityCatalogHydrationRerunRequested;
+  }
+
+  private isPopularityExploreModeSelected(): boolean {
+    return this.selectedExploreMode === 'popularity';
   }
 
   getEmptyStateMessage(): string {
@@ -1523,6 +1673,7 @@ export class ExplorePage implements OnInit {
       this.libraryOwnedGameIds.add(entry.igdbGameId);
     }
     this.invalidateRecommendationVisibility();
+    this.invalidatePopularityVisibility();
     this.invalidateSimilarVisibility();
   }
 
@@ -1541,6 +1692,7 @@ export class ExplorePage implements OnInit {
 
     this.libraryOwnedGameIds.add(igdbGameId);
     this.invalidateRecommendationVisibility();
+    this.invalidatePopularityVisibility();
     this.invalidateSimilarVisibility();
   }
 
@@ -1629,8 +1781,8 @@ export class ExplorePage implements OnInit {
     );
   }
 
-  private getRecommendationCatalogResult(igdbGameId: string): GameCatalogResult | null {
-    return this.recommendationCatalogCache.get(igdbGameId) ?? null;
+  private getCatalogResult(igdbGameId: string): GameCatalogResult | null {
+    return this.catalogCache.get(igdbGameId) ?? null;
   }
 
   private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
@@ -1968,8 +2120,7 @@ export class ExplorePage implements OnInit {
       await Promise.all(
         batch.map(async ([igdbGameId, platformIds]) => {
           const catalog =
-            this.recommendationCatalogCache.get(igdbGameId) ??
-            (await this.fetchRecommendationCatalogResult(igdbGameId));
+            this.catalogCache.get(igdbGameId) ?? (await this.fetchCatalogResult(igdbGameId));
 
           if (!catalog) {
             return;
@@ -2240,12 +2391,10 @@ export class ExplorePage implements OnInit {
     return formatter;
   }
 
-  private async fetchRecommendationCatalogResult(
-    igdbGameId: string
-  ): Promise<GameCatalogResult | null> {
+  private async fetchCatalogResult(igdbGameId: string): Promise<GameCatalogResult | null> {
     try {
       const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
-      this.recommendationCatalogCache.set(igdbGameId, catalog);
+      this.catalogCache.set(igdbGameId, catalog);
       return catalog;
     } catch {
       return null;
@@ -2343,8 +2492,30 @@ export class ExplorePage implements OnInit {
     return this.cachedVisibleSimilarItems;
   }
 
+  private getVisiblePopularityItems(): PopularityFeedItem[] {
+    if (this.cachedVisiblePopularityItemsRevision === this.popularityVisibilityRevision) {
+      return this.cachedVisiblePopularityItems;
+    }
+
+    if (this.libraryOwnedGameIds.size === 0) {
+      this.cachedVisiblePopularityItems = this.activePopularityItems;
+      this.cachedVisiblePopularityItemsRevision = this.popularityVisibilityRevision;
+      return this.cachedVisiblePopularityItems;
+    }
+
+    this.cachedVisiblePopularityItems = this.activePopularityItems.filter(
+      (item) => !this.libraryOwnedGameIds.has(item.id)
+    );
+    this.cachedVisiblePopularityItemsRevision = this.popularityVisibilityRevision;
+    return this.cachedVisiblePopularityItems;
+  }
+
   private invalidateRecommendationVisibility(): void {
     this.recommendationVisibilityRevision += 1;
+  }
+
+  private invalidatePopularityVisibility(): void {
+    this.popularityVisibilityRevision += 1;
   }
 
   private invalidateSimilarVisibility(): void {

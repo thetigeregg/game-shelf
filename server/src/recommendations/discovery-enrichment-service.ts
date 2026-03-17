@@ -5,6 +5,7 @@ import {
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './discovery-enrichment-defaults.js';
 import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
+import { isProviderMatchLocked } from '../provider-match-lock.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -218,6 +219,8 @@ export class DiscoveryEnrichmentService {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : null;
+    const hltbMatchLocked = isProviderMatchLocked(payload, 'hltbMatchLocked');
+    const reviewMatchLocked = isProviderMatchLocked(payload, 'reviewMatchLocked');
     const hasHltb =
       hasPositiveNumber(payload.hltbMainHours) ||
       hasPositiveNumber(payload.hltbMainExtraHours) ||
@@ -258,15 +261,17 @@ export class DiscoveryEnrichmentService {
         maxAttempts: this.options.maxAttempts,
       }),
     };
+    const needsHltb = !hasHltb && !hltbMatchLocked;
+    const needsMetacritic = !hasCritic && !reviewMatchLocked;
     const shouldTryHltb =
-      !hasHltb &&
+      needsHltb &&
       shouldAttemptProvider({
         state: nextRetryStateBase.hltb,
         nowMs,
         maxAttempts: this.options.maxAttempts,
       });
     const shouldTryMetacritic =
-      !hasCritic &&
+      needsMetacritic &&
       shouldAttemptProvider({
         state: nextRetryStateBase.metacritic,
         nowMs,
@@ -289,8 +294,8 @@ export class DiscoveryEnrichmentService {
       const next = { ...payload };
       const nextRetryState = buildNextRetryState({
         current: nextRetryStateBase,
-        needsHltb: !hasHltb,
-        needsMetacritic: !hasCritic,
+        needsHltb,
+        needsMetacritic,
         needsSteam: steamNeedsEnrichment,
       });
       applyRetryState(next, nextRetryState);
@@ -399,8 +404,8 @@ export class DiscoveryEnrichmentService {
       next,
       buildNextRetryState({
         current: nextRetryState,
-        needsHltb: !foundHltb,
-        needsMetacritic: !foundCritic,
+        needsHltb: !foundHltb && !hltbMatchLocked,
+        needsMetacritic: !foundCritic && !reviewMatchLocked,
         needsSteam: steamNeedsEnrichment,
       })
     );

@@ -378,7 +378,7 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Targeted discovery enrichment is already queued.',
-        color: 'success',
+        color: 'warning',
       })
     );
     expect(page.isListRequeueing).toBe(false);

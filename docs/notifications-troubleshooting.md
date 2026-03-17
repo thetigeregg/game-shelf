@@ -46,6 +46,7 @@ curl http://127.0.0.1:3000/v1/notifications/observability \
 If `REQUIRE_AUTH=false`, the authorization header is optional.
 
 Use this to check:
+
 - active/inactive token counts
 - tokens invalidated in last 24h
 - event counts and sent totals by event type for last 24h
@@ -53,10 +54,12 @@ Use this to check:
 ## 5. Release Monitor Logs
 
 Look for:
+
 - `[release-monitor] run_summary`
 - `[release-monitor] run_health_warning`
 
 If warnings appear frequently, tune:
+
 - `RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO`
 - `RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO`
 - `FCM_TOKEN_*` cleanup settings

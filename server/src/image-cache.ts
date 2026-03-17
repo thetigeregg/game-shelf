@@ -47,8 +47,8 @@ export async function registerImageProxyRoute(
     config: {
       rateLimit: {
         max: 10,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as { urls?: unknown };
@@ -58,7 +58,7 @@ export async function registerImageProxyRoute(
           rawUrls
             .map((url) => normalizeProxyImageUrl(url)?.cacheKeyUrl)
             .filter((url): url is string => typeof url === 'string' && url.length > 0)
-        )
+        ),
       ];
 
       if (normalizedUrls.length === 0) {
@@ -99,7 +99,7 @@ export async function registerImageProxyRoute(
       }
 
       reply.send({ deleted });
-    }
+    },
   });
 
   app.route({
@@ -108,8 +108,8 @@ export async function registerImageProxyRoute(
     config: {
       rateLimit: {
         max: 50,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const normalizedImageUrl = normalizeProxyImageUrl(
@@ -136,7 +136,7 @@ export async function registerImageProxyRoute(
         incrementImageMetric('readErrors');
         request.log.warn({
           msg: 'image_cache_read_failed',
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
 
@@ -156,7 +156,7 @@ export async function registerImageProxyRoute(
           incrementImageMetric('writeErrors');
           request.log.warn({
             msg: 'image_cache_delete_missing_file_failed',
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -172,7 +172,7 @@ export async function registerImageProxyRoute(
         upstream = await fetchImpl(normalizedImageUrl.fetchUrl, {
           method: 'GET',
           signal: controller.signal,
-          redirect: 'error'
+          redirect: 'error',
         });
       } catch {
         incrementImageMetric('upstreamErrors');
@@ -229,7 +229,7 @@ export async function registerImageProxyRoute(
         incrementImageMetric('writeErrors');
         request.log.warn({
           msg: 'image_cache_write_failed',
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
 
@@ -237,7 +237,7 @@ export async function registerImageProxyRoute(
       reply.header('Content-Type', contentType);
       reply.header('Cache-Control', 'public, max-age=86400');
       reply.send(bytes);
-    }
+    },
   });
 }
 

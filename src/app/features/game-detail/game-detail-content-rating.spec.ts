@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 const swiperConstructorMock = vi.hoisted(() => vi.fn());
 
 vi.mock('ionicons', () => ({
-  addIcons: vi.fn()
+  addIcons: vi.fn(),
 }));
 
 vi.mock('@ionic/angular/standalone', () => ({
@@ -20,7 +20,7 @@ vi.mock('@ionic/angular/standalone', () => ({
   IonSelect: {},
   IonSelectOption: {},
   IonIcon: {},
-  IonToolbar: {}
+  IonToolbar: {},
 }));
 
 vi.mock('ionicons/icons', () => ({
@@ -41,18 +41,18 @@ vi.mock('ionicons/icons', () => ({
   pricetags: {},
   star: {},
   time: {},
-  trophy: {}
+  trophy: {},
 }));
 
 vi.mock('swiper', () => ({
   default: function SwiperMock(this: unknown, ...args: unknown[]) {
     return swiperConstructorMock(...args) as SwiperInstanceMock;
-  }
+  },
 }));
 
 vi.mock('swiper/modules', () => ({
   Pagination: {},
-  Zoom: {}
+  Zoom: {},
 }));
 
 import { GameDetailContentComponent } from './game-detail-content.component';
@@ -75,9 +75,9 @@ function createSwiperInstance(): SwiperInstanceMock {
     update: vi.fn(),
     pagination: {
       render: vi.fn(),
-      update: vi.fn()
+      update: vi.fn(),
     },
-    destroy: vi.fn()
+    destroy: vi.fn(),
   };
 }
 
@@ -94,7 +94,7 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -109,10 +109,10 @@ describe('GameDetailContentComponent rating display', () => {
           provide: PlatformCustomizationService,
           useValue: {
             getDisplayNameWithoutAlias: vi.fn((name: string) => name),
-            getDisplayNameWithAliasSource: vi.fn((name: string) => name)
-          }
-        }
-      ]
+            getDisplayNameWithAliasSource: vi.fn((name: string) => name),
+          },
+        },
+      ],
     });
   });
 
@@ -128,7 +128,7 @@ describe('GameDetailContentComponent rating display', () => {
     (
       component as unknown as { swiperContainerRef: { nativeElement: HTMLElement } }
     ).swiperContainerRef = {
-      nativeElement: document.createElement('div')
+      nativeElement: document.createElement('div'),
     };
   }
 
@@ -179,7 +179,7 @@ describe('GameDetailContentComponent rating display', () => {
       ...makeLibraryGame({ listType: 'collection' }),
       listType: undefined,
       priceAmount: 49.9,
-      priceCurrency: 'CHF'
+      priceCurrency: 'CHF',
     } as unknown as GameEntry;
 
     expect(component.showCurrentPriceLine).toBe(true);
@@ -194,7 +194,7 @@ describe('GameDetailContentComponent rating display', () => {
       priceAmount: 19.99,
       priceCurrency: 'CHF',
       priceDiscountPercent: 50,
-      priceRegularAmount: 39.99
+      priceRegularAmount: 39.99,
     });
 
     expect(component.currentPriceLabel).toContain('19.99');
@@ -210,7 +210,7 @@ describe('GameDetailContentComponent rating display', () => {
       listType: 'wishlist',
       priceAmount: 19.99,
       priceCurrency: 'CHF',
-      priceRegularAmount: 19.99
+      priceRegularAmount: 19.99,
     });
 
     expect(component.currentPriceMetaLabel).toBeNull();
@@ -222,7 +222,7 @@ describe('GameDetailContentComponent rating display', () => {
     component.game = makeLibraryGame({
       listType: 'wishlist',
       priceIsFree: true,
-      priceAmount: 0
+      priceAmount: 0,
     });
 
     expect(component.currentPriceLabel).toBe('Free');
@@ -234,7 +234,7 @@ describe('GameDetailContentComponent rating display', () => {
     component.game = makeLibraryGame({
       listType: 'wishlist',
       priceAmount: 19.99,
-      priceCurrency: 'CHF'
+      priceCurrency: 'CHF',
     });
 
     const RealNumberFormat = Intl.NumberFormat;
@@ -260,7 +260,7 @@ describe('GameDetailContentComponent rating display', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({
-      coverUrl: 'https://img.example/cover.jpg'
+      coverUrl: 'https://img.example/cover.jpg',
     });
     attachSwiperContainer(component);
 
@@ -283,15 +283,15 @@ describe('GameDetailContentComponent rating display', () => {
 
     component.game = makeLibraryGame({
       coverUrl: 'https://img.example/cover.jpg',
-      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }]
+      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }],
     });
     component.ngOnChanges({
       game: {
         currentValue: component.game,
         previousValue: null,
         firstChange: false,
-        isFirstChange: () => false
-      }
+        isFirstChange: () => false,
+      },
     });
 
     expect(swiper.allowTouchMove).toBe(true);
@@ -304,7 +304,7 @@ describe('GameDetailContentComponent rating display', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({
-      coverUrl: 'https://img.example/cover.jpg'
+      coverUrl: 'https://img.example/cover.jpg',
     });
     attachSwiperContainer(component);
 

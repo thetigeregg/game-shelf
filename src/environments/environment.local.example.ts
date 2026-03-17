@@ -6,7 +6,7 @@ export const environment = {
     showMgcImport: false,
     e2eFixtures: false,
     recommendationsExploreEnabled: true,
-    tasEnabled: false
+    tasEnabled: false,
   },
   firebase: {
     apiKey: 'REPLACE_WITH_FIREBASE_API_KEY',
@@ -14,7 +14,7 @@ export const environment = {
     projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
     storageBucket: 'REPLACE_WITH_FIREBASE_STORAGE_BUCKET',
     messagingSenderId: 'REPLACE_WITH_FIREBASE_MESSAGING_SENDER_ID',
-    appId: 'REPLACE_WITH_FIREBASE_APP_ID'
+    appId: 'REPLACE_WITH_FIREBASE_APP_ID',
   },
-  firebaseVapidKey: 'REPLACE_WITH_FIREBASE_VAPID_KEY'
+  firebaseVapidKey: 'REPLACE_WITH_FIREBASE_VAPID_KEY',
 };

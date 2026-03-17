@@ -10,7 +10,7 @@ describe('game-media-normalization', () => {
         { id: 7, imageId: 'abc123', width: 2000, height: 1000 },
         { id: -1, imageId: 'abc123' },
         { imageId: 'def456', width: 0, height: 'bad' },
-        { imageId: 'ghi789' }
+        { imageId: 'ghi789' },
       ],
       { maxItems: 2 }
     );
@@ -21,15 +21,15 @@ describe('game-media-normalization', () => {
         imageId: 'abc123',
         url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc123.jpg',
         width: 1280,
-        height: 720
+        height: 720,
       },
       {
         id: null,
         imageId: 'abc123',
         url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc123.jpg',
         width: null,
-        height: null
-      }
+        height: null,
+      },
     ]);
   });
 
@@ -46,7 +46,7 @@ describe('game-media-normalization', () => {
         { id: 11, name: 'Duplicate id', videoId: 'DIFFERENT123' },
         { id: -2, name: '', videoId: 'a b c' },
         { name: '  ', videoId: 'A_B-C123456' },
-        { videoId: 'A_B-C123456' }
+        { videoId: 'A_B-C123456' },
       ],
       { maxItems: 2 }
     );
@@ -56,14 +56,14 @@ describe('game-media-normalization', () => {
         id: 11,
         name: 'Trailer',
         videoId: 'PIF_fqFZEuk',
-        url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk',
       },
       {
         id: null,
         name: null,
         videoId: 'a b c',
-        url: 'https://www.youtube.com/watch?v=a%20b%20c'
-      }
+        url: 'https://www.youtube.com/watch?v=a%20b%20c',
+      },
     ]);
   });
 

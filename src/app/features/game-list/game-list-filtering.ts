@@ -8,19 +8,19 @@ import {
   GameStatus,
   GameStatusFilterOption,
   GameType,
-  isGameRating
+  isGameRating,
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeStringList,
-  normalizeTagFilterList
+  normalizeTagFilterList,
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
   resolveNormalizedCriticScoreForGame,
-  resolveTimeAdjustedScoreForGame
+  resolveTimeAdjustedScoreForGame,
 } from '../../core/utils/time-adjusted-score.util';
 import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
@@ -62,7 +62,7 @@ export class GameListFilteringEngine {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader / card-e reader': 'Game Boy Advance'
+    'e-reader / card-e reader': 'Game Boy Advance',
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
   private sortedGamesCache: {
@@ -130,7 +130,7 @@ export class GameListFilteringEngine {
           customPlatformEntries.push({
             customLabel: normalizedName,
             canonicalPlatformName,
-            canonicalPlatformNameKey
+            canonicalPlatformNameKey,
           });
         }
 
@@ -204,7 +204,7 @@ export class GameListFilteringEngine {
         normalizeStringList(filters.platform)
           .map((platform) => this.getCanonicalPlatformLabel(platform))
           .filter((platform) => platform.length > 0)
-      )
+      ),
     ];
     const normalizedGenres = normalizeStringList(filters.genres);
     const normalizedCollections = normalizeStringList(filters.collections);
@@ -219,7 +219,7 @@ export class GameListFilteringEngine {
         normalizeStringList(filters.excludedPlatform)
           .map((platform) => this.getCanonicalPlatformLabel(platform))
           .filter((platform) => platform.length > 0)
-      )
+      ),
     ];
     const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
     const normalizedExcludedStatuses = normalizeGameStatusFilterList(
@@ -262,7 +262,7 @@ export class GameListFilteringEngine {
         hltbMainHoursMax !== null &&
         hltbMainHoursMin > hltbMainHoursMax
           ? hltbMainHoursMin
-          : hltbMainHoursMax
+          : hltbMainHoursMax,
     };
   }
 
@@ -277,7 +277,7 @@ export class GameListFilteringEngine {
             )
           )
           .filter((platform) => platform.length > 0)
-      )
+      ),
     ].sort((a, b) => this.comparePlatformNames(a, b));
   }
 
@@ -361,7 +361,7 @@ export class GameListFilteringEngine {
       return {
         grouped: false,
         sections: [{ key: 'none', title: 'All Games', games }],
-        totalCount: games.length
+        totalCount: games.length,
       };
     }
 
@@ -384,13 +384,13 @@ export class GameListFilteringEngine {
       .map(([title, groupedGames]) => ({
         key: `${groupBy}-${title}`,
         title,
-        games: groupedGames
+        games: groupedGames,
       }));
 
     return {
       grouped: true,
       sections: sortedSections,
-      totalCount: games.length
+      totalCount: games.length,
     };
   }
 
@@ -402,7 +402,7 @@ export class GameListFilteringEngine {
         this.getCanonicalPlatformLabel(
           this.getDisplayPlatformName(game),
           this.getDisplayPlatformIgdbId(game)
-        ) || noGroupLabel
+        ) || noGroupLabel,
       ];
     }
 
@@ -807,7 +807,7 @@ export class GameListFilteringEngine {
       sortField,
       sortDirection,
       timePreference,
-      sortedGames
+      sortedGames,
     };
     return sortedGames;
   }
@@ -887,7 +887,7 @@ export class GameListFilteringEngine {
       status: this.normalizeStatus(game.status),
       rating: this.normalizeRating(game.rating),
       effectiveHltbHours: this.selectEffectiveHltbHours(game),
-      releaseDate: this.getDateOnly(game.releaseDate)
+      releaseDate: this.getDateOnly(game.releaseDate),
     };
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
@@ -936,7 +936,7 @@ export class GameListFilteringEngine {
           this.getDisplayPlatformIgdbId(right)
         ) || 'Unknown platform';
       const platformCompare = leftPlatform.localeCompare(rightPlatform, undefined, {
-        sensitivity: 'base'
+        sensitivity: 'base',
       });
 
       if (platformCompare !== 0) {
@@ -1012,7 +1012,7 @@ export class GameListFilteringEngine {
     const normalizedLeft = this.normalizeTitleForSort(leftTitle);
     const normalizedRight = this.normalizeTitleForSort(rightTitle);
     const normalizedCompare = normalizedLeft.localeCompare(normalizedRight, undefined, {
-      sensitivity: 'base'
+      sensitivity: 'base',
     });
 
     if (normalizedCompare !== 0) {

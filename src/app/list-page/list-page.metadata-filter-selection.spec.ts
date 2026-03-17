@@ -6,11 +6,11 @@ describe('List-page metadata filter selection', () => {
     expect(
       applyMetadataSelectionToFilters({
         kind: 'genre',
-        value: '  RPG '
+        value: '  RPG ',
       })
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      genres: ['RPG']
+      genres: ['RPG'],
     });
   });
 
@@ -18,7 +18,7 @@ describe('List-page metadata filter selection', () => {
     expect(
       applyMetadataSelectionToFilters({
         kind: 'genre',
-        value: '   '
+        value: '   ',
       })
     ).toEqual(DEFAULT_GAME_LIST_FILTERS);
   });

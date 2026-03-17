@@ -96,6 +96,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload coverage to Codecov
+        if: always()
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage/app/lcov.info,./server/coverage/lcov.info,./worker/coverage/lcov.info
@@ -105,6 +106,7 @@ jobs:
           use_oidc: true
 
       - name: Upload raw coverage artifacts
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: coverage-reports

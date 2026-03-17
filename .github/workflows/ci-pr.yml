@@ -98,7 +98,10 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: ./coverage/app/lcov.info,./server/coverage/lcov.info,./worker/coverage/lcov.info
+          files: |
+            ./coverage/app/lcov.info
+            ./server/coverage/lcov.info
+            ./worker/coverage/lcov.info
           flags: frontend,server,worker
           fail_ci_if_error: true
           disable_search: true

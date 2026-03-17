@@ -252,7 +252,7 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
   }
 });
 
-void test('admin discovery list requeue route enqueues the global discovery job and dedupes repeated requests', async () => {
+void test('admin discovery list requeue route enqueues a targeted discovery job and dedupes repeated requests', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;

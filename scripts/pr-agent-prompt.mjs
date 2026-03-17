@@ -60,6 +60,17 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
+function isSecurityBot(comment) {
+  return comment.author?.login === 'github-advanced-security';
+}
+
+function isActionableThread(thread) {
+  if (thread.isResolved) return false;
+  if (thread.isOutdated) return false;
+
+  return true;
+}
+
 function runGh(args, options = {}) {
   const { allowFailure = false } = options;
 
@@ -343,6 +354,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
         }
         nodes {
           isResolved
+          isOutdated
           path
           line
           originalLine
@@ -407,12 +419,14 @@ function buildInlineReviewTasks(threads, { copilotOnly = false } = {}) {
   const tasks = [];
 
   for (const thread of threads) {
-    if (thread.isResolved) continue;
+    if (!isActionableThread(thread)) continue;
 
     const comments = thread.comments?.nodes || [];
     if (!comments.length) continue;
 
     const reviewerComment = [...comments].reverse().find((comment) => {
+      if (isSecurityBot(comment)) return false;
+
       const author = comment.author?.login || '';
       if (!includeReviewItem(comment.body, author)) return false;
       if (!copilotOnly) return true;

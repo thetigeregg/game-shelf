@@ -310,11 +310,11 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   for (const review of reviews) {
     const body = formatReviewBody(review.body, review.state);
     const author = review.author?.login || 'reviewer';
-    if (!includeReviewItem(review.body, author, review.state)) continue;
+    if (!includeReviewItem(body, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
     if (
-      author === 'github-advanced-security' &&
+      author.toLowerCase() === 'github-advanced-security' &&
       (!review.body || review.body.trim().length === 0)
     ) {
       continue;

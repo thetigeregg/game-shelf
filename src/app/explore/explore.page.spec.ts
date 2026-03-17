@@ -2386,11 +2386,14 @@ describe('ExplorePage explore modes UX', () => {
 
   it('reruns popularity catalog hydration when a request lands after await and before cleanup', async () => {
     const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
       popularityCatalogHydrationRunPromise: Promise<void> | null;
       popularityCatalogHydrationRerunRequested: boolean;
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
       runVisiblePopularityCatalogHydration: () => Promise<void>;
     };
+
+    page.selectedExploreMode = 'popularity';
 
     let resolveCurrentRun: (() => void) | null = null;
     page.popularityCatalogHydrationRunPromise = new Promise<void>((resolve) => {

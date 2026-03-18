@@ -7,6 +7,11 @@ import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
+import {
+  hasMeaningfulRetryState,
+  nextProviderRetryState,
+  parseProviderRetryState,
+} from './recommendations/provider-retry-state.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -1638,6 +1643,7 @@ async function persistPsPricesSnapshot(
     match: PsPricesMatchInfo;
     candidates: PsPricesCandidate[];
     matchLocked?: boolean;
+    retryState?: unknown;
   }
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
@@ -1667,6 +1673,24 @@ async function persistPsPricesSnapshot(
   };
   if (typeof params.matchLocked === 'boolean') {
     patchPayload['psPricesMatchLocked'] = params.matchLocked;
+  }
+  if (params.retryState !== undefined) {
+    const existingRetry =
+      params.payload['enrichmentRetry'] &&
+      typeof params.payload['enrichmentRetry'] === 'object' &&
+      !Array.isArray(params.payload['enrichmentRetry'])
+        ? ({ ...(params.payload['enrichmentRetry'] as Record<string, unknown>) } as Record<
+            string,
+            unknown
+          >)
+        : {};
+    const parsedRetryState = parseProviderRetryState(params.retryState);
+    if (hasMeaningfulRetryState(parsedRetryState)) {
+      existingRetry['psprices'] = parsedRetryState;
+    } else {
+      delete existingRetry['psprices'];
+    }
+    patchPayload['enrichmentRetry'] = existingRetry;
   }
   if (!preserveExisting) {
     patchPayload['priceSource'] = 'psprices';
@@ -1784,6 +1808,21 @@ export async function processQueuedPspricesPriceRevalidation(
     preferredUrl: preferredPsPricesUrl,
   });
 
+  const retryState = nextProviderRetryState({
+    current: parseProviderRetryState(
+      gamePayload['enrichmentRetry'] &&
+        typeof gamePayload['enrichmentRetry'] === 'object' &&
+        !Array.isArray(gamePayload['enrichmentRetry'])
+        ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['psprices']
+        : null
+    ),
+    nowIso: new Date().toISOString(),
+    success: pspricesLookup.snapshot !== null,
+    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+    backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
+    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+  });
+
   await persistPsPricesSnapshot(pool, {
     igdbGameId,
     platformIgdbId,
@@ -1794,6 +1833,7 @@ export async function processQueuedPspricesPriceRevalidation(
     bestPrice: pspricesLookup.snapshot,
     match: pspricesLookup.match,
     candidates: pspricesLookup.candidates,
+    retryState,
   });
 }
 

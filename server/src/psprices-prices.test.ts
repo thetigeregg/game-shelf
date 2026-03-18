@@ -3,7 +3,10 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
-import { registerPsPricesRoute } from './psprices-prices.js';
+import {
+  processQueuedPspricesPriceRevalidation,
+  registerPsPricesRoute,
+} from './psprices-prices.js';
 
 interface GameRow {
   payload: Record<string, unknown>;
@@ -914,6 +917,136 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
   assert.equal(fetchCalls, 0);
 
   await app.close();
+});
+
+void test('queued PSPrices revalidation stores retry state after a no-match discovery lookup', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('700', 167, {
+    listType: 'discovery',
+    title: 'Unknown PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+  });
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:discovery:700:167:region-ch:games',
+      igdbGameId: '700',
+      platformIgdbId: 167,
+      title: 'Unknown PS Game',
+      psPricesUrl: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('700', 167);
+  assert.ok(persisted);
+  assert.deepEqual(persisted['enrichmentRetry'], {
+    psprices: {
+      attempts: 1,
+      lastTriedAt:
+        persisted['enrichmentRetry'] &&
+        typeof persisted['enrichmentRetry'] === 'object' &&
+        !Array.isArray(persisted['enrichmentRetry'])
+          ? (persisted['enrichmentRetry'] as Record<string, unknown>).psprices &&
+            typeof (persisted['enrichmentRetry'] as Record<string, unknown>).psprices === 'object'
+            ? (
+                (persisted['enrichmentRetry'] as Record<string, unknown>).psprices as Record<
+                  string,
+                  unknown
+                >
+              ).lastTriedAt
+            : null
+          : null,
+      nextTryAt:
+        persisted['enrichmentRetry'] &&
+        typeof persisted['enrichmentRetry'] === 'object' &&
+        !Array.isArray(persisted['enrichmentRetry'])
+          ? (persisted['enrichmentRetry'] as Record<string, unknown>).psprices &&
+            typeof (persisted['enrichmentRetry'] as Record<string, unknown>).psprices === 'object'
+            ? (
+                (persisted['enrichmentRetry'] as Record<string, unknown>).psprices as Record<
+                  string,
+                  unknown
+                >
+              ).nextTryAt
+            : null
+          : null,
+      permanentMiss: false,
+    },
+  });
+});
+
+void test('queued PSPrices revalidation clears retry state after a successful discovery lookup', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('701', 167, {
+    listType: 'discovery',
+    title: 'Known PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 2,
+        lastTriedAt: '2026-03-01T00:00:00.000Z',
+        nextTryAt: '2026-03-02T00:00:00.000Z',
+        permanentMiss: false,
+      },
+    },
+  });
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: {
+            title: 'Known PS Game',
+            priceAmount: 39.9,
+            currency: 'CHF',
+            url: 'https://psprices.com/region-ch/game/701/known-ps-game',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:discovery:701:167:region-ch:games',
+      igdbGameId: '701',
+      platformIgdbId: 167,
+      title: 'Known PS Game',
+      psPricesUrl: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('701', 167);
+  assert.ok(persisted);
+  const retry =
+    persisted['enrichmentRetry'] &&
+    typeof persisted['enrichmentRetry'] === 'object' &&
+    !Array.isArray(persisted['enrichmentRetry'])
+      ? ((persisted['enrichmentRetry'] as Record<string, unknown>)['psprices'] as Record<
+          string,
+          unknown
+        > | null)
+      : null;
+  assert.equal(retry ?? null, null);
 });
 
 void test('PSPrices route clears persisted preferred url when a title override is provided', async () => {

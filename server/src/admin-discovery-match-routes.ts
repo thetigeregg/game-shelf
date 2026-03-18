@@ -115,6 +115,8 @@ const MUTATION_RATE_LIMIT = {
 const MAX_LIST_LIMIT = 200;
 const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
+const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
+const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 
 export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Pool): void {
   const backgroundJobs = new BackgroundJobRepository(pool);
@@ -561,7 +563,7 @@ function buildDetailResponse(
     title: normalizeString(payload['title']),
     platform: normalizeString(payload['platform']),
     releaseYear: normalizeInteger(payload['releaseYear']),
-    matchState: buildMatchState(payload),
+    matchState: buildMatchState(payload, platformIgdbId),
     providers: {
       hltb: {
         hltbGameId: normalizeInteger(payload['hltbMatchGameId']),
@@ -615,17 +617,18 @@ function mapDiscoveryListItem(row: {
     title: normalizeString(row.payload['title']),
     platform: normalizeString(row.payload['platform']),
     releaseYear: normalizeInteger(row.payload['releaseYear']),
-    matchState: buildMatchState(row.payload),
+    matchState: buildMatchState(row.payload, row.platformIgdbId),
   };
 }
 
 function buildMatchState(
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  platformIgdbId: number
 ): Record<DiscoveryMatchProvider, DiscoveryProviderState> {
   return {
     hltb: buildHltbState(payload),
     review: buildReviewState(payload),
-    pricing: buildPricingState(payload),
+    pricing: buildPricingState(payload, platformIgdbId),
   };
 }
 
@@ -647,16 +650,27 @@ function buildReviewState(payload: Record<string, unknown>): DiscoveryProviderSt
   return buildProviderState(hasMatch, isProviderMatchLocked(payload, 'reviewMatchLocked'), retry);
 }
 
-function buildPricingState(payload: Record<string, unknown>): DiscoveryProviderState {
+function buildPricingState(
+  payload: Record<string, unknown>,
+  platformIgdbId: number
+): DiscoveryProviderState {
   const hasPrice = hasUnifiedPriceValue(payload);
+  const isEligiblePlatform = isPricingPlatformEligible(platformIgdbId);
   return {
-    status: hasPrice ? 'matched' : 'missing',
+    status: hasPrice || !isEligiblePlatform ? 'matched' : 'missing',
     locked: isProviderMatchLocked(payload, 'psPricesMatchLocked'),
     attempts: 0,
     lastTriedAt: null,
     nextTryAt: null,
     permanentMiss: false,
   };
+}
+
+function isPricingPlatformEligible(platformIgdbId: number): boolean {
+  return (
+    platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID ||
+    PSPRICES_PLATFORM_IGDB_IDS.has(platformIgdbId)
+  );
 }
 
 function buildProviderState(

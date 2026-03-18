@@ -693,14 +693,16 @@ function normalizeTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function normalizeTargetProviders(
-  value: DiscoveryEnrichmentProvider[] | undefined
-): Set<DiscoveryEnrichmentProvider> | null {
+function isDiscoveryEnrichmentProvider(value: unknown): value is DiscoveryEnrichmentProvider {
+  return value === 'hltb' || value === 'review' || value === 'steam';
+}
+
+function normalizeTargetProviders(value: unknown): Set<DiscoveryEnrichmentProvider> | null {
   if (!Array.isArray(value)) {
     return null;
   }
 
-  const providers = [...new Set(value)];
+  const providers = [...new Set(value.filter(isDiscoveryEnrichmentProvider))];
 
   return providers.length > 0 ? new Set(providers) : null;
 }

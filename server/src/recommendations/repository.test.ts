@@ -150,6 +150,36 @@ void test('upsertDiscoveryGames preserves PSPrices provider keys with current fi
   assert.equal(sql.includes("'psPricesPriceIsFree'"), false);
 });
 
+void test('listDiscoveryRowsByGameKeys uses typed tuple lookup and skips invalid keys', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [
+      {
+        igdb_game_id: '200',
+        platform_igdb_id: 48,
+        payload: { listType: 'discovery', title: 'Targeted Game' },
+      },
+    ],
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const rows = await repository.listDiscoveryRowsByGameKeys([
+    '200::48',
+    ' 200::48 ',
+    'invalid',
+    '201::bad',
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.igdbGameId, '200');
+  assert.equal(rows[0]?.platformIgdbId, 48);
+
+  const query = pool.queries[0];
+  assert.ok(query);
+  assert.equal(query.sql.includes('UNNEST($1::text[], $2::integer[])'), true);
+  assert.equal(query.sql.includes("igdb_game_id || '::' || platform_igdb_id::text"), false);
+  assert.deepEqual(query.params, [['200'], [48]]);
+});
+
 void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-specific queries', async () => {
   const pool = new PoolMock((sql) => {
     if (sql.includes('FROM recommendation_runs')) {

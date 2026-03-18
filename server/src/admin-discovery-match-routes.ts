@@ -118,6 +118,7 @@ const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
+const PRICING_REQUEUE_CONCURRENCY = 5;
 
 export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Pool): void {
   const backgroundJobs = new BackgroundJobRepository(pool);
@@ -481,11 +482,11 @@ async function enqueuePricingRefreshJobs(
     ignorePsPricesLock: boolean;
   }
 ): Promise<AdminRequeueResult> {
-  const results: Array<{ jobId: number; deduped: boolean }> = [];
   const steamCountry = config.steamDefaultCountry;
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
+  const jobs: Array<() => Promise<{ jobId: number; deduped: boolean }>> = [];
 
   for (const game of games) {
     const payload = normalizePayloadObject(game.payload);
@@ -499,8 +500,8 @@ async function enqueuePricingRefreshJobs(
         continue;
       }
 
-      results.push(
-        await backgroundJobs.enqueue({
+      jobs.push(() =>
+        backgroundJobs.enqueue({
           jobType: 'steam_price_revalidate',
           dedupeKey: `${params.requestedBy}:steam:${game.igdbGameId}:${String(game.platformIgdbId)}:${steamCountry}:${String(steamAppId)}`,
           payload: {
@@ -549,8 +550,8 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
-    results.push(
-      await backgroundJobs.enqueue({
+    jobs.push(() =>
+      backgroundJobs.enqueue({
         jobType: 'psprices_price_revalidate',
         dedupeKey: `${params.requestedBy}:psprices:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
         payload: {
@@ -566,6 +567,7 @@ async function enqueuePricingRefreshJobs(
     );
   }
 
+  const results = await runWithConcurrencyLimit(jobs, PRICING_REQUEUE_CONCURRENCY);
   return toAdminRequeueResult(results);
 }
 
@@ -774,6 +776,13 @@ function applyManualMatchPatch(
     const hltbMainHours = normalizeNumber(body.hltbMainHours);
     const hltbMainExtraHours = normalizeNumber(body.hltbMainExtraHours);
     const hltbCompletionistHours = normalizeNumber(body.hltbCompletionistHours);
+    const timingError =
+      validateNonNegativeNumberField(hltbMainHours, 'HLTB main hours') ??
+      validateNonNegativeNumberField(hltbMainExtraHours, 'HLTB main-extra hours') ??
+      validateNonNegativeNumberField(hltbCompletionistHours, 'HLTB completionist hours');
+    if (timingError) {
+      return timingError;
+    }
     if (
       hltbGameId === null &&
       hltbUrl === null &&
@@ -804,6 +813,13 @@ function applyManualMatchPatch(
     const metacriticUrl = normalizeString(body.metacriticUrl);
     const mobygamesGameId = normalizeInteger(body.mobygamesGameId);
     const mobyScore = normalizeNumber(body.mobyScore);
+    const scoreError =
+      validateBoundedNumberField(reviewScore, 'Review score', 0, 100) ??
+      validateBoundedNumberField(metacriticScore, 'Metacritic score', 0, 100) ??
+      validateBoundedNumberField(mobyScore, 'MobyGames score', 0, 100);
+    if (scoreError) {
+      return scoreError;
+    }
     if (
       reviewSource === null &&
       reviewScore === null &&
@@ -838,6 +854,15 @@ function applyManualMatchPatch(
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
   const priceSource = normalizeString(body.priceSource) ?? 'psprices';
   const isPsPricesSource = priceSource === 'psprices';
+  const priceRegularAmount = normalizeNumber(body.priceRegularAmount);
+  const priceDiscountPercent = normalizeNumber(body.priceDiscountPercent);
+  const pricingError =
+    validateNonNegativeNumberField(priceAmount, 'Price amount') ??
+    validateNonNegativeNumberField(priceRegularAmount, 'Price regular amount') ??
+    validateBoundedNumberField(priceDiscountPercent, 'Price discount percent', 0, 100);
+  if (pricingError) {
+    return pricingError;
+  }
   if (priceAmount === null && !priceIsFree && priceUrl === null) {
     return 'Pricing updates require at least one pricing field.';
   }
@@ -845,8 +870,8 @@ function applyManualMatchPatch(
   payload['priceFetchedAt'] = normalizeIsoDate(body.priceFetchedAt) ?? new Date().toISOString();
   payload['priceAmount'] = priceAmount;
   payload['priceCurrency'] = normalizeString(body.priceCurrency);
-  payload['priceRegularAmount'] = normalizeNumber(body.priceRegularAmount);
-  payload['priceDiscountPercent'] = normalizeNumber(body.priceDiscountPercent);
+  payload['priceRegularAmount'] = priceRegularAmount;
+  payload['priceDiscountPercent'] = priceDiscountPercent;
   payload['priceIsFree'] = priceIsFree;
   payload['priceUrl'] = priceUrl;
   payload['psPricesUrl'] = isPsPricesSource
@@ -980,20 +1005,24 @@ async function listDiscoveryGamesByKeys(
   pool: Pool,
   gameKeys: Set<string>
 ): Promise<NormalizedDiscoveryGame[]> {
-  const normalizedKeys = [...gameKeys].map((key) => key.trim()).filter((key) => key.length > 0);
-  if (normalizedKeys.length === 0) {
+  const parsedKeys = parseDiscoveryGameKeys([...gameKeys]);
+  if (parsedKeys.length === 0) {
     return [];
   }
 
   const result = await pool.query<DiscoveryGameRow>(
     `
+    WITH requested_keys AS (
+      SELECT DISTINCT *
+      FROM UNNEST($1::text[], $2::integer[]) AS requested(igdb_game_id, platform_igdb_id)
+    )
     SELECT igdb_game_id, platform_igdb_id, payload
     FROM games
+    INNER JOIN requested_keys USING (igdb_game_id, platform_igdb_id)
     WHERE COALESCE(payload->>'listType', '') = 'discovery'
-      AND (igdb_game_id || '::' || platform_igdb_id::text) = ANY($1::text[])
     ORDER BY updated_at DESC
     `,
-    [normalizedKeys]
+    [parsedKeys.map((entry) => entry.igdbGameId), parsedKeys.map((entry) => entry.platformIgdbId)]
   );
 
   return result.rows
@@ -1003,6 +1032,53 @@ async function listDiscoveryGamesByKeys(
       payload: normalizePayloadObject(row.payload),
     }))
     .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
+}
+
+function parseDiscoveryGameKeys(
+  gameKeys: string[]
+): Array<{ igdbGameId: string; platformIgdbId: number }> {
+  const parsed = new Map<string, { igdbGameId: string; platformIgdbId: number }>();
+
+  for (const gameKey of gameKeys) {
+    const normalized = gameKey.trim();
+    if (normalized.length === 0) {
+      continue;
+    }
+
+    const separatorIndex = normalized.indexOf('::');
+    if (separatorIndex <= 0 || separatorIndex === normalized.length - 2) {
+      continue;
+    }
+
+    const igdbGameId = normalizeIdentifier(normalized.slice(0, separatorIndex));
+    const platformIgdbId = normalizeInteger(normalized.slice(separatorIndex + 2));
+    if (igdbGameId === null || platformIgdbId === null) {
+      continue;
+    }
+
+    parsed.set(`${igdbGameId}::${String(platformIgdbId)}`, {
+      igdbGameId,
+      platformIgdbId,
+    });
+  }
+
+  return [...parsed.values()];
+}
+
+async function runWithConcurrencyLimit<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  if (tasks.length === 0) {
+    return [];
+  }
+
+  const results: T[] = [];
+  for (let index = 0; index < tasks.length; index += concurrency) {
+    const chunk = tasks.slice(index, index + concurrency);
+    results.push(...(await Promise.all(chunk.map((task) => task()))));
+  }
+  return results;
 }
 
 async function listDiscoveryGamesByIgdbGameId(
@@ -1228,6 +1304,28 @@ function normalizeNumber(value: unknown): number | null {
     }
     const parsed = Number.parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function validateNonNegativeNumberField(value: number | null, label: string): string | null {
+  if (value === null) {
+    return null;
+  }
+  return value >= 0 ? null : `${label} must be greater than or equal to 0.`;
+}
+
+function validateBoundedNumberField(
+  value: number | null,
+  label: string,
+  min: number,
+  max: number
+): string | null {
+  if (value === null) {
+    return null;
+  }
+  if (value < min || value > max) {
+    return `${label} must be between ${String(min)} and ${String(max)}.`;
   }
   return null;
 }

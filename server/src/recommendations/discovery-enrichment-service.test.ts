@@ -218,6 +218,43 @@ void test('discovery enrichment can target explicit game keys', async () => {
   }
 });
 
+void test('discovery enrichment does not fall back to a full scan when explicit game keys normalize empty', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const service = new DiscoveryEnrichmentService(repository as never, {
+    enabled: true,
+    startupDelayMs: 0,
+    intervalMinutes: 30,
+    maxGamesPerRun: 50,
+    requestTimeoutMs: 1000,
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168,
+  });
+
+  const result = await service.enrichNow({ gameKeys: [' ', 'bad-key', '1::0'] });
+
+  assert.deepEqual(result, {
+    scanned: 0,
+    updated: 0,
+    skipped: 0,
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(repository.updates.length, 0);
+});
+
 void test('discovery enrichment ignores invalid provider filters at runtime', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

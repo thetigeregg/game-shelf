@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 function readEnvOrFile(name) {
@@ -27,17 +28,9 @@ const debugLogsEnabled = String(process.env.DEBUG_HLTB_SCRAPER_LOGS ?? '').toLow
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
 let browserIdleTimer = null;
-const isMainModule = (() => {
-  if (!process.argv[1]) {
-    return false;
-  }
-
-  try {
-    return import.meta.url === pathToFileURL(process.argv[1]).href;
-  } catch {
-    return false;
-  }
-})();
+const entrypointPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+const modulePath = path.resolve(fileURLToPath(import.meta.url));
+const isMainModule = entrypointPath === modulePath;
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();

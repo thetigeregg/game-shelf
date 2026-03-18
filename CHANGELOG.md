@@ -2520,3 +2520,7 @@
 - 394e7b9c feat(rankCandidate): implement ordered token sequence matching and add tests
 - 2406cad2 feat(metacritic-scraper): enhance search result extraction with fallback for missing release years
 
+## v1.6.1 - 2026-03-18
+- c84ea92a Merge pull request #248 from thetigeregg/dependabot/npm_and_yarn/server/fast-xml-parser-5.5.6
+- 34f92a7d chore(deps): bump fast-xml-parser from 5.4.2 to 5.5.6 in /server
+

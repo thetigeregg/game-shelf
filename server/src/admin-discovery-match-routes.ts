@@ -910,7 +910,12 @@ function applyManualMatchPatch(
   const priceAmount = normalizeNumber(body.priceAmount);
   const priceIsFree = normalizeBoolean(body.priceIsFree) === true;
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
-  const priceSource = normalizeString(body.priceSource) ?? 'psprices';
+  const requestedPriceSource = normalizeString(body.priceSource);
+  const priceSource =
+    (requestedPriceSource === null ? 'psprices' : parsePricingSource(requestedPriceSource)) ?? null;
+  if (requestedPriceSource !== null && priceSource === null) {
+    return 'Price source must be steam_store or psprices.';
+  }
   const isPsPricesSource = priceSource === 'psprices';
   const priceRegularAmount = normalizeNumber(body.priceRegularAmount);
   const priceDiscountPercent = normalizeNumber(body.priceDiscountPercent);
@@ -1390,6 +1395,20 @@ function parseReviewSource(value: unknown): 'metacritic' | 'mobygames' | null {
   }
   const normalized = value.trim().toLowerCase();
   if (normalized === 'metacritic' || normalized === 'mobygames') {
+    return normalized;
+  }
+  return null;
+}
+
+function parsePricingSource(value: unknown): 'steam_store' | 'psprices' | null {
+  if (value === 'steam_store' || value === 'psprices') {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'steam_store' || normalized === 'psprices') {
     return normalized;
   }
   return null;

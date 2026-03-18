@@ -167,6 +167,10 @@ function createPageHarness(): {
     { value: 'metacritic', label: 'Metacritic' },
     { value: 'mobygames', label: 'MobyGames' },
   ]);
+  setField(page, 'pricingSourceOptions', [
+    { value: 'steam_store', label: 'Steam Store' },
+    { value: 'psprices', label: 'PSPrices' },
+  ]);
   setField(page, 'gameShelfService', gameShelfService);
   setField(page, 'adminMatchService', adminMatchService as unknown as AdminDiscoveryMatchService);
   setField(page, 'clientWriteAuth', {

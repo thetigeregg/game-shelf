@@ -117,7 +117,7 @@ function pickLatestIso(values: Array<string | null>): string | null {
 export function resolveAdminPricingSource(
   platformIgdbId: number | null | undefined,
   priceSource?: string | null
-): string {
+): 'steam_store' | 'psprices' {
   if (priceSource === 'steam_store' || priceSource === 'psprices') {
     return priceSource;
   }

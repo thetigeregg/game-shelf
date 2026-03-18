@@ -76,6 +76,8 @@ interface DiscoveryEnrichmentRetryState {
   steam: ProviderRetryState;
 }
 
+type DiscoveryEnrichmentProvider = 'hltb' | 'review' | 'steam';
+
 interface HltbLookupContext {
   title: string;
   releaseYear: number | null;
@@ -83,6 +85,28 @@ interface HltbLookupContext {
   preferredGameId: number | null;
   preferredUrl: string | null;
   canRefreshLocked: boolean;
+}
+
+interface ReviewLookupContext {
+  reviewSource: 'metacritic' | 'mobygames' | null;
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+  mobygamesGameId: number | null;
+  canRefreshLocked: boolean;
+}
+
+interface MobyGamesResponse {
+  games?: Array<Record<string, unknown>>;
+}
+
+interface ReviewLookupResult {
+  reviewSource: 'metacritic' | 'mobygames';
+  reviewScore: number | null;
+  reviewUrl: string | null;
+  mobygamesGameId: number | null;
+  mobyScore: number | null;
 }
 
 export class DiscoveryEnrichmentService {
@@ -170,6 +194,8 @@ export class DiscoveryEnrichmentService {
     limit?: number;
     queryable?: Queryable;
     gameKeys?: string[];
+    providers?: DiscoveryEnrichmentProvider[];
+    forceLockedProviders?: DiscoveryEnrichmentProvider[];
   }): Promise<DiscoveryEnrichmentSummary> {
     if (!this.options.enabled) {
       return {
@@ -181,6 +207,9 @@ export class DiscoveryEnrichmentService {
 
     const queryable = params?.queryable;
     const normalizedGameKeys = this.normalizeGameKeys(params?.gameKeys);
+    const normalizedProviders = normalizeTargetProviders(params?.providers);
+    const forcedLockedProviders =
+      normalizeTargetProviders(params?.forceLockedProviders) ?? new Set();
     const rows =
       normalizedGameKeys !== null
         ? await this.repository.listDiscoveryRowsByGameKeys(normalizedGameKeys, queryable)
@@ -198,7 +227,10 @@ export class DiscoveryEnrichmentService {
     let updated = 0;
     let skipped = 0;
     for (const row of rows) {
-      const next = await this.enrichPayload(row.igdbGameId, row.payload, row.platformIgdbId);
+      const next = await this.enrichPayload(row.igdbGameId, row.payload, row.platformIgdbId, {
+        providers: normalizedProviders,
+        forceLockedProviders: forcedLockedProviders,
+      });
       if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
         skipped += 1;
         continue;
@@ -243,7 +275,11 @@ export class DiscoveryEnrichmentService {
   private async enrichPayload(
     igdbGameId: string,
     payload: Record<string, unknown>,
-    platformIgdbId: number
+    platformIgdbId: number,
+    options: {
+      providers: Set<DiscoveryEnrichmentProvider> | null;
+      forceLockedProviders: Set<DiscoveryEnrichmentProvider>;
+    }
   ): Promise<Record<string, unknown> | null> {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     if (title.length < 2) {
@@ -258,6 +294,9 @@ export class DiscoveryEnrichmentService {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : null;
+    const isHltbActive = options.providers === null || options.providers.has('hltb');
+    const isReviewActive = options.providers === null || options.providers.has('review');
+    const isSteamActive = options.providers === null || options.providers.has('steam');
     const hltbMatchLocked = isProviderMatchLocked(payload, 'hltbMatchLocked');
     const hltbLookup = buildHltbLookupContext(
       payload,
@@ -267,11 +306,19 @@ export class DiscoveryEnrichmentService {
       hltbMatchLocked
     );
     const reviewMatchLocked = isProviderMatchLocked(payload, 'reviewMatchLocked');
+    const reviewLookup = buildReviewLookupContext(
+      payload,
+      title,
+      releaseYear,
+      platform,
+      platformIgdbId,
+      options.forceLockedProviders.has('review')
+    );
     const hasHltb =
       hasPositiveNumber(payload.hltbMainHours) ||
       hasPositiveNumber(payload.hltbMainExtraHours) ||
       hasPositiveNumber(payload.hltbCompletionistHours);
-    const reviewSource = parseReviewSource(payload.reviewSource);
+    const reviewSource = reviewLookup.reviewSource;
     const hasCritic =
       hasProviderReviewScore(payload.reviewScore, reviewSource) ||
       hasPositiveNumber(payload.metacriticScore);
@@ -307,8 +354,9 @@ export class DiscoveryEnrichmentService {
         maxAttempts: this.options.maxAttempts,
       }),
     };
-    const needsHltb = !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked);
-    const needsMetacritic = !hasCritic && !reviewMatchLocked;
+    const needsHltb = isHltbActive && !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked);
+    const needsMetacritic =
+      isReviewActive && !hasCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked);
     const shouldTryHltb =
       needsHltb &&
       shouldAttemptProvider({
@@ -324,6 +372,7 @@ export class DiscoveryEnrichmentService {
         maxAttempts: this.options.maxAttempts,
       });
     const steamNeedsEnrichment =
+      isSteamActive &&
       platformIgdbId === WINDOWS_IGDB_PLATFORM_ID &&
       isBlankValue(payload['steamEnrichedAt']) &&
       isStrictPositiveIntegerString(igdbGameId);
@@ -340,6 +389,9 @@ export class DiscoveryEnrichmentService {
       const next = { ...payload };
       const nextRetryState = buildNextRetryState({
         current: nextRetryStateBase,
+        activeHltb: isHltbActive,
+        activeMetacritic: isReviewActive,
+        activeSteam: isSteamActive,
         needsHltb,
         needsMetacritic,
         needsSteam: steamNeedsEnrichment,
@@ -362,16 +414,7 @@ export class DiscoveryEnrichmentService {
             })
           )
         : Promise.resolve(null),
-      shouldTryMetacritic
-        ? this.fetchJson<MetacriticResponse>(
-            this.buildLocalUrl('/v1/metacritic/search', {
-              q: title,
-              ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
-              ...(platform ? { platform } : {}),
-              platformIgdbId: String(platformIgdbId),
-            })
-          )
-        : Promise.resolve(null),
+      shouldTryMetacritic ? this.fetchReviewPayload(reviewLookup) : Promise.resolve(null),
     ]);
 
     const next: Record<string, unknown> = { ...payload };
@@ -411,16 +454,36 @@ export class DiscoveryEnrichmentService {
       });
     }
 
-    const critic = metacriticResponse?.ok ? (metacriticResponse.value?.item ?? null) : null;
+    const critic = metacriticResponse?.ok ? (metacriticResponse.value ?? null) : null;
     let foundCritic = hasCritic;
-    if (critic && typeof critic.metacriticScore === 'number' && critic.metacriticScore > 0) {
+    if (critic?.reviewSource === 'metacritic' && typeof critic.reviewScore === 'number') {
       next.reviewSource = 'metacritic';
-      next.reviewScore = round2(critic.metacriticScore);
-      next.metacriticScore = round2(critic.metacriticScore);
-      foundCritic = true;
-      if (typeof critic.metacriticUrl === 'string' && critic.metacriticUrl.trim().length > 0) {
-        next.metacriticUrl = critic.metacriticUrl.trim();
-        next.reviewUrl = critic.metacriticUrl.trim();
+      next.reviewScore = round2(critic.reviewScore);
+      next.metacriticScore = round2(critic.reviewScore);
+      foundCritic = critic.reviewScore > 0;
+      if (typeof critic.reviewUrl === 'string' && critic.reviewUrl.trim().length > 0) {
+        next.metacriticUrl = critic.reviewUrl.trim();
+        next.reviewUrl = critic.reviewUrl.trim();
+      }
+    }
+    if (critic?.reviewSource === 'mobygames') {
+      if (typeof critic.reviewScore === 'number' && critic.reviewScore > 0) {
+        next.reviewSource = 'mobygames';
+        next.reviewScore = round2(critic.reviewScore);
+        foundCritic = true;
+      }
+      if (typeof critic.mobyScore === 'number' && critic.mobyScore > 0) {
+        next.mobyScore = round2(critic.mobyScore);
+      }
+      if (
+        typeof critic.mobygamesGameId === 'number' &&
+        Number.isInteger(critic.mobygamesGameId) &&
+        critic.mobygamesGameId > 0
+      ) {
+        next.mobygamesGameId = critic.mobygamesGameId;
+      }
+      if (typeof critic.reviewUrl === 'string' && critic.reviewUrl.trim().length > 0) {
+        next.reviewUrl = critic.reviewUrl.trim();
       }
     }
     if (shouldTryMetacritic && metacriticResponse?.ok) {
@@ -454,8 +517,11 @@ export class DiscoveryEnrichmentService {
       next,
       buildNextRetryState({
         current: nextRetryState,
+        activeHltb: isHltbActive,
+        activeMetacritic: isReviewActive,
+        activeSteam: isSteamActive,
         needsHltb: !foundHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked),
-        needsMetacritic: !foundCritic && !reviewMatchLocked,
+        needsMetacritic: !foundCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked),
         needsSteam: steamNeedsEnrichment,
       })
     );
@@ -544,6 +610,66 @@ export class DiscoveryEnrichmentService {
       clearTimeout(timeout);
     }
   }
+
+  private async fetchReviewPayload(
+    params: ReviewLookupContext
+  ): Promise<FetchJsonResult<ReviewLookupResult>> {
+    if (params.reviewSource === 'mobygames' && params.mobygamesGameId !== null) {
+      const response = await this.fetchJson<MobyGamesResponse>(
+        this.buildLocalUrl('/v1/mobygames/search', {
+          q: params.title,
+          id: String(params.mobygamesGameId),
+          limit: '5',
+          format: 'normal',
+          include: 'game_id,moby_url,moby_score,critic_score',
+        })
+      );
+
+      if (!response.ok) {
+        return { ok: false, value: null };
+      }
+
+      return {
+        ok: true,
+        value: normalizeMobyGamesReviewResult(response.value, params.mobygamesGameId),
+      };
+    }
+
+    const response = await this.fetchJson<MetacriticResponse>(
+      this.buildLocalUrl('/v1/metacritic/search', {
+        q: params.title,
+        ...(params.releaseYear ? { releaseYear: String(params.releaseYear) } : {}),
+        ...(params.platform ? { platform: params.platform } : {}),
+        platformIgdbId: String(params.platformIgdbId),
+      })
+    );
+
+    if (!response.ok) {
+      return { ok: false, value: null };
+    }
+
+    const item = response.value?.item ?? null;
+    const score =
+      item && typeof item.metacriticScore === 'number' && item.metacriticScore > 0
+        ? round2(item.metacriticScore)
+        : null;
+    const url = normalizeTrimmedString(item?.metacriticUrl);
+
+    if (score === null && url === null) {
+      return { ok: true, value: null };
+    }
+
+    return {
+      ok: true,
+      value: {
+        reviewSource: 'metacritic',
+        reviewScore: score,
+        reviewUrl: url,
+        mobygamesGameId: null,
+        mobyScore: null,
+      },
+    };
+  }
 }
 
 function round2(value: number): number {
@@ -560,6 +686,18 @@ function normalizePositiveInteger(value: unknown): number | null {
 
 function normalizeTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeTargetProviders(
+  value: DiscoveryEnrichmentProvider[] | undefined
+): Set<DiscoveryEnrichmentProvider> | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const providers = [...new Set(value)];
+
+  return providers.length > 0 ? new Set(providers) : null;
 }
 
 function buildHltbLookupContext(
@@ -585,6 +723,82 @@ function buildHltbLookupContext(
     preferredGameId,
     preferredUrl,
     canRefreshLocked: preferredGameId !== null || preferredUrl !== null,
+  };
+}
+
+function buildReviewLookupContext(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackReleaseYear: number | null,
+  fallbackPlatform: string | null,
+  fallbackPlatformIgdbId: number,
+  forceLockedReviewRefresh: boolean
+): ReviewLookupContext {
+  const reviewSource = parseReviewSource(payload['reviewSource']);
+  const title = normalizeTrimmedString(payload['reviewMatchQueryTitle']) ?? fallbackTitle;
+  const releaseYear =
+    normalizePositiveInteger(payload['reviewMatchQueryReleaseYear']) ?? fallbackReleaseYear;
+  const platform = normalizeTrimmedString(payload['reviewMatchQueryPlatform']) ?? fallbackPlatform;
+  const platformIgdbId =
+    normalizePositiveInteger(payload['reviewMatchPlatformIgdbId']) ?? fallbackPlatformIgdbId;
+  const mobygamesGameId =
+    normalizePositiveInteger(payload['reviewMatchMobygamesGameId']) ??
+    (reviewSource === 'mobygames' ? normalizePositiveInteger(payload['mobygamesGameId']) : null);
+
+  return {
+    reviewSource,
+    title,
+    releaseYear,
+    platform,
+    platformIgdbId,
+    mobygamesGameId,
+    canRefreshLocked:
+      forceLockedReviewRefresh &&
+      ((reviewSource !== 'mobygames' && title.length >= 2) || mobygamesGameId !== null),
+  };
+}
+
+function normalizeFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeMobyGamesReviewResult(
+  value: MobyGamesResponse | null,
+  expectedGameId: number
+): ReviewLookupResult | null {
+  const games = Array.isArray(value?.games) ? value.games : [];
+  const matched = games.find(
+    (entry) => normalizePositiveInteger(entry['game_id']) === expectedGameId
+  );
+
+  if (!matched) {
+    return null;
+  }
+
+  const mobyScore = normalizeFiniteNumber(matched['moby_score']);
+  const criticScore = normalizeFiniteNumber(matched['critic_score']);
+  const reviewScore = criticScore ?? (mobyScore !== null && mobyScore > 0 ? mobyScore * 10 : null);
+  const reviewUrl = normalizeTrimmedString(matched['moby_url']);
+
+  if (reviewScore === null && reviewUrl === null) {
+    return null;
+  }
+
+  return {
+    reviewSource: 'mobygames',
+    reviewScore: reviewScore !== null ? round2(reviewScore) : null,
+    reviewUrl,
+    mobygamesGameId: expectedGameId,
+    mobyScore: mobyScore !== null ? round2(mobyScore) : null,
   };
 }
 
@@ -718,20 +932,29 @@ function nextProviderRetryState(params: {
 
 function buildNextRetryState(params: {
   current: DiscoveryEnrichmentRetryState;
+  activeHltb: boolean;
+  activeMetacritic: boolean;
+  activeSteam: boolean;
   needsHltb: boolean;
   needsMetacritic: boolean;
   needsSteam: boolean;
 }): DiscoveryEnrichmentRetryState {
   return {
-    hltb: params.needsHltb
+    hltb: !params.activeHltb
       ? params.current.hltb
-      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
-    metacritic: params.needsMetacritic
+      : params.needsHltb
+        ? params.current.hltb
+        : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
+    metacritic: !params.activeMetacritic
       ? params.current.metacritic
-      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
-    steam: params.needsSteam
+      : params.needsMetacritic
+        ? params.current.metacritic
+        : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
+    steam: !params.activeSteam
       ? params.current.steam
-      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
+      : params.needsSteam
+        ? params.current.steam
+        : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
   };
 }
 

@@ -168,7 +168,7 @@ describe('AdminDiscoveryMatchService', () => {
   });
 
   it('posts requeue enrichment request for a discovery game', async () => {
-    const promise = firstValueFrom(service.requeueEnrichment('987', 167));
+    const promise = firstValueFrom(service.requeueEnrichment('987', 167, 'review'));
 
     const req = httpMock.expectOne(
       `${environment.gameApiBaseUrl}/v1/admin/discovery/games/987/167/requeue-enrichment`
@@ -176,19 +176,28 @@ describe('AdminDiscoveryMatchService', () => {
 
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
-    expect(req.request.body).toEqual({});
-    req.flush({ ok: true, queued: true, deduped: false, jobId: 41 });
+    expect(req.request.body).toEqual({ provider: 'review' });
+    req.flush({
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 41,
+      queuedCount: 1,
+      dedupedCount: 0,
+    });
 
     await expect(promise).resolves.toEqual({
       ok: true,
       queued: true,
       deduped: false,
       jobId: 41,
+      queuedCount: 1,
+      dedupedCount: 0,
     });
   });
 
   it('posts a list-level targeted discovery enrichment requeue request', async () => {
-    const promise = firstValueFrom(service.requeueEnrichmentRun(['123::48', '456::6']));
+    const promise = firstValueFrom(service.requeueEnrichmentRun('pricing', ['123::48', '456::6']));
 
     const req = httpMock.expectOne(
       `${environment.gameApiBaseUrl}/v1/admin/discovery/requeue-enrichment`
@@ -196,14 +205,23 @@ describe('AdminDiscoveryMatchService', () => {
 
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-1');
-    expect(req.request.body).toEqual({ gameKeys: ['123::48', '456::6'] });
-    req.flush({ ok: true, queued: false, deduped: true, jobId: 41 });
+    expect(req.request.body).toEqual({ provider: 'pricing', gameKeys: ['123::48', '456::6'] });
+    req.flush({
+      ok: true,
+      queued: false,
+      deduped: true,
+      jobId: 41,
+      queuedCount: 0,
+      dedupedCount: 1,
+    });
 
     await expect(promise).resolves.toEqual({
       ok: true,
       queued: false,
       deduped: true,
       jobId: 41,
+      queuedCount: 0,
+      dedupedCount: 1,
     });
   });
 });

@@ -204,6 +204,18 @@ export class AdminDiscoveryMatchPage {
     );
   }
 
+  get listRequeueNote(): string {
+    return this.selectedProvider === 'pricing'
+      ? 'queues targeted pricing refresh for the visible games'
+      : 'queues targeted discovery enrichment for the visible games';
+  }
+
+  get activeRequeueLabel(): string {
+    return this.activeModalProvider === 'pricing'
+      ? 'Requeue pricing refresh'
+      : 'Requeue enrichment';
+  }
+
   async loadItems(): Promise<void> {
     this.isLoading = true;
     this.errorMessage = null;
@@ -260,24 +272,25 @@ export class AdminDiscoveryMatchPage {
 
     this.isListRequeueing = true;
     try {
-      const targetedKeys = this.items.map((item) => this.getGameKey(item));
+      const targetedKeys = this.items.flatMap((item) => item.gameKeys);
       const response = await firstValueFrom(
-        this.adminMatchService.requeueEnrichmentRun(targetedKeys)
+        this.adminMatchService.requeueEnrichmentRun(this.selectedProvider, targetedKeys)
       );
-      const queueTone: QueueStatusTone = response.deduped ? 'warning' : 'success';
-      const queueMessage = response.deduped
-        ? 'Targeted discovery enrichment is already queued.'
-        : 'Targeted discovery enrichment queued for the current results.';
-      this.setListQueueStatus(queueMessage, this.describeTargetedRows(this.items), queueTone);
-      await this.presentToast(queueMessage, queueTone);
+      const queueState = this.buildQueueFeedback(response, 'list');
+      this.setListQueueStatus(
+        queueState.message,
+        this.describeTargetedRows(this.items),
+        queueState.tone
+      );
+      await this.presentToast(queueState.message, queueState.tone);
     } catch (error) {
       this.setListQueueStatus(
-        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.toErrorMessage(error, this.getRequeueErrorMessage(this.selectedProvider)),
         this.describeTargetedRows(this.items),
         'danger'
       );
       await this.presentToast(
-        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.toErrorMessage(error, this.getRequeueErrorMessage(this.selectedProvider)),
         'danger'
       );
     } finally {
@@ -385,23 +398,21 @@ export class AdminDiscoveryMatchPage {
       const response = await firstValueFrom(
         this.adminMatchService.requeueEnrichment(
           this.activeDetail.igdbGameId,
-          this.activeDetail.platformIgdbId
+          this.activeDetail.platformIgdbId,
+          this.activeModalProvider
         )
       );
-      const queueTone: QueueStatusTone = response.deduped ? 'warning' : 'success';
-      const queueMessage = response.deduped
-        ? 'Targeted discovery enrichment is already queued.'
-        : 'Targeted discovery enrichment queued for this game.';
-      this.setActiveQueueStatus(queueMessage, this.describeActiveTarget(), queueTone);
-      await this.presentToast(queueMessage, queueTone);
+      const queueState = this.buildQueueFeedback(response, 'active');
+      this.setActiveQueueStatus(queueState.message, this.describeActiveTarget(), queueState.tone);
+      await this.presentToast(queueState.message, queueState.tone);
     } catch (error) {
       this.setActiveQueueStatus(
-        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.toErrorMessage(error, this.getRequeueErrorMessage(this.activeModalProvider)),
         this.describeActiveTarget(),
         'danger'
       );
       await this.presentToast(
-        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.toErrorMessage(error, this.getRequeueErrorMessage(this.activeModalProvider)),
         'danger'
       );
     } finally {
@@ -722,6 +733,45 @@ export class AdminDiscoveryMatchPage {
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {
     return this.providerOptions.find((option) => option.value === provider)?.label ?? provider;
+  }
+
+  private buildQueueFeedback(
+    response: { queued: boolean; deduped: boolean; queuedCount: number; dedupedCount: number },
+    scope: 'list' | 'active'
+  ): { message: string; tone: QueueStatusTone } {
+    const pricing =
+      (scope === 'list' ? this.selectedProvider : this.activeModalProvider) === 'pricing';
+
+    if (response.queuedCount === 0 && response.dedupedCount === 0) {
+      return {
+        message: pricing
+          ? 'No eligible pricing refresh jobs were queued.'
+          : 'No eligible discovery enrichment jobs were queued.',
+        tone: 'warning',
+      };
+    }
+
+    if (response.deduped) {
+      return {
+        message: pricing
+          ? 'Targeted pricing refresh is already queued.'
+          : 'Targeted discovery enrichment is already queued.',
+        tone: 'warning',
+      };
+    }
+
+    return {
+      message: pricing
+        ? `Targeted pricing refresh queued for ${scope === 'list' ? 'the current results' : 'this game'}.`
+        : `Targeted discovery enrichment queued for ${scope === 'list' ? 'the current results' : 'this game'}.`,
+      tone: 'success',
+    };
+  }
+
+  private getRequeueErrorMessage(provider: AdminDiscoveryMatchProvider): string {
+    return provider === 'pricing'
+      ? 'Unable to queue targeted pricing refresh.'
+      : 'Unable to queue targeted discovery enrichment.';
   }
 
   private setListQueueStatus(message: string, detail: string | null, tone: QueueStatusTone): void {

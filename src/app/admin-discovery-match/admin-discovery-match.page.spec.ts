@@ -144,8 +144,12 @@ function createPageHarness(): {
     searchPricingCandidates: vi.fn(() => of([])),
   };
   const adminMatchService = {
-    requeueEnrichment: vi.fn(() => of({ ok: true, queued: true, deduped: false, jobId: 55 })),
-    requeueEnrichmentRun: vi.fn(() => of({ ok: true, queued: false, deduped: true, jobId: 55 })),
+    requeueEnrichment: vi.fn(() =>
+      of({ ok: true, queued: true, deduped: false, jobId: 55, queuedCount: 1, dedupedCount: 0 })
+    ),
+    requeueEnrichmentRun: vi.fn(() =>
+      of({ ok: true, queued: false, deduped: true, jobId: 55, queuedCount: 0, dedupedCount: 1 })
+    ),
   };
   const toastCreate = vi.fn(() =>
     Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) })
@@ -156,6 +160,9 @@ function createPageHarness(): {
     { value: 'review', label: 'Review' },
     { value: 'pricing', label: 'Pricing' },
   ]);
+  setField(page, 'selectedProvider', 'hltb');
+  setField(page, 'selectedState', 'all');
+  setField(page, 'searchQuery', '');
   setField(page, 'reviewSourceOptions', [
     { value: 'metacritic', label: 'Metacritic' },
     { value: 'mobygames', label: 'MobyGames' },
@@ -361,7 +368,7 @@ describe('AdminDiscoveryMatchPage', () => {
       page as { requeueActiveGameEnrichment: () => Promise<void> }
     ).requeueActiveGameEnrichment();
 
-    expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48);
+    expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48, 'hltb');
     expect(page.activeQueueStatusMessage).toBe(
       'Targeted discovery enrichment queued for this game.'
     );
@@ -381,7 +388,7 @@ describe('AdminDiscoveryMatchPage', () => {
 
     await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
-    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
+    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith('hltb', ['123::48']);
     expect(page.listQueueStatusMessage).toBe('Targeted discovery enrichment is already queued.');
     expect(page.listQueueStatusDetail).toBe('1 game targeted: Chrono Trigger (PlayStation, 1999)');
     expect(page.listQueueStatusTone).toBe('warning');
@@ -405,7 +412,7 @@ describe('AdminDiscoveryMatchPage', () => {
     try {
       await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
-      expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
+      expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith('hltb', ['123::48']);
       expect(page.listQueueStatusMessage).toBe('queue offline');
       expect(page.listQueueStatusDetail).toBe(
         '1 game targeted: Chrono Trigger (PlayStation, 1999)'
@@ -415,6 +422,25 @@ describe('AdminDiscoveryMatchPage', () => {
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it('queues pricing revalidation for the active game', async () => {
+    const { page, adminMatchService, toastCreate } = createPageHarness();
+    setField(page, 'activeModalProvider', 'pricing');
+    setField(page, 'activeGroup', page.items[0]);
+
+    await (
+      page as { requeueActiveGameEnrichment: () => Promise<void> }
+    ).requeueActiveGameEnrichment();
+
+    expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48, 'pricing');
+    expect(page.activeQueueStatusMessage).toBe('Targeted pricing refresh queued for this game.');
+    expect(toastCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Targeted pricing refresh queued for this game.',
+        color: 'success',
+      })
+    );
   });
 
   it('summarizes multiple targeted rows in the persistent list status detail', async () => {
@@ -467,12 +493,12 @@ describe('AdminDiscoveryMatchPage', () => {
       },
     ];
     adminMatchService.requeueEnrichmentRun.mockReturnValue(
-      of({ ok: true, queued: true, deduped: false, jobId: 71 })
+      of({ ok: true, queued: true, deduped: false, jobId: 71, queuedCount: 4, dedupedCount: 0 })
     );
 
     await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
-    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith([
+    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith('hltb', [
       '123::48',
       '200::6',
       '300::167',

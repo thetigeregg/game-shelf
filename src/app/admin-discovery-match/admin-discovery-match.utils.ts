@@ -290,9 +290,9 @@ export function dedupePricingAdminCandidates(
   return [...byKey.values()];
 }
 
-export function parseAdminInteger(value: string): number | null {
+export function parseAdminPositiveInteger(value: string): number | null {
   const normalized = value.trim();
-  if (!/^-?\d+$/.test(normalized)) {
+  if (!/^[1-9]\d*$/.test(normalized)) {
     return null;
   }
   return Number.parseInt(normalized, 10);

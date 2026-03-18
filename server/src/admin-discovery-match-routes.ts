@@ -553,7 +553,7 @@ async function enqueuePricingRefreshJobs(
     }
 
     if (game.platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID) {
-      const steamAppId = normalizeInteger(payload['steamAppId']);
+      const steamAppId = normalizePositiveInteger(payload['steamAppId']);
       if (steamAppId === null) {
         continue;
       }
@@ -587,7 +587,7 @@ async function enqueuePricingRefreshJobs(
     const pspricesRetryState = maybeRearmProviderRetryState({
       state: parseProviderRetryState(readProviderRetryState(payload, 'psprices')),
       nowMs,
-      releaseYear: normalizeInteger(payload['releaseYear']),
+      releaseYear: normalizePositiveInteger(payload['releaseYear']),
       rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
       rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
       maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
@@ -639,17 +639,17 @@ function buildDetailResponse(
     platformIgdbId,
     title: normalizeString(payload['title']),
     platform: normalizeString(payload['platform']),
-    releaseYear: normalizeInteger(payload['releaseYear']),
+    releaseYear: normalizePositiveInteger(payload['releaseYear']),
     matchState: buildMatchState(payload, platformIgdbId),
     providers: {
       hltb: {
-        hltbGameId: normalizeInteger(payload['hltbMatchGameId']),
+        hltbGameId: normalizePositiveInteger(payload['hltbMatchGameId']),
         hltbUrl: normalizeString(payload['hltbMatchUrl']),
         hltbMainHours: normalizeNumber(payload['hltbMainHours']),
         hltbMainExtraHours: normalizeNumber(payload['hltbMainExtraHours']),
         hltbCompletionistHours: normalizeNumber(payload['hltbCompletionistHours']),
         queryTitle: normalizeString(payload['hltbMatchQueryTitle']),
-        queryReleaseYear: normalizeInteger(payload['hltbMatchQueryReleaseYear']),
+        queryReleaseYear: normalizePositiveInteger(payload['hltbMatchQueryReleaseYear']),
         queryPlatform: normalizeString(payload['hltbMatchQueryPlatform']),
       },
       review: {
@@ -658,13 +658,13 @@ function buildDetailResponse(
         reviewUrl: normalizeString(payload['reviewUrl']),
         metacriticScore: normalizeNumber(payload['metacriticScore']),
         metacriticUrl: normalizeString(payload['metacriticUrl']),
-        mobygamesGameId: normalizeInteger(payload['mobygamesGameId']),
+        mobygamesGameId: normalizePositiveInteger(payload['mobygamesGameId']),
         mobyScore: normalizeNumber(payload['mobyScore']),
         queryTitle: normalizeString(payload['reviewMatchQueryTitle']),
-        queryReleaseYear: normalizeInteger(payload['reviewMatchQueryReleaseYear']),
+        queryReleaseYear: normalizePositiveInteger(payload['reviewMatchQueryReleaseYear']),
         queryPlatform: normalizeString(payload['reviewMatchQueryPlatform']),
-        queryPlatformIgdbId: normalizeInteger(payload['reviewMatchPlatformIgdbId']),
-        queryMobygamesGameId: normalizeInteger(payload['reviewMatchMobygamesGameId']),
+        queryPlatformIgdbId: normalizePositiveInteger(payload['reviewMatchPlatformIgdbId']),
+        queryMobygamesGameId: normalizePositiveInteger(payload['reviewMatchMobygamesGameId']),
       },
       pricing: {
         priceSource: normalizeString(payload['priceSource']),
@@ -700,7 +700,7 @@ function mapDiscoveryListItem(row: {
     platformIgdbId: row.platformIgdbId,
     title: normalizeString(row.payload['title']),
     platform: normalizeString(row.payload['platform']),
-    releaseYear: normalizeInteger(row.payload['releaseYear']),
+    releaseYear: normalizePositiveInteger(row.payload['releaseYear']),
     matchState: buildMatchState(row.payload, row.platformIgdbId),
   };
 }
@@ -829,7 +829,14 @@ function applyManualMatchPatch(
   body: PatchBody
 ): string | null {
   if (provider === 'hltb') {
-    const hltbGameId = normalizeInteger(body.hltbGameId);
+    const integerError =
+      validatePositiveIntegerField(body.hltbGameId, 'HLTB game ID') ??
+      validatePositiveIntegerField(body.queryReleaseYear, 'Query release year');
+    if (integerError) {
+      return integerError;
+    }
+
+    const hltbGameId = normalizePositiveInteger(body.hltbGameId);
     const hltbUrl = normalizeString(body.hltbUrl);
     const hltbMainHours = normalizeNumber(body.hltbMainHours);
     const hltbMainExtraHours = normalizeNumber(body.hltbMainExtraHours);
@@ -856,7 +863,7 @@ function applyManualMatchPatch(
     payload['hltbMainExtraHours'] = hltbMainExtraHours;
     payload['hltbCompletionistHours'] = hltbCompletionistHours;
     payload['hltbMatchQueryTitle'] = normalizeString(body.queryTitle);
-    payload['hltbMatchQueryReleaseYear'] = normalizeInteger(body.queryReleaseYear);
+    payload['hltbMatchQueryReleaseYear'] = normalizePositiveInteger(body.queryReleaseYear);
     payload['hltbMatchQueryPlatform'] = normalizeString(body.queryPlatform);
     payload['hltbMatchLocked'] = true;
     resetRetryState(payload, 'hltb');
@@ -864,12 +871,19 @@ function applyManualMatchPatch(
   }
 
   if (provider === 'review') {
+    const integerError =
+      validatePositiveIntegerField(body.mobygamesGameId, 'MobyGames game ID') ??
+      validatePositiveIntegerField(body.queryReleaseYear, 'Query release year');
+    if (integerError) {
+      return integerError;
+    }
+
     const reviewSource = parseReviewSource(body.reviewSource);
     const reviewScore = normalizeNumber(body.reviewScore);
     const reviewUrl = normalizeString(body.reviewUrl);
     const metacriticScore = normalizeNumber(body.metacriticScore);
     const metacriticUrl = normalizeString(body.metacriticUrl);
-    const mobygamesGameId = normalizeInteger(body.mobygamesGameId);
+    const mobygamesGameId = normalizePositiveInteger(body.mobygamesGameId);
     const mobyScore = normalizeNumber(body.mobyScore);
     const scoreError =
       validateBoundedNumberField(reviewScore, 'Review score', 0, 100) ??
@@ -898,7 +912,7 @@ function applyManualMatchPatch(
     payload['mobygamesGameId'] = reviewSource === 'mobygames' ? mobygamesGameId : null;
     payload['mobyScore'] = reviewSource === 'mobygames' ? mobyScore : null;
     payload['reviewMatchQueryTitle'] = normalizeString(body.queryTitle);
-    payload['reviewMatchQueryReleaseYear'] = normalizeInteger(body.queryReleaseYear);
+    payload['reviewMatchQueryReleaseYear'] = normalizePositiveInteger(body.queryReleaseYear);
     payload['reviewMatchQueryPlatform'] = normalizeString(body.queryPlatform);
     payload['reviewMatchPlatformIgdbId'] = platformIgdbId;
     payload['reviewMatchMobygamesGameId'] = reviewSource === 'mobygames' ? mobygamesGameId : null;
@@ -1152,7 +1166,7 @@ async function getDiscoveryGame(
   payload: Record<string, unknown>;
 } | null> {
   const igdbGameId = normalizeIdentifier(igdbGameIdRaw);
-  const platformIgdbId = normalizeInteger(platformIgdbIdRaw);
+  const platformIgdbId = normalizePositiveInteger(platformIgdbIdRaw);
   if (igdbGameId === null || platformIgdbId === null) {
     return null;
   }
@@ -1270,8 +1284,8 @@ function normalizeSearch(value: unknown): string | null {
 }
 
 function parseLimit(value: unknown, fallback: number): number {
-  const parsed = normalizeInteger(value);
-  if (parsed === null || parsed <= 0) {
+  const parsed = normalizePositiveInteger(value);
+  if (parsed === null) {
     return fallback;
   }
   return Math.min(MAX_LIST_LIMIT, parsed);
@@ -1325,6 +1339,11 @@ function normalizeInteger(value: unknown): number | null {
   return null;
 }
 
+function normalizePositiveInteger(value: unknown): number | null {
+  const normalized = normalizeInteger(value);
+  return normalized !== null && normalized > 0 ? normalized : null;
+}
+
 function normalizeNumber(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
@@ -1345,6 +1364,16 @@ function validateNonNegativeNumberField(value: number | null, label: string): st
     return null;
   }
   return value >= 0 ? null : `${label} must be greater than or equal to 0.`;
+}
+
+function validatePositiveIntegerField(value: unknown, label: string): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return null;
+  }
+  return normalizePositiveInteger(value) === null ? `${label} must be a positive integer.` : null;
 }
 
 function validateBoundedNumberField(

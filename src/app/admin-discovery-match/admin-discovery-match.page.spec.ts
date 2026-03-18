@@ -371,6 +371,9 @@ describe('AdminDiscoveryMatchPage', () => {
         pricing: {
           ...createDetail().providers.pricing,
           priceSource: null,
+          psPricesUrl: 'https://psprices.com/us/game/portal-2',
+          psPricesTitle: 'Portal 2',
+          psPricesPlatform: 'PS3',
         },
       },
     };
@@ -383,6 +386,11 @@ describe('AdminDiscoveryMatchPage', () => {
     ).syncFormsFromDetail(detail);
 
     expect(page.pricingForm.priceSource).toBe('steam_store');
+    expect(page.showPsPricesFields).toBe(false);
+    expect(page.pricingForm.psPricesUrl).toBe('');
+    expect(page.pricingForm.psPricesTitle).toBe('');
+    expect(page.pricingForm.psPricesPlatform).toBe('');
+    expect(page.pricingSearchQuery).toBe('Chrono Trigger');
 
     page.applyPricingCandidate({
       title: 'Portal 2',
@@ -398,9 +406,35 @@ describe('AdminDiscoveryMatchPage', () => {
     });
 
     expect(page.pricingForm.priceSource).toBe('steam_store');
+    expect(page.showPsPricesFields).toBe(false);
     expect(page.pricingForm.priceUrl).toBe('https://store.steampowered.com/app/620/Portal_2/');
     expect(page.pricingForm.psPricesUrl).toBe('');
     expect(page.pricingForm.psPricesTitle).toBe('');
+    expect(page.pricingForm.psPricesPlatform).toBe('');
+  });
+
+  it('clears psprices fields from the pricing update payload when the source is steam', () => {
+    const { page } = createPageHarness();
+    page.pricingForm = {
+      ...page.pricingForm,
+      priceSource: 'steam_store',
+      priceAmount: '9.99',
+      priceUrl: 'https://store.steampowered.com/app/620/Portal_2/',
+      psPricesUrl: 'https://psprices.com/us/game/portal-2',
+      psPricesTitle: 'Portal 2',
+      psPricesPlatform: 'PS3',
+    };
+
+    const request = (
+      page as unknown as {
+        buildUpdateRequest: (provider: 'pricing') => Record<string, unknown>;
+      }
+    ).buildUpdateRequest('pricing');
+
+    expect(request['priceSource']).toBe('steam_store');
+    expect(request['psPricesUrl']).toBeNull();
+    expect(request['psPricesTitle']).toBeNull();
+    expect(request['psPricesPlatform']).toBeNull();
   });
 
   it('requeues discovery enrichment for the active game and surfaces a toast', async () => {

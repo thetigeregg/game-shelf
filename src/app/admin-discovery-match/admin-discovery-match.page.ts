@@ -216,6 +216,10 @@ export class AdminDiscoveryMatchPage {
       : 'Requeue enrichment';
   }
 
+  get showPsPricesFields(): boolean {
+    return this.isPsPricesSource(this.pricingForm.priceSource);
+  }
+
   async loadItems(): Promise<void> {
     this.isLoading = true;
     this.errorMessage = null;
@@ -505,7 +509,7 @@ export class AdminDiscoveryMatchPage {
       this.activeDetail?.platformIgdbId ?? null,
       candidate.source
     );
-    const isPsPricesSource = source === 'psprices';
+    const isPsPricesSource = this.isPsPricesSource(source);
 
     this.pricingForm = {
       ...this.pricingForm,
@@ -553,6 +557,8 @@ export class AdminDiscoveryMatchPage {
       };
     }
 
+    const isPsPricesSource = this.isPsPricesSource(this.pricingForm.priceSource);
+
     return {
       provider,
       priceSource: this.normalizeString(this.pricingForm.priceSource),
@@ -563,13 +569,21 @@ export class AdminDiscoveryMatchPage {
       priceDiscountPercent: this.parseNumber(this.pricingForm.priceDiscountPercent),
       priceIsFree: this.pricingForm.priceIsFree,
       priceUrl: this.normalizeString(this.pricingForm.priceUrl),
-      psPricesUrl: this.normalizeString(this.pricingForm.psPricesUrl),
-      psPricesTitle: this.normalizeString(this.pricingForm.psPricesTitle),
-      psPricesPlatform: this.normalizeString(this.pricingForm.psPricesPlatform),
+      psPricesUrl: isPsPricesSource ? this.normalizeString(this.pricingForm.psPricesUrl) : null,
+      psPricesTitle: isPsPricesSource ? this.normalizeString(this.pricingForm.psPricesTitle) : null,
+      psPricesPlatform: isPsPricesSource
+        ? this.normalizeString(this.pricingForm.psPricesPlatform)
+        : null,
     };
   }
 
   private syncFormsFromDetail(detail: AdminDiscoveryDetailResponse): void {
+    const priceSource = this.resolvePricingSource(
+      detail.platformIgdbId,
+      detail.providers.pricing.priceSource
+    );
+    const isPsPricesSource = this.isPsPricesSource(priceSource);
+
     this.hltbForm = {
       hltbGameId: this.formatNumber(detail.providers.hltb.hltbGameId),
       hltbUrl: detail.providers.hltb.hltbUrl ?? '',
@@ -595,10 +609,7 @@ export class AdminDiscoveryMatchPage {
     };
 
     this.pricingForm = {
-      priceSource: this.resolvePricingSource(
-        detail.platformIgdbId,
-        detail.providers.pricing.priceSource
-      ),
+      priceSource,
       priceFetchedAt: detail.providers.pricing.priceFetchedAt ?? '',
       priceAmount: this.formatNumber(detail.providers.pricing.priceAmount),
       priceCurrency: detail.providers.pricing.priceCurrency ?? '',
@@ -606,14 +617,15 @@ export class AdminDiscoveryMatchPage {
       priceDiscountPercent: this.formatNumber(detail.providers.pricing.priceDiscountPercent),
       priceIsFree: detail.providers.pricing.priceIsFree,
       priceUrl: detail.providers.pricing.priceUrl ?? '',
-      psPricesUrl: detail.providers.pricing.psPricesUrl ?? '',
-      psPricesTitle: detail.providers.pricing.psPricesTitle ?? '',
-      psPricesPlatform: detail.providers.pricing.psPricesPlatform ?? '',
+      psPricesUrl: isPsPricesSource ? (detail.providers.pricing.psPricesUrl ?? '') : '',
+      psPricesTitle: isPsPricesSource ? (detail.providers.pricing.psPricesTitle ?? '') : '',
+      psPricesPlatform: isPsPricesSource ? (detail.providers.pricing.psPricesPlatform ?? '') : '',
     };
 
     this.hltbSearchQuery = detail.providers.hltb.queryTitle ?? detail.title ?? '';
     this.reviewSearchQuery = detail.providers.review.queryTitle ?? detail.title ?? '';
-    this.pricingSearchQuery = detail.providers.pricing.psPricesTitle ?? detail.title ?? '';
+    this.pricingSearchQuery =
+      (isPsPricesSource ? detail.providers.pricing.psPricesTitle : null) ?? detail.title ?? '';
     this.resetCandidateSearchResults();
   }
 
@@ -749,6 +761,10 @@ export class AdminDiscoveryMatchPage {
     }
 
     return platformIgdbId === 6 ? 'steam_store' : 'psprices';
+  }
+
+  private isPsPricesSource(priceSource?: string | null): boolean {
+    return priceSource === 'psprices';
   }
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {

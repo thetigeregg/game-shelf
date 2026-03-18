@@ -4,6 +4,13 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
+import {
+  createEmptyProviderRetryState,
+  maybeRearmProviderRetryState,
+  parseProviderRetryState,
+  shouldAttemptProvider,
+  type ProviderRetryState,
+} from './recommendations/provider-retry-state.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
@@ -79,13 +86,6 @@ interface AdminRequeueResult {
   deduped: boolean;
   queuedCount: number;
   dedupedCount: number;
-}
-
-interface ProviderRetryState {
-  attempts: number;
-  lastTriedAt: string | null;
-  nextTryAt: string | null;
-  permanentMiss: boolean;
 }
 
 interface DiscoveryProviderState {
@@ -380,8 +380,8 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
 
       const body = (request.body ?? {}) as ClearPermanentMissBody;
       const provider = parseRequiredProvider(body.provider);
-      if (!provider || provider === 'pricing') {
-        reply.code(400).send({ error: 'Provider must be hltb or review.' });
+      if (!provider) {
+        reply.code(400).send({ error: 'Provider must be hltb, review, or pricing.' });
         return;
       }
 
@@ -526,6 +526,24 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
+    const pspricesRetryState = maybeRearmProviderRetryState({
+      state: parseProviderRetryState(readProviderRetryState(payload, 'psprices')),
+      nowMs: Date.now(),
+      releaseYear: normalizeInteger(payload['releaseYear']),
+      rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+      maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+    });
+    if (
+      !shouldAttemptProvider({
+        state: pspricesRetryState,
+        nowMs: Date.now(),
+        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+      })
+    ) {
+      continue;
+    }
+
     const title =
       normalizeString(payload['psPricesMatchQueryTitle']) ?? normalizeString(payload['title']);
     if (title === null) {
@@ -663,14 +681,16 @@ function buildPricingState(
 ): DiscoveryProviderState {
   const hasPrice = hasUnifiedPriceValue(payload);
   const isEligiblePlatform = isPricingPlatformEligible(platformIgdbId);
-  return {
-    status: hasPrice || !isEligiblePlatform ? 'matched' : 'missing',
-    locked: isProviderMatchLocked(payload, 'psPricesMatchLocked'),
-    attempts: 0,
-    lastTriedAt: null,
-    nextTryAt: null,
-    permanentMiss: false,
-  };
+  if (!isEligiblePlatform) {
+    return {
+      status: 'matched',
+      locked: isProviderMatchLocked(payload, 'psPricesMatchLocked'),
+      ...createEmptyProviderRetryState(),
+    };
+  }
+
+  const retry = parseProviderRetryState(readProviderRetryState(payload, 'psprices'));
+  return buildProviderState(hasPrice, isProviderMatchLocked(payload, 'psPricesMatchLocked'), retry);
 }
 
 function isPricingPlatformEligible(platformIgdbId: number): boolean {
@@ -883,13 +903,14 @@ function clearManualMatch(
   payload['psPricesTitle'] = null;
   payload['psPricesPlatform'] = null;
   payload['psPricesMatchLocked'] = false;
+  resetRetryState(payload, 'psprices');
 }
 
 function resetPermanentMiss(
   payload: Record<string, unknown>,
-  provider: 'hltb' | 'review'
+  provider: 'hltb' | 'review' | 'pricing'
 ): boolean {
-  const retryKey = provider === 'hltb' ? 'hltb' : 'metacritic';
+  const retryKey = provider === 'hltb' ? 'hltb' : provider === 'review' ? 'metacritic' : 'psprices';
   const current = parseProviderRetryState(readProviderRetryState(payload, retryKey));
   if (
     !current.permanentMiss &&
@@ -905,7 +926,7 @@ function resetPermanentMiss(
 
 function resetRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
 ): void {
   const existingRetry =
     payload['enrichmentRetry'] &&
@@ -914,12 +935,7 @@ function resetRetryState(
       ? ({ ...(payload['enrichmentRetry'] as Record<string, unknown>) } as Record<string, unknown>)
       : {};
 
-  existingRetry[providerKey] = {
-    attempts: 0,
-    lastTriedAt: null,
-    nextTryAt: null,
-    permanentMiss: false,
-  };
+  existingRetry[providerKey] = createEmptyProviderRetryState();
 
   payload['enrichmentRetry'] = existingRetry;
 }
@@ -1068,26 +1084,13 @@ async function replaceDiscoveryPayload(
 
 function readProviderRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
 ): unknown {
   const retry = payload['enrichmentRetry'];
   if (!retry || typeof retry !== 'object' || Array.isArray(retry)) {
     return null;
   }
   return (retry as Record<string, unknown>)[providerKey];
-}
-
-function parseProviderRetryState(value: unknown): ProviderRetryState {
-  const source =
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
-  return {
-    attempts: normalizeInteger(source['attempts']) ?? 0,
-    lastTriedAt: normalizeIsoDate(source['lastTriedAt']),
-    nextTryAt: normalizeIsoDate(source['nextTryAt']),
-    permanentMiss: source['permanentMiss'] === true,
-  };
 }
 
 function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean {

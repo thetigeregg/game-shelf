@@ -48,6 +48,7 @@ interface GroupedAdminDiscoveryListItem extends AdminDiscoveryListItem {
   gameKeys: string[];
   platformLabels: string[];
   groupedPlatformCount: number;
+  sourceItems: AdminDiscoveryListItem[];
 }
 
 @Component({
@@ -192,9 +193,18 @@ export class AdminDiscoveryMatchPage {
   }
 
   get visiblePermanentMissKeys(): string[] {
-    return this.items
-      .filter((item) => item.matchState[this.selectedProvider].status === 'permanentMiss')
-      .flatMap((item) => item.gameKeys);
+    return [
+      ...new Set(
+        this.items.flatMap((item) =>
+          item.sourceItems
+            .filter(
+              (sourceItem) =>
+                sourceItem.matchState[this.selectedProvider].status === 'permanentMiss'
+            )
+            .map((sourceItem) => this.getGameKey(sourceItem))
+        )
+      ),
+    ];
   }
 
   get currentProviderLabel(): string {
@@ -653,15 +663,29 @@ export class AdminDiscoveryMatchPage {
   private replaceVisibleItem(detail: AdminDiscoveryDetailResponse): void {
     this.items = this.items.map((item) =>
       item.igdbGameId === detail.igdbGameId
-        ? {
-            ...item,
-            title: detail.title,
-            releaseYear: detail.releaseYear,
-            matchState: detail.matchState,
-            ...(item.groupedPlatformCount === 1
-              ? { platform: detail.platform }
-              : { platform: 'Multiple platforms' }),
-          }
+        ? this.buildGroupedItem(
+            item.sourceItems.map((sourceItem) => {
+              const nextMatchState =
+                item.groupedPlatformCount === 1 ||
+                sourceItem.platformIgdbId === detail.platformIgdbId
+                  ? detail.matchState
+                  : {
+                      ...sourceItem.matchState,
+                      [this.activeModalProvider]: detail.matchState[this.activeModalProvider],
+                    };
+
+              return {
+                ...sourceItem,
+                title: detail.title,
+                releaseYear: detail.releaseYear,
+                platform:
+                  sourceItem.platformIgdbId === detail.platformIgdbId
+                    ? detail.platform
+                    : sourceItem.platform,
+                matchState: nextMatchState,
+              };
+            })
+          )
         : item
     );
   }
@@ -700,6 +724,7 @@ export class AdminDiscoveryMatchPage {
       gameKeys: group.map((item) => this.getGameKey(item)),
       platformLabels,
       groupedPlatformCount: group.length,
+      sourceItems: group.map((item) => ({ ...item })),
     };
   }
 
@@ -731,14 +756,14 @@ export class AdminDiscoveryMatchPage {
   private aggregateStatus(
     statuses: AdminDiscoveryMatchStateStatus[]
   ): AdminDiscoveryMatchStateStatus {
-    if (statuses.some((status) => status === 'missing')) {
-      return 'missing';
+    if (statuses.some((status) => status === 'permanentMiss')) {
+      return 'permanentMiss';
     }
     if (statuses.some((status) => status === 'retrying')) {
       return 'retrying';
     }
-    if (statuses.some((status) => status === 'permanentMiss')) {
-      return 'permanentMiss';
+    if (statuses.some((status) => status === 'missing')) {
+      return 'missing';
     }
     return 'matched';
   }

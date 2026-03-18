@@ -345,6 +345,7 @@ describe('AdminDiscoveryMatchPage', () => {
       isFree: false,
       url: 'https://psprices.com/us/game/chrono-trigger',
       score: 0.96,
+      source: 'psprices',
       isRecommended: true,
     };
 
@@ -358,6 +359,48 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.pricingForm.priceUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
+  });
+
+  it('defaults PC pricing form source to steam and applies steam candidates without psprices fields', () => {
+    const { page } = createPageHarness();
+    const detail: AdminDiscoveryDetailResponse = {
+      ...createDetail(),
+      platformIgdbId: 6,
+      providers: {
+        ...createDetail().providers,
+        pricing: {
+          ...createDetail().providers.pricing,
+          priceSource: null,
+        },
+      },
+    };
+    setField(page, 'activeDetail', {
+      ...detail,
+    });
+
+    (
+      page as unknown as { syncFormsFromDetail: (payload: AdminDiscoveryDetailResponse) => void }
+    ).syncFormsFromDetail(detail);
+
+    expect(page.pricingForm.priceSource).toBe('steam_store');
+
+    page.applyPricingCandidate({
+      title: 'Portal 2',
+      amount: 9.99,
+      currency: 'USD',
+      regularAmount: 19.99,
+      discountPercent: 50,
+      isFree: false,
+      url: 'https://store.steampowered.com/app/620/Portal_2/',
+      score: null,
+      source: 'steam_store',
+      isRecommended: true,
+    });
+
+    expect(page.pricingForm.priceSource).toBe('steam_store');
+    expect(page.pricingForm.priceUrl).toBe('https://store.steampowered.com/app/620/Portal_2/');
+    expect(page.pricingForm.psPricesUrl).toBe('');
+    expect(page.pricingForm.psPricesTitle).toBe('');
   });
 
   it('requeues discovery enrichment for the active game and surfaces a toast', async () => {

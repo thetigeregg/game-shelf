@@ -501,18 +501,24 @@ export class AdminDiscoveryMatchPage {
   }
 
   applyPricingCandidate(candidate: PriceMatchCandidate): void {
+    const source = this.resolvePricingSource(
+      this.activeDetail?.platformIgdbId ?? null,
+      candidate.source
+    );
+    const isPsPricesSource = source === 'psprices';
+
     this.pricingForm = {
       ...this.pricingForm,
-      priceSource: 'psprices',
+      priceSource: source,
       priceAmount: this.formatNumber(candidate.amount),
       priceCurrency: candidate.currency ?? '',
       priceRegularAmount: this.formatNumber(candidate.regularAmount),
       priceDiscountPercent: this.formatNumber(candidate.discountPercent),
       priceIsFree: candidate.isFree === true,
       priceUrl: candidate.url ?? '',
-      psPricesUrl: candidate.url ?? '',
-      psPricesTitle: candidate.title,
-      psPricesPlatform: '',
+      psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
+      psPricesTitle: isPsPricesSource ? candidate.title : '',
+      psPricesPlatform: isPsPricesSource ? this.pricingForm.psPricesPlatform : '',
     };
   }
 
@@ -589,7 +595,10 @@ export class AdminDiscoveryMatchPage {
     };
 
     this.pricingForm = {
-      priceSource: detail.providers.pricing.priceSource ?? 'psprices',
+      priceSource: this.resolvePricingSource(
+        detail.platformIgdbId,
+        detail.providers.pricing.priceSource
+      ),
       priceFetchedAt: detail.providers.pricing.priceFetchedAt ?? '',
       priceAmount: this.formatNumber(detail.providers.pricing.priceAmount),
       priceCurrency: detail.providers.pricing.priceCurrency ?? '',
@@ -729,6 +738,17 @@ export class AdminDiscoveryMatchPage {
     }
 
     return normalized.sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
+  }
+
+  private resolvePricingSource(
+    platformIgdbId: number | null | undefined,
+    priceSource?: string | null
+  ): string {
+    if (priceSource === 'steam_store' || priceSource === 'psprices') {
+      return priceSource;
+    }
+
+    return platformIgdbId === 6 ? 'steam_store' : 'psprices';
   }
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {

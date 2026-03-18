@@ -1046,7 +1046,8 @@ function parseDiscoveryGameKeys(
     }
 
     const separatorIndex = normalized.indexOf('::');
-    if (separatorIndex <= 0 || separatorIndex === normalized.length - 2) {
+    // Ensure '::' is not at the start and is followed by at least one character
+    if (separatorIndex <= 0 || separatorIndex + 2 >= normalized.length) {
       continue;
     }
 

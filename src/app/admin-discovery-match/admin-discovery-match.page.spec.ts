@@ -30,9 +30,9 @@ vi.mock('@ionic/angular/standalone', () => {
 });
 
 import { AdminDiscoveryMatchPage } from './admin-discovery-match.page';
+import { groupAdminDiscoveryItems } from './admin-discovery-match.utils';
 import type {
   AdminDiscoveryDetailResponse,
-  AdminDiscoveryListItem,
   AdminDiscoveryMatchService,
 } from '../core/services/admin-discovery-match.service';
 import type { GameShelfService } from '../core/services/game-shelf.service';
@@ -287,6 +287,8 @@ describe('AdminDiscoveryMatchPage', () => {
 
   it('applies a review candidate into the editable form fields', () => {
     const { page } = createPageHarness();
+    page.reviewForm.metacriticScore = '88';
+    page.reviewForm.metacriticUrl = 'https://www.metacritic.com/game/chrono-trigger';
     const candidate: ReviewMatchCandidate = {
       title: 'Chrono Trigger',
       releaseYear: 1999,
@@ -304,6 +306,8 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.reviewForm.reviewSource).toBe('mobygames');
     expect(page.reviewForm.reviewScore).toBe('91');
     expect(page.reviewForm.reviewUrl).toBe('https://www.mobygames.com/game/chrono-trigger');
+    expect(page.reviewForm.metacriticScore).toBe('');
+    expect(page.reviewForm.metacriticUrl).toBe('');
     expect(page.reviewForm.mobygamesGameId).toBe('222');
     expect(page.reviewForm.mobyScore).toBe('9.1');
     expect(page.reviewForm.queryTitle).toBe('Chrono Trigger');
@@ -619,18 +623,7 @@ describe('AdminDiscoveryMatchPage', () => {
   });
 
   it('collapses matching discovery rows across multiple platforms into one grouped item', () => {
-    const { page } = createPageHarness();
-
-    const grouped = (
-      page as unknown as {
-        groupItems: (items: AdminDiscoveryListItem[]) => Array<{
-          platform: string | null;
-          groupedPlatformCount: number;
-          gameKeys: string[];
-          sourceItems: AdminDiscoveryListItem[];
-        }>;
-      }
-    ).groupItems([
+    const grouped = groupAdminDiscoveryItems([
       createDetail(),
       {
         ...createDetail(),
@@ -648,14 +641,7 @@ describe('AdminDiscoveryMatchPage', () => {
 
   it('keeps permanent-miss bulk reset keys from underlying grouped rows', () => {
     const { page } = createPageHarness();
-    const grouped = (
-      page as unknown as {
-        groupItems: (items: AdminDiscoveryListItem[]) => Array<{
-          matchState: AdminDiscoveryListItem['matchState'];
-          sourceItems: AdminDiscoveryListItem[];
-        }>;
-      }
-    ).groupItems([
+    const grouped = groupAdminDiscoveryItems([
       {
         ...createDetail(),
         matchState: {

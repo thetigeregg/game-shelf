@@ -1690,7 +1690,7 @@ async function persistPsPricesSnapshot(
     } else {
       delete existingRetry['psprices'];
     }
-    patchPayload['enrichmentRetry'] = existingRetry;
+    patchPayload['enrichmentRetry'] = Object.keys(existingRetry).length > 0 ? existingRetry : null;
   }
   if (!preserveExisting) {
     patchPayload['priceSource'] = 'psprices';

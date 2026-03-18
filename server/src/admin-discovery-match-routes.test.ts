@@ -1284,6 +1284,54 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
+void test('admin discovery patch route rejects unsupported pricing sources', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '24',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Steam Cleanup',
+      platform: 'PC',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/24/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'epic_games',
+        priceAmount: 9.99,
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(response.json(), {
+      error: 'Price source must be steam_store or psprices.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery delete route clears pricing fields and resets pricing retry state', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

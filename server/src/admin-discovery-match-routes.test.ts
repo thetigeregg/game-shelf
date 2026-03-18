@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fastifyFactory from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { registerAdminDiscoveryMatchRoutes } from './admin-discovery-match-routes.js';
 import { config } from './config.js';
 
@@ -15,18 +15,47 @@ class PoolMock {
   private readonly rows = new Map<string, SeedRow>();
   private readonly backgroundJobs = new Map<string, number>();
   private nextBackgroundJobId = 1000;
+  private transactionRows: Map<string, SeedRow> | null = null;
   keyLookupQueryCount = 0;
+  transactionLog: string[] = [];
 
   seed(row: SeedRow): void {
     this.rows.set(this.key(row.igdbGameId, row.platformIgdbId), structuredClone(row));
   }
 
   readPayload(igdbGameId: string, platformIgdbId: number): Record<string, unknown> | null {
-    return this.rows.get(this.key(igdbGameId, platformIgdbId))?.payload ?? null;
+    return this.currentRows().get(this.key(igdbGameId, platformIgdbId))?.payload ?? null;
   }
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    const rowsStore = this.currentRows();
+
+    if (normalized === 'begin') {
+      this.transactionRows = new Map(
+        [...this.rows.entries()].map(([key, row]) => [key, structuredClone(row)])
+      );
+      this.transactionLog.push('BEGIN');
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+
+    if (normalized === 'commit') {
+      if (this.transactionRows !== null) {
+        this.rows.clear();
+        for (const [key, row] of this.transactionRows.entries()) {
+          this.rows.set(key, row);
+        }
+      }
+      this.transactionRows = null;
+      this.transactionLog.push('COMMIT');
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+
+    if (normalized === 'rollback') {
+      this.transactionRows = null;
+      this.transactionLog.push('ROLLBACK');
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
 
     if (
       normalized.startsWith(
@@ -49,7 +78,7 @@ class PoolMock {
         }
         requestedKeys.add(this.key(igdbGameId.trim(), platformIgdbId));
       }
-      const rows = [...this.rows.values()]
+      const rows = [...rowsStore.values()]
         .filter((row) => row.payload['listType'] === 'discovery')
         .filter((row) => requestedKeys.has(this.key(row.igdbGameId, row.platformIgdbId)))
         .map((row) => ({
@@ -67,7 +96,7 @@ class PoolMock {
     ) {
       const search = typeof params[0] === 'string' ? params[0] : null;
       const limit = typeof params[1] === 'number' ? params[1] : 50;
-      const rows = [...this.rows.values()]
+      const rows = [...rowsStore.values()]
         .filter((row) => row.payload['listType'] === 'discovery')
         .filter((row) => {
           if (!search) {
@@ -94,7 +123,7 @@ class PoolMock {
       const hasPlatformFilter = typeof params[1] === 'number';
 
       if (!hasPlatformFilter) {
-        const rows = [...this.rows.values()]
+        const rows = [...rowsStore.values()]
           .filter((row) => row.igdbGameId === igdbGameId)
           .filter((row) => row.payload['listType'] === 'discovery')
           .sort((left, right) => left.platformIgdbId - right.platformIgdbId)
@@ -108,7 +137,7 @@ class PoolMock {
       }
 
       const platformIgdbId = params[1] as number;
-      const row = this.rows.get(this.key(igdbGameId, platformIgdbId));
+      const row = rowsStore.get(this.key(igdbGameId, platformIgdbId));
       if (!row || row.payload['listType'] !== 'discovery') {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
@@ -136,14 +165,14 @@ class PoolMock {
         unknown
       >;
       const key = this.key(igdbGameId, platformIgdbId);
-      const existing = this.rows.get(key);
+      const existing = rowsStore.get(key);
       if (!existing || existing.payload['listType'] !== 'discovery') {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
       if (JSON.stringify(existing.payload) === JSON.stringify(nextPayload)) {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
-      this.rows.set(key, {
+      rowsStore.set(key, {
         igdbGameId,
         platformIgdbId,
         payload: nextPayload,
@@ -180,6 +209,17 @@ class PoolMock {
     }
 
     throw new Error(`Unsupported SQL in PoolMock: ${sql}`);
+  }
+
+  connect(): Promise<PoolClient> {
+    return Promise.resolve({
+      query: this.query.bind(this),
+      release: () => {},
+    } as unknown as PoolClient);
+  }
+
+  private currentRows(): Map<string, SeedRow> {
+    return this.transactionRows ?? this.rows;
   }
 
   private key(igdbGameId: string, platformIgdbId: number): string {
@@ -2228,6 +2268,62 @@ void test('admin discovery clear permanent miss route leaves already-clear rows 
       cleared: 0,
     });
     assert.equal(pool.keyLookupQueryCount, 1);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route wraps related updates in a transaction', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '50',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Shared Game',
+      platform: 'PlayStation 4',
+    },
+  });
+  pool.seed({
+    igdbGameId: '50',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Shared Game',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/50/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'metacritic',
+        reviewScore: 88,
+        metacriticUrl: 'https://example.com/review',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(pool.transactionLog.slice(-2), ['BEGIN', 'COMMIT']);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

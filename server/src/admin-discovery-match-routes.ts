@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { Pool, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
@@ -21,6 +21,13 @@ interface DiscoveryGameRow extends QueryResultRow {
   igdb_game_id: string;
   platform_igdb_id: number;
   payload: unknown;
+}
+
+interface Queryable {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: unknown[]
+  ): Promise<QueryResult<T>>;
 }
 
 interface NormalizedDiscoveryGame {
@@ -236,38 +243,53 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
-      const game = await getDiscoveryGame(pool, params.igdbGameId, params.platformIgdbId);
-      if (!game) {
+      const mutationResult = await withTransaction(pool, async (client) => {
+        const game = await getDiscoveryGame(client, params.igdbGameId, params.platformIgdbId);
+        if (!game) {
+          return { kind: 'not_found' } as const;
+        }
+
+        const relatedGames = await listDiscoveryGamesByIgdbGameId(client, game.igdbGameId);
+        const nextPayload = structuredClone(game.payload);
+        const error = applyManualMatchPatch(nextPayload, game.platformIgdbId, provider, body);
+        if (error) {
+          return { kind: 'invalid', error } as const;
+        }
+
+        let changed = false;
+        for (const relatedGame of relatedGames) {
+          const relatedPayload = structuredClone(relatedGame.payload);
+          applyManualMatchPatch(relatedPayload, relatedGame.platformIgdbId, provider, body);
+          const didChange = await replaceDiscoveryPayload(
+            client,
+            relatedGame.igdbGameId,
+            relatedGame.platformIgdbId,
+            relatedPayload
+          );
+          changed = changed || didChange;
+        }
+
+        return {
+          kind: 'ok',
+          changed,
+          item: buildDetailResponse(game.igdbGameId, game.platformIgdbId, nextPayload),
+        } as const;
+      });
+
+      if (mutationResult.kind === 'not_found') {
         reply.code(404).send({ error: 'Discovery game not found.' });
         return;
       }
-
-      const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
-      const nextPayload = structuredClone(game.payload);
-      const error = applyManualMatchPatch(nextPayload, game.platformIgdbId, provider, body);
-      if (error) {
-        reply.code(400).send({ error });
+      if (mutationResult.kind === 'invalid') {
+        reply.code(400).send({ error: mutationResult.error });
         return;
-      }
-
-      let changed = false;
-      for (const relatedGame of relatedGames) {
-        const relatedPayload = structuredClone(relatedGame.payload);
-        applyManualMatchPatch(relatedPayload, relatedGame.platformIgdbId, provider, body);
-        const didChange = await replaceDiscoveryPayload(
-          pool,
-          relatedGame.igdbGameId,
-          relatedGame.platformIgdbId,
-          relatedPayload
-        );
-        changed = changed || didChange;
       }
 
       reply.send({
         ok: true,
-        changed,
+        changed: mutationResult.changed,
         provider,
-        item: buildDetailResponse(game.igdbGameId, game.platformIgdbId, nextPayload),
+        item: mutationResult.item,
       });
     }
   );
@@ -291,33 +313,45 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
-      const game = await getDiscoveryGame(pool, params.igdbGameId, params.platformIgdbId);
-      if (!game) {
+      const mutationResult = await withTransaction(pool, async (client) => {
+        const game = await getDiscoveryGame(client, params.igdbGameId, params.platformIgdbId);
+        if (!game) {
+          return { kind: 'not_found' } as const;
+        }
+
+        const relatedGames = await listDiscoveryGamesByIgdbGameId(client, game.igdbGameId);
+        const nextPayload = structuredClone(game.payload);
+        clearManualMatch(nextPayload, provider);
+        let changed = false;
+        for (const relatedGame of relatedGames) {
+          const relatedPayload = structuredClone(relatedGame.payload);
+          clearManualMatch(relatedPayload, provider);
+          const didChange = await replaceDiscoveryPayload(
+            client,
+            relatedGame.igdbGameId,
+            relatedGame.platformIgdbId,
+            relatedPayload
+          );
+          changed = changed || didChange;
+        }
+
+        return {
+          kind: 'ok',
+          changed,
+          item: buildDetailResponse(game.igdbGameId, game.platformIgdbId, nextPayload),
+        } as const;
+      });
+
+      if (mutationResult.kind === 'not_found') {
         reply.code(404).send({ error: 'Discovery game not found.' });
         return;
       }
 
-      const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
-      const nextPayload = structuredClone(game.payload);
-      clearManualMatch(nextPayload, provider);
-      let changed = false;
-      for (const relatedGame of relatedGames) {
-        const relatedPayload = structuredClone(relatedGame.payload);
-        clearManualMatch(relatedPayload, provider);
-        const didChange = await replaceDiscoveryPayload(
-          pool,
-          relatedGame.igdbGameId,
-          relatedGame.platformIgdbId,
-          relatedPayload
-        );
-        changed = changed || didChange;
-      }
-
       reply.send({
         ok: true,
-        changed,
+        changed: mutationResult.changed,
         provider,
-        item: buildDetailResponse(game.igdbGameId, game.platformIgdbId, nextPayload),
+        item: mutationResult.item,
       });
     }
   );
@@ -388,29 +422,33 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       }
 
       const requestedKeys = parseGameKeys(body.gameKeys);
-      const rows =
-        requestedKeys === null
-          ? await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT)
-          : await listDiscoveryGamesByKeys(pool, requestedKeys);
-      let cleared = 0;
+      const cleared = await withTransaction(pool, async (client) => {
+        const rows =
+          requestedKeys === null
+            ? await listDiscoveryRows(client, null, DISCOVERY_SCAN_LIMIT)
+            : await listDiscoveryGamesByKeys(client, requestedKeys);
+        let updatedCount = 0;
 
-      for (const row of rows) {
-        const nextPayload = structuredClone(row.payload);
-        const didReset = resetPermanentMiss(nextPayload, provider);
-        if (!didReset) {
-          continue;
+        for (const row of rows) {
+          const nextPayload = structuredClone(row.payload);
+          const didReset = resetPermanentMiss(nextPayload, provider);
+          if (!didReset) {
+            continue;
+          }
+
+          const changed = await replaceDiscoveryPayload(
+            client,
+            row.igdbGameId,
+            row.platformIgdbId,
+            nextPayload
+          );
+          if (changed) {
+            updatedCount += 1;
+          }
         }
 
-        const changed = await replaceDiscoveryPayload(
-          pool,
-          row.igdbGameId,
-          row.platformIgdbId,
-          nextPayload
-        );
-        if (changed) {
-          cleared += 1;
-        }
-      }
+        return updatedCount;
+      });
 
       reply.send({
         ok: true,
@@ -419,6 +457,25 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       });
     }
   );
+}
+
+async function withTransaction<T>(
+  pool: Pool,
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function enqueueDiscoveryEnrichmentRun(
@@ -970,12 +1027,12 @@ function resetRetryState(
 }
 
 async function listDiscoveryRows(
-  pool: Pool,
+  queryable: Queryable,
   search: string | null,
   limit: number
 ): Promise<NormalizedDiscoveryGame[]> {
   const normalizedLimit = Math.max(1, Math.min(DISCOVERY_SCAN_LIMIT, limit));
-  const result = await pool.query<DiscoveryGameRow>(
+  const result = await queryable.query<DiscoveryGameRow>(
     `
     SELECT igdb_game_id, platform_igdb_id, payload
     FROM games
@@ -1002,7 +1059,7 @@ async function listDiscoveryRows(
 }
 
 async function listDiscoveryGamesByKeys(
-  pool: Pool,
+  queryable: Queryable,
   gameKeys: Set<string>
 ): Promise<NormalizedDiscoveryGame[]> {
   const parsedKeys = parseDiscoveryGameKeys([...gameKeys]);
@@ -1010,7 +1067,7 @@ async function listDiscoveryGamesByKeys(
     return [];
   }
 
-  const result = await pool.query<DiscoveryGameRow>(
+  const result = await queryable.query<DiscoveryGameRow>(
     `
     WITH requested_keys AS (
       SELECT DISTINCT *
@@ -1083,7 +1140,7 @@ async function runWithConcurrencyLimit<T>(
 }
 
 async function listDiscoveryGamesByIgdbGameId(
-  pool: Pool,
+  queryable: Queryable,
   igdbGameIdRaw: unknown
 ): Promise<NormalizedDiscoveryGame[]> {
   const igdbGameId = normalizeIdentifier(igdbGameIdRaw);
@@ -1091,7 +1148,7 @@ async function listDiscoveryGamesByIgdbGameId(
     return [];
   }
 
-  const result = await pool.query<DiscoveryGameRow>(
+  const result = await queryable.query<DiscoveryGameRow>(
     `
     SELECT igdb_game_id, platform_igdb_id, payload
     FROM games
@@ -1112,7 +1169,7 @@ async function listDiscoveryGamesByIgdbGameId(
 }
 
 async function getDiscoveryGame(
-  pool: Pool,
+  queryable: Queryable,
   igdbGameIdRaw: unknown,
   platformIgdbIdRaw: unknown
 ): Promise<{
@@ -1126,7 +1183,7 @@ async function getDiscoveryGame(
     return null;
   }
 
-  const result = await pool.query<DiscoveryGameRow>(
+  const result = await queryable.query<DiscoveryGameRow>(
     `
     SELECT igdb_game_id, platform_igdb_id, payload
     FROM games
@@ -1156,12 +1213,12 @@ async function getDiscoveryGame(
 }
 
 async function replaceDiscoveryPayload(
-  pool: Pool,
+  queryable: Queryable,
   igdbGameId: string,
   platformIgdbId: number,
   payload: Record<string, unknown>
 ): Promise<boolean> {
-  const result = await pool.query(
+  const result = await queryable.query(
     `
     WITH current_row AS (
       SELECT payload

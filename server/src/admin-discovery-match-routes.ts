@@ -14,6 +14,12 @@ interface DiscoveryGameRow extends QueryResultRow {
   payload: unknown;
 }
 
+interface NormalizedDiscoveryGame {
+  igdbGameId: string;
+  platformIgdbId: number;
+  payload: Record<string, unknown>;
+}
+
 interface ListQuery {
   provider?: unknown;
   state?: unknown;
@@ -213,19 +219,26 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
+      const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
       const nextPayload = structuredClone(game.payload);
-      const error = applyManualMatchPatch(nextPayload, provider, body);
+      const error = applyManualMatchPatch(nextPayload, game.platformIgdbId, provider, body);
       if (error) {
         reply.code(400).send({ error });
         return;
       }
 
-      const changed = await replaceDiscoveryPayload(
-        pool,
-        game.igdbGameId,
-        game.platformIgdbId,
-        nextPayload
-      );
+      let changed = false;
+      for (const relatedGame of relatedGames) {
+        const relatedPayload = structuredClone(relatedGame.payload);
+        applyManualMatchPatch(relatedPayload, relatedGame.platformIgdbId, provider, body);
+        const didChange = await replaceDiscoveryPayload(
+          pool,
+          relatedGame.igdbGameId,
+          relatedGame.platformIgdbId,
+          relatedPayload
+        );
+        changed = changed || didChange;
+      }
 
       reply.send({
         ok: true,
@@ -261,14 +274,21 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
+      const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
       const nextPayload = structuredClone(game.payload);
       clearManualMatch(nextPayload, provider);
-      const changed = await replaceDiscoveryPayload(
-        pool,
-        game.igdbGameId,
-        game.platformIgdbId,
-        nextPayload
-      );
+      let changed = false;
+      for (const relatedGame of relatedGames) {
+        const relatedPayload = structuredClone(relatedGame.payload);
+        clearManualMatch(relatedPayload, provider);
+        const didChange = await replaceDiscoveryPayload(
+          pool,
+          relatedGame.igdbGameId,
+          relatedGame.platformIgdbId,
+          relatedPayload
+        );
+        changed = changed || didChange;
+      }
 
       reply.send({
         ok: true,
@@ -298,11 +318,15 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
+      const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
+
       const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
         requestedBy: 'admin-discovery-match',
         igdbGameId: game.igdbGameId,
         platformIgdbId: game.platformIgdbId,
-        gameKeys: [`${game.igdbGameId}::${String(game.platformIgdbId)}`],
+        gameKeys: relatedGames.map(
+          (relatedGame) => `${relatedGame.igdbGameId}::${String(relatedGame.platformIgdbId)}`
+        ),
       });
 
       reply.send({
@@ -578,6 +602,7 @@ function matchesListFilter(
 
 function applyManualMatchPatch(
   payload: Record<string, unknown>,
+  platformIgdbId: number,
   provider: DiscoveryMatchProvider,
   body: PatchBody
 ): string | null {
@@ -639,7 +664,7 @@ function applyManualMatchPatch(
     payload['reviewMatchQueryTitle'] = normalizeString(body.queryTitle);
     payload['reviewMatchQueryReleaseYear'] = normalizeInteger(body.queryReleaseYear);
     payload['reviewMatchQueryPlatform'] = normalizeString(body.queryPlatform);
-    payload['reviewMatchPlatformIgdbId'] = normalizeInteger(payload['platformIgdbId']);
+    payload['reviewMatchPlatformIgdbId'] = platformIgdbId;
     payload['reviewMatchMobygamesGameId'] = reviewSource === 'mobygames' ? mobygamesGameId : null;
     payload['reviewMatchLocked'] = true;
     resetRetryState(payload, 'metacritic');
@@ -760,9 +785,7 @@ async function listDiscoveryRows(
   pool: Pool,
   search: string | null,
   limit: number
-): Promise<
-  Array<{ igdbGameId: string; platformIgdbId: number; payload: Record<string, unknown> }>
-> {
+): Promise<NormalizedDiscoveryGame[]> {
   const normalizedLimit = Math.max(1, Math.min(DISCOVERY_SCAN_LIMIT, limit));
   const result = await pool.query<DiscoveryGameRow>(
     `
@@ -788,6 +811,35 @@ async function listDiscoveryRows(
       ): row is { igdbGameId: string; platformIgdbId: number; payload: Record<string, unknown> } =>
         row.payload !== null
     );
+}
+
+async function listDiscoveryGamesByIgdbGameId(
+  pool: Pool,
+  igdbGameIdRaw: unknown
+): Promise<NormalizedDiscoveryGame[]> {
+  const igdbGameId = normalizeIdentifier(igdbGameIdRaw);
+  if (igdbGameId === null) {
+    return [];
+  }
+
+  const result = await pool.query<DiscoveryGameRow>(
+    `
+    SELECT igdb_game_id, platform_igdb_id, payload
+    FROM games
+    WHERE igdb_game_id = $1
+      AND COALESCE(payload->>'listType', '') = 'discovery'
+    ORDER BY platform_igdb_id ASC
+    `,
+    [igdbGameId]
+  );
+
+  return result.rows
+    .map((row) => ({
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id,
+      payload: normalizePayloadObject(row.payload),
+    }))
+    .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
 }
 
 async function getDiscoveryGame(

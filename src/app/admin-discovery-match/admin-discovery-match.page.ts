@@ -44,6 +44,12 @@ import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 type ReviewSource = 'metacritic' | 'mobygames';
 type QueueStatusTone = 'success' | 'warning' | 'danger';
 
+interface GroupedAdminDiscoveryListItem extends AdminDiscoveryListItem {
+  gameKeys: string[];
+  platformLabels: string[];
+  groupedPlatformCount: number;
+}
+
 @Component({
   selector: 'app-admin-discovery-match',
   templateUrl: './admin-discovery-match.page.html',
@@ -96,7 +102,7 @@ export class AdminDiscoveryMatchPage {
   selectedProvider: AdminDiscoveryMatchProvider = 'hltb';
   selectedState: AdminDiscoveryMatchStateStatus | 'all' = 'all';
   searchQuery = '';
-  items: AdminDiscoveryListItem[] = [];
+  items: GroupedAdminDiscoveryListItem[] = [];
   scannedCount = 0;
   isLoading = false;
   errorMessage: string | null = null;
@@ -109,6 +115,7 @@ export class AdminDiscoveryMatchPage {
   isListRequeueing = false;
   isRequeueing = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
+  activeGroup: GroupedAdminDiscoveryListItem | null = null;
   activeQueueStatusMessage: string | null = null;
   activeQueueStatusDetail: string | null = null;
   activeQueueStatusTone: QueueStatusTone = 'success';
@@ -187,7 +194,7 @@ export class AdminDiscoveryMatchPage {
   get visiblePermanentMissKeys(): string[] {
     return this.items
       .filter((item) => item.matchState[this.selectedProvider].status === 'permanentMiss')
-      .map((item) => this.getGameKey(item));
+      .flatMap((item) => item.gameKeys);
   }
 
   get currentProviderLabel(): string {
@@ -209,7 +216,7 @@ export class AdminDiscoveryMatchPage {
           limit: 100,
         })
       );
-      this.items = response.items;
+      this.items = this.groupItems(response.items);
       this.scannedCount = response.scanned;
     } catch (error) {
       this.errorMessage = this.toErrorMessage(error, 'Unable to load unmatched discovery games.');
@@ -278,11 +285,12 @@ export class AdminDiscoveryMatchPage {
     }
   }
 
-  async openManageModal(item: AdminDiscoveryListItem): Promise<void> {
+  async openManageModal(item: GroupedAdminDiscoveryListItem): Promise<void> {
     this.isManageModalOpen = true;
     this.activeModalProvider = this.selectedProvider;
     this.isDetailLoading = true;
     this.activeDetail = null;
+    this.activeGroup = item;
     try {
       const detail = await firstValueFrom(
         this.adminMatchService.getMatchState(item.igdbGameId, item.platformIgdbId)
@@ -306,6 +314,7 @@ export class AdminDiscoveryMatchPage {
     this.isSaving = false;
     this.isRequeueing = false;
     this.activeDetail = null;
+    this.activeGroup = null;
     this.clearActiveQueueStatus();
     this.resetCandidateSearchState();
   }
@@ -400,8 +409,8 @@ export class AdminDiscoveryMatchPage {
     }
   }
 
-  trackByGameKey(_: number, item: AdminDiscoveryListItem): string {
-    return this.getGameKey(item);
+  trackByGameKey(_: number, item: GroupedAdminDiscoveryListItem): string {
+    return item.igdbGameId;
   }
 
   getStatusLabel(item: AdminDiscoveryListItem, provider: AdminDiscoveryMatchProvider): string {
@@ -588,16 +597,38 @@ export class AdminDiscoveryMatchPage {
     this.resetCandidateSearchResults();
   }
 
+  getPlatformLabel(item: GroupedAdminDiscoveryListItem): string {
+    return item.groupedPlatformCount > 1
+      ? 'Multiple platforms'
+      : item.platform || 'Unknown platform';
+  }
+
+  get activePlatformLabel(): string {
+    if (this.activeGroup && this.activeGroup.groupedPlatformCount > 1) {
+      return 'Multiple platforms';
+    }
+    return this.activeDetail?.platform || 'Unknown platform';
+  }
+
+  get activePlatformNote(): string | null {
+    if (!this.activeGroup || this.activeGroup.groupedPlatformCount <= 1) {
+      return null;
+    }
+
+    return `Edits apply to ${String(this.activeGroup.groupedPlatformCount)} discovery platform rows: ${this.activeGroup.platformLabels.join(', ')}`;
+  }
+
   private replaceVisibleItem(detail: AdminDiscoveryDetailResponse): void {
     this.items = this.items.map((item) =>
-      this.getGameKey(item) === this.getGameKey(detail)
+      item.igdbGameId === detail.igdbGameId
         ? {
-            igdbGameId: detail.igdbGameId,
-            platformIgdbId: detail.platformIgdbId,
+            ...item,
             title: detail.title,
-            platform: detail.platform,
             releaseYear: detail.releaseYear,
             matchState: detail.matchState,
+            ...(item.groupedPlatformCount === 1
+              ? { platform: detail.platform }
+              : { platform: 'Multiple platforms' }),
           }
         : item
     );
@@ -605,6 +636,88 @@ export class AdminDiscoveryMatchPage {
 
   private getGameKey(item: Pick<AdminDiscoveryListItem, 'igdbGameId' | 'platformIgdbId'>): string {
     return `${item.igdbGameId}::${String(item.platformIgdbId)}`;
+  }
+
+  private groupItems(items: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem[] {
+    const groups = new Map<string, AdminDiscoveryListItem[]>();
+
+    for (const item of items) {
+      const existing = groups.get(item.igdbGameId);
+      if (existing) {
+        existing.push(item);
+        continue;
+      }
+      groups.set(item.igdbGameId, [item]);
+    }
+
+    return [...groups.values()].map((group) => this.buildGroupedItem(group));
+  }
+
+  private buildGroupedItem(group: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem {
+    const representative = group[0];
+    const platformLabels = [
+      ...new Set(
+        group.map((item) => item.platform?.trim()).filter((value): value is string => !!value)
+      ),
+    ];
+
+    return {
+      ...representative,
+      platform: group.length > 1 ? 'Multiple platforms' : representative.platform,
+      matchState: this.aggregateMatchState(group),
+      gameKeys: group.map((item) => this.getGameKey(item)),
+      platformLabels,
+      groupedPlatformCount: group.length,
+    };
+  }
+
+  private aggregateMatchState(group: AdminDiscoveryListItem[]) {
+    return {
+      hltb: this.aggregateProviderState(group, 'hltb'),
+      review: this.aggregateProviderState(group, 'review'),
+      pricing: this.aggregateProviderState(group, 'pricing'),
+    };
+  }
+
+  private aggregateProviderState(
+    group: AdminDiscoveryListItem[],
+    provider: AdminDiscoveryMatchProvider
+  ) {
+    const states = group.map((item) => item.matchState[provider]);
+    const status = this.aggregateStatus(states.map((state) => state.status));
+
+    return {
+      status,
+      locked: states.every((state) => state.locked),
+      attempts: Math.max(...states.map((state) => state.attempts)),
+      lastTriedAt: this.pickLatestIso(states.map((state) => state.lastTriedAt)),
+      nextTryAt: this.pickLatestIso(states.map((state) => state.nextTryAt)),
+      permanentMiss: states.some((state) => state.permanentMiss),
+    };
+  }
+
+  private aggregateStatus(
+    statuses: AdminDiscoveryMatchStateStatus[]
+  ): AdminDiscoveryMatchStateStatus {
+    if (statuses.some((status) => status === 'missing')) {
+      return 'missing';
+    }
+    if (statuses.some((status) => status === 'retrying')) {
+      return 'retrying';
+    }
+    if (statuses.some((status) => status === 'permanentMiss')) {
+      return 'permanentMiss';
+    }
+    return 'matched';
+  }
+
+  private pickLatestIso(values: Array<string | null>): string | null {
+    const normalized = values.filter((value): value is string => typeof value === 'string');
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return normalized.sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
   }
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {
@@ -639,7 +752,7 @@ export class AdminDiscoveryMatchPage {
     this.activeQueueStatusTone = 'success';
   }
 
-  private describeTargetedRows(items: AdminDiscoveryListItem[]): string | null {
+  private describeTargetedRows(items: GroupedAdminDiscoveryListItem[]): string | null {
     if (items.length === 0) {
       return null;
     }
@@ -650,17 +763,25 @@ export class AdminDiscoveryMatchPage {
       .filter((label) => label.length > 0);
 
     if (labels.length === 0) {
-      return `${String(items.length)} row${items.length === 1 ? '' : 's'} targeted.`;
+      return `${String(items.length)} game${items.length === 1 ? '' : 's'} targeted.`;
     }
 
     const suffix =
       items.length > labels.length ? `, +${String(items.length - labels.length)} more` : '';
-    return `${String(items.length)} row${items.length === 1 ? '' : 's'} targeted: ${labels.join(', ')}${suffix}`;
+    return `${String(items.length)} game${items.length === 1 ? '' : 's'} targeted: ${labels.join(', ')}${suffix}`;
   }
 
   private describeActiveTarget(): string | null {
     if (!this.activeDetail) {
       return null;
+    }
+
+    if (this.activeGroup && this.activeGroup.groupedPlatformCount > 1) {
+      return `Targeted game: ${this.describeRow({
+        title: this.activeDetail.title,
+        platform: 'Multiple platforms',
+        releaseYear: this.activeDetail.releaseYear,
+      })}`;
     }
 
     return `Targeted row: ${this.describeRow(this.activeDetail)}`;

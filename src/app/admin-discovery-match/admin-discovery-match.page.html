@@ -88,7 +88,7 @@
       <ion-note color="medium">
         @if (hasAccessToken) {
           {{ items.length }} shown · {{ scannedCount }} scanned · queues targeted enrichment for the
-          visible rows
+          visible games
         } @else {
           Uses the device write token from Settings.
         }
@@ -128,9 +128,7 @@
       <ion-item class="game-row" lines="full">
         <ion-label>
           <h2>{{ item.title || 'Untitled discovery game' }}</h2>
-          <p>
-            {{ item.platform || 'Unknown platform' }} · {{ item.releaseYear || 'Unknown year' }}
-          </p>
+          <p>{{ getPlatformLabel(item) }} · {{ item.releaseYear || 'Unknown year' }}</p>
           <div class="badge-row">
             @for (provider of providerOptions; track provider.value) {
               <ion-badge [color]="getStatusColor(item, provider.value)">
@@ -185,8 +183,10 @@
 
           <ion-item lines="none">
             <ion-label color="medium">
-              {{ activeDetail.platform || 'Unknown platform' }} ·
-              {{ activeDetail.releaseYear || 'Unknown year' }}
+              {{ activePlatformLabel }} · {{ activeDetail.releaseYear || 'Unknown year' }}
+              @if (activePlatformNote) {
+                <p>{{ activePlatformNote }}</p>
+              }
             </ion-label>
             <ion-badge [color]="getStatusColor(activeDetail, activeModalProvider)">
               {{ getStatusLabel(activeDetail, activeModalProvider) }}

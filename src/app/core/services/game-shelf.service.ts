@@ -709,6 +709,21 @@ export class GameShelfService {
       return of([]);
     }
 
+    if (GameShelfService.STEAM_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+      const steamPricingApi = this.searchApi as Partial<SteamPriceLookupApi>;
+      if (typeof steamPricingApi.lookupSteamPrice !== 'function') {
+        return of([]);
+      }
+
+      return steamPricingApi
+        .lookupSteamPrice(igdbGameId, platformIgdbId)
+        .pipe(
+          map((response) =>
+            this.normalizeSteamPriceCandidates(response as SteamPriceLookupResult, normalizedTitle)
+          )
+        );
+    }
+
     const pspricesApi = this.searchApi as Partial<PsPricesLookupApi> & {
       lookupPsPricesCandidates?: (
         igdbGameId: string,
@@ -1814,6 +1829,30 @@ export class GameShelfService {
     };
   }
 
+  private normalizeSteamPriceCandidates(
+    result: SteamPriceLookupResult,
+    fallbackTitle: string
+  ): PriceMatchCandidate[] {
+    if (result.status !== 'ok' || !result.bestPrice) {
+      return [];
+    }
+
+    return [
+      {
+        title: fallbackTitle,
+        amount: this.normalizePriceAmount(result.bestPrice.amount),
+        currency: this.normalizePriceCurrency(result.bestPrice.currency),
+        regularAmount: this.normalizePriceAmount(result.bestPrice.initialAmount),
+        discountPercent: this.normalizePriceDiscountPercent(result.bestPrice.discountPercent),
+        isFree: this.normalizePriceIsFree(result.bestPrice.isFree),
+        url: this.normalizePriceUrl(result.bestPrice.url),
+        score: null,
+        source: 'steam_store',
+        isRecommended: true,
+      },
+    ];
+  }
+
   private normalizePsPricesLookupResult(result: PsPricesLookupResult): UnifiedPriceSnapshot | null {
     if (result.status !== 'ok' || !result.bestPrice) {
       return null;
@@ -1872,6 +1911,7 @@ export class GameShelfService {
 
     return normalizedCandidates.map((candidate, index) => ({
       ...candidate,
+      source: 'psprices',
       isRecommended: index === recommendedIndex,
     }));
   }

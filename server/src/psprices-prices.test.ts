@@ -3,6 +3,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
+import { config } from './config.js';
 import {
   processQueuedPspricesPriceRevalidation,
   registerPsPricesRoute,
@@ -1047,6 +1048,92 @@ void test('queued PSPrices revalidation clears retry state after a successful di
         > | null)
       : null;
   assert.equal(retry ?? null, null);
+});
+
+void test('queued PSPrices revalidation rearms capped retry state before persisting the next miss', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalMaxAttempts = config.recommendationsDiscoveryEnrichMaxAttempts;
+  const originalRearmAfterDays = config.recommendationsDiscoveryEnrichRearmAfterDays;
+  const originalRearmRecentReleaseYears =
+    config.recommendationsDiscoveryEnrichRearmRecentReleaseYears;
+  const pool = new GamePoolMock();
+  pool.seed('702', 167, {
+    listType: 'discovery',
+    title: 'Rearmer PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true,
+      },
+    },
+  });
+
+  config.recommendationsDiscoveryEnrichMaxAttempts = 6;
+  config.recommendationsDiscoveryEnrichRearmAfterDays = 30;
+  config.recommendationsDiscoveryEnrichRearmRecentReleaseYears = 1;
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:discovery:702:167:region-ch:games',
+      igdbGameId: '702',
+      platformIgdbId: 167,
+      title: 'Rearmer PS Game',
+      psPricesUrl: null,
+    });
+  } finally {
+    config.recommendationsDiscoveryEnrichMaxAttempts = originalMaxAttempts;
+    config.recommendationsDiscoveryEnrichRearmAfterDays = originalRearmAfterDays;
+    config.recommendationsDiscoveryEnrichRearmRecentReleaseYears = originalRearmRecentReleaseYears;
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('702', 167);
+  assert.ok(persisted);
+  assert.deepEqual(persisted['enrichmentRetry'], {
+    psprices: {
+      attempts: 1,
+      lastTriedAt:
+        persisted['enrichmentRetry'] &&
+        typeof persisted['enrichmentRetry'] === 'object' &&
+        !Array.isArray(persisted['enrichmentRetry'])
+          ? (persisted['enrichmentRetry'] as Record<string, unknown>).psprices &&
+            typeof (persisted['enrichmentRetry'] as Record<string, unknown>).psprices === 'object'
+            ? (
+                (persisted['enrichmentRetry'] as Record<string, unknown>).psprices as Record<
+                  string,
+                  unknown
+                >
+              ).lastTriedAt
+            : null
+          : null,
+      nextTryAt:
+        persisted['enrichmentRetry'] &&
+        typeof persisted['enrichmentRetry'] === 'object' &&
+        !Array.isArray(persisted['enrichmentRetry'])
+          ? (persisted['enrichmentRetry'] as Record<string, unknown>).psprices &&
+            typeof (persisted['enrichmentRetry'] as Record<string, unknown>).psprices === 'object'
+            ? (
+                (persisted['enrichmentRetry'] as Record<string, unknown>).psprices as Record<
+                  string,
+                  unknown
+                >
+              ).nextTryAt
+            : null
+          : null,
+      permanentMiss: false,
+    },
+  });
 });
 
 void test('PSPrices route clears persisted preferred url when a title override is provided', async () => {

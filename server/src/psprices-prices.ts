@@ -9,6 +9,7 @@ import { isProviderMatchLocked } from './provider-match-lock.js';
 import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   hasMeaningfulRetryState,
+  maybeRearmProviderRetryState,
   nextProviderRetryState,
   parseProviderRetryState,
 } from './recommendations/provider-retry-state.js';
@@ -1808,14 +1809,25 @@ export async function processQueuedPspricesPriceRevalidation(
     preferredUrl: preferredPsPricesUrl,
   });
 
-  const retryState = nextProviderRetryState({
-    current: parseProviderRetryState(
+  const currentRetryState = maybeRearmProviderRetryState({
+    state: parseProviderRetryState(
       gamePayload['enrichmentRetry'] &&
         typeof gamePayload['enrichmentRetry'] === 'object' &&
         !Array.isArray(gamePayload['enrichmentRetry'])
         ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['psprices']
         : null
     ),
+    nowMs: Date.now(),
+    releaseYear:
+      typeof gamePayload['releaseYear'] === 'number' && Number.isInteger(gamePayload['releaseYear'])
+        ? gamePayload['releaseYear']
+        : null,
+    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+  });
+  const retryState = nextProviderRetryState({
+    current: currentRetryState,
     nowIso: new Date().toISOString(),
     success: pspricesLookup.snapshot !== null,
     maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,

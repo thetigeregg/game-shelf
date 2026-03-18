@@ -717,6 +717,66 @@ void test('admin discovery pricing state shows permanent miss and clear route re
   }
 });
 
+void test('admin discovery patch route clears stale psprices metadata for steam pricing updates', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '24',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Steam Cleanup',
+      platform: 'PC',
+      psPricesUrl: 'https://psprices.com/us/game/steam-cleanup',
+      psPricesTitle: 'Steam Cleanup',
+      psPricesPlatform: 'PS4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/24/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'steam_store',
+        priceAmount: 9.99,
+        priceCurrency: 'USD',
+        priceUrl: 'https://store.steampowered.com/app/620/Portal_2/',
+        psPricesUrl: 'https://psprices.com/us/game/steam-cleanup',
+        psPricesTitle: 'Steam Cleanup',
+        psPricesPlatform: 'PS4',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('24', 6);
+    assert.ok(stored);
+    assert.equal(stored['priceSource'], 'steam_store');
+    assert.equal(stored['priceUrl'], 'https://store.steampowered.com/app/620/Portal_2/');
+    assert.equal(stored['psPricesUrl'], null);
+    assert.equal(stored['psPricesTitle'], null);
+    assert.equal(stored['psPricesPlatform'], null);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery requeue enrichment route enqueues the discovery job and dedupes repeated requests', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

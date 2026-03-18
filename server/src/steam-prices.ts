@@ -180,7 +180,8 @@ export async function registerSteamPricesRoute(
         payload !== null &&
         (querySteamAppId === null ||
           (payloadSteamAppId !== null && payloadSteamAppId === steamAppId));
-      const cachedSnapshot = canUsePayloadCache ? readSteamSnapshotFromPayload(payload, cc) : null;
+      const cachedSnapshot =
+        canUsePayloadCache && payload !== null ? readSteamSnapshotFromPayload(payload, cc) : null;
       if (cachedSnapshot) {
         const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
 
@@ -651,20 +652,28 @@ async function persistSteamSnapshot(
     patchPayload['steamPriceUrl'] =
       params.payload['steamPriceUrl'] ?? buildSteamAppUrl(params.steamAppId);
   } else {
+    const bestPrice = params.bestPrice;
+    if (bestPrice === null) {
+      throw new Error('Expected Steam best price when persisting Steam pricing data.');
+    }
+
     patchPayload['priceSource'] = 'steam_store';
     patchPayload['priceFetchedAt'] = fetchedAt;
-    patchPayload['priceAmount'] = params.bestPrice.amount;
-    patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
-    patchPayload['priceRegularAmount'] = params.bestPrice.initialAmount ?? null;
-    patchPayload['priceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
-    patchPayload['priceIsFree'] = params.bestPrice.isFree ?? null;
-    patchPayload['priceUrl'] = params.bestPrice.url;
-    patchPayload['steamPriceUrl'] = params.bestPrice.url;
-    patchPayload['steamPriceAmount'] = params.bestPrice.amount;
-    patchPayload['steamPriceCurrency'] = params.bestPrice.currency ?? null;
-    patchPayload['steamPriceInitialAmount'] = params.bestPrice.initialAmount ?? null;
-    patchPayload['steamPriceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
-    patchPayload['steamPriceIsFree'] = params.bestPrice.isFree ?? null;
+    patchPayload['priceAmount'] = bestPrice.amount;
+    patchPayload['priceCurrency'] = bestPrice.currency ?? null;
+    patchPayload['priceRegularAmount'] = bestPrice.initialAmount ?? null;
+    patchPayload['priceDiscountPercent'] = bestPrice.discountPercent ?? null;
+    patchPayload['priceIsFree'] = bestPrice.isFree ?? null;
+    patchPayload['priceUrl'] = bestPrice.url;
+    patchPayload['psPricesUrl'] = null;
+    patchPayload['psPricesTitle'] = null;
+    patchPayload['psPricesPlatform'] = null;
+    patchPayload['steamPriceUrl'] = bestPrice.url;
+    patchPayload['steamPriceAmount'] = bestPrice.amount;
+    patchPayload['steamPriceCurrency'] = bestPrice.currency ?? null;
+    patchPayload['steamPriceInitialAmount'] = bestPrice.initialAmount ?? null;
+    patchPayload['steamPriceDiscountPercent'] = bestPrice.discountPercent ?? null;
+    patchPayload['steamPriceIsFree'] = bestPrice.isFree ?? null;
   }
 
   const updateResult = await pool.query<{ previous_payload: unknown; next_payload: unknown }>(

@@ -837,10 +837,12 @@ function applyManualMatchPatch(
   const priceAmount = normalizeNumber(body.priceAmount);
   const priceIsFree = normalizeBoolean(body.priceIsFree);
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
+  const priceSource = normalizeString(body.priceSource) ?? 'psprices';
+  const isPsPricesSource = priceSource === 'psprices';
   if (priceAmount === null && priceIsFree === null && priceUrl === null) {
     return 'Pricing updates require at least one pricing field.';
   }
-  payload['priceSource'] = normalizeString(body.priceSource) ?? 'psprices';
+  payload['priceSource'] = priceSource;
   payload['priceFetchedAt'] = normalizeIsoDate(body.priceFetchedAt) ?? new Date().toISOString();
   payload['priceAmount'] = priceAmount;
   payload['priceCurrency'] = normalizeString(body.priceCurrency);
@@ -848,9 +850,11 @@ function applyManualMatchPatch(
   payload['priceDiscountPercent'] = normalizeNumber(body.priceDiscountPercent);
   payload['priceIsFree'] = priceIsFree;
   payload['priceUrl'] = priceUrl;
-  payload['psPricesUrl'] = normalizeString(body.psPricesUrl) ?? priceUrl;
-  payload['psPricesTitle'] = normalizeString(body.psPricesTitle);
-  payload['psPricesPlatform'] = normalizeString(body.psPricesPlatform);
+  payload['psPricesUrl'] = isPsPricesSource
+    ? (normalizeString(body.psPricesUrl) ?? priceUrl)
+    : null;
+  payload['psPricesTitle'] = isPsPricesSource ? normalizeString(body.psPricesTitle) : null;
+  payload['psPricesPlatform'] = isPsPricesSource ? normalizeString(body.psPricesPlatform) : null;
   payload['psPricesMatchLocked'] = true;
   return null;
 }

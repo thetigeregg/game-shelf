@@ -640,6 +640,83 @@ void test('admin discovery clear permanent miss route resets selected review ret
   }
 });
 
+void test('admin discovery pricing state shows permanent miss and clear route resets it', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '23',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs Pricing Reset',
+      platform: 'PlayStation 5',
+      enrichmentRetry: {
+        psprices: {
+          attempts: 6,
+          lastTriedAt: '2026-03-01T00:00:00.000Z',
+          nextTryAt: null,
+          permanentMiss: true,
+        },
+      },
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const listResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/matches/unmatched?provider=pricing&limit=10',
+      headers: {
+        'x-game-shelf-client-token': 'device-token-1',
+      },
+    });
+
+    assert.equal(listResponse.statusCode, 200);
+    const listBody = JSON.parse(listResponse.body) as {
+      items: Array<{ matchState: { pricing: { status: string; attempts: number } } }>;
+    };
+    assert.equal(listBody.items[0]?.matchState.pricing.status, 'permanentMiss');
+    assert.equal(listBody.items[0]?.matchState.pricing.attempts, 6);
+
+    const clearResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/matches/clear-permanent-miss',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        gameKeys: ['23::167'],
+      },
+    });
+
+    assert.equal(clearResponse.statusCode, 200);
+    const clearBody = JSON.parse(clearResponse.body) as { cleared: number };
+    assert.equal(clearBody.cleared, 1);
+    assert.deepEqual(pool.readPayload('23', 167)?.['enrichmentRetry'], {
+      psprices: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery requeue enrichment route enqueues the discovery job and dedupes repeated requests', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

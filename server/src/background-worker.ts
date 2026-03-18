@@ -19,6 +19,11 @@ import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
+import {
+  maybeRearmProviderRetryState,
+  parseProviderRetryState,
+  shouldAttemptProvider,
+} from './recommendations/provider-retry-state.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
 import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
@@ -49,6 +54,7 @@ interface PricingRefreshEnqueueStats {
   enqueued: number;
   deduped: number;
   skippedMissingData: number;
+  skippedBackoff: number;
 }
 export type BackgroundWorkerMode = 'all' | 'general' | 'recommendations';
 
@@ -221,7 +227,55 @@ export const __backgroundWorkerTestables = {
   resolvePspricesRevalidationUrl,
   isProviderMatchLocked,
   readDiscoveryEnrichmentProviders,
+  shouldSchedulePspricesRefresh,
 };
+
+function resolvePayloadReleaseYear(payload: Record<string, unknown>): number | null {
+  const candidate = payload['releaseYear'];
+  if (typeof candidate === 'number') {
+    return Number.isInteger(candidate) ? candidate : null;
+  }
+
+  if (typeof candidate === 'string' && /^\d{4}$/.test(candidate.trim())) {
+    return Number.parseInt(candidate.trim(), 10);
+  }
+
+  return null;
+}
+
+function shouldSchedulePspricesRefresh(params: {
+  payload: Record<string, unknown>;
+  platformIgdbId: number;
+  nowMs: number;
+  maxAttempts: number;
+  rearmAfterDays: number;
+  rearmRecentReleaseYears: number;
+}): boolean {
+  if (!PSPRICES_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
+    return false;
+  }
+
+  const retryState = maybeRearmProviderRetryState({
+    state: parseProviderRetryState(
+      params.payload['enrichmentRetry'] &&
+        typeof params.payload['enrichmentRetry'] === 'object' &&
+        !Array.isArray(params.payload['enrichmentRetry'])
+        ? (params.payload['enrichmentRetry'] as Record<string, unknown>)['psprices']
+        : null
+    ),
+    nowMs: params.nowMs,
+    releaseYear: resolvePayloadReleaseYear(params.payload),
+    rearmAfterDays: params.rearmAfterDays,
+    rearmRecentReleaseYears: params.rearmRecentReleaseYears,
+    maxAttempts: params.maxAttempts,
+  });
+
+  return shouldAttemptProvider({
+    state: retryState,
+    nowMs: params.nowMs,
+    maxAttempts: params.maxAttempts,
+  });
+}
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
   const rawValue =
@@ -739,10 +793,12 @@ async function main(): Promise<void> {
       enqueued: 0,
       deduped: 0,
       skippedMissingData: 0,
+      skippedBackoff: 0,
     };
     const steamCountry = config.steamDefaultCountry;
     const pspricesRegion = config.pspricesRegionPath.toLowerCase();
     const pspricesShow = config.pspricesShow.toLowerCase();
+    const nowMs = Date.now();
 
     for (const row of params.rows) {
       if (stats.enqueued >= params.queueLimit) {
@@ -795,6 +851,19 @@ async function main(): Promise<void> {
         continue;
       }
       if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
+        continue;
+      }
+      if (
+        !shouldSchedulePspricesRefresh({
+          payload,
+          platformIgdbId: row.platform_igdb_id,
+          nowMs,
+          maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+          rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+          rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+        })
+      ) {
+        stats.skippedBackoff += 1;
         continue;
       }
 

@@ -18,12 +18,12 @@ export function parseDiscoveryGameKey(value: string): DiscoveryGameKeyParts | nu
 
   const igdbGameId = normalized.slice(0, separatorIndex).trim();
   const platformRaw = normalized.slice(separatorIndex + 2).trim();
-  if (igdbGameId.length === 0 || !/^-?\d+$/.test(platformRaw)) {
+  if (igdbGameId.length === 0 || !/^\d+$/.test(platformRaw)) {
     return null;
   }
 
   const platformIgdbId = Number.parseInt(platformRaw, 10);
-  if (!Number.isInteger(platformIgdbId)) {
+  if (!Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
     return null;
   }
 

@@ -15,6 +15,7 @@ class PoolMock {
   private readonly rows = new Map<string, SeedRow>();
   private readonly backgroundJobs = new Map<string, number>();
   private nextBackgroundJobId = 1000;
+  keyLookupQueryCount = 0;
 
   seed(row: SeedRow): void {
     this.rows.set(this.key(row.igdbGameId, row.platformIgdbId), structuredClone(row));
@@ -26,6 +27,31 @@ class PoolMock {
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (
+      normalized.startsWith(
+        "select igdb_game_id, platform_igdb_id, payload from games where coalesce(payload->>'listtype', '') = 'discovery' and (igdb_game_id || '::' || platform_igdb_id::text) = any($1::text[])"
+      )
+    ) {
+      this.keyLookupQueryCount += 1;
+      const requestedKeys = Array.isArray(params[0])
+        ? new Set(
+            params[0]
+              .filter((item): item is string => typeof item === 'string')
+              .map((item) => item.trim())
+              .filter((item) => item.length > 0)
+          )
+        : new Set<string>();
+      const rows = [...this.rows.values()]
+        .filter((row) => row.payload['listType'] === 'discovery')
+        .filter((row) => requestedKeys.has(this.key(row.igdbGameId, row.platformIgdbId)))
+        .map((row) => ({
+          igdb_game_id: row.igdbGameId,
+          platform_igdb_id: row.platformIgdbId,
+          payload: structuredClone(row.payload),
+        }));
+      return Promise.resolve({ rows, rowCount: rows.length });
+    }
 
     if (
       normalized.startsWith(
@@ -341,6 +367,71 @@ void test('admin discovery pricing filter excludes unsupported platforms from mi
       ['10', '11']
     );
     assert.ok(body.items.every((item) => item.matchState.pricing.status === 'missing'));
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing filter treats negative prices as unmatched', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '13',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Negative Price Game',
+      platform: 'PlayStation 4',
+      priceAmount: -1,
+    },
+  });
+  pool.seed({
+    igdbGameId: '14',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Free Price Game',
+      platform: 'PlayStation 4',
+      priceIsFree: true,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/matches/unmatched?provider=pricing&limit=10',
+      headers: {
+        'x-game-shelf-client-token': 'device-token-1',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      count: number;
+      items: Array<{
+        igdbGameId: string;
+        matchState: { pricing: { status: string } };
+      }>;
+    };
+
+    assert.equal(body.count, 1);
+    assert.deepEqual(
+      body.items.map((item) => item.igdbGameId),
+      ['13']
+    );
+    assert.equal(body.items[0]?.matchState.pricing.status, 'missing');
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
@@ -2015,6 +2106,7 @@ void test('admin discovery clear permanent miss route leaves already-clear rows 
       provider: 'review',
       cleared: 0,
     });
+    assert.equal(pool.keyLookupQueryCount, 1);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

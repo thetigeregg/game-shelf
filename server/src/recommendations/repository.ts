@@ -368,15 +368,37 @@ export class RecommendationRepository {
       return [];
     }
 
+    const igdbGameIds: string[] = [];
+    const platformIgdbIds: number[] = [];
+
+    for (const key of normalizedKeys) {
+      const [igdbGameIdPart, platformIdPart] = key.split('::');
+      if (!igdbGameIdPart || !platformIdPart) {
+        continue;
+      }
+      const platformIdNum = Number(platformIdPart);
+      if (!Number.isFinite(platformIdNum)) {
+        continue;
+      }
+      igdbGameIds.push(igdbGameIdPart);
+      platformIgdbIds.push(platformIdNum);
+    }
+
+    if (igdbGameIds.length === 0) {
+      return [];
+    }
+
     const result = await queryable.query<DiscoveryGameRow>(
       `
-      SELECT igdb_game_id, platform_igdb_id, payload
-      FROM games
-      WHERE COALESCE(payload->>'listType', '') = 'discovery'
-        AND (igdb_game_id || '::' || platform_igdb_id::text) = ANY($1::text[])
-      ORDER BY updated_at DESC
+      SELECT g.igdb_game_id, g.platform_igdb_id, g.payload
+      FROM games AS g
+      JOIN UNNEST($1::text[], $2::bigint[]) AS k(igdb_game_id, platform_igdb_id)
+        ON g.igdb_game_id = k.igdb_game_id
+       AND g.platform_igdb_id = k.platform_igdb_id
+      WHERE COALESCE(g.payload->>'listType', '') = 'discovery'
+      ORDER BY g.updated_at DESC
       `,
-      [normalizedKeys]
+      [igdbGameIds, platformIgdbIds]
     );
 
     return result.rows.map((row) => ({

@@ -693,6 +693,15 @@ function normalizeTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
+function isDiscoveryEnrichmentProvider(
+  value: unknown
+): value is DiscoveryEnrichmentProvider {
+  return (
+    typeof value === 'string' &&
+    (DISCOVERY_ENRICHMENT_PROVIDERS as readonly string[]).includes(value)
+  );
+}
+
 function normalizeTargetProviders(
   value: DiscoveryEnrichmentProvider[] | undefined
 ): Set<DiscoveryEnrichmentProvider> | null {
@@ -700,9 +709,16 @@ function normalizeTargetProviders(
     return null;
   }
 
-  const providers = [...new Set(value)];
+  const uniqueProviders = new Set<unknown>(value);
+  const filteredProviders: DiscoveryEnrichmentProvider[] = [];
 
-  return providers.length > 0 ? new Set(providers) : null;
+  for (const provider of uniqueProviders) {
+    if (isDiscoveryEnrichmentProvider(provider)) {
+      filteredProviders.push(provider);
+    }
+  }
+
+  return filteredProviders.length > 0 ? new Set(filteredProviders) : null;
 }
 
 function buildHltbLookupContext(

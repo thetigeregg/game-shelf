@@ -12,6 +12,7 @@ import {
   type ProviderRetryState,
 } from './recommendations/provider-retry-state.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import pLimit from 'p-limit';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
 type ClearableDiscoveryMatchProvider = 'hltb' | 'review';
@@ -481,11 +482,12 @@ async function enqueuePricingRefreshJobs(
     ignorePsPricesLock: boolean;
   }
 ): Promise<AdminRequeueResult> {
-  const results: Array<{ jobId: number; deduped: boolean }> = [];
+  const results: Array<Promise<{ jobId: number; deduped: boolean }>> = [];
   const steamCountry = config.steamDefaultCountry;
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
+  const limit = pLimit(5);
 
   for (const game of games) {
     const payload = normalizePayloadObject(game.payload);
@@ -550,23 +552,26 @@ async function enqueuePricingRefreshJobs(
     }
 
     results.push(
-      await backgroundJobs.enqueue({
-        jobType: 'psprices_price_revalidate',
-        dedupeKey: `${params.requestedBy}:psprices:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
-        payload: {
-          cacheKey: `${params.requestedBy}:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
-          igdbGameId: game.igdbGameId,
-          platformIgdbId: game.platformIgdbId,
-          title,
-          psPricesUrl: resolvePreferredPsPricesUrl(payload),
-        },
-        priority: 120,
-        maxAttempts: 3,
-      })
+      limit(() =>
+        backgroundJobs.enqueue({
+          jobType: 'psprices_price_revalidate',
+          dedupeKey: `${params.requestedBy}:psprices:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
+          payload: {
+            cacheKey: `${params.requestedBy}:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
+            igdbGameId: game.igdbGameId,
+            platformIgdbId: game.platformIgdbId,
+            title,
+            psPricesUrl: resolvePreferredPsPricesUrl(payload),
+          },
+          priority: 120,
+          maxAttempts: 3,
+        })
+      )
     );
   }
 
-  return toAdminRequeueResult(results);
+  const settledResults = await Promise.all(results);
+  return toAdminRequeueResult(settledResults);
 }
 
 function buildDetailResponse(
@@ -841,12 +846,28 @@ function applyManualMatchPatch(
   if (priceAmount === null && !priceIsFree && priceUrl === null) {
     return 'Pricing updates require at least one pricing field.';
   }
+  const priceRegularAmount = normalizeNumber(body.priceRegularAmount);
+  const priceDiscountPercent = normalizeNumber(body.priceDiscountPercent);
+
+  if (priceAmount !== null && priceAmount < 0) {
+    return 'priceAmount must be greater than or equal to 0.';
+  }
+  if (priceRegularAmount !== null && priceRegularAmount < 0) {
+    return 'priceRegularAmount must be greater than or equal to 0.';
+  }
+  if (
+    priceDiscountPercent !== null &&
+    (priceDiscountPercent < 0 || priceDiscountPercent > 100)
+  ) {
+    return 'priceDiscountPercent must be between 0 and 100.';
+  }
+
   payload['priceSource'] = priceSource;
   payload['priceFetchedAt'] = normalizeIsoDate(body.priceFetchedAt) ?? new Date().toISOString();
   payload['priceAmount'] = priceAmount;
   payload['priceCurrency'] = normalizeString(body.priceCurrency);
-  payload['priceRegularAmount'] = normalizeNumber(body.priceRegularAmount);
-  payload['priceDiscountPercent'] = normalizeNumber(body.priceDiscountPercent);
+  payload['priceRegularAmount'] = priceRegularAmount;
+  payload['priceDiscountPercent'] = priceDiscountPercent;
   payload['priceIsFree'] = priceIsFree;
   payload['priceUrl'] = priceUrl;
   payload['psPricesUrl'] = isPsPricesSource

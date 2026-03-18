@@ -835,11 +835,11 @@ function applyManualMatchPatch(
   }
 
   const priceAmount = normalizeNumber(body.priceAmount);
-  const priceIsFree = normalizeBoolean(body.priceIsFree);
+  const priceIsFree = normalizeBoolean(body.priceIsFree) === true;
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
   const priceSource = normalizeString(body.priceSource) ?? 'psprices';
   const isPsPricesSource = priceSource === 'psprices';
-  if (priceAmount === null && priceIsFree === null && priceUrl === null) {
+  if (priceAmount === null && !priceIsFree && priceUrl === null) {
     return 'Pricing updates require at least one pricing field.';
   }
   payload['priceSource'] = priceSource;
@@ -856,6 +856,7 @@ function applyManualMatchPatch(
   payload['psPricesTitle'] = isPsPricesSource ? normalizeString(body.psPricesTitle) : null;
   payload['psPricesPlatform'] = isPsPricesSource ? normalizeString(body.psPricesPlatform) : null;
   payload['psPricesMatchLocked'] = true;
+  resetRetryState(payload, 'psprices');
   return null;
 }
 

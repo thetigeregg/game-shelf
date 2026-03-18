@@ -1088,6 +1088,14 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
       psPricesUrl: 'https://psprices.com/us/game/steam-cleanup',
       psPricesTitle: 'Steam Cleanup',
       psPricesPlatform: 'PS4',
+      enrichmentRetry: {
+        psprices: {
+          attempts: 4,
+          lastTriedAt: '2026-03-09T00:00:00.000Z',
+          nextTryAt: null,
+          permanentMiss: true,
+        },
+      },
     },
   });
 
@@ -1120,6 +1128,14 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
     assert.equal(stored['psPricesUrl'], null);
     assert.equal(stored['psPricesTitle'], null);
     assert.equal(stored['psPricesPlatform'], null);
+    assert.deepEqual(stored['enrichmentRetry'], {
+      psprices: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
+    });
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
@@ -1827,6 +1843,53 @@ void test('admin discovery pricing patch route rejects empty pricing updates', a
       },
       payload: {
         provider: 'pricing',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Pricing updates require at least one pricing field.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch route rejects priceIsFree false without amount or url', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '49',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Unknown Price',
+      platform: 'PlayStation 4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/49/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceIsFree: false,
       },
     });
 

@@ -631,30 +631,32 @@
                 (ionInput)="pricingForm.priceUrl = $any($event).detail.value || ''"
               ></ion-input>
             </ion-item>
-            <ion-item>
-              <ion-input
-                label="PSPrices URL"
-                labelPlacement="stacked"
-                [value]="pricingForm.psPricesUrl"
-                (ionInput)="pricingForm.psPricesUrl = $any($event).detail.value || ''"
-              ></ion-input>
-            </ion-item>
-            <ion-item>
-              <ion-input
-                label="PSPrices title"
-                labelPlacement="stacked"
-                [value]="pricingForm.psPricesTitle"
-                (ionInput)="pricingForm.psPricesTitle = $any($event).detail.value || ''"
-              ></ion-input>
-            </ion-item>
-            <ion-item>
-              <ion-input
-                label="PSPrices platform"
-                labelPlacement="stacked"
-                [value]="pricingForm.psPricesPlatform"
-                (ionInput)="pricingForm.psPricesPlatform = $any($event).detail.value || ''"
-              ></ion-input>
-            </ion-item>
+            @if (showPsPricesFields) {
+              <ion-item>
+                <ion-input
+                  label="PSPrices URL"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesUrl"
+                  (ionInput)="pricingForm.psPricesUrl = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+              <ion-item>
+                <ion-input
+                  label="PSPrices title"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesTitle"
+                  (ionInput)="pricingForm.psPricesTitle = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+              <ion-item>
+                <ion-input
+                  label="PSPrices platform"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesPlatform"
+                  (ionInput)="pricingForm.psPricesPlatform = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+            }
           }
 
           @if (activeQueueStatusMessage) {

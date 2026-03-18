@@ -87,8 +87,7 @@
       </ion-button>
       <ion-note color="medium">
         @if (hasAccessToken) {
-          {{ items.length }} shown · {{ scannedCount }} scanned · queues targeted enrichment for the
-          visible games
+          {{ items.length }} shown · {{ scannedCount }} scanned · {{ listRequeueNote }}
         } @else {
           Uses the device write token from Settings.
         }
@@ -686,7 +685,7 @@
             @if (isRequeueing) {
               <ion-spinner name="crescent" slot="start"></ion-spinner>
             }
-            Requeue enrichment
+            {{ activeRequeueLabel }}
           </ion-button>
           <ion-button color="primary" [disabled]="isSaving" (click)="saveActiveProvider()">
             @if (isSaving) {

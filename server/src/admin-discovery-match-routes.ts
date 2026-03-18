@@ -387,21 +387,14 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       }
 
       const requestedKeys = parseGameKeys(body.gameKeys);
-      const rows = await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
+      const rows =
+        requestedKeys === null
+          ? await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT)
+          : await listDiscoveryGamesByKeys(pool, requestedKeys);
       let cleared = 0;
 
       for (const row of rows) {
-        const payload = normalizePayloadObject(row.payload);
-        if (!payload) {
-          continue;
-        }
-
-        const gameKey = `${row.igdbGameId}::${String(row.platformIgdbId)}`;
-        if (requestedKeys !== null && !requestedKeys.has(gameKey)) {
-          continue;
-        }
-
-        const nextPayload = structuredClone(payload);
+        const nextPayload = structuredClone(row.payload);
         const didReset = resetPermanentMiss(nextPayload, provider);
         if (!didReset) {
           continue;
@@ -986,8 +979,29 @@ async function listDiscoveryGamesByKeys(
   pool: Pool,
   gameKeys: Set<string>
 ): Promise<NormalizedDiscoveryGame[]> {
-  const rows = await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
-  return rows.filter((row) => gameKeys.has(`${row.igdbGameId}::${String(row.platformIgdbId)}`));
+  const normalizedKeys = [...gameKeys].map((key) => key.trim()).filter((key) => key.length > 0);
+  if (normalizedKeys.length === 0) {
+    return [];
+  }
+
+  const result = await pool.query<DiscoveryGameRow>(
+    `
+    SELECT igdb_game_id, platform_igdb_id, payload
+    FROM games
+    WHERE COALESCE(payload->>'listType', '') = 'discovery'
+      AND (igdb_game_id || '::' || platform_igdb_id::text) = ANY($1::text[])
+    ORDER BY updated_at DESC
+    `,
+    [normalizedKeys]
+  );
+
+  return result.rows
+    .map((row) => ({
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id,
+      payload: normalizePayloadObject(row.payload),
+    }))
+    .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
 }
 
 async function listDiscoveryGamesByIgdbGameId(
@@ -1107,7 +1121,8 @@ function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean {
   if (payload['priceIsFree'] === true) {
     return true;
   }
-  return normalizeNumber(payload['priceAmount']) !== null;
+  const priceAmount = normalizeNumber(payload['priceAmount']);
+  return priceAmount !== null && priceAmount >= 0;
 }
 
 function parseProvider(value: unknown): DiscoveryMatchProvider | null {

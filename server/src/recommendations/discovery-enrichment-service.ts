@@ -213,6 +213,14 @@ export class DiscoveryEnrichmentService {
     const normalizedProviders = normalizeTargetProviders(params?.providers);
     const forcedLockedProviders =
       normalizeTargetProviders(params?.forceLockedProviders) ?? new Set();
+    if (normalizedGameKeys !== null && normalizedGameKeys.length === 0) {
+      return {
+        scanned: 0,
+        updated: 0,
+        skipped: 0,
+      };
+    }
+
     const rows =
       normalizedGameKeys !== null
         ? await this.repository.listDiscoveryRowsByGameKeys(normalizedGameKeys, queryable)
@@ -256,12 +264,7 @@ export class DiscoveryEnrichmentService {
       return null;
     }
 
-    const normalized = normalizeDiscoveryGameKeys(value);
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    return normalized;
+    return normalizeDiscoveryGameKeys(value);
   }
 
   private async enrichPayload(

@@ -304,6 +304,8 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
       queued: true,
       deduped: false,
       jobId: 1000,
+      queuedCount: 1,
+      dedupedCount: 0,
     });
 
     const secondResponse = await app.inject({
@@ -320,6 +322,62 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
       queued: false,
       deduped: true,
       jobId: 1000,
+      queuedCount: 0,
+      dedupedCount: 1,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing requeue route enqueues targeted pricing refresh jobs', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '44',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'PS Game',
+      platform: 'PlayStation 4',
+      psPricesTitle: 'PS Game',
+      psPricesUrl: 'https://psprices.com/us/game/ps-game',
+      psPricesMatchLocked: true,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/games/44/48/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 1000,
+      queuedCount: 1,
+      dedupedCount: 0,
     });
   } finally {
     config.requireAuth = originalRequireAuth;
@@ -555,6 +613,8 @@ void test('admin discovery requeue enrichment route enqueues the discovery job a
       queued: true,
       deduped: false,
       jobId: 1000,
+      queuedCount: 1,
+      dedupedCount: 0,
     });
 
     const secondResponse = await app.inject({
@@ -571,6 +631,8 @@ void test('admin discovery requeue enrichment route enqueues the discovery job a
       queued: false,
       deduped: true,
       jobId: 1000,
+      queuedCount: 0,
+      dedupedCount: 1,
     });
   } finally {
     config.requireAuth = originalRequireAuth;

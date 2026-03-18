@@ -3,6 +3,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
@@ -68,7 +69,16 @@ interface ClearPermanentMissBody {
 }
 
 interface RequeueDiscoveryEnrichmentBody {
+  provider?: unknown;
   gameKeys?: unknown;
+}
+
+interface AdminRequeueResult {
+  jobId: number | null;
+  queued: boolean;
+  deduped: boolean;
+  queuedCount: number;
+  dedupedCount: number;
 }
 
 interface ProviderRetryState {
@@ -154,19 +164,28 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       }
 
       const body = (request.body ?? {}) as RequeueDiscoveryEnrichmentBody;
+      const provider = parseProvider(body.provider);
       const requestedKeys = parseGameKeys(body.gameKeys);
+
+      if (provider === 'pricing') {
+        const games = requestedKeys
+          ? await listDiscoveryGamesByKeys(pool, requestedKeys)
+          : await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
+        const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, games, {
+          requestedBy: 'admin-discovery-match-list',
+          ignorePsPricesLock: true,
+        });
+        reply.send({ ok: true, ...enqueueResult });
+        return;
+      }
 
       const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
         requestedBy: 'admin-discovery-match-list',
         gameKeys: requestedKeys === null ? undefined : [...requestedKeys],
+        ...(provider !== null ? { providers: [provider] } : {}),
       });
 
-      reply.send({
-        ok: true,
-        queued: !enqueueResult.deduped,
-        deduped: enqueueResult.deduped,
-        jobId: enqueueResult.jobId,
-      });
+      reply.send({ ok: true, ...toAdminRequeueResult([enqueueResult]) });
     }
   );
 
@@ -312,6 +331,8 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       }
 
       const params = request.params as DetailParams;
+      const body = (request.body ?? {}) as RequeueDiscoveryEnrichmentBody;
+      const provider = parseProvider(body.provider);
       const game = await getDiscoveryGame(pool, params.igdbGameId, params.platformIgdbId);
       if (!game) {
         reply.code(404).send({ error: 'Discovery game not found.' });
@@ -320,6 +341,15 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
 
       const relatedGames = await listDiscoveryGamesByIgdbGameId(pool, game.igdbGameId);
 
+      if (provider === 'pricing') {
+        const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, relatedGames, {
+          requestedBy: 'admin-discovery-match',
+          ignorePsPricesLock: true,
+        });
+        reply.send({ ok: true, ...enqueueResult });
+        return;
+      }
+
       const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
         requestedBy: 'admin-discovery-match',
         igdbGameId: game.igdbGameId,
@@ -327,14 +357,10 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         gameKeys: relatedGames.map(
           (relatedGame) => `${relatedGame.igdbGameId}::${String(relatedGame.platformIgdbId)}`
         ),
+        ...(provider !== null ? { providers: [provider] } : {}),
       });
 
-      reply.send({
-        ok: true,
-        queued: !enqueueResult.deduped,
-        deduped: enqueueResult.deduped,
-        jobId: enqueueResult.jobId,
-      });
+      reply.send({ ok: true, ...toAdminRequeueResult([enqueueResult]) });
     }
   );
 
@@ -405,6 +431,7 @@ function enqueueDiscoveryEnrichmentRun(
     igdbGameId?: string;
     platformIgdbId?: number;
     gameKeys?: string[];
+    providers?: Array<'hltb' | 'review'>;
   }
 ): Promise<{ jobId: number; deduped: boolean }> {
   const normalizedGameKeys =
@@ -418,6 +445,9 @@ function enqueueDiscoveryEnrichmentRun(
       requestedAt: new Date().toISOString(),
       requestedBy: params.requestedBy,
       ...(normalizedGameKeys !== null ? { gameKeys: normalizedGameKeys } : {}),
+      ...(Array.isArray(params.providers) && params.providers.length > 0
+        ? { providers: params.providers }
+        : {}),
       ...(typeof params.igdbGameId === 'string' ? { igdbGameId: params.igdbGameId } : {}),
       ...(typeof params.platformIgdbId === 'number'
         ? { platformIgdbId: params.platformIgdbId }
@@ -426,6 +456,98 @@ function enqueueDiscoveryEnrichmentRun(
     priority: 95,
     maxAttempts: 3,
   });
+}
+
+function toAdminRequeueResult(
+  results: Array<{ jobId: number; deduped: boolean }>
+): AdminRequeueResult {
+  const queuedCount = results.filter((result) => !result.deduped).length;
+  const dedupedCount = results.filter((result) => result.deduped).length;
+
+  return {
+    jobId: results[0]?.jobId ?? null,
+    queued: queuedCount > 0,
+    deduped: queuedCount === 0 && dedupedCount > 0,
+    queuedCount,
+    dedupedCount,
+  };
+}
+
+async function enqueuePricingRefreshJobs(
+  backgroundJobs: BackgroundJobRepository,
+  games: NormalizedDiscoveryGame[],
+  params: {
+    requestedBy: string;
+    ignorePsPricesLock: boolean;
+  }
+): Promise<AdminRequeueResult> {
+  const results: Array<{ jobId: number; deduped: boolean }> = [];
+  const steamCountry = config.steamDefaultCountry;
+  const pspricesRegion = config.pspricesRegionPath.toLowerCase();
+  const pspricesShow = config.pspricesShow.toLowerCase();
+
+  for (const game of games) {
+    const payload = normalizePayloadObject(game.payload);
+    if (payload === null) {
+      continue;
+    }
+
+    if (game.platformIgdbId === 6) {
+      const steamAppId = normalizeInteger(payload['steamAppId']);
+      if (steamAppId === null) {
+        continue;
+      }
+
+      results.push(
+        await backgroundJobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey: `${params.requestedBy}:steam:${game.igdbGameId}:${String(game.platformIgdbId)}:${steamCountry}:${String(steamAppId)}`,
+          payload: {
+            cacheKey: `${params.requestedBy}:${game.igdbGameId}:${String(game.platformIgdbId)}:${steamCountry}:${String(steamAppId)}`,
+            igdbGameId: game.igdbGameId,
+            platformIgdbId: game.platformIgdbId,
+            cc: steamCountry,
+            steamAppId,
+          },
+          priority: 120,
+          maxAttempts: 3,
+        })
+      );
+      continue;
+    }
+
+    if (![48, 167, 130, 508].includes(game.platformIgdbId)) {
+      continue;
+    }
+
+    if (!params.ignorePsPricesLock && isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
+      continue;
+    }
+
+    const title =
+      normalizeString(payload['psPricesMatchQueryTitle']) ?? normalizeString(payload['title']);
+    if (title === null) {
+      continue;
+    }
+
+    results.push(
+      await backgroundJobs.enqueue({
+        jobType: 'psprices_price_revalidate',
+        dedupeKey: `${params.requestedBy}:psprices:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
+        payload: {
+          cacheKey: `${params.requestedBy}:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
+          igdbGameId: game.igdbGameId,
+          platformIgdbId: game.platformIgdbId,
+          title,
+          psPricesUrl: resolvePreferredPsPricesUrl(payload),
+        },
+        priority: 120,
+        maxAttempts: 3,
+      })
+    );
+  }
+
+  return toAdminRequeueResult(results);
 }
 
 function buildDetailResponse(
@@ -811,6 +933,14 @@ async function listDiscoveryRows(
       ): row is { igdbGameId: string; platformIgdbId: number; payload: Record<string, unknown> } =>
         row.payload !== null
     );
+}
+
+async function listDiscoveryGamesByKeys(
+  pool: Pool,
+  gameKeys: Set<string>
+): Promise<NormalizedDiscoveryGame[]> {
+  const rows = await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
+  return rows.filter((row) => gameKeys.has(`${row.igdbGameId}::${String(row.platformIgdbId)}`));
 }
 
 async function listDiscoveryGamesByIgdbGameId(

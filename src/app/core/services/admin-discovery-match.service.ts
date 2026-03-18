@@ -137,7 +137,9 @@ export interface AdminDiscoveryRequeueResponse {
   ok: boolean;
   queued: boolean;
   deduped: boolean;
-  jobId: number;
+  jobId: number | null;
+  queuedCount: number;
+  dedupedCount: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -227,21 +229,28 @@ export class AdminDiscoveryMatchService {
 
   requeueEnrichment(
     igdbGameId: string,
-    platformIgdbId: number
+    platformIgdbId: number,
+    provider?: AdminDiscoveryMatchProvider
   ): Observable<AdminDiscoveryRequeueResponse> {
     return this.httpClient.post<AdminDiscoveryRequeueResponse>(
       `${this.baseUrl}/games/${encodeURIComponent(igdbGameId)}/${String(platformIgdbId)}/requeue-enrichment`,
-      {},
+      provider ? { provider } : {},
       {
         headers: this.buildHeaders(),
       }
     );
   }
 
-  requeueEnrichmentRun(gameKeys?: string[]): Observable<AdminDiscoveryRequeueResponse> {
+  requeueEnrichmentRun(
+    provider?: AdminDiscoveryMatchProvider,
+    gameKeys?: string[]
+  ): Observable<AdminDiscoveryRequeueResponse> {
     return this.httpClient.post<AdminDiscoveryRequeueResponse>(
       `${this.baseUrl}/requeue-enrichment`,
-      Array.isArray(gameKeys) && gameKeys.length > 0 ? { gameKeys } : {},
+      {
+        ...(provider ? { provider } : {}),
+        ...(Array.isArray(gameKeys) && gameKeys.length > 0 ? { gameKeys } : {}),
+      },
       {
         headers: this.buildHeaders(),
       }

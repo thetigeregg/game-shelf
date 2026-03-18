@@ -95,6 +95,26 @@ export function readDiscoveryEnrichmentGameKeys(payload: Record<string, unknown>
   return normalized.length > 0 ? normalized : null;
 }
 
+export function readDiscoveryEnrichmentProviders(
+  payload: Record<string, unknown>
+): Array<'hltb' | 'review' | 'steam'> | null {
+  const value = payload['providers'];
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = [
+    ...new Set(
+      value.filter(
+        (item): item is 'hltb' | 'review' | 'steam' =>
+          item === 'hltb' || item === 'review' || item === 'steam'
+      )
+    ),
+  ];
+
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function shouldRunPricingRefreshPhase(params: {
   enabled: boolean;
   trigger: 'startup' | 'interval';
@@ -200,6 +220,7 @@ export const __backgroundWorkerTestables = {
   resolvePspricesRevalidationTitle,
   resolvePspricesRevalidationUrl,
   isProviderMatchLocked,
+  readDiscoveryEnrichmentProviders,
 };
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -1034,12 +1055,14 @@ async function main(): Promise<void> {
       }
       case 'discovery_enrichment_run': {
         const gameKeys = readDiscoveryEnrichmentGameKeys(job.payload);
+        const providers = readDiscoveryEnrichmentProviders(job.payload);
         const summary =
-          gameKeys === null
+          gameKeys === null && providers === null
             ? await discoveryEnrichmentService.runOnce()
             : await discoveryEnrichmentService.enrichNow({
-                limit: Math.max(gameKeys.length, 1),
-                gameKeys,
+                limit: Math.max(gameKeys?.length ?? 1, 1),
+                ...(gameKeys !== null ? { gameKeys } : {}),
+                ...(providers !== null ? { providers, forceLockedProviders: providers } : {}),
               });
         return { summary };
       }

@@ -14,6 +14,7 @@ import {
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
+type ClearableDiscoveryMatchProvider = 'hltb' | 'review';
 type DiscoveryMatchStateStatus = 'matched' | 'missing' | 'retrying' | 'permanentMiss';
 
 interface DiscoveryGameRow extends QueryResultRow {
@@ -379,9 +380,9 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       }
 
       const body = (request.body ?? {}) as ClearPermanentMissBody;
-      const provider = parseRequiredProvider(body.provider);
+      const provider = parseClearableProvider(body.provider);
       if (!provider) {
-        reply.code(400).send({ error: 'Provider must be hltb, review, or pricing.' });
+        reply.code(400).send({ error: 'Provider must be hltb or review.' });
         return;
       }
 
@@ -458,6 +459,10 @@ function enqueueDiscoveryEnrichmentRun(
     priority: 95,
     maxAttempts: 3,
   });
+}
+
+function parseClearableProvider(value: unknown): ClearableDiscoveryMatchProvider | null {
+  return value === 'hltb' || value === 'review' ? value : null;
 }
 
 function toAdminRequeueResult(

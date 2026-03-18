@@ -991,7 +991,7 @@ void test('admin discovery clear permanent miss route resets selected review ret
   }
 });
 
-void test('admin discovery pricing state shows permanent miss and clear route resets it', async () => {
+void test('admin discovery pricing state shows permanent miss but clear route rejects pricing', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
@@ -1049,15 +1049,15 @@ void test('admin discovery pricing state shows permanent miss and clear route re
       },
     });
 
-    assert.equal(clearResponse.statusCode, 200);
-    const clearBody = JSON.parse(clearResponse.body) as { cleared: number };
-    assert.equal(clearBody.cleared, 1);
+    assert.equal(clearResponse.statusCode, 400);
+    const clearBody = JSON.parse(clearResponse.body) as { error: string };
+    assert.equal(clearBody.error, 'Provider must be hltb or review.');
     assert.deepEqual(pool.readPayload('23', 167)?.['enrichmentRetry'], {
       psprices: {
-        attempts: 0,
-        lastTriedAt: null,
+        attempts: 6,
+        lastTriedAt: '2026-03-01T00:00:00.000Z',
         nextTryAt: null,
-        permanentMiss: false,
+        permanentMiss: true,
       },
     });
   } finally {
@@ -1931,7 +1931,7 @@ void test('admin discovery clear permanent miss route rejects invalid providers'
 
     assert.equal(response.statusCode, 400);
     assert.deepEqual(JSON.parse(response.body), {
-      error: 'Provider must be hltb, review, or pricing.',
+      error: 'Provider must be hltb or review.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;
@@ -2004,7 +2004,7 @@ void test('admin discovery clear permanent miss route leaves already-clear rows 
         authorization: 'Bearer test-admin-token',
       },
       payload: {
-        provider: 'pricing',
+        provider: 'review',
         gameKeys: ['45::167'],
       },
     });
@@ -2012,7 +2012,7 @@ void test('admin discovery clear permanent miss route leaves already-clear rows 
     assert.equal(response.statusCode, 200);
     assert.deepEqual(JSON.parse(response.body), {
       ok: true,
-      provider: 'pricing',
+      provider: 'review',
       cleared: 0,
     });
   } finally {

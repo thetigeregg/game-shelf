@@ -79,7 +79,10 @@
         expand="block"
         size="small"
         [disabled]="
-          selectedProvider === 'pricing' || visiblePermanentMissKeys.length === 0 || isLoading
+          !hasAccessToken ||
+          selectedProvider === 'pricing' ||
+          visiblePermanentMissKeys.length === 0 ||
+          isLoading
         "
         (click)="clearVisiblePermanentMisses()"
       >

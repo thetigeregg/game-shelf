@@ -132,6 +132,7 @@ function createPageHarness(): {
     searchPricingCandidates: ReturnType<typeof vi.fn>;
   };
   adminMatchService: {
+    clearPermanentMiss: ReturnType<typeof vi.fn>;
     requeueEnrichment: ReturnType<typeof vi.fn>;
     requeueEnrichmentRun: ReturnType<typeof vi.fn>;
   };
@@ -144,6 +145,7 @@ function createPageHarness(): {
     searchPricingCandidates: vi.fn(() => of([])),
   };
   const adminMatchService = {
+    clearPermanentMiss: vi.fn(() => of({ cleared: 1 })),
     requeueEnrichment: vi.fn(() =>
       of({ ok: true, queued: true, deduped: false, jobId: 55, queuedCount: 1, dedupedCount: 0 })
     ),
@@ -711,5 +713,40 @@ describe('AdminDiscoveryMatchPage', () => {
 
     expect(page.visiblePermanentMissKeys).toEqual(['123::48']);
     expect(grouped[0]?.matchState.hltb.status).toBe('permanentMiss');
+  });
+
+  it('blocks permanent-miss reset without a configured device write token', async () => {
+    const { page, adminMatchService, toastCreate } = createPageHarness();
+    const grouped = groupAdminDiscoveryItems([
+      {
+        ...createDetail(),
+        matchState: {
+          ...createDetail().matchState,
+          hltb: {
+            ...createDetail().matchState.hltb,
+            status: 'permanentMiss',
+            permanentMiss: true,
+            attempts: 6,
+          },
+        },
+      },
+    ]);
+
+    setField(page, 'selectedProvider', 'hltb');
+    setField(page, 'items', grouped);
+    setField(page, 'clientWriteAuth', {
+      getToken: vi.fn(() => null),
+      hasToken: vi.fn(() => false),
+    });
+
+    await page.clearVisiblePermanentMisses();
+
+    expect(adminMatchService.clearPermanentMiss).not.toHaveBeenCalled();
+    expect(toastCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Set a device write token in Settings to use discovery match controls.',
+        color: 'warning',
+      })
+    );
   });
 });

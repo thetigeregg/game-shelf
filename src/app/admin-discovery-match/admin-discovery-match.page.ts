@@ -275,6 +275,14 @@ export class AdminDiscoveryMatchPage {
       return;
     }
 
+    if (!this.hasAccessToken) {
+      await this.presentToast(
+        'Set a device write token in Settings to use discovery match controls.',
+        'warning'
+      );
+      return;
+    }
+
     const gameKeys = this.visiblePermanentMissKeys;
     if (gameKeys.length === 0) {
       await this.presentToast('No permanent misses in the current result.');

@@ -101,7 +101,14 @@ Pricing is considered matched when either of these is true:
 - `priceAmount` exists
 - `priceIsFree === true`
 
-Pricing does not use the discovery retry/permanent-miss model in this admin page. Its state is only `matched` or `missing`.
+If no pricing match exists, the state is derived from `payload.enrichmentRetry.psprices` for supported pricing platforms.
+
+That means pricing can also appear as:
+
+- `retrying` when retry metadata exists but no current price match is stored
+- `permanentMiss` when PSPrices retries were exhausted and the provider is marked as permanently missed
+
+Manual pricing saves clear the stored PSPrices retry metadata and lock the pricing provider for that row until the manual match is cleared or replaced.
 
 ## What the status badges mean
 

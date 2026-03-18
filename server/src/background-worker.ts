@@ -1129,7 +1129,7 @@ async function main(): Promise<void> {
           gameKeys === null && providers === null
             ? await discoveryEnrichmentService.runOnce()
             : await discoveryEnrichmentService.enrichNow({
-                limit: Math.max(gameKeys?.length ?? 1, 1),
+                ...(gameKeys !== null ? { limit: Math.max(gameKeys.length, 1) } : {}),
                 ...(gameKeys !== null ? { gameKeys } : {}),
                 ...(providers !== null ? { providers, forceLockedProviders: providers } : {}),
               });

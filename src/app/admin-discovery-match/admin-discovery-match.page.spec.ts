@@ -187,6 +187,7 @@ function createPageHarness(): {
       gameKeys: ['123::48'],
       platformLabels: ['PlayStation'],
       groupedPlatformCount: 1,
+      sourceItems: [createDetail()],
     },
   ]);
   setField(page, 'listQueueStatusMessage', null);
@@ -534,6 +535,7 @@ describe('AdminDiscoveryMatchPage', () => {
         gameKeys: ['123::48'],
         platformLabels: ['PlayStation'],
         groupedPlatformCount: 1,
+        sourceItems: [createDetail()],
       },
       {
         igdbGameId: '200',
@@ -545,6 +547,16 @@ describe('AdminDiscoveryMatchPage', () => {
         gameKeys: ['200::6'],
         platformLabels: ['PC'],
         groupedPlatformCount: 1,
+        sourceItems: [
+          {
+            ...createDetail(),
+            igdbGameId: '200',
+            platformIgdbId: 6,
+            title: 'Half-Life',
+            platform: 'PC',
+            releaseYear: 1998,
+          },
+        ],
       },
       {
         igdbGameId: '300',
@@ -556,6 +568,16 @@ describe('AdminDiscoveryMatchPage', () => {
         gameKeys: ['300::167'],
         platformLabels: ['PlayStation 5'],
         groupedPlatformCount: 1,
+        sourceItems: [
+          {
+            ...createDetail(),
+            igdbGameId: '300',
+            platformIgdbId: 167,
+            title: 'Astro Bot',
+            platform: 'PlayStation 5',
+            releaseYear: 2024,
+          },
+        ],
       },
       {
         igdbGameId: '400',
@@ -567,6 +589,16 @@ describe('AdminDiscoveryMatchPage', () => {
         gameKeys: ['400::130'],
         platformLabels: ['PlayStation 4'],
         groupedPlatformCount: 1,
+        sourceItems: [
+          {
+            ...createDetail(),
+            igdbGameId: '400',
+            platformIgdbId: 130,
+            title: 'Nioh',
+            platform: 'PlayStation 4',
+            releaseYear: 2017,
+          },
+        ],
       },
     ];
     adminMatchService.requeueEnrichmentRun.mockReturnValue(
@@ -595,6 +627,7 @@ describe('AdminDiscoveryMatchPage', () => {
           platform: string | null;
           groupedPlatformCount: number;
           gameKeys: string[];
+          sourceItems: AdminDiscoveryListItem[];
         }>;
       }
     ).groupItems([
@@ -610,5 +643,49 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(grouped[0]?.platform).toBe('Multiple platforms');
     expect(grouped[0]?.groupedPlatformCount).toBe(2);
     expect(grouped[0]?.gameKeys).toEqual(['123::48', '123::167']);
+    expect(grouped[0]?.sourceItems).toHaveLength(2);
+  });
+
+  it('keeps permanent-miss bulk reset keys from underlying grouped rows', () => {
+    const { page } = createPageHarness();
+    const grouped = (
+      page as unknown as {
+        groupItems: (items: AdminDiscoveryListItem[]) => Array<{
+          matchState: AdminDiscoveryListItem['matchState'];
+          sourceItems: AdminDiscoveryListItem[];
+        }>;
+      }
+    ).groupItems([
+      {
+        ...createDetail(),
+        matchState: {
+          ...createDetail().matchState,
+          hltb: {
+            ...createDetail().matchState.hltb,
+            status: 'permanentMiss',
+            permanentMiss: true,
+            attempts: 6,
+          },
+        },
+      },
+      {
+        ...createDetail(),
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        matchState: {
+          ...createDetail().matchState,
+          hltb: {
+            ...createDetail().matchState.hltb,
+            status: 'missing',
+          },
+        },
+      },
+    ]);
+
+    setField(page, 'selectedProvider', 'hltb');
+    setField(page, 'items', grouped);
+
+    expect(page.visiblePermanentMissKeys).toEqual(['123::48']);
+    expect(grouped[0]?.matchState.hltb.status).toBe('permanentMiss');
   });
 });

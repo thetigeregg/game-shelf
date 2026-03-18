@@ -5,6 +5,7 @@ import {
   isRecommendationTarget,
   readBackgroundWorkerMode,
   readDiscoveryEnrichmentApiBaseUrl,
+  readDiscoveryEnrichmentGameKeys,
   readPositiveIntegerEnv,
   shouldRunPricingRefreshPhase,
   stringOrEmpty,
@@ -61,6 +62,28 @@ void test('background worker helper guards recommendation target + string payloa
   assert.equal(stringOrEmpty('value'), 'value');
   assert.equal(stringOrEmpty(123), '');
   assert.equal(stringOrEmpty(undefined), '');
+
+  assert.deepEqual(readDiscoveryEnrichmentGameKeys({ gameKeys: ['100::48', ' 100::48 ', '', 3] }), [
+    '100::48',
+  ]);
+  assert.equal(readDiscoveryEnrichmentGameKeys({ gameKeys: ['   ', null] }), null);
+  assert.equal(readDiscoveryEnrichmentGameKeys({ providers: ['hltb'] }), null);
+  assert.deepEqual(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({
+      providers: ['review', 'review', 'steam'],
+    }),
+    ['review', 'steam']
+  );
+  assert.equal(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({
+      providers: ['pricing', 'invalid'],
+    }),
+    null
+  );
+  assert.equal(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({ gameKeys: ['100::48'] }),
+    null
+  );
 });
 
 void test('background worker mode parser supports general/recommendations/all with sane fallback', () => {

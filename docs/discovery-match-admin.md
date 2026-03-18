@@ -382,9 +382,11 @@ HLTB is treated as matched if any one of the timing fields exists. A partial man
 
 Review can become matched with a minimal valid review payload, especially for Metacritic-backed data.
 
-## Pricing has no retrying or permanent miss state here
+## Pricing retry state is visible but not resettable here
 
-Pricing rows only surface as `matched` or `missing` in this admin feature. The `retrying` and `permanentMiss` filters are meaningful for HLTB and review, not pricing.
+Pricing rows can surface as `retrying` or `permanentMiss` when PSPrices retry metadata exists for a supported pricing platform.
+
+Unlike HLTB and review, the admin page does not expose a `Clear visible permanent misses` reset path for pricing. Pricing repair flows on this page are manual save/clear and pricing requeue actions.
 
 ## Queue buttons are not the pricing repair path
 

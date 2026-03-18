@@ -35,7 +35,6 @@ import {
   buildGroupedAdminDiscoveryItem,
   dedupeHltbAdminCandidates,
   dedupePricingAdminCandidates,
-  describeAdminRow,
   dedupeReviewAdminCandidates,
   describeAdminActiveTarget,
   describeAdminTargetedRows,
@@ -508,19 +507,17 @@ export class AdminDiscoveryMatchPage {
 
   applyReviewCandidate(candidate: ReviewMatchCandidate): void {
     const candidateSource = candidate.reviewSource ?? 'metacritic';
+    const reviewScore = formatAdminNumber(
+      candidate.reviewScore ?? candidate.metacriticScore ?? null
+    );
+    const reviewUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? '';
     this.reviewForm = {
       ...this.reviewForm,
       reviewSource: candidateSource,
-      reviewScore: formatAdminNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null),
-      reviewUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? '',
-      metacriticScore:
-        candidateSource === 'metacritic'
-          ? formatAdminNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null)
-          : this.reviewForm.metacriticScore,
-      metacriticUrl:
-        candidateSource === 'metacritic'
-          ? (candidate.reviewUrl ?? candidate.metacriticUrl ?? '')
-          : this.reviewForm.metacriticUrl,
+      reviewScore,
+      reviewUrl,
+      metacriticScore: candidateSource === 'metacritic' ? reviewScore : '',
+      metacriticUrl: candidateSource === 'metacritic' ? reviewUrl : '',
       mobygamesGameId: formatAdminNumber(candidate.mobygamesGameId ?? null),
       mobyScore: formatAdminNumber(candidate.mobyScore ?? null),
       queryTitle: candidate.title,
@@ -705,42 +702,12 @@ export class AdminDiscoveryMatchPage {
     );
   }
 
-  private groupItems(items: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem[] {
-    return groupAdminDiscoveryItems(items);
-  }
-
-  private buildGroupedItem(group: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem {
-    return buildGroupedAdminDiscoveryItem(group);
-  }
-
-  private aggregateMatchState(group: AdminDiscoveryListItem[]) {
-    return buildGroupedAdminDiscoveryItem(group).matchState;
-  }
-
-  private resolvePricingSource(
-    platformIgdbId: number | null | undefined,
-    priceSource?: string | null
-  ): string {
-    return resolveAdminPricingSource(platformIgdbId, priceSource);
-  }
-
   private isPsPricesSource(priceSource?: string | null): boolean {
     return priceSource === 'psprices';
   }
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {
     return this.providerOptions.find((option) => option.value === provider)?.label ?? provider;
-  }
-
-  private buildQueueFeedback(
-    response: { queued: boolean; deduped: boolean; queuedCount: number; dedupedCount: number },
-    scope: 'list' | 'active'
-  ): { message: string; tone: QueueStatusTone } {
-    return buildAdminQueueFeedback(
-      response,
-      scope === 'list' ? this.selectedProvider : this.activeModalProvider,
-      scope
-    );
   }
 
   private getRequeueErrorMessage(provider: AdminDiscoveryMatchProvider): string {
@@ -753,12 +720,6 @@ export class AdminDiscoveryMatchPage {
     this.listQueueStatusMessage = message;
     this.listQueueStatusDetail = detail;
     this.listQueueStatusTone = tone;
-  }
-
-  private clearListQueueStatus(): void {
-    this.listQueueStatusMessage = null;
-    this.listQueueStatusDetail = null;
-    this.listQueueStatusTone = 'success';
   }
 
   private setActiveQueueStatus(
@@ -775,20 +736,6 @@ export class AdminDiscoveryMatchPage {
     this.activeQueueStatusMessage = null;
     this.activeQueueStatusDetail = null;
     this.activeQueueStatusTone = 'success';
-  }
-
-  private describeTargetedRows(items: GroupedAdminDiscoveryListItem[]): string | null {
-    return describeAdminTargetedRows(items);
-  }
-
-  private describeActiveTarget(): string | null {
-    return describeAdminActiveTarget(this.activeDetail, this.activeGroup);
-  }
-
-  private describeRow(
-    item: Pick<AdminDiscoveryListItem, 'title' | 'platform' | 'releaseYear'>
-  ): string {
-    return describeAdminRow(item);
   }
 
   private async runHltbCandidateSearch(): Promise<void> {

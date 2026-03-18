@@ -132,6 +132,7 @@ It refreshes the page from server state. Nothing is changed in storage.
 Behavior:
 
 - it targets only the rows currently visible in the admin list
+- when `provider` is `hltb` or `review`, the job also targets only that provider and passes that provider as a forced locked refresh target
 - the job is deduped with a single discovery enrichment dedupe key
 - if an equivalent run is already queued, the response is marked as deduped and no second run is added
 
@@ -311,6 +312,8 @@ The modal-level queue action enqueues a targeted `discovery_enrichment_run` for 
 
 Like the list-level queue button, this is deduped. If a discovery enrichment run is already queued, the server reports that the request was deduped.
 
+If the operator queues a specific `hltb` or `review` provider, that targeted run also opts into forced locked refresh handling for that provider.
+
 ## What locking means
 
 Locking is the mechanism that makes manual matches stick.
@@ -327,10 +330,19 @@ These lock fields are important because later automation checks them before atte
 
 The discovery enrichment worker computes:
 
-- `needsHltb = !hasHltb && !hltbMatchLocked`
-- `needsMetacritic = !hasCritic && !reviewMatchLocked`
+- `needsHltb = !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked)`
+- `needsMetacritic = !hasCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked)`
 
-So a locked provider is skipped by automatic discovery enrichment, even if the row would otherwise qualify for enrichment.
+That means a locked provider is not always skipped.
+
+HLTB can still refresh on a locked row when the row already has a preferred HLTB match reference (`hltbMatchGameId` or `hltbMatchUrl`). In that case, enrichment can re-query HLTB to fill missing timing fields without discarding the locked preferred match.
+
+Review can still refresh on a locked row when the run explicitly forces locked review refreshes and the stored review lookup context is usable. In practice, admin-triggered provider-targeted review queue actions do this by passing `forceLockedProviders`, which allows refresh when either:
+
+- the stored review source is not MobyGames and the saved query title is still usable
+- a saved `reviewMatchMobygamesGameId` or `mobygamesGameId` exists for a MobyGames refresh
+
+Scheduled discovery enrichment without a targeted forced-review run still skips locked review rows.
 
 ### Pricing lock
 
@@ -356,9 +368,14 @@ Server sync preserves the manual match and lock-related fields during upserts. T
 ## Effects on later automatic enrichment
 
 - a saved manual HLTB match prevents automatic HLTB enrichment from trying to rematch that row
-- a saved manual review match prevents automatic review enrichment from trying to rematch that row
+- a saved manual review match prevents ordinary automatic review enrichment from trying to rematch that row
 - a saved manual pricing match prevents PSPrices automatic revalidation from rematching that row
 - clearing a provider removes that protection and makes the row eligible again
+
+There are two important exceptions:
+
+- a locked HLTB row with a saved preferred HLTB match can still be refreshed to backfill missing HLTB timing fields
+- a targeted admin review requeue can force a locked review refresh when enough saved lookup context exists
 
 ## Effects of resetting permanent miss
 

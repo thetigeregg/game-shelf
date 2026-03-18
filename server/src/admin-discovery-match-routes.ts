@@ -485,6 +485,7 @@ async function enqueuePricingRefreshJobs(
   const steamCountry = config.steamDefaultCountry;
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
+  const nowMs = Date.now();
 
   for (const game of games) {
     const payload = normalizePayloadObject(game.payload);
@@ -492,7 +493,7 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
-    if (game.platformIgdbId === 6) {
+    if (game.platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID) {
       const steamAppId = normalizeInteger(payload['steamAppId']);
       if (steamAppId === null) {
         continue;
@@ -516,7 +517,7 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
-    if (![48, 167, 130, 508].includes(game.platformIgdbId)) {
+    if (!PSPRICES_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
       continue;
     }
 
@@ -526,7 +527,7 @@ async function enqueuePricingRefreshJobs(
 
     const pspricesRetryState = maybeRearmProviderRetryState({
       state: parseProviderRetryState(readProviderRetryState(payload, 'psprices')),
-      nowMs: Date.now(),
+      nowMs,
       releaseYear: normalizeInteger(payload['releaseYear']),
       rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
       rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
@@ -535,7 +536,7 @@ async function enqueuePricingRefreshJobs(
     if (
       !shouldAttemptProvider({
         state: pspricesRetryState,
-        nowMs: Date.now(),
+        nowMs,
         maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
       })
     ) {
@@ -1147,10 +1148,7 @@ function parseStateFilter(value: unknown): DiscoveryMatchStateStatus | 'all' {
     return 'all';
   }
   const normalized = value.trim();
-  return normalized === 'missing' ||
-    normalized === 'retrying' ||
-    normalized === 'permanentMiss' ||
-    normalized === 'matched'
+  return normalized === 'missing' || normalized === 'retrying' || normalized === 'permanentMiss'
     ? (normalized as DiscoveryMatchStateStatus)
     : 'all';
 }

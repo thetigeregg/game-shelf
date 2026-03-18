@@ -681,7 +681,7 @@ void test('admin discovery pricing list requeue route returns no jobs when prici
   }
 });
 
-void test('admin discovery unmatched route supports providerless matched filtering with normalized search and limit fallback', async () => {
+void test('admin discovery unmatched route ignores matched state filtering and falls back to providerless non-matched results', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
@@ -699,6 +699,8 @@ void test('admin discovery unmatched route supports providerless matched filteri
       title: 'Matched Mixed Game',
       platform: 'PC',
       hltbMainHours: 9,
+      metacriticScore: 84,
+      priceAmount: 19.99,
     },
   });
   pool.seed({
@@ -730,7 +732,7 @@ void test('admin discovery unmatched route supports providerless matched filteri
     assert.equal(body.count, 1);
     assert.deepEqual(
       body.items.map((item) => item.igdbGameId),
-      ['35']
+      ['36']
     );
   } finally {
     config.requireAuth = originalRequireAuth;

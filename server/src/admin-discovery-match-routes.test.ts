@@ -1649,6 +1649,7 @@ void test('admin discovery patch route stores mobygames-specific review fields',
         provider: 'review',
         reviewSource: 'mobygames',
         reviewScore: 83,
+        mobyScore: 8.3,
         mobygamesGameId: 555,
         queryTitle: 'Moby Review Query',
       },
@@ -1660,10 +1661,58 @@ void test('admin discovery patch route stores mobygames-specific review fields',
     assert.equal(stored['reviewSource'], 'mobygames');
     assert.equal(stored['reviewScore'], 83);
     assert.equal(stored['mobygamesGameId'], 555);
-    assert.equal(stored['mobyScore'], 83);
+    assert.equal(stored['mobyScore'], 8.3);
     assert.equal(stored['metacriticScore'], null);
     assert.equal(stored['metacriticUrl'], null);
     assert.equal(stored['reviewMatchMobygamesGameId'], 555);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects out-of-range mobygames scores', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '46',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Moby Review',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/46/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'mobygames',
+        mobyScore: 83,
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'MobyGames score must be between 0 and 10.',
+    });
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

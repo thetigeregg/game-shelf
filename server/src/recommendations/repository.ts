@@ -4,6 +4,7 @@ import {
   buildDiscoveryEnrichmentSelectionParams,
   LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL,
 } from './discovery-enrichment-query.js';
+import { parseDiscoveryGameKeys } from '../discovery-game-keys.js';
 import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
@@ -948,42 +949,6 @@ export class RecommendationRepository {
 
     return map;
   }
-}
-
-function parseDiscoveryGameKeys(
-  gameKeys: string[]
-): Array<{ igdbGameId: string; platformIgdbId: number }> {
-  const parsed = new Map<string, { igdbGameId: string; platformIgdbId: number }>();
-
-  for (const gameKey of gameKeys) {
-    const normalized = gameKey.trim();
-    if (normalized.length === 0) {
-      continue;
-    }
-
-    const separatorIndex = normalized.indexOf('::');
-    if (separatorIndex <= 0 || separatorIndex + 2 >= normalized.length) {
-      continue;
-    }
-
-    const igdbGameId = normalized.slice(0, separatorIndex).trim();
-    const platformRaw = normalized.slice(separatorIndex + 2).trim();
-    if (igdbGameId.length === 0 || !/^-?\d+$/.test(platformRaw)) {
-      continue;
-    }
-
-    const platformIgdbId = Number.parseInt(platformRaw, 10);
-    if (!Number.isInteger(platformIgdbId)) {
-      continue;
-    }
-
-    parsed.set(`${igdbGameId}::${String(platformIgdbId)}`, {
-      igdbGameId,
-      platformIgdbId,
-    });
-  }
-
-  return [...parsed.values()];
 }
 
 function buildStatusFilterForTarget(target: RecommendationTarget): {

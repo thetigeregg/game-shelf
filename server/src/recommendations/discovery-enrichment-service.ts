@@ -13,9 +13,9 @@ import {
   shouldAttemptProvider,
   type ProviderRetryState,
 } from './provider-retry-state.js';
+import { normalizeDiscoveryGameKeys } from '../discovery-game-keys.js';
 import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
 import { isProviderMatchLocked } from '../provider-match-lock.js';
-import { buildGameKey } from './semantic.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -256,23 +256,12 @@ export class DiscoveryEnrichmentService {
       return null;
     }
 
-    const normalized = [...new Set(value.map((key) => key.trim()).filter((key) => key.length > 0))];
+    const normalized = normalizeDiscoveryGameKeys(value);
     if (normalized.length === 0) {
       return null;
     }
 
-    return normalized.filter((key) => {
-      const separatorIndex = key.lastIndexOf('::');
-      if (separatorIndex <= 0) {
-        return false;
-      }
-      const igdbGameId = key.slice(0, separatorIndex).trim();
-      const platformRaw = key.slice(separatorIndex + 2).trim();
-      if (igdbGameId.length === 0 || !/^\d+$/.test(platformRaw)) {
-        return false;
-      }
-      return buildGameKey(igdbGameId, Number.parseInt(platformRaw, 10)) === key;
-    });
+    return normalized;
   }
 
   private async enrichPayload(

@@ -446,6 +446,40 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(request['psPricesPlatform']).toBeNull();
   });
 
+  it('drops negative admin ids and years from HLTB and review update payloads', () => {
+    const { page } = createPageHarness();
+
+    page.hltbForm = {
+      ...page.hltbForm,
+      hltbGameId: '-101',
+      queryReleaseYear: '-1999',
+      hltbMainHours: '8.5',
+    };
+    page.reviewForm = {
+      ...page.reviewForm,
+      reviewSource: 'mobygames',
+      mobygamesGameId: '-222',
+      queryReleaseYear: '-2000',
+      reviewScore: '81',
+    };
+
+    const hltbRequest = (
+      page as unknown as {
+        buildUpdateRequest: (provider: 'hltb') => Record<string, unknown>;
+      }
+    ).buildUpdateRequest('hltb');
+    const reviewRequest = (
+      page as unknown as {
+        buildUpdateRequest: (provider: 'review') => Record<string, unknown>;
+      }
+    ).buildUpdateRequest('review');
+
+    expect(hltbRequest['hltbGameId']).toBeNull();
+    expect(hltbRequest['queryReleaseYear']).toBeNull();
+    expect(reviewRequest['mobygamesGameId']).toBeNull();
+    expect(reviewRequest['queryReleaseYear']).toBeNull();
+  });
+
   it('requeues discovery enrichment for the active game and surfaces a toast', async () => {
     const { page, adminMatchService, toastCreate } = createPageHarness();
     setField(page, 'activeGroup', page.items[0]);

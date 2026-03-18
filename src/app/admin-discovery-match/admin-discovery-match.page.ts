@@ -60,6 +60,7 @@ import { ClientWriteAuthService } from '../core/services/client-write-auth.servi
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
+type PricingSource = 'steam_store' | 'psprices';
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -108,6 +109,11 @@ export class AdminDiscoveryMatchPage {
   readonly reviewSourceOptions: Array<{ value: ReviewSource; label: string }> = [
     { value: 'metacritic', label: 'Metacritic' },
     { value: 'mobygames', label: 'MobyGames' },
+  ];
+
+  readonly pricingSourceOptions: Array<{ value: PricingSource; label: string }> = [
+    { value: 'steam_store', label: 'Steam Store' },
+    { value: 'psprices', label: 'PSPrices' },
   ];
 
   selectedProvider: AdminDiscoveryMatchProvider = 'hltb';
@@ -172,7 +178,7 @@ export class AdminDiscoveryMatchPage {
   };
 
   pricingForm = {
-    priceSource: 'psprices',
+    priceSource: 'psprices' as PricingSource,
     priceFetchedAt: '',
     priceAmount: '',
     priceCurrency: '',
@@ -583,7 +589,7 @@ export class AdminDiscoveryMatchPage {
 
     return {
       provider,
-      priceSource: normalizeAdminString(this.pricingForm.priceSource),
+      priceSource: this.pricingForm.priceSource,
       priceFetchedAt: normalizeAdminString(this.pricingForm.priceFetchedAt),
       priceAmount: parseAdminNumber(this.pricingForm.priceAmount),
       priceCurrency: normalizeAdminString(this.pricingForm.priceCurrency),

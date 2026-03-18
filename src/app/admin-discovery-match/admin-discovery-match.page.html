@@ -564,12 +564,17 @@
               </ion-list>
             }
             <ion-item>
-              <ion-input
+              <ion-select
                 label="Price source"
                 labelPlacement="stacked"
+                interface="popover"
                 [value]="pricingForm.priceSource"
-                (ionInput)="pricingForm.priceSource = $any($event).detail.value || ''"
-              ></ion-input>
+                (ionChange)="pricingForm.priceSource = $any($event).detail.value"
+              >
+                @for (option of pricingSourceOptions; track option.value) {
+                  <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+                }
+              </ion-select>
             </ion-item>
             <ion-item>
               <ion-input

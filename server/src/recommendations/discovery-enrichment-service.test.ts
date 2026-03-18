@@ -585,6 +585,92 @@ void test('discovery enrichment skips locked HLTB and review providers', async (
   }
 });
 
+void test('discovery enrichment refreshes locked HLTB when a preferred match exists but timings are missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '222',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Fallback Discovery Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        hltbMatchLocked: true,
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchQueryTitle: 'Manual HLTB Title',
+        hltbMatchQueryReleaseYear: 2000,
+        hltbMatchQueryPlatform: 'PS1',
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  const mockFetch: typeof fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 10.5, hltbMainExtraHours: 14, hltbCompletionistHours: 18 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  };
+  globalThis.fetch = mockFetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['222::48'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0]?.payload;
+    assert.ok(updatedPayload);
+    assert.equal(updatedPayload.hltbMainHours, 10.5);
+    assert.equal(updatedPayload.hltbMainExtraHours, 14);
+    assert.equal(updatedPayload.hltbCompletionistHours, 18);
+
+    const hltbRequest = fetchUrls.find((url) => url.includes('/v1/hltb/search'));
+    assert.ok(hltbRequest);
+    const requestUrl = new URL(hltbRequest);
+    assert.equal(requestUrl.searchParams.get('q'), 'Manual HLTB Title');
+    assert.equal(requestUrl.searchParams.get('releaseYear'), '2000');
+    assert.equal(requestUrl.searchParams.get('platform'), 'PS1');
+    assert.equal(requestUrl.searchParams.get('preferredHltbGameId'), '7002');
+    assert.equal(
+      requestUrl.searchParams.get('preferredHltbUrl'),
+      'https://howlongtobeat.com/game/7002'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

@@ -76,6 +76,15 @@ interface DiscoveryEnrichmentRetryState {
   steam: ProviderRetryState;
 }
 
+interface HltbLookupContext {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  preferredGameId: number | null;
+  preferredUrl: string | null;
+  canRefreshLocked: boolean;
+}
+
 export class DiscoveryEnrichmentService {
   private intervalHandle: NodeJS.Timeout | null = null;
   private startupTimeoutHandle: NodeJS.Timeout | null = null;
@@ -250,6 +259,13 @@ export class DiscoveryEnrichmentService {
         ? payload.platform.trim()
         : null;
     const hltbMatchLocked = isProviderMatchLocked(payload, 'hltbMatchLocked');
+    const hltbLookup = buildHltbLookupContext(
+      payload,
+      title,
+      releaseYear,
+      platform,
+      hltbMatchLocked
+    );
     const reviewMatchLocked = isProviderMatchLocked(payload, 'reviewMatchLocked');
     const hasHltb =
       hasPositiveNumber(payload.hltbMainHours) ||
@@ -291,7 +307,7 @@ export class DiscoveryEnrichmentService {
         maxAttempts: this.options.maxAttempts,
       }),
     };
-    const needsHltb = !hasHltb && !hltbMatchLocked;
+    const needsHltb = !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked);
     const needsMetacritic = !hasCritic && !reviewMatchLocked;
     const shouldTryHltb =
       needsHltb &&
@@ -336,9 +352,13 @@ export class DiscoveryEnrichmentService {
       shouldTryHltb
         ? this.fetchJson<HltbResponse>(
             this.buildLocalUrl('/v1/hltb/search', {
-              q: title,
-              ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
-              ...(platform ? { platform } : {}),
+              q: hltbLookup.title,
+              ...(hltbLookup.releaseYear ? { releaseYear: String(hltbLookup.releaseYear) } : {}),
+              ...(hltbLookup.platform ? { platform: hltbLookup.platform } : {}),
+              ...(hltbLookup.preferredGameId
+                ? { preferredHltbGameId: String(hltbLookup.preferredGameId) }
+                : {}),
+              ...(hltbLookup.preferredUrl ? { preferredHltbUrl: hltbLookup.preferredUrl } : {}),
             })
           )
         : Promise.resolve(null),
@@ -434,7 +454,7 @@ export class DiscoveryEnrichmentService {
       next,
       buildNextRetryState({
         current: nextRetryState,
-        needsHltb: !foundHltb && !hltbMatchLocked,
+        needsHltb: !foundHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked),
         needsMetacritic: !foundCritic && !reviewMatchLocked,
         needsSteam: steamNeedsEnrichment,
       })
@@ -532,6 +552,40 @@ function round2(value: number): number {
 
 function hasPositiveNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function normalizeTrimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function buildHltbLookupContext(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackReleaseYear: number | null,
+  fallbackPlatform: string | null,
+  hltbMatchLocked: boolean
+): HltbLookupContext {
+  const title = normalizeTrimmedString(payload['hltbMatchQueryTitle']) ?? fallbackTitle;
+  const releaseYear =
+    normalizePositiveInteger(payload['hltbMatchQueryReleaseYear']) ?? fallbackReleaseYear;
+  const platform = normalizeTrimmedString(payload['hltbMatchQueryPlatform']) ?? fallbackPlatform;
+  const preferredGameId = hltbMatchLocked
+    ? normalizePositiveInteger(payload['hltbMatchGameId'])
+    : null;
+  const preferredUrl = hltbMatchLocked ? normalizeTrimmedString(payload['hltbMatchUrl']) : null;
+
+  return {
+    title,
+    releaseYear,
+    platform,
+    preferredGameId,
+    preferredUrl,
+    canRefreshLocked: preferredGameId !== null || preferredUrl !== null,
+  };
 }
 
 function isBlankValue(value: unknown): boolean {

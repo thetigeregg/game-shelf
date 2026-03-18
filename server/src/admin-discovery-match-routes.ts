@@ -610,7 +610,14 @@ function mapDiscoveryListItem(row: {
   igdbGameId: string;
   platformIgdbId: number;
   payload: Record<string, unknown>;
-}): Record<string, unknown> {
+}): {
+  igdbGameId: string;
+  platformIgdbId: number;
+  title: string | null;
+  platform: string | null;
+  releaseYear: number | null;
+  matchState: Record<DiscoveryMatchProvider, DiscoveryProviderState>;
+} {
   return {
     igdbGameId: row.igdbGameId,
     platformIgdbId: row.platformIgdbId,

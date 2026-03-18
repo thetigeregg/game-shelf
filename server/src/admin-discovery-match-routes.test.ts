@@ -408,6 +408,311 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
   }
 });
 
+void test('admin discovery pricing list requeue route respects selected game keys and skips unsupported rows', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '32',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Steam Queue',
+      platform: 'PC',
+      steamAppId: 620,
+    },
+  });
+  pool.seed({
+    igdbGameId: '33',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'PS Queue',
+      platform: 'PlayStation 4',
+      psPricesMatchQueryTitle: 'PS Queue Search',
+    },
+  });
+  pool.seed({
+    igdbGameId: '34',
+    platformIgdbId: 49,
+    payload: {
+      listType: 'discovery',
+      title: 'Unsupported Queue',
+      platform: 'Xbox One',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        gameKeys: ['32::6', ' 33::48 ', '32::6', '34::49'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 1000,
+      queuedCount: 2,
+      dedupedCount: 0,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing list requeue route scans all rows when no game keys are supplied', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '39',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Missing Steam App',
+      platform: 'PC',
+    },
+  });
+  pool.seed({
+    igdbGameId: '49',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Queue All PS',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 1000,
+      queuedCount: 1,
+      dedupedCount: 0,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing list requeue route returns no jobs when pricing lookup data is missing', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '50',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      ok: true,
+      queued: false,
+      deduped: false,
+      jobId: null,
+      queuedCount: 0,
+      dedupedCount: 0,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery unmatched route supports providerless matched filtering with normalized search and limit fallback', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '35',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Matched Mixed Game',
+      platform: 'PC',
+      hltbMainHours: 9,
+    },
+  });
+  pool.seed({
+    igdbGameId: '36',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Missing Mixed Game',
+      platform: 'PC',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/matches/unmatched?state=matched&search=%20MiXeD%20&limit=0',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      count: number;
+      items: Array<{ igdbGameId: string }>;
+    };
+    assert.equal(body.count, 1);
+    assert.deepEqual(
+      body.items.map((item) => item.igdbGameId),
+      ['35']
+    );
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery unmatched route defaults to providerless non-matched filtering', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '37',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'All Matched Game',
+      platform: 'PlayStation 4',
+      hltbMainHours: 7,
+      reviewSource: 'metacritic',
+      reviewScore: 82,
+      priceAmount: 19.99,
+    },
+  });
+  pool.seed({
+    igdbGameId: '38',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Still Missing Game',
+      platform: 'PlayStation 4',
+      hltbMainHours: 7,
+      priceAmount: 19.99,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/matches/unmatched',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      count: number;
+      items: Array<{ igdbGameId: string }>;
+    };
+    assert.equal(body.count, 1);
+    assert.deepEqual(
+      body.items.map((item) => item.igdbGameId),
+      ['38']
+    );
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery pricing requeue route enqueues targeted pricing refresh jobs', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
@@ -545,6 +850,52 @@ void test('admin discovery patch route persists HLTB match locks and clears retr
     assert.equal(secondaryStored['hltbMatchLocked'], true);
     assert.equal(secondaryStored['hltbMatchGameId'], 7002);
     assert.equal(secondaryStored['hltbMainHours'], 8.5);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects empty HLTB updates', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '19',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs HLTB',
+      platform: 'PC',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/19/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'hltb',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'HLTB updates require at least one match or timing field.',
+    });
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
@@ -777,6 +1128,77 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
+void test('admin discovery delete route clears pricing fields and resets pricing retry state', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '25',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Price Reset',
+      platform: 'PlayStation 4',
+      priceSource: 'psprices',
+      priceAmount: 14.99,
+      priceCurrency: 'USD',
+      priceUrl: 'https://psprices.com/us/game/price-reset',
+      psPricesUrl: 'https://psprices.com/us/game/price-reset',
+      psPricesTitle: 'Price Reset',
+      psPricesPlatform: 'PS4',
+      psPricesMatchLocked: true,
+      enrichmentRetry: {
+        psprices: {
+          attempts: 3,
+          lastTriedAt: '2026-03-10T00:00:00.000Z',
+          nextTryAt: '2026-03-11T00:00:00.000Z',
+          permanentMiss: false,
+        },
+      },
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/25/48/match/pricing',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('25', 48);
+    assert.ok(stored);
+    assert.equal(stored['priceSource'], null);
+    assert.equal(stored['priceAmount'], null);
+    assert.equal(stored['priceUrl'], null);
+    assert.equal(stored['psPricesUrl'], null);
+    assert.equal(stored['psPricesMatchLocked'], false);
+    assert.deepEqual(stored['enrichmentRetry'], {
+      psprices: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery requeue enrichment route enqueues the discovery job and dedupes repeated requests', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
@@ -845,6 +1267,690 @@ void test('admin discovery requeue enrichment route enqueues the discovery job a
       jobId: 1000,
       queuedCount: 0,
       dedupedCount: 1,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery match-state route returns provider detail and retrying state', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '40',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Detail Game',
+      platform: 'PlayStation 5',
+      releaseYear: 2025,
+      reviewMatchLocked: true,
+      reviewMatchQueryTitle: 'Detail Query',
+      reviewMatchQueryReleaseYear: 2024,
+      reviewMatchQueryPlatform: 'PS5',
+      reviewMatchPlatformIgdbId: 167,
+      reviewMatchMobygamesGameId: 9001,
+      enrichmentRetry: {
+        metacritic: {
+          attempts: 2,
+          lastTriedAt: '2026-03-10T00:00:00.000Z',
+          nextTryAt: '2026-03-11T00:00:00.000Z',
+          permanentMiss: false,
+        },
+      },
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/games/40/167/match-state',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      igdbGameId: string;
+      matchState: { review: { status: string; locked: boolean; attempts: number } };
+      providers: { review: { queryTitle: string | null; queryMobygamesGameId: number | null } };
+    };
+
+    assert.equal(body.igdbGameId, '40');
+    assert.equal(body.matchState.review.status, 'retrying');
+    assert.equal(body.matchState.review.locked, true);
+    assert.equal(body.matchState.review.attempts, 2);
+    assert.equal(body.providers.review.queryTitle, 'Detail Query');
+    assert.equal(body.providers.review.queryMobygamesGameId, 9001);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery match-state route returns 404 for unknown discovery games', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/games/404/6/match-state',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Discovery game not found.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects empty review updates', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '41',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs Review',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/41/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Review updates require at least one review field.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects invalid providers', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/41/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'steam',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'A valid provider is required.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route stores mobygames-specific review fields', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '46',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Moby Review',
+      platform: 'PlayStation 5',
+      metacriticScore: 70,
+      metacriticUrl: 'https://metacritic.example/old',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/46/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'mobygames',
+        reviewScore: 83,
+        mobygamesGameId: 555,
+        queryTitle: 'Moby Review Query',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('46', 167);
+    assert.ok(stored);
+    assert.equal(stored['reviewSource'], 'mobygames');
+    assert.equal(stored['reviewScore'], 83);
+    assert.equal(stored['mobygamesGameId'], 555);
+    assert.equal(stored['mobyScore'], 83);
+    assert.equal(stored['metacriticScore'], null);
+    assert.equal(stored['metacriticUrl'], null);
+    assert.equal(stored['reviewMatchMobygamesGameId'], 555);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery delete route clears review fields across related games', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '42',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Shared Review',
+      platform: 'PC',
+      reviewSource: 'metacritic',
+      reviewScore: 89,
+      reviewUrl: 'https://www.metacritic.com/game/shared-review',
+      metacriticScore: 89,
+      metacriticUrl: 'https://www.metacritic.com/game/shared-review',
+      reviewMatchLocked: true,
+      enrichmentRetry: {
+        metacritic: {
+          attempts: 4,
+          lastTriedAt: '2026-03-09T00:00:00.000Z',
+          nextTryAt: '2026-03-10T00:00:00.000Z',
+          permanentMiss: false,
+        },
+      },
+    },
+  });
+  pool.seed({
+    igdbGameId: '42',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Shared Review',
+      platform: 'PlayStation 4',
+      reviewSource: 'metacritic',
+      reviewScore: 89,
+      reviewUrl: 'https://www.metacritic.com/game/shared-review',
+      metacriticScore: 89,
+      metacriticUrl: 'https://www.metacritic.com/game/shared-review',
+      reviewMatchLocked: true,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/42/6/match/review',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      changed: boolean;
+      provider: string;
+      item: { providers: { review: { reviewScore: number | null } } };
+    };
+    assert.equal(body.changed, true);
+    assert.equal(body.provider, 'review');
+    assert.equal(body.item.providers.review.reviewScore, null);
+
+    const primaryStored = pool.readPayload('42', 6);
+    assert.ok(primaryStored);
+    assert.equal(primaryStored['reviewSource'], null);
+    assert.equal(primaryStored['reviewScore'], null);
+    assert.equal(primaryStored['reviewMatchLocked'], false);
+    assert.deepEqual(primaryStored['enrichmentRetry'], {
+      metacritic: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
+    });
+
+    const secondaryStored = pool.readPayload('42', 48);
+    assert.ok(secondaryStored);
+    assert.equal(secondaryStored['reviewSource'], null);
+    assert.equal(secondaryStored['reviewScore'], null);
+    assert.equal(secondaryStored['reviewMatchLocked'], false);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery delete route rejects invalid providers', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/42/6/match/steam',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'A valid provider is required.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery delete route returns 404 for unknown discovery games', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/404/6/match/review',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Discovery game not found.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery delete route clears HLTB fields and retry state', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '47',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'HLTB Reset',
+      platform: 'PC',
+      hltbMatchGameId: 7002,
+      hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMainHours: 12,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 25,
+      hltbMatchLocked: true,
+      enrichmentRetry: {
+        hltb: {
+          attempts: 2,
+          lastTriedAt: '2026-03-10T00:00:00.000Z',
+          nextTryAt: '2026-03-11T00:00:00.000Z',
+          permanentMiss: false,
+        },
+      },
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/47/6/match/hltb',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('47', 6);
+    assert.ok(stored);
+    assert.equal(stored['hltbMatchGameId'], null);
+    assert.equal(stored['hltbMainHours'], null);
+    assert.equal(stored['hltbMatchLocked'], false);
+    assert.deepEqual(stored['enrichmentRetry'], {
+      hltb: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch route accepts free-only updates', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '43',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Free Game',
+      platform: 'PlayStation 4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/43/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceIsFree: true,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('43', 48);
+    assert.ok(stored);
+    assert.equal(stored['priceAmount'], null);
+    assert.equal(stored['priceIsFree'], true);
+    assert.equal(stored['priceSource'], 'psprices');
+    assert.equal(stored['psPricesMatchLocked'], true);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch route rejects empty pricing updates', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '48',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs Price',
+      platform: 'PlayStation 4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/48/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Pricing updates require at least one pricing field.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery clear permanent miss route rejects invalid providers', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/matches/clear-permanent-miss',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'steam',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Provider must be hltb, review, or pricing.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery requeue enrichment route returns 404 for unknown discovery games', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/games/999/6/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Discovery game not found.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery clear permanent miss route leaves already-clear rows unchanged', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '45',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Already Clear',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/matches/clear-permanent-miss',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        gameKeys: ['45::167'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      ok: true,
+      provider: 'pricing',
+      cleared: 0,
     });
   } finally {
     config.requireAuth = originalRequireAuth;

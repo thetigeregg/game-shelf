@@ -274,6 +274,81 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
   }
 });
 
+void test('admin discovery pricing filter excludes unsupported platforms from missing pricing results', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '10',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Steam Missing Price',
+      platform: 'PC',
+      releaseYear: 2025,
+    },
+  });
+  pool.seed({
+    igdbGameId: '11',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'PS Missing Price',
+      platform: 'PlayStation 4',
+      releaseYear: 2025,
+    },
+  });
+  pool.seed({
+    igdbGameId: '12',
+    platformIgdbId: 49,
+    payload: {
+      listType: 'discovery',
+      title: 'Unsupported Platform Price',
+      platform: 'Xbox One',
+      releaseYear: 2025,
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/matches/unmatched?provider=pricing&limit=10',
+      headers: {
+        'x-game-shelf-client-token': 'device-token-1',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      count: number;
+      items: Array<{
+        igdbGameId: string;
+        matchState: { pricing: { status: string } };
+      }>;
+    };
+
+    assert.equal(body.count, 2);
+    assert.deepEqual(
+      body.items.map((item) => item.igdbGameId),
+      ['10', '11']
+    );
+    assert.ok(body.items.every((item) => item.matchState.pricing.status === 'missing'));
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery list requeue route enqueues a targeted discovery job and dedupes repeated requests', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

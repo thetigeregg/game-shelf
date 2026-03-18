@@ -361,22 +361,24 @@ export class RecommendationRepository {
       payload: Record<string, unknown>;
     }>
   > {
-    const normalizedKeys = [
-      ...new Set(gameKeys.map((key) => key.trim()).filter((key) => key.length > 0)),
-    ];
-    if (normalizedKeys.length === 0) {
+    const parsedKeys = parseDiscoveryGameKeys(gameKeys);
+    if (parsedKeys.length === 0) {
       return [];
     }
 
     const result = await queryable.query<DiscoveryGameRow>(
       `
+      WITH requested_keys AS (
+        SELECT DISTINCT *
+        FROM UNNEST($1::text[], $2::integer[]) AS requested(igdb_game_id, platform_igdb_id)
+      )
       SELECT igdb_game_id, platform_igdb_id, payload
       FROM games
+      INNER JOIN requested_keys USING (igdb_game_id, platform_igdb_id)
       WHERE COALESCE(payload->>'listType', '') = 'discovery'
-        AND (igdb_game_id || '::' || platform_igdb_id::text) = ANY($1::text[])
       ORDER BY updated_at DESC
       `,
-      [normalizedKeys]
+      [parsedKeys.map((entry) => entry.igdbGameId), parsedKeys.map((entry) => entry.platformIgdbId)]
     );
 
     return result.rows.map((row) => ({
@@ -946,6 +948,42 @@ export class RecommendationRepository {
 
     return map;
   }
+}
+
+function parseDiscoveryGameKeys(
+  gameKeys: string[]
+): Array<{ igdbGameId: string; platformIgdbId: number }> {
+  const parsed = new Map<string, { igdbGameId: string; platformIgdbId: number }>();
+
+  for (const gameKey of gameKeys) {
+    const normalized = gameKey.trim();
+    if (normalized.length === 0) {
+      continue;
+    }
+
+    const separatorIndex = normalized.indexOf('::');
+    if (separatorIndex <= 0 || separatorIndex === normalized.length - 2) {
+      continue;
+    }
+
+    const igdbGameId = normalized.slice(0, separatorIndex).trim();
+    const platformRaw = normalized.slice(separatorIndex + 2).trim();
+    if (igdbGameId.length === 0 || !/^-?\d+$/.test(platformRaw)) {
+      continue;
+    }
+
+    const platformIgdbId = Number.parseInt(platformRaw, 10);
+    if (!Number.isInteger(platformIgdbId)) {
+      continue;
+    }
+
+    parsed.set(`${igdbGameId}::${String(platformIgdbId)}`, {
+      igdbGameId,
+      platformIgdbId,
+    });
+  }
+
+  return [...parsed.values()];
 }
 
 function buildStatusFilterForTarget(target: RecommendationTarget): {

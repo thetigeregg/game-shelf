@@ -218,6 +218,76 @@ void test('discovery enrichment can target explicit game keys', async () => {
   }
 });
 
+void test('discovery enrichment ignores invalid provider filters at runtime', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 8.4, hltbMainExtraHours: 11.2, hltbCompletionistHours: 13.8 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 88, metacriticUrl: 'https://www.metacritic.com/game/example' },
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({
+      limit: 10,
+      providers: ['invalid' as never],
+    });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.payload.hltbMainHours, 8.4);
+    assert.equal(repository.updates[0]?.payload.metacriticScore, 88);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment adds steam app id for Windows discovery rows', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

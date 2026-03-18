@@ -759,6 +759,10 @@ function isPricingPlatformEligible(platformIgdbId: number): boolean {
   );
 }
 
+function getDefaultPricingSource(platformIgdbId: number): 'steam_store' | 'psprices' {
+  return platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID ? 'steam_store' : 'psprices';
+}
+
 function buildProviderState(
   hasMatch: boolean,
   locked: boolean,
@@ -926,7 +930,9 @@ function applyManualMatchPatch(
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
   const requestedPriceSource = normalizeString(body.priceSource);
   const priceSource =
-    (requestedPriceSource === null ? 'psprices' : parsePricingSource(requestedPriceSource)) ?? null;
+    (requestedPriceSource === null
+      ? getDefaultPricingSource(platformIgdbId)
+      : parsePricingSource(requestedPriceSource)) ?? null;
   if (requestedPriceSource !== null && priceSource === null) {
     return 'Price source must be steam_store or psprices.';
   }

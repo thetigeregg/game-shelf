@@ -2183,6 +2183,63 @@ void test('admin discovery pricing patch route accepts free-only updates', async
   }
 });
 
+void test('admin discovery pricing patch route defaults omitted price source to steam for Steam rows', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '47',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Steam Freebie',
+      platform: 'PC',
+      psPricesUrl: 'https://psprices.com/us/game/steam-freebie',
+      psPricesTitle: 'Steam Freebie',
+      psPricesPlatform: 'PS4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/47/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceAmount: 0,
+        priceCurrency: 'USD',
+        priceUrl: 'https://store.steampowered.com/app/4000/Steam_Freebie/',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('47', 6);
+    assert.ok(stored);
+    assert.equal(stored['priceSource'], 'steam_store');
+    assert.equal(stored['priceUrl'], 'https://store.steampowered.com/app/4000/Steam_Freebie/');
+    assert.equal(stored['psPricesUrl'], null);
+    assert.equal(stored['psPricesTitle'], null);
+    assert.equal(stored['psPricesPlatform'], null);
+    assert.equal(stored['psPricesMatchLocked'], true);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery pricing patch route rejects empty pricing updates', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

@@ -30,18 +30,25 @@ class PoolMock {
 
     if (
       normalized.startsWith(
-        "select igdb_game_id, platform_igdb_id, payload from games where coalesce(payload->>'listtype', '') = 'discovery' and (igdb_game_id || '::' || platform_igdb_id::text) = any($1::text[])"
+        "with requested_keys as ( select distinct * from unnest($1::text[], $2::integer[]) as requested(igdb_game_id, platform_igdb_id) ) select igdb_game_id, platform_igdb_id, payload from games inner join requested_keys using (igdb_game_id, platform_igdb_id) where coalesce(payload->>'listtype', '') = 'discovery'"
       )
     ) {
       this.keyLookupQueryCount += 1;
-      const requestedKeys = Array.isArray(params[0])
-        ? new Set(
-            params[0]
-              .filter((item): item is string => typeof item === 'string')
-              .map((item) => item.trim())
-              .filter((item) => item.length > 0)
-          )
-        : new Set<string>();
+      const igdbGameIds = Array.isArray(params[0]) ? (params[0] as unknown[]) : [];
+      const platformIgdbIds = Array.isArray(params[1]) ? (params[1] as unknown[]) : [];
+      const requestedKeys = new Set<string>();
+      for (
+        let index = 0;
+        index < Math.min(igdbGameIds.length, platformIgdbIds.length);
+        index += 1
+      ) {
+        const igdbGameId = igdbGameIds[index];
+        const platformIgdbId = platformIgdbIds[index];
+        if (typeof igdbGameId !== 'string' || typeof platformIgdbId !== 'number') {
+          continue;
+        }
+        requestedKeys.add(this.key(igdbGameId.trim(), platformIgdbId));
+      }
       const rows = [...this.rows.values()]
         .filter((row) => row.payload['listType'] === 'discovery')
         .filter((row) => requestedKeys.has(this.key(row.igdbGameId, row.platformIgdbId)))
@@ -1989,6 +1996,118 @@ void test('admin discovery pricing patch route rejects priceIsFree false without
     assert.equal(response.statusCode, 400);
     assert.deepEqual(JSON.parse(response.body), {
       error: 'Pricing updates require at least one pricing field.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch route rejects invalid numeric ranges', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '50',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Bad Price',
+      platform: 'PlayStation 4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/50/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceAmount: -1,
+        priceDiscountPercent: 110,
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Price amount must be greater than or equal to 0.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects invalid review and hltb numeric ranges', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '51',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Bad Metrics',
+      platform: 'PC',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const reviewResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/51/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewScore: 101,
+      },
+    });
+
+    assert.equal(reviewResponse.statusCode, 400);
+    assert.deepEqual(JSON.parse(reviewResponse.body), {
+      error: 'Review score must be between 0 and 100.',
+    });
+
+    const hltbResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/51/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'hltb',
+        hltbMainHours: -5,
+      },
+    });
+
+    assert.equal(hltbResponse.statusCode, 400);
+    assert.deepEqual(JSON.parse(hltbResponse.body), {
+      error: 'HLTB main hours must be greater than or equal to 0.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;

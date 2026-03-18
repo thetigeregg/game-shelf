@@ -741,6 +741,107 @@ void test('discovery enrichment refreshes locked HLTB when a preferred match exi
   }
 });
 
+void test('discovery enrichment refreshes locked MobyGames review using stored game id', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '333',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Manual Review Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        reviewMatchLocked: true,
+        reviewSource: 'mobygames',
+        mobygamesGameId: 9999,
+        reviewMatchQueryTitle: 'Manual Review Query',
+        reviewMatchQueryReleaseYear: 2000,
+        reviewMatchQueryPlatform: 'PS1',
+        reviewMatchPlatformIgdbId: 167,
+        reviewMatchMobygamesGameId: 9999,
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+    }
+
+    if (url.includes('/v1/mobygames/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            games: [
+              {
+                game_id: 9999,
+                moby_url: 'https://www.mobygames.com/game/9999',
+                moby_score: 8.1,
+                critic_score: 81,
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({
+      gameKeys: ['333::167'],
+      forceLockedProviders: ['review'],
+    });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0]?.payload;
+    assert.ok(updatedPayload);
+    assert.equal(updatedPayload.reviewSource, 'mobygames');
+    assert.equal(updatedPayload.reviewScore, 81);
+    assert.equal(updatedPayload.mobyScore, 8.1);
+    assert.equal(updatedPayload.mobygamesGameId, 9999);
+    assert.equal(updatedPayload.reviewUrl, 'https://www.mobygames.com/game/9999');
+
+    const mobygamesRequest = fetchUrls.find((url) => url.includes('/v1/mobygames/search'));
+    assert.ok(mobygamesRequest);
+    const requestUrl = new URL(mobygamesRequest);
+    assert.equal(requestUrl.searchParams.get('q'), 'Manual Review Query');
+    assert.equal(requestUrl.searchParams.get('id'), '9999');
+    assert.equal(
+      requestUrl.searchParams.get('include'),
+      'game_id,moby_url,moby_score,critic_score'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

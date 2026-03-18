@@ -4,9 +4,10 @@ import type { AdminDiscoveryListItem } from '../core/services/admin-discovery-ma
 import {
   buildAdminQueueFeedback,
   describeAdminTargetedRows,
-  groupAdminDiscoveryItems,
-  resolveAdminPricingSource,
   dedupeReviewAdminCandidates,
+  groupAdminDiscoveryItems,
+  parseAdminPositiveInteger,
+  resolveAdminPricingSource,
 } from './admin-discovery-match.utils';
 
 function createItem(overrides: Partial<AdminDiscoveryListItem> = {}): AdminDiscoveryListItem {
@@ -141,5 +142,13 @@ describe('adminDiscoveryMatchUtils', () => {
     expect(resolveAdminPricingSource(6, null)).toBe('steam_store');
     expect(resolveAdminPricingSource(48, null)).toBe('psprices');
     expect(resolveAdminPricingSource(48, 'steam_store')).toBe('steam_store');
+  });
+
+  it('parses only positive admin integers for ids and years', () => {
+    expect(parseAdminPositiveInteger('42')).toBe(42);
+    expect(parseAdminPositiveInteger(' 2024 ')).toBe(2024);
+    expect(parseAdminPositiveInteger('0')).toBeNull();
+    expect(parseAdminPositiveInteger('-1')).toBeNull();
+    expect(parseAdminPositiveInteger('abc')).toBeNull();
   });
 });

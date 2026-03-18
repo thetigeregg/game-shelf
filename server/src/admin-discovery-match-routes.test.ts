@@ -1044,6 +1044,72 @@ void test('admin discovery patch route rejects empty HLTB updates', async () => 
   }
 });
 
+void test('admin discovery patch route rejects negative HLTB IDs and query release years', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '19',
+    platformIgdbId: 6,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs HLTB',
+      platform: 'PC',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const negativeIdResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/19/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'hltb',
+        hltbGameId: -7002,
+        hltbMainHours: 8.5,
+      },
+    });
+
+    assert.equal(negativeIdResponse.statusCode, 400);
+    assert.deepEqual(negativeIdResponse.json(), {
+      error: 'HLTB game ID must be a positive integer.',
+    });
+
+    const negativeYearResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/19/6/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'hltb',
+        hltbMainHours: 8.5,
+        queryReleaseYear: -2024,
+      },
+    });
+
+    assert.equal(negativeYearResponse.statusCode, 400);
+    assert.deepEqual(negativeYearResponse.json(), {
+      error: 'Query release year must be a positive integer.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery clear permanent miss route resets selected review retry state', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
@@ -1760,6 +1826,74 @@ void test('admin discovery patch route rejects out-of-range mobygames scores', a
     assert.equal(response.statusCode, 400);
     assert.deepEqual(JSON.parse(response.body), {
       error: 'MobyGames score must be between 0 and 10.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route rejects negative review IDs and query release years', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '46',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Moby Review',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const negativeIdResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/46/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'mobygames',
+        reviewScore: 83,
+        mobygamesGameId: -555,
+      },
+    });
+
+    assert.equal(negativeIdResponse.statusCode, 400);
+    assert.deepEqual(negativeIdResponse.json(), {
+      error: 'MobyGames game ID must be a positive integer.',
+    });
+
+    const negativeYearResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/46/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'metacritic',
+        reviewScore: 83,
+        queryReleaseYear: -2024,
+      },
+    });
+
+    assert.equal(negativeYearResponse.statusCode, 400);
+    assert.deepEqual(negativeYearResponse.json(), {
+      error: 'Query release year must be a positive integer.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;

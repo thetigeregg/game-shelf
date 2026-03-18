@@ -42,7 +42,7 @@ import {
   getAdminDiscoveryGameKey,
   groupAdminDiscoveryItems,
   normalizeAdminString,
-  parseAdminInteger,
+  parseAdminPositiveInteger,
   parseAdminNumber,
   resolveAdminPricingSource,
   type GroupedAdminDiscoveryListItem,
@@ -558,13 +558,13 @@ export class AdminDiscoveryMatchPage {
     if (provider === 'hltb') {
       return {
         provider,
-        hltbGameId: parseAdminInteger(this.hltbForm.hltbGameId),
+        hltbGameId: parseAdminPositiveInteger(this.hltbForm.hltbGameId),
         hltbUrl: normalizeAdminString(this.hltbForm.hltbUrl),
         hltbMainHours: parseAdminNumber(this.hltbForm.hltbMainHours),
         hltbMainExtraHours: parseAdminNumber(this.hltbForm.hltbMainExtraHours),
         hltbCompletionistHours: parseAdminNumber(this.hltbForm.hltbCompletionistHours),
         queryTitle: normalizeAdminString(this.hltbForm.queryTitle),
-        queryReleaseYear: parseAdminInteger(this.hltbForm.queryReleaseYear),
+        queryReleaseYear: parseAdminPositiveInteger(this.hltbForm.queryReleaseYear),
         queryPlatform: normalizeAdminString(this.hltbForm.queryPlatform),
       };
     }
@@ -577,10 +577,10 @@ export class AdminDiscoveryMatchPage {
         reviewUrl: normalizeAdminString(this.reviewForm.reviewUrl),
         metacriticScore: parseAdminNumber(this.reviewForm.metacriticScore),
         metacriticUrl: normalizeAdminString(this.reviewForm.metacriticUrl),
-        mobygamesGameId: parseAdminInteger(this.reviewForm.mobygamesGameId),
+        mobygamesGameId: parseAdminPositiveInteger(this.reviewForm.mobygamesGameId),
         mobyScore: parseAdminNumber(this.reviewForm.mobyScore),
         queryTitle: normalizeAdminString(this.reviewForm.queryTitle),
-        queryReleaseYear: parseAdminInteger(this.reviewForm.queryReleaseYear),
+        queryReleaseYear: parseAdminPositiveInteger(this.reviewForm.queryReleaseYear),
         queryPlatform: normalizeAdminString(this.reviewForm.queryPlatform),
       };
     }
@@ -767,7 +767,7 @@ export class AdminDiscoveryMatchPage {
       const candidates = await firstValueFrom(
         this.gameShelfService.searchHltbCandidates(
           normalized,
-          parseAdminInteger(this.hltbForm.queryReleaseYear) ?? detail.releaseYear,
+          parseAdminPositiveInteger(this.hltbForm.queryReleaseYear) ?? detail.releaseYear,
           normalizeAdminString(this.hltbForm.queryPlatform) ?? detail.platform
         )
       );
@@ -803,7 +803,7 @@ export class AdminDiscoveryMatchPage {
       const candidates = await firstValueFrom(
         this.gameShelfService.searchReviewCandidates(
           normalized,
-          parseAdminInteger(this.reviewForm.queryReleaseYear) ?? detail.releaseYear,
+          parseAdminPositiveInteger(this.reviewForm.queryReleaseYear) ?? detail.releaseYear,
           normalizeAdminString(this.reviewForm.queryPlatform) ?? detail.platform,
           detail.platformIgdbId
         )

@@ -30,6 +30,25 @@ import {
   PriceMatchCandidate,
   ReviewMatchCandidate,
 } from '../core/models/game.models';
+import {
+  buildAdminQueueFeedback,
+  buildGroupedAdminDiscoveryItem,
+  dedupeHltbAdminCandidates,
+  dedupePricingAdminCandidates,
+  describeAdminRow,
+  dedupeReviewAdminCandidates,
+  describeAdminActiveTarget,
+  describeAdminTargetedRows,
+  formatAdminNumber,
+  getAdminDiscoveryGameKey,
+  groupAdminDiscoveryItems,
+  normalizeAdminString,
+  parseAdminInteger,
+  parseAdminNumber,
+  resolveAdminPricingSource,
+  type GroupedAdminDiscoveryListItem,
+  type QueueStatusTone,
+} from './admin-discovery-match.utils';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import {
   AdminDiscoveryDetailResponse,
@@ -42,14 +61,6 @@ import { ClientWriteAuthService } from '../core/services/client-write-auth.servi
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
-type QueueStatusTone = 'success' | 'warning' | 'danger';
-
-interface GroupedAdminDiscoveryListItem extends AdminDiscoveryListItem {
-  gameKeys: string[];
-  platformLabels: string[];
-  groupedPlatformCount: number;
-  sourceItems: AdminDiscoveryListItem[];
-}
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -201,7 +212,7 @@ export class AdminDiscoveryMatchPage {
               (sourceItem) =>
                 sourceItem.matchState[this.selectedProvider].status === 'permanentMiss'
             )
-            .map((sourceItem) => this.getGameKey(sourceItem))
+            .map((sourceItem) => getAdminDiscoveryGameKey(sourceItem))
         )
       ),
     ];
@@ -242,7 +253,7 @@ export class AdminDiscoveryMatchPage {
           limit: 100,
         })
       );
-      this.items = this.groupItems(response.items);
+      this.items = groupAdminDiscoveryItems(response.items);
       this.scannedCount = response.scanned;
     } catch (error) {
       this.errorMessage = this.toErrorMessage(error, 'Unable to load unmatched discovery games.');
@@ -290,17 +301,17 @@ export class AdminDiscoveryMatchPage {
       const response = await firstValueFrom(
         this.adminMatchService.requeueEnrichmentRun(this.selectedProvider, targetedKeys)
       );
-      const queueState = this.buildQueueFeedback(response, 'list');
+      const queueState = buildAdminQueueFeedback(response, this.selectedProvider, 'list');
       this.setListQueueStatus(
         queueState.message,
-        this.describeTargetedRows(this.items),
+        describeAdminTargetedRows(this.items),
         queueState.tone
       );
       await this.presentToast(queueState.message, queueState.tone);
     } catch (error) {
       this.setListQueueStatus(
         this.toErrorMessage(error, this.getRequeueErrorMessage(this.selectedProvider)),
-        this.describeTargetedRows(this.items),
+        describeAdminTargetedRows(this.items),
         'danger'
       );
       await this.presentToast(
@@ -416,13 +427,17 @@ export class AdminDiscoveryMatchPage {
           this.activeModalProvider
         )
       );
-      const queueState = this.buildQueueFeedback(response, 'active');
-      this.setActiveQueueStatus(queueState.message, this.describeActiveTarget(), queueState.tone);
+      const queueState = buildAdminQueueFeedback(response, this.activeModalProvider, 'active');
+      this.setActiveQueueStatus(
+        queueState.message,
+        describeAdminActiveTarget(this.activeDetail, this.activeGroup),
+        queueState.tone
+      );
       await this.presentToast(queueState.message, queueState.tone);
     } catch (error) {
       this.setActiveQueueStatus(
         this.toErrorMessage(error, this.getRequeueErrorMessage(this.activeModalProvider)),
-        this.describeActiveTarget(),
+        describeAdminActiveTarget(this.activeDetail, this.activeGroup),
         'danger'
       );
       await this.presentToast(
@@ -480,13 +495,13 @@ export class AdminDiscoveryMatchPage {
   applyHltbCandidate(candidate: HltbMatchCandidate): void {
     this.hltbForm = {
       ...this.hltbForm,
-      hltbGameId: this.formatNumber(candidate.hltbGameId ?? null),
+      hltbGameId: formatAdminNumber(candidate.hltbGameId ?? null),
       hltbUrl: candidate.hltbUrl ?? '',
-      hltbMainHours: this.formatNumber(candidate.hltbMainHours),
-      hltbMainExtraHours: this.formatNumber(candidate.hltbMainExtraHours),
-      hltbCompletionistHours: this.formatNumber(candidate.hltbCompletionistHours),
+      hltbMainHours: formatAdminNumber(candidate.hltbMainHours),
+      hltbMainExtraHours: formatAdminNumber(candidate.hltbMainExtraHours),
+      hltbCompletionistHours: formatAdminNumber(candidate.hltbCompletionistHours),
       queryTitle: candidate.title,
-      queryReleaseYear: this.formatNumber(candidate.releaseYear),
+      queryReleaseYear: formatAdminNumber(candidate.releaseYear),
       queryPlatform: candidate.platform ?? '',
     };
   }
@@ -496,26 +511,26 @@ export class AdminDiscoveryMatchPage {
     this.reviewForm = {
       ...this.reviewForm,
       reviewSource: candidateSource,
-      reviewScore: this.formatNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null),
+      reviewScore: formatAdminNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null),
       reviewUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? '',
       metacriticScore:
         candidateSource === 'metacritic'
-          ? this.formatNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null)
+          ? formatAdminNumber(candidate.reviewScore ?? candidate.metacriticScore ?? null)
           : this.reviewForm.metacriticScore,
       metacriticUrl:
         candidateSource === 'metacritic'
           ? (candidate.reviewUrl ?? candidate.metacriticUrl ?? '')
           : this.reviewForm.metacriticUrl,
-      mobygamesGameId: this.formatNumber(candidate.mobygamesGameId ?? null),
-      mobyScore: this.formatNumber(candidate.mobyScore ?? null),
+      mobygamesGameId: formatAdminNumber(candidate.mobygamesGameId ?? null),
+      mobyScore: formatAdminNumber(candidate.mobyScore ?? null),
       queryTitle: candidate.title,
-      queryReleaseYear: this.formatNumber(candidate.releaseYear),
+      queryReleaseYear: formatAdminNumber(candidate.releaseYear),
       queryPlatform: candidate.platform ?? '',
     };
   }
 
   applyPricingCandidate(candidate: PriceMatchCandidate): void {
-    const source = this.resolvePricingSource(
+    const source = resolveAdminPricingSource(
       this.activeDetail?.platformIgdbId ?? null,
       candidate.source
     );
@@ -524,10 +539,10 @@ export class AdminDiscoveryMatchPage {
     this.pricingForm = {
       ...this.pricingForm,
       priceSource: source,
-      priceAmount: this.formatNumber(candidate.amount),
+      priceAmount: formatAdminNumber(candidate.amount),
       priceCurrency: candidate.currency ?? '',
-      priceRegularAmount: this.formatNumber(candidate.regularAmount),
-      priceDiscountPercent: this.formatNumber(candidate.discountPercent),
+      priceRegularAmount: formatAdminNumber(candidate.regularAmount),
+      priceDiscountPercent: formatAdminNumber(candidate.discountPercent),
       priceIsFree: candidate.isFree === true,
       priceUrl: candidate.url ?? '',
       psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
@@ -540,14 +555,14 @@ export class AdminDiscoveryMatchPage {
     if (provider === 'hltb') {
       return {
         provider,
-        hltbGameId: this.parseInteger(this.hltbForm.hltbGameId),
-        hltbUrl: this.normalizeString(this.hltbForm.hltbUrl),
-        hltbMainHours: this.parseNumber(this.hltbForm.hltbMainHours),
-        hltbMainExtraHours: this.parseNumber(this.hltbForm.hltbMainExtraHours),
-        hltbCompletionistHours: this.parseNumber(this.hltbForm.hltbCompletionistHours),
-        queryTitle: this.normalizeString(this.hltbForm.queryTitle),
-        queryReleaseYear: this.parseInteger(this.hltbForm.queryReleaseYear),
-        queryPlatform: this.normalizeString(this.hltbForm.queryPlatform),
+        hltbGameId: parseAdminInteger(this.hltbForm.hltbGameId),
+        hltbUrl: normalizeAdminString(this.hltbForm.hltbUrl),
+        hltbMainHours: parseAdminNumber(this.hltbForm.hltbMainHours),
+        hltbMainExtraHours: parseAdminNumber(this.hltbForm.hltbMainExtraHours),
+        hltbCompletionistHours: parseAdminNumber(this.hltbForm.hltbCompletionistHours),
+        queryTitle: normalizeAdminString(this.hltbForm.queryTitle),
+        queryReleaseYear: parseAdminInteger(this.hltbForm.queryReleaseYear),
+        queryPlatform: normalizeAdminString(this.hltbForm.queryPlatform),
       };
     }
 
@@ -555,15 +570,15 @@ export class AdminDiscoveryMatchPage {
       return {
         provider,
         reviewSource: this.reviewForm.reviewSource,
-        reviewScore: this.parseNumber(this.reviewForm.reviewScore),
-        reviewUrl: this.normalizeString(this.reviewForm.reviewUrl),
-        metacriticScore: this.parseNumber(this.reviewForm.metacriticScore),
-        metacriticUrl: this.normalizeString(this.reviewForm.metacriticUrl),
-        mobygamesGameId: this.parseInteger(this.reviewForm.mobygamesGameId),
-        mobyScore: this.parseNumber(this.reviewForm.mobyScore),
-        queryTitle: this.normalizeString(this.reviewForm.queryTitle),
-        queryReleaseYear: this.parseInteger(this.reviewForm.queryReleaseYear),
-        queryPlatform: this.normalizeString(this.reviewForm.queryPlatform),
+        reviewScore: parseAdminNumber(this.reviewForm.reviewScore),
+        reviewUrl: normalizeAdminString(this.reviewForm.reviewUrl),
+        metacriticScore: parseAdminNumber(this.reviewForm.metacriticScore),
+        metacriticUrl: normalizeAdminString(this.reviewForm.metacriticUrl),
+        mobygamesGameId: parseAdminInteger(this.reviewForm.mobygamesGameId),
+        mobyScore: parseAdminNumber(this.reviewForm.mobyScore),
+        queryTitle: normalizeAdminString(this.reviewForm.queryTitle),
+        queryReleaseYear: parseAdminInteger(this.reviewForm.queryReleaseYear),
+        queryPlatform: normalizeAdminString(this.reviewForm.queryPlatform),
       };
     }
 
@@ -571,60 +586,60 @@ export class AdminDiscoveryMatchPage {
 
     return {
       provider,
-      priceSource: this.normalizeString(this.pricingForm.priceSource),
-      priceFetchedAt: this.normalizeString(this.pricingForm.priceFetchedAt),
-      priceAmount: this.parseNumber(this.pricingForm.priceAmount),
-      priceCurrency: this.normalizeString(this.pricingForm.priceCurrency),
-      priceRegularAmount: this.parseNumber(this.pricingForm.priceRegularAmount),
-      priceDiscountPercent: this.parseNumber(this.pricingForm.priceDiscountPercent),
+      priceSource: normalizeAdminString(this.pricingForm.priceSource),
+      priceFetchedAt: normalizeAdminString(this.pricingForm.priceFetchedAt),
+      priceAmount: parseAdminNumber(this.pricingForm.priceAmount),
+      priceCurrency: normalizeAdminString(this.pricingForm.priceCurrency),
+      priceRegularAmount: parseAdminNumber(this.pricingForm.priceRegularAmount),
+      priceDiscountPercent: parseAdminNumber(this.pricingForm.priceDiscountPercent),
       priceIsFree: this.pricingForm.priceIsFree,
-      priceUrl: this.normalizeString(this.pricingForm.priceUrl),
-      psPricesUrl: isPsPricesSource ? this.normalizeString(this.pricingForm.psPricesUrl) : null,
-      psPricesTitle: isPsPricesSource ? this.normalizeString(this.pricingForm.psPricesTitle) : null,
+      priceUrl: normalizeAdminString(this.pricingForm.priceUrl),
+      psPricesUrl: isPsPricesSource ? normalizeAdminString(this.pricingForm.psPricesUrl) : null,
+      psPricesTitle: isPsPricesSource ? normalizeAdminString(this.pricingForm.psPricesTitle) : null,
       psPricesPlatform: isPsPricesSource
-        ? this.normalizeString(this.pricingForm.psPricesPlatform)
+        ? normalizeAdminString(this.pricingForm.psPricesPlatform)
         : null,
     };
   }
 
   private syncFormsFromDetail(detail: AdminDiscoveryDetailResponse): void {
-    const priceSource = this.resolvePricingSource(
+    const priceSource = resolveAdminPricingSource(
       detail.platformIgdbId,
       detail.providers.pricing.priceSource
     );
     const isPsPricesSource = this.isPsPricesSource(priceSource);
 
     this.hltbForm = {
-      hltbGameId: this.formatNumber(detail.providers.hltb.hltbGameId),
+      hltbGameId: formatAdminNumber(detail.providers.hltb.hltbGameId),
       hltbUrl: detail.providers.hltb.hltbUrl ?? '',
-      hltbMainHours: this.formatNumber(detail.providers.hltb.hltbMainHours),
-      hltbMainExtraHours: this.formatNumber(detail.providers.hltb.hltbMainExtraHours),
-      hltbCompletionistHours: this.formatNumber(detail.providers.hltb.hltbCompletionistHours),
+      hltbMainHours: formatAdminNumber(detail.providers.hltb.hltbMainHours),
+      hltbMainExtraHours: formatAdminNumber(detail.providers.hltb.hltbMainExtraHours),
+      hltbCompletionistHours: formatAdminNumber(detail.providers.hltb.hltbCompletionistHours),
       queryTitle: detail.providers.hltb.queryTitle ?? '',
-      queryReleaseYear: this.formatNumber(detail.providers.hltb.queryReleaseYear),
+      queryReleaseYear: formatAdminNumber(detail.providers.hltb.queryReleaseYear),
       queryPlatform: detail.providers.hltb.queryPlatform ?? '',
     };
 
     this.reviewForm = {
       reviewSource: detail.providers.review.reviewSource ?? 'metacritic',
-      reviewScore: this.formatNumber(detail.providers.review.reviewScore),
+      reviewScore: formatAdminNumber(detail.providers.review.reviewScore),
       reviewUrl: detail.providers.review.reviewUrl ?? '',
-      metacriticScore: this.formatNumber(detail.providers.review.metacriticScore),
+      metacriticScore: formatAdminNumber(detail.providers.review.metacriticScore),
       metacriticUrl: detail.providers.review.metacriticUrl ?? '',
-      mobygamesGameId: this.formatNumber(detail.providers.review.mobygamesGameId),
-      mobyScore: this.formatNumber(detail.providers.review.mobyScore),
+      mobygamesGameId: formatAdminNumber(detail.providers.review.mobygamesGameId),
+      mobyScore: formatAdminNumber(detail.providers.review.mobyScore),
       queryTitle: detail.providers.review.queryTitle ?? '',
-      queryReleaseYear: this.formatNumber(detail.providers.review.queryReleaseYear),
+      queryReleaseYear: formatAdminNumber(detail.providers.review.queryReleaseYear),
       queryPlatform: detail.providers.review.queryPlatform ?? '',
     };
 
     this.pricingForm = {
       priceSource,
       priceFetchedAt: detail.providers.pricing.priceFetchedAt ?? '',
-      priceAmount: this.formatNumber(detail.providers.pricing.priceAmount),
+      priceAmount: formatAdminNumber(detail.providers.pricing.priceAmount),
       priceCurrency: detail.providers.pricing.priceCurrency ?? '',
-      priceRegularAmount: this.formatNumber(detail.providers.pricing.priceRegularAmount),
-      priceDiscountPercent: this.formatNumber(detail.providers.pricing.priceDiscountPercent),
+      priceRegularAmount: formatAdminNumber(detail.providers.pricing.priceRegularAmount),
+      priceDiscountPercent: formatAdminNumber(detail.providers.pricing.priceDiscountPercent),
       priceIsFree: detail.providers.pricing.priceIsFree,
       priceUrl: detail.providers.pricing.priceUrl ?? '',
       psPricesUrl: isPsPricesSource ? (detail.providers.pricing.psPricesUrl ?? '') : '',
@@ -663,7 +678,7 @@ export class AdminDiscoveryMatchPage {
   private replaceVisibleItem(detail: AdminDiscoveryDetailResponse): void {
     this.items = this.items.map((item) =>
       item.igdbGameId === detail.igdbGameId
-        ? this.buildGroupedItem(
+        ? buildGroupedAdminDiscoveryItem(
             item.sourceItems.map((sourceItem) => {
               const nextMatchState =
                 item.groupedPlatformCount === 1 ||
@@ -690,102 +705,23 @@ export class AdminDiscoveryMatchPage {
     );
   }
 
-  private getGameKey(item: Pick<AdminDiscoveryListItem, 'igdbGameId' | 'platformIgdbId'>): string {
-    return `${item.igdbGameId}::${String(item.platformIgdbId)}`;
-  }
-
   private groupItems(items: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem[] {
-    const groups = new Map<string, AdminDiscoveryListItem[]>();
-
-    for (const item of items) {
-      const existing = groups.get(item.igdbGameId);
-      if (existing) {
-        existing.push(item);
-        continue;
-      }
-      groups.set(item.igdbGameId, [item]);
-    }
-
-    return [...groups.values()].map((group) => this.buildGroupedItem(group));
+    return groupAdminDiscoveryItems(items);
   }
 
   private buildGroupedItem(group: AdminDiscoveryListItem[]): GroupedAdminDiscoveryListItem {
-    const representative = group[0];
-    const platformLabels = [
-      ...new Set(
-        group.map((item) => item.platform?.trim()).filter((value): value is string => !!value)
-      ),
-    ];
-
-    return {
-      ...representative,
-      platform: group.length > 1 ? 'Multiple platforms' : representative.platform,
-      matchState: this.aggregateMatchState(group),
-      gameKeys: group.map((item) => this.getGameKey(item)),
-      platformLabels,
-      groupedPlatformCount: group.length,
-      sourceItems: group.map((item) => ({ ...item })),
-    };
+    return buildGroupedAdminDiscoveryItem(group);
   }
 
   private aggregateMatchState(group: AdminDiscoveryListItem[]) {
-    return {
-      hltb: this.aggregateProviderState(group, 'hltb'),
-      review: this.aggregateProviderState(group, 'review'),
-      pricing: this.aggregateProviderState(group, 'pricing'),
-    };
-  }
-
-  private aggregateProviderState(
-    group: AdminDiscoveryListItem[],
-    provider: AdminDiscoveryMatchProvider
-  ) {
-    const states = group.map((item) => item.matchState[provider]);
-    const status = this.aggregateStatus(states.map((state) => state.status));
-
-    return {
-      status,
-      locked: states.every((state) => state.locked),
-      attempts: Math.max(...states.map((state) => state.attempts)),
-      lastTriedAt: this.pickLatestIso(states.map((state) => state.lastTriedAt)),
-      nextTryAt: this.pickLatestIso(states.map((state) => state.nextTryAt)),
-      permanentMiss: states.some((state) => state.permanentMiss),
-    };
-  }
-
-  private aggregateStatus(
-    statuses: AdminDiscoveryMatchStateStatus[]
-  ): AdminDiscoveryMatchStateStatus {
-    if (statuses.some((status) => status === 'permanentMiss')) {
-      return 'permanentMiss';
-    }
-    if (statuses.some((status) => status === 'retrying')) {
-      return 'retrying';
-    }
-    if (statuses.some((status) => status === 'missing')) {
-      return 'missing';
-    }
-    return 'matched';
-  }
-
-  private pickLatestIso(values: Array<string | null>): string | null {
-    const normalized = values.filter((value): value is string => typeof value === 'string');
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    return normalized.sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
+    return buildGroupedAdminDiscoveryItem(group).matchState;
   }
 
   private resolvePricingSource(
     platformIgdbId: number | null | undefined,
     priceSource?: string | null
   ): string {
-    if (priceSource === 'steam_store' || priceSource === 'psprices') {
-      return priceSource;
-    }
-
-    return platformIgdbId === 6 ? 'steam_store' : 'psprices';
+    return resolveAdminPricingSource(platformIgdbId, priceSource);
   }
 
   private isPsPricesSource(priceSource?: string | null): boolean {
@@ -800,33 +736,11 @@ export class AdminDiscoveryMatchPage {
     response: { queued: boolean; deduped: boolean; queuedCount: number; dedupedCount: number },
     scope: 'list' | 'active'
   ): { message: string; tone: QueueStatusTone } {
-    const pricing =
-      (scope === 'list' ? this.selectedProvider : this.activeModalProvider) === 'pricing';
-
-    if (response.queuedCount === 0 && response.dedupedCount === 0) {
-      return {
-        message: pricing
-          ? 'No eligible pricing refresh jobs were queued.'
-          : 'No eligible discovery enrichment jobs were queued.',
-        tone: 'warning',
-      };
-    }
-
-    if (response.deduped) {
-      return {
-        message: pricing
-          ? 'Targeted pricing refresh is already queued.'
-          : 'Targeted discovery enrichment is already queued.',
-        tone: 'warning',
-      };
-    }
-
-    return {
-      message: pricing
-        ? `Targeted pricing refresh queued for ${scope === 'list' ? 'the current results' : 'this game'}.`
-        : `Targeted discovery enrichment queued for ${scope === 'list' ? 'the current results' : 'this game'}.`,
-      tone: 'success',
-    };
+    return buildAdminQueueFeedback(
+      response,
+      scope === 'list' ? this.selectedProvider : this.activeModalProvider,
+      scope
+    );
   }
 
   private getRequeueErrorMessage(provider: AdminDiscoveryMatchProvider): string {
@@ -864,53 +778,17 @@ export class AdminDiscoveryMatchPage {
   }
 
   private describeTargetedRows(items: GroupedAdminDiscoveryListItem[]): string | null {
-    if (items.length === 0) {
-      return null;
-    }
-
-    const labels = items
-      .slice(0, 3)
-      .map((item) => this.describeRow(item))
-      .filter((label) => label.length > 0);
-
-    if (labels.length === 0) {
-      return `${String(items.length)} game${items.length === 1 ? '' : 's'} targeted.`;
-    }
-
-    const suffix =
-      items.length > labels.length ? `, +${String(items.length - labels.length)} more` : '';
-    return `${String(items.length)} game${items.length === 1 ? '' : 's'} targeted: ${labels.join(', ')}${suffix}`;
+    return describeAdminTargetedRows(items);
   }
 
   private describeActiveTarget(): string | null {
-    if (!this.activeDetail) {
-      return null;
-    }
-
-    if (this.activeGroup && this.activeGroup.groupedPlatformCount > 1) {
-      return `Targeted game: ${this.describeRow({
-        title: this.activeDetail.title,
-        platform: 'Multiple platforms',
-        releaseYear: this.activeDetail.releaseYear,
-      })}`;
-    }
-
-    return `Targeted row: ${this.describeRow(this.activeDetail)}`;
+    return describeAdminActiveTarget(this.activeDetail, this.activeGroup);
   }
 
   private describeRow(
     item: Pick<AdminDiscoveryListItem, 'title' | 'platform' | 'releaseYear'>
   ): string {
-    const title = item.title?.trim() || 'Untitled discovery game';
-    const platform = item.platform?.trim();
-    const year = item.releaseYear;
-
-    const meta = [
-      platform && platform.length > 0 ? platform : null,
-      year ? String(year) : null,
-    ].filter((value): value is string => value !== null);
-
-    return meta.length > 0 ? `${title} (${meta.join(', ')})` : title;
+    return describeAdminRow(item);
   }
 
   private async runHltbCandidateSearch(): Promise<void> {
@@ -936,11 +814,11 @@ export class AdminDiscoveryMatchPage {
       const candidates = await firstValueFrom(
         this.gameShelfService.searchHltbCandidates(
           normalized,
-          this.parseInteger(this.hltbForm.queryReleaseYear) ?? detail.releaseYear,
-          this.normalizeString(this.hltbForm.queryPlatform) ?? detail.platform
+          parseAdminInteger(this.hltbForm.queryReleaseYear) ?? detail.releaseYear,
+          normalizeAdminString(this.hltbForm.queryPlatform) ?? detail.platform
         )
       );
-      this.hltbSearchResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
+      this.hltbSearchResults = dedupeHltbAdminCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
       this.hltbSearchResults = [];
       this.hltbSearchError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
@@ -972,12 +850,12 @@ export class AdminDiscoveryMatchPage {
       const candidates = await firstValueFrom(
         this.gameShelfService.searchReviewCandidates(
           normalized,
-          this.parseInteger(this.reviewForm.queryReleaseYear) ?? detail.releaseYear,
-          this.normalizeString(this.reviewForm.queryPlatform) ?? detail.platform,
+          parseAdminInteger(this.reviewForm.queryReleaseYear) ?? detail.releaseYear,
+          normalizeAdminString(this.reviewForm.queryPlatform) ?? detail.platform,
           detail.platformIgdbId
         )
       );
-      this.reviewSearchResults = this.dedupeReviewCandidates(candidates).slice(0, 30);
+      this.reviewSearchResults = dedupeReviewAdminCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
       this.reviewSearchResults = [];
       this.reviewSearchError = formatRateLimitedUiError(
@@ -1016,7 +894,7 @@ export class AdminDiscoveryMatchPage {
           normalized
         )
       );
-      this.pricingSearchResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+      this.pricingSearchResults = dedupePricingAdminCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
       this.pricingSearchResults = [];
       this.pricingSearchError = formatRateLimitedUiError(
@@ -1048,107 +926,6 @@ export class AdminDiscoveryMatchPage {
     this.pricingSearchError = null;
     this.isPricingSearchLoading = false;
     this.pricingSearchHasRun = false;
-  }
-
-  private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
-    const byKey = new Map<string, HltbMatchCandidate>();
-
-    candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.hltbGameId ?? '')}::${candidate.hltbUrl ?? ''}`;
-
-      if (!byKey.has(key)) {
-        byKey.set(key, candidate);
-      }
-    });
-
-    return [...byKey.values()];
-  }
-
-  private dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
-    const deduped: ReviewMatchCandidate[] = [];
-
-    candidates.forEach((candidate) => {
-      const candidateIdentityUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? '';
-      const existingIndex = deduped.findIndex((entry) => {
-        if (
-          entry.title !== candidate.title ||
-          entry.releaseYear !== candidate.releaseYear ||
-          entry.platform !== candidate.platform
-        ) {
-          return false;
-        }
-
-        const entryIdentityUrl = entry.reviewUrl ?? entry.metacriticUrl ?? '';
-        return (
-          entryIdentityUrl === candidateIdentityUrl ||
-          entryIdentityUrl.length === 0 ||
-          candidateIdentityUrl.length === 0
-        );
-      });
-
-      if (existingIndex === -1) {
-        deduped.push(candidate);
-        return;
-      }
-
-      const existing = deduped[existingIndex];
-      const existingIdentityUrl = existing.reviewUrl ?? existing.metacriticUrl ?? '';
-      const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
-      const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
-      const wouldDropIdentityUrl =
-        existingIdentityUrl.length > 0 && candidateIdentityUrl.length === 0;
-      const gainsIdentityUrl = existingIdentityUrl.length === 0 && candidateIdentityUrl.length > 0;
-      const shouldReplace =
-        !wouldDropIdentityUrl &&
-        (gainsIdentityUrl ||
-          (existing.imageUrl == null && candidate.imageUrl != null) ||
-          (existingScore == null && candidateScore != null));
-
-      if (shouldReplace) {
-        deduped[existingIndex] = candidate;
-      }
-    });
-
-    return deduped;
-  }
-
-  private dedupePricingCandidates(candidates: PriceMatchCandidate[]): PriceMatchCandidate[] {
-    const byKey = new Map<string, PriceMatchCandidate>();
-
-    candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${candidate.url ?? ''}::${String(candidate.amount ?? '')}`;
-      if (!byKey.has(key)) {
-        byKey.set(key, candidate);
-      }
-    });
-
-    return [...byKey.values()];
-  }
-
-  private parseInteger(value: string): number | null {
-    const normalized = value.trim();
-    if (!/^-?\d+$/.test(normalized)) {
-      return null;
-    }
-    return Number.parseInt(normalized, 10);
-  }
-
-  private parseNumber(value: string): number | null {
-    const normalized = value.trim();
-    if (normalized.length === 0) {
-      return null;
-    }
-    const parsed = Number.parseFloat(normalized);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  private normalizeString(value: string): string | null {
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
-  }
-
-  private formatNumber(value: number | null): string {
-    return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
   }
 
   private toErrorMessage(error: unknown, fallback: string): string {

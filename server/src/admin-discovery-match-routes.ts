@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
+import { normalizeDiscoveryGameKeys, parseDiscoveryGameKeys } from './discovery-game-keys.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
@@ -490,7 +491,7 @@ function enqueueDiscoveryEnrichmentRun(
 ): Promise<{ jobId: number; deduped: boolean }> {
   const normalizedGameKeys =
     Array.isArray(params.gameKeys) && params.gameKeys.length > 0
-      ? [...new Set(params.gameKeys.map((key) => key.trim()).filter((key) => key.length > 0))]
+      ? normalizeDiscoveryGameKeys(params.gameKeys)
       : null;
   return backgroundJobs.enqueue({
     jobType: 'discovery_enrichment_run',
@@ -873,7 +874,7 @@ function applyManualMatchPatch(
     const scoreError =
       validateBoundedNumberField(reviewScore, 'Review score', 0, 100) ??
       validateBoundedNumberField(metacriticScore, 'Metacritic score', 0, 100) ??
-      validateBoundedNumberField(mobyScore, 'MobyGames score', 0, 100);
+      validateBoundedNumberField(mobyScore, 'MobyGames score', 0, 10);
     if (scoreError) {
       return scoreError;
     }
@@ -895,7 +896,7 @@ function applyManualMatchPatch(
       reviewSource === 'metacritic' ? (metacriticScore ?? reviewScore) : null;
     payload['metacriticUrl'] = reviewSource === 'metacritic' ? (metacriticUrl ?? reviewUrl) : null;
     payload['mobygamesGameId'] = reviewSource === 'mobygames' ? mobygamesGameId : null;
-    payload['mobyScore'] = reviewSource === 'mobygames' ? (mobyScore ?? reviewScore) : null;
+    payload['mobyScore'] = reviewSource === 'mobygames' ? mobyScore : null;
     payload['reviewMatchQueryTitle'] = normalizeString(body.queryTitle);
     payload['reviewMatchQueryReleaseYear'] = normalizeInteger(body.queryReleaseYear);
     payload['reviewMatchQueryPlatform'] = normalizeString(body.queryPlatform);
@@ -1091,38 +1092,6 @@ async function listDiscoveryGamesByKeys(
     .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
 }
 
-function parseDiscoveryGameKeys(
-  gameKeys: string[]
-): Array<{ igdbGameId: string; platformIgdbId: number }> {
-  const parsed = new Map<string, { igdbGameId: string; platformIgdbId: number }>();
-
-  for (const gameKey of gameKeys) {
-    const normalized = gameKey.trim();
-    if (normalized.length === 0) {
-      continue;
-    }
-
-    const separatorIndex = normalized.indexOf('::');
-    // Ensure '::' is not at the start and is followed by at least one character
-    if (separatorIndex <= 0 || separatorIndex + 2 >= normalized.length) {
-      continue;
-    }
-
-    const igdbGameId = normalizeIdentifier(normalized.slice(0, separatorIndex));
-    const platformIgdbId = normalizeInteger(normalized.slice(separatorIndex + 2));
-    if (igdbGameId === null || platformIgdbId === null) {
-      continue;
-    }
-
-    parsed.set(`${igdbGameId}::${String(platformIgdbId)}`, {
-      igdbGameId,
-      platformIgdbId,
-    });
-  }
-
-  return [...parsed.values()];
-}
-
 async function runWithConcurrencyLimit<T>(
   tasks: Array<() => Promise<T>>,
   concurrency: number
@@ -1307,9 +1276,9 @@ function parseGameKeys(value: unknown): Set<string> | null {
   if (!Array.isArray(value)) {
     return null;
   }
-  const keys = value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter((item) => item.length > 0);
+  const keys = normalizeDiscoveryGameKeys(
+    value.filter((item): item is string => typeof item === 'string')
+  );
   return new Set(keys);
 }
 

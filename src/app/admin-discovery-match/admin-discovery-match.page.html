@@ -494,7 +494,7 @@
           @if (activeModalProvider === 'pricing') {
             <ion-searchbar
               [value]="pricingSearchQuery"
-              placeholder="Search PSPrices candidates"
+              placeholder="Search pricing candidates"
               show-clear-button="focus"
               (ionInput)="pricingSearchQuery = $any($event).detail.value || ''"
             ></ion-searchbar>

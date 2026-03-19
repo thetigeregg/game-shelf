@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -36,6 +36,26 @@ function getCurrentWorktreePath() {
 }
 
 const CURRENT_WORKTREE_PATH = getCurrentWorktreePath();
+
+function getCommonRepoRoot() {
+  try {
+    const commonDir = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      encoding: 'utf8',
+      maxBuffer: DEFAULT_MAX_BUFFER,
+    }).trim();
+
+    if (commonDir) {
+      return normalizePathForCompare(path.resolve(commonDir, '..'));
+    }
+  } catch {
+    // Fallback to current worktree when common git dir detection fails.
+  }
+
+  return CURRENT_WORKTREE_PATH;
+}
+
+const COMMON_REPO_ROOT = getCommonRepoRoot();
+const MANAGED_WORKTREES_ROOT = normalizePathForCompare(path.join(COMMON_REPO_ROOT, 'worktrees'));
 
 function runGit(args, options = {}) {
   const { exitOnError = true, ...execOptions } = options;
@@ -75,6 +95,20 @@ function runGit(args, options = {}) {
   }
 }
 
+function gitCommandSucceeds(args, options = {}) {
+  try {
+    execFileSync('git', args, {
+      encoding: 'utf8',
+      maxBuffer: DEFAULT_MAX_BUFFER,
+      stdio: 'ignore',
+      ...options,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isWorktreeClean(worktreePath) {
   try {
     const status = runGit(['-C', worktreePath, 'status', '--porcelain'], {
@@ -100,6 +134,139 @@ function parseWorktrees(worktreesOutput) {
       };
     })
     .filter((w) => w.path && w.branch);
+}
+
+function isPathInside(parentPath, childPath) {
+  const normalizedParent = normalizePathForCompare(parentPath);
+  const normalizedChild = normalizePathForCompare(childPath);
+  return normalizedChild === normalizedParent || normalizedChild.startsWith(`${normalizedParent}/`);
+}
+
+function getDisplayPath(targetPath) {
+  return normalizePathForCompare(targetPath).replace(`${COMMON_REPO_ROOT}/`, '');
+}
+
+function listVisibleEntries(dirPath) {
+  return readdirSync(dirPath).filter((entry) => entry !== '.DS_Store');
+}
+
+function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES_ROOT) {
+  let currentPath = normalizePathForCompare(path.dirname(removedPath));
+  const normalizedManagedRoot = normalizePathForCompare(managedRoot);
+
+  while (
+    isPathInside(normalizedManagedRoot, currentPath) &&
+    currentPath !== normalizedManagedRoot
+  ) {
+    const visibleEntries = listVisibleEntries(currentPath);
+    if (visibleEntries.length > 0) {
+      return;
+    }
+
+    const dsStorePath = path.join(currentPath, '.DS_Store');
+    if (existsSync(dsStorePath)) {
+      rmSync(dsStorePath, { force: true });
+    }
+
+    rmSync(currentPath, { recursive: false, force: true });
+    currentPath = normalizePathForCompare(path.dirname(currentPath));
+  }
+}
+
+function looksLikeManagedWorktreeRoot(dirPath) {
+  return (
+    existsSync(path.join(dirPath, 'package.json')) && existsSync(path.join(dirPath, 'angular.json'))
+  );
+}
+
+function toBranchFromManagedWorktreePath(managedWorktreesRoot, dirPath) {
+  return path
+    .relative(managedWorktreesRoot, dirPath)
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+}
+
+function findOrphanedManagedWorktreeDirs({
+  managedWorktreesRoot = MANAGED_WORKTREES_ROOT,
+  activeWorktreePaths = [],
+}) {
+  const normalizedManagedRoot = normalizePathForCompare(managedWorktreesRoot);
+  if (!existsSync(normalizedManagedRoot)) {
+    return [];
+  }
+
+  const activePathSet = new Set(
+    activeWorktreePaths.map((worktreePath) => normalizePathForCompare(worktreePath))
+  );
+  const orphanedDirs = [];
+
+  function visit(dirPath) {
+    const normalizedDirPath = normalizePathForCompare(dirPath);
+
+    if (activePathSet.has(normalizedDirPath)) {
+      return;
+    }
+
+    if (looksLikeManagedWorktreeRoot(normalizedDirPath)) {
+      orphanedDirs.push(normalizedDirPath);
+      return;
+    }
+
+    for (const entry of readdirSync(normalizedDirPath, { withFileTypes: true })) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      visit(path.join(normalizedDirPath, entry.name));
+    }
+  }
+
+  visit(normalizedManagedRoot);
+  return orphanedDirs;
+}
+
+function localBranchExists(branch) {
+  return gitCommandSucceeds(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]);
+}
+
+export function removeOrphanedManagedWorktreeDirs({
+  managedWorktreesRoot = MANAGED_WORKTREES_ROOT,
+  activeWorktreePaths = [],
+  branchExists = localBranchExists,
+  removeDir = (dirPath) => rmSync(dirPath, { recursive: true, force: true }),
+  pruneAncestors = pruneEmptyManagedAncestors,
+  log = console.log,
+}) {
+  const normalizedManagedRoot = normalizePathForCompare(managedWorktreesRoot);
+  const orphanedDirs = findOrphanedManagedWorktreeDirs({
+    managedWorktreesRoot: normalizedManagedRoot,
+    activeWorktreePaths,
+  });
+  const summary = {
+    removed: [],
+    skippedExistingBranch: [],
+  };
+
+  orphanedDirs.forEach((dirPath) => {
+    const branch = toBranchFromManagedWorktreePath(normalizedManagedRoot, dirPath);
+
+    if (!branch || branch === '.') {
+      return;
+    }
+
+    if (branchExists(branch)) {
+      log(`Skipping orphaned directory with local branch: ${branch} → ${dirPath}`);
+      summary.skippedExistingBranch.push({ branch, path: dirPath });
+      return;
+    }
+
+    log(`Removing orphaned worktree directory ${dirPath}`);
+    removeDir(dirPath);
+    pruneAncestors(dirPath, normalizedManagedRoot);
+    summary.removed.push({ branch, path: dirPath });
+  });
+
+  return summary;
 }
 
 export function formatCleanupSummaryLine(label, worktrees) {
@@ -162,6 +329,7 @@ export function removeMergedWorktrees({
     try {
       log(`Deleting branch ${w.branch}`);
       gitRunner(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
+      pruneEmptyManagedAncestors(w.path);
       summary.removed.push(w);
     } catch {
       log(`Skipping branch ${w.branch}`);
@@ -295,6 +463,21 @@ AUTO MODE
       )
     );
     console.log(`Total skipped: ${totalSkipped}`);
+  }
+
+  if (AUTO) {
+    const orphanedSummary = removeOrphanedManagedWorktreeDirs({
+      activeWorktreePaths: worktrees.map((worktree) => worktree.path),
+    });
+
+    console.log('\n→ Orphaned worktree directories\n');
+    console.log(formatCleanupSummaryLine('Removed orphaned dirs', orphanedSummary.removed));
+    console.log(
+      formatCleanupSummaryLine(
+        'Skipped orphaned dirs with local branch',
+        orphanedSummary.skippedExistingBranch
+      )
+    );
   }
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

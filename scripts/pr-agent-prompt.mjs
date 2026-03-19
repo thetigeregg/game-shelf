@@ -238,6 +238,10 @@ function getReviewStateLabel(state) {
   }
 }
 
+function isActionableReviewState(state) {
+  return state === 'CHANGES_REQUESTED';
+}
+
 function formatReviewBody(body, state) {
   if (body) return body;
   const stateLabel = getReviewStateLabel(state);
@@ -316,7 +320,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
 
     // Ignore review summaries that are not actionable
     if (review.state === 'COMMENTED') continue;
-    if (!trimmedBody) continue;
+    if (!trimmedBody && !isActionableReviewState(review.state)) continue;
 
     const author = review.author?.login || 'reviewer';
     if (!includeReviewItem(trimmedBody, author, review.state)) continue;

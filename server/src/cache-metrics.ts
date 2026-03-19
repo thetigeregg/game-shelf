@@ -1,4 +1,17 @@
 export interface CacheMetricSnapshot {
+  igdb: {
+    hits: number;
+    misses: number;
+    bypasses: number;
+    writes: number;
+    readErrors: number;
+    writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
+  };
   mobygames: {
     hits: number;
     misses: number;
@@ -78,6 +91,19 @@ export interface CacheMetricSnapshot {
 }
 
 const metrics: CacheMetricSnapshot = {
+  igdb: {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+  },
   mobygames: {
     hits: 0,
     misses: 0,
@@ -156,6 +182,10 @@ const metrics: CacheMetricSnapshot = {
   },
 };
 
+export function incrementIgdbMetric(metric: keyof CacheMetricSnapshot['igdb']): void {
+  metrics.igdb[metric] += 1;
+}
+
 export function incrementHltbMetric(metric: keyof CacheMetricSnapshot['hltb']): void {
   metrics.hltb[metric] += 1;
 }
@@ -184,6 +214,7 @@ export function incrementPspricesPriceMetric(
 
 export function getCacheMetrics(): CacheMetricSnapshot {
   return {
+    igdb: { ...metrics.igdb },
     mobygames: { ...metrics.mobygames },
     metacritic: { ...metrics.metacritic },
     hltb: { ...metrics.hltb },
@@ -194,6 +225,19 @@ export function getCacheMetrics(): CacheMetricSnapshot {
 }
 
 export function resetCacheMetrics(): void {
+  metrics.igdb = {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+  };
   metrics.mobygames = {
     hits: 0,
     misses: 0,

@@ -4,6 +4,7 @@ import {
   buildDiscoveryEnrichmentSelectionParams,
   LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL,
 } from './discovery-enrichment-query.js';
+import { parseDiscoveryGameKeys } from '../discovery-game-keys.js';
 import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
@@ -339,6 +340,46 @@ export class RecommendationRepository {
         params.rearmAfterDays,
         params.rearmMinReleaseYear,
       ]
+    );
+
+    return result.rows.map((row) => ({
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id,
+      payload:
+        row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+          ? (row.payload as Record<string, unknown>)
+          : {},
+    }));
+  }
+
+  async listDiscoveryRowsByGameKeys(
+    gameKeys: string[],
+    queryable: Queryable = this.pool
+  ): Promise<
+    Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>
+  > {
+    const parsedKeys = parseDiscoveryGameKeys(gameKeys);
+    if (parsedKeys.length === 0) {
+      return [];
+    }
+
+    const result = await queryable.query<DiscoveryGameRow>(
+      `
+      WITH requested_keys AS (
+        SELECT DISTINCT *
+        FROM UNNEST($1::text[], $2::integer[]) AS requested(igdb_game_id, platform_igdb_id)
+      )
+      SELECT igdb_game_id, platform_igdb_id, payload
+      FROM games
+      INNER JOIN requested_keys USING (igdb_game_id, platform_igdb_id)
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+      ORDER BY updated_at DESC
+      `,
+      [parsedKeys.map((entry) => entry.igdbGameId), parsedKeys.map((entry) => entry.platformIgdbId)]
     );
 
     return result.rows.map((row) => ({

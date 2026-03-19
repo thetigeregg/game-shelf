@@ -117,7 +117,7 @@ jobs:
 
       - name: Backup ops cleanup
         if: always()
-        run: docker compose down --remove-orphans -v
+        run: docker compose -f docker-compose.yml down --remove-orphans -v
 
       - name: Install Playwright browser
         run: npm run test:ui:e2e:install

@@ -249,6 +249,9 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   pool.seed('960', 6, {
     title: 'Grand Theft Auto IV',
     steamAppId: 204100,
+    psPricesUrl: 'https://psprices.com/us/game/gta-iv',
+    psPricesTitle: 'Grand Theft Auto IV',
+    psPricesPlatform: 'PS3',
   });
 
   const requests: string[] = [];
@@ -323,6 +326,9 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   assert.equal(persisted['priceDiscountPercent'], 29);
   assert.equal(persisted['priceIsFree'], false);
   assert.equal(persisted['priceUrl'], 'https://store.steampowered.com/app/204100');
+  assert.equal(persisted['psPricesUrl'], null);
+  assert.equal(persisted['psPricesTitle'], null);
+  assert.equal(persisted['psPricesPlatform'], null);
   assert.equal(pool.getSyncEventInsertCount(), 1);
   assert.equal(Array.isArray(requests), true);
   assert.equal(requests.length, 1);

@@ -8,6 +8,7 @@ const OUTPUT_FILE = '.pr-agent-prompt.md';
 const CI_WORKFLOW_NAME = 'CI PR Checks';
 const COVERAGE_ARTIFACT_NAME = 'coverage-reports';
 const MAX_DIFF_CHARS = 120000;
+const GH_MAX_BUFFER_BYTES = 1024 * 1024 * 50;
 const LOG_TERMS = [
   'does not meet',
   'Coverage for',
@@ -60,8 +61,35 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
+function isAutomatedSecurityAuthor(authorLogin) {
+  const normalizedAuthorLogin = String(authorLogin || '').toLowerCase();
+  return (
+    normalizedAuthorLogin.includes('github-advanced-security') ||
+    normalizedAuthorLogin.includes('github-code-scanning')
+  );
+}
+
 function isActionableThread(thread) {
-  return !thread.isResolved && !thread.isOutdated;
+  if (!thread) return false;
+
+  // ❌ Drop resolved
+  if (thread.isResolved) return false;
+
+  // ✅ If not outdated, keep without scanning comments
+  if (!thread.isOutdated) return true;
+
+  const firstCommentAuthor = thread.firstComments?.nodes?.[0]?.author?.login || '';
+  const comments = (thread.comments?.nodes || []).filter(Boolean);
+
+  const hasAutomatedSecurityThread =
+    isAutomatedSecurityAuthor(firstCommentAuthor) ||
+    comments.some((comment) => isAutomatedSecurityAuthor(comment.author?.login));
+
+  // ❌ Drop ONLY outdated security bot threads (GHAS & Code Scanning)
+  if (hasAutomatedSecurityThread) return false;
+
+  // ✅ Keep everything else
+  return true;
 }
 
 function runGh(args, options = {}) {
@@ -73,7 +101,7 @@ function runGh(args, options = {}) {
     return execFileSync('gh', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024 * 50,
+      maxBuffer: GH_MAX_BUFFER_BYTES,
     });
   } catch (err) {
     const command = `gh ${args.join(' ')}`;
@@ -366,6 +394,11 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           path
           line
           originalLine
+          firstComments: comments(first:1) {
+            nodes {
+              author { login }
+            }
+          }
           comments(last:50) {
             nodes {
               author { login }
@@ -639,17 +672,64 @@ function collectCITasks(prData, checkAnalysis) {
 
 function downloadCoverageArtifact(runId) {
   const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
+  debug(`Downloading coverage artifact to ${runArtifactDir}...`);
 
-  const result = runGh(
+  const result = spawnSync(
+    'gh',
     ['run', 'download', String(runId), '-n', COVERAGE_ARTIFACT_NAME, '-D', runArtifactDir],
-    { allowFailure: true }
+    {
+      encoding: 'utf8',
+      maxBuffer: GH_MAX_BUFFER_BYTES,
+      stdio: DEBUG ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+    }
   );
 
-  if (!result) {
+  if (result.status !== 0) {
+    const failureDetails = [
+      result.error?.message ? `error=${result.error.message}` : null,
+      result.signal ? `signal=${result.signal}` : null,
+      result.status !== null ? `status=${result.status}` : null,
+    ].filter(Boolean);
+
+    console.warn(
+      failureDetails.length
+        ? `Artifact download failed (${failureDetails.join(', ')})`
+        : 'Artifact download failed'
+    );
+
+    if (!DEBUG) {
+      const stderr = result.stderr?.trim();
+      const stdout = result.stdout?.trim();
+
+      if (stderr) console.error('Artifact download stderr:', stderr);
+      if (stdout) console.warn('Artifact download stdout:', stdout);
+    }
+
     fs.rmSync(runArtifactDir, { recursive: true, force: true });
     return null;
   }
 
+  // 🔍 Debug what was extracted
+  const contents = fs.readdirSync(runArtifactDir);
+  debug('Artifact dir contents after download:', contents);
+
+  // ✅ Handle nested extraction
+  const extractedDir = path.join(runArtifactDir, COVERAGE_ARTIFACT_NAME);
+
+  if (fs.existsSync(extractedDir)) {
+    // Move contents of the nested directory up to the temp root so callers
+    // can clean up a single directory (runArtifactDir) without leaking.
+    for (const entry of fs.readdirSync(extractedDir)) {
+      const from = path.join(extractedDir, entry);
+      const to = path.join(runArtifactDir, entry);
+      fs.renameSync(from, to);
+    }
+
+    // Remove the now-empty nested directory
+    fs.rmSync(extractedDir, { recursive: true, force: true });
+  }
+
+  // Always return the temp root so cleanup removes the whole directory.
   return runArtifactDir;
 }
 

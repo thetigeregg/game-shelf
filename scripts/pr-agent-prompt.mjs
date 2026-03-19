@@ -60,6 +60,13 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
+function isAutomatedSecurityAuthor(author) {
+  const authorLogin = String(author || '').toLowerCase();
+  return (
+    authorLogin.includes('github-advanced-security') || authorLogin.includes('github-code-scanning')
+  );
+}
+
 function isActionableThread(thread) {
   if (!thread) return false;
 
@@ -69,12 +76,12 @@ function isActionableThread(thread) {
   // ✅ If not outdated, keep without scanning comments
   if (!thread.isOutdated) return true;
 
+  const firstCommentAuthor = thread.firstComments?.nodes?.[0]?.author?.login || '';
   const comments = (thread.comments?.nodes || []).filter(Boolean);
 
-  const hasAutomatedSecurityThread = comments.some((c) => {
-    const author = c.author?.login?.toLowerCase() || '';
-    return author.includes('github-advanced-security') || author.includes('github-code-scanning');
-  });
+  const hasAutomatedSecurityThread =
+    isAutomatedSecurityAuthor(firstCommentAuthor) ||
+    comments.some((comment) => isAutomatedSecurityAuthor(comment.author?.login));
 
   // ❌ Drop ONLY outdated security bot threads (GHAS & Code Scanning)
   if (hasAutomatedSecurityThread) return false;
@@ -385,6 +392,11 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           path
           line
           originalLine
+          firstComments: comments(first:1) {
+            nodes {
+              author { login }
+            }
+          }
           comments(last:50) {
             nodes {
               author { login }
@@ -658,11 +670,7 @@ function collectCITasks(prData, checkAnalysis) {
 
 function downloadCoverageArtifact(runId) {
   const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
-  const debugLoggingEnabled =
-    process.env.DEBUG_PR_AGENT === '1' || process.env.DEBUG === '1';
-  if (debugLoggingEnabled) {
-    console.log(`Downloading coverage artifact to ${runArtifactDir}...`);
-  }
+  debug(`Downloading coverage artifact to ${runArtifactDir}...`);
 
   const result = spawnSync(
     'gh',
@@ -680,9 +688,7 @@ function downloadCoverageArtifact(runId) {
 
   // 🔍 Debug what was extracted
   const contents = fs.readdirSync(runArtifactDir);
-  if (debugLoggingEnabled) {
-    console.log('Artifact dir contents after download:', contents);
-  }
+  debug('Artifact dir contents after download:', contents);
 
   // ✅ Handle nested extraction
   const extractedDir = path.join(runArtifactDir, COVERAGE_ARTIFACT_NAME);

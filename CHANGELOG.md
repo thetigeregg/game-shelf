@@ -2615,3 +2615,17 @@
 - 47ec319a feat: add game-by-id rate limit configuration to environment files and documentation
 - 19150d25 feat: add game-specific rate limit configuration and update explore page logic
 
+## v1.9.1 - 2026-03-19
+- a61f5f27 Merge pull request #255 from thetigeregg/feat/rates
+- b7f38d36 fix(recommendations): address lane pagination review feedback
+- 8b984c32 fix(explore): unblock cached lane hydration and align paging defaults
+- 96a8cd46 fix(api): cap paged feeds and stabilize legacy recommendation lanes
+- 75bfedf2 fix(recommendations): bound paginated offsets for feed and lane queries
+- e39b9a11 fix(explore): prevent feed duplication and support legacy lane payloads
+- d2604f68 fix(recommendations): preserve legacy lanes response without lane query
+- 53067100 test(popularity): add tests for response page metadata limit and error handling
+- 162e964e fix(explore): guard paged recommendation and popularity merges
+- 2b3f0afc Merge branch 'main' into feat/rates
+- 8e99dddd fix(recommendations): correct lane pagination and query typing
+- 4f8a8e3d refactor: explorePage to enhance popularity feed handling and recommendation lane management
+

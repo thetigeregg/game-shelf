@@ -1388,7 +1388,12 @@ export class ExplorePage implements OnInit {
   private async ensureActiveRecommendationPageFilled(): Promise<void> {
     for (;;) {
       const response = this.activeLanesResponse;
-      if (!response || response.lane !== this.selectedLaneKey) {
+      if (
+        !response ||
+        response.target !== this.selectedTarget ||
+        response.runtimeMode !== this.selectedRuntimeMode ||
+        response.lane !== this.selectedLaneKey
+      ) {
         return;
       }
 
@@ -1397,18 +1402,36 @@ export class ExplorePage implements OnInit {
         return;
       }
 
+      const requestTarget = response.target;
+      const requestRuntimeMode = response.runtimeMode;
+      const requestLane = response.lane;
+      const cacheKey = this.buildCacheKey(requestTarget, requestRuntimeMode, requestLane);
       const nextOffset = response.page.nextOffset ?? response.items.length;
       const nextPage = await firstValueFrom(
         this.igdbProxyService.getRecommendationLanes({
-          target: this.selectedTarget,
-          lane: this.selectedLaneKey,
-          runtimeMode: this.selectedRuntimeMode,
+          target: requestTarget,
+          lane: requestLane,
+          runtimeMode: requestRuntimeMode,
           offset: nextOffset,
           limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
         })
       );
 
-      if (nextPage.lane !== this.selectedLaneKey) {
+      if (
+        nextPage.target !== requestTarget ||
+        nextPage.runtimeMode !== requestRuntimeMode ||
+        nextPage.lane !== requestLane
+      ) {
+        return;
+      }
+
+      const activeResponse = this.activeLanesResponse;
+      if (
+        activeResponse !== response ||
+        this.selectedTarget !== requestTarget ||
+        this.selectedRuntimeMode !== requestRuntimeMode ||
+        this.selectedLaneKey !== requestLane
+      ) {
         return;
       }
 
@@ -1417,10 +1440,7 @@ export class ExplorePage implements OnInit {
         items: [...response.items, ...nextPage.items],
       };
       this.activeLanesResponse = mergedResponse;
-      this.lanesCache.set(
-        this.buildCacheKey(this.selectedTarget, this.selectedRuntimeMode, this.selectedLaneKey),
-        mergedResponse
-      );
+      this.lanesCache.set(cacheKey, mergedResponse);
       this.invalidateRecommendationVisibility();
     }
   }
@@ -1428,6 +1448,7 @@ export class ExplorePage implements OnInit {
   private async ensureActivePopularityFeedFilled(): Promise<void> {
     for (;;) {
       const response = this.activePopularityResponse;
+      const feedType = this.selectedPopularityFeed;
       if (!response) {
         return;
       }
@@ -1440,11 +1461,15 @@ export class ExplorePage implements OnInit {
       const nextOffset = response.page.nextOffset ?? response.items.length;
       const nextPage = await firstValueFrom(
         this.igdbProxyService.getPopularityFeed({
-          feedType: this.selectedPopularityFeed,
+          feedType,
           offset: nextOffset,
           limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
         })
       );
+
+      if (this.activePopularityResponse !== response || this.selectedPopularityFeed !== feedType) {
+        return;
+      }
 
       const mergedResponse: PopularityFeedResponse = {
         items: [...response.items, ...nextPage.items],
@@ -1452,7 +1477,7 @@ export class ExplorePage implements OnInit {
       };
       this.activePopularityResponse = mergedResponse;
       this.activePopularityItems = mergedResponse.items;
-      this.popularityFeedCache.set(this.selectedPopularityFeed, mergedResponse);
+      this.popularityFeedCache.set(feedType, mergedResponse);
     }
   }
 

@@ -3048,6 +3048,39 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('loads recommendation top with the legacy default limit when omitted', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationsTop({
+        target: 'BACKLOG',
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('limit') === '20' &&
+        request.params.get('runtimeMode') === null
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 14,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      items: [],
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 14,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      items: [],
+    });
+  });
+
   it('posts manual recommendation rebuild request payload', async () => {
     const promise = firstValueFrom(
       service.rebuildRecommendations({ target: 'WISHLIST', force: true })

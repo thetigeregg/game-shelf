@@ -193,6 +193,91 @@ void test('GET /v1/recommendations/lanes returns a paged lane and resolves runti
   await app.close();
 });
 
+void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes payload', async () => {
+  const app = fastifyFactory({ logger: false });
+  const calls: string[] = [];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLanes: (_target, lane, _offset, _limit, runtimeMode) => {
+        calls.push(lane);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lane,
+          items: [
+            {
+              rank: 1,
+              igdbGameId: lane,
+              platformIgdbId: 6,
+              scoreTotal: 1.23,
+              scoreComponents: {
+                taste: 1,
+                novelty: 0,
+                runtimeFit: 0,
+                criticBoost: 0.1,
+                recencyBoost: 0.13,
+                semantic: 0.2,
+                exploration: 0.2,
+                diversityPenalty: -0.1,
+                repeatPenalty: -0.2,
+              },
+              explanations: {
+                headline: 'Matches your tastes',
+                bullets: [],
+                matchedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: Record<string, Array<{ igdbGameId: string }>>;
+  };
+  assert.equal(body.runtimeMode, 'NEUTRAL');
+  assert.deepEqual(calls, ['overall', 'hiddenGems', 'exploration', 'blended', 'popular', 'recent']);
+  assert.deepEqual(Object.keys(body.lanes), [
+    'overall',
+    'hiddenGems',
+    'exploration',
+    'blended',
+    'popular',
+    'recent',
+  ]);
+  assert.equal(body.lanes.overall[0]?.igdbGameId, 'overall');
+  assert.equal(body.lanes.recent[0]?.igdbGameId, 'recent');
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/top and /lanes validate runtime mode and queue when missing', async () => {
   let enqueueCalls = 0;
   const app = fastifyFactory({ logger: false });
@@ -240,7 +325,7 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
 
   const notFoundLanes = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall',
+    url: '/v1/recommendations/lanes?target=BACKLOG',
   });
   assert.equal(notFoundLanes.statusCode, 202);
   const notFoundLanesBody = JSON.parse(notFoundLanes.body) as { status?: string; jobId?: number };

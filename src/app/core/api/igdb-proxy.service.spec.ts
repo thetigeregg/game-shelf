@@ -2974,7 +2974,9 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.getRecommendationLanes({
         target: 'BACKLOG',
+        lane: 'overall',
         runtimeMode: 'SHORT',
+        offset: 20,
         limit: 15,
       })
     );
@@ -2983,7 +2985,9 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
         request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'overall' &&
         request.params.get('runtimeMode') === 'SHORT' &&
+        request.params.get('offset') === '20' &&
         request.params.get('limit') === '15'
       );
     });
@@ -2993,14 +2997,9 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'SHORT',
       runId: 12,
       generatedAt: '2026-03-03T09:00:00.000Z',
-      lanes: {
-        overall: [],
-        hiddenGems: [],
-        exploration: [],
-        blended: [],
-        popular: [],
-        recent: [],
-      },
+      lane: 'overall',
+      items: [],
+      page: { offset: 20, limit: 15, hasMore: true, nextOffset: 35 },
     });
 
     await expect(promise).resolves.toEqual({
@@ -3008,14 +3007,9 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'SHORT',
       runId: 12,
       generatedAt: '2026-03-03T09:00:00.000Z',
-      lanes: {
-        overall: [],
-        hiddenGems: [],
-        exploration: [],
-        blended: [],
-        popular: [],
-        recent: [],
-      },
+      lane: 'overall',
+      items: [],
+      page: { offset: 20, limit: 15, hasMore: true, nextOffset: 35 },
     });
   });
 
@@ -3102,7 +3096,9 @@ describe('IgdbProxyService', () => {
       Date.now() + 1_000;
 
     const topPromise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
-    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
     const similarPromise = firstValueFrom(
       service.getRecommendationSimilar({
@@ -3124,11 +3120,14 @@ describe('IgdbProxyService', () => {
   });
 
   it('maps recommendation endpoint failures to recommendation API errors', async () => {
-    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const lanesReq = httpMock.expectOne(
       (request) =>
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
-        request.params.get('target') === 'BACKLOG'
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'overall'
     );
     lanesReq.flush(
       { error: 'No recommendations available.' },
@@ -3291,7 +3290,9 @@ describe('IgdbProxyService', () => {
   });
 
   it('maps recommendation queued lanes responses to not-found error', async () => {
-    const promise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const req = httpMock.expectOne((request) => {
       return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
     });

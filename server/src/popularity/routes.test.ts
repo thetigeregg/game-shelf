@@ -475,6 +475,49 @@ void test('GET /v1/games/trending keeps hasMore when an extra fetched row is fil
   await app.close();
 });
 
+void test('GET /v1/games/trending caps response page metadata to the configured row limit', async () => {
+  const app = fastifyFactory({ logger: false });
+  const rows = Array.from({ length: 3 }, (_, index) => ({
+    igdb_game_id: String(700 + index),
+    platform_igdb_id: 6,
+    popularity_score: String(200 - index),
+    payload: {
+      title: `Limited Game ${String(index)}`,
+      first_release_date: 1_700_000_000 + index,
+      platformOptions: [{ id: 6, name: 'PC' }],
+    },
+  }));
+
+  await registerPopularityRoutes(app, new PoolMock(rows) as unknown as Pool, {
+    rowLimit: 2,
+    threshold: 50,
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?limit=50',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{ id: string }>;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+
+  assert.deepEqual(
+    body.items.map((item) => item.id),
+    ['700', '701']
+  );
+  assert.deepEqual(body.page, {
+    offset: 0,
+    limit: 2,
+    hasMore: true,
+    nextOffset: 2,
+  });
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(

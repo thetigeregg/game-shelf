@@ -318,9 +318,16 @@ export class AdminDiscoveryMatchPage implements OnInit {
       return;
     }
 
+    const targetedKeys = this.items.flatMap((item) => item.gameKeys);
+    if (targetedKeys.length === 0) {
+      const message = 'No visible discovery rows to queue.';
+      this.setListQueueStatus(message, null, 'warning');
+      await this.presentToast(message, 'warning');
+      return;
+    }
+
     this.isListRequeueing = true;
     try {
-      const targetedKeys = this.items.flatMap((item) => item.gameKeys);
       const response = await firstValueFrom(
         this.adminMatchService.requeueEnrichmentRun(this.selectedProvider, targetedKeys)
       );

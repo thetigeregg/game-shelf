@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import {
   formatCleanupSummaryLine,
+  parseWorktrees,
   removeMergedWorktrees,
   removeMergedBranchesWithoutWorktrees,
   removeOrphanedManagedWorktreeDirs,
@@ -23,6 +24,22 @@ test('formatCleanupSummaryLine includes branch names when entries exist', () => 
     ]),
     'Skipped dirty: 2 (feat/dirty-one, feat/dirty-two)'
   );
+});
+
+test('parseWorktrees keeps detached worktree paths without inventing a branch', () => {
+  const worktrees = parseWorktrees(`worktree /repo/main
+HEAD abcdef1234567890
+branch refs/heads/main
+
+worktree /repo/worktrees/detached
+HEAD 1234567890abcdef
+detached
+`);
+
+  assert.deepEqual(worktrees, [
+    { path: '/repo/main', branch: 'main' },
+    { path: '/repo/worktrees/detached', branch: undefined },
+  ]);
 });
 
 test('removeMergedWorktrees skips dirty worktrees without deleting the branch', () => {

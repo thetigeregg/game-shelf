@@ -122,7 +122,7 @@ function isWorktreeClean(worktreePath) {
   }
 }
 
-function parseWorktrees(worktreesOutput) {
+export function parseWorktrees(worktreesOutput) {
   return worktreesOutput
     .replace(/\r\n/g, '\n')
     .split(/\n{2,}/)
@@ -135,7 +135,7 @@ function parseWorktrees(worktreesOutput) {
         branch: branchMatch?.[1]?.trim(),
       };
     })
-    .filter((w) => w.path && w.branch);
+    .filter((w) => w.path);
 }
 
 function isPathInside(parentPath, childPath) {
@@ -311,6 +311,10 @@ export function formatCleanupSummaryLine(label, worktrees) {
 
   const branches = worktrees.map((worktree) => worktree.branch).join(', ');
   return `${label}: ${worktrees.length} (${branches})`;
+}
+
+function getSummaryActionLabel({ dryRun, action, previewAction }) {
+  return dryRun ? previewAction : action;
 }
 
 export function removeMergedWorktrees({
@@ -529,7 +533,7 @@ Worktrees whose branch is merged
 
   console.log('\n→ Worktrees whose branch is merged\n');
 
-  const mergedWorktrees = worktrees.filter((w) => mergedBranches.includes(w.branch));
+  const mergedWorktrees = worktrees.filter((w) => w.branch && mergedBranches.includes(w.branch));
 
   if (mergedWorktrees.length === 0) {
     console.log('None');
@@ -574,7 +578,16 @@ AUTO MODE
       removalSummary.skippedBranchDeleteFailed.length;
 
     console.log('\n→ Cleanup summary\n');
-    console.log(formatCleanupSummaryLine('Removed', removalSummary.removed));
+    console.log(
+      formatCleanupSummaryLine(
+        getSummaryActionLabel({
+          dryRun: DRY_RUN,
+          action: 'Removed',
+          previewAction: 'Would remove',
+        }),
+        removalSummary.removed
+      )
+    );
     console.log(formatCleanupSummaryLine('Skipped current', removalSummary.skippedCurrent));
     console.log(formatCleanupSummaryLine('Skipped dirty', removalSummary.skippedDirty));
     console.log(
@@ -598,7 +611,16 @@ AUTO MODE
     });
 
     console.log('\n→ Merged branches without worktrees cleanup\n');
-    console.log(formatCleanupSummaryLine('Removed merged branches', mergedBranchSummary.removed));
+    console.log(
+      formatCleanupSummaryLine(
+        getSummaryActionLabel({
+          dryRun: DRY_RUN,
+          action: 'Removed merged branches',
+          previewAction: 'Would delete merged branches',
+        }),
+        mergedBranchSummary.removed
+      )
+    );
     console.log(
       formatCleanupSummaryLine('Skipped current branch', mergedBranchSummary.skippedCurrent)
     );
@@ -621,7 +643,16 @@ AUTO MODE
     });
 
     console.log('\n→ Orphaned worktree directories\n');
-    console.log(formatCleanupSummaryLine('Removed orphaned dirs', orphanedSummary.removed));
+    console.log(
+      formatCleanupSummaryLine(
+        getSummaryActionLabel({
+          dryRun: DRY_RUN,
+          action: 'Removed orphaned dirs',
+          previewAction: 'Would remove orphaned dirs',
+        }),
+        orphanedSummary.removed
+      )
+    );
     console.log(
       formatCleanupSummaryLine(
         'Skipped orphaned dirs with local branch',

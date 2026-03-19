@@ -195,6 +195,70 @@ void test('IGDB cache serves stale entry and schedules only one revalidation per
   await app.close();
 });
 
+void test('IGDB stale revalidation cleans up in-flight state when scheduling throws', async () => {
+  resetCacheMetrics();
+  const nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
+  const pool = new IgdbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  let fetchCalls = 0;
+  let scheduleCalls = 0;
+  let pendingTask: (() => Promise<void>) | null = null;
+
+  pool.seed(
+    '199',
+    buildPayload('199', 'Before Refresh'),
+    new Date(nowMs - 8 * 86400 * 1000).toISOString()
+  );
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    fetchMetadata: (gameId) => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify(buildPayload(gameId, 'After Refresh')), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    },
+    scheduleBackgroundRefresh: (task) => {
+      scheduleCalls += 1;
+      if (scheduleCalls === 1) {
+        throw new Error('queue_unavailable');
+      }
+      pendingTask = task;
+    },
+  });
+
+  const first = await app.inject({ method: 'GET', url: '/v1/games/199' });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-igdb-cache'], 'HIT_STALE');
+  assert.equal(first.headers['x-gameshelf-igdb-revalidate'], 'skipped');
+
+  const second = await app.inject({ method: 'GET', url: '/v1/games/199' });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-igdb-cache'], 'HIT_STALE');
+  assert.equal(second.headers['x-gameshelf-igdb-revalidate'], 'scheduled');
+
+  assert.notEqual(pendingTask, null);
+  await pendingTask?.();
+
+  const third = await app.inject({ method: 'GET', url: '/v1/games/199' });
+  assert.equal(third.statusCode, 200);
+  assert.equal(third.headers['x-gameshelf-igdb-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 1);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.hits, 3);
+  assert.equal(metrics.igdb.staleServed, 2);
+  assert.equal(metrics.igdb.revalidateScheduled, 1);
+  assert.equal(metrics.igdb.revalidateSkipped, 0);
+  assert.equal(metrics.igdb.revalidateSucceeded, 1);
+  assert.equal(metrics.igdb.revalidateFailed, 1);
+
+  await app.close();
+});
+
 void test('IGDB cache deletes malformed row and refreshes from worker', async () => {
   resetCacheMetrics();
   const pool = new IgdbPoolMock();

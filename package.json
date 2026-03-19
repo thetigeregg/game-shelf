@@ -52,7 +52,7 @@
     "pr:agent": "node scripts/pr-agent-prompt.mjs",
     "deps:angular:update": "ng update @angular/core @angular/cli",
     "deps:angular:ecosystem": "ng update @angular/cdk @angular-eslint/schematics @angular/fire",
-    "deps:non-angular": "npx npm-check-updates  -i --format group,repo"
+    "deps:update": "npx npm-check-updates  -i --format group,repo"
   },
   "private": true,
   "dependencies": {

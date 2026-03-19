@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +13,14 @@ import {
   removeOrphanedManagedWorktreeDirs,
 } from './dev-cleanup.mjs';
 
-const REPO_ROOT = realpathSync(path.resolve('.', '..', '..', '..'));
+const REPO_ROOT = realpathSync(
+  path.resolve(
+    execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      encoding: 'utf8',
+    }).trim(),
+    '..'
+  )
+);
 
 test('formatCleanupSummaryLine omits branch list when the category is empty', () => {
   assert.equal(formatCleanupSummaryLine('Skipped dirty', []), 'Skipped dirty: 0');

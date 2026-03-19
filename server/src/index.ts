@@ -11,6 +11,7 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
+import { registerIgdbCachedByIdRoute } from './igdb-cache.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
@@ -231,13 +232,6 @@ async function main(): Promise<void> {
 
     app.route({
       method: 'GET',
-      url: '/v1/games/:id',
-      config: applyRouteRateLimit('metadata_game_by_id'),
-      handler: proxyMetadataToWorker,
-    });
-
-    app.route({
-      method: 'GET',
       url: '/v1/platforms',
       config: applyRouteRateLimit('search_read'),
       handler: proxyMetadataToWorker,
@@ -254,6 +248,17 @@ async function main(): Promise<void> {
     await registerSyncRoutes(app, pool);
     registerNotificationRoutes(app, pool);
     await registerImageProxyRoute(app, pool, imageCacheDir);
+    await registerIgdbCachedByIdRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'igdb_cache_revalidate',
+          dedupeKey: `igdb-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3,
+        });
+      },
+    });
     await registerCacheObservabilityRoutes(app, pool);
     registerBackgroundJobRoutes(app, pool);
     registerAdminDiscoveryMatchRoutes(app, pool);

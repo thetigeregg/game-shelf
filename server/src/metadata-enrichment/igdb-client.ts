@@ -1,5 +1,11 @@
 import { IgdbMetadataRecord } from './types.js';
 import * as mediaNormalization from '../../../shared/igdb-media-normalization.mjs';
+import {
+  createProviderLimiter,
+  type ProviderLimiter,
+  ProviderThrottleError,
+} from '../provider-rate-limit.js';
+import { resolveOutboundRateLimit } from '../rate-limit.js';
 
 const normalizeIgdbScreenshotList = mediaNormalization.normalizeIgdbScreenshotList as (
   value: unknown,
@@ -21,14 +27,26 @@ export interface MetadataEnrichmentIgdbClientOptions {
   twitchClientSecret: string;
   requestTimeoutMs: number;
   fetchImpl?: typeof fetch;
+  limiter?: ProviderLimiter;
 }
 
 export class MetadataEnrichmentIgdbClient {
   private readonly fetchImpl: typeof fetch;
+  private readonly limiter: ProviderLimiter;
   private tokenCache: TokenCache | null = null;
 
   constructor(private readonly options: MetadataEnrichmentIgdbClientOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.limiter =
+      options.limiter ??
+      createProviderLimiter(
+        'igdb_metadata_enrichment',
+        {
+          ...resolveOutboundRateLimit('igdb_metadata_enrichment'),
+          requestTimeoutMs: options.requestTimeoutMs,
+        },
+        { now: () => Date.now() }
+      );
   }
 
   async fetchGameMetadataByIds(gameIds: string[]): Promise<Map<string, IgdbMetadataRecord>> {
@@ -69,6 +87,15 @@ export class MetadataEnrichmentIgdbClient {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        this.limiter.consumeRateLimitHeaders(response.headers);
+        throw new ProviderThrottleError({
+          policyName: 'igdb_metadata_enrichment',
+          source: 'upstream_429',
+          retryAfterSeconds: this.limiter.getCooldownRemainingSeconds(),
+          message: 'IGDB metadata enrichment request throttled',
+        });
+      }
       throw new Error(`IGDB metadata fetch failed with status ${String(response.status)}`);
     }
 
@@ -145,6 +172,7 @@ export class MetadataEnrichmentIgdbClient {
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+    await this.limiter.acquire();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();

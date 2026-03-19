@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { BackgroundJobRepository, BackgroundJobType } from './background-jobs.js';
 import { config } from './config.js';
+import { applyRouteRateLimit } from './rate-limit.js';
 import { isAuthorizedMutatingRequest } from './request-security.js';
 
 interface FailedJobsQuery {
@@ -16,30 +17,13 @@ interface ReplayFailedJobsBody {
   limit?: unknown;
 }
 
-const STATS_RATE_LIMIT = {
-  max: 10,
-  timeWindow: '1 minute',
-} as const;
-
-const FAILED_LIST_RATE_LIMIT = {
-  max: 10,
-  timeWindow: '1 minute',
-} as const;
-
-const REPLAY_RATE_LIMIT = {
-  max: 5,
-  timeWindow: '1 minute',
-} as const;
-
 export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): void {
   const repository = new BackgroundJobRepository(pool);
 
   app.get(
     '/v1/background-jobs/stats',
     {
-      config: {
-        rateLimit: STATS_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('background_jobs_stats'),
     },
     async (_request, reply) => {
       const stats = await repository.getTypeStats();
@@ -75,9 +59,7 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
   app.get(
     '/v1/background-jobs/failed',
     {
-      config: {
-        rateLimit: FAILED_LIST_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('background_jobs_failed_list'),
     },
     async (request, reply) => {
       if (!isBackgroundJobAdminAuthorized(request, reply)) {
@@ -104,9 +86,7 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
   app.post(
     '/v1/background-jobs/replay',
     {
-      config: {
-        rateLimit: REPLAY_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('background_jobs_replay'),
     },
     async (request, reply) => {
       if (!isBackgroundJobAdminAuthorized(request, reply)) {

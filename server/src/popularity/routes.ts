@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Pool, QueryResultRow } from 'pg';
+import { applyRouteRateLimit } from '../rate-limit.js';
 
 interface PopularityGameRow extends QueryResultRow {
   igdb_game_id: string;
@@ -29,11 +30,6 @@ interface PopularityFeedItem {
   platforms: PlatformOption[];
 }
 
-const ROUTE_RATE_LIMIT = {
-  max: 50,
-  timeWindow: '1 minute',
-};
-
 export function registerPopularityRoutes(
   app: FastifyInstance,
   pool: Pool,
@@ -42,9 +38,7 @@ export function registerPopularityRoutes(
   app.route({
     method: 'GET',
     url: '/v1/games/trending',
-    config: {
-      rateLimit: ROUTE_RATE_LIMIT,
-    },
+    config: applyRouteRateLimit('popularity_feed'),
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
@@ -59,9 +53,7 @@ export function registerPopularityRoutes(
   app.route({
     method: 'GET',
     url: '/v1/games/upcoming',
-    config: {
-      rateLimit: ROUTE_RATE_LIMIT,
-    },
+    config: applyRouteRateLimit('popularity_feed'),
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
@@ -76,9 +68,7 @@ export function registerPopularityRoutes(
   app.route({
     method: 'GET',
     url: '/v1/games/recent',
-    config: {
-      rateLimit: ROUTE_RATE_LIMIT,
-    },
+    config: applyRouteRateLimit('popularity_feed'),
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,

@@ -296,7 +296,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
     const author = comment.author?.login || 'reviewer';
 
     // Drop PR-level discussion comments that aren't tied to code
-    if (!comment.path && !comment.line) continue;
+    if (comment.path == null && comment.line == null) continue;
 
     if (!includeReviewItem(comment.body, author)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
@@ -315,10 +315,12 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
     const trimmedBody = review.body?.trim();
 
     // Ignore review summaries that are not actionable
-    if (!trimmedBody || review.state === 'COMMENTED') continue;
+    if (review.state === 'COMMENTED') continue;
+    if (!trimmedBody && (review.state === 'APPROVED' || review.state === 'DISMISSED')) {
+      continue;
+    }
 
     const author = review.author?.login || 'reviewer';
-    const normalizedAuthor = author.toLowerCase();
     if (!includeReviewItem(trimmedBody, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
@@ -337,7 +339,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   return uniqueBy(
     results,
     (item) =>
-      `${item.author}|${item.file || ''}|${item.line || ''}|${item.state || ''}|${item.body}`
+      `${item.author}|${item.file ?? ''}|${item.line ?? ''}|${item.state ?? ''}|${item.body}`
   );
 }
 

@@ -268,8 +268,8 @@ export class AdminDiscoveryMatchService {
     });
   }
 
-  private normalizeBaseUrl(value: string): string {
-    const normalized = value.trim();
-    return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+  private normalizeBaseUrl(value: string | null | undefined): string {
+    const normalized = (value ?? '').trim();
+    return normalized.replace(/\/+$/, '');
   }
 }

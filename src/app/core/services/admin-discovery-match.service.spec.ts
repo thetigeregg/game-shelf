@@ -224,4 +224,16 @@ describe('AdminDiscoveryMatchService', () => {
       dedupedCount: 1,
     });
   });
+
+  it('normalizes base URLs consistently with other services', () => {
+    const servicePrivate = service as unknown as {
+      normalizeBaseUrl: (value: string | null | undefined) => string;
+    };
+
+    expect(servicePrivate.normalizeBaseUrl('https://api.example.com///')).toBe(
+      'https://api.example.com'
+    );
+    expect(servicePrivate.normalizeBaseUrl('   ')).toBe('');
+    expect(servicePrivate.normalizeBaseUrl(undefined)).toBe('');
+  });
 });

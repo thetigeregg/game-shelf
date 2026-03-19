@@ -279,14 +279,19 @@ function scheduleIgdbRevalidation(
 
 export async function processQueuedIgdbCacheRevalidation(
   pool: Pool,
-  payload: IgdbCacheRevalidationPayload
+  payload: IgdbCacheRevalidationPayload,
+  options: {
+    fetchMetadata?: (gameId: string) => Promise<Response>;
+  } = {}
 ): Promise<void> {
   const normalizedRequest = normalizeIgdbGameIdRequest({ id: payload.gameId });
   if (!normalizedRequest) {
     throw new Error('Invalid IGDB revalidation payload game id.');
   }
 
-  const response = await fetchMetadataFromWorker(normalizedRequest.gameId);
+  const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
+  const cacheKey = normalizedRequest.gameId;
+  const response = await fetchMetadata(normalizedRequest.gameId);
   try {
     if (!response.ok) {
       throw new Error(`IGDB revalidation request failed with status ${String(response.status)}.`);
@@ -306,7 +311,7 @@ export async function processQueuedIgdbCacheRevalidation(
         response_json = EXCLUDED.response_json,
         updated_at = NOW()
       `,
-      [payload.cacheKey, normalizedRequest.gameId, JSON.stringify(parsed)]
+      [cacheKey, normalizedRequest.gameId, JSON.stringify(parsed)]
     );
   } finally {
     await cancelResponseBody(response);

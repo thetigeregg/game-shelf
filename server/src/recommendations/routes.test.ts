@@ -303,6 +303,34 @@ void test('GET /v1/recommendations/lanes caps oversized offsets before loading a
   await app.close();
 });
 
+void test('GET /v1/recommendations/lanes rejects invalid lanes before queueing stale rebuild work', async () => {
+  const app = fastifyFactory({ logger: false });
+  let staleReadChecks = 0;
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      ensureRebuildQueuedIfStale: () => {
+        staleReadChecks += 1;
+        return Promise.resolve({
+          queued: false,
+          reason: 'fresh',
+          jobId: null,
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=invalid',
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(staleReadChecks, 0);
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes payload', async () => {
   const app = fastifyFactory({ logger: false });
   const calls: number[] = [];

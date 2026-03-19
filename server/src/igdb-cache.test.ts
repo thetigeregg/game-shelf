@@ -3,7 +3,11 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
-import { __igdbCacheTestables, registerIgdbCachedByIdRoute } from './igdb-cache.js';
+import {
+  __igdbCacheTestables,
+  processQueuedIgdbCacheRevalidation,
+  registerIgdbCachedByIdRoute,
+} from './igdb-cache.js';
 
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
@@ -60,6 +64,10 @@ class IgdbPoolMock {
 
   getEntryCount(): number {
     return this.rowsByKey.size;
+  }
+
+  getEntry(gameId: string): { response_json: unknown; updated_at: string } | undefined {
+    return this.rowsByKey.get(gameId);
   }
 
   seed(gameId: string, payload: unknown, updatedAt: string): void {
@@ -593,6 +601,80 @@ void test('IGDB stale revalidation records failures for non-ok and invalid paylo
   assert.equal(metrics.igdb.revalidateSucceeded, 0);
 
   await app.close();
+});
+
+void test('IGDB queued revalidation writes cache entry using normalized game id key', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+
+  await processQueuedIgdbCacheRevalidation(
+    pool as unknown as Pool,
+    {
+      cacheKey: 'mismatched-key',
+      gameId: '00123',
+    },
+    {
+      fetchMetadata: () =>
+        Promise.resolve(
+          new Response(JSON.stringify(buildPayload('123', 'Queued Refresh')), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        ),
+    }
+  );
+
+  assert.equal(pool.getEntryCount(), 1);
+  assert.equal(pool.getEntry('123')?.response_json !== undefined, true);
+  assert.equal(pool.getEntry('mismatched-key'), undefined);
+});
+
+void test('IGDB queued revalidation fails for non-ok upstream status', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+
+  await assert.rejects(
+    processQueuedIgdbCacheRevalidation(
+      pool as unknown as Pool,
+      {
+        cacheKey: '123',
+        gameId: '123',
+      },
+      {
+        fetchMetadata: () => Promise.resolve(new Response(null, { status: 503 })),
+      }
+    ),
+    /status 503/
+  );
+
+  assert.equal(pool.getEntryCount(), 0);
+});
+
+void test('IGDB queued revalidation fails for uncacheable payload', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+
+  await assert.rejects(
+    processQueuedIgdbCacheRevalidation(
+      pool as unknown as Pool,
+      {
+        cacheKey: '123',
+        gameId: '123',
+      },
+      {
+        fetchMetadata: () =>
+          Promise.resolve(
+            new Response(JSON.stringify({ item: { igdbGameId: '999', title: 'Wrong' } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            })
+          ),
+      }
+    ),
+    /uncacheable payload/
+  );
+
+  assert.equal(pool.getEntryCount(), 0);
 });
 
 void test('IGDB helper utilities normalize age and cacheability guards', () => {

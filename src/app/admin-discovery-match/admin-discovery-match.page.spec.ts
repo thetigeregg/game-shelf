@@ -616,6 +616,26 @@ describe('AdminDiscoveryMatchPage', () => {
     }
   });
 
+  it('blocks list-level requeue when there are no visible game keys to target', async () => {
+    const { page, adminMatchService, toastCreate } = createPageHarness();
+
+    page.items = [];
+
+    await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
+
+    expect(adminMatchService.requeueEnrichmentRun).not.toHaveBeenCalled();
+    expect(page.listQueueStatusMessage).toBe('No visible discovery rows to queue.');
+    expect(page.listQueueStatusDetail).toBeNull();
+    expect(page.listQueueStatusTone).toBe('warning');
+    expect(toastCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No visible discovery rows to queue.',
+        color: 'warning',
+      })
+    );
+    expect(page.isListRequeueing).toBe(false);
+  });
+
   it('queues pricing revalidation for the active game', async () => {
     const { page, adminMatchService, toastCreate } = createPageHarness();
     setField(page, 'activeModalProvider', 'pricing');

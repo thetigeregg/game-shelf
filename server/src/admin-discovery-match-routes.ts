@@ -178,6 +178,14 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       const body = (request.body ?? {}) as RequeueDiscoveryEnrichmentBody;
       const provider = parseProvider(body.provider);
       const requestedKeys = parseGameKeys(body.gameKeys);
+      if (Array.isArray(body.gameKeys) && requestedKeys !== null && requestedKeys.size === 0) {
+        reply
+          .code(400)
+          .send({
+            error: 'At least one valid discovery game key is required when gameKeys is provided.',
+          });
+        return;
+      }
 
       if (provider === 'pricing') {
         const games = requestedKeys

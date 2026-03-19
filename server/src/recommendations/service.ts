@@ -41,6 +41,8 @@ import {
 } from './types.js';
 
 const RANKING_DEDUPE_BUFFER = 25;
+const MAX_RECOMMENDATION_PAGE_LIMIT = 50;
+const MAX_RECOMMENDATION_PAGE_OFFSET = 1000;
 
 export interface RecommendationServiceOptions {
   topLimit: number;
@@ -1217,19 +1219,19 @@ function normalizeLimit(value: number, max: number): number {
 }
 
 function normalizePageLimit(value: number, max: number): number {
-  if (!Number.isInteger(value) || value <= 0) {
-    return Math.min(10, max, 50);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return Math.min(10, max, MAX_RECOMMENDATION_PAGE_LIMIT);
   }
 
-  return Math.min(value, max, 50);
+  return Math.min(value, max, MAX_RECOMMENDATION_PAGE_LIMIT);
 }
 
 function normalizeOffset(value: number): number {
-  if (!Number.isInteger(value) || value < 0) {
+  if (!Number.isSafeInteger(value) || value < 0) {
     return 0;
   }
 
-  return value;
+  return Math.min(value, MAX_RECOMMENDATION_PAGE_OFFSET);
 }
 
 function sha256(value: unknown): string {

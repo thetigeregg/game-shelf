@@ -193,6 +193,51 @@ void test('GET /v1/recommendations/lanes returns a paged lane and resolves runti
   await app.close();
 });
 
+void test('GET /v1/recommendations/lanes caps oversized offsets before loading a lane', async () => {
+  const app = fastifyFactory({ logger: false });
+  const offsets: number[] = [];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLanes: (_target, lane, offset, limit, runtimeMode) => {
+        offsets.push(offset);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lane,
+          items: [],
+          page: { offset, limit, hasMore: false, nextOffset: null },
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&offset=5000&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    lane: string;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.equal(body.lane, 'overall');
+  assert.deepEqual(offsets, [1000]);
+  assert.deepEqual(body.page, { offset: 1000, limit: 10, hasMore: false, nextOffset: null });
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes payload', async () => {
   const app = fastifyFactory({ logger: false });
   const calls: string[] = [];

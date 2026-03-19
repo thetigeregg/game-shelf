@@ -148,6 +148,11 @@ function getDisplayPath(targetPath) {
   return normalizePathForCompare(targetPath).replace(`${COMMON_REPO_ROOT}/`, '');
 }
 
+function formatWorktreeDisplayPath(targetPath) {
+  const displayPath = getDisplayPath(targetPath);
+  return displayPath === targetPath ? targetPath : `./${displayPath}`;
+}
+
 function listVisibleEntries(dirPath) {
   return readdirSync(dirPath).filter((entry) => !IGNORABLE_DIRECTORY_ENTRIES.has(entry));
 }
@@ -285,15 +290,19 @@ export function removeOrphanedManagedWorktreeDirs({
     }
 
     if (branchExists(branch)) {
-      log(`Warning: orphaned directory still has a local branch: ${branch} → ${dirPath}`);
+      log(
+        `Warning: orphaned directory still has a local branch: ${branch} → ${formatWorktreeDisplayPath(dirPath)}`
+      );
       summary.skippedExistingBranch.push({ branch, path: dirPath });
       return;
     }
 
     if (dryRun) {
-      log(`[dry-run] Would remove orphaned worktree directory ${dirPath}`);
+      log(
+        `[dry-run] Would remove orphaned worktree directory ${formatWorktreeDisplayPath(dirPath)}`
+      );
     } else {
-      log(`Removing orphaned worktree directory ${dirPath}`);
+      log(`Removing orphaned worktree directory ${formatWorktreeDisplayPath(dirPath)}`);
       removeDir(dirPath);
       pruneAncestors(dirPath, normalizedManagedRoot);
     }
@@ -341,13 +350,13 @@ export function removeMergedWorktrees({
     const isCurrentBranch = w.branch === currentBranch;
 
     if (isCurrentWorktree || isCurrentBranch) {
-      log(`Skipping current worktree/branch: ${w.branch} → ${w.path}`);
+      log(`Skipping current worktree/branch: ${w.branch} → ${formatWorktreeDisplayPath(w.path)}`);
       summary.skippedCurrent.push(w);
       return;
     }
 
     if (!checkWorktreeClean(w.path)) {
-      log(`Skipping dirty worktree/branch: ${w.branch} → ${w.path}`);
+      log(`Skipping dirty worktree/branch: ${w.branch} → ${formatWorktreeDisplayPath(w.path)}`);
       summary.skippedDirty.push(w);
       return;
     }
@@ -355,15 +364,15 @@ export function removeMergedWorktrees({
     let removedWorktree = false;
 
     if (dryRun) {
-      log(`[dry-run] Would remove worktree ${w.path}`);
+      log(`[dry-run] Would remove worktree ${formatWorktreeDisplayPath(w.path)}`);
       removedWorktree = true;
     } else {
       try {
-        log(`Removing worktree ${w.path}`);
+        log(`Removing worktree ${formatWorktreeDisplayPath(w.path)}`);
         gitRunner(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });
         removedWorktree = true;
       } catch {
-        log(`Skipping worktree ${w.path}`);
+        log(`Skipping worktree ${formatWorktreeDisplayPath(w.path)}`);
         summary.skippedRemovalFailed.push(w);
       }
     }
@@ -588,6 +597,7 @@ AUTO MODE
         removalSummary.removed
       )
     );
+    console.log(`Total removed: ${totalRemoved}`);
     console.log(formatCleanupSummaryLine('Skipped current', removalSummary.skippedCurrent));
     console.log(formatCleanupSummaryLine('Skipped dirty', removalSummary.skippedDirty));
     console.log(

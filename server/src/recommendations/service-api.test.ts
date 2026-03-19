@@ -136,6 +136,8 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     limit: number;
     runtimeMode: RecommendationRuntimeMode;
   }> = [];
+  const readLaneCollectionCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> =
+    [];
   const readSimilarCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
 
   const repository = {
@@ -161,6 +163,23 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
         lane: params.lane,
         items: [sampleItem()],
         page: { offset: params.offset, limit: params.limit, hasMore: false, nextOffset: null },
+      });
+    },
+    readRecommendationLaneCollection: (params: {
+      limit: number;
+      runtimeMode: RecommendationRuntimeMode;
+    }) => {
+      readLaneCollectionCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
+      return Promise.resolve({
+        run: sampleRun(),
+        lanes: {
+          overall: [sampleItem()],
+          hiddenGems: [],
+          exploration: [],
+          blended: [],
+          popular: [],
+          recent: [],
+        },
       });
     },
     readSimilarGames: (params: { limit: number; runtimeMode: RecommendationRuntimeMode }) => {
@@ -241,6 +260,12 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
   assert.equal(top.runtimeMode, 'SHORT');
   const lanesResponse = await service.getRecommendationLanes('BACKLOG', 'overall', 0, 0, null);
   assert.ok(lanesResponse);
+  const laneCollectionResponse = await service.getRecommendationLaneCollection(
+    'BACKLOG',
+    999,
+    null
+  );
+  assert.ok(laneCollectionResponse);
   const similar = await service.getSimilarGames({
     target: 'BACKLOG',
     igdbGameId: '100',
@@ -258,6 +283,7 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
   assert.deepEqual(readLaneCalls, [
     { lane: 'overall', offset: 0, limit: 10, runtimeMode: 'SHORT' },
   ]);
+  assert.deepEqual(readLaneCollectionCalls, [{ limit: 20, runtimeMode: 'SHORT' }]);
   assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);
 });
 

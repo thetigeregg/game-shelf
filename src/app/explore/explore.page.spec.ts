@@ -1644,7 +1644,7 @@ describe('ExplorePage explore modes UX', () => {
     });
   });
 
-  it('uses filtered lane visibility for empty-state decisions', () => {
+  it('shows the lane-specific empty-state message when filtering removes selected lane items', () => {
     const page = createPage() as unknown as {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
@@ -1672,7 +1672,9 @@ describe('ExplorePage explore modes UX', () => {
     });
 
     expect(page.getActiveLaneItems()).toHaveLength(0);
-    expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
+    expect(page.getEmptyStateMessage()).toBe(
+      'This lane has no items for the current target and runtime mode.'
+    );
   });
 
   it('shows the general empty-state message when the active lane has no items', () => {
@@ -1703,6 +1705,7 @@ describe('ExplorePage explore modes UX', () => {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
       selectedRuntimeMode: 'NEUTRAL' | 'SHORT' | 'LONG';
+      hasLoadedSelectedLaneItems: () => boolean;
       getEmptyStateMessage: () => string;
       getEmptyStateHint: () => string;
       getEmptyStateTokenHint: () => string;
@@ -1734,6 +1737,7 @@ describe('ExplorePage explore modes UX', () => {
     };
     page.recommendationErrorCode = 'NOT_FOUND';
     expect(page.getEmptyStateMessage()).toContain('No materialized recommendations');
+    expect(page.hasLoadedSelectedLaneItems()).toBe(false);
 
     page.activeLanesResponse = {
       ...mockLanesResponse,
@@ -1751,7 +1755,12 @@ describe('ExplorePage explore modes UX', () => {
         },
       ],
     };
+    expect(page.hasLoadedSelectedLaneItems()).toBe(true);
     expect(page.getEmptyStateTokenHint()).toContain('Fantasy');
+
+    page.selectedLaneKey = 'popular';
+    expect(page.hasLoadedSelectedLaneItems()).toBe(false);
+    expect(page.getEmptyStateTokenHint()).toBe('');
 
     const similar = {
       igdbGameId: '77',

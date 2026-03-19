@@ -49,3 +49,19 @@
   gap: 8px;
   align-items: center;
 }
+
+.queue-status-message {
+  font-weight: 600;
+}
+
+.queue-status-success {
+  color: var(--ion-color-success);
+}
+
+.queue-status-warning {
+  color: var(--ion-color-warning);
+}
+
+.queue-status-danger {
+  color: var(--ion-color-danger);
+}

@@ -699,8 +699,8 @@ function downloadCoverageArtifact(runId) {
       const stderr = result.stderr?.trim();
       const stdout = result.stdout?.trim();
 
-      if (stderr) debug('Artifact download stderr:', stderr);
-      if (stdout) debug('Artifact download stdout:', stdout);
+      if (stderr) console.error('Artifact download stderr:', stderr);
+      if (stdout) console.warn('Artifact download stdout:', stdout);
     }
 
     fs.rmSync(runArtifactDir, { recursive: true, force: true });

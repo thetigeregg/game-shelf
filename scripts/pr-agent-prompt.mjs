@@ -61,7 +61,23 @@ function debug(...args) {
 }
 
 function isActionableThread(thread) {
-  return !thread.isResolved && !thread.isOutdated;
+  if (!thread) return false;
+
+  const comments = thread.comments?.nodes || [];
+
+  const hasGHAS = comments.some((c) => {
+    const author = c.author?.login?.toLowerCase() || '';
+    return author.includes('github-advanced-security') || author.includes('github-code-scanning');
+  });
+
+  // ❌ Drop resolved
+  if (thread.isResolved) return false;
+
+  // ❌ Drop ONLY outdated GHAS
+  if (hasGHAS && thread.isOutdated) return false;
+
+  // ✅ Keep everything else
+  return true;
 }
 
 function runGh(args, options = {}) {

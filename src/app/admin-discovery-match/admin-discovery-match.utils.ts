@@ -85,7 +85,7 @@ function aggregateAdminDiscoveryProviderState(
     locked: states.every((state) => state.locked),
     attempts: Math.max(...states.map((state) => state.attempts)),
     lastTriedAt: pickLatestIso(states.map((state) => state.lastTriedAt)),
-    nextTryAt: pickLatestIso(states.map((state) => state.nextTryAt)),
+    nextTryAt: pickEarliestIso(states.map((state) => state.nextTryAt)),
     permanentMiss: states.some((state) => state.permanentMiss),
   };
 }
@@ -112,6 +112,15 @@ function pickLatestIso(values: Array<string | null>): string | null {
   }
 
   return normalized.sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
+}
+
+function pickEarliestIso(values: Array<string | null>): string | null {
+  const normalized = values.filter((value): value is string => typeof value === 'string');
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  return normalized.sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? null;
 }
 
 export function resolveAdminPricingSource(

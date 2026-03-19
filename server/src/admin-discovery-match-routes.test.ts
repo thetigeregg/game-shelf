@@ -2433,6 +2433,108 @@ void test('admin discovery pricing patch route rejects priceIsFree false without
   }
 });
 
+void test('admin discovery pricing patch route preserves stored free pricing when priceIsFree is omitted', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '50',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Existing Free Game',
+      platform: 'PlayStation 4',
+      priceSource: 'psprices',
+      priceIsFree: true,
+      priceUrl: 'https://psprices.com/us/game/existing-free-game',
+      psPricesUrl: 'https://psprices.com/us/game/existing-free-game',
+      psPricesTitle: 'Existing Free Game',
+      psPricesPlatform: 'PS4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/50/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceUrl: 'https://psprices.com/us/game/existing-free-game-updated',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('50', 48);
+    assert.ok(stored);
+    assert.equal(stored['priceIsFree'], true);
+    assert.equal(stored['priceUrl'], 'https://psprices.com/us/game/existing-free-game-updated');
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch route rejects invalid priceIsFree values', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '51',
+    platformIgdbId: 48,
+    payload: {
+      listType: 'discovery',
+      title: 'Invalid Free Flag',
+      platform: 'PlayStation 4',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/51/48/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'pricing',
+        priceIsFree: 'sometimes',
+        priceUrl: 'https://psprices.com/us/game/invalid-free-flag',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Price is free must be true or false.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery pricing patch route rejects invalid numeric ranges', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

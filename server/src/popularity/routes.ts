@@ -39,6 +39,22 @@ interface PopularityPageInfo {
 const MAX_PAGE_LIMIT = 50;
 const MAX_PAGE_OFFSET = 1000;
 
+function buildPageInfo(params: {
+  offset: number;
+  limit: number;
+  hasExtraRows: boolean;
+}): PopularityPageInfo {
+  const nextOffset = params.offset + params.limit;
+  const hasMore = params.hasExtraRows && nextOffset <= MAX_PAGE_OFFSET;
+
+  return {
+    offset: params.offset,
+    limit: params.limit,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
 const ROUTE_RATE_LIMIT = {
   max: 50,
   timeWindow: '1 minute',
@@ -186,17 +202,15 @@ async function fetchFeedRows(
     .slice(0, effectiveLimit)
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
-  const hasMore = result.rows.length > effectiveLimit;
   const items = normalized;
 
   return {
     items,
-    page: {
+    page: buildPageInfo({
       offset: params.offset,
       limit: effectiveLimit,
-      hasMore,
-      nextOffset: hasMore ? params.offset + effectiveLimit : null,
-    },
+      hasExtraRows: result.rows.length > effectiveLimit,
+    }),
   };
 }
 

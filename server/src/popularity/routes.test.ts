@@ -591,6 +591,54 @@ void test('GET /v1/games/trending caps oversized offsets to a safe maximum', asy
   await app.close();
 });
 
+void test('GET /v1/games/trending stops advertising next pages beyond the max offset cap', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '920',
+        platform_igdb_id: 6,
+        popularity_score: '220.1',
+        payload: {
+          title: 'Near cap page',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+      {
+        igdb_game_id: '921',
+        platform_igdb_id: 6,
+        popularity_score: '210.1',
+        payload: {
+          title: 'Unreachable next page',
+          first_release_date: 1_700_000_001,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?offset=995&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(body.page, {
+    offset: 995,
+    limit: 10,
+    hasMore: false,
+    nextOffset: null,
+  });
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(

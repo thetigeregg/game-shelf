@@ -55,18 +55,6 @@ function readIntegerEnv(name: string, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function readIntegerEnvWithAliases(names: string[], fallback: number): number {
-  for (const name of names) {
-    const raw = readEnv(name);
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-
-  return fallback;
-}
-
 function readNumberEnv(name: string, fallback: number): number {
   const raw = readEnv(name);
   const parsed = Number.parseFloat(raw);
@@ -361,101 +349,68 @@ const POPULARITY_FEED_ROW_LIMIT_MAX = 200;
 
 function readInboundPolicyConfig(
   newPrefix: string,
-  fallback: { max: number; windowMs: number },
-  aliases: { max?: string[]; windowMs?: string[] } = {}
+  fallback: { max: number; windowMs: number }
 ): NamedInboundRateLimitConfig {
   return {
-    max: readIntegerEnvWithAliases(
-      [`RATE_LIMIT_INBOUND_${newPrefix}_MAX_REQUESTS`, ...(aliases.max ?? [])],
-      fallback.max
-    ),
-    windowMs: readIntegerEnvWithAliases(
-      [`RATE_LIMIT_INBOUND_${newPrefix}_WINDOW_MS`, ...(aliases.windowMs ?? [])],
-      fallback.windowMs
-    ),
+    max: readIntegerEnv(`RATE_LIMIT_INBOUND_${newPrefix}_MAX_REQUESTS`, fallback.max),
+    windowMs: readIntegerEnv(`RATE_LIMIT_INBOUND_${newPrefix}_WINDOW_MS`, fallback.windowMs),
   };
 }
 
 function readOutboundPolicyConfig(
   newPrefix: string,
-  fallback: NamedOutboundRateLimitConfig,
-  aliases: {
-    requestsPerSecond?: string[];
-    minIntervalMs?: string[];
-    maxDelayMs?: string[];
-    maxRequests?: string[];
-    windowMs?: string[];
-    minCooldownSeconds?: string[];
-    defaultCooldownSeconds?: string[];
-    maxCooldownSeconds?: string[];
-    requestTimeoutMs?: string[];
-  } = {}
+  fallback: NamedOutboundRateLimitConfig
 ): NamedOutboundRateLimitConfig {
   const next: NamedOutboundRateLimitConfig = {};
 
   if (fallback.requestsPerSecond !== undefined) {
-    next.requestsPerSecond = readIntegerEnvWithAliases(
-      [
-        `RATE_LIMIT_OUTBOUND_${newPrefix}_REQUESTS_PER_SECOND`,
-        ...(aliases.requestsPerSecond ?? []),
-      ],
+    next.requestsPerSecond = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_REQUESTS_PER_SECOND`,
       fallback.requestsPerSecond
     );
   }
   if (fallback.minIntervalMs !== undefined) {
-    next.minIntervalMs = readIntegerEnvWithAliases(
-      [`RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_INTERVAL_MS`, ...(aliases.minIntervalMs ?? [])],
+    next.minIntervalMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_INTERVAL_MS`,
       fallback.minIntervalMs
     );
   }
   if (fallback.maxDelayMs !== undefined) {
-    next.maxDelayMs = readIntegerEnvWithAliases(
-      [`RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_DELAY_MS`, ...(aliases.maxDelayMs ?? [])],
+    next.maxDelayMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_DELAY_MS`,
       fallback.maxDelayMs
     );
   }
   if (fallback.maxRequests !== undefined) {
-    next.maxRequests = readIntegerEnvWithAliases(
-      [`RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_REQUESTS`, ...(aliases.maxRequests ?? [])],
+    next.maxRequests = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_REQUESTS`,
       fallback.maxRequests
     );
   }
   if (fallback.windowMs !== undefined) {
-    next.windowMs = readIntegerEnvWithAliases(
-      [`RATE_LIMIT_OUTBOUND_${newPrefix}_WINDOW_MS`, ...(aliases.windowMs ?? [])],
-      fallback.windowMs
-    );
+    next.windowMs = readIntegerEnv(`RATE_LIMIT_OUTBOUND_${newPrefix}_WINDOW_MS`, fallback.windowMs);
   }
   if (fallback.minCooldownSeconds !== undefined) {
-    next.minCooldownSeconds = readIntegerEnvWithAliases(
-      [
-        `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_COOLDOWN_SECONDS`,
-        ...(aliases.minCooldownSeconds ?? []),
-      ],
+    next.minCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_COOLDOWN_SECONDS`,
       fallback.minCooldownSeconds
     );
   }
   if (fallback.defaultCooldownSeconds !== undefined) {
-    next.defaultCooldownSeconds = readIntegerEnvWithAliases(
-      [
-        `RATE_LIMIT_OUTBOUND_${newPrefix}_DEFAULT_COOLDOWN_SECONDS`,
-        ...(aliases.defaultCooldownSeconds ?? []),
-      ],
+    next.defaultCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_DEFAULT_COOLDOWN_SECONDS`,
       fallback.defaultCooldownSeconds
     );
   }
   if (fallback.maxCooldownSeconds !== undefined) {
-    next.maxCooldownSeconds = readIntegerEnvWithAliases(
-      [
-        `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_COOLDOWN_SECONDS`,
-        ...(aliases.maxCooldownSeconds ?? []),
-      ],
+    next.maxCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_COOLDOWN_SECONDS`,
       fallback.maxCooldownSeconds
     );
   }
   if (fallback.requestTimeoutMs !== undefined) {
-    next.requestTimeoutMs = readIntegerEnvWithAliases(
-      [`RATE_LIMIT_OUTBOUND_${newPrefix}_REQUEST_TIMEOUT_MS`, ...(aliases.requestTimeoutMs ?? [])],
+    next.requestTimeoutMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_REQUEST_TIMEOUT_MS`,
       fallback.requestTimeoutMs
     );
   }
@@ -477,61 +432,21 @@ function readEmbeddingDimensionsEnv(name: string): number {
 
 const rateLimitConfig: RateLimitConfig = {
   inbound: {
-    globalBaseline: readInboundPolicyConfig(
-      'GLOBAL_BASELINE',
-      {
-        max: 2000,
-        windowMs: 15 * 60 * 1000,
-      },
-      {
-        max: ['GLOBAL_RATE_LIMIT_MAX_REQUESTS'],
-        windowMs: ['GLOBAL_RATE_LIMIT_WINDOW_MS'],
-      }
-    ),
+    globalBaseline: readInboundPolicyConfig('GLOBAL_BASELINE', {
+      max: 2000,
+      windowMs: 15 * 60 * 1000,
+    }),
     public_read: readInboundPolicyConfig('PUBLIC_READ', { max: 50, windowMs: 60_000 }),
     search_read: readInboundPolicyConfig('SEARCH_READ', { max: 50, windowMs: 60_000 }),
-    metadata_game_by_id: readInboundPolicyConfig(
-      'METADATA_GAME_BY_ID',
-      { max: 50, windowMs: 60_000 },
-      {
-        max: ['GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS'],
-        windowMs: ['GAME_BY_ID_RATE_LIMIT_WINDOW_MS'],
-      }
-    ),
-    image_proxy: readInboundPolicyConfig(
-      'IMAGE_PROXY',
-      { max: 50, windowMs: 60_000 },
-      {
-        max: ['IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW'],
-        windowMs: ['IMAGE_PROXY_RATE_LIMIT_WINDOW_MS'],
-      }
-    ),
-    image_purge: readInboundPolicyConfig(
-      'IMAGE_PURGE',
-      { max: 10, windowMs: 60_000 },
-      {
-        max: ['IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW'],
-        windowMs: ['IMAGE_PROXY_RATE_LIMIT_WINDOW_MS'],
-      }
-    ),
-    cache_stats: readInboundPolicyConfig(
-      'CACHE_STATS',
-      { max: 10, windowMs: 60_000 },
-      {
-        max: ['CACHE_STATS_MAX_REQUESTS_PER_WINDOW'],
-        windowMs: ['CACHE_STATS_RATE_LIMIT_WINDOW_MS'],
-      }
-    ),
-    sync_push: readInboundPolicyConfig(
-      'SYNC_PUSH',
-      { max: 120, windowMs: 60_000 },
-      { max: ['SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE'] }
-    ),
-    sync_pull: readInboundPolicyConfig(
-      'SYNC_PULL',
-      { max: 120, windowMs: 60_000 },
-      { max: ['SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE'] }
-    ),
+    metadata_game_by_id: readInboundPolicyConfig('METADATA_GAME_BY_ID', {
+      max: 50,
+      windowMs: 60_000,
+    }),
+    image_proxy: readInboundPolicyConfig('IMAGE_PROXY', { max: 50, windowMs: 60_000 }),
+    image_purge: readInboundPolicyConfig('IMAGE_PURGE', { max: 10, windowMs: 60_000 }),
+    cache_stats: readInboundPolicyConfig('CACHE_STATS', { max: 10, windowMs: 60_000 }),
+    sync_push: readInboundPolicyConfig('SYNC_PUSH', { max: 120, windowMs: 60_000 }),
+    sync_pull: readInboundPolicyConfig('SYNC_PULL', { max: 120, windowMs: 60_000 }),
     recommendations_read: readInboundPolicyConfig('RECOMMENDATIONS_READ', {
       max: 30,
       windowMs: 60_000,
@@ -576,21 +491,15 @@ const rateLimitConfig: RateLimitConfig = {
     popularity_feed: readInboundPolicyConfig('POPULARITY_FEED', { max: 50, windowMs: 60_000 }),
     steam_prices: readInboundPolicyConfig('STEAM_PRICES', { max: 60, windowMs: 60_000 }),
     psprices_prices: readInboundPolicyConfig('PSPRICES_PRICES', { max: 60, windowMs: 60_000 }),
-    hltb_search: readInboundPolicyConfig(
-      'HLTB_SEARCH',
-      { max: 240, windowMs: 60_000 },
-      { max: ['HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE'] }
-    ),
-    metacritic_search: readInboundPolicyConfig(
-      'METACRITIC_SEARCH',
-      { max: 240, windowMs: 60_000 },
-      { max: ['METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE'] }
-    ),
-    mobygames_search: readInboundPolicyConfig(
-      'MOBYGAMES_SEARCH',
-      { max: 12, windowMs: 60_000 },
-      { max: ['MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE'] }
-    ),
+    hltb_search: readInboundPolicyConfig('HLTB_SEARCH', { max: 240, windowMs: 60_000 }),
+    metacritic_search: readInboundPolicyConfig('METACRITIC_SEARCH', {
+      max: 240,
+      windowMs: 60_000,
+    }),
+    mobygames_search: readInboundPolicyConfig('MOBYGAMES_SEARCH', {
+      max: 12,
+      windowMs: 60_000,
+    }),
   },
   outbound: {
     igdb_metadata_proxy: readOutboundPolicyConfig('IGDB_METADATA_PROXY', {
@@ -603,47 +512,27 @@ const rateLimitConfig: RateLimitConfig = {
       windowSweepInterval: 250,
       windowStateMaxSize: 5000,
     }),
-    igdb_discovery: readOutboundPolicyConfig(
-      'IGDB_DISCOVERY',
-      {
-        requestTimeoutMs: 15_000,
-        requestsPerSecond: 4,
-        minCooldownSeconds: 20,
-        defaultCooldownSeconds: 15,
-        maxCooldownSeconds: 60,
-      },
-      {
-        requestTimeoutMs: ['RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS'],
-        requestsPerSecond: ['RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND'],
-      }
-    ),
-    igdb_metadata_enrichment: readOutboundPolicyConfig(
-      'IGDB_METADATA_ENRICHMENT',
-      {
-        requestTimeoutMs: 15_000,
-        requestsPerSecond: 4,
-        minCooldownSeconds: 20,
-        defaultCooldownSeconds: 15,
-        maxCooldownSeconds: 60,
-      },
-      {
-        requestTimeoutMs: ['IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS'],
-      }
-    ),
-    igdb_popularity: readOutboundPolicyConfig(
-      'IGDB_POPULARITY',
-      {
-        requestTimeoutMs: 15_000,
-        requestsPerSecond: 4,
-        minCooldownSeconds: 20,
-        defaultCooldownSeconds: 60,
-        maxCooldownSeconds: 300,
-      },
-      {
-        requestTimeoutMs: ['POPULARITY_INGEST_IGDB_REQUEST_TIMEOUT_MS'],
-        requestsPerSecond: ['POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND'],
-      }
-    ),
+    igdb_discovery: readOutboundPolicyConfig('IGDB_DISCOVERY', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+    }),
+    igdb_metadata_enrichment: readOutboundPolicyConfig('IGDB_METADATA_ENRICHMENT', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+    }),
+    igdb_popularity: readOutboundPolicyConfig('IGDB_POPULARITY', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 60,
+      maxCooldownSeconds: 300,
+    }),
     mobygames: readOutboundPolicyConfig('MOBYGAMES', {
       minIntervalMs: 5_000,
       maxDelayMs: 30_000,

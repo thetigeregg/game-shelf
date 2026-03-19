@@ -859,7 +859,7 @@ function getIgdbRequestTimeoutMs(env) {
   const raw = readPositiveIntegerEnv(
     env,
     'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS',
-    readPositiveIntegerEnv(env, 'IGDB_REQUEST_TIMEOUT_MS', IGDB_REQUEST_TIMEOUT_DEFAULT_MS)
+    IGDB_REQUEST_TIMEOUT_DEFAULT_MS
   );
 
   if (!Number.isInteger(raw) || raw < 1000) {

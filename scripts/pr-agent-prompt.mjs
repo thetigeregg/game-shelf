@@ -8,6 +8,7 @@ const OUTPUT_FILE = '.pr-agent-prompt.md';
 const CI_WORKFLOW_NAME = 'CI PR Checks';
 const COVERAGE_ARTIFACT_NAME = 'coverage-reports';
 const MAX_DIFF_CHARS = 120000;
+const GH_MAX_BUFFER_BYTES = 1024 * 1024 * 50;
 const LOG_TERMS = [
   'does not meet',
   'Coverage for',
@@ -100,7 +101,7 @@ function runGh(args, options = {}) {
     return execFileSync('gh', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024 * 50,
+      maxBuffer: GH_MAX_BUFFER_BYTES,
     });
   } catch (err) {
     const command = `gh ${args.join(' ')}`;
@@ -678,6 +679,7 @@ function downloadCoverageArtifact(runId) {
     ['run', 'download', String(runId), '-n', COVERAGE_ARTIFACT_NAME, '-D', runArtifactDir],
     {
       encoding: 'utf8',
+      maxBuffer: GH_MAX_BUFFER_BYTES,
       stdio: DEBUG ? 'inherit' : ['ignore', 'pipe', 'pipe'],
     }
   );

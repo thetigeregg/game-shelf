@@ -1407,15 +1407,36 @@ export class ExplorePage implements OnInit {
       const requestLane = response.lane;
       const cacheKey = this.buildCacheKey(requestTarget, requestRuntimeMode, requestLane);
       const nextOffset = response.page.nextOffset ?? response.items.length;
-      const nextPage = await firstValueFrom(
-        this.igdbProxyService.getRecommendationLanes({
-          target: requestTarget,
-          lane: requestLane,
-          runtimeMode: requestRuntimeMode,
-          offset: nextOffset,
-          limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
-        })
-      );
+      let nextPage: RecommendationLanesResponse;
+      try {
+        nextPage = await firstValueFrom(
+          this.igdbProxyService.getRecommendationLanes({
+            target: requestTarget,
+            lane: requestLane,
+            runtimeMode: requestRuntimeMode,
+            offset: nextOffset,
+            limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
+          })
+        );
+      } catch (error) {
+        const normalized = this.normalizeRecommendationError(error);
+        this.recommendationError = normalized.message;
+        this.recommendationErrorCode = normalized.code;
+
+        if (this.activeLanesResponse === response) {
+          const haltedResponse: RecommendationLanesResponse = {
+            ...response,
+            page: {
+              ...response.page,
+              hasMore: false,
+              nextOffset: null,
+            },
+          };
+          this.activeLanesResponse = haltedResponse;
+          this.lanesCache.set(cacheKey, haltedResponse);
+        }
+        return;
+      }
 
       if (
         nextPage.target !== requestTarget ||
@@ -1459,13 +1480,36 @@ export class ExplorePage implements OnInit {
       }
 
       const nextOffset = response.page.nextOffset ?? response.items.length;
-      const nextPage = await firstValueFrom(
-        this.igdbProxyService.getPopularityFeed({
-          feedType,
-          offset: nextOffset,
-          limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
-        })
-      );
+      let nextPage: PopularityFeedResponse;
+      try {
+        nextPage = await firstValueFrom(
+          this.igdbProxyService.getPopularityFeed({
+            feedType,
+            offset: nextOffset,
+            limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
+          })
+        );
+      } catch (error) {
+        this.popularityError =
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : 'Unable to load popularity feed right now.';
+
+        if (this.activePopularityResponse === response) {
+          const haltedResponse: PopularityFeedResponse = {
+            ...response,
+            page: {
+              ...response.page,
+              hasMore: false,
+              nextOffset: null,
+            },
+          };
+          this.activePopularityResponse = haltedResponse;
+          this.activePopularityItems = haltedResponse.items;
+          this.popularityFeedCache.set(feedType, haltedResponse);
+        }
+        return;
+      }
 
       if (this.activePopularityResponse !== response || this.selectedPopularityFeed !== feedType) {
         return;

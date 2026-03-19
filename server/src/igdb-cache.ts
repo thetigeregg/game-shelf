@@ -163,7 +163,13 @@ function normalizeIgdbGameIdRequest(params: unknown): NormalizedIgdbGameIdReques
     return null;
   }
 
-  return { gameId: rawId };
+  const parsedId = Number.parseInt(rawId, 10);
+
+  if (!Number.isSafeInteger(parsedId) || parsedId <= 0) {
+    return null;
+  }
+
+  return { gameId: String(parsedId) };
 }
 
 function normalizeTtlSeconds(input: number | undefined, fallback: number): number {

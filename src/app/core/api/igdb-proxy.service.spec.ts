@@ -3013,6 +3013,112 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('normalizes legacy recommendation lanes payloads during staggered rollout', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({
+        target: 'BACKLOG',
+        lane: 'popular',
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'popular' &&
+        request.params.get('offset') === '0' &&
+        request.params.get('limit') === '10'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 16,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lanes: {
+        overall: [],
+        hiddenGems: [
+          {
+            rank: 1,
+            igdbGameId: '501',
+            platformIgdbId: 6,
+            scoreTotal: 0.82,
+            scoreComponents: {
+              taste: 0.4,
+              novelty: 0.2,
+              runtimeFit: 0.1,
+              criticBoost: 0.05,
+              recencyBoost: 0.03,
+              semantic: 0.02,
+              exploration: 0,
+              diversityPenalty: -0.01,
+              repeatPenalty: -0.02,
+            },
+            explanations: {
+              headline: 'Legacy hidden gem',
+              bullets: [],
+              matchedTokens: {
+                genres: [],
+                developers: [],
+                publishers: [],
+                franchises: [],
+                collections: [],
+                themes: [],
+                keywords: [],
+              },
+            },
+          },
+        ],
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: [],
+      },
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 16,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lane: 'popular',
+      items: [
+        {
+          rank: 1,
+          igdbGameId: '501',
+          platformIgdbId: 6,
+          scoreTotal: 0.82,
+          scoreComponents: {
+            taste: 0.4,
+            novelty: 0.2,
+            runtimeFit: 0.1,
+            criticBoost: 0.05,
+            recencyBoost: 0.03,
+            semantic: 0.02,
+            exploration: 0,
+            diversityPenalty: -0.01,
+            repeatPenalty: -0.02,
+          },
+          explanations: {
+            headline: 'Legacy hidden gem',
+            bullets: [],
+            matchedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: [],
+            },
+          },
+        },
+      ],
+      page: { offset: 0, limit: 1, hasMore: false, nextOffset: null },
+    });
+  });
+
   it('loads recommendation top with clamped limit and normalized response defaults', async () => {
     const promise = firstValueFrom(
       service.getRecommendationsTop({

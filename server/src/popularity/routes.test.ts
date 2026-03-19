@@ -475,6 +475,53 @@ void test('GET /v1/games/trending keeps hasMore when an extra fetched row is fil
   await app.close();
 });
 
+void test('GET /v1/games/trending does not pull the lookahead row into the current page', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '910',
+        platform_igdb_id: 6,
+        popularity_score: 'NaN',
+        payload: { title: 'Invalid score' },
+      },
+      {
+        igdb_game_id: '911',
+        platform_igdb_id: 6,
+        popularity_score: '205.1',
+        payload: {
+          title: 'Lookahead Only',
+          first_release_date: 1_700_000_100,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{ id: string }>;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+
+  assert.deepEqual(body.items, []);
+  assert.deepEqual(body.page, {
+    offset: 0,
+    limit: 1,
+    hasMore: true,
+    nextOffset: 1,
+  });
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending caps response page metadata to the configured row limit', async () => {
   const app = fastifyFactory({ logger: false });
   const rows = Array.from({ length: 3 }, (_, index) => ({

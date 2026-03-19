@@ -180,10 +180,11 @@ async function fetchFeedRows(
   );
 
   const normalized = result.rows
+    .slice(0, effectiveLimit)
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
   const hasMore = result.rows.length > effectiveLimit;
-  const items = normalized.slice(0, effectiveLimit);
+  const items = normalized;
 
   return {
     items,

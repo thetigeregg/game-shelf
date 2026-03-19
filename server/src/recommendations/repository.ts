@@ -739,20 +739,20 @@ export class RecommendationRepository {
       WHERE recommendation_lanes.run_id = $1
         AND recommendation_lanes.runtime_mode = $2
         AND recommendation_lanes.lane = $3
-        AND recommendation_lanes.rank > $4
-        AND COALESCE(games.payload->>'listType', '') = $5
-        AND COALESCE(games.payload->>'status', '') = ANY($6::text[])
+        AND COALESCE(games.payload->>'listType', '') = $4
+        AND COALESCE(games.payload->>'status', '') = ANY($5::text[])
       ORDER BY recommendation_lanes.rank ASC
-      LIMIT $7
+      LIMIT $6
+      OFFSET $7
       `,
       [
         run.id,
         params.runtimeMode,
         params.lane,
-        params.offset,
         statusFilter.listType,
         statusFilter.allowedStatuses,
         params.limit + 1,
+        params.offset,
       ]
     );
     const hasMore = rows.rows.length > params.limit;

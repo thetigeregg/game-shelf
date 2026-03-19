@@ -481,17 +481,8 @@ export class ExplorePage implements OnInit {
     await completeIonInfiniteScroll(event);
   }
 
-  hasAnyLaneItems(): boolean {
-    const items = this.activeLanesResponse?.items;
-    if (!items || this.activeLanesResponse?.lane !== this.selectedLaneKey) {
-      return false;
-    }
-
-    const visibleItems = this.getDeduplicatedLaneItems(
-      this.filterIgnoredRecommendationItems(this.filterAlreadyInLibraryRecommendationItems(items))
-    );
-
-    return visibleItems.length > 0;
+  hasLoadedSelectedLaneItems(): boolean {
+    return this.getRawActiveLaneItems().length > 0;
   }
 
   getLaneOptions(): Array<{ value: RecommendationLaneKey; label: string }> {
@@ -1300,7 +1291,7 @@ export class ExplorePage implements OnInit {
         this.discoveryPricingHydrationAttempted.clear();
       }
       await this.ensureActiveRecommendationPageFilled();
-      await this.ensureVisibleRecommendationDisplayMetadata(response);
+      await this.ensureVisibleRecommendationDisplayMetadata();
       await this.ensureVisibleDiscoveryPricingHydrated();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
@@ -1649,7 +1640,7 @@ export class ExplorePage implements OnInit {
   }
 
   getEmptyStateMessage(): string {
-    if (this.hasAnyLaneItems()) {
+    if (this.hasLoadedSelectedLaneItems()) {
       return 'This lane has no items for the current target and runtime mode.';
     }
 
@@ -1669,8 +1660,8 @@ export class ExplorePage implements OnInit {
   }
 
   getEmptyStateTokenHint(): string {
-    const items = this.activeLanesResponse?.items;
-    if (!items || items.length === 0) {
+    const items = this.getRawActiveLaneItems();
+    if (items.length === 0) {
       return '';
     }
 

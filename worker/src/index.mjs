@@ -36,7 +36,6 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0,
 };
-let currentNowProvider = () => Date.now();
 let localRequestLimiter = null;
 let igdbOutboundLimiter = null;
 
@@ -419,7 +418,7 @@ function getLocalRequestLimiter(env = {}) {
           IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
         ),
       },
-      { now: () => currentNowProvider() }
+      { now: () => Date.now() }
     );
   }
 
@@ -447,7 +446,7 @@ function getIgdbOutboundLimiter(env = {}) {
           IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
         ),
       },
-      { now: () => currentNowProvider() }
+      { now: () => Date.now() }
     );
   }
 
@@ -1663,8 +1662,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   return normalizeIgdbGame(data[0]);
 }
 
-export async function handleRequest(request, env, fetchImpl = fetch, now = () => Date.now()) {
-  currentNowProvider = now;
+export async function handleRequest(request, env, fetchImpl = fetch) {
   if (request.method !== 'GET') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -1691,7 +1689,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     }
   }
 
-  const nowMs = now();
+  const nowMs = Date.now();
   const ipAddress =
     request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
   const isIgdbRoute = isGameSearchPath || isPlatformListPath || isGameByIdPath;

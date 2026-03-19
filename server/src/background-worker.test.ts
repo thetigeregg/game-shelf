@@ -292,6 +292,7 @@ void test('provider match lock helper only treats explicit true as locked', () =
 
 void test('PSPrices scheduler helper respects retry backoff and rearms recent releases', () => {
   const payloadWithFutureBackoff = {
+    listType: 'discovery',
     releaseYear: 2026,
     enrichmentRetry: {
       psprices: {
@@ -316,6 +317,7 @@ void test('PSPrices scheduler helper respects retry backoff and rearms recent re
   );
 
   const payloadEligibleAfterRearm = {
+    listType: 'discovery',
     releaseYear: 2026,
     enrichmentRetry: {
       psprices: {
@@ -332,6 +334,33 @@ void test('PSPrices scheduler helper respects retry backoff and rearms recent re
       payload: payloadEligibleAfterRearm,
       platformIgdbId: 167,
       nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    true
+  );
+});
+
+void test('PSPrices scheduler helper ignores discovery retry backoff for wishlist rows', () => {
+  const wishlistPayload = {
+    listType: 'wishlist',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 6,
+        lastTriedAt: '2026-03-18T07:00:00.000Z',
+        nextTryAt: '2026-03-20T07:00:00.000Z',
+        permanentMiss: true,
+      },
+    },
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
+      payload: wishlistPayload,
+      platformIgdbId: 167,
+      nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
       maxAttempts: 6,
       rearmAfterDays: 30,
       rearmRecentReleaseYears: 1,

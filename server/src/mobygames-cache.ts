@@ -1,16 +1,17 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementMobygamesMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import { createProviderLimiter, ProviderThrottleError } from './provider-rate-limit.js';
 import {
   isDebugHttpLogsEnabled,
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface MobyGamesCacheRow {
   response_json: unknown;
@@ -54,16 +55,18 @@ const DEFAULT_MOBYGAMES_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const MOBYGAMES_MIN_INTERVAL_MS = 5_000;
 const MOBYGAMES_MAX_QUEUE_DELAY_MS = 30_000;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
-let mobyGamesNextSlotMs = 0;
+const mobygamesLimiter = createProviderLimiter('mobygames', {
+  ...config.rateLimit.outbound.mobygames,
+  minIntervalMs: config.rateLimit.outbound.mobygames.minIntervalMs ?? MOBYGAMES_MIN_INTERVAL_MS,
+  maxDelayMs: config.rateLimit.outbound.mobygames.maxDelayMs ?? MOBYGAMES_MAX_QUEUE_DELAY_MS,
+});
 
 export async function registerMobyGamesCachedRoute(
   app: FastifyInstance,
   pool: Pool,
   options: MobyGamesCacheRouteOptions = {}
 ): Promise<void> {
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
-  }
+  await ensureRateLimitRegistered(app);
   const credentials = resolveMobyGamesCredentials();
   const fetchMetadata =
     options.fetchMetadata ??
@@ -89,12 +92,7 @@ export async function registerMobyGamesCachedRoute(
   app.route({
     method: 'GET',
     url: '/v1/mobygames/search',
-    config: {
-      rateLimit: {
-        max: config.mobygamesSearchRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('mobygames_search'),
     handler: async (request, reply) => {
       const normalized = normalizeMobyGamesQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
@@ -512,24 +510,24 @@ async function deleteMobyGamesCacheEntry(
 }
 
 function claimMobyGamesSlot(): number {
-  const now = Date.now();
-  const slotMs = Math.max(now, mobyGamesNextSlotMs);
-  mobyGamesNextSlotMs = slotMs + MOBYGAMES_MIN_INTERVAL_MS;
-  return Math.max(0, slotMs - now);
+  return mobygamesLimiter.reserveDelayMs();
 }
 
 async function waitForMobyGamesSlot(): Promise<{ tooManyWaiters: boolean; delayMs: number }> {
-  const delayMs = claimMobyGamesSlot();
-  if (delayMs > MOBYGAMES_MAX_QUEUE_DELAY_MS) {
-    mobyGamesNextSlotMs -= MOBYGAMES_MIN_INTERVAL_MS;
-    return { tooManyWaiters: true, delayMs };
+  try {
+    const delayMs = claimMobyGamesSlot();
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+    return { tooManyWaiters: false, delayMs };
+  } catch (error) {
+    if (error instanceof ProviderThrottleError && error.source === 'local_queue') {
+      return { tooManyWaiters: true, delayMs: error.delayMs };
+    }
+    throw error;
   }
-  if (delayMs > 0) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, delayMs);
-    });
-  }
-  return { tooManyWaiters: false, delayMs };
 }
 
 async function fetchMetadataFromMobyGames(
@@ -725,6 +723,6 @@ export const __mobygamesCacheTestables = {
   waitForMobyGamesSlot,
   MOBYGAMES_MAX_QUEUE_DELAY_MS,
   resetMobyGamesThrottle: (): void => {
-    mobyGamesNextSlotMs = 0;
+    mobygamesLimiter.reset();
   },
 };

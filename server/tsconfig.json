@@ -3,10 +3,6 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "baseUrl": ".",
-    "paths": {
-      "fastify-rate-limit": ["src/fastify-rate-limit-shim.ts"]
-    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

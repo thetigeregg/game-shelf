@@ -303,6 +303,72 @@ void test('IGDB cache bypasses invalid game ids without upstream fetch', async (
   await app.close();
 });
 
+void test('IGDB cache canonicalizes leading-zero ids to the cached IGDB id', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  pool.seed('123', buildPayload('123', 'Canonical Game'), new Date().toISOString());
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify(buildPayload('123', 'Fetched Game')), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    },
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/00123',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 0);
+  assert.match(response.body, /Canonical Game/);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.hits, 1);
+  assert.equal(metrics.igdb.misses, 0);
+
+  await app.close();
+});
+
+void test('IGDB cache bypasses zero game ids without upstream fetch', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response(null, { status: 500 }));
+    },
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/0',
+  });
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'BYPASS');
+  assert.equal(fetchCalls, 0);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.bypasses, 1);
+  assert.equal(metrics.igdb.misses, 0);
+
+  await app.close();
+});
+
 void test('IGDB cache is fail-open when cache read throws', async () => {
   resetCacheMetrics();
   const pool = new IgdbPoolMock({ failReads: true });

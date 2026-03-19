@@ -238,6 +238,10 @@ function getReviewStateLabel(state) {
   }
 }
 
+function isActionableReviewState(state) {
+  return state === 'CHANGES_REQUESTED';
+}
+
 function formatReviewBody(body, state) {
   if (body) return body;
   const stateLabel = getReviewStateLabel(state);
@@ -294,33 +298,35 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
 
   for (const comment of comments) {
     const author = comment.author?.login || 'reviewer';
-    if (!includeReviewItem(comment.body, author)) continue;
+
+    // Drop PR-level discussion comments that aren't tied to code
+    if (comment.path == null && comment.line == null) continue;
+
+    const normalizedBody = normalizeText(comment.body ?? '');
+    if (!includeReviewItem(normalizedBody, author)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
     results.push({
       author,
-      body: normalizeText(comment.body),
-      file: comment.path || null,
-      line: comment.line || null,
+      body: normalizedBody,
+      file: comment.path,
+      line: comment.line,
       state: null,
       source: 'discussion',
     });
   }
 
   for (const review of reviews) {
+    const trimmedBody = review.body?.trim();
+
+    // Only include reviews that require action
+    if (!isActionableReviewState(review.state)) continue;
+
     const author = review.author?.login || 'reviewer';
-    const normalizedAuthor = author.toLowerCase();
-    if (!includeReviewItem(review.body, author, review.state)) continue;
+    if (!includeReviewItem(trimmedBody, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
-    if (
-      normalizedAuthor.includes('github-advanced-security') &&
-      (!review.body || review.body.trim().length === 0)
-    ) {
-      continue;
-    }
-
-    const body = formatReviewBody(review.body, review.state);
+    const body = formatReviewBody(trimmedBody, review.state);
 
     results.push({
       author,
@@ -335,7 +341,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   return uniqueBy(
     results,
     (item) =>
-      `${item.author}|${item.file || ''}|${item.line || ''}|${item.state || ''}|${item.body}`
+      `${item.author}|${item.file ?? ''}|${item.line ?? ''}|${item.state ?? ''}|${item.body}`
   );
 }
 

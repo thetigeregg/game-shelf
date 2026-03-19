@@ -119,13 +119,13 @@ Manual pricing saves clear the stored PSPrices retry metadata and lock the prici
 
 ## What each control does
 
-## Load matches
+### Load matches
 
 `Load matches` calls the unmatched-list endpoint with the current provider, state, search text, and limit.
 
 It refreshes the page from server state. Nothing is changed in storage.
 
-## Queue current results
+### Queue current results
 
 `Queue current results` sends the currently visible discovery row keys to the server and enqueues a `discovery_enrichment_run` background job.
 
@@ -138,13 +138,13 @@ Behavior:
 
 This action does not edit the selected rows directly. It only queues background work.
 
-### Important limitation
+#### Important limitation
 
 The queued job runs the discovery enrichment worker, which currently handles HLTB, review, and Steam enrichment logic. It is not the mechanism that refreshes PSPrices pricing matches.
 
 That means queueing discovery enrichment is useful for HLTB or review gaps, but it is not the direct fix path for pricing-only issues.
 
-## Clear visible permanent misses
+### Clear visible permanent misses
 
 `Clear visible permanent misses` is available only when the selected provider is `hltb` or `review` and at least one visible row is currently in `permanentMiss`.
 
@@ -163,7 +163,7 @@ What it does not change:
 
 After clearing permanent misses, the row is eligible to be tried again on the next scheduled discovery enrichment run or after a manual requeue.
 
-## Manage modal
+### Manage modal
 
 `Manage` opens a modal for one discovery row and loads full provider detail.
 
@@ -176,13 +176,13 @@ The modal lets the operator:
 - clear the active provider form
 - queue targeted discovery enrichment for that single row
 
-## Candidate search
+### Candidate search
 
 The candidate search buttons do not persist anything by themselves.
 
 They only look up likely upstream matches and fill the form when the operator taps a candidate.
 
-### HLTB candidate search
+#### HLTB candidate search
 
 Uses the current query title, release year, and platform to search HLTB candidates.
 
@@ -193,25 +193,25 @@ Applying a candidate fills:
 - timing fields
 - query title/year/platform
 
-### Review candidate search
+#### Review candidate search
 
 Uses the current query title, release year, platform, and `platformIgdbId` to search review candidates.
 
 Applying a candidate fills the review form using either the Metacritic or MobyGames source.
 
-### Pricing candidate search
+#### Pricing candidate search
 
 Uses the discovery row identity and search text to look up pricing candidates.
 
 Applying a candidate fills price fields and PSPrices URL/title fields.
 
-## Save provider match
+### Save provider match
 
 `Save` persists the active provider form back into the discovery row payload immediately.
 
 The modal updates immediately after a successful save, and the visible list row is updated in place without requiring a full reload.
 
-### Saving HLTB
+#### Saving HLTB
 
 Saving HLTB writes provider fields such as:
 
@@ -231,7 +231,7 @@ It also:
 
 At least one HLTB match or timing field must be supplied or the save is rejected.
 
-### Saving review
+#### Saving review
 
 Saving review writes provider fields such as:
 
@@ -255,7 +255,7 @@ It also:
 
 At least one review field must be supplied or the save is rejected.
 
-### Saving pricing
+#### Saving pricing
 
 Saving pricing writes provider fields such as:
 
@@ -277,11 +277,11 @@ It also:
 
 At least one of `priceAmount`, `priceIsFree`, or `priceUrl` must be supplied or the save is rejected.
 
-## Clear provider match
+### Clear provider match
 
 `Clear` removes the active provider's saved fields from the discovery row and updates the row immediately.
 
-### Clearing HLTB
+#### Clearing HLTB
 
 Clearing HLTB:
 
@@ -289,7 +289,7 @@ Clearing HLTB:
 - sets `hltbMatchLocked = false`
 - resets `enrichmentRetry.hltb`
 
-### Clearing review
+#### Clearing review
 
 Clearing review:
 
@@ -297,7 +297,7 @@ Clearing review:
 - sets `reviewMatchLocked = false`
 - resets `enrichmentRetry.metacritic`
 
-### Clearing pricing
+#### Clearing pricing
 
 Clearing pricing:
 
@@ -306,7 +306,7 @@ Clearing pricing:
 
 Once a provider is cleared, automatic enrichment is allowed to populate it again if the relevant background or lookup path runs later.
 
-## Queue this game
+### Queue this game
 
 The modal-level queue action enqueues a targeted `discovery_enrichment_run` for exactly that row key.
 
@@ -352,7 +352,7 @@ This means a manual pricing match is intentionally protected from automatic rema
 
 ## When changes take effect
 
-## Immediate effects
+### Immediate effects
 
 These happen as soon as the save or clear request succeeds:
 
@@ -361,11 +361,11 @@ These happen as soon as the save or clear request succeeds:
 - the visible row on the admin list is updated immediately
 - provider status badges change immediately if the saved fields changed the computed state
 
-## Effects on later sync and merges
+### Effects on later sync and merges
 
 Server sync preserves the manual match and lock-related fields during upserts. That means later row merges do not casually discard the manual override fields.
 
-## Effects on later automatic enrichment
+### Effects on later automatic enrichment
 
 - a saved manual HLTB match prevents automatic HLTB enrichment from trying to rematch that row
 - a saved manual review match prevents ordinary automatic review enrichment from trying to rematch that row
@@ -377,13 +377,13 @@ There are two important exceptions:
 - a locked HLTB row with a saved preferred HLTB match can still be refreshed to backfill missing HLTB timing fields
 - a targeted admin review requeue can force a locked review refresh when enough saved lookup context exists
 
-## Effects of resetting permanent miss
+### Effects of resetting permanent miss
 
 Resetting permanent miss only changes retry state. It does not fetch new metadata by itself.
 
 To make the reset matter immediately, queue a targeted discovery enrichment run or wait for the next scheduled enrichment cycle.
 
-## Effects of queueing enrichment
+### Effects of queueing enrichment
 
 Queueing enrichment does not itself change the row. The row only changes when the background worker later processes the targeted discovery enrichment job successfully.
 
@@ -391,34 +391,34 @@ Because the queue uses deduplication, a button press can legitimately result in 
 
 ## Provider-specific caveats
 
-## HLTB matched does not require every timing field
+### HLTB matched does not require every timing field
 
 HLTB is treated as matched if any one of the timing fields exists. A partial manual save is therefore enough to remove the row from the HLTB unmatched view.
 
-## Review matched is based on review data, not every review field
+### Review matched is based on review data, not every review field
 
 Review can become matched with a minimal valid review payload, especially for Metacritic-backed data.
 
-## Pricing retry state is visible but not resettable here
+### Pricing retry state is visible but not resettable here
 
 Pricing rows can surface as `retrying` or `permanentMiss` when PSPrices retry metadata exists for a supported pricing platform.
 
 Unlike HLTB and review, the admin page does not expose a `Clear visible permanent misses` reset path for pricing. Pricing repair flows on this page are manual save/clear and pricing requeue actions.
 
-## Queue buttons are not the pricing repair path
+### Queue buttons are not the pricing repair path
 
 If the selected problem is pricing-only, the most direct fixes are manual save/clear and the PSPrices-specific lookup paths. The discovery enrichment queue is primarily for HLTB and review enrichment.
 
 ## Practical triage examples
 
-## A row is in `permanentMiss` for review
+### A row is in `permanentMiss` for review
 
 1. Filter provider to `Review` and state to `Permanent miss`.
 2. Open the row and inspect its details.
 3. Either save a manual review match, or clear visible permanent misses.
 4. If you cleared permanent miss and want an immediate retry, queue the row or the visible results.
 
-## A row has a bad manual HLTB match
+### A row has a bad manual HLTB match
 
 1. Open the row.
 2. Search HLTB candidates or edit the fields manually.
@@ -426,7 +426,7 @@ If the selected problem is pricing-only, the most direct fixes are manual save/c
 
 The save updates the row immediately and keeps it locked so the discovery worker does not overwrite it.
 
-## A row has stale manual pricing data
+### A row has stale manual pricing data
 
 1. Open the row and review the pricing fields.
 2. Either overwrite them with a new manual pricing match or clear pricing.

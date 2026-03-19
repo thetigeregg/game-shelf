@@ -3,7 +3,7 @@ import test from 'node:test';
 import fastifyFactory from 'fastify';
 import { registerRecommendationRoutes } from './routes.js';
 import { RecommendationServiceApi } from './service.js';
-import { RecommendationRuntimeMode } from './types.js';
+import { RecommendationLaneCollection, RecommendationRuntimeMode } from './types.js';
 
 function createServiceMock(
   overrides?: Partial<RecommendationServiceApi>
@@ -91,6 +91,28 @@ function createServiceMock(
         lane,
         items: [],
         page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+      }),
+    getRecommendationLaneCollection: (_target, _limit, runtimeMode) =>
+      Promise.resolve({
+        run: {
+          id: 11,
+          target: 'BACKLOG' as const,
+          status: 'SUCCESS' as const,
+          settingsHash: 'settings',
+          inputHash: 'input',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          finishedAt: '2026-01-01T00:01:00.000Z',
+          error: null,
+        },
+        runtimeMode: runtimeMode ?? 'NEUTRAL',
+        lanes: {
+          overall: [],
+          hiddenGems: [],
+          exploration: [],
+          blended: [],
+          popular: [],
+          recent: [],
+        },
       }),
     rebuild: () =>
       Promise.resolve({ target: 'BACKLOG' as const, runId: 12, status: 'SUCCESS' as const }),
@@ -240,12 +262,56 @@ void test('GET /v1/recommendations/lanes caps oversized offsets before loading a
 
 void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes payload', async () => {
   const app = fastifyFactory({ logger: false });
-  const calls: string[] = [];
+  const calls: number[] = [];
+  const lanes: RecommendationLaneCollection = {
+    overall: [],
+    hiddenGems: [],
+    exploration: [],
+    blended: [],
+    popular: [],
+    recent: [],
+  };
+
+  for (const lane of Object.keys(lanes) as Array<keyof RecommendationLaneCollection>) {
+    lanes[lane] = [
+      {
+        rank: 1,
+        igdbGameId: lane,
+        platformIgdbId: 6,
+        scoreTotal: 1.23,
+        scoreComponents: {
+          taste: 1,
+          novelty: 0,
+          runtimeFit: 0,
+          criticBoost: 0.1,
+          recencyBoost: 0.13,
+          semantic: 0.2,
+          exploration: 0.2,
+          diversityPenalty: -0.1,
+          repeatPenalty: -0.2,
+        },
+        explanations: {
+          headline: 'Matches your tastes',
+          bullets: [],
+          matchedTokens: {
+            genres: [],
+            developers: [],
+            publishers: [],
+            franchises: [],
+            collections: [],
+            themes: [],
+            keywords: [],
+          },
+        },
+      },
+    ];
+  }
+
   await registerRecommendationRoutes(
     app,
     createServiceMock({
-      getRecommendationLanes: (_target, lane, _offset, _limit, runtimeMode) => {
-        calls.push(lane);
+      getRecommendationLaneCollection: (_target, limit, runtimeMode) => {
+        calls.push(limit);
         return Promise.resolve({
           run: {
             id: 11,
@@ -258,40 +324,7 @@ void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes
             error: null,
           },
           runtimeMode: runtimeMode ?? 'NEUTRAL',
-          lane,
-          items: [
-            {
-              rank: 1,
-              igdbGameId: lane,
-              platformIgdbId: 6,
-              scoreTotal: 1.23,
-              scoreComponents: {
-                taste: 1,
-                novelty: 0,
-                runtimeFit: 0,
-                criticBoost: 0.1,
-                recencyBoost: 0.13,
-                semantic: 0.2,
-                exploration: 0.2,
-                diversityPenalty: -0.1,
-                repeatPenalty: -0.2,
-              },
-              explanations: {
-                headline: 'Matches your tastes',
-                bullets: [],
-                matchedTokens: {
-                  genres: [],
-                  developers: [],
-                  publishers: [],
-                  franchises: [],
-                  collections: [],
-                  themes: [],
-                  keywords: [],
-                },
-              },
-            },
-          ],
-          page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+          lanes,
         });
       },
     })
@@ -308,7 +341,7 @@ void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes
     lanes: Record<string, Array<{ igdbGameId: string }>>;
   };
   assert.equal(body.runtimeMode, 'NEUTRAL');
-  assert.deepEqual(calls, ['overall', 'hiddenGems', 'exploration', 'blended', 'popular', 'recent']);
+  assert.deepEqual(calls, [10]);
   assert.deepEqual(Object.keys(body.lanes), [
     'overall',
     'hiddenGems',
@@ -344,6 +377,7 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
       },
       getTopRecommendations: () => Promise.resolve(null),
       getRecommendationLanes: () => Promise.resolve(null),
+      getRecommendationLaneCollection: () => Promise.resolve(null),
     })
   );
 

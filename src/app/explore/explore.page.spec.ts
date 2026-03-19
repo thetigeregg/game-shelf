@@ -621,6 +621,39 @@ describe('ExplorePage explore modes UX', () => {
     ).toBe(10);
   });
 
+  it('sets recommendation error state when loading another recommendation page fails', async () => {
+    const page = createPage();
+
+    igdbProxyServiceMock.getRecommendationLanes
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            items: Array.from({ length: 10 }, (_, index) => ({
+              ...mockLaneItem,
+              rank: index + 1,
+              igdbGameId: String(3000 + index),
+            })),
+            page: { offset: 0, limit: 10, hasMore: true, nextOffset: 10 },
+          })
+        )
+      )
+      .mockReturnValueOnce(
+        throwError(() => new HttpErrorResponse({ status: 429, statusText: 'Too Many Requests' }))
+      );
+
+    page.ngOnInit();
+    await flushAsync();
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMoreRecommendations({ target: { complete } } as unknown as Event);
+
+    expect(page.recommendationErrorCode).toBe('RATE_LIMITED');
+    expect(page.recommendationError).toBe('Recommendations are in cooldown. Try again later.');
+    expect(page.activeLanesResponse?.page.hasMore).toBe(false);
+    expect(page.activeLanesResponse?.page.nextOffset).toBeNull();
+    expect(page.getActiveLaneItems()).toHaveLength(10);
+  });
+
   it('does not block recommendation load-more while metadata hydration runs', async () => {
     const page = createPage() as unknown as {
       ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
@@ -708,6 +741,33 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(page.selectedPopularityFeed).toBe('upcoming');
     expect(page.getActivePopularityItems().map((item) => item.id)).toEqual(['upcoming-1']);
+  });
+
+  it('sets popularity error state when loading another popularity page fails', async () => {
+    const page = createPage();
+
+    igdbProxyServiceMock.getPopularityFeed
+      .mockReturnValueOnce(
+        of({
+          items: Array.from({ length: 10 }, (_, index) => ({
+            ...mockPopularityFeedItem,
+            id: `trend-${String(index)}`,
+          })),
+          page: { offset: 0, limit: 10, hasMore: true, nextOffset: 10 },
+        })
+      )
+      .mockReturnValueOnce(throwError(() => new Error('Popularity page unavailable')));
+
+    await page.onExploreModeChange('popularity');
+    await flushAsync();
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMorePopularity({ target: { complete } } as unknown as Event);
+
+    expect(page.popularityError).toBe('Popularity page unavailable');
+    expect(page.activePopularityResponse?.page.hasMore).toBe(false);
+    expect(page.activePopularityResponse?.page.nextOffset).toBeNull();
+    expect(page.getActivePopularityItems()).toHaveLength(10);
   });
 
   it('paginates similar recommendations in pages of 5', async () => {

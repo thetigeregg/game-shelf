@@ -658,7 +658,9 @@ function collectCITasks(prData, checkAnalysis) {
 
 function downloadCoverageArtifact(runId) {
   const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
-  if (process.env.DEBUG_PR_AGENT || process.env.DEBUG) {
+  const debugLoggingEnabled =
+    process.env.DEBUG_PR_AGENT === '1' || process.env.DEBUG === '1';
+  if (debugLoggingEnabled) {
     console.log(`Downloading coverage artifact to ${runArtifactDir}...`);
   }
 
@@ -678,7 +680,7 @@ function downloadCoverageArtifact(runId) {
 
   // 🔍 Debug what was extracted
   const contents = fs.readdirSync(runArtifactDir);
-  if (process.env.DEBUG_PR_AGENT || process.env.DEBUG) {
+  if (debugLoggingEnabled) {
     console.log('Artifact dir contents after download:', contents);
   }
 

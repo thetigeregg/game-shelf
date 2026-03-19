@@ -136,6 +136,7 @@ export async function registerIgdbCachedByIdRoute(
         const payload = await safeReadJson(response);
 
         if (payload !== null && isCacheableIgdbPayload(normalized, payload)) {
+          await cancelResponseBody(response);
           await persistIgdbCacheEntry(pool, cacheKey, normalized, payload, request);
           reply.header('X-GameShelf-IGDB-Cache', cacheOutcome);
           reply.code(response.status);
@@ -207,45 +208,68 @@ function scheduleIgdbRevalidation(
     return false;
   }
 
-  incrementIgdbMetric('revalidateScheduled');
-
   let resolveDone: (() => void) | null = null;
   const inFlight = new Promise<void>((resolve) => {
     resolveDone = resolve;
   });
   revalidationInFlightByKey.set(cacheKey, inFlight);
 
-  scheduleBackgroundRefresh(async () => {
-    try {
-      const response = await fetchMetadata(normalizedRequest.gameId);
+  try {
+    scheduleBackgroundRefresh(async () => {
+      try {
+        const response = await fetchMetadata(normalizedRequest.gameId);
 
-      if (!response.ok) {
+        if (!response.ok) {
+          incrementIgdbMetric('revalidateFailed');
+          return;
+        }
+
+        const payload = await safeReadJson(response);
+
+        if (payload === null || !isCacheableIgdbPayload(normalizedRequest, payload)) {
+          incrementIgdbMetric('revalidateFailed');
+          return;
+        }
+
+        await cancelResponseBody(response);
+        await persistIgdbCacheEntry(pool, cacheKey, normalizedRequest, payload, request);
+        incrementIgdbMetric('revalidateSucceeded');
+      } catch (error) {
         incrementIgdbMetric('revalidateFailed');
-        return;
+        request.log.warn({
+          msg: 'igdb_cache_revalidate_failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        revalidationInFlightByKey.delete(cacheKey);
+        resolveDone?.();
       }
-
-      const payload = await safeReadJson(response);
-
-      if (payload === null || !isCacheableIgdbPayload(normalizedRequest, payload)) {
-        incrementIgdbMetric('revalidateFailed');
-        return;
-      }
-
-      await persistIgdbCacheEntry(pool, cacheKey, normalizedRequest, payload, request);
-      incrementIgdbMetric('revalidateSucceeded');
-    } catch (error) {
-      incrementIgdbMetric('revalidateFailed');
-      request.log.warn({
-        msg: 'igdb_cache_revalidate_failed',
-        error: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      revalidationInFlightByKey.delete(cacheKey);
-      resolveDone?.();
-    }
-  });
+    });
+    incrementIgdbMetric('revalidateScheduled');
+  } catch (error) {
+    incrementIgdbMetric('revalidateFailed');
+    revalidationInFlightByKey.delete(cacheKey);
+    resolveDone?.();
+    request.log.warn({
+      msg: 'igdb_cache_revalidate_schedule_failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 
   return true;
+}
+
+async function cancelResponseBody(response: Response): Promise<void> {
+  if (!response.body) {
+    return;
+  }
+
+  try {
+    await response.body.cancel();
+  } catch {
+    // Ignore cancel errors because cancellation is best-effort cleanup.
+  }
 }
 
 async function persistIgdbCacheEntry(

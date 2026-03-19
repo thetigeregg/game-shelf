@@ -319,9 +319,8 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   for (const review of reviews) {
     const trimmedBody = review.body?.trim();
 
-    // Ignore review summaries that are not actionable
-    if (review.state === 'COMMENTED') continue;
-    if (!trimmedBody && !isActionableReviewState(review.state)) continue;
+    // Only include reviews that require action
+    if (!isActionableReviewState(review.state)) continue;
 
     const author = review.author?.login || 'reviewer';
     if (!includeReviewItem(trimmedBody, author, review.state)) continue;

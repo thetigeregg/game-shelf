@@ -932,7 +932,14 @@ function applyManualMatchPatch(
   }
 
   const priceAmount = normalizeNumber(body.priceAmount);
-  const priceIsFree = normalizeBoolean(body.priceIsFree) === true;
+  const hasPriceIsFree = Object.prototype.hasOwnProperty.call(body, 'priceIsFree');
+  const normalizedPriceIsFree = normalizeBoolean(body.priceIsFree);
+  if (hasPriceIsFree && body.priceIsFree !== null && normalizedPriceIsFree === null) {
+    return 'Price is free must be true or false.';
+  }
+  const priceIsFree = hasPriceIsFree
+    ? normalizedPriceIsFree
+    : normalizeBoolean(payload['priceIsFree']);
   const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
   const requestedPriceSource = normalizeString(body.priceSource);
   const priceSource =
@@ -952,7 +959,7 @@ function applyManualMatchPatch(
   if (pricingError) {
     return pricingError;
   }
-  if (priceAmount === null && !priceIsFree && priceUrl === null) {
+  if (priceAmount === null && priceIsFree !== true && priceUrl === null) {
     return 'Pricing updates require at least one pricing field.';
   }
   payload['priceSource'] = priceSource;

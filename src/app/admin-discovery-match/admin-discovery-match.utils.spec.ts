@@ -75,6 +75,42 @@ describe('adminDiscoveryMatchUtils', () => {
     expect(grouped[0]?.matchState.review.attempts).toBe(4);
   });
 
+  it('uses the earliest grouped next try time for retrying provider state', () => {
+    const grouped = groupAdminDiscoveryItems([
+      createItem({
+        matchState: {
+          ...createItem().matchState,
+          pricing: {
+            status: 'retrying',
+            locked: false,
+            attempts: 2,
+            lastTriedAt: '2026-03-18T10:00:00.000Z',
+            nextTryAt: '2026-03-20T12:00:00.000Z',
+            permanentMiss: false,
+          },
+        },
+      }),
+      createItem({
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        matchState: {
+          ...createItem().matchState,
+          pricing: {
+            status: 'retrying',
+            locked: false,
+            attempts: 1,
+            lastTriedAt: '2026-03-17T09:00:00.000Z',
+            nextTryAt: '2026-03-19T08:00:00.000Z',
+            permanentMiss: false,
+          },
+        },
+      }),
+    ]);
+
+    expect(grouped[0]?.matchState.pricing.lastTriedAt).toBe('2026-03-18T10:00:00.000Z');
+    expect(grouped[0]?.matchState.pricing.nextTryAt).toBe('2026-03-19T08:00:00.000Z');
+  });
+
   it('deduplicates review candidates while preferring entries with richer metadata', () => {
     const bare: ReviewMatchCandidate = {
       title: 'Chrono Trigger',

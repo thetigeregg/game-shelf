@@ -30,6 +30,8 @@ import {
   RebuildResult,
   RecommendationRebuildQueueReason,
   RecommendationLaneCollection,
+  RecommendationLaneKey,
+  RecommendationPageInfo,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
   RecommendationTarget,
@@ -39,6 +41,8 @@ import {
 } from './types.js';
 
 const RANKING_DEDUPE_BUFFER = 25;
+const MAX_RECOMMENDATION_PAGE_LIMIT = 50;
+const MAX_RECOMMENDATION_PAGE_OFFSET = 1000;
 
 export interface RecommendationServiceOptions {
   topLimit: number;
@@ -128,6 +132,19 @@ export interface RecommendationServiceApi {
     items: RankedRecommendationItem[];
   } | null>;
   getRecommendationLanes(
+    target: RecommendationTarget,
+    lane: RecommendationLaneKey,
+    offset: number,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
+  } | null>;
+  getRecommendationLaneCollection(
     target: RecommendationTarget,
     limit: number,
     runtimeMode?: RecommendationRuntimeMode | null
@@ -430,6 +447,40 @@ export class RecommendationService implements RecommendationServiceApi {
 
   async getRecommendationLanes(
     target: RecommendationTarget,
+    lane: RecommendationLaneKey,
+    offset: number,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
+  } | null> {
+    const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
+    const safeLimit = normalizePageLimit(limit, this.options.laneLimit);
+    const safeOffset = normalizeOffset(offset);
+    const result = await this.repository.readRecommendationLanes({
+      target,
+      lane,
+      runtimeMode: resolvedRuntimeMode,
+      offset: safeOffset,
+      limit: safeLimit,
+    });
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result,
+      runtimeMode: resolvedRuntimeMode,
+    };
+  }
+
+  async getRecommendationLaneCollection(
+    target: RecommendationTarget,
     limit: number,
     runtimeMode?: RecommendationRuntimeMode | null
   ): Promise<{
@@ -439,7 +490,7 @@ export class RecommendationService implements RecommendationServiceApi {
   } | null> {
     const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
     const safeLimit = normalizeLimit(limit, this.options.laneLimit);
-    const result = await this.repository.readRecommendationLanes({
+    const result = await this.repository.readRecommendationLaneCollection({
       target,
       runtimeMode: resolvedRuntimeMode,
       limit: safeLimit,
@@ -1201,6 +1252,22 @@ function normalizeLimit(value: number, max: number): number {
   }
 
   return Math.min(value, max);
+}
+
+function normalizePageLimit(value: number, max: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return Math.min(10, max, MAX_RECOMMENDATION_PAGE_LIMIT);
+  }
+
+  return Math.min(value, max, MAX_RECOMMENDATION_PAGE_LIMIT);
+}
+
+function normalizeOffset(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    return 0;
+  }
+
+  return Math.min(value, MAX_RECOMMENDATION_PAGE_OFFSET);
 }
 
 function sha256(value: unknown): string {

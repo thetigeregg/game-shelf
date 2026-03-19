@@ -116,7 +116,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.ok(query.text.includes("(owned.payload->>'listType') IN ('collection', 'wishlist')"));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
-  assert.equal(query.params[1], rowLimit);
+  assert.equal(query.params[1], 11);
 
   await app.close();
 });
@@ -155,7 +155,7 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
   assert.ok(query.text.includes('> $2'));
   assert.ok(query.text.includes('LIMIT $3'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[2], 50);
+  assert.equal(query.params[2], 11);
   assert.equal(typeof query.params[1], 'number');
 
   await app.close();
@@ -233,7 +233,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   assert.ok(query.text.includes('<= $2'));
   assert.ok(query.text.includes('LIMIT $4'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
+  assert.equal(query.params[3], 11);
   assert.equal(typeof query.params[1], 'number');
   assert.equal(typeof query.params[2], 'number');
   assert.equal(Number(query.params[1]) - Number(query.params[2]), ninetyDaysSec);
@@ -260,7 +260,9 @@ void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the 
   assert.ok(
     query.text.includes('ORDER BY igdb_game_id, popularity_score DESC, platform_igdb_id ASC')
   );
-  assert.ok(query.text.includes('ORDER BY popularity_score DESC, platform_igdb_id ASC'));
+  assert.ok(
+    query.text.includes('ORDER BY popularity_score DESC, igdb_game_id ASC, platform_igdb_id ASC')
+  );
   assert.ok(query.text.includes('LIMIT $2'));
 
   await app.close();
@@ -423,6 +425,220 @@ void test('GET /v1/games/trending keeps post-query mapping filters for invalid r
   await app.close();
 });
 
+void test('GET /v1/games/trending keeps hasMore when an extra fetched row is filtered out', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '900',
+        platform_igdb_id: 6,
+        popularity_score: '210.2',
+        payload: {
+          title: 'Valid Game Entry',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+      {
+        igdb_game_id: '901',
+        platform_igdb_id: 6,
+        popularity_score: 'NaN',
+        payload: { title: 'Invalid score' },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{ id: string }>;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+
+  assert.deepEqual(
+    body.items.map((item) => item.id),
+    ['900']
+  );
+  assert.deepEqual(body.page, {
+    offset: 0,
+    limit: 1,
+    hasMore: true,
+    nextOffset: 1,
+  });
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending does not pull the lookahead row into the current page', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '910',
+        platform_igdb_id: 6,
+        popularity_score: 'NaN',
+        payload: { title: 'Invalid score' },
+      },
+      {
+        igdb_game_id: '911',
+        platform_igdb_id: 6,
+        popularity_score: '205.1',
+        payload: {
+          title: 'Lookahead Only',
+          first_release_date: 1_700_000_100,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{ id: string }>;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+
+  assert.deepEqual(body.items, []);
+  assert.deepEqual(body.page, {
+    offset: 0,
+    limit: 1,
+    hasMore: true,
+    nextOffset: 1,
+  });
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending caps response page metadata to the configured row limit', async () => {
+  const app = fastifyFactory({ logger: false });
+  const rows = Array.from({ length: 3 }, (_, index) => ({
+    igdb_game_id: String(700 + index),
+    platform_igdb_id: 6,
+    popularity_score: String(200 - index),
+    payload: {
+      title: `Limited Game ${String(index)}`,
+      first_release_date: 1_700_000_000 + index,
+      platformOptions: [{ id: 6, name: 'PC' }],
+    },
+  }));
+
+  await registerPopularityRoutes(app, new PoolMock(rows) as unknown as Pool, {
+    rowLimit: 2,
+    threshold: 50,
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?limit=50',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{ id: string }>;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+
+  assert.deepEqual(
+    body.items.map((item) => item.id),
+    ['700', '701']
+  );
+  assert.deepEqual(body.page, {
+    offset: 0,
+    limit: 2,
+    hasMore: true,
+    nextOffset: 2,
+  });
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending caps oversized offsets to a safe maximum', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock([]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?offset=5000&limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(body.page, {
+    offset: 1000,
+    limit: 1,
+    hasMore: false,
+    nextOffset: null,
+  });
+  assert.equal(pool.queries.length, 1);
+  assert.equal(pool.queries[0]?.params[2], 1000);
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending stops advertising next pages beyond the max offset cap', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '920',
+        platform_igdb_id: 6,
+        popularity_score: '220.1',
+        payload: {
+          title: 'Near cap page',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+      {
+        igdb_game_id: '921',
+        platform_igdb_id: 6,
+        popularity_score: '210.1',
+        payload: {
+          title: 'Unreachable next page',
+          first_release_date: 1_700_000_001,
+          platformOptions: [{ id: 6, name: 'PC' }],
+        },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?offset=995&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(body.page, {
+    offset: 995,
+    limit: 10,
+    hasMore: false,
+    nextOffset: null,
+  });
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(
@@ -493,7 +709,7 @@ void test('GET /v1/games/trending uses the configured row limit value passed to 
 
   assert.equal(response.statusCode, 200);
   assert.equal(pool.queries.length, 1);
-  assert.equal(pool.queries[0]?.params[1], 200);
+  assert.equal(pool.queries[0]?.params[1], 11);
 
   await app.close();
 });

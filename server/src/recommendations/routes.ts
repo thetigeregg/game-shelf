@@ -120,14 +120,9 @@ export function registerRecommendationRoutes(
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
 
       if (query.lane === undefined) {
-        const results = await Promise.all(
-          RECOMMENDATION_LANE_KEYS.map((lane) =>
-            service.getRecommendationLanes(target, lane, 0, limit, runtimeMode)
-          )
-        );
-        const firstResult = results[0];
+        const result = await service.getRecommendationLaneCollection(target, limit, runtimeMode);
 
-        if (!firstResult || results.some((result) => result === null)) {
+        if (!result) {
           let responseJobId = queueState.jobId;
           let responseReason = queueState.reason;
           if (!queueState.queued) {
@@ -151,20 +146,13 @@ export function registerRecommendationRoutes(
 
         reply.send({
           target,
-          runtimeMode: firstResult.runtimeMode,
-          runId: firstResult.run.id,
-          generatedAt: firstResult.run.finishedAt ?? firstResult.run.startedAt,
+          runtimeMode: result.runtimeMode,
+          runId: result.run.id,
+          generatedAt: result.run.finishedAt ?? result.run.startedAt,
           staleRefreshQueued: queueState.queued,
           staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
           staleRefreshJobId: queueState.jobId,
-          lanes: {
-            overall: results[0].items,
-            hiddenGems: results[1].items,
-            exploration: results[2].items,
-            blended: results[3].items,
-            popular: results[4].items,
-            recent: results[5].items,
-          },
+          lanes: result.lanes,
         });
         return;
       }
@@ -317,15 +305,6 @@ export function registerRecommendationRoutes(
 
   return Promise.resolve();
 }
-
-const RECOMMENDATION_LANE_KEYS: RecommendationLaneKey[] = [
-  'overall',
-  'hiddenGems',
-  'exploration',
-  'blended',
-  'popular',
-  'recent',
-];
 
 function parsePositiveInteger(value: unknown): number | null {
   const parsed = parseNonNegativeInteger(value);

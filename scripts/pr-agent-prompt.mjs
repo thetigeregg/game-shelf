@@ -60,10 +60,11 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
-function isAutomatedSecurityAuthor(author) {
-  const authorLogin = String(author || '').toLowerCase();
+function isAutomatedSecurityAuthor(authorLogin) {
+  const normalizedAuthorLogin = String(authorLogin || '').toLowerCase();
   return (
-    authorLogin.includes('github-advanced-security') || authorLogin.includes('github-code-scanning')
+    normalizedAuthorLogin.includes('github-advanced-security') ||
+    normalizedAuthorLogin.includes('github-code-scanning')
   );
 }
 
@@ -676,12 +677,32 @@ function downloadCoverageArtifact(runId) {
     'gh',
     ['run', 'download', String(runId), '-n', COVERAGE_ARTIFACT_NAME, '-D', runArtifactDir],
     {
-      stdio: 'inherit',
+      encoding: 'utf8',
+      stdio: DEBUG ? 'inherit' : ['ignore', 'pipe', 'pipe'],
     }
   );
 
   if (result.status !== 0) {
-    console.warn('Artifact download failed');
+    const failureDetails = [
+      result.error?.message ? `error=${result.error.message}` : null,
+      result.signal ? `signal=${result.signal}` : null,
+      result.status !== null ? `status=${result.status}` : null,
+    ].filter(Boolean);
+
+    console.warn(
+      failureDetails.length
+        ? `Artifact download failed (${failureDetails.join(', ')})`
+        : 'Artifact download failed'
+    );
+
+    if (!DEBUG) {
+      const stderr = result.stderr?.trim();
+      const stdout = result.stdout?.trim();
+
+      if (stderr) debug('Artifact download stderr:', stderr);
+      if (stdout) debug('Artifact download stdout:', stdout);
+    }
+
     fs.rmSync(runArtifactDir, { recursive: true, force: true });
     return null;
   }

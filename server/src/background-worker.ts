@@ -19,6 +19,11 @@ import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
+import {
+  maybeRearmProviderRetryState,
+  parseProviderRetryState,
+  shouldAttemptProvider,
+} from './recommendations/provider-retry-state.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
 import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
@@ -49,6 +54,7 @@ interface PricingRefreshEnqueueStats {
   enqueued: number;
   deduped: number;
   skippedMissingData: number;
+  skippedBackoff: number;
 }
 export type BackgroundWorkerMode = 'all' | 'general' | 'recommendations';
 
@@ -77,6 +83,42 @@ export function isRecommendationTarget(value: unknown): value is RecommendationT
 
 export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+export function readDiscoveryEnrichmentGameKeys(payload: Record<string, unknown>): string[] | null {
+  const value = payload['gameKeys'];
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = [
+    ...new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0)
+    ),
+  ];
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function readDiscoveryEnrichmentProviders(
+  payload: Record<string, unknown>
+): Array<'hltb' | 'review' | 'steam'> | null {
+  const value = payload['providers'];
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = [
+    ...new Set(
+      value.filter(
+        (item): item is 'hltb' | 'review' | 'steam' =>
+          item === 'hltb' || item === 'review' || item === 'steam'
+      )
+    ),
+  ];
+
+  return normalized.length > 0 ? normalized : null;
 }
 
 export function shouldRunPricingRefreshPhase(params: {
@@ -184,7 +226,60 @@ export const __backgroundWorkerTestables = {
   resolvePspricesRevalidationTitle,
   resolvePspricesRevalidationUrl,
   isProviderMatchLocked,
+  readDiscoveryEnrichmentProviders,
+  shouldSchedulePspricesRefresh,
 };
+
+function resolvePayloadReleaseYear(payload: Record<string, unknown>): number | null {
+  const candidate = payload['releaseYear'];
+  if (typeof candidate === 'number') {
+    return Number.isInteger(candidate) ? candidate : null;
+  }
+
+  if (typeof candidate === 'string' && /^\d{4}$/.test(candidate.trim())) {
+    return Number.parseInt(candidate.trim(), 10);
+  }
+
+  return null;
+}
+
+function shouldSchedulePspricesRefresh(params: {
+  payload: Record<string, unknown>;
+  platformIgdbId: number;
+  nowMs: number;
+  maxAttempts: number;
+  rearmAfterDays: number;
+  rearmRecentReleaseYears: number;
+}): boolean {
+  if (!PSPRICES_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
+    return false;
+  }
+
+  if (params.payload['listType'] !== 'discovery') {
+    return true;
+  }
+
+  const retryState = maybeRearmProviderRetryState({
+    state: parseProviderRetryState(
+      params.payload['enrichmentRetry'] &&
+        typeof params.payload['enrichmentRetry'] === 'object' &&
+        !Array.isArray(params.payload['enrichmentRetry'])
+        ? (params.payload['enrichmentRetry'] as Record<string, unknown>)['psprices']
+        : null
+    ),
+    nowMs: params.nowMs,
+    releaseYear: resolvePayloadReleaseYear(params.payload),
+    rearmAfterDays: params.rearmAfterDays,
+    rearmRecentReleaseYears: params.rearmRecentReleaseYears,
+    maxAttempts: params.maxAttempts,
+  });
+
+  return shouldAttemptProvider({
+    state: retryState,
+    nowMs: params.nowMs,
+    maxAttempts: params.maxAttempts,
+  });
+}
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
   const rawValue =
@@ -702,10 +797,12 @@ async function main(): Promise<void> {
       enqueued: 0,
       deduped: 0,
       skippedMissingData: 0,
+      skippedBackoff: 0,
     };
     const steamCountry = config.steamDefaultCountry;
     const pspricesRegion = config.pspricesRegionPath.toLowerCase();
     const pspricesShow = config.pspricesShow.toLowerCase();
+    const nowMs = Date.now();
 
     for (const row of params.rows) {
       if (stats.enqueued >= params.queueLimit) {
@@ -758,6 +855,19 @@ async function main(): Promise<void> {
         continue;
       }
       if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
+        continue;
+      }
+      if (
+        !shouldSchedulePspricesRefresh({
+          payload,
+          platformIgdbId: row.platform_igdb_id,
+          nowMs,
+          maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+          rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+          rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+        })
+      ) {
+        stats.skippedBackoff += 1;
         continue;
       }
 
@@ -1017,7 +1127,16 @@ async function main(): Promise<void> {
         return { processed: true };
       }
       case 'discovery_enrichment_run': {
-        const summary = await discoveryEnrichmentService.runOnce();
+        const gameKeys = readDiscoveryEnrichmentGameKeys(job.payload);
+        const providers = readDiscoveryEnrichmentProviders(job.payload);
+        const summary =
+          gameKeys === null && providers === null
+            ? await discoveryEnrichmentService.runOnce()
+            : await discoveryEnrichmentService.enrichNow({
+                ...(gameKeys !== null ? { limit: Math.max(gameKeys.length, 1) } : {}),
+                ...(gameKeys !== null ? { gameKeys } : {}),
+                ...(providers !== null ? { providers, forceLockedProviders: providers } : {}),
+              });
         return { summary };
       }
       case 'hltb_cache_revalidate': {

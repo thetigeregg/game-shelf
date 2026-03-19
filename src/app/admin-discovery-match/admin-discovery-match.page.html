@@ -1,0 +1,731 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start" [collapse]="true">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Discovery Match Admin</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list class="admin-match-list">
+    <ion-list-header>
+      <ion-label>Discovery Queue Matches</ion-label>
+    </ion-list-header>
+
+    <ion-item>
+      <ion-select
+        label="Provider"
+        labelPlacement="stacked"
+        interface="popover"
+        [value]="selectedProvider"
+        (ionChange)="selectedProvider = $any($event).detail.value"
+      >
+        @for (option of providerOptions; track option.value) {
+          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-select
+        label="State"
+        labelPlacement="stacked"
+        interface="popover"
+        [value]="selectedState"
+        (ionChange)="selectedState = $any($event).detail.value"
+      >
+        @for (option of stateOptions; track option.value) {
+          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
+
+    <ion-searchbar
+      [value]="searchQuery"
+      placeholder="Search discovery titles"
+      show-clear-button="focus"
+      (ionInput)="searchQuery = $any($event).detail.value || ''"
+    ></ion-searchbar>
+
+    <div class="toolbar-row">
+      <ion-button
+        [disabled]="!hasAccessToken || isLoading"
+        (click)="loadItems()"
+        size="small"
+        expand="block"
+      >
+        @if (isLoading) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Load matches
+      </ion-button>
+      <ion-button
+        fill="outline"
+        color="secondary"
+        expand="block"
+        [disabled]="!hasAccessToken || isLoading || isListRequeueing || items.length === 0"
+        (click)="requeueDiscoveryRun()"
+        size="small"
+      >
+        @if (isListRequeueing) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Queue current results
+      </ion-button>
+      <ion-button
+        fill="outline"
+        color="danger"
+        expand="block"
+        size="small"
+        [disabled]="
+          !hasAccessToken ||
+          selectedProvider === 'pricing' ||
+          visiblePermanentMissKeys.length === 0 ||
+          isLoading
+        "
+        (click)="clearVisiblePermanentMisses()"
+      >
+        Clear visible permanent misses
+      </ion-button>
+      <ion-note color="medium">
+        @if (hasAccessToken) {
+          {{ items.length }} shown · {{ scannedCount }} scanned · {{ listRequeueNote }}
+        } @else {
+          Uses the device write token from Settings.
+        }
+      </ion-note>
+    </div>
+
+    @if (listQueueStatusMessage) {
+      <ion-item lines="none">
+        <ion-label>
+          <div
+            class="queue-status-message"
+            [class.queue-status-success]="listQueueStatusTone === 'success'"
+            [class.queue-status-warning]="listQueueStatusTone === 'warning'"
+            [class.queue-status-danger]="listQueueStatusTone === 'danger'"
+          >
+            {{ listQueueStatusMessage }}
+          </div>
+          @if (listQueueStatusDetail) {
+            <p class="queue-status-detail">{{ listQueueStatusDetail }}</p>
+          }
+        </ion-label>
+      </ion-item>
+    }
+
+    @if (errorMessage) {
+      <ion-item lines="none">
+        <ion-label color="danger">{{ errorMessage }}</ion-label>
+      </ion-item>
+    }
+
+    @if (!isLoading && items.length === 0 && !errorMessage) {
+      <ion-item lines="none">
+        <ion-label color="medium">
+          {{
+            hasAccessToken
+              ? 'No discovery games match the current filter.'
+              : 'Set a device write token in Settings to use discovery match controls.'
+          }}
+        </ion-label>
+      </ion-item>
+    }
+
+    @for (item of items; track trackByGameKey($index, item)) {
+      <ion-item class="game-row" lines="full">
+        <ion-label>
+          <h2>{{ item.title || 'Untitled discovery game' }}</h2>
+          <p>{{ getPlatformLabel(item) }} · {{ item.releaseYear || 'Unknown year' }}</p>
+          <div class="badge-row">
+            @for (provider of providerOptions; track provider.value) {
+              <ion-badge [color]="getStatusColor(item, provider.value)">
+                {{ provider.label }}: {{ getStatusLabel(item, provider.value) }}
+              </ion-badge>
+            }
+          </div>
+        </ion-label>
+        <ion-button slot="end" fill="outline" (click)="openManageModal(item)">Manage</ion-button>
+      </ion-item>
+    }
+  </ion-list>
+</ion-content>
+
+<ion-modal [isOpen]="isManageModalOpen" (didDismiss)="closeManageModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Manage Discovery Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeManageModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      @if (isDetailLoading) {
+        <div class="modal-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isDetailLoading && activeDetail) {
+        <ion-list class="admin-match-list">
+          <ion-list-header>
+            <ion-label>{{ activeDetail.title || 'Untitled discovery game' }}</ion-label>
+          </ion-list-header>
+
+          <ion-item>
+            <ion-select
+              label="Provider"
+              labelPlacement="stacked"
+              interface="popover"
+              [value]="activeModalProvider"
+              (ionChange)="activeModalProvider = $any($event).detail.value"
+            >
+              @for (option of providerOptions; track option.value) {
+                <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item lines="none">
+            <ion-label color="medium">
+              {{ activePlatformLabel }} · {{ activeDetail.releaseYear || 'Unknown year' }}
+              @if (activePlatformNote) {
+                <p>{{ activePlatformNote }}</p>
+              }
+            </ion-label>
+            <ion-badge [color]="getStatusColor(activeDetail, activeModalProvider)">
+              {{ getStatusLabel(activeDetail, activeModalProvider) }}
+            </ion-badge>
+          </ion-item>
+
+          @if (activeModalProvider === 'hltb') {
+            <ion-searchbar
+              [value]="hltbSearchQuery"
+              placeholder="Search HLTB candidates"
+              show-clear-button="focus"
+              (ionInput)="hltbSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
+
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isHltbSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isHltbSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (hltbSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ hltbSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isHltbSearchLoading &&
+              hltbSearchHasRun &&
+              !hltbSearchError &&
+              hltbSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No HLTB candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (hltbSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (
+                  candidate of hltbSearchResults;
+                  track candidate.hltbUrl ?? candidate.hltbGameId ?? candidate.title
+                ) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyHltbCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.releaseYear || 'Unknown year' }}
+                        @if (candidate.platform) {
+                          <span>· {{ candidate.platform }}</span>
+                        }
+                      </p>
+                      <p>
+                        Main: {{ candidate.hltbMainHours ?? '?' }}h · Main + Extra:
+                        {{ candidate.hltbMainExtraHours ?? '?' }}h · Completionist:
+                        {{ candidate.hltbCompletionistHours ?? '?' }}h
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
+            <ion-item>
+              <ion-input
+                label="HLTB game ID"
+                labelPlacement="stacked"
+                [value]="hltbForm.hltbGameId"
+                (ionInput)="hltbForm.hltbGameId = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="HLTB URL"
+                labelPlacement="stacked"
+                [value]="hltbForm.hltbUrl"
+                (ionInput)="hltbForm.hltbUrl = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Main hours"
+                labelPlacement="stacked"
+                [value]="hltbForm.hltbMainHours"
+                (ionInput)="hltbForm.hltbMainHours = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Main + extra hours"
+                labelPlacement="stacked"
+                [value]="hltbForm.hltbMainExtraHours"
+                (ionInput)="hltbForm.hltbMainExtraHours = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Completionist hours"
+                labelPlacement="stacked"
+                [value]="hltbForm.hltbCompletionistHours"
+                (ionInput)="hltbForm.hltbCompletionistHours = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query title"
+                labelPlacement="stacked"
+                [value]="hltbForm.queryTitle"
+                (ionInput)="hltbForm.queryTitle = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query year"
+                labelPlacement="stacked"
+                [value]="hltbForm.queryReleaseYear"
+                (ionInput)="hltbForm.queryReleaseYear = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query platform"
+                labelPlacement="stacked"
+                [value]="hltbForm.queryPlatform"
+                (ionInput)="hltbForm.queryPlatform = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+          }
+
+          @if (activeModalProvider === 'review') {
+            <ion-searchbar
+              [value]="reviewSearchQuery"
+              placeholder="Search review candidates"
+              show-clear-button="focus"
+              (ionInput)="reviewSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isReviewSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isReviewSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (reviewSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ reviewSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isReviewSearchLoading &&
+              reviewSearchHasRun &&
+              !reviewSearchError &&
+              reviewSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No review candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (reviewSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (
+                  candidate of reviewSearchResults;
+                  track candidate.reviewUrl ?? candidate.metacriticUrl ?? candidate.title
+                ) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyReviewCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.releaseYear || 'Unknown year' }}
+                        @if (candidate.platform) {
+                          <span>· {{ candidate.platform }}</span>
+                        }
+                      </p>
+                      <p>
+                        {{ candidate.reviewSource === 'mobygames' ? 'MobyGames' : 'Metacritic' }} ·
+                        Score:
+                        {{
+                          candidate.reviewScore ??
+                            candidate.metacriticScore ??
+                            candidate.mobyScore ??
+                            '?'
+                        }}
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
+            <ion-item>
+              <ion-select
+                label="Review source"
+                labelPlacement="stacked"
+                interface="popover"
+                [value]="reviewForm.reviewSource"
+                (ionChange)="reviewForm.reviewSource = $any($event).detail.value"
+              >
+                @for (option of reviewSourceOptions; track option.value) {
+                  <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+                }
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Review score"
+                labelPlacement="stacked"
+                [value]="reviewForm.reviewScore"
+                (ionInput)="reviewForm.reviewScore = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Review URL"
+                labelPlacement="stacked"
+                [value]="reviewForm.reviewUrl"
+                (ionInput)="reviewForm.reviewUrl = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Metacritic score"
+                labelPlacement="stacked"
+                [value]="reviewForm.metacriticScore"
+                (ionInput)="reviewForm.metacriticScore = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Metacritic URL"
+                labelPlacement="stacked"
+                [value]="reviewForm.metacriticUrl"
+                (ionInput)="reviewForm.metacriticUrl = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="MobyGames game ID"
+                labelPlacement="stacked"
+                [value]="reviewForm.mobygamesGameId"
+                (ionInput)="reviewForm.mobygamesGameId = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Moby score"
+                labelPlacement="stacked"
+                [value]="reviewForm.mobyScore"
+                (ionInput)="reviewForm.mobyScore = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query title"
+                labelPlacement="stacked"
+                [value]="reviewForm.queryTitle"
+                (ionInput)="reviewForm.queryTitle = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query year"
+                labelPlacement="stacked"
+                [value]="reviewForm.queryReleaseYear"
+                (ionInput)="reviewForm.queryReleaseYear = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Query platform"
+                labelPlacement="stacked"
+                [value]="reviewForm.queryPlatform"
+                (ionInput)="reviewForm.queryPlatform = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+          }
+
+          @if (activeModalProvider === 'pricing') {
+            <ion-searchbar
+              [value]="pricingSearchQuery"
+              placeholder="Search pricing candidates"
+              show-clear-button="focus"
+              (ionInput)="pricingSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
+
+            <div class="toolbar-row candidate-toolbar-row">
+              <ion-button
+                size="small"
+                [disabled]="isPricingSearchLoading || isSaving"
+                (click)="searchActiveProviderCandidates()"
+              >
+                @if (isPricingSearchLoading) {
+                  <ion-spinner name="crescent" slot="start"></ion-spinner>
+                }
+                Search candidates
+              </ion-button>
+              <ion-note color="medium">Tap a result to fill the fields below.</ion-note>
+            </div>
+            @if (pricingSearchError) {
+              <ion-item lines="none">
+                <ion-label color="danger">{{ pricingSearchError }}</ion-label>
+              </ion-item>
+            }
+            @if (
+              !isPricingSearchLoading &&
+              pricingSearchHasRun &&
+              !pricingSearchError &&
+              pricingSearchResults.length === 0
+            ) {
+              <ion-item lines="none">
+                <ion-label color="medium">No pricing candidates found.</ion-label>
+              </ion-item>
+            }
+            @if (pricingSearchResults.length > 0) {
+              <ion-list class="candidate-results-list">
+                @for (candidate of pricingSearchResults; track candidate.url ?? candidate.title) {
+                  <ion-item
+                    button
+                    detail="false"
+                    lines="full"
+                    (click)="applyPricingCandidate(candidate)"
+                  >
+                    <ion-label>
+                      <h3 class="candidate-title-row">
+                        {{ candidate.title }}
+                        @if (candidate.isRecommended) {
+                          <ion-badge color="success">Recommended</ion-badge>
+                        }
+                      </h3>
+                      <p>
+                        {{ candidate.currency || 'Currency unknown' }}
+                        @if (candidate.amount !== null) {
+                          <span>· {{ candidate.amount }}</span>
+                        }
+                        @if (candidate.discountPercent !== null) {
+                          <span>· {{ candidate.discountPercent }}% off</span>
+                        }
+                      </p>
+                      <p>
+                        Score: {{ candidate.score ?? '?' }}
+                        @if (candidate.isFree === true) {
+                          <span>· Free</span>
+                        }
+                      </p>
+                    </ion-label>
+                  </ion-item>
+                }
+              </ion-list>
+            }
+            <ion-item>
+              <ion-select
+                label="Price source"
+                labelPlacement="stacked"
+                interface="popover"
+                [value]="pricingForm.priceSource"
+                (ionChange)="pricingForm.priceSource = $any($event).detail.value"
+              >
+                @for (option of pricingSourceOptions; track option.value) {
+                  <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+                }
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Fetched at (ISO)"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceFetchedAt"
+                (ionInput)="pricingForm.priceFetchedAt = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Price amount"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceAmount"
+                (ionInput)="pricingForm.priceAmount = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Currency"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceCurrency"
+                (ionInput)="pricingForm.priceCurrency = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Regular amount"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceRegularAmount"
+                (ionInput)="pricingForm.priceRegularAmount = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Discount percent"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceDiscountPercent"
+                (ionInput)="pricingForm.priceDiscountPercent = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                label="Free"
+                labelPlacement="stacked"
+                interface="popover"
+                [value]="pricingForm.priceIsFree"
+                (ionChange)="pricingForm.priceIsFree = $any($event).detail.value"
+              >
+                <ion-select-option [value]="null">Unknown</ion-select-option>
+                <ion-select-option [value]="false">No</ion-select-option>
+                <ion-select-option [value]="true">Yes</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-input
+                label="Unified price URL"
+                labelPlacement="stacked"
+                [value]="pricingForm.priceUrl"
+                (ionInput)="pricingForm.priceUrl = $any($event).detail.value || ''"
+              ></ion-input>
+            </ion-item>
+            @if (showPsPricesFields) {
+              <ion-item>
+                <ion-input
+                  label="PSPrices URL"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesUrl"
+                  (ionInput)="pricingForm.psPricesUrl = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+              <ion-item>
+                <ion-input
+                  label="PSPrices title"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesTitle"
+                  (ionInput)="pricingForm.psPricesTitle = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+              <ion-item>
+                <ion-input
+                  label="PSPrices platform"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.psPricesPlatform"
+                  (ionInput)="pricingForm.psPricesPlatform = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+            }
+          }
+
+          @if (activeQueueStatusMessage) {
+            <ion-item lines="none">
+              <ion-label>
+                <div
+                  class="queue-status-message"
+                  [class.queue-status-success]="activeQueueStatusTone === 'success'"
+                  [class.queue-status-warning]="activeQueueStatusTone === 'warning'"
+                  [class.queue-status-danger]="activeQueueStatusTone === 'danger'"
+                >
+                  {{ activeQueueStatusMessage }}
+                </div>
+                @if (activeQueueStatusDetail) {
+                  <p class="queue-status-detail">{{ activeQueueStatusDetail }}</p>
+                }
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            color="secondary"
+            [disabled]="isSaving || isRequeueing"
+            (click)="requeueActiveGameEnrichment()"
+          >
+            @if (isRequeueing) {
+              <ion-spinner name="crescent" slot="start"></ion-spinner>
+            }
+            {{ activeRequeueLabel }}
+          </ion-button>
+          <ion-button color="primary" [disabled]="isSaving" (click)="saveActiveProvider()">
+            @if (isSaving) {
+              <ion-spinner name="crescent" slot="start"></ion-spinner>
+            }
+            Save
+          </ion-button>
+          <ion-button
+            fill="outline"
+            color="danger"
+            [disabled]="isSaving"
+            (click)="clearActiveProvider()"
+          >
+            Clear provider
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>

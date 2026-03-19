@@ -29,6 +29,13 @@ interface PopularityFeedItem {
   platforms: PlatformOption[];
 }
 
+interface PopularityPageInfo {
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
 const ROUTE_RATE_LIMIT = {
   max: 50,
   timeWindow: '1 minute',
@@ -45,14 +52,17 @@ export function registerPopularityRoutes(
     config: {
       rateLimit: ROUTE_RATE_LIMIT,
     },
-    handler: async (_request, reply) => {
+    handler: async (request, reply) => {
+      const page = parsePageQuery(request.query);
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'trending',
+        offset: page.offset,
+        limit: page.limit,
       });
-      reply.send({ items });
+      reply.send(items);
     },
   });
 
@@ -62,14 +72,17 @@ export function registerPopularityRoutes(
     config: {
       rateLimit: ROUTE_RATE_LIMIT,
     },
-    handler: async (_request, reply) => {
+    handler: async (request, reply) => {
+      const page = parsePageQuery(request.query);
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'upcoming',
+        offset: page.offset,
+        limit: page.limit,
       });
-      reply.send({ items });
+      reply.send(items);
     },
   });
 
@@ -79,14 +92,17 @@ export function registerPopularityRoutes(
     config: {
       rateLimit: ROUTE_RATE_LIMIT,
     },
-    handler: async (_request, reply) => {
+    handler: async (request, reply) => {
+      const page = parsePageQuery(request.query);
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'recent',
+        offset: page.offset,
+        limit: page.limit,
       });
-      reply.send({ items });
+      reply.send(items);
     },
   });
 
@@ -100,22 +116,28 @@ async function fetchFeedRows(
     scoreThreshold: number;
     nowSec: number;
     feedType: 'trending' | 'upcoming' | 'recent';
+    offset: number;
+    limit: number;
   }
-): Promise<PopularityFeedItem[]> {
+): Promise<{ items: PopularityFeedItem[]; page: PopularityPageInfo }> {
   const nowSec = params.nowSec;
   const cutoffRecentSec = nowSec - 90 * 24 * 60 * 60;
+  const queryLimit = Math.min(params.limit, params.rowLimit) + 1;
 
   let limitPlaceholder = '$2';
+  let offsetPlaceholder = '$3';
   let queryParams: number[] = [params.scoreThreshold];
   if (params.feedType === 'upcoming') {
     queryParams = [params.scoreThreshold, nowSec];
     limitPlaceholder = '$3';
+    offsetPlaceholder = '$4';
   } else if (params.feedType === 'recent') {
     queryParams = [params.scoreThreshold, nowSec, cutoffRecentSec];
     limitPlaceholder = '$4';
+    offsetPlaceholder = '$5';
   }
 
-  queryParams.push(params.rowLimit);
+  queryParams.push(queryLimit, params.offset);
   const gameFeedWindowPredicate = sqlFeedWindowPredicate('g', params.feedType);
 
   const result = await pool.query<PopularityGameRow>(
@@ -149,17 +171,28 @@ async function fetchFeedRows(
       FROM candidate_games
       ORDER BY igdb_game_id, popularity_score DESC, platform_igdb_id ASC
     ) deduped_games
-    ORDER BY popularity_score DESC, platform_igdb_id ASC
+    ORDER BY popularity_score DESC, igdb_game_id ASC, platform_igdb_id ASC
     LIMIT ${limitPlaceholder}
+    OFFSET ${offsetPlaceholder}
     `,
     queryParams
   );
 
-  const items = result.rows
+  const normalized = result.rows
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
+  const hasMore = normalized.length > params.limit;
+  const items = normalized.slice(0, params.limit);
 
-  return items;
+  return {
+    items,
+    page: {
+      offset: params.offset,
+      limit: params.limit,
+      hasMore,
+      nextOffset: hasMore ? params.offset + params.limit : null,
+    },
+  };
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
@@ -244,6 +277,49 @@ function normalizePlatformOptions(payload: Record<string, unknown>): PlatformOpt
   }
 
   return [];
+}
+
+function parsePageQuery(query: unknown): { offset: number; limit: number } {
+  const record =
+    typeof query === 'object' && query !== null ? (query as Record<string, unknown>) : {};
+  const offset = parseNonNegativeInteger(record['offset']) ?? 0;
+  const limit = Math.min(parsePositiveInteger(record['limit']) ?? 10, 50);
+  return { offset, limit };
+}
+
+function parsePositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!/^\d+$/.test(normalized)) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    return parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!/^\d+$/.test(normalized)) {
+      return null;
+    }
+
+    return Number.parseInt(normalized, 10);
+  }
+
+  return null;
 }
 
 function firstString(payload: Record<string, unknown>, keys: string[]): string | null {

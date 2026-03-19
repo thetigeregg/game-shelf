@@ -46,6 +46,7 @@ import {
   GameVideo,
   ListType,
   PopularityFeedItem,
+  PopularityFeedResponse,
   PopularityFeedType,
   RecommendationItem,
   RecommendationLaneKey,
@@ -151,7 +152,6 @@ interface RecommendationDisplayMetadata {
 })
 export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_PAGE_SIZE = 10;
-  private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
   private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
@@ -200,6 +200,7 @@ export class ExplorePage implements OnInit {
   selectedLaneKey: RecommendationLaneKey = 'overall';
   selectedPopularityFeed: PopularityFeedType = 'trending';
   activeLanesResponse: RecommendationLanesResponse | null = null;
+  activePopularityResponse: PopularityFeedResponse | null = null;
   isLoadingRecommendations = false;
   recommendationError = '';
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
@@ -258,7 +259,7 @@ export class ExplorePage implements OnInit {
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly catalogCache = new Map<string, GameCatalogResult>();
   private readonly catalogRequestCache = new Map<string, Promise<GameCatalogResult | null>>();
-  private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
+  private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedResponse>();
   private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
   private readonly popularityCatalogHydrationAttempted = new Set<string>();
@@ -363,8 +364,7 @@ export class ExplorePage implements OnInit {
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     this.invalidateRecommendationVisibility();
-    this.scheduleVisibleRecommendationDisplayMetadata();
-    void this.ensureVisibleDiscoveryPricingHydrated();
+    void this.loadRecommendationLanes(false);
   }
 
   async refreshExplore(event: Event): Promise<void> {
@@ -430,7 +430,10 @@ export class ExplorePage implements OnInit {
   }
 
   canLoadMoreRecommendations(): boolean {
-    return this.visibleRecommendationCount < this.getTotalActiveRecommendationCount();
+    return (
+      this.visibleRecommendationCount < this.getTotalActiveRecommendationCount() ||
+      this.activeLanesResponse?.page.hasMore === true
+    );
   }
 
   getActivePopularityItems(): PopularityFeedItem[] {
@@ -438,14 +441,18 @@ export class ExplorePage implements OnInit {
   }
 
   canLoadMorePopularity(): boolean {
-    return this.visiblePopularityCount < this.getVisiblePopularityItems().length;
+    return (
+      this.visiblePopularityCount < this.getVisiblePopularityItems().length ||
+      this.activePopularityResponse?.page.hasMore === true
+    );
   }
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    this.scheduleVisibleRecommendationDisplayMetadata();
     try {
-      await this.ensureVisibleDiscoveryPricingHydrated();
+      await this.ensureActiveRecommendationPageFilled();
+      this.scheduleVisibleRecommendationDisplayMetadata();
+      void this.ensureVisibleDiscoveryPricingHydrated();
     } finally {
       await completeIonInfiniteScroll(event);
     }
@@ -454,8 +461,9 @@ export class ExplorePage implements OnInit {
   async loadMorePopularity(event: Event): Promise<void> {
     this.visiblePopularityCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
     try {
-      await completeIonInfiniteScroll(event);
+      await this.ensureActivePopularityFeedFilled();
     } finally {
+      await completeIonInfiniteScroll(event);
       this.scheduleVisiblePopularityCatalogHydration();
     }
   }
@@ -474,29 +482,16 @@ export class ExplorePage implements OnInit {
   }
 
   hasAnyLaneItems(): boolean {
-    const lanes = this.activeLanesResponse?.lanes;
-    if (!lanes) {
+    const items = this.activeLanesResponse?.items;
+    if (!items || this.activeLanesResponse?.lane !== this.selectedLaneKey) {
       return false;
     }
 
-    const options = this.getLaneOptions();
-    for (const option of options) {
-      const laneItems = lanes[option.value];
-      if (!Array.isArray(laneItems) || laneItems.length === 0) {
-        continue;
-      }
+    const visibleItems = this.getDeduplicatedLaneItems(
+      this.filterIgnoredRecommendationItems(this.filterAlreadyInLibraryRecommendationItems(items))
+    );
 
-      const visibleItems = this.getDeduplicatedLaneItems(
-        this.filterIgnoredRecommendationItems(
-          this.filterAlreadyInLibraryRecommendationItems(laneItems)
-        )
-      );
-      if (visibleItems.length > 0) {
-        return true;
-      }
-    }
-
-    return false;
+    return visibleItems.length > 0;
   }
 
   getLaneOptions(): Array<{ value: RecommendationLaneKey; label: string }> {
@@ -1261,7 +1256,11 @@ export class ExplorePage implements OnInit {
       return;
     }
 
-    const cacheKey = this.buildCacheKey(this.selectedTarget, this.selectedRuntimeMode);
+    const cacheKey = this.buildCacheKey(
+      this.selectedTarget,
+      this.selectedRuntimeMode,
+      this.selectedLaneKey
+    );
     const cached = this.lanesCache.get(cacheKey);
 
     if (!forceRefresh && cached) {
@@ -1269,8 +1268,9 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
-      this.scheduleVisibleRecommendationDisplayMetadata();
-      void this.ensureVisibleDiscoveryPricingHydrated();
+      await this.ensureActiveRecommendationPageFilled();
+      await this.ensureVisibleRecommendationDisplayMetadata();
+      await this.ensureVisibleDiscoveryPricingHydrated();
       return;
     }
 
@@ -1283,8 +1283,10 @@ export class ExplorePage implements OnInit {
         firstValueFrom(
           this.igdbProxyService.getRecommendationLanes({
             target: this.selectedTarget,
+            lane: this.selectedLaneKey,
             runtimeMode: this.selectedRuntimeMode,
-            limit: ExplorePage.RECOMMENDATION_FETCH_LIMIT,
+            offset: 0,
+            limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
           })
         ),
         this.gameShelfService.listLibraryGames(),
@@ -1297,6 +1299,7 @@ export class ExplorePage implements OnInit {
       if (forceRefresh) {
         this.discoveryPricingHydrationAttempted.clear();
       }
+      await this.ensureActiveRecommendationPageFilled();
       await this.ensureVisibleRecommendationDisplayMetadata(response);
       await this.ensureVisibleDiscoveryPricingHydrated();
     } catch (error) {
@@ -1331,8 +1334,10 @@ export class ExplorePage implements OnInit {
 
     const cached = this.popularityFeedCache.get(this.selectedPopularityFeed);
     if (!forceRefresh && cached) {
-      this.activePopularityItems = cached;
+      this.activePopularityResponse = cached;
+      this.activePopularityItems = cached.items;
       this.popularityError = '';
+      await this.ensureActivePopularityFeedFilled();
       this.scheduleVisiblePopularityCatalogHydration();
       return;
     }
@@ -1341,13 +1346,21 @@ export class ExplorePage implements OnInit {
     this.popularityError = '';
 
     try {
-      const [items, localGames] = await Promise.all([
-        firstValueFrom(this.igdbProxyService.getPopularityFeed(this.selectedPopularityFeed)),
+      const [response, localGames] = await Promise.all([
+        firstValueFrom(
+          this.igdbProxyService.getPopularityFeed({
+            feedType: this.selectedPopularityFeed,
+            offset: 0,
+            limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
+          })
+        ),
         this.gameShelfService.listLibraryGames(),
       ]);
-      this.activePopularityItems = items;
-      this.popularityFeedCache.set(this.selectedPopularityFeed, items);
+      this.activePopularityResponse = response;
+      this.activePopularityItems = response.items;
+      this.popularityFeedCache.set(this.selectedPopularityFeed, response);
       this.replaceLocalGameCache(localGames);
+      await this.ensureActivePopularityFeedFilled();
       this.scheduleVisiblePopularityCatalogHydration();
     } catch (error) {
       if (error instanceof Error && error.message.trim().length > 0) {
@@ -1356,6 +1369,7 @@ export class ExplorePage implements OnInit {
         this.popularityError = 'Unable to load popularity feed right now.';
       }
       if (!cached) {
+        this.activePopularityResponse = null;
         this.activePopularityItems = [];
       }
     } finally {
@@ -1369,6 +1383,77 @@ export class ExplorePage implements OnInit {
 
   private scheduleVisibleRecommendationDisplayMetadata(): void {
     void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
+  }
+
+  private async ensureActiveRecommendationPageFilled(): Promise<void> {
+    for (;;) {
+      const response = this.activeLanesResponse;
+      if (!response || response.lane !== this.selectedLaneKey) {
+        return;
+      }
+
+      const visibleCount = this.getVisibleRecommendationItems().length;
+      if (visibleCount >= this.visibleRecommendationCount || !response.page.hasMore) {
+        return;
+      }
+
+      const nextOffset = response.page.nextOffset ?? response.items.length;
+      const nextPage = await firstValueFrom(
+        this.igdbProxyService.getRecommendationLanes({
+          target: this.selectedTarget,
+          lane: this.selectedLaneKey,
+          runtimeMode: this.selectedRuntimeMode,
+          offset: nextOffset,
+          limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
+        })
+      );
+
+      if (nextPage.lane !== this.selectedLaneKey) {
+        return;
+      }
+
+      const mergedResponse: RecommendationLanesResponse = {
+        ...nextPage,
+        items: [...response.items, ...nextPage.items],
+      };
+      this.activeLanesResponse = mergedResponse;
+      this.lanesCache.set(
+        this.buildCacheKey(this.selectedTarget, this.selectedRuntimeMode, this.selectedLaneKey),
+        mergedResponse
+      );
+      this.invalidateRecommendationVisibility();
+    }
+  }
+
+  private async ensureActivePopularityFeedFilled(): Promise<void> {
+    for (;;) {
+      const response = this.activePopularityResponse;
+      if (!response) {
+        return;
+      }
+
+      const visibleCount = this.getVisiblePopularityItems().length;
+      if (visibleCount >= this.visiblePopularityCount || !response.page.hasMore) {
+        return;
+      }
+
+      const nextOffset = response.page.nextOffset ?? response.items.length;
+      const nextPage = await firstValueFrom(
+        this.igdbProxyService.getPopularityFeed({
+          feedType: this.selectedPopularityFeed,
+          offset: nextOffset,
+          limit: ExplorePage.RECOMMENDATION_PAGE_SIZE,
+        })
+      );
+
+      const mergedResponse: PopularityFeedResponse = {
+        items: [...response.items, ...nextPage.items],
+        page: nextPage.page,
+      };
+      this.activePopularityResponse = mergedResponse;
+      this.activePopularityItems = mergedResponse.items;
+      this.popularityFeedCache.set(this.selectedPopularityFeed, mergedResponse);
+    }
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
@@ -1511,14 +1596,13 @@ export class ExplorePage implements OnInit {
   }
 
   getEmptyStateTokenHint(): string {
-    const lanes = this.activeLanesResponse?.lanes;
-    if (!lanes) {
+    const items = this.activeLanesResponse?.items;
+    if (!items || items.length === 0) {
       return '';
     }
 
     const tokens = new Set<string>();
-    const allItems = this.getLaneOptions().flatMap((option) => lanes[option.value]);
-    for (const item of allItems) {
+    for (const item of items) {
       for (const theme of item.explanations.matchedTokens.themes.slice(0, 1)) {
         tokens.add(theme);
       }
@@ -1668,9 +1752,10 @@ export class ExplorePage implements OnInit {
 
   private buildCacheKey(
     target: RecommendationTarget,
-    runtimeMode: RecommendationRuntimeMode
+    runtimeMode: RecommendationRuntimeMode,
+    lane: RecommendationLaneKey
   ): string {
-    return `${target}:${runtimeMode}`;
+    return `${target}:${runtimeMode}:${lane}`;
   }
 
   private replaceLocalGameCache(entries: GameEntry[]): void {
@@ -1721,11 +1806,11 @@ export class ExplorePage implements OnInit {
   }
 
   private getRawActiveLaneItems(): RecommendationItem[] {
-    const lanes = this.activeLanesResponse?.lanes;
-    if (!lanes) {
+    if (!this.activeLanesResponse || this.activeLanesResponse.lane !== this.selectedLaneKey) {
       return [];
     }
-    return lanes[this.selectedLaneKey];
+
+    return this.activeLanesResponse.items;
   }
 
   private getDeduplicatedLaneItems(items: RecommendationItem[]): RecommendationItem[] {
@@ -1904,29 +1989,16 @@ export class ExplorePage implements OnInit {
     igdbGameId: string,
     platformIgdbId: number
   ): RecommendationItem | null {
-    const lanes = this.activeLanesResponse?.lanes;
-    if (!lanes) {
+    const items = this.activeLanesResponse?.items;
+    if (!items) {
       return null;
     }
 
-    for (const lane of [
-      lanes.overall,
-      lanes.hiddenGems,
-      lanes.exploration,
-      lanes.blended,
-      lanes.popular,
-      lanes.recent,
-    ]) {
-      const match =
-        lane.find(
-          (item) => item.igdbGameId === igdbGameId && item.platformIgdbId === platformIgdbId
-        ) ?? null;
-      if (match) {
-        return match;
-      }
-    }
-
-    return null;
+    return (
+      items.find(
+        (item) => item.igdbGameId === igdbGameId && item.platformIgdbId === platformIgdbId
+      ) ?? null
+    );
   }
 
   private normalizeRecommendationError(error: unknown): {
@@ -2538,7 +2610,7 @@ export class ExplorePage implements OnInit {
 
     return this.getDeduplicatedLaneItems(
       this.filterIgnoredRecommendationItems(
-        this.filterAlreadyInLibraryRecommendationItems(response.lanes[this.selectedLaneKey])
+        this.filterAlreadyInLibraryRecommendationItems(response.items)
       )
     );
   }

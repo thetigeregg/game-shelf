@@ -104,13 +104,13 @@ type MockLanesResponse = {
   runtimeMode: 'NEUTRAL' | 'SHORT' | 'LONG';
   runId: number;
   generatedAt: string;
-  lanes: {
-    overall: MockLaneItem[];
-    hiddenGems: MockLaneItem[];
-    exploration: MockLaneItem[];
-    blended: MockLaneItem[];
-    popular: MockLaneItem[];
-    recent: MockLaneItem[];
+  lane: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+  items: MockLaneItem[];
+  page: {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
   };
 };
 
@@ -119,28 +119,56 @@ const mockLanesResponse: MockLanesResponse = {
   runtimeMode: 'NEUTRAL' as const,
   runId: 1,
   generatedAt: '2026-03-03T12:00:00.000Z',
-  lanes: {
-    overall: [mockLaneItem],
-    hiddenGems: [],
-    exploration: [],
-    blended: [],
-    popular: [],
-    recent: [],
+  lane: 'overall',
+  items: [mockLaneItem],
+  page: {
+    offset: 0,
+    limit: 10,
+    hasMore: false,
+    nextOffset: null,
   },
 };
 
-const mockPopularityFeedResponse = [
-  {
-    id: '500',
-    name: 'Popular Game',
-    platformIgdbId: 6,
-    popularityScore: 144.2,
-    coverUrl: 'https://example.com/pop-cover.jpg',
-    rating: 88,
-    firstReleaseDate: 1_700_100_000,
-    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }],
+const mockPopularityFeedItem = {
+  id: '500',
+  name: 'Popular Game',
+  platformIgdbId: 6,
+  popularityScore: 144.2,
+  coverUrl: 'https://example.com/pop-cover.jpg',
+  rating: 88,
+  firstReleaseDate: 1_700_100_000,
+  platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }],
+};
+
+const mockPopularityFeedResponse = {
+  items: [mockPopularityFeedItem],
+  page: {
+    offset: 0,
+    limit: 10,
+    hasMore: false,
+    nextOffset: null,
   },
-];
+};
+
+function createLaneResponse(
+  overrides: Partial<MockLanesResponse> = {},
+  itemOverrides: Partial<MockLaneItem>[] = []
+): MockLanesResponse {
+  return {
+    ...mockLanesResponse,
+    items:
+      itemOverrides.length > 0
+        ? itemOverrides.map((item, index) => ({
+            ...mockLaneItem,
+            rank: index + 1,
+            igdbGameId: String(100 + index),
+            ...item,
+          }))
+        : mockLanesResponse.items.map((item) => ({ ...item })),
+    page: { ...mockLanesResponse.page, ...(overrides.page ?? {}) },
+    ...overrides,
+  };
+}
 
 describe('ExplorePage explore modes UX', () => {
   const igdbProxyServiceMock = {
@@ -258,8 +286,10 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledWith({
       target: 'BACKLOG',
+      lane: 'overall',
       runtimeMode: 'NEUTRAL',
-      limit: 200,
+      offset: 0,
+      limit: 10,
     });
     expect(gameShelfServiceMock.listLibraryGames).toHaveBeenCalledTimes(1);
     expect(page.getActiveLaneItems()).toHaveLength(1);
@@ -290,8 +320,10 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenLastCalledWith({
       target: 'WISHLIST',
+      lane: 'overall',
       runtimeMode: 'SHORT',
-      limit: 200,
+      offset: 0,
+      limit: 10,
     });
   });
 
@@ -303,12 +335,20 @@ describe('ExplorePage explore modes UX', () => {
     await page.onExploreModeChange('popularity');
 
     expect(page.selectedExploreMode).toBe('popularity');
-    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith('trending');
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith({
+      feedType: 'trending',
+      offset: 0,
+      limit: 10,
+    });
     expect(page.getActivePopularityItems()).toHaveLength(1);
 
     await page.onPopularityFeedChange('upcoming');
     expect(page.selectedPopularityFeed).toBe('upcoming');
-    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenLastCalledWith('upcoming');
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenLastCalledWith({
+      feedType: 'upcoming',
+      offset: 0,
+      limit: 10,
+    });
   });
 
   it('does not block popularity mode load while catalog hydration runs', async () => {
@@ -349,7 +389,12 @@ describe('ExplorePage explore modes UX', () => {
   });
 
   it('exposes popularity empty-state conditions when feed returns no items', async () => {
-    igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(of([]));
+    igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(
+      of({
+        items: [],
+        page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+      })
+    );
 
     const page = createPage();
     page.ngOnInit();
@@ -437,7 +482,7 @@ describe('ExplorePage explore modes UX', () => {
     const page = createPage();
     const privatePage = page as unknown as {
       loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
-      buildCacheKey: (target: string, runtimeMode: string) => string;
+      buildCacheKey: (target: string, runtimeMode: string, lane: string) => string;
       lanesCache: Map<string, typeof mockLanesResponse>;
     };
     page.ngOnInit();
@@ -451,7 +496,7 @@ describe('ExplorePage explore modes UX', () => {
     page.onLaneChange('invalid-lane');
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledTimes(firstCallCount);
 
-    const cacheKey = privatePage.buildCacheKey('BACKLOG', 'NEUTRAL');
+    const cacheKey = privatePage.buildCacheKey('BACKLOG', 'NEUTRAL', 'overall');
     privatePage.lanesCache.set(cacheKey, mockLanesResponse);
     await privatePage.loadRecommendationLanes(false);
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledTimes(firstCallCount);
@@ -461,19 +506,35 @@ describe('ExplorePage explore modes UX', () => {
   it('paginates recommendations in pages of 10', async () => {
     const page = createPage();
     const manyItems = Array.from({ length: 25 }, (_, index) => ({
-      ...mockLanesResponse.lanes.overall[0],
+      ...mockLanesResponse.items[0],
       rank: index + 1,
       igdbGameId: String(1000 + index),
     }));
-    igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(
-      of({
-        ...mockLanesResponse,
-        lanes: {
-          ...mockLanesResponse.lanes,
-          overall: manyItems,
-        },
-      })
-    );
+    igdbProxyServiceMock.getRecommendationLanes
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            items: manyItems.slice(0, 10),
+            page: { offset: 0, limit: 10, hasMore: true, nextOffset: 10 },
+          })
+        )
+      )
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            items: manyItems.slice(10, 20),
+            page: { offset: 10, limit: 10, hasMore: true, nextOffset: 20 },
+          })
+        )
+      )
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            items: manyItems.slice(20),
+            page: { offset: 20, limit: 10, hasMore: false, nextOffset: null },
+          })
+        )
+      );
 
     page.ngOnInit();
     await flushAsync();
@@ -554,7 +615,7 @@ describe('ExplorePage explore modes UX', () => {
     page.ngOnInit();
     await flushAsync();
 
-    await page.openGameDetail(mockLanesResponse.lanes.overall[0]);
+    await page.openGameDetail(mockLanesResponse.items[0]);
     await flushAsync();
 
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(5);
@@ -563,16 +624,23 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(10);
   });
 
-  it('lane change is local state only and does not trigger refetch', async () => {
+  it('lane change fetches the selected lane when it is not cached', async () => {
     const page = createPage();
     page.ngOnInit();
     await flushAsync();
 
     igdbProxyServiceMock.getRecommendationLanes.mockClear();
     page.onLaneChange('hiddenGems');
+    await flushAsync();
 
     expect(page.selectedLaneKey).toBe('hiddenGems');
-    expect(igdbProxyServiceMock.getRecommendationLanes).not.toHaveBeenCalled();
+    expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledWith({
+      target: 'BACKLOG',
+      lane: 'hiddenGems',
+      runtimeMode: 'NEUTRAL',
+      offset: 0,
+      limit: 10,
+    });
   });
 
   it('maps not-found lane fetch failures into build state', async () => {
@@ -618,9 +686,9 @@ describe('ExplorePage explore modes UX', () => {
   it('normalizes explanation bullets and headlines', () => {
     const page = createPage();
     const mapped = page.getExplanationBullets({
-      ...mockLanesResponse.lanes.overall[0],
+      ...mockLanesResponse.items[0],
       explanations: {
-        ...mockLanesResponse.lanes.overall[0].explanations,
+        ...mockLanesResponse.items[0].explanations,
         bullets: [
           { type: 'taste', label: 'A', evidence: [], delta: 0.5 },
           { type: 'taste', label: '', evidence: [], delta: 0.4 },
@@ -707,13 +775,10 @@ describe('ExplorePage explore modes UX', () => {
 
     page.activeLanesResponse = {
       ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [
-          ...mockLanesResponse.lanes.overall,
-          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 },
-        ],
-      },
+      items: [
+        ...mockLanesResponse.items,
+        { ...mockLanesResponse.items[0], rank: 2, platformIgdbId: 9 },
+      ],
     };
     page.selectedLaneKey = 'overall';
     expect(page.getTotalActiveRecommendationCount()).toBe(1);
@@ -725,7 +790,7 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(
       await page.checkGameAlreadyInLibrary({
-        ...mockLanesResponse.lanes.overall[0],
+        ...mockLanesResponse.items[0],
         igdbGameId: '500',
         platformIgdbId: 6,
         platformOptions: [],
@@ -749,7 +814,7 @@ describe('ExplorePage explore modes UX', () => {
       .mockResolvedValue(undefined as never);
     const event = new Event('click');
 
-    page.onRecommendationRowClick('recommendation', mockLanesResponse.lanes.overall[0], event);
+    page.onRecommendationRowClick('recommendation', mockLanesResponse.items[0], event);
     page.onRecommendationRowClick(
       'similar',
       {
@@ -941,8 +1006,8 @@ describe('ExplorePage explore modes UX', () => {
     page.detailContext = 'library';
     page.isSelectedGameInLibrary = true;
     page.isAddToLibraryLoading = true;
-    page.activeDetailRecommendation = mockLanesResponse.lanes.overall[0];
-    page.detailNavigationStack = [mockLanesResponse.lanes.overall[0]];
+    page.activeDetailRecommendation = mockLanesResponse.items[0];
+    page.detailNavigationStack = [mockLanesResponse.items[0]];
     page.isLoadingSimilar = true;
     page.similarRecommendationsError = 'x';
     page.similarRecommendationItems = [
@@ -1090,20 +1155,11 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        blended: [
-          {
-            ...mockLanesResponse.lanes.overall[0],
-            igdbGameId: '300',
-            platformIgdbId: 6,
-          },
-        ],
-      },
-    };
+      lane: 'blended',
+      items: [{ ...mockLanesResponse.items[0], igdbGameId: '300', platformIgdbId: 6 }],
+    });
     page.localGameCacheByIdentity.clear();
     page.libraryOwnedGameIds.clear();
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
@@ -1281,14 +1337,11 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '300', platformIgdbId: 6 }],
-      },
-    };
+      lane: 'blended',
+      items: [{ ...mockLanesResponse.items[0], igdbGameId: '300', platformIgdbId: 6 }],
+    });
     page.localGameCacheByIdentity.clear();
     page.libraryOwnedGameIds.clear();
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
@@ -1377,14 +1430,11 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '900', platformIgdbId: 6 }],
-      },
-    };
+      lane: 'blended',
+      items: [{ ...mockLanesResponse.items[0], igdbGameId: '900', platformIgdbId: 6 }],
+    });
     page.upsertLocalGameCache({
       igdbGameId: '900',
       platformIgdbId: 6,
@@ -1395,7 +1445,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
   });
 
-  it('shows lane-specific empty-state message when another lane has visible items', () => {
+  it('shows the general empty-state message when the active lane has no items', () => {
     const page = createPage() as unknown as {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
@@ -1406,21 +1456,14 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        blended: [],
-        popular: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '901', platformIgdbId: 6 }],
-        recent: [],
-      },
-    };
+      lane: 'blended',
+      items: [],
+    });
 
     expect(page.getActiveLaneItems()).toHaveLength(0);
-    expect(page.getEmptyStateMessage()).toBe(
-      'This lane has no items for the current target and runtime mode.'
-    );
+    expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
   });
 
   it('covers empty-state, similar-display, and parser helper branches', () => {
@@ -1457,34 +1500,26 @@ describe('ExplorePage explore modes UX', () => {
 
     page.activeLanesResponse = {
       ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [],
-        hiddenGems: [],
-        exploration: [],
-      },
+      items: [],
     };
     page.recommendationErrorCode = 'NOT_FOUND';
     expect(page.getEmptyStateMessage()).toContain('No materialized recommendations');
 
     page.activeLanesResponse = {
       ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [
-          {
-            ...mockLanesResponse.lanes.overall[0],
-            explanations: {
-              ...mockLanesResponse.lanes.overall[0].explanations,
-              matchedTokens: {
-                ...mockLanesResponse.lanes.overall[0].explanations.matchedTokens,
-                themes: ['Fantasy'],
-                keywords: ['turn-based combat'],
-              },
+      items: [
+        {
+          ...mockLanesResponse.items[0],
+          explanations: {
+            ...mockLanesResponse.items[0].explanations,
+            matchedTokens: {
+              ...mockLanesResponse.items[0].explanations.matchedTokens,
+              themes: ['Fantasy'],
+              keywords: ['turn-based combat'],
             },
           },
-        ],
-      },
+        },
+      ],
     };
     expect(page.getEmptyStateTokenHint()).toContain('Fantasy');
 
@@ -1514,7 +1549,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getSimilarReasonBadges(similar)[0]?.text).toContain('Blend');
 
     const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
-    page.detailNavigationStack = [mockLanesResponse.lanes.overall[0]];
+    page.detailNavigationStack = [mockLanesResponse.items[0]];
     page.goBackInDetailNavigation();
     expect(openGameDetail).toHaveBeenCalledTimes(1);
 
@@ -1532,12 +1567,12 @@ describe('ExplorePage explore modes UX', () => {
     const page = createPage();
     const privatePage = page as unknown as {
       refreshExplore: (event: Event) => Promise<void>;
-      getDisplayTitle: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
-      getPlatformLabel: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
-      getReleaseYear: (item: (typeof mockLanesResponse.lanes.overall)[0]) => number | null;
-      getCoverUrl: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
-      getScoreBadge: (item: (typeof mockLanesResponse.lanes.overall)[0]) => { text: string };
-      getConfidenceBadge: (item: (typeof mockLanesResponse.lanes.overall)[0]) => { text: string };
+      getDisplayTitle: (item: (typeof mockLanesResponse.items)[0]) => string;
+      getPlatformLabel: (item: (typeof mockLanesResponse.items)[0]) => string;
+      getReleaseYear: (item: (typeof mockLanesResponse.items)[0]) => number | null;
+      getCoverUrl: (item: (typeof mockLanesResponse.items)[0]) => string;
+      getScoreBadge: (item: (typeof mockLanesResponse.items)[0]) => { text: string };
+      getConfidenceBadge: (item: (typeof mockLanesResponse.items)[0]) => { text: string };
       canLoadMoreRecommendations: () => boolean;
       visibleRecommendationCount: number;
       activeLanesResponse: typeof mockLanesResponse | null;
@@ -1562,7 +1597,7 @@ describe('ExplorePage explore modes UX', () => {
     await privatePage.refreshExplore({ target: { complete } } as unknown as Event);
     expect(complete).toHaveBeenCalledOnce();
 
-    const row = mockLanesResponse.lanes.overall[0];
+    const row = mockLanesResponse.items[0];
     const key = privatePage.buildIdentityKey(row.igdbGameId, row.platformIgdbId);
     privatePage.localGameCacheByIdentity.clear();
     privatePage.recommendationDisplayMetadata.set(key, {
@@ -1581,13 +1616,10 @@ describe('ExplorePage explore modes UX', () => {
 
     privatePage.activeLanesResponse = {
       ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [
-          { ...row, igdbGameId: '200' },
-          { ...row, rank: 2, igdbGameId: '201' },
-        ],
-      },
+      items: [
+        { ...row, igdbGameId: '200' },
+        { ...row, rank: 2, igdbGameId: '201' },
+      ],
     };
     privatePage.invalidateRecommendationVisibility();
     privatePage.visibleRecommendationCount = 1;
@@ -1610,16 +1642,13 @@ describe('ExplorePage explore modes UX', () => {
 
     page.activeLanesResponse = {
       ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [
-          mockLanesResponse.lanes.overall[0],
-          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 },
-        ],
-      },
+      items: [
+        mockLanesResponse.items[0],
+        { ...mockLanesResponse.items[0], rank: 2, platformIgdbId: 9 },
+      ],
     };
     page.selectedLaneKey = 'overall';
-    expect(page.getMergedPlatformLabels(mockLanesResponse.lanes.overall[0])).toBeTruthy();
+    expect(page.getMergedPlatformLabels(mockLanesResponse.items[0])).toBeTruthy();
     expect(page.getPlatformDisplayName('', null)).toBe('Unknown platform');
 
     const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
@@ -1665,7 +1694,7 @@ describe('ExplorePage explore modes UX', () => {
     igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
       throwError(() => new Error('failed'))
     );
-    await page.loadSimilarRecommendations(mockLanesResponse.lanes.overall[0]);
+    await page.loadSimilarRecommendations(mockLanesResponse.items[0]);
     expect(page.similarRecommendationsError).toContain('failed');
     expect(page.similarRecommendationItems).toEqual([]);
   });
@@ -1898,18 +1927,15 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValueOnce(
-      of({
-        target: 'DISCOVERY',
-        runtimeMode: 'NEUTRAL',
-        runId: 99,
-        generatedAt: '2026-03-11T00:00:00.000Z',
-        lanes: {
-          overall: [],
-          hiddenGems: [],
-          exploration: [],
-          blended: [
+      of(
+        createLaneResponse({
+          target: 'DISCOVERY',
+          lane: 'blended',
+          runId: 99,
+          generatedAt: '2026-03-11T00:00:00.000Z',
+          items: [
             {
-              rank: 1,
+              ...mockLaneItem,
               igdbGameId: '700',
               platformIgdbId: 167,
               scoreTotal: 1.2,
@@ -1939,10 +1965,8 @@ describe('ExplorePage explore modes UX', () => {
               },
             },
           ],
-          popular: [],
-          recent: [],
-        },
-      })
+        })
+      )
     );
     igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(null));
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(
@@ -1982,17 +2006,15 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'blended';
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValueOnce(
-      of({
-        target: 'DISCOVERY',
-        runtimeMode: 'NEUTRAL',
-        runId: 100,
-        generatedAt: '2026-03-11T00:00:00.000Z',
-        lanes: {
-          overall: [],
-          hiddenGems: [],
-          exploration: [],
-          blended: [
+      of(
+        createLaneResponse({
+          target: 'DISCOVERY',
+          lane: 'blended',
+          runId: 100,
+          generatedAt: '2026-03-11T00:00:00.000Z',
+          items: [
             {
+              ...mockLaneItem,
               rank: 1,
               igdbGameId: '800',
               platformIgdbId: 6,
@@ -2008,21 +2030,9 @@ describe('ExplorePage explore modes UX', () => {
                 diversityPenalty: 0,
                 repeatPenalty: 0,
               },
-              explanations: {
-                headline: '',
-                bullets: [],
-                matchedTokens: {
-                  genres: [],
-                  developers: [],
-                  publishers: [],
-                  franchises: [],
-                  collections: [],
-                  themes: [],
-                  keywords: [],
-                },
-              },
             },
             {
+              ...mockLaneItem,
               rank: 2,
               igdbGameId: '801',
               platformIgdbId: 3,
@@ -2038,25 +2048,10 @@ describe('ExplorePage explore modes UX', () => {
                 diversityPenalty: 0,
                 repeatPenalty: 0,
               },
-              explanations: {
-                headline: '',
-                bullets: [],
-                matchedTokens: {
-                  genres: [],
-                  developers: [],
-                  publishers: [],
-                  franchises: [],
-                  collections: [],
-                  themes: [],
-                  keywords: [],
-                },
-              },
             },
           ],
-          popular: [],
-          recent: [],
-        },
-      })
+        })
+      )
     );
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValueOnce(
@@ -2246,21 +2241,14 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedLaneKey = 'overall';
     page.visibleRecommendationCount = 1;
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        overall: [
-          { ...mockLaneItem, igdbGameId: '1500', platformIgdbId: 6 },
-          { ...mockLaneItem, igdbGameId: '1501', platformIgdbId: 48 },
-        ],
-        hiddenGems: [{ ...mockLaneItem, igdbGameId: '2500', platformIgdbId: 167 }],
-        exploration: [],
-        blended: [],
-        popular: [],
-        recent: [],
-      },
-    };
+      lane: 'overall',
+      items: [
+        { ...mockLaneItem, igdbGameId: '1500', platformIgdbId: 6 },
+        { ...mockLaneItem, igdbGameId: '1501', platformIgdbId: 48 },
+      ],
+    });
 
     const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
     (
@@ -2290,24 +2278,18 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedLaneKey = 'overall';
     page.visibleRecommendationCount = 2;
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [{ ...mockLaneItem, igdbGameId: 'active-1', platformIgdbId: 6 }],
-      },
-    };
+    page.activeLanesResponse = createLaneResponse({
+      lane: 'overall',
+      items: [{ ...mockLaneItem, igdbGameId: 'active-1', platformIgdbId: 6 }],
+    });
 
-    const alternateResponse: MockLanesResponse = {
-      ...mockLanesResponse,
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [
-          { ...mockLaneItem, igdbGameId: 'alt-1', platformIgdbId: 48 },
-          { ...mockLaneItem, igdbGameId: 'alt-2', platformIgdbId: 167 },
-        ],
-      },
-    };
+    const alternateResponse: MockLanesResponse = createLaneResponse({
+      lane: 'overall',
+      items: [
+        { ...mockLaneItem, igdbGameId: 'alt-1', platformIgdbId: 48 },
+        { ...mockLaneItem, igdbGameId: 'alt-2', platformIgdbId: 167 },
+      ],
+    });
 
     const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
     (
@@ -2414,14 +2396,11 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'overall';
     page.visibleRecommendationCount = 10;
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1200', platformIgdbId: 6 }],
-      },
-    };
+      lane: 'overall',
+      items: [{ ...mockLanesResponse.items[0], igdbGameId: '1200', platformIgdbId: 6 }],
+    });
 
     let resolveHydration: () => void = () => undefined;
     const hydrationPromise = new Promise<void>((resolve) => {
@@ -2530,14 +2509,11 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.selectedLaneKey = 'overall';
     page.visibleRecommendationCount = 10;
-    page.activeLanesResponse = {
-      ...mockLanesResponse,
+    page.activeLanesResponse = createLaneResponse({
       target: 'DISCOVERY',
-      lanes: {
-        ...mockLanesResponse.lanes,
-        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1201', platformIgdbId: 6 }],
-      },
-    };
+      lane: 'overall',
+      items: [{ ...mockLanesResponse.items[0], igdbGameId: '1201', platformIgdbId: 6 }],
+    });
     page.recommendationDisplayMetadata.set(page.buildIdentityKey('1201', 6), {
       title: 'Cached price',
       coverUrl: null,
@@ -2568,13 +2544,16 @@ describe('ExplorePage explore modes UX', () => {
       selectedExploreMode: 'recommendations' | 'popularity';
       popularityError: string;
       isLoadingPopularity: boolean;
-      activePopularityItems: typeof mockPopularityFeedResponse;
+      activePopularityItems: typeof mockPopularityFeedResponse.items;
       popularityFeedCache: Map<string, typeof mockPopularityFeedResponse>;
       loadPopularityFeed: (forceRefresh: boolean) => Promise<void>;
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
     };
 
-    const cachedFeed = [{ ...mockPopularityFeedResponse[0], id: '777' }];
+    const cachedFeed = {
+      items: [{ ...mockPopularityFeedItem, id: '777' }],
+      page: { ...mockPopularityFeedResponse.page },
+    };
     page.selectedExploreMode = 'popularity';
     page.popularityError = 'stale';
     page.popularityFeedCache.set('trending', cachedFeed);
@@ -2587,7 +2566,7 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(igdbProxyServiceMock.getPopularityFeed).not.toHaveBeenCalled();
     expect(page.popularityError).toBe('');
-    expect(page.activePopularityItems).toEqual(cachedFeed);
+    expect(page.activePopularityItems).toEqual(cachedFeed.items);
     expect(page.isLoadingPopularity).toBe(false);
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
   });
@@ -2595,16 +2574,22 @@ describe('ExplorePage explore modes UX', () => {
   it('force refreshes popularity feed after clearing attempted hydration ids', async () => {
     const page = createPage() as unknown as {
       selectedExploreMode: 'recommendations' | 'popularity';
-      activePopularityItems: typeof mockPopularityFeedResponse;
+      activePopularityItems: typeof mockPopularityFeedResponse.items;
       popularityFeedCache: Map<string, typeof mockPopularityFeedResponse>;
       popularityCatalogHydrationAttempted: Set<string>;
       loadPopularityFeed: (forceRefresh: boolean) => Promise<void>;
       ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
     };
 
-    const refreshedFeed = [{ ...mockPopularityFeedResponse[0], id: '888' }];
+    const refreshedFeed = {
+      items: [{ ...mockPopularityFeedItem, id: '888' }],
+      page: { ...mockPopularityFeedResponse.page },
+    };
     page.selectedExploreMode = 'popularity';
-    page.popularityFeedCache.set('trending', [{ ...mockPopularityFeedResponse[0], id: 'old' }]);
+    page.popularityFeedCache.set('trending', {
+      items: [{ ...mockPopularityFeedItem, id: 'old' }],
+      page: { ...mockPopularityFeedResponse.page },
+    });
     page.popularityCatalogHydrationAttempted.add('stale');
     const hydrateSpy = vi
       .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
@@ -2613,9 +2598,13 @@ describe('ExplorePage explore modes UX', () => {
 
     await page.loadPopularityFeed(true);
 
-    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith('trending');
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith({
+      feedType: 'trending',
+      offset: 0,
+      limit: 10,
+    });
     expect(page.popularityCatalogHydrationAttempted.size).toBe(0);
-    expect(page.activePopularityItems).toEqual(refreshedFeed);
+    expect(page.activePopularityItems).toEqual(refreshedFeed.items);
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -2642,7 +2631,7 @@ describe('ExplorePage explore modes UX', () => {
   it('skips non-actionable popularity hydration candidates', async () => {
     const page = createPage() as unknown as {
       selectedExploreMode: 'recommendations' | 'popularity';
-      activePopularityItems: typeof mockPopularityFeedResponse;
+      activePopularityItems: typeof mockPopularityFeedResponse.items;
       visiblePopularityCount: number;
       localGameCacheByIdentity: Map<string, unknown>;
       catalogCache: Map<string, unknown>;
@@ -2656,11 +2645,11 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedExploreMode = 'popularity';
     page.visiblePopularityCount = 10;
     page.activePopularityItems = [
-      { ...mockPopularityFeedResponse[0], id: '   ' },
-      { ...mockPopularityFeedResponse[0], id: 'local' },
-      { ...mockPopularityFeedResponse[0], id: 'cached' },
-      { ...mockPopularityFeedResponse[0], id: 'in-flight' },
-      { ...mockPopularityFeedResponse[0], id: 'attempted' },
+      { ...mockPopularityFeedItem, id: '   ' },
+      { ...mockPopularityFeedItem, id: 'local' },
+      { ...mockPopularityFeedItem, id: 'cached' },
+      { ...mockPopularityFeedItem, id: 'in-flight' },
+      { ...mockPopularityFeedItem, id: 'attempted' },
     ];
     page.localGameCacheByIdentity.set(page.buildIdentityKey('local', 6), {
       igdbGameId: 'local',
@@ -2693,19 +2682,14 @@ describe('ExplorePage explore modes UX', () => {
 
     const loadMorePromise = page.loadMorePopularity({ target: { complete } } as unknown as Event);
 
-    let loadMoreSettled = false;
-    void loadMorePromise.then(() => {
-      loadMoreSettled = true;
-    });
-
     await flushAsync();
 
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
     expect(complete).toHaveBeenCalledTimes(1);
-    expect(loadMoreSettled).toBe(true);
 
     resolveHydration();
     await hydrationPromise;
+    await loadMorePromise;
   });
 
   it('single-flights visible popularity catalog hydration across overlapping calls', async () => {

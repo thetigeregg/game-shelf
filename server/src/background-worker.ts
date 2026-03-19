@@ -255,6 +255,10 @@ function shouldSchedulePspricesRefresh(params: {
     return false;
   }
 
+  if (params.payload['listType'] !== 'discovery') {
+    return true;
+  }
+
   const retryState = maybeRearmProviderRetryState({
     state: parseProviderRetryState(
       params.payload['enrichmentRetry'] &&

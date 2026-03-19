@@ -199,13 +199,13 @@ export interface RecommendationLanesResponse {
   runtimeMode: RecommendationRuntimeMode;
   runId: number;
   generatedAt: string;
-  lanes: {
-    overall: RecommendationItem[];
-    hiddenGems: RecommendationItem[];
-    exploration: RecommendationItem[];
-    blended: RecommendationItem[];
-    popular: RecommendationItem[];
-    recent: RecommendationItem[];
+  lane: RecommendationLaneKey;
+  items: RecommendationItem[];
+  page: {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
   };
 }
 
@@ -268,6 +268,12 @@ export interface PopularityFeedItem {
 
 export interface PopularityFeedResponse {
   items: PopularityFeedItem[];
+  page: {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  };
 }
 
 export interface GameEntry {

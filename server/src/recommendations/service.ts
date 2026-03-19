@@ -144,6 +144,15 @@ export interface RecommendationServiceApi {
     items: RankedRecommendationItem[];
     page: RecommendationPageInfo;
   } | null>;
+  getRecommendationLaneCollection(
+    target: RecommendationTarget,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: RecommendationLaneCollection;
+  } | null>;
   getSimilarGames(params: {
     igdbGameId: string;
     platformIgdbId: number;
@@ -457,6 +466,33 @@ export class RecommendationService implements RecommendationServiceApi {
       lane,
       runtimeMode: resolvedRuntimeMode,
       offset: safeOffset,
+      limit: safeLimit,
+    });
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result,
+      runtimeMode: resolvedRuntimeMode,
+    };
+  }
+
+  async getRecommendationLaneCollection(
+    target: RecommendationTarget,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: RecommendationLaneCollection;
+  } | null> {
+    const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
+    const safeLimit = normalizeLimit(limit, this.options.laneLimit);
+    const result = await this.repository.readRecommendationLaneCollection({
+      target,
+      runtimeMode: resolvedRuntimeMode,
       limit: safeLimit,
     });
 

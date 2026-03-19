@@ -2435,6 +2435,7 @@
 - f5f6a294 fix(lint): update lint-staged configuration to apply Prettier to all file types
 
 ## v1.5.5 - 2026-03-17
+
 - 019cf813 Merge pull request #236 from thetigeregg/feat/popularity-ui
 - ca733892 test(explore): expand popularity hydration coverage
 - 7a6057a1 fix(tests): update explore page spec to correct array syntax
@@ -2465,11 +2466,13 @@
 - bb5870f7 fix(explore): prehydrate visible popularity catalog details before modal open
 
 ## v1.5.6 - 2026-03-17
+
 - 61b22f62 Merge pull request #244 from thetigeregg/feat/popularity-ui
 - f64fe145 Merge branch 'main' into feat/popularity-ui
 - 53fadc90 fix(styles): change swiper imports to use url() syntax
 
 ## v1.5.7 - 2026-03-17
+
 - 0865a5ba Merge pull request #243 from thetigeregg/feat/bp
 - abd3ae85 Merge branch 'main' into feat/bp
 - a00a3b4c chore: update @angular-eslint and typescript-eslint
@@ -2481,6 +2484,7 @@
 - 97252e80 chore: update tiptap and angular-eslint dependencies to latest versions
 
 ## v1.5.8 - 2026-03-17
+
 - 5ef3cce7 Merge pull request #246 from thetigeregg/feat/scriptsz
 - 7e76862d fix: suggestions
 - d612b1f1 fix: scripts
@@ -2489,6 +2493,7 @@
 - 5057b4a8 fix(scripts): skip outdated and security bot review threads
 
 ## v1.5.9 - 2026-03-17
+
 - d2ccd0bc Merge pull request #245 from thetigeregg/feat/meta
 - dfdf9e25 fix(metacritic-scraper): remove flaky search readiness waits
 - 6803dd7c fix(metacritic-scraper): align search readiness with link-first cards
@@ -2506,6 +2511,7 @@
 - 03be6618 fix(metacritic-scraper): restore search matching after DOM structure changes
 
 ## v1.6.0 - 2026-03-17
+
 - 321d0d2b Merge pull request #247 from thetigeregg/feat/meta-year
 - d69519dc fix: revert
 - 3aeb8e75 Revert "ci(workflow): move Playwright failure artifact upload before coverage steps"
@@ -2521,10 +2527,12 @@
 - 2406cad2 feat(metacritic-scraper): enhance search result extraction with fallback for missing release years
 
 ## v1.6.1 - 2026-03-18
+
 - c84ea92a Merge pull request #248 from thetigeregg/dependabot/npm_and_yarn/server/fast-xml-parser-5.5.6
 - 34f92a7d chore(deps): bump fast-xml-parser from 5.4.2 to 5.5.6 in /server
 
 ## v1.7.0 - 2026-03-19
+
 - c21c116e Merge pull request #252 from thetigeregg/feat/bumpa
 - 2c6f888f fix(scripts): align ncu-all project targeting with PR description
 - 714bff73 fix(deps): pin npm-check-updates and harden ncu-all script
@@ -2538,6 +2546,7 @@
 - 028ef2db feat: add Angular dependency update scripts to package.json
 
 ## v1.8.0 - 2026-03-19
+
 - 08ce9271 Merge pull request #249 from thetigeregg/feat/backmatch
 - 4b36cdcb Merge branch 'main' into feat/backmatch
 - 19b148f5 Revert "fix(discovery): reject empty review match patches"
@@ -2596,6 +2605,7 @@
 - c8e45c02 feat(api): add discovery match admin routes
 
 ## v1.8.1 - 2026-03-19
+
 - f3eb4154 Merge pull request #253 from thetigeregg/feat/bumpa
 - a6c1746b fix(scripts): include only actionable reviews in discussion items
 - 967f4f29 fix: update
@@ -2609,9 +2619,24 @@
 - 240bc9c1 fix: refine discussion review item collection to exclude non-code comments
 
 ## v1.9.0 - 2026-03-19
+
 - f3585f24 Merge pull request #254 from thetigeregg/feat/rates
 - 0b89c20e fix(api): handle recommendation metadata hydration safely
 - 88e8ac08 fix(explore): address recommendation metadata review feedback
 - 47ec319a feat: add game-by-id rate limit configuration to environment files and documentation
 - 19150d25 feat: add game-specific rate limit configuration and update explore page logic
 
+## v1.9.1 - 2026-03-19
+
+- a61f5f27 Merge pull request #255 from thetigeregg/feat/rates
+- b7f38d36 fix(recommendations): address lane pagination review feedback
+- 8b984c32 fix(explore): unblock cached lane hydration and align paging defaults
+- 96a8cd46 fix(api): cap paged feeds and stabilize legacy recommendation lanes
+- 75bfedf2 fix(recommendations): bound paginated offsets for feed and lane queries
+- e39b9a11 fix(explore): prevent feed duplication and support legacy lane payloads
+- d2604f68 fix(recommendations): preserve legacy lanes response without lane query
+- 53067100 test(popularity): add tests for response page metadata limit and error handling
+- 162e964e fix(explore): guard paged recommendation and popularity merges
+- 2b3f0afc Merge branch 'main' into feat/rates
+- 8e99dddd fix(recommendations): correct lane pagination and query typing
+- 4f8a8e3d refactor: explorePage to enhance popularity feed handling and recommendation lane management

@@ -2469,7 +2469,7 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedLimit =
       Number.isInteger(params.limit) && (params.limit as number) > 0
         ? Math.min(params.limit as number, 200)
-        : 50;
+        : 20;
     let query = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set(
       'target',
       normalizedTarget

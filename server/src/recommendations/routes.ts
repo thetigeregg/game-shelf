@@ -116,11 +116,15 @@ export function registerRecommendationRoutes(
       }
 
       const offset = Math.min(parseNonNegativeInteger(query.offset) ?? 0, MAX_PAGE_OFFSET);
-      const limit = parsePositiveInteger(query.limit) ?? 20;
+      const limit = parsePositiveInteger(query.limit);
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
 
       if (query.lane === undefined) {
-        const result = await service.getRecommendationLaneCollection(target, limit, runtimeMode);
+        const result = await service.getRecommendationLaneCollection(
+          target,
+          limit ?? 20,
+          runtimeMode
+        );
 
         if (!result) {
           let responseJobId = queueState.jobId;
@@ -166,7 +170,13 @@ export function registerRecommendationRoutes(
         return;
       }
 
-      const result = await service.getRecommendationLanes(target, lane, offset, limit, runtimeMode);
+      const result = await service.getRecommendationLanes(
+        target,
+        lane,
+        offset,
+        limit ?? 10,
+        runtimeMode
+      );
 
       if (!result) {
         let responseJobId = queueState.jobId;

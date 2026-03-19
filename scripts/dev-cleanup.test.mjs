@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import {
   formatCleanupSummaryLine,
   removeMergedWorktrees,
+  removeMergedBranchesWithoutWorktrees,
   removeOrphanedManagedWorktreeDirs,
 } from './dev-cleanup.mjs';
 
@@ -117,6 +118,85 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
   });
 });
 
+test('removeMergedWorktrees dry-run previews removals without calling git', () => {
+  const logs = [];
+  const gitCalls = [];
+
+  const summary = removeMergedWorktrees({
+    mergedWorktrees: [{ branch: 'feat/dry-run', path: '/tmp/worktree-dry-run' }],
+    currentWorktreePath: '/tmp/current',
+    currentBranch: 'main',
+    normalizePath: (value) => value,
+    checkWorktreeClean: () => true,
+    gitRunner: (args) => {
+      gitCalls.push(args);
+      return '';
+    },
+    dryRun: true,
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(gitCalls, []);
+  assert.deepEqual(logs, [
+    '[dry-run] Would remove worktree /tmp/worktree-dry-run',
+    '[dry-run] Would delete branch feat/dry-run',
+  ]);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/dry-run', path: '/tmp/worktree-dry-run' }],
+    skippedCurrent: [],
+    skippedDirty: [],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [],
+  });
+});
+
+test('removeMergedBranchesWithoutWorktrees deletes merged branches that are not active anywhere', () => {
+  const logs = [];
+  const gitCalls = [];
+
+  const summary = removeMergedBranchesWithoutWorktrees({
+    mergedBranches: ['feat/branch-only'],
+    activeWorktreeBranches: ['feat/active'],
+    currentBranch: 'main',
+    gitRunner: (args) => {
+      gitCalls.push(args);
+      return '';
+    },
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(gitCalls, [['branch', '-D', '--', 'feat/branch-only']]);
+  assert.deepEqual(logs, ['Deleting merged branch without worktree feat/branch-only']);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/branch-only' }],
+    skippedCurrent: [],
+    skippedActiveWorktree: [],
+    skippedDeleteFailed: [],
+  });
+});
+
+test('removeMergedBranchesWithoutWorktrees dry-run previews deletions', () => {
+  const logs = [];
+
+  const summary = removeMergedBranchesWithoutWorktrees({
+    mergedBranches: ['feat/branch-only'],
+    activeWorktreeBranches: [],
+    currentBranch: 'main',
+    dryRun: true,
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(logs, [
+    '[dry-run] Would delete merged branch without worktree feat/branch-only',
+  ]);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/branch-only' }],
+    skippedCurrent: [],
+    skippedActiveWorktree: [],
+    skippedDeleteFailed: [],
+  });
+});
+
 test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories whose branch is gone', () => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
@@ -125,10 +205,8 @@ test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories 
 
   mkdirSync(activeDir, { recursive: true });
   mkdirSync(staleDir, { recursive: true });
-  writeFileSync(path.join(activeDir, 'package.json'), '{}');
-  writeFileSync(path.join(activeDir, 'angular.json'), '{}');
-  writeFileSync(path.join(staleDir, 'package.json'), '{}');
-  writeFileSync(path.join(staleDir, 'angular.json'), '{}');
+  writeFileSync(path.join(activeDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/active\n');
+  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/stale\n');
 
   const removedDirs = [];
   const prunedDirs = [];
@@ -150,6 +228,8 @@ test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories 
     removed: [{ branch: 'feat/stale', path: staleDir }],
     skippedExistingBranch: [],
   });
+
+  rmSync(rootDir, { recursive: true, force: true });
 });
 
 test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the local branch still exists', () => {
@@ -158,8 +238,7 @@ test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the loca
   const staleDir = path.join(managedRoot, 'feat', 'keep-me');
 
   mkdirSync(staleDir, { recursive: true });
-  writeFileSync(path.join(staleDir, 'package.json'), '{}');
-  writeFileSync(path.join(staleDir, 'angular.json'), '{}');
+  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/keep-me\n');
 
   const logs = [];
 
@@ -177,10 +256,45 @@ test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the loca
   });
 
   assert.deepEqual(logs, [
-    `Skipping orphaned directory with local branch: feat/keep-me → ${staleDir}`,
+    `Warning: orphaned directory still has a local branch: feat/keep-me → ${staleDir}`,
   ]);
   assert.deepEqual(summary, {
     removed: [],
     skippedExistingBranch: [{ branch: 'feat/keep-me', path: staleDir }],
   });
+
+  rmSync(rootDir, { recursive: true, force: true });
+});
+
+test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without deleting', () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const staleDir = path.join(managedRoot, 'feat', 'preview-me');
+
+  mkdirSync(staleDir, { recursive: true });
+  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/preview-me\n');
+
+  const logs = [];
+
+  const summary = removeOrphanedManagedWorktreeDirs({
+    managedWorktreesRoot: managedRoot,
+    activeWorktreePaths: [],
+    branchExists: () => false,
+    removeDir: () => {
+      throw new Error('dry-run should not remove directories');
+    },
+    pruneAncestors: () => {
+      throw new Error('dry-run should not prune directories');
+    },
+    dryRun: true,
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(logs, [`[dry-run] Would remove orphaned worktree directory ${staleDir}`]);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/preview-me', path: staleDir }],
+    skippedExistingBranch: [],
+  });
+
+  rmSync(rootDir, { recursive: true, force: true });
 });

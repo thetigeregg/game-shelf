@@ -2654,3 +2654,28 @@
 - a87ced9c feat(igdb-cache): enhance game ID normalization to ensure safe integer values
 - c8fd9026 feat(igdb-cache): add tests for cache behavior with invalid game IDs and error handling
 - 01f40ee0 feat(igdb-cache): implement IGDB caching mechanism with metrics tracking
+
+## v1.10.1 - 2026-03-19
+
+- 65112094 Merge pull request #257 from thetigeregg/feat/script-again
+- 99efb5c1 Merge branch 'main' into feat/script-again
+- 918117b6 fix(scripts): restore gh download buffer limit
+- 548834af fix(pr-agent): improve artifact download logging to use console.error and console.warn
+- dd609f90 fix(pr-agent): normalize author login handling and enhance artifact download error logging
+- 595b7d4c Merge branch 'main' into feat/script-again
+- 039fa4ec fix(scripts): harden PR review thread filtering
+- fb434210 fix(recommendations): address lane pagination review feedback
+- 47d939ec fix(explore): unblock cached lane hydration and align paging defaults
+- a52eb183 fix(api): cap paged feeds and stabilize legacy recommendation lanes
+- 628f19d7 fix(recommendations): bound paginated offsets for feed and lane queries
+- 888c2bed fix(explore): prevent feed duplication and support legacy lane payloads
+- 33ed0f06 fix(recommendations): preserve legacy lanes response without lane query
+- 3f671aab test(popularity): add tests for response page metadata limit and error handling
+- 3158eee0 fix(explore): guard paged recommendation and popularity merges
+- 2f655456 fix(recommendations): correct lane pagination and query typing
+- 7a3b8f2f refactor: explorePage to enhance popularity feed handling and recommendation lane management
+- d9e3a92c fix: update
+- 64161167 fix: update
+- ea8e56a5 fix(pr-agent): improve coverage artifact download handling and add debug logging
+- 3890e354 fix: update
+- f98036db fix(pr-agent): enhance isActionableThread logic to handle null threads and filter GHAS comments

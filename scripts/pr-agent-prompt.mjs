@@ -69,7 +69,7 @@ function isActionableThread(thread) {
   // ✅ If not outdated, keep without scanning comments
   if (!thread.isOutdated) return true;
 
-  const comments = thread.comments?.nodes || [];
+  const comments = (thread.comments?.nodes || []).filter(Boolean);
 
   const hasAutomatedSecurityThread = comments.some((c) => {
     const author = c.author?.login?.toLowerCase() || '';
@@ -77,7 +77,7 @@ function isActionableThread(thread) {
   });
 
   // ❌ Drop ONLY outdated security bot threads (GHAS & Code Scanning)
-  if (hasAutomatedSecurityThread && thread.isOutdated) return false;
+  if (hasAutomatedSecurityThread) return false;
 
   // ✅ Keep everything else
   return true;
@@ -658,7 +658,9 @@ function collectCITasks(prData, checkAnalysis) {
 
 function downloadCoverageArtifact(runId) {
   const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
-  console.log(`Downloading coverage artifact to ${runArtifactDir}...`);
+  if (process.env.DEBUG_PR_AGENT || process.env.DEBUG) {
+    console.log(`Downloading coverage artifact to ${runArtifactDir}...`);
+  }
 
   const result = spawnSync(
     'gh',
@@ -676,16 +678,27 @@ function downloadCoverageArtifact(runId) {
 
   // 🔍 Debug what was extracted
   const contents = fs.readdirSync(runArtifactDir);
-  console.log('Artifact dir contents after download:', contents);
+  if (process.env.DEBUG_PR_AGENT || process.env.DEBUG) {
+    console.log('Artifact dir contents after download:', contents);
+  }
 
   // ✅ Handle nested extraction
   const extractedDir = path.join(runArtifactDir, COVERAGE_ARTIFACT_NAME);
 
   if (fs.existsSync(extractedDir)) {
-    return extractedDir;
+    // Move contents of the nested directory up to the temp root so callers
+    // can clean up a single directory (runArtifactDir) without leaking.
+    for (const entry of fs.readdirSync(extractedDir)) {
+      const from = path.join(extractedDir, entry);
+      const to = path.join(runArtifactDir, entry);
+      fs.renameSync(from, to);
+    }
+
+    // Remove the now-empty nested directory
+    fs.rmSync(extractedDir, { recursive: true, force: true });
   }
 
-  // fallback (in case gh changes behavior)
+  // Always return the temp root so cleanup removes the whole directory.
   return runArtifactDir;
 }
 

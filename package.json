@@ -26,7 +26,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest run --coverage",
-    "test:scripts": "node --test scripts/*.test.mjs",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:server": "npm --prefix server test",
     "test:worker": "npm --prefix worker test",
     "test:backend": "npm run test:server && npm run test:worker",

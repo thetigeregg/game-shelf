@@ -312,22 +312,17 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   }
 
   for (const review of reviews) {
+    const trimmedBody = review.body?.trim();
+
     // Ignore review summaries that are not actionable
-    if (!review.body || review.state === 'COMMENTED') continue;
+    if (!trimmedBody || review.state === 'COMMENTED') continue;
 
     const author = review.author?.login || 'reviewer';
     const normalizedAuthor = author.toLowerCase();
-    if (!includeReviewItem(review.body, author, review.state)) continue;
+    if (!includeReviewItem(trimmedBody, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
-    if (
-      normalizedAuthor.includes('github-advanced-security') &&
-      (!review.body || review.body.trim().length === 0)
-    ) {
-      continue;
-    }
-
-    const body = formatReviewBody(review.body, review.state);
+    const body = formatReviewBody(trimmedBody, review.state);
 
     results.push({
       author,

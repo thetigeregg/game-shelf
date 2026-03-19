@@ -94,6 +94,14 @@ export const MIGRATIONS: string[] = [
   );
   `,
   `
+  CREATE TABLE IF NOT EXISTS igdb_game_cache (
+    cache_key TEXT PRIMARY KEY,
+    igdb_game_id TEXT NOT NULL,
+    response_json JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `
   CREATE TABLE IF NOT EXISTS hltb_search_cache (
     cache_key TEXT PRIMARY KEY,
     query_title TEXT NOT NULL,

@@ -106,6 +106,7 @@ void test('server route inventory remains audited and mutating routes require au
   const routeSourceFiles = [
     './index.ts',
     './sync.ts',
+    './igdb-cache.ts',
     './image-cache.ts',
     './hltb-cache.ts',
     './metacritic-cache.ts',

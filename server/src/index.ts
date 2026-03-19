@@ -11,6 +11,7 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
+import { registerIgdbCachedByIdRoute } from './igdb-cache.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
@@ -240,18 +241,6 @@ async function main(): Promise<void> {
 
     app.route({
       method: 'GET',
-      url: '/v1/games/:id',
-      config: {
-        rateLimit: {
-          max: config.gameByIdRateLimitMaxRequests,
-          timeWindow: config.gameByIdRateLimitWindowMs,
-        },
-      },
-      handler: proxyMetadataToWorker,
-    });
-
-    app.route({
-      method: 'GET',
       url: '/v1/platforms',
       config: {
         rateLimit: {
@@ -278,6 +267,7 @@ async function main(): Promise<void> {
     await registerSyncRoutes(app, pool);
     registerNotificationRoutes(app, pool);
     await registerImageProxyRoute(app, pool, imageCacheDir);
+    await registerIgdbCachedByIdRoute(app, pool);
     await registerCacheObservabilityRoutes(app, pool);
     registerBackgroundJobRoutes(app, pool);
     registerAdminDiscoveryMatchRoutes(app, pool);

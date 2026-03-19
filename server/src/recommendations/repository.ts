@@ -26,6 +26,7 @@ import {
   RecommendationHistoryEntry,
   RecommendationLaneCollection,
   RecommendationLaneKey,
+  RecommendationPageInfo,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
   RecommendationScoreComponents,
@@ -109,6 +110,7 @@ interface DiscoveryGameRow extends QueryResultRow {
 }
 
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
+const MAX_RECOMMENDATION_PAGE_OFFSET = 1000;
 
 export class RecommendationRepository {
   private readonly backgroundJobs: BackgroundJobRepository;
@@ -709,6 +711,36 @@ export class RecommendationRepository {
 
   async readRecommendationLanes(params: {
     target: RecommendationTarget;
+    lane: RecommendationLaneKey;
+    runtimeMode: RecommendationRuntimeMode;
+    offset: number;
+    limit: number;
+  }): Promise<{
+    run: RecommendationRunSummary;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
+  } | null> {
+    const run = await this.getLatestSuccessfulRun(params.target);
+
+    if (!run) {
+      return null;
+    }
+
+    const result = await this.readRecommendationLanesForRun({
+      run,
+      target: params.target,
+      lane: params.lane,
+      runtimeMode: params.runtimeMode,
+      offset: params.offset,
+      limit: params.limit,
+    });
+
+    return result;
+  }
+
+  async readRecommendationLaneCollection(params: {
+    target: RecommendationTarget;
     runtimeMode: RecommendationRuntimeMode;
     limit: number;
   }): Promise<{
@@ -761,6 +793,65 @@ export class RecommendationRepository {
     return {
       run,
       lanes,
+    };
+  }
+
+  private async readRecommendationLanesForRun(params: {
+    run: RecommendationRunSummary;
+    target: RecommendationTarget;
+    lane: RecommendationLaneKey;
+    runtimeMode: RecommendationRuntimeMode;
+    offset: number;
+    limit: number;
+  }): Promise<{
+    run: RecommendationRunSummary;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
+  }> {
+    const statusFilter = buildStatusFilterForTarget(params.target);
+    const rows = await this.pool.query<LaneRow>(
+      `
+      SELECT recommendation_lanes.lane, recommendation_lanes.rank, recommendation_lanes.igdb_game_id,
+             recommendation_lanes.platform_igdb_id, recommendation_lanes.score_total,
+             recommendation_lanes.score_components, recommendation_lanes.explanations
+      FROM recommendation_lanes
+      INNER JOIN games
+        ON games.igdb_game_id = recommendation_lanes.igdb_game_id
+       AND games.platform_igdb_id = recommendation_lanes.platform_igdb_id
+      WHERE recommendation_lanes.run_id = $1
+        AND recommendation_lanes.runtime_mode = $2
+        AND recommendation_lanes.lane = $3
+        AND COALESCE(games.payload->>'listType', '') = $4
+        AND COALESCE(games.payload->>'status', '') = ANY($5::text[])
+      ORDER BY recommendation_lanes.rank ASC
+      LIMIT $6
+      OFFSET $7
+      `,
+      [
+        params.run.id,
+        params.runtimeMode,
+        params.lane,
+        statusFilter.listType,
+        statusFilter.allowedStatuses,
+        params.limit + 1,
+        params.offset,
+      ]
+    );
+    const items = rows.rows.slice(0, params.limit).map(mapRecommendationRow);
+    const nextOffset = params.offset + params.limit;
+    const hasMore = rows.rows.length > params.limit && nextOffset <= MAX_RECOMMENDATION_PAGE_OFFSET;
+
+    return {
+      run: params.run,
+      lane: params.lane,
+      items,
+      page: {
+        offset: params.offset,
+        limit: params.limit,
+        hasMore,
+        nextOffset: hasMore ? nextOffset : null,
+      },
     };
   }
 

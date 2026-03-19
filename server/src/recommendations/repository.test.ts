@@ -237,6 +237,222 @@ void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-sp
   assert.equal(similarityQuery.params[3], 'NEUTRAL');
 });
 
+void test('readRecommendationLanes paginates with SQL offset on filtered lane rows', async () => {
+  const pool = new PoolMock((sql) => {
+    if (sql.includes('FROM recommendation_runs')) {
+      return {
+        rows: [
+          {
+            id: 21,
+            target: 'BACKLOG',
+            status: 'SUCCESS',
+            settings_hash: 's',
+            input_hash: 'i',
+            started_at: '2026-03-01T00:00:00.000Z',
+            finished_at: '2026-03-01T00:10:00.000Z',
+            error: null,
+          },
+        ],
+      };
+    }
+
+    if (sql.includes('FROM recommendation_lanes')) {
+      return {
+        rows: [
+          {
+            lane: 'overall',
+            rank: 4,
+            igdb_game_id: '100',
+            platform_igdb_id: 6,
+            score_total: '0.91',
+            score_components: {},
+            explanations: { headline: 'kept' },
+          },
+          {
+            lane: 'overall',
+            rank: 8,
+            igdb_game_id: '101',
+            platform_igdb_id: 6,
+            score_total: '0.82',
+            score_components: {},
+            explanations: { headline: 'lookahead' },
+          },
+        ],
+      };
+    }
+
+    return { rows: [] };
+  });
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.readRecommendationLanes({
+    target: 'BACKLOG',
+    lane: 'overall',
+    runtimeMode: 'NEUTRAL',
+    offset: 2,
+    limit: 1,
+  });
+
+  assert.ok(result);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.rank, 4);
+  assert.deepEqual(result.page, { offset: 2, limit: 1, hasMore: true, nextOffset: 3 });
+
+  const laneQuery = pool.queries.find((query) => query.sql.includes('FROM recommendation_lanes'));
+  assert.ok(laneQuery);
+  assert.ok(laneQuery.params);
+  assert.equal(laneQuery.sql.includes('recommendation_lanes.rank >'), false);
+  assert.equal(laneQuery.sql.includes('OFFSET $7'), true);
+  assert.deepEqual(laneQuery.params, [
+    21,
+    'NEUTRAL',
+    'overall',
+    'collection',
+    ['', 'wantToPlay'],
+    2,
+    2,
+  ]);
+});
+
+void test('readRecommendationLanes stops advertising pages beyond the max offset cap', async () => {
+  const pool = new PoolMock((sql) => {
+    if (sql.includes('FROM recommendation_runs')) {
+      return {
+        rows: [
+          {
+            id: 21,
+            target: 'BACKLOG',
+            status: 'SUCCESS',
+            settings_hash: 's',
+            input_hash: 'i',
+            started_at: '2026-03-01T00:00:00.000Z',
+            finished_at: '2026-03-01T00:10:00.000Z',
+            error: null,
+          },
+        ],
+      };
+    }
+
+    if (sql.includes('FROM recommendation_lanes')) {
+      return {
+        rows: [
+          {
+            lane: 'overall',
+            rank: 999,
+            igdb_game_id: '100',
+            platform_igdb_id: 6,
+            score_total: '0.91',
+            score_components: {},
+            explanations: { headline: 'kept' },
+          },
+          {
+            lane: 'overall',
+            rank: 1000,
+            igdb_game_id: '101',
+            platform_igdb_id: 6,
+            score_total: '0.82',
+            score_components: {},
+            explanations: { headline: 'lookahead' },
+          },
+        ],
+      };
+    }
+
+    return { rows: [] };
+  });
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.readRecommendationLanes({
+    target: 'BACKLOG',
+    lane: 'overall',
+    runtimeMode: 'NEUTRAL',
+    offset: 995,
+    limit: 10,
+  });
+
+  assert.ok(result);
+  assert.deepEqual(result.page, { offset: 995, limit: 10, hasMore: false, nextOffset: null });
+});
+
+void test('readRecommendationLaneCollection reads all legacy lanes from one run', async () => {
+  const pool = new PoolMock((sql) => {
+    if (sql.includes('FROM recommendation_runs')) {
+      return {
+        rows: [
+          {
+            id: 21,
+            target: 'BACKLOG',
+            status: 'SUCCESS',
+            settings_hash: 's',
+            input_hash: 'i',
+            started_at: '2026-03-01T00:00:00.000Z',
+            finished_at: '2026-03-01T00:10:00.000Z',
+            error: null,
+          },
+        ],
+      };
+    }
+
+    if (sql.includes('FROM recommendation_lanes')) {
+      return {
+        rows: [
+          {
+            lane: 'overall',
+            rank: 1,
+            igdb_game_id: '100',
+            platform_igdb_id: 6,
+            score_total: '0.91',
+            score_components: {},
+            explanations: { headline: 'overall' },
+          },
+          {
+            lane: 'overall',
+            rank: 2,
+            igdb_game_id: '101',
+            platform_igdb_id: 6,
+            score_total: '0.82',
+            score_components: {},
+            explanations: { headline: 'trimmed' },
+          },
+          {
+            lane: 'recent',
+            rank: 1,
+            igdb_game_id: '200',
+            platform_igdb_id: 6,
+            score_total: '0.75',
+            score_components: {},
+            explanations: { headline: 'recent' },
+          },
+        ],
+      };
+    }
+
+    return { rows: [] };
+  });
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.readRecommendationLaneCollection({
+    target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
+    limit: 1,
+  });
+
+  assert.ok(result);
+  assert.equal(result.run.id, 21);
+  assert.equal(result.lanes.overall.length, 1);
+  assert.equal(result.lanes.overall[0]?.igdbGameId, '100');
+  assert.equal(result.lanes.recent.length, 1);
+  assert.equal(result.lanes.recent[0]?.igdbGameId, '200');
+  assert.deepEqual(result.lanes.hiddenGems, []);
+
+  const laneQueries = pool.queries.filter((query) =>
+    query.sql.includes('FROM recommendation_lanes')
+  );
+  assert.equal(laneQueries.length, 1);
+  assert.equal(laneQueries[0]?.sql.includes('recommendation_lanes.lane = $3'), false);
+  assert.deepEqual(laneQueries[0]?.params, [21, 'NEUTRAL', 'collection', ['', 'wantToPlay']]);
+});
+
 void test('finalizeRunSuccess writes batched recommendation artifacts and commits transaction', async () => {
   const pool = new PoolMock(() => ({ rows: [] }));
   const repository = new RecommendationRepository(pool as never);

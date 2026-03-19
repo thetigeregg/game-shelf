@@ -302,7 +302,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
     // Drop PR-level discussion comments that aren't tied to code
     if (comment.path == null && comment.line == null) continue;
 
-    const normalizedBody = normalizeText(comment.body ?? '').trim();
+    const normalizedBody = normalizeText(comment.body ?? '');
     if (!includeReviewItem(normalizedBody, author)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 

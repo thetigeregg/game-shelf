@@ -73,7 +73,7 @@ export function registerPopularityRoutes(
     },
     handler: async (request, reply) => {
       const page = parsePageQuery(request.query);
-      const items = await fetchFeedRows(pool, {
+      const feed = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
@@ -81,7 +81,7 @@ export function registerPopularityRoutes(
         offset: page.offset,
         limit: page.limit,
       });
-      reply.send(items);
+      reply.send(feed);
     },
   });
 
@@ -93,7 +93,7 @@ export function registerPopularityRoutes(
     },
     handler: async (request, reply) => {
       const page = parsePageQuery(request.query);
-      const items = await fetchFeedRows(pool, {
+      const feed = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
@@ -101,7 +101,7 @@ export function registerPopularityRoutes(
         offset: page.offset,
         limit: page.limit,
       });
-      reply.send(items);
+      reply.send(feed);
     },
   });
 
@@ -113,7 +113,7 @@ export function registerPopularityRoutes(
     },
     handler: async (request, reply) => {
       const page = parsePageQuery(request.query);
-      const items = await fetchFeedRows(pool, {
+      const feed = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
@@ -121,7 +121,7 @@ export function registerPopularityRoutes(
         offset: page.offset,
         limit: page.limit,
       });
-      reply.send(items);
+      reply.send(feed);
     },
   });
 

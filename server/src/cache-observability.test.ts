@@ -4,7 +4,9 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import {
+  type CacheMetricSnapshot,
   incrementHltbMetric,
+  incrementIgdbMetric,
   incrementImageMetric,
   incrementMetacriticMetric,
   incrementMobygamesMetric,
@@ -16,38 +18,14 @@ import {
 type CacheStatsPayload = {
   counts: {
     imageAssets: number | null;
+    igdbEntries: number | null;
     hltbEntries: number | null;
     metacriticEntries: number | null;
     mobygamesEntries: number | null;
     steamPriceEntries: number | null;
     pspricesPriceEntries: number | null;
   };
-  metrics: {
-    image: {
-      hits: number;
-      misses: number;
-    };
-    metacritic: {
-      hits: number;
-      writes: number;
-    };
-    hltb: {
-      hits: number;
-      writes: number;
-    };
-    mobygames: {
-      hits: number;
-      writes: number;
-    };
-    steamPrice: {
-      hits: number;
-      writes: number;
-    };
-    pspricesPrice: {
-      hits: number;
-      writes: number;
-    };
-  };
+  metrics: CacheMetricSnapshot;
   dbError: string | null;
 };
 
@@ -61,6 +39,10 @@ class CacheStatsPoolMock {
 
     if (normalized.includes('from image_assets')) {
       return Promise.resolve({ rows: [{ count: '7' }] });
+    }
+
+    if (normalized.includes('from igdb_game_cache')) {
+      return Promise.resolve({ rows: [{ count: '11' }] });
     }
 
     if (normalized.includes('from hltb_search_cache')) {
@@ -101,6 +83,8 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   resetCacheMetrics();
   incrementImageMetric('hits');
   incrementImageMetric('misses');
+  incrementIgdbMetric('hits');
+  incrementIgdbMetric('writes');
   incrementHltbMetric('hits');
   incrementHltbMetric('writes');
   incrementMetacriticMetric('hits');
@@ -123,6 +107,7 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(response.statusCode, 200);
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, 7);
+  assert.equal(payload.counts.igdbEntries, 11);
   assert.equal(payload.counts.hltbEntries, 13);
   assert.equal(payload.counts.metacriticEntries, 17);
   assert.equal(payload.counts.mobygamesEntries, 19);
@@ -130,6 +115,8 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(payload.counts.pspricesPriceEntries, 29);
   assert.equal(payload.metrics.image.hits, 1);
   assert.equal(payload.metrics.image.misses, 1);
+  assert.equal(payload.metrics.igdb.hits, 1);
+  assert.equal(payload.metrics.igdb.writes, 1);
   assert.equal(payload.metrics.metacritic.hits, 1);
   assert.equal(payload.metrics.metacritic.writes, 1);
   assert.equal(payload.metrics.hltb.hits, 1);
@@ -180,6 +167,7 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
   assert.equal(response.statusCode, 200);
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, null);
+  assert.equal(payload.counts.igdbEntries, null);
   assert.equal(payload.counts.hltbEntries, null);
   assert.equal(payload.counts.metacriticEntries, null);
   assert.equal(payload.counts.mobygamesEntries, null);
@@ -210,6 +198,7 @@ void test('Cache stats endpoint returns 0 count when db rows are empty', async (
   assert.equal(response.statusCode, 200);
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, 0);
+  assert.equal(payload.counts.igdbEntries, 0);
   assert.equal(payload.counts.hltbEntries, 0);
   assert.equal(payload.counts.metacriticEntries, 0);
   assert.equal(payload.counts.mobygamesEntries, 0);

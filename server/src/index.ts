@@ -267,7 +267,17 @@ async function main(): Promise<void> {
     await registerSyncRoutes(app, pool);
     registerNotificationRoutes(app, pool);
     await registerImageProxyRoute(app, pool, imageCacheDir);
-    await registerIgdbCachedByIdRoute(app, pool);
+    await registerIgdbCachedByIdRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'igdb_cache_revalidate',
+          dedupeKey: `igdb-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3,
+        });
+      },
+    });
     await registerCacheObservabilityRoutes(app, pool);
     registerBackgroundJobRoutes(app, pool);
     registerAdminDiscoveryMatchRoutes(app, pool);

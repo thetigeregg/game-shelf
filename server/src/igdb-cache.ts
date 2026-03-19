@@ -18,9 +18,15 @@ interface IgdbCacheRouteOptions {
   fetchMetadata?: (gameId: string) => Promise<Response>;
   now?: () => number;
   scheduleBackgroundRefresh?: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: IgdbCacheRevalidationPayload) => void;
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+}
+
+export interface IgdbCacheRevalidationPayload {
+  cacheKey: string;
+  gameId: string;
 }
 
 const DEFAULT_IGDB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
@@ -106,7 +112,8 @@ export async function registerIgdbCachedByIdRoute(
                   normalized,
                   fetchMetadata,
                   pool,
-                  scheduleBackgroundRefresh
+                  scheduleBackgroundRefresh,
+                  options.enqueueRevalidationJob
                 );
                 reply.header('X-GameShelf-IGDB-Cache', 'HIT_STALE');
                 reply.header('X-GameShelf-IGDB-Revalidate', scheduled ? 'scheduled' : 'skipped');
@@ -126,10 +133,7 @@ export async function registerIgdbCachedByIdRoute(
         }
       }
 
-      if (cacheOutcome === 'MISS') {
-        incrementIgdbMetric('misses');
-      }
-
+      incrementIgdbMetric('misses');
       const response = await fetchMetadata(normalized.gameId);
 
       if (response.ok) {
@@ -201,8 +205,18 @@ function scheduleIgdbRevalidation(
   normalizedRequest: NormalizedIgdbGameIdRequest,
   fetchMetadata: (gameId: string) => Promise<Response>,
   pool: Pool,
-  scheduleBackgroundRefresh: (task: () => Promise<void>) => void
+  scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
+  enqueueRevalidationJob?: (payload: IgdbCacheRevalidationPayload) => void
 ): boolean {
+  if (enqueueRevalidationJob) {
+    incrementIgdbMetric('revalidateScheduled');
+    enqueueRevalidationJob({
+      cacheKey,
+      gameId: normalizedRequest.gameId,
+    });
+    return true;
+  }
+
   if (revalidationInFlightByKey.has(cacheKey)) {
     incrementIgdbMetric('revalidateSkipped');
     return false;
@@ -261,6 +275,38 @@ function scheduleIgdbRevalidation(
   }
 
   return true;
+}
+
+export async function processQueuedIgdbCacheRevalidation(
+  pool: Pool,
+  payload: IgdbCacheRevalidationPayload
+): Promise<void> {
+  const normalizedRequest = normalizeIgdbGameIdRequest({ id: payload.gameId });
+  if (!normalizedRequest) {
+    throw new Error('Invalid IGDB revalidation payload game id.');
+  }
+
+  const response = await fetchMetadataFromWorker(normalizedRequest.gameId);
+  if (!response.ok) {
+    throw new Error(`IGDB revalidation request failed with status ${String(response.status)}.`);
+  }
+
+  const parsed = await safeReadJson(response);
+  if (parsed === null || !isCacheableIgdbPayload(normalizedRequest, parsed)) {
+    throw new Error('IGDB revalidation returned uncacheable payload.');
+  }
+
+  await pool.query(
+    `
+    INSERT INTO igdb_game_cache (cache_key, igdb_game_id, response_json, updated_at)
+    VALUES ($1, $2, $3::jsonb, NOW())
+    ON CONFLICT (cache_key)
+    DO UPDATE SET
+      response_json = EXCLUDED.response_json,
+      updated_at = NOW()
+    `,
+    [payload.cacheKey, normalizedRequest.gameId, JSON.stringify(parsed)]
+  );
 }
 
 async function cancelResponseBody(response: Response): Promise<void> {

@@ -463,7 +463,46 @@ void test('IGDB cache is fail-open when cache read throws', async () => {
   const metrics = getCacheMetrics();
   assert.equal(metrics.igdb.readErrors, 1);
   assert.equal(metrics.igdb.bypasses, 1);
-  assert.equal(metrics.igdb.misses, 0);
+  assert.equal(metrics.igdb.misses, 1);
+
+  await app.close();
+});
+
+void test('IGDB cache stale revalidation enqueues background jobs when configured', async () => {
+  resetCacheMetrics();
+  const nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
+  const pool = new IgdbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  let scheduledInProcess = 0;
+  const enqueuedPayloads: Array<{ cacheKey: string; gameId: string }> = [];
+
+  pool.seed(
+    '901',
+    buildPayload('901', 'Before Refresh'),
+    new Date(nowMs - 8 * 86400 * 1000).toISOString()
+  );
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    scheduleBackgroundRefresh: () => {
+      scheduledInProcess += 1;
+    },
+    enqueueRevalidationJob: (payload) => {
+      enqueuedPayloads.push(payload);
+    },
+  });
+
+  const response = await app.inject({ method: 'GET', url: '/v1/games/901' });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'HIT_STALE');
+  assert.equal(response.headers['x-gameshelf-igdb-revalidate'], 'scheduled');
+  assert.equal(scheduledInProcess, 0);
+  assert.deepEqual(enqueuedPayloads, [{ cacheKey: '901', gameId: '901' }]);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.revalidateScheduled, 1);
+  assert.equal(metrics.igdb.revalidateSkipped, 0);
 
   await app.close();
 });

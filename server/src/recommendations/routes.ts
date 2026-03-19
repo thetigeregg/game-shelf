@@ -3,6 +3,8 @@ import type { RecommendationServiceApi } from './service.js';
 import { parseRecommendationTarget, parseRuntimeModeOrNull } from './service.js';
 import type { RecommendationLaneKey } from './types.js';
 
+const MAX_PAGE_OFFSET = 1000;
+
 interface RebuildBody {
   target?: unknown;
   force?: unknown;
@@ -113,7 +115,7 @@ export function registerRecommendationRoutes(
         return;
       }
 
-      const offset = parseNonNegativeInteger(query.offset) ?? 0;
+      const offset = Math.min(parseNonNegativeInteger(query.offset) ?? 0, MAX_PAGE_OFFSET);
       const limit = parsePositiveInteger(query.limit) ?? 20;
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
 
@@ -326,25 +328,13 @@ const RECOMMENDATION_LANE_KEYS: RecommendationLaneKey[] = [
 ];
 
 function parsePositiveInteger(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim();
-    if (!/^\d+$/.test(normalized)) {
-      return null;
-    }
-    const parsed = Number.parseInt(normalized, 10);
-    return parsed > 0 ? parsed : null;
-  }
-
-  return null;
+  const parsed = parseNonNegativeInteger(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 }
 
 function parseNonNegativeInteger(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
-    return value;
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
   }
 
   if (typeof value === 'string') {
@@ -352,7 +342,23 @@ function parseNonNegativeInteger(value: unknown): number | null {
     if (!/^\d+$/.test(normalized)) {
       return null;
     }
-    return Number.parseInt(normalized, 10);
+
+    try {
+      const parsed = BigInt(normalized);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return null;
+      }
+      return Number(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return null;
+    }
+    return Number(value);
   }
 
   return null;

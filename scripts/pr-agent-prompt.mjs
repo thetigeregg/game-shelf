@@ -63,18 +63,21 @@ function debug(...args) {
 function isActionableThread(thread) {
   if (!thread) return false;
 
+  // ❌ Drop resolved
+  if (thread.isResolved) return false;
+
+  // ✅ If not outdated, keep without scanning comments
+  if (!thread.isOutdated) return true;
+
   const comments = thread.comments?.nodes || [];
 
-  const hasGHAS = comments.some((c) => {
+  const hasAutomatedSecurityThread = comments.some((c) => {
     const author = c.author?.login?.toLowerCase() || '';
     return author.includes('github-advanced-security') || author.includes('github-code-scanning');
   });
 
-  // ❌ Drop resolved
-  if (thread.isResolved) return false;
-
-  // ❌ Drop ONLY outdated GHAS
-  if (hasGHAS && thread.isOutdated) return false;
+  // ❌ Drop ONLY outdated security bot threads (GHAS & Code Scanning)
+  if (hasAutomatedSecurityThread && thread.isOutdated) return false;
 
   // ✅ Keep everything else
   return true;

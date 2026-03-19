@@ -113,6 +113,60 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      const offset = parseNonNegativeInteger(query.offset) ?? 0;
+      const limit = parsePositiveInteger(query.limit) ?? 20;
+      const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
+
+      if (query.lane === undefined) {
+        const results = await Promise.all(
+          RECOMMENDATION_LANE_KEYS.map((lane) =>
+            service.getRecommendationLanes(target, lane, 0, limit, runtimeMode)
+          )
+        );
+        const firstResult = results[0];
+
+        if (!firstResult || results.some((result) => result === null)) {
+          let responseJobId = queueState.jobId;
+          let responseReason = queueState.reason;
+          if (!queueState.queued) {
+            const fallbackQueue = await service.enqueueRebuild({
+              target,
+              force: false,
+              triggeredBy: 'stale-read',
+            });
+            responseJobId = fallbackQueue.jobId;
+            responseReason = 'missing';
+          }
+          reply.code(202).send({
+            target,
+            status: 'QUEUED',
+            jobId: responseJobId,
+            reason: responseReason,
+            error: 'No recommendations available yet. Rebuild has been queued.',
+          });
+          return;
+        }
+
+        reply.send({
+          target,
+          runtimeMode: firstResult.runtimeMode,
+          runId: firstResult.run.id,
+          generatedAt: firstResult.run.finishedAt ?? firstResult.run.startedAt,
+          staleRefreshQueued: queueState.queued,
+          staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
+          staleRefreshJobId: queueState.jobId,
+          lanes: {
+            overall: results[0].items,
+            hiddenGems: results[1].items,
+            exploration: results[2].items,
+            blended: results[3].items,
+            popular: results[4].items,
+            recent: results[5].items,
+          },
+        });
+        return;
+      }
+
       const lane = parseRecommendationLaneKey(query.lane);
       if (!lane) {
         reply.code(400).send({
@@ -122,9 +176,6 @@ export function registerRecommendationRoutes(
         return;
       }
 
-      const offset = parseNonNegativeInteger(query.offset) ?? 0;
-      const limit = parsePositiveInteger(query.limit) ?? 20;
-      const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
       const result = await service.getRecommendationLanes(target, lane, offset, limit, runtimeMode);
 
       if (!result) {
@@ -264,6 +315,15 @@ export function registerRecommendationRoutes(
 
   return Promise.resolve();
 }
+
+const RECOMMENDATION_LANE_KEYS: RecommendationLaneKey[] = [
+  'overall',
+  'hiddenGems',
+  'exploration',
+  'blended',
+  'popular',
+  'recent',
+];
 
 function parsePositiveInteger(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) {

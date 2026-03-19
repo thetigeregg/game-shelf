@@ -3,7 +3,7 @@ import test from 'node:test';
 import fastifyFactory from 'fastify';
 import { registerRecommendationRoutes } from './routes.js';
 import { RecommendationServiceApi } from './service.js';
-import { RecommendationRuntimeMode } from './types.js';
+import { RecommendationLaneCollection, RecommendationRuntimeMode } from './types.js';
 
 function createServiceMock(
   overrides?: Partial<RecommendationServiceApi>
@@ -75,7 +75,24 @@ function createServiceMock(
           },
         ],
       }),
-    getRecommendationLanes: (_target, _limit, runtimeMode) =>
+    getRecommendationLanes: (_target, lane, _offset, _limit, runtimeMode) =>
+      Promise.resolve({
+        run: {
+          id: 11,
+          target: 'BACKLOG' as const,
+          status: 'SUCCESS' as const,
+          settingsHash: 'settings',
+          inputHash: 'input',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          finishedAt: '2026-01-01T00:01:00.000Z',
+          error: null,
+        },
+        runtimeMode: runtimeMode ?? 'NEUTRAL',
+        lane,
+        items: [],
+        page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+      }),
+    getRecommendationLaneCollection: (_target, _limit, runtimeMode) =>
       Promise.resolve({
         run: {
           id: 11,
@@ -174,9 +191,215 @@ void test('GET /v1/recommendations/top accepts DISCOVERY target', async () => {
   await app.close();
 });
 
-void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fallback', async () => {
+void test('GET /v1/recommendations/lanes returns a paged lane and resolves runtime fallback', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(app, createServiceMock());
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    runtimeMode: RecommendationRuntimeMode;
+    lane: string;
+    items: unknown[];
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.equal(body.runtimeMode, 'NEUTRAL');
+  assert.equal(body.lane, 'overall');
+  assert.ok(Array.isArray(body.items));
+  assert.deepEqual(body.page, { offset: 0, limit: 10, hasMore: false, nextOffset: null });
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/lanes defaults paged lane requests to a limit of 10', async () => {
+  const app = fastifyFactory({ logger: false });
+  const limits: number[] = [];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLanes: (_target, lane, offset, limit, runtimeMode) => {
+        limits.push(limit);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lane,
+          items: [],
+          page: { offset, limit, hasMore: false, nextOffset: null },
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(limits, [10]);
+  assert.deepEqual(body.page, { offset: 0, limit: 10, hasMore: false, nextOffset: null });
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/lanes caps oversized offsets before loading a lane', async () => {
+  const app = fastifyFactory({ logger: false });
+  const offsets: number[] = [];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLanes: (_target, lane, offset, limit, runtimeMode) => {
+        offsets.push(offset);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lane,
+          items: [],
+          page: { offset, limit, hasMore: false, nextOffset: null },
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&offset=5000&limit=10',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    lane: string;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.equal(body.lane, 'overall');
+  assert.deepEqual(offsets, [1000]);
+  assert.deepEqual(body.page, { offset: 1000, limit: 10, hasMore: false, nextOffset: null });
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/lanes rejects invalid lanes before queueing stale rebuild work', async () => {
+  const app = fastifyFactory({ logger: false });
+  let staleReadChecks = 0;
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      ensureRebuildQueuedIfStale: () => {
+        staleReadChecks += 1;
+        return Promise.resolve({
+          queued: false,
+          reason: 'fresh',
+          jobId: null,
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=invalid',
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(staleReadChecks, 0);
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes payload', async () => {
+  const app = fastifyFactory({ logger: false });
+  const calls: number[] = [];
+  const lanes: RecommendationLaneCollection = {
+    overall: [],
+    hiddenGems: [],
+    exploration: [],
+    blended: [],
+    popular: [],
+    recent: [],
+  };
+
+  for (const lane of Object.keys(lanes) as Array<keyof RecommendationLaneCollection>) {
+    lanes[lane] = [
+      {
+        rank: 1,
+        igdbGameId: lane,
+        platformIgdbId: 6,
+        scoreTotal: 1.23,
+        scoreComponents: {
+          taste: 1,
+          novelty: 0,
+          runtimeFit: 0,
+          criticBoost: 0.1,
+          recencyBoost: 0.13,
+          semantic: 0.2,
+          exploration: 0.2,
+          diversityPenalty: -0.1,
+          repeatPenalty: -0.2,
+        },
+        explanations: {
+          headline: 'Matches your tastes',
+          bullets: [],
+          matchedTokens: {
+            genres: [],
+            developers: [],
+            publishers: [],
+            franchises: [],
+            collections: [],
+            themes: [],
+            keywords: [],
+          },
+        },
+      },
+    ];
+  }
+
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLaneCollection: (_target, limit, runtimeMode) => {
+        calls.push(limit);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lanes,
+        });
+      },
+    })
+  );
 
   const response = await app.inject({
     method: 'GET',
@@ -186,22 +409,20 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     runtimeMode: RecommendationRuntimeMode;
-    lanes: {
-      overall: unknown[];
-      hiddenGems: unknown[];
-      exploration: unknown[];
-      blended: unknown[];
-      popular: unknown[];
-      recent: unknown[];
-    };
+    lanes: Record<string, Array<{ igdbGameId: string }>>;
   };
   assert.equal(body.runtimeMode, 'NEUTRAL');
-  assert.ok(Array.isArray(body.lanes.overall));
-  assert.ok(Array.isArray(body.lanes.hiddenGems));
-  assert.ok(Array.isArray(body.lanes.exploration));
-  assert.ok(Array.isArray(body.lanes.blended));
-  assert.ok(Array.isArray(body.lanes.popular));
-  assert.ok(Array.isArray(body.lanes.recent));
+  assert.deepEqual(calls, [10]);
+  assert.deepEqual(Object.keys(body.lanes), [
+    'overall',
+    'hiddenGems',
+    'exploration',
+    'blended',
+    'popular',
+    'recent',
+  ]);
+  assert.equal(body.lanes.overall[0]?.igdbGameId, 'overall');
+  assert.equal(body.lanes.recent[0]?.igdbGameId, 'recent');
 
   await app.close();
 });
@@ -227,6 +448,7 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
       },
       getTopRecommendations: () => Promise.resolve(null),
       getRecommendationLanes: () => Promise.resolve(null),
+      getRecommendationLaneCollection: () => Promise.resolve(null),
     })
   );
 
@@ -247,7 +469,7 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
 
   const invalidLanesRuntime = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&runtimeMode=FAST',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&runtimeMode=FAST',
   });
   assert.equal(invalidLanesRuntime.statusCode, 400);
 

@@ -2595,3 +2595,16 @@
 - 2d398bbd feat: add admin discovery match page and related services
 - c8e45c02 feat(api): add discovery match admin routes
 
+## v1.8.1 - 2026-03-19
+- f3eb4154 Merge pull request #253 from thetigeregg/feat/bumpa
+- a6c1746b fix(scripts): include only actionable reviews in discussion items
+- 967f4f29 fix: update
+- b7e16a9b fix: update
+- 21146b83 fix(scripts): preserve empty changes-requested review summaries
+- 4e945caa fix(scripts): skip empty PR review summaries
+- 25ec8d77 Merge branch 'main' into feat/bumpa
+- 94ad93f1 fix(scripts): preserve actionable review summaries
+- 23baceb0 fix(scripts): ignore blank PR review summaries
+- 07d2b8c3 Merge branch 'main' into feat/bumpa
+- 240bc9c1 fix: refine discussion review item collection to exclude non-code comments
+

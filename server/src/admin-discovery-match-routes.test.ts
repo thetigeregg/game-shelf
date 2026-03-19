@@ -1692,6 +1692,106 @@ void test('admin discovery patch route rejects empty review updates', async () =
   }
 });
 
+void test('admin discovery patch route rejects review score without a valid review source', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '41',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Needs Review',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/41/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'unknown-provider',
+        reviewScore: 88,
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'Review source is required when review score or review URL is provided.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery patch route infers metacritic review source from metacritic fields', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '45',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Critic Review',
+      platform: 'PlayStation 5',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/45/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        metacriticScore: 91,
+        metacriticUrl: 'https://metacritic.example/critic-review',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('45', 167);
+    assert.ok(stored);
+    assert.equal(stored['reviewSource'], 'metacritic');
+    assert.equal(stored['reviewScore'], null);
+    assert.equal(stored['reviewUrl'], 'https://metacritic.example/critic-review');
+    assert.equal(stored['metacriticScore'], 91);
+    assert.equal(stored['metacriticUrl'], 'https://metacritic.example/critic-review');
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery patch route rejects invalid providers', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

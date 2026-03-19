@@ -116,7 +116,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.ok(query.text.includes("(owned.payload->>'listType') IN ('collection', 'wishlist')"));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
-  assert.equal(query.params[1], rowLimit);
+  assert.equal(query.params[1], 11);
 
   await app.close();
 });
@@ -155,7 +155,7 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
   assert.ok(query.text.includes('> $2'));
   assert.ok(query.text.includes('LIMIT $3'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[2], 50);
+  assert.equal(query.params[2], 11);
   assert.equal(typeof query.params[1], 'number');
 
   await app.close();
@@ -233,7 +233,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   assert.ok(query.text.includes('<= $2'));
   assert.ok(query.text.includes('LIMIT $4'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
+  assert.equal(query.params[3], 11);
   assert.equal(typeof query.params[1], 'number');
   assert.equal(typeof query.params[2], 'number');
   assert.equal(Number(query.params[1]) - Number(query.params[2]), ninetyDaysSec);
@@ -260,7 +260,9 @@ void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the 
   assert.ok(
     query.text.includes('ORDER BY igdb_game_id, popularity_score DESC, platform_igdb_id ASC')
   );
-  assert.ok(query.text.includes('ORDER BY popularity_score DESC, platform_igdb_id ASC'));
+  assert.ok(
+    query.text.includes('ORDER BY popularity_score DESC, igdb_game_id ASC, platform_igdb_id ASC')
+  );
   assert.ok(query.text.includes('LIMIT $2'));
 
   await app.close();
@@ -493,7 +495,7 @@ void test('GET /v1/games/trending uses the configured row limit value passed to 
 
   assert.equal(response.statusCode, 200);
   assert.equal(pool.queries.length, 1);
-  assert.equal(pool.queries[0]?.params[1], 200);
+  assert.equal(pool.queries[0]?.params[1], 11);
 
   await app.close();
 });

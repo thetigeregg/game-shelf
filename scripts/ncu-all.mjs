@@ -55,14 +55,15 @@ function run(command, args, cwd) {
 
 for (const project of projects) {
   const projectDir = resolve(repoRoot, project.path);
+  const packageFile = resolve(projectDir, 'package.json');
 
   console.log(`\n==============================`);
   console.log(`📦 Updating ${project.name}`);
   console.log(`==============================`);
 
   try {
-    run(ncuCommand, ['-i'], projectDir);
-    run(npmCommand, ['install'], projectDir);
+    run(ncuCommand, ['-i', '--packageFile', packageFile], repoRoot);
+    run(npmCommand, ['--prefix', projectDir, 'install'], repoRoot);
   } catch (error) {
     const commandString =
       error &&

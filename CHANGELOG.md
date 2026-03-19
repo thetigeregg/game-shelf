@@ -2629,3 +2629,16 @@
 - 8e99dddd fix(recommendations): correct lane pagination and query typing
 - 4f8a8e3d refactor: explorePage to enhance popularity feed handling and recommendation lane management
 
+## v1.10.0 - 2026-03-19
+- f58bf817 Merge pull request #256 from thetigeregg/feat/cache
+- 01981bf7 fix(server): harden queued igdb cache revalidation keying and add worker-path tests
+- 50c3304a fix(server): cancel IGDB revalidation response body in queued worker path
+- 36d478a5 Merge branch 'main' into feat/cache
+- a5392d83 fix(server): queue IGDB stale revalidation and align miss metrics
+- f1ffa48d fix(igdb-cache): ensure response body is canceled after revalidation
+- d1c19fbc fix(server): handle IGDB response stream cleanup and revalidation scheduling failures
+- 588e18b1 test(server): use CacheMetricSnapshot in cache observability payload typing
+- a87ced9c feat(igdb-cache): enhance game ID normalization to ensure safe integer values
+- c8fd9026 feat(igdb-cache): add tests for cache behavior with invalid game IDs and error handling
+- 01f40ee0 feat(igdb-cache): implement IGDB caching mechanism with metrics tracking
+

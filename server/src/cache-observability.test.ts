@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import {
+  type CacheMetricSnapshot,
   incrementHltbMetric,
   incrementIgdbMetric,
   incrementImageMetric,
@@ -24,36 +25,7 @@ type CacheStatsPayload = {
     steamPriceEntries: number | null;
     pspricesPriceEntries: number | null;
   };
-  metrics: {
-    image: {
-      hits: number;
-      misses: number;
-    };
-    igdb: {
-      hits: number;
-      writes: number;
-    };
-    metacritic: {
-      hits: number;
-      writes: number;
-    };
-    hltb: {
-      hits: number;
-      writes: number;
-    };
-    mobygames: {
-      hits: number;
-      writes: number;
-    };
-    steamPrice: {
-      hits: number;
-      writes: number;
-    };
-    pspricesPrice: {
-      hits: number;
-      writes: number;
-    };
-  };
+  metrics: CacheMetricSnapshot;
   dbError: string | null;
 };
 

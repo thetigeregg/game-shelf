@@ -7,7 +7,7 @@ test('removeMergedWorktrees skips dirty worktrees without deleting the branch', 
   const logs = [];
   const gitCalls = [];
 
-  removeMergedWorktrees({
+  const summary = removeMergedWorktrees({
     mergedWorktrees: [{ branch: 'feat/dirty', path: '/tmp/worktree-dirty' }],
     currentWorktreePath: '/tmp/current',
     currentBranch: 'main',
@@ -22,13 +22,20 @@ test('removeMergedWorktrees skips dirty worktrees without deleting the branch', 
 
   assert.deepEqual(gitCalls, []);
   assert.deepEqual(logs, ['Skipping dirty worktree/branch: feat/dirty → /tmp/worktree-dirty']);
+  assert.deepEqual(summary, {
+    removed: [],
+    skippedCurrent: [],
+    skippedDirty: [{ branch: 'feat/dirty', path: '/tmp/worktree-dirty' }],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [],
+  });
 });
 
 test('removeMergedWorktrees does not delete a branch when worktree removal fails', () => {
   const logs = [];
   const gitCalls = [];
 
-  removeMergedWorktrees({
+  const summary = removeMergedWorktrees({
     mergedWorktrees: [{ branch: 'feat/remove-fails', path: '/tmp/worktree-fails' }],
     currentWorktreePath: '/tmp/current',
     currentBranch: 'main',
@@ -49,13 +56,20 @@ test('removeMergedWorktrees does not delete a branch when worktree removal fails
     'Removing worktree /tmp/worktree-fails',
     'Skipping worktree /tmp/worktree-fails',
   ]);
+  assert.deepEqual(summary, {
+    removed: [],
+    skippedCurrent: [],
+    skippedDirty: [],
+    skippedRemovalFailed: [{ branch: 'feat/remove-fails', path: '/tmp/worktree-fails' }],
+    skippedBranchDeleteFailed: [],
+  });
 });
 
 test('removeMergedWorktrees deletes the branch after successful worktree removal', () => {
   const logs = [];
   const gitCalls = [];
 
-  removeMergedWorktrees({
+  const summary = removeMergedWorktrees({
     mergedWorktrees: [{ branch: 'feat/clean', path: '/tmp/worktree-clean' }],
     currentWorktreePath: '/tmp/current',
     currentBranch: 'main',
@@ -73,4 +87,11 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
     ['branch', '-D', '--', 'feat/clean'],
   ]);
   assert.deepEqual(logs, ['Removing worktree /tmp/worktree-clean', 'Deleting branch feat/clean']);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/clean', path: '/tmp/worktree-clean' }],
+    skippedCurrent: [],
+    skippedDirty: [],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [],
+  });
 });

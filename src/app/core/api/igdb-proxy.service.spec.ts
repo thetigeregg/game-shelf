@@ -2974,7 +2974,9 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.getRecommendationLanes({
         target: 'BACKLOG',
+        lane: 'overall',
         runtimeMode: 'SHORT',
+        offset: 20,
         limit: 15,
       })
     );
@@ -2983,7 +2985,9 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
         request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'overall' &&
         request.params.get('runtimeMode') === 'SHORT' &&
+        request.params.get('offset') === '20' &&
         request.params.get('limit') === '15'
       );
     });
@@ -2993,9 +2997,79 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'SHORT',
       runId: 12,
       generatedAt: '2026-03-03T09:00:00.000Z',
+      lane: 'overall',
+      items: [],
+      page: { offset: 20, limit: 15, hasMore: true, nextOffset: 35 },
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'SHORT',
+      runId: 12,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lane: 'overall',
+      items: [],
+      page: { offset: 20, limit: 15, hasMore: true, nextOffset: 35 },
+    });
+  });
+
+  it('normalizes legacy recommendation lanes payloads during staggered rollout', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({
+        target: 'BACKLOG',
+        lane: 'popular',
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'popular' &&
+        request.params.get('offset') === '0' &&
+        request.params.get('limit') === '10'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 16,
+      generatedAt: '2026-03-03T09:00:00.000Z',
       lanes: {
         overall: [],
-        hiddenGems: [],
+        hiddenGems: [
+          {
+            rank: 1,
+            igdbGameId: '501',
+            platformIgdbId: 6,
+            scoreTotal: 0.82,
+            scoreComponents: {
+              taste: 0.4,
+              novelty: 0.2,
+              runtimeFit: 0.1,
+              criticBoost: 0.05,
+              recencyBoost: 0.03,
+              semantic: 0.02,
+              exploration: 0,
+              diversityPenalty: -0.01,
+              repeatPenalty: -0.02,
+            },
+            explanations: {
+              headline: 'Legacy hidden gem',
+              bullets: [],
+              matchedTokens: {
+                genres: [],
+                developers: [],
+                publishers: [],
+                franchises: [],
+                collections: [],
+                themes: [],
+                keywords: [],
+              },
+            },
+          },
+        ],
         exploration: [],
         blended: [],
         popular: [],
@@ -3005,17 +3079,43 @@ describe('IgdbProxyService', () => {
 
     await expect(promise).resolves.toEqual({
       target: 'BACKLOG',
-      runtimeMode: 'SHORT',
-      runId: 12,
+      runtimeMode: 'NEUTRAL',
+      runId: 16,
       generatedAt: '2026-03-03T09:00:00.000Z',
-      lanes: {
-        overall: [],
-        hiddenGems: [],
-        exploration: [],
-        blended: [],
-        popular: [],
-        recent: [],
-      },
+      lane: 'popular',
+      items: [
+        {
+          rank: 1,
+          igdbGameId: '501',
+          platformIgdbId: 6,
+          scoreTotal: 0.82,
+          scoreComponents: {
+            taste: 0.4,
+            novelty: 0.2,
+            runtimeFit: 0.1,
+            criticBoost: 0.05,
+            recencyBoost: 0.03,
+            semantic: 0.02,
+            exploration: 0,
+            diversityPenalty: -0.01,
+            repeatPenalty: -0.02,
+          },
+          explanations: {
+            headline: 'Legacy hidden gem',
+            bullets: [],
+            matchedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: [],
+            },
+          },
+        },
+      ],
+      page: { offset: 0, limit: 1, hasMore: false, nextOffset: null },
     });
   });
 
@@ -3050,6 +3150,39 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'LONG',
       runId: 13,
       generatedAt: '1970-01-01T00:00:00.000Z',
+      items: [],
+    });
+  });
+
+  it('loads recommendation top with the legacy default limit when omitted', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationsTop({
+        target: 'BACKLOG',
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('limit') === '20' &&
+        request.params.get('runtimeMode') === null
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 14,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      items: [],
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 14,
+      generatedAt: '2026-03-03T09:00:00.000Z',
       items: [],
     });
   });
@@ -3102,7 +3235,9 @@ describe('IgdbProxyService', () => {
       Date.now() + 1_000;
 
     const topPromise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
-    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
     const similarPromise = firstValueFrom(
       service.getRecommendationSimilar({
@@ -3124,11 +3259,14 @@ describe('IgdbProxyService', () => {
   });
 
   it('maps recommendation endpoint failures to recommendation API errors', async () => {
-    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const lanesReq = httpMock.expectOne(
       (request) =>
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
-        request.params.get('target') === 'BACKLOG'
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('lane') === 'overall'
     );
     lanesReq.flush(
       { error: 'No recommendations available.' },
@@ -3291,7 +3429,9 @@ describe('IgdbProxyService', () => {
   });
 
   it('maps recommendation queued lanes responses to not-found error', async () => {
-    const promise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({ target: 'BACKLOG', lane: 'overall' })
+    );
     const req = httpMock.expectOne((request) => {
       return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
     });

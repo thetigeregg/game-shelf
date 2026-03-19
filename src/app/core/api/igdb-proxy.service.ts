@@ -14,6 +14,7 @@ import {
   ReviewMatchCandidate,
   ReviewScoreResult,
   RecommendationItem,
+  RecommendationLaneKey,
   RecommendationLanesResponse,
   RecommendationRebuildResponse,
   RecommendationRuntimeMode,
@@ -126,7 +127,10 @@ interface RecommendationLanesApiResponse {
   runtimeMode?: unknown;
   runId?: unknown;
   generatedAt?: unknown;
+  lane?: unknown;
+  items?: unknown;
   lanes?: unknown;
+  page?: unknown;
   status?: unknown;
   reason?: unknown;
   error?: unknown;
@@ -821,7 +825,7 @@ export class IgdbProxyService implements GameSearchApi {
       return throwError(() => cooldownError);
     }
 
-    const query = this.buildRecommendationQueryParams(params);
+    const query = this.buildRecommendationTopQueryParams(params);
 
     return this.httpClient
       .get<RecommendationTopApiResponse>(this.recommendationsTopUrl, { params: query })
@@ -836,7 +840,9 @@ export class IgdbProxyService implements GameSearchApi {
 
   getRecommendationLanes(params: {
     target: RecommendationTarget;
+    lane: RecommendationLaneKey;
     runtimeMode?: RecommendationRuntimeMode;
+    offset?: number;
     limit?: number;
   }): Observable<RecommendationLanesResponse> {
     const cooldownError = this.createCooldownErrorIfActive();
@@ -852,13 +858,17 @@ export class IgdbProxyService implements GameSearchApi {
       .pipe(
         map((response) => {
           this.throwIfRecommendationQueued(response);
-          return this.normalizeRecommendationLanesResponse(response, params.target);
+          return this.normalizeRecommendationLanesResponse(response, params.target, params.lane);
         }),
         catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
   }
 
-  getPopularityFeed(feedType: PopularityFeedType): Observable<PopularityFeedItem[]> {
+  getPopularityFeed(params: {
+    feedType: PopularityFeedType;
+    offset?: number;
+    limit?: number;
+  }): Observable<PopularityFeedResponse> {
     const cooldownError = this.createCooldownErrorIfActive();
 
     if (cooldownError) {
@@ -866,13 +876,17 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     const url =
-      feedType === 'upcoming'
+      params.feedType === 'upcoming'
         ? this.gamesUpcomingUrl
-        : feedType === 'recent'
+        : params.feedType === 'recent'
           ? this.gamesRecentUrl
           : this.gamesTrendingUrl;
+    const query = this.buildPageQueryParams({
+      offset: params.offset,
+      limit: params.limit,
+    });
 
-    return this.httpClient.get<PopularityFeedResponse>(url).pipe(
+    return this.httpClient.get<PopularityFeedResponse>(url, { params: query }).pipe(
       map((response) => this.normalizePopularityFeedResponse(response)),
       catchError((error: unknown) => {
         const rateLimitError = this.toRateLimitError(error);
@@ -2359,19 +2373,25 @@ export class IgdbProxyService implements GameSearchApi {
     return null;
   }
 
-  private normalizePopularityFeedResponse(value: unknown): PopularityFeedItem[] {
+  private normalizePopularityFeedResponse(value: unknown): PopularityFeedResponse {
     if (typeof value !== 'object' || value === null) {
-      return [];
+      return {
+        items: [],
+        page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+      };
     }
 
     const record = value as Record<string, unknown>;
-    if (!Array.isArray(record['items'])) {
-      return [];
-    }
+    const items = Array.isArray(record['items'])
+      ? record['items']
+          .map((item) => this.normalizePopularityFeedItem(item))
+          .filter((item): item is PopularityFeedItem => item !== null)
+      : [];
 
-    return record['items']
-      .map((item) => this.normalizePopularityFeedItem(item))
-      .filter((item): item is PopularityFeedItem => item !== null);
+    return {
+      items,
+      page: this.normalizePageInfo(record['page']),
+    };
   }
 
   private normalizePopularityFeedItem(value: unknown): PopularityFeedItem | null {
@@ -2440,7 +2460,7 @@ export class IgdbProxyService implements GameSearchApi {
       .filter((entry): entry is { id: number; name: string } => entry !== null);
   }
 
-  private buildRecommendationQueryParams(params: {
+  private buildRecommendationTopQueryParams(params: {
     target: RecommendationTarget;
     runtimeMode?: RecommendationRuntimeMode;
     limit?: number;
@@ -2465,6 +2485,57 @@ export class IgdbProxyService implements GameSearchApi {
     return query;
   }
 
+  private buildRecommendationQueryParams(params: {
+    target: RecommendationTarget;
+    lane?: RecommendationLaneKey;
+    runtimeMode?: RecommendationRuntimeMode;
+    offset?: number;
+    limit?: number;
+  }): HttpParams {
+    const normalizedTarget = this.normalizeRecommendationTarget(params.target);
+    const normalizedRuntimeMode = this.normalizeRecommendationRuntimeMode(params.runtimeMode);
+    const normalizedLimit =
+      Number.isInteger(params.limit) && (params.limit as number) > 0
+        ? Math.min(params.limit as number, 50)
+        : 10;
+    const normalizedOffset =
+      Number.isInteger(params.offset) && (params.offset as number) >= 0
+        ? (params.offset as number)
+        : 0;
+    let query = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set(
+      'target',
+      normalizedTarget
+    );
+
+    query = query.set('limit', String(normalizedLimit));
+    query = query.set('offset', String(normalizedOffset));
+
+    if (normalizedRuntimeMode) {
+      query = query.set('runtimeMode', normalizedRuntimeMode);
+    }
+
+    if (params.lane) {
+      query = query.set('lane', params.lane);
+    }
+
+    return query;
+  }
+
+  private buildPageQueryParams(params: { offset?: number; limit?: number }): HttpParams {
+    const normalizedLimit =
+      Number.isInteger(params.limit) && (params.limit as number) > 0
+        ? Math.min(params.limit as number, 50)
+        : 10;
+    const normalizedOffset =
+      Number.isInteger(params.offset) && (params.offset as number) >= 0
+        ? (params.offset as number)
+        : 0;
+
+    return new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('limit', String(normalizedLimit))
+      .set('offset', String(normalizedOffset));
+  }
+
   private normalizeRecommendationTopResponse(
     value: RecommendationTopApiResponse,
     fallbackTarget: RecommendationTarget
@@ -2480,12 +2551,40 @@ export class IgdbProxyService implements GameSearchApi {
 
   private normalizeRecommendationLanesResponse(
     value: RecommendationLanesApiResponse,
-    fallbackTarget: RecommendationTarget
+    fallbackTarget: RecommendationTarget,
+    requestedLane: RecommendationLaneKey
   ): RecommendationLanesResponse {
+    const lane = this.normalizeRecommendationLaneKey(value.lane) ?? requestedLane;
+    const items =
+      value.items !== undefined
+        ? this.normalizeRecommendationItems(value.items)
+        : this.normalizeLegacyRecommendationLaneItems(value.lanes, lane);
+
+    return {
+      target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
+      runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
+      runId: this.normalizePositiveInteger(value.runId) ?? 0,
+      generatedAt: this.normalizeIsoDate(value.generatedAt),
+      lane,
+      items,
+      page:
+        value.page !== undefined
+          ? this.normalizePageInfo(value.page)
+          : {
+              offset: 0,
+              limit: items.length > 0 ? items.length : 10,
+              hasMore: false,
+              nextOffset: null,
+            },
+    };
+  }
+
+  private normalizeLegacyRecommendationLaneItems(
+    value: unknown,
+    lane: RecommendationLaneKey
+  ): RecommendationItem[] {
     const lanes =
-      typeof value.lanes === 'object' && value.lanes !== null
-        ? (value.lanes as Record<string, unknown>)
-        : {};
+      typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 
     const overall = this.normalizeRecommendationItems(lanes['overall']);
     const hiddenGems = this.normalizeRecommendationItems(lanes['hiddenGems']);
@@ -2494,20 +2593,20 @@ export class IgdbProxyService implements GameSearchApi {
     const popular = this.normalizeRecommendationItems(lanes['popular']);
     const recent = this.normalizeRecommendationItems(lanes['recent']);
 
-    return {
-      target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
-      runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
-      runId: this.normalizePositiveInteger(value.runId) ?? 0,
-      generatedAt: this.normalizeIsoDate(value.generatedAt),
-      lanes: {
-        overall,
-        hiddenGems,
-        exploration,
-        blended: blended.length > 0 ? blended : overall,
-        popular: popular.length > 0 ? popular : hiddenGems,
-        recent: recent.length > 0 ? recent : exploration,
-      },
-    };
+    switch (lane) {
+      case 'overall':
+        return overall;
+      case 'hiddenGems':
+        return hiddenGems;
+      case 'exploration':
+        return exploration;
+      case 'blended':
+        return blended.length > 0 ? blended : overall;
+      case 'popular':
+        return popular.length > 0 ? popular : hiddenGems;
+      case 'recent':
+        return recent.length > 0 ? recent : exploration;
+    }
   }
 
   private normalizeRecommendationRebuildResponse(
@@ -2784,6 +2883,45 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private normalizeNonNegativeInteger(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+      return value;
+    }
+
+    if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+      return Number.parseInt(value.trim(), 10);
+    }
+
+    return null;
+  }
+
+  private normalizePageInfo(value: unknown): {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  } {
+    const record =
+      typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    return {
+      offset: this.normalizeNonNegativeInteger(record['offset']) ?? 0,
+      limit: this.normalizePositiveInteger(record['limit']) ?? 10,
+      hasMore: record['hasMore'] === true,
+      nextOffset: this.normalizeNonNegativeInteger(record['nextOffset']),
+    };
+  }
+
+  private normalizeRecommendationLaneKey(value: unknown): RecommendationLaneKey | null {
+    return value === 'overall' ||
+      value === 'hiddenGems' ||
+      value === 'exploration' ||
+      value === 'blended' ||
+      value === 'popular' ||
+      value === 'recent'
+      ? value
+      : null;
   }
 
   private normalizeNumericId(value: unknown): string {

@@ -140,6 +140,13 @@ export interface RecommendationLaneCollection {
   recent: RankedRecommendationItem[];
 }
 
+export interface RecommendationPageInfo {
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
 export interface RecommendationRunSummary {
   id: number;
   target: RecommendationTarget;

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RecommendationServiceApi } from './service.js';
 import { parseRecommendationTarget, parseRuntimeModeOrNull } from './service.js';
+import type { RecommendationLaneKey } from './types.js';
 
 interface RebuildBody {
   target?: unknown;
@@ -21,7 +22,13 @@ export function registerRecommendationRoutes(
       },
     },
     handler: async (request, reply) => {
-      const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
+      const query = request.query as {
+        target?: unknown;
+        runtimeMode?: unknown;
+        lane?: unknown;
+        offset?: unknown;
+        limit?: unknown;
+      };
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {
@@ -106,9 +113,19 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      const lane = parseRecommendationLaneKey(query.lane);
+      if (!lane) {
+        reply.code(400).send({
+          error:
+            'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
+        });
+        return;
+      }
+
+      const offset = parseNonNegativeInteger(query.offset) ?? 0;
       const limit = parsePositiveInteger(query.limit) ?? 20;
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
-      const result = await service.getRecommendationLanes(target, limit, runtimeMode);
+      const result = await service.getRecommendationLanes(target, lane, offset, limit, runtimeMode);
 
       if (!result) {
         let responseJobId = queueState.jobId;
@@ -140,7 +157,9 @@ export function registerRecommendationRoutes(
         staleRefreshQueued: queueState.queued,
         staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
         staleRefreshJobId: queueState.jobId,
-        lanes: result.lanes,
+        lane: result.lane,
+        items: result.items,
+        page: result.page,
       });
     },
   });
@@ -261,4 +280,31 @@ function parsePositiveInteger(value: unknown): number | null {
   }
 
   return null;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!/^\d+$/.test(normalized)) {
+      return null;
+    }
+    return Number.parseInt(normalized, 10);
+  }
+
+  return null;
+}
+
+function parseRecommendationLaneKey(value: unknown): RecommendationLaneKey | null {
+  return value === 'overall' ||
+    value === 'hiddenGems' ||
+    value === 'exploration' ||
+    value === 'blended' ||
+    value === 'popular' ||
+    value === 'recent'
+    ? value
+    : null;
 }

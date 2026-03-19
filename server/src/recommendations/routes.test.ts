@@ -75,7 +75,7 @@ function createServiceMock(
           },
         ],
       }),
-    getRecommendationLanes: (_target, _limit, runtimeMode) =>
+    getRecommendationLanes: (_target, lane, _offset, _limit, runtimeMode) =>
       Promise.resolve({
         run: {
           id: 11,
@@ -88,14 +88,9 @@ function createServiceMock(
           error: null,
         },
         runtimeMode: runtimeMode ?? 'NEUTRAL',
-        lanes: {
-          overall: [],
-          hiddenGems: [],
-          exploration: [],
-          blended: [],
-          popular: [],
-          recent: [],
-        },
+        lane,
+        items: [],
+        page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
       }),
     rebuild: () =>
       Promise.resolve({ target: 'BACKLOG' as const, runId: 12, status: 'SUCCESS' as const }),
@@ -174,34 +169,26 @@ void test('GET /v1/recommendations/top accepts DISCOVERY target', async () => {
   await app.close();
 });
 
-void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fallback', async () => {
+void test('GET /v1/recommendations/lanes returns a paged lane and resolves runtime fallback', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(app, createServiceMock());
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&limit=10',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&limit=10',
   });
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     runtimeMode: RecommendationRuntimeMode;
-    lanes: {
-      overall: unknown[];
-      hiddenGems: unknown[];
-      exploration: unknown[];
-      blended: unknown[];
-      popular: unknown[];
-      recent: unknown[];
-    };
+    lane: string;
+    items: unknown[];
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
   };
   assert.equal(body.runtimeMode, 'NEUTRAL');
-  assert.ok(Array.isArray(body.lanes.overall));
-  assert.ok(Array.isArray(body.lanes.hiddenGems));
-  assert.ok(Array.isArray(body.lanes.exploration));
-  assert.ok(Array.isArray(body.lanes.blended));
-  assert.ok(Array.isArray(body.lanes.popular));
-  assert.ok(Array.isArray(body.lanes.recent));
+  assert.equal(body.lane, 'overall');
+  assert.ok(Array.isArray(body.items));
+  assert.deepEqual(body.page, { offset: 0, limit: 10, hasMore: false, nextOffset: null });
 
   await app.close();
 });
@@ -247,13 +234,13 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
 
   const invalidLanesRuntime = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&runtimeMode=FAST',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall&runtimeMode=FAST',
   });
   assert.equal(invalidLanesRuntime.statusCode, 400);
 
   const notFoundLanes = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall',
   });
   assert.equal(notFoundLanes.statusCode, 202);
   const notFoundLanesBody = JSON.parse(notFoundLanes.body) as { status?: string; jobId?: number };

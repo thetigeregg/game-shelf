@@ -89,6 +89,8 @@ export interface AppConfig {
   requestBodyLimitBytes: number;
   globalRateLimitMaxRequests: number;
   globalRateLimitWindowMs: number;
+  gameByIdRateLimitMaxRequests: number;
+  gameByIdRateLimitWindowMs: number;
   corsAllowedOrigins: string[];
   postgresUrl: string;
   apiToken: string;
@@ -300,6 +302,8 @@ export const config: AppConfig = {
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
   globalRateLimitMaxRequests: readIntegerEnv('GLOBAL_RATE_LIMIT_MAX_REQUESTS', 2000),
   globalRateLimitWindowMs: readIntegerEnv('GLOBAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  gameByIdRateLimitMaxRequests: readIntegerEnv('GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS', 50),
+  gameByIdRateLimitWindowMs: readIntegerEnv('GAME_BY_ID_RATE_LIMIT_WINDOW_MS', 60_000),
   corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
     'http://localhost:8080',
     'http://127.0.0.1:8080',

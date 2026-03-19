@@ -244,7 +244,7 @@ async function main(): Promise<void> {
       config: {
         rateLimit: {
           max: config.gameByIdRateLimitMaxRequests,
-          timeWindow: `${String(Math.max(1, Math.floor(config.gameByIdRateLimitWindowMs / 1000)))} seconds`,
+          timeWindow: config.gameByIdRateLimitWindowMs,
         },
       },
       handler: proxyMetadataToWorker,

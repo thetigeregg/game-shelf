@@ -95,7 +95,13 @@ export function registerRecommendationRoutes(
       },
     },
     handler: async (request, reply) => {
-      const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
+      const query = request.query as {
+        target?: unknown;
+        runtimeMode?: unknown;
+        lane?: unknown;
+        offset?: unknown;
+        limit?: unknown;
+      };
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {

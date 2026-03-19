@@ -658,17 +658,34 @@ function collectCITasks(prData, checkAnalysis) {
 
 function downloadCoverageArtifact(runId) {
   const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
+  console.log(`Downloading coverage artifact to ${runArtifactDir}...`);
 
-  const result = runGh(
+  const result = spawnSync(
+    'gh',
     ['run', 'download', String(runId), '-n', COVERAGE_ARTIFACT_NAME, '-D', runArtifactDir],
-    { allowFailure: true }
+    {
+      stdio: 'inherit',
+    }
   );
 
-  if (!result) {
+  if (result.status !== 0) {
+    console.warn('Artifact download failed');
     fs.rmSync(runArtifactDir, { recursive: true, force: true });
     return null;
   }
 
+  // 🔍 Debug what was extracted
+  const contents = fs.readdirSync(runArtifactDir);
+  console.log('Artifact dir contents after download:', contents);
+
+  // ✅ Handle nested extraction
+  const extractedDir = path.join(runArtifactDir, COVERAGE_ARTIFACT_NAME);
+
+  if (fs.existsSync(extractedDir)) {
+    return extractedDir;
+  }
+
+  // fallback (in case gh changes behavior)
   return runArtifactDir;
 }
 

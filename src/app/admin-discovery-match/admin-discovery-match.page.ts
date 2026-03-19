@@ -177,14 +177,26 @@ export class AdminDiscoveryMatchPage implements OnInit {
     queryPlatform: '',
   };
 
-  pricingForm = {
+  pricingForm: {
+    priceSource: PricingSource;
+    priceFetchedAt: string;
+    priceAmount: string;
+    priceCurrency: string;
+    priceRegularAmount: string;
+    priceDiscountPercent: string;
+    priceIsFree: boolean | null;
+    priceUrl: string;
+    psPricesUrl: string;
+    psPricesTitle: string;
+    psPricesPlatform: string;
+  } = {
     priceSource: 'psprices' as PricingSource,
     priceFetchedAt: '',
     priceAmount: '',
     priceCurrency: '',
     priceRegularAmount: '',
     priceDiscountPercent: '',
-    priceIsFree: false,
+    priceIsFree: null,
     priceUrl: '',
     psPricesUrl: '',
     psPricesTitle: '',
@@ -552,7 +564,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
       priceCurrency: candidate.currency ?? '',
       priceRegularAmount: formatAdminNumber(candidate.regularAmount),
       priceDiscountPercent: formatAdminNumber(candidate.discountPercent),
-      priceIsFree: candidate.isFree === true,
+      priceIsFree: candidate.isFree,
       priceUrl: candidate.url ?? '',
       psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
       psPricesTitle: isPsPricesSource ? candidate.title : '',

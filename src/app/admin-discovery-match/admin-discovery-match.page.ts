@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   IonBackButton,
@@ -92,7 +92,7 @@ type PricingSource = 'steam_store' | 'psprices';
     IonToolbar,
   ],
 })
-export class AdminDiscoveryMatchPage {
+export class AdminDiscoveryMatchPage implements OnInit {
   readonly providerOptions: Array<{ value: AdminDiscoveryMatchProvider; label: string }> = [
     { value: 'hltb', label: 'HLTB' },
     { value: 'review', label: 'Review' },
@@ -196,11 +196,9 @@ export class AdminDiscoveryMatchPage {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly toastController = inject(ToastController);
 
-  constructor() {
-    if (this.clientWriteAuth.hasToken()) {
-      queueMicrotask(() => {
-        void this.loadItems();
-      });
+  ngOnInit(): void {
+    if (this.hasAccessToken) {
+      void this.loadItems();
     }
   }
 

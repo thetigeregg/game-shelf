@@ -260,6 +260,29 @@ function createPageHarness(): {
 }
 
 describe('AdminDiscoveryMatchPage', () => {
+  it('loads unmatched items on init when a device write token exists', () => {
+    const { page } = createPageHarness();
+    const loadItemsSpy = vi.spyOn(page, 'loadItems').mockResolvedValue(undefined);
+
+    page.ngOnInit();
+
+    expect(loadItemsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips initial load on init when no device write token exists', () => {
+    const { page } = createPageHarness();
+    const loadItemsSpy = vi.spyOn(page, 'loadItems').mockResolvedValue(undefined);
+
+    setField(page, 'clientWriteAuth', {
+      getToken: vi.fn(() => null),
+      hasToken: vi.fn(() => false),
+    });
+
+    page.ngOnInit();
+
+    expect(loadItemsSpy).not.toHaveBeenCalled();
+  });
+
   it('searches and deduplicates HLTB candidates for the active provider', async () => {
     const { page, gameShelfService } = createPageHarness();
     const duplicateCandidate: HltbMatchCandidate = {

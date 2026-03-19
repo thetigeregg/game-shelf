@@ -4,7 +4,7 @@ import { RecommendationService } from './service.js';
 import type {
   NormalizedGameRecord,
   RankedRecommendationItem,
-  RecommendationLaneCollection,
+  RecommendationLaneKey,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
 } from './types.js';
@@ -130,17 +130,13 @@ function sampleItem(): RankedRecommendationItem {
 
 void test('service resolves runtime mode and read APIs with safe limits', async () => {
   const readTopCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
-  const readLaneCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
+  const readLaneCalls: Array<{
+    lane: RecommendationLaneKey;
+    offset: number;
+    limit: number;
+    runtimeMode: RecommendationRuntimeMode;
+  }> = [];
   const readSimilarCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
-
-  const lanes: RecommendationLaneCollection = {
-    overall: [sampleItem()],
-    hiddenGems: [],
-    exploration: [],
-    blended: [],
-    popular: [],
-    recent: [],
-  };
 
   const repository = {
     getRuntimeModeDefault: () => Promise.resolve('SHORT' as const),
@@ -149,11 +145,23 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
       return Promise.resolve({ run: sampleRun(), items: [sampleItem()] });
     },
     readRecommendationLanes: (params: {
+      lane: RecommendationLaneKey;
+      offset: number;
       limit: number;
       runtimeMode: RecommendationRuntimeMode;
     }) => {
-      readLaneCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
-      return Promise.resolve({ run: sampleRun(), lanes });
+      readLaneCalls.push({
+        lane: params.lane,
+        offset: params.offset,
+        limit: params.limit,
+        runtimeMode: params.runtimeMode,
+      });
+      return Promise.resolve({
+        run: sampleRun(),
+        lane: params.lane,
+        items: [sampleItem()],
+        page: { offset: params.offset, limit: params.limit, hasMore: false, nextOffset: null },
+      });
     },
     readSimilarGames: (params: { limit: number; runtimeMode: RecommendationRuntimeMode }) => {
       readSimilarCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
@@ -231,7 +239,7 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
   const top = await service.getTopRecommendations('BACKLOG', 999, undefined);
   assert.ok(top);
   assert.equal(top.runtimeMode, 'SHORT');
-  const lanesResponse = await service.getRecommendationLanes('BACKLOG', 0, null);
+  const lanesResponse = await service.getRecommendationLanes('BACKLOG', 'overall', 0, 0, null);
   assert.ok(lanesResponse);
   const similar = await service.getSimilarGames({
     target: 'BACKLOG',
@@ -247,7 +255,9 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     ['200', '201']
   );
   assert.deepEqual(readTopCalls, [{ limit: 200, runtimeMode: 'SHORT' }]);
-  assert.deepEqual(readLaneCalls, [{ limit: 20, runtimeMode: 'SHORT' }]);
+  assert.deepEqual(readLaneCalls, [
+    { lane: 'overall', offset: 0, limit: 10, runtimeMode: 'SHORT' },
+  ]);
   assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);
 });
 
@@ -431,7 +441,7 @@ void test('service handles null top/lanes reads and stale-triggered rebuild path
   });
 
   assert.equal(await service.getTopRecommendations('BACKLOG', 10, undefined), null);
-  assert.equal(await service.getRecommendationLanes('BACKLOG', 10, undefined), null);
+  assert.equal(await service.getRecommendationLanes('BACKLOG', 'overall', 0, 10, undefined), null);
   const staleResult = await service.rebuildIfStale('BACKLOG', 'scheduler');
   assert.deepEqual(staleResult, {
     target: 'BACKLOG',

@@ -26,6 +26,7 @@ import {
   RecommendationHistoryEntry,
   RecommendationLaneCollection,
   RecommendationLaneKey,
+  RecommendationPageInfo,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
   RecommendationScoreComponents,
@@ -709,11 +710,15 @@ export class RecommendationRepository {
 
   async readRecommendationLanes(params: {
     target: RecommendationTarget;
+    lane: RecommendationLaneKey;
     runtimeMode: RecommendationRuntimeMode;
+    offset: number;
     limit: number;
   }): Promise<{
     run: RecommendationRunSummary;
-    lanes: RecommendationLaneCollection;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
   } | null> {
     const run = await this.getLatestSuccessfulRun(params.target);
 
@@ -733,34 +738,36 @@ export class RecommendationRepository {
        AND games.platform_igdb_id = recommendation_lanes.platform_igdb_id
       WHERE recommendation_lanes.run_id = $1
         AND recommendation_lanes.runtime_mode = $2
-        AND COALESCE(games.payload->>'listType', '') = $3
-        AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
-      ORDER BY recommendation_lanes.lane ASC, recommendation_lanes.rank ASC
+        AND recommendation_lanes.lane = $3
+        AND recommendation_lanes.rank > $4
+        AND COALESCE(games.payload->>'listType', '') = $5
+        AND COALESCE(games.payload->>'status', '') = ANY($6::text[])
+      ORDER BY recommendation_lanes.rank ASC
+      LIMIT $7
       `,
-      [run.id, params.runtimeMode, statusFilter.listType, statusFilter.allowedStatuses]
+      [
+        run.id,
+        params.runtimeMode,
+        params.lane,
+        params.offset,
+        statusFilter.listType,
+        statusFilter.allowedStatuses,
+        params.limit + 1,
+      ]
     );
-
-    const lanes: RecommendationLaneCollection = {
-      overall: [],
-      hiddenGems: [],
-      exploration: [],
-      blended: [],
-      popular: [],
-      recent: [],
-    };
-
-    for (const row of rows.rows) {
-      const lane = row.lane;
-      if (lanes[lane].length >= params.limit) {
-        continue;
-      }
-
-      lanes[lane].push(mapRecommendationRow(row));
-    }
+    const hasMore = rows.rows.length > params.limit;
+    const items = rows.rows.slice(0, params.limit).map(mapRecommendationRow);
 
     return {
       run,
-      lanes,
+      lane: params.lane,
+      items,
+      page: {
+        offset: params.offset,
+        limit: params.limit,
+        hasMore,
+        nextOffset: hasMore ? params.offset + params.limit : null,
+      },
     };
   }
 

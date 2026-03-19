@@ -30,6 +30,8 @@ import {
   RebuildResult,
   RecommendationRebuildQueueReason,
   RecommendationLaneCollection,
+  RecommendationLaneKey,
+  RecommendationPageInfo,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
   RecommendationTarget,
@@ -129,12 +131,16 @@ export interface RecommendationServiceApi {
   } | null>;
   getRecommendationLanes(
     target: RecommendationTarget,
+    lane: RecommendationLaneKey,
+    offset: number,
     limit: number,
     runtimeMode?: RecommendationRuntimeMode | null
   ): Promise<{
     run: RecommendationRunSummary;
     runtimeMode: RecommendationRuntimeMode;
-    lanes: RecommendationLaneCollection;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
   } | null>;
   getSimilarGames(params: {
     igdbGameId: string;
@@ -430,18 +436,25 @@ export class RecommendationService implements RecommendationServiceApi {
 
   async getRecommendationLanes(
     target: RecommendationTarget,
+    lane: RecommendationLaneKey,
+    offset: number,
     limit: number,
     runtimeMode?: RecommendationRuntimeMode | null
   ): Promise<{
     run: RecommendationRunSummary;
     runtimeMode: RecommendationRuntimeMode;
-    lanes: RecommendationLaneCollection;
+    lane: RecommendationLaneKey;
+    items: RankedRecommendationItem[];
+    page: RecommendationPageInfo;
   } | null> {
     const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
-    const safeLimit = normalizeLimit(limit, this.options.laneLimit);
+    const safeLimit = normalizePageLimit(limit, this.options.laneLimit);
+    const safeOffset = normalizeOffset(offset);
     const result = await this.repository.readRecommendationLanes({
       target,
+      lane,
       runtimeMode: resolvedRuntimeMode,
+      offset: safeOffset,
       limit: safeLimit,
     });
 
@@ -1201,6 +1214,22 @@ function normalizeLimit(value: number, max: number): number {
   }
 
   return Math.min(value, max);
+}
+
+function normalizePageLimit(value: number, max: number): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    return Math.min(10, max, 50);
+  }
+
+  return Math.min(value, max, 50);
+}
+
+function normalizeOffset(value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    return 0;
+  }
+
+  return value;
 }
 
 function sha256(value: unknown): string {

@@ -142,7 +142,6 @@ export interface PopularityIngestServiceOptions {
 
 export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
-  private igdbRateLimitedUntilMs = 0;
   private readonly limiter: ProviderLimiter;
   private readonly repository: PopularityRepository;
 
@@ -777,7 +776,6 @@ export class PopularityIngestService {
         ...resolveOutboundRateLimit('igdb_popularity'),
       }) ?? Math.ceil(normalizedRetryAfterMs / 1000);
     this.limiter.applyCooldown(retryAfterSeconds, 'upstream_429');
-    this.igdbRateLimitedUntilMs = Date.now() + this.limiter.getCooldownRemainingSeconds() * 1000;
     return new IgdbRateLimitError(operation, normalizedRetryAfterMs);
   }
 
@@ -786,7 +784,6 @@ export class PopularityIngestService {
       await this.limiter.acquire();
     } catch (error) {
       if (error instanceof ProviderThrottleError) {
-        this.igdbRateLimitedUntilMs = Date.now() + error.retryAfterSeconds * 1000;
         throw new IgdbRateLimitError(operation, error.retryAfterSeconds * 1000);
       }
       throw error;

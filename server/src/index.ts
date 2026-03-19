@@ -157,6 +157,11 @@ async function main(): Promise<void> {
       global: true,
       max: config.globalRateLimitMaxRequests,
       timeWindow: formatTimeWindow(config.globalRateLimitWindowMs),
+      addHeaders: {
+        'x-ratelimit-limit': true,
+        'x-ratelimit-remaining': true,
+        'x-ratelimit-reset': true,
+      },
     });
 
     await app.register(cors, {

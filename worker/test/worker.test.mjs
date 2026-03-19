@@ -469,33 +469,36 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
     igdbHeaders: { 'Retry-After': '15' },
   });
 
+  const originalDateNow = Date.now;
   let nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
-  const now = () => nowMs;
+  Date.now = () => nowMs;
 
-  const first = await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=halo'),
-    env,
-    stub,
-    now
-  );
+  try {
+    const first = await handleRequest(
+      new Request('https://worker.example/v1/games/search?q=halo'),
+      env,
+      stub
+    );
 
-  assert.equal(first.status, 429);
-  assert.equal(first.headers.get('Retry-After'), '20');
-  const firstPayload = await first.json();
-  assert.equal(firstPayload.error, 'Rate limit exceeded. Retry after 20s.');
+    assert.equal(first.status, 429);
+    assert.equal(first.headers.get('Retry-After'), '20');
+    const firstPayload = await first.json();
+    assert.equal(firstPayload.error, 'Rate limit exceeded. Retry after 20s.');
 
-  nowMs += 1_000;
+    nowMs += 1_000;
 
-  const second = await handleRequest(
-    new Request('https://worker.example/v1/games/123'),
-    env,
-    stub,
-    now
-  );
+    const second = await handleRequest(
+      new Request('https://worker.example/v1/games/123'),
+      env,
+      stub
+    );
 
-  assert.equal(second.status, 429);
-  assert.equal(second.headers.get('Retry-After'), '19');
-  assert.equal(calls.igdb, 1);
+    assert.equal(second.status, 429);
+    assert.equal(second.headers.get('Retry-After'), '19');
+    assert.equal(calls.igdb, 1);
+  } finally {
+    Date.now = originalDateNow;
+  }
 });
 
 test('returns normalized game metadata for IGDB id endpoint', async () => {

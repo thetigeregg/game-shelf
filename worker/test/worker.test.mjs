@@ -1148,8 +1148,18 @@ test('testable helpers cover IGDB remaster/remake ranking and original reference
 });
 
 test('testable helpers cover timeouts, escaping, and box art candidate ranking utilities', () => {
-  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '500' }), 15000);
-  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '150000' }), 120000);
+  assert.equal(
+    __testables.getIgdbRequestTimeoutMs({
+      RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: '500',
+    }),
+    15000
+  );
+  assert.equal(
+    __testables.getIgdbRequestTimeoutMs({
+      RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: '150000',
+    }),
+    120000
+  );
   assert.equal(
     __testables.getTheGamesDbRequestTimeoutMs({ THEGAMESDB_REQUEST_TIMEOUT_MS: '2000' }),
     2000

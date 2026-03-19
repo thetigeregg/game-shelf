@@ -549,6 +549,78 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getActiveLaneItems()).toHaveLength(25);
   });
 
+  it('does not merge a stale recommendation page after the selected tuple changes', async () => {
+    const page = createPage();
+    const privatePage = page as unknown as {
+      buildCacheKey: (target: string, runtimeMode: string, lane: string) => string;
+      lanesCache: Map<string, MockLanesResponse>;
+    };
+
+    let resolveNextPage: ((value: MockLanesResponse) => void) | null = null;
+    const nextPagePromise = new Promise<MockLanesResponse>((resolve) => {
+      resolveNextPage = resolve;
+    });
+
+    igdbProxyServiceMock.getRecommendationLanes
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            items: Array.from({ length: 10 }, (_, index) => ({
+              ...mockLaneItem,
+              rank: index + 1,
+              igdbGameId: String(2000 + index),
+            })),
+            page: { offset: 0, limit: 10, hasMore: true, nextOffset: 10 },
+          })
+        )
+      )
+      .mockReturnValueOnce(
+        new Observable((subscriber) => {
+          void nextPagePromise.then((value) => {
+            subscriber.next(value);
+            subscriber.complete();
+          });
+        })
+      )
+      .mockReturnValueOnce(
+        of(
+          createLaneResponse({
+            runtimeMode: 'SHORT',
+            items: [{ ...mockLaneItem, igdbGameId: 'short-1' }],
+            page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+          })
+        )
+      );
+
+    page.ngOnInit();
+    await flushAsync();
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    const loadMorePromise = page.loadMoreRecommendations({
+      target: { complete },
+    } as unknown as Event);
+    await flushAsync();
+
+    await page.onRuntimeModeChange('SHORT');
+    await flushAsync();
+
+    resolveNextPage?.(
+      createLaneResponse({
+        items: [{ ...mockLaneItem, rank: 11, igdbGameId: 'stale-page' }],
+        page: { offset: 10, limit: 10, hasMore: false, nextOffset: null },
+      })
+    );
+    await loadMorePromise;
+
+    expect(page.selectedRuntimeMode).toBe('SHORT');
+    expect(page.activeLanesResponse?.runtimeMode).toBe('SHORT');
+    expect(page.getActiveLaneItems().map((item) => item.igdbGameId)).toEqual(['short-1']);
+    expect(
+      privatePage.lanesCache.get(privatePage.buildCacheKey('BACKLOG', 'NEUTRAL', 'overall'))?.items
+        .length
+    ).toBe(10);
+  });
+
   it('does not block recommendation load-more while metadata hydration runs', async () => {
     const page = createPage() as unknown as {
       ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
@@ -581,6 +653,61 @@ describe('ExplorePage explore modes UX', () => {
 
     resolveMetadata();
     await metadataPromise;
+  });
+
+  it('does not merge a stale popularity page after the selected feed changes', async () => {
+    const page = createPage();
+
+    let resolveNextPage: ((value: typeof mockPopularityFeedResponse) => void) | null = null;
+    const nextPagePromise = new Promise<typeof mockPopularityFeedResponse>((resolve) => {
+      resolveNextPage = resolve;
+    });
+
+    igdbProxyServiceMock.getPopularityFeed
+      .mockReturnValueOnce(
+        of({
+          items: Array.from({ length: 10 }, (_, index) => ({
+            ...mockPopularityFeedItem,
+            id: `trend-${String(index)}`,
+          })),
+          page: { offset: 0, limit: 10, hasMore: true, nextOffset: 10 },
+        })
+      )
+      .mockReturnValueOnce(
+        new Observable((subscriber) => {
+          void nextPagePromise.then((value) => {
+            subscriber.next(value);
+            subscriber.complete();
+          });
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          items: [{ ...mockPopularityFeedItem, id: 'upcoming-1', name: 'Upcoming Game' }],
+          page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+        })
+      );
+
+    await page.onExploreModeChange('popularity');
+    await flushAsync();
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    const loadMorePromise = page.loadMorePopularity({
+      target: { complete },
+    } as unknown as Event);
+    await flushAsync();
+
+    await page.onPopularityFeedChange('upcoming');
+    await flushAsync();
+
+    resolveNextPage?.({
+      items: [{ ...mockPopularityFeedItem, id: 'stale-popularity', name: 'Stale Trend' }],
+      page: { offset: 10, limit: 10, hasMore: false, nextOffset: null },
+    });
+    await loadMorePromise;
+
+    expect(page.selectedPopularityFeed).toBe('upcoming');
+    expect(page.getActivePopularityItems().map((item) => item.id)).toEqual(['upcoming-1']);
   });
 
   it('paginates similar recommendations in pages of 5', async () => {

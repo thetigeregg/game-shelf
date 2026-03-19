@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { removeMergedWorktrees } from './dev-cleanup.mjs';
+import { formatCleanupSummaryLine, removeMergedWorktrees } from './dev-cleanup.mjs';
+
+test('formatCleanupSummaryLine omits branch list when the category is empty', () => {
+  assert.equal(formatCleanupSummaryLine('Skipped dirty', []), 'Skipped dirty: 0');
+});
+
+test('formatCleanupSummaryLine includes branch names when entries exist', () => {
+  assert.equal(
+    formatCleanupSummaryLine('Skipped dirty', [
+      { branch: 'feat/dirty-one', path: '/tmp/dirty-one' },
+      { branch: 'feat/dirty-two', path: '/tmp/dirty-two' },
+    ]),
+    'Skipped dirty: 2 (feat/dirty-one, feat/dirty-two)'
+  );
+});
 
 test('removeMergedWorktrees skips dirty worktrees without deleting the branch', () => {
   const logs = [];

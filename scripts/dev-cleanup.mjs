@@ -102,6 +102,15 @@ function parseWorktrees(worktreesOutput) {
     .filter((w) => w.path && w.branch);
 }
 
+export function formatCleanupSummaryLine(label, worktrees) {
+  if (worktrees.length === 0) {
+    return `${label}: 0`;
+  }
+
+  const branches = worktrees.map((worktree) => worktree.branch).join(', ');
+  return `${label}: ${worktrees.length} (${branches})`;
+}
+
 export function removeMergedWorktrees({
   mergedWorktrees,
   currentWorktreePath,
@@ -273,11 +282,18 @@ AUTO MODE
       removalSummary.skippedBranchDeleteFailed.length;
 
     console.log('\n→ Cleanup summary\n');
-    console.log(`Removed: ${totalRemoved}`);
-    console.log(`Skipped current: ${removalSummary.skippedCurrent.length}`);
-    console.log(`Skipped dirty: ${removalSummary.skippedDirty.length}`);
-    console.log(`Skipped remove failed: ${removalSummary.skippedRemovalFailed.length}`);
-    console.log(`Skipped branch delete failed: ${removalSummary.skippedBranchDeleteFailed.length}`);
+    console.log(formatCleanupSummaryLine('Removed', removalSummary.removed));
+    console.log(formatCleanupSummaryLine('Skipped current', removalSummary.skippedCurrent));
+    console.log(formatCleanupSummaryLine('Skipped dirty', removalSummary.skippedDirty));
+    console.log(
+      formatCleanupSummaryLine('Skipped remove failed', removalSummary.skippedRemovalFailed)
+    );
+    console.log(
+      formatCleanupSummaryLine(
+        'Skipped branch delete failed',
+        removalSummary.skippedBranchDeleteFailed
+      )
+    );
     console.log(`Total skipped: ${totalSkipped}`);
   }
 

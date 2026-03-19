@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const AUTO = process.argv.includes('--auto');
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
@@ -74,138 +75,185 @@ function runGit(args, options = {}) {
   }
 }
 
-console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('Repository cleanup');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-const status = runGit(['status', '--porcelain']).trim();
-if (status) {
-  console.error(
-    'Working tree is dirty. Please commit, stash, or discard your changes before running dev-cleanup.'
-  );
-  process.exit(1);
+function isWorktreeClean(worktreePath) {
+  try {
+    const status = runGit(['-C', worktreePath, 'status', '--porcelain'], {
+      exitOnError: false,
+    }).trim();
+    return status.length === 0;
+  } catch {
+    return false;
+  }
 }
 
-const CURRENT_BRANCH = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+function parseWorktrees(worktreesOutput) {
+  return worktreesOutput
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((entry) => {
+      const pathMatch = entry.match(/^worktree\s+(.+)$/m);
+      const branchMatch = entry.match(/^branch\s+refs\/heads\/(.+)$/m);
 
-console.log('→ Fetching latest refs from origin');
-runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
-
-console.log('\n→ Pruning stale worktrees');
-runGit(['worktree', 'prune'], { stdio: 'inherit' });
-
-console.log('\n→ Active worktrees');
-runGit(['worktree', 'list'], { stdio: 'inherit' });
-
-const branchInfo = runGit(['branch', '-vv', '--no-color']);
-
-/*
-Branches whose remote is gone
-*/
-
-console.log('\n→ Local branches with missing remote\n');
-
-const goneBranches = branchInfo
-  .split('\n')
-  .filter((line) => line.includes(': gone]'))
-  .map(
-    (line) =>
-      line
-        .replace(/^[*+]\s*/, '')
-        .trim()
-        .split(/\s+/)[0]
-  )
-  .filter(Boolean);
-
-if (goneBranches.length === 0) {
-  console.log('None');
-} else {
-  goneBranches.forEach((b) => console.log(b));
+      return {
+        path: pathMatch?.[1]?.trim(),
+        branch: branchMatch?.[1]?.trim(),
+      };
+    })
+    .filter((w) => w.path && w.branch);
 }
 
-/*
-Branches merged into origin/main
-*/
-
-console.log('\n→ Branches already merged into origin/main\n');
-
-const mergedBranches = runGit(['branch', '--merged', 'origin/main', '--no-color'])
-  .split('\n')
-  .map((b) => b.replace(/^[*+]\s*/, '').trim())
-  .filter((b) => b && b !== 'main' && !b.startsWith('('));
-
-if (mergedBranches.length === 0) {
-  console.log('None');
-} else {
-  mergedBranches.forEach((b) => console.log(b));
-}
-
-/*
-Find worktrees
-*/
-
-const worktreesOutput = runGit(['worktree', 'list', '--porcelain']);
-
-const worktrees = worktreesOutput
-  .replace(/\r\n/g, '\n')
-  .split(/\n{2,}/)
-  .map((entry) => {
-    const pathMatch = entry.match(/^worktree\s+(.+)$/m);
-    const branchMatch = entry.match(/^branch\s+refs\/heads\/(.+)$/m);
-
-    return {
-      path: pathMatch?.[1]?.trim(),
-      branch: branchMatch?.[1]?.trim(),
-    };
-  })
-  .filter((w) => w.path && w.branch);
-
-/*
-Worktrees whose branch is merged
-*/
-
-console.log('\n→ Worktrees whose branch is merged\n');
-
-const mergedWorktrees = worktrees.filter((w) => mergedBranches.includes(w.branch));
-
-if (mergedWorktrees.length === 0) {
-  console.log('None');
-} else {
+export function removeMergedWorktrees({
+  mergedWorktrees,
+  currentWorktreePath,
+  currentBranch,
+  normalizePath = normalizePathForCompare,
+  checkWorktreeClean = isWorktreeClean,
+  gitRunner = runGit,
+  log = console.log,
+}) {
   mergedWorktrees.forEach((w) => {
-    console.log(`${w.branch} → ${w.path}`);
-  });
-}
-
-/*
-AUTO MODE
-*/
-
-if (AUTO && mergedWorktrees.length > 0) {
-  console.log('\n→ Removing merged worktrees and branches\n');
-
-  mergedWorktrees.forEach((w) => {
-    const isCurrentWorktree = normalizePathForCompare(w.path) === CURRENT_WORKTREE_PATH;
-    const isCurrentBranch = w.branch === CURRENT_BRANCH;
+    const isCurrentWorktree = normalizePath(w.path) === currentWorktreePath;
+    const isCurrentBranch = w.branch === currentBranch;
 
     if (isCurrentWorktree || isCurrentBranch) {
-      console.log(`Skipping current worktree/branch: ${w.branch} → ${w.path}`);
+      log(`Skipping current worktree/branch: ${w.branch} → ${w.path}`);
+      return;
+    }
+
+    if (!checkWorktreeClean(w.path)) {
+      log(`Skipping dirty worktree/branch: ${w.branch} → ${w.path}`);
+      return;
+    }
+
+    let removedWorktree = false;
+
+    try {
+      log(`Removing worktree ${w.path}`);
+      gitRunner(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });
+      removedWorktree = true;
+    } catch {
+      log(`Skipping worktree ${w.path}`);
+    }
+
+    if (!removedWorktree) {
       return;
     }
 
     try {
-      console.log(`Removing worktree ${w.path}`);
-      runGit(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });
+      log(`Deleting branch ${w.branch}`);
+      gitRunner(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
     } catch {
-      console.log(`Skipping worktree ${w.path}`);
-    }
-
-    try {
-      console.log(`Deleting branch ${w.branch}`);
-      runGit(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
-    } catch {
-      console.log(`Skipping branch ${w.branch}`);
+      log(`Skipping branch ${w.branch}`);
     }
   });
 }
 
-console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+export function main() {
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('Repository cleanup');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  const status = runGit(['status', '--porcelain']).trim();
+  if (status) {
+    console.error(
+      'Working tree is dirty. Please commit, stash, or discard your changes before running dev-cleanup.'
+    );
+    process.exit(1);
+  }
+
+  const currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+
+  console.log('→ Fetching latest refs from origin');
+  runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
+
+  console.log('\n→ Pruning stale worktrees');
+  runGit(['worktree', 'prune'], { stdio: 'inherit' });
+
+  console.log('\n→ Active worktrees');
+  runGit(['worktree', 'list'], { stdio: 'inherit' });
+
+  const branchInfo = runGit(['branch', '-vv', '--no-color']);
+
+  /*
+Branches whose remote is gone
+*/
+
+  console.log('\n→ Local branches with missing remote\n');
+
+  const goneBranches = branchInfo
+    .split('\n')
+    .filter((line) => line.includes(': gone]'))
+    .map(
+      (line) =>
+        line
+          .replace(/^[*+]\s*/, '')
+          .trim()
+          .split(/\s+/)[0]
+    )
+    .filter(Boolean);
+
+  if (goneBranches.length === 0) {
+    console.log('None');
+  } else {
+    goneBranches.forEach((b) => console.log(b));
+  }
+
+  /*
+Branches merged into origin/main
+*/
+
+  console.log('\n→ Branches already merged into origin/main\n');
+
+  const mergedBranches = runGit(['branch', '--merged', 'origin/main', '--no-color'])
+    .split('\n')
+    .map((b) => b.replace(/^[*+]\s*/, '').trim())
+    .filter((b) => b && b !== 'main' && !b.startsWith('('));
+
+  if (mergedBranches.length === 0) {
+    console.log('None');
+  } else {
+    mergedBranches.forEach((b) => console.log(b));
+  }
+
+  /*
+Find worktrees
+*/
+
+  const worktreesOutput = runGit(['worktree', 'list', '--porcelain']);
+  const worktrees = parseWorktrees(worktreesOutput);
+
+  /*
+Worktrees whose branch is merged
+*/
+
+  console.log('\n→ Worktrees whose branch is merged\n');
+
+  const mergedWorktrees = worktrees.filter((w) => mergedBranches.includes(w.branch));
+
+  if (mergedWorktrees.length === 0) {
+    console.log('None');
+  } else {
+    mergedWorktrees.forEach((w) => {
+      console.log(`${w.branch} → ${w.path}`);
+    });
+  }
+
+  /*
+AUTO MODE
+*/
+
+  if (AUTO && mergedWorktrees.length > 0) {
+    console.log('\n→ Removing merged worktrees and branches\n');
+    removeMergedWorktrees({
+      mergedWorktrees,
+      currentWorktreePath: CURRENT_WORKTREE_PATH,
+      currentBranch,
+    });
+  }
+
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

@@ -2524,3 +2524,16 @@
 - c84ea92a Merge pull request #248 from thetigeregg/dependabot/npm_and_yarn/server/fast-xml-parser-5.5.6
 - 34f92a7d chore(deps): bump fast-xml-parser from 5.4.2 to 5.5.6 in /server
 
+## v1.7.0 - 2026-03-19
+- c21c116e Merge pull request #252 from thetigeregg/feat/bumpa
+- 2c6f888f fix(scripts): align ncu-all project targeting with PR description
+- 714bff73 fix(deps): pin npm-check-updates and harden ncu-all script
+- 08219fab chore(deps): update jsdom to version 29.0.0
+- d920705e feat: add script to update all project dependencies using npm-check-updates
+- fc482747 fix: rename non-Angular dependency update script in package.json
+- 4550e20e feat: add script for non-Angular dependency updates in package.json
+- 74d51311 chore(deps): update @tiptap dependencies to version 3.20.4
+- 472d13ec chore(deps): update @angular/cdk dependency from 21.2.2 to 21.2.3
+- fb2cb712 chore(deps): update Angular dependencies to version 21.2.5
+- 028ef2db feat: add Angular dependency update scripts to package.json
+

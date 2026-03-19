@@ -1725,6 +1725,23 @@ void test('admin discovery patch route rejects empty review updates', async () =
     assert.deepEqual(JSON.parse(response.body), {
       error: 'Review updates require at least one review field.',
     });
+
+    const uiShapedResponse = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/41/167/match',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        provider: 'review',
+        reviewSource: 'metacritic',
+      },
+    });
+
+    assert.equal(uiShapedResponse.statusCode, 400);
+    assert.deepEqual(JSON.parse(uiShapedResponse.body), {
+      error: 'Review updates require at least one review field.',
+    });
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

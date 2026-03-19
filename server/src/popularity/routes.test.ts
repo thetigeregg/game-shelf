@@ -565,6 +565,32 @@ void test('GET /v1/games/trending caps response page metadata to the configured 
   await app.close();
 });
 
+void test('GET /v1/games/trending caps oversized offsets to a safe maximum', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock([]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending?offset=5000&limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(body.page, {
+    offset: 1000,
+    limit: 1,
+    hasMore: false,
+    nextOffset: null,
+  });
+  assert.equal(pool.queries.length, 1);
+  assert.equal(pool.queries[0]?.params[2], 1000);
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(

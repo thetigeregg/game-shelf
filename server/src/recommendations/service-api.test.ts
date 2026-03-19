@@ -261,6 +261,50 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
   assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);
 });
 
+void test('service caps recommendation lane offsets to a practical safe maximum', async () => {
+  const readLaneCalls: Array<{
+    lane: RecommendationLaneKey;
+    offset: number;
+    limit: number;
+    runtimeMode: RecommendationRuntimeMode;
+  }> = [];
+
+  const repository = {
+    getRuntimeModeDefault: () => Promise.resolve('SHORT' as const),
+    readRecommendationLanes: (params: {
+      lane: RecommendationLaneKey;
+      offset: number;
+      limit: number;
+      runtimeMode: RecommendationRuntimeMode;
+    }) => {
+      readLaneCalls.push({
+        lane: params.lane,
+        offset: params.offset,
+        limit: params.limit,
+        runtimeMode: params.runtimeMode,
+      });
+      return Promise.resolve({
+        run: sampleRun(),
+        lane: params.lane,
+        items: [sampleItem()],
+        page: { offset: params.offset, limit: params.limit, hasMore: false, nextOffset: null },
+      });
+    },
+  };
+
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    nowProvider: () => NOW,
+  });
+
+  const result = await service.getRecommendationLanes('BACKLOG', 'overall', 5000, 5, undefined);
+
+  assert.ok(result);
+  assert.equal(result.page.offset, 1000);
+  assert.deepEqual(readLaneCalls, [
+    { lane: 'overall', offset: 1000, limit: 5, runtimeMode: 'SHORT' },
+  ]);
+});
+
 void test('service enqueues rebuild when stale or missing', async () => {
   const queued: Array<{ target: string; force: boolean; triggeredBy: string; reason: string }> = [];
   const repository = {

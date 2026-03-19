@@ -625,8 +625,9 @@
                 labelPlacement="stacked"
                 interface="popover"
                 [value]="pricingForm.priceIsFree"
-                (ionChange)="pricingForm.priceIsFree = $any($event).detail.value === true"
+                (ionChange)="pricingForm.priceIsFree = $any($event).detail.value"
               >
+                <ion-select-option [value]="null">Unknown</ion-select-option>
                 <ion-select-option [value]="false">No</ion-select-option>
                 <ion-select-option [value]="true">Yes</ion-select-option>
               </ion-select>

@@ -129,6 +129,7 @@ interface RecommendationLanesApiResponse {
   generatedAt?: unknown;
   lane?: unknown;
   items?: unknown;
+  lanes?: unknown;
   page?: unknown;
   status?: unknown;
   reason?: unknown;
@@ -857,7 +858,7 @@ export class IgdbProxyService implements GameSearchApi {
       .pipe(
         map((response) => {
           this.throwIfRecommendationQueued(response);
-          return this.normalizeRecommendationLanesResponse(response, params.target);
+          return this.normalizeRecommendationLanesResponse(response, params.target, params.lane);
         }),
         catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
@@ -2550,17 +2551,62 @@ export class IgdbProxyService implements GameSearchApi {
 
   private normalizeRecommendationLanesResponse(
     value: RecommendationLanesApiResponse,
-    fallbackTarget: RecommendationTarget
+    fallbackTarget: RecommendationTarget,
+    requestedLane: RecommendationLaneKey
   ): RecommendationLanesResponse {
+    const lane = this.normalizeRecommendationLaneKey(value.lane) ?? requestedLane;
+    const items =
+      value.items !== undefined
+        ? this.normalizeRecommendationItems(value.items)
+        : this.normalizeLegacyRecommendationLaneItems(value.lanes, lane);
+
     return {
       target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
       runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
       runId: this.normalizePositiveInteger(value.runId) ?? 0,
       generatedAt: this.normalizeIsoDate(value.generatedAt),
-      lane: this.normalizeRecommendationLaneKey(value.lane) ?? 'overall',
-      items: this.normalizeRecommendationItems(value.items),
-      page: this.normalizePageInfo(value.page),
+      lane,
+      items,
+      page:
+        value.page !== undefined
+          ? this.normalizePageInfo(value.page)
+          : {
+              offset: 0,
+              limit: items.length > 0 ? items.length : 10,
+              hasMore: false,
+              nextOffset: null,
+            },
     };
+  }
+
+  private normalizeLegacyRecommendationLaneItems(
+    value: unknown,
+    lane: RecommendationLaneKey
+  ): RecommendationItem[] {
+    const lanes =
+      typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+
+    const overall = this.normalizeRecommendationItems(lanes['overall']);
+    const hiddenGems = this.normalizeRecommendationItems(lanes['hiddenGems']);
+    const exploration = this.normalizeRecommendationItems(lanes['exploration']);
+    const blended = this.normalizeRecommendationItems(lanes['blended']);
+    const popular = this.normalizeRecommendationItems(lanes['popular']);
+    const recent = this.normalizeRecommendationItems(lanes['recent']);
+
+    switch (lane) {
+      case 'overall':
+        return overall;
+      case 'hiddenGems':
+        return hiddenGems;
+      case 'exploration':
+        return exploration;
+      case 'blended':
+        return blended.length > 0 ? blended : overall;
+      case 'popular':
+        return popular.length > 0 ? popular : hiddenGems;
+      case 'recent':
+        return recent.length > 0 ? recent : exploration;
+    }
   }
 
   private normalizeRecommendationRebuildResponse(

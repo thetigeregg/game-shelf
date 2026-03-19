@@ -3,7 +3,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
-import { registerIgdbCachedByIdRoute } from './igdb-cache.js';
+import { __igdbCacheTestables, registerIgdbCachedByIdRoute } from './igdb-cache.js';
 
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
@@ -272,4 +272,176 @@ void test('IGDB cache does not persist non-cacheable upstream responses', async 
   assert.equal(metrics.igdb.writes, 0);
 
   await app.close();
+});
+
+void test('IGDB cache bypasses invalid game ids without upstream fetch', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response(null, { status: 500 }));
+    },
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/not-a-number',
+  });
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'BYPASS');
+  assert.equal(fetchCalls, 0);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.bypasses, 1);
+  assert.equal(metrics.igdb.misses, 0);
+
+  await app.close();
+});
+
+void test('IGDB cache is fail-open when cache read throws', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock({ failReads: true });
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    fetchMetadata: (gameId) => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify(buildPayload(gameId, 'Read Recovery')), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    },
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/456',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'BYPASS');
+  assert.equal(fetchCalls, 1);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.readErrors, 1);
+  assert.equal(metrics.igdb.bypasses, 1);
+  assert.equal(metrics.igdb.misses, 0);
+
+  await app.close();
+});
+
+void test('IGDB cache forwards invalid JSON success responses without caching', async () => {
+  resetCacheMetrics();
+  const pool = new IgdbPoolMock();
+  const app = Fastify();
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/77',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-igdb-cache'], 'MISS');
+  assert.equal(response.body, 'not-json');
+  assert.equal(pool.getEntryCount(), 0);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.misses, 1);
+  assert.equal(metrics.igdb.writes, 0);
+
+  await app.close();
+});
+
+void test('IGDB stale revalidation records failures for non-ok and invalid payload responses', async () => {
+  resetCacheMetrics();
+  const nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
+  const pool = new IgdbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  const pendingTasks: Array<() => Promise<void>> = [];
+  const responses = [
+    new Response(null, { status: 503 }),
+    new Response('not-json', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  ];
+  let fetchCalls = 0;
+
+  pool.seed(
+    '88',
+    buildPayload('88', 'Before Refresh'),
+    new Date(nowMs - 8 * 86400 * 1000).toISOString()
+  );
+  pool.seed(
+    '89',
+    buildPayload('89', 'Before Refresh'),
+    new Date(nowMs - 8 * 86400 * 1000).toISOString()
+  );
+
+  await registerIgdbCachedByIdRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    fetchMetadata: () => {
+      const response = responses[fetchCalls] ?? responses[responses.length - 1];
+      fetchCalls += 1;
+      return Promise.resolve(response);
+    },
+    scheduleBackgroundRefresh: (task) => {
+      pendingTasks.push(task);
+    },
+  });
+
+  const first = await app.inject({ method: 'GET', url: '/v1/games/88' });
+  const second = await app.inject({ method: 'GET', url: '/v1/games/89' });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(pendingTasks.length, 2);
+
+  await pendingTasks[0]?.();
+  await pendingTasks[1]?.();
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.igdb.revalidateScheduled, 2);
+  assert.equal(metrics.igdb.revalidateFailed, 2);
+  assert.equal(metrics.igdb.revalidateSucceeded, 0);
+
+  await app.close();
+});
+
+void test('IGDB helper utilities normalize age and cacheability guards', () => {
+  const nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
+
+  assert.equal(__igdbCacheTestables.getAgeSeconds('invalid-date', nowMs), Number.POSITIVE_INFINITY);
+  assert.equal(
+    __igdbCacheTestables.getAgeSeconds(new Date(nowMs + 60_000).toISOString(), nowMs),
+    0
+  );
+
+  assert.equal(__igdbCacheTestables.isCacheableIgdbPayload({ gameId: '1' }, null), false);
+  assert.equal(__igdbCacheTestables.isCacheableIgdbPayload({ gameId: '1' }, {}), false);
+  assert.equal(
+    __igdbCacheTestables.isCacheableIgdbPayload(
+      { gameId: '1' },
+      { item: { igdbGameId: '1', title: '  ' } }
+    ),
+    false
+  );
 });

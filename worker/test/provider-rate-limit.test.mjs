@@ -148,6 +148,43 @@ test('provider limiter enforces local request pacing and queue limits', async ()
   );
 });
 
+test('provider limiter does not consume window capacity when queue admission is rejected', async () => {
+  let nowMs = 0;
+  const limiter = createProviderLimiter(
+    'mobygames',
+    {
+      requestsPerSecond: 2,
+      maxDelayMs: 200,
+      maxRequests: 2,
+      windowMs: 1_000,
+      minCooldownSeconds: 1,
+      maxCooldownSeconds: 60,
+    },
+    {
+      now: () => nowMs,
+    }
+  );
+
+  assert.deepEqual(await limiter.acquire({ scopeKey: 'boxart' }), {
+    delayMs: 0,
+    scopeKey: 'boxart',
+  });
+
+  await assert.rejects(
+    limiter.acquire({ scopeKey: 'boxart' }),
+    /** @returns {boolean} */ (error) =>
+      error instanceof ProviderThrottleError &&
+      error.source === 'local_queue' &&
+      error.delayMs === 500
+  );
+
+  nowMs = 500;
+  assert.deepEqual(await limiter.acquire({ scopeKey: 'boxart' }), {
+    delayMs: 0,
+    scopeKey: 'boxart',
+  });
+});
+
 test('provider limiter enforces local window limits and evicts expired entries', async () => {
   let nowMs = 0;
   const limiter = createProviderLimiter(
@@ -188,4 +225,43 @@ test('provider limiter enforces local window limits and evicts expired entries',
     delayMs: 0,
     scopeKey: 'search',
   });
+});
+
+test('provider limiter re-checks cooldown after waiting for local pacing', async () => {
+  let nowMs = 0;
+  let sleepCalls = 0;
+  const limiter = createProviderLimiter(
+    'igdb',
+    {
+      requestsPerSecond: 2,
+      minCooldownSeconds: 1,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+    },
+    {
+      now: () => nowMs,
+      sleep: async (delayMs) => {
+        sleepCalls += 1;
+        if (sleepCalls === 1) {
+          nowMs = 100;
+          limiter.applyCooldown(5, 'upstream_429', nowMs);
+        }
+        nowMs += delayMs;
+      },
+    }
+  );
+
+  assert.deepEqual(await limiter.acquire({ scopeKey: 'search' }), {
+    delayMs: 0,
+    scopeKey: 'search',
+  });
+
+  await assert.rejects(
+    limiter.acquire({ scopeKey: 'search' }),
+    /** @returns {boolean} */ (error) =>
+      error instanceof ProviderThrottleError &&
+      error.source === 'upstream_429' &&
+      error.retryAfterSeconds === 5 &&
+      error.delayMs === 500
+  );
 });

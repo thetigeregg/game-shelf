@@ -2164,6 +2164,45 @@ describe('GameShelfService', () => {
       firstValueFrom(service.searchPricingCandidates('100', 29, 'Valid Title'))
     ).resolves.toEqual([]);
 
+    const originalSteamLookup = searchApi.lookupSteamPrice;
+    (searchApi as unknown as { lookupSteamPrice?: unknown }).lookupSteamPrice = undefined;
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 6, 'Valid Title'))
+    ).resolves.toEqual([]);
+    searchApi.lookupSteamPrice = originalSteamLookup;
+
+    searchApi.lookupSteamPrice.mockReturnValueOnce(
+      of({
+        status: 'ok',
+        bestPrice: {
+          amount: 19.99,
+          currency: 'usd',
+          initialAmount: 39.99,
+          discountPercent: 50.127,
+          isFree: false,
+          url: 'https://store.steampowered.com/app/620/portal_2/',
+        },
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 6, '  Portal 2  '))
+    ).resolves.toEqual([
+      {
+        title: 'Portal 2',
+        amount: 19.99,
+        currency: 'USD',
+        regularAmount: 39.99,
+        discountPercent: 50.13,
+        isFree: false,
+        url: 'https://store.steampowered.com/app/620/portal_2/',
+        score: null,
+        source: 'steam_store',
+        isRecommended: true,
+      },
+    ]);
+    expect(searchApi.lookupSteamPrice).toHaveBeenCalledWith('100', 6);
+
     const originalLookup = searchApi.lookupPsPricesCandidates;
     (
       searchApi as unknown as {
@@ -2223,6 +2262,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88.89,
+        source: 'psprices',
         isRecommended: true,
         imageUrl: 'https://cdn.psprices.com/candidate-a.jpg',
       },
@@ -2235,6 +2275,7 @@ describe('GameShelfService', () => {
         isFree: null,
         url: null,
         score: null,
+        source: 'psprices',
         isRecommended: false,
       },
     ]);
@@ -2285,6 +2326,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
+        source: 'psprices',
         isRecommended: false,
       },
       {
@@ -2296,6 +2338,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
+        source: 'psprices',
         isRecommended: true,
       },
     ]);
@@ -2355,6 +2398,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 88,
+        source: 'psprices',
         isRecommended: false,
       },
       {
@@ -2366,6 +2410,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
+        source: 'psprices',
         isRecommended: true,
       },
       {
@@ -2377,6 +2422,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 90,
+        source: 'psprices',
         isRecommended: false,
       },
     ]);
@@ -2442,6 +2488,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
+        source: 'psprices',
         isRecommended: true,
       },
       {
@@ -2453,6 +2500,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/456',
         score: 95,
+        source: 'psprices',
         isRecommended: false,
       },
     ]);

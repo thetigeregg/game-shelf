@@ -5,6 +5,7 @@ import {
   isRecommendationTarget,
   readBackgroundWorkerMode,
   readDiscoveryEnrichmentApiBaseUrl,
+  readDiscoveryEnrichmentGameKeys,
   readPositiveIntegerEnv,
   shouldRunPricingRefreshPhase,
   stringOrEmpty,
@@ -61,6 +62,28 @@ void test('background worker helper guards recommendation target + string payloa
   assert.equal(stringOrEmpty('value'), 'value');
   assert.equal(stringOrEmpty(123), '');
   assert.equal(stringOrEmpty(undefined), '');
+
+  assert.deepEqual(readDiscoveryEnrichmentGameKeys({ gameKeys: ['100::48', ' 100::48 ', '', 3] }), [
+    '100::48',
+  ]);
+  assert.equal(readDiscoveryEnrichmentGameKeys({ gameKeys: ['   ', null] }), null);
+  assert.equal(readDiscoveryEnrichmentGameKeys({ providers: ['hltb'] }), null);
+  assert.deepEqual(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({
+      providers: ['review', 'review', 'steam'],
+    }),
+    ['review', 'steam']
+  );
+  assert.equal(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({
+      providers: ['pricing', 'invalid'],
+    }),
+    null
+  );
+  assert.equal(
+    __backgroundWorkerTestables.readDiscoveryEnrichmentProviders({ gameKeys: ['100::48'] }),
+    null
+  );
 });
 
 void test('background worker mode parser supports general/recommendations/all with sane fallback', () => {
@@ -264,5 +287,84 @@ void test('provider match lock helper only treats explicit true as locked', () =
       'psPricesMatchLocked'
     ),
     false
+  );
+});
+
+void test('PSPrices scheduler helper respects retry backoff and rearms recent releases', () => {
+  const payloadWithFutureBackoff = {
+    listType: 'discovery',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 2,
+        lastTriedAt: '2026-03-18T07:00:00.000Z',
+        nextTryAt: '2026-03-18T15:00:00.000Z',
+        permanentMiss: false,
+      },
+    },
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
+      payload: payloadWithFutureBackoff,
+      platformIgdbId: 167,
+      nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    false
+  );
+
+  const payloadEligibleAfterRearm = {
+    listType: 'discovery',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true,
+      },
+    },
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
+      payload: payloadEligibleAfterRearm,
+      platformIgdbId: 167,
+      nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    true
+  );
+});
+
+void test('PSPrices scheduler helper ignores discovery retry backoff for wishlist rows', () => {
+  const wishlistPayload = {
+    listType: 'wishlist',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 6,
+        lastTriedAt: '2026-03-18T07:00:00.000Z',
+        nextTryAt: '2026-03-20T07:00:00.000Z',
+        permanentMiss: true,
+      },
+    },
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
+      payload: wishlistPayload,
+      platformIgdbId: 167,
+      nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    true
   );
 });

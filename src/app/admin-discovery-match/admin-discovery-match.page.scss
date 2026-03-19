@@ -1,0 +1,67 @@
+.admin-match-list {
+  padding-bottom: 12px;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  padding: 0 12px 12px;
+  border-bottom: 0.55px solid rgba(var(--ion-color-medium-rgb), 0.3);
+}
+
+.game-row {
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.modal-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 240px;
+}
+
+.modal-actions {
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
+.candidate-toolbar-row {
+  padding-top: 4px;
+}
+
+.candidate-results-list {
+  padding: 0 8px 8px;
+}
+
+.candidate-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.queue-status-message {
+  font-weight: 600;
+}
+
+.queue-status-success {
+  color: var(--ion-color-success);
+}
+
+.queue-status-warning {
+  color: var(--ion-color-warning);
+}
+
+.queue-status-danger {
+  color: var(--ion-color-danger);
+}

@@ -1,5 +1,7 @@
 import express from 'express';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 function readEnvOrFile(name) {
@@ -26,6 +28,9 @@ const debugLogsEnabled = String(process.env.DEBUG_HLTB_SCRAPER_LOGS ?? '').toLow
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
 let browserIdleTimer = null;
+const entrypointPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+const modulePath = path.resolve(fileURLToPath(import.meta.url));
+const isMainModule = entrypointPath === modulePath;
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();
@@ -166,6 +171,16 @@ function normalizeHours(minutesValue) {
   return Math.round((numeric / 3600) * 10) / 10;
 }
 
+function firstPositiveHours(...values) {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 function normalizeReleaseYear(value) {
   const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
 
@@ -269,6 +284,35 @@ function normalizeEntry(entry) {
   }
 
   const hltbGameId = normalizeGameId(entry.game_id ?? entry.gameId ?? entry.id ?? null);
+  const mainHours = normalizeHours(entry.main);
+  const mainExtraHours = firstPositiveHours(
+    normalizeHours(entry.mainPlus),
+    normalizeHours(entry.mainExtra)
+  );
+  const completionistHours = normalizeHours(entry.completionist);
+  const soloHours = firstPositiveHours(normalizeHours(entry.solo), normalizeHours(entry.comp_main));
+  const coOpHours = firstPositiveHours(
+    normalizeHours(entry.coOp),
+    normalizeHours(entry.co_op),
+    normalizeHours(entry.coop),
+    normalizeHours(entry.invested_co)
+  );
+  const vsHours = firstPositiveHours(normalizeHours(entry.vs), normalizeHours(entry.invested_mp));
+  const normalizedMainHours = firstPositiveHours(
+    normalizeHours(entry.comp_main),
+    mainHours,
+    soloHours,
+    coOpHours,
+    vsHours
+  );
+  const normalizedMainExtraHours = firstPositiveHours(
+    normalizeHours(entry.comp_plus),
+    mainExtraHours
+  );
+  const normalizedCompletionistHours = firstPositiveHours(
+    normalizeHours(entry.comp_100),
+    completionistHours
+  );
   const normalized = {
     title,
     releaseYear: normalizeReleaseYear(
@@ -282,9 +326,15 @@ function normalizeEntry(entry) {
     imageUrl: normalizeImageUrl(
       entry.game_image ?? entry.image_url ?? entry.image ?? entry.cover_url ?? entry.cover
     ),
-    hltbMainHours: normalizeHours(entry.comp_main),
-    hltbMainExtraHours: normalizeHours(entry.comp_plus),
-    hltbCompletionistHours: normalizeHours(entry.comp_100),
+    ...(mainHours !== null ? { main: mainHours } : {}),
+    ...(mainExtraHours !== null ? { mainPlus: mainExtraHours } : {}),
+    ...(completionistHours !== null ? { completionist: completionistHours } : {}),
+    ...(soloHours !== null ? { solo: soloHours } : {}),
+    ...(coOpHours !== null ? { coOp: coOpHours } : {}),
+    ...(vsHours !== null ? { vs: vsHours } : {}),
+    hltbMainHours: normalizedMainHours,
+    hltbMainExtraHours: normalizedMainExtraHours,
+    hltbCompletionistHours: normalizedCompletionistHours,
   };
 
   if (
@@ -451,6 +501,14 @@ function rankCandidateEntries(
       ...(normalized.hltbGameId !== null ? { hltbGameId: normalized.hltbGameId } : {}),
       ...(normalized.hltbUrl !== null ? { hltbUrl: normalized.hltbUrl } : {}),
       imageUrl: normalized.imageUrl,
+      ...(typeof normalized.main === 'number' ? { main: normalized.main } : {}),
+      ...(typeof normalized.mainPlus === 'number' ? { mainPlus: normalized.mainPlus } : {}),
+      ...(typeof normalized.completionist === 'number'
+        ? { completionist: normalized.completionist }
+        : {}),
+      ...(typeof normalized.solo === 'number' ? { solo: normalized.solo } : {}),
+      ...(typeof normalized.coOp === 'number' ? { coOp: normalized.coOp } : {}),
+      ...(typeof normalized.vs === 'number' ? { vs: normalized.vs } : {}),
       hltbMainHours: normalized.hltbMainHours,
       hltbMainExtraHours: normalized.hltbMainExtraHours,
       hltbCompletionistHours: normalized.hltbCompletionistHours,
@@ -619,9 +677,23 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       rawMain: entry?.comp_main ?? null,
       rawMainExtra: entry?.comp_plus ?? null,
       rawCompletionist: entry?.comp_100 ?? null,
+      rawSolo: entry?.solo ?? null,
+      rawCoOp: entry?.coOp ?? entry?.co_op ?? entry?.coop ?? entry?.invested_co ?? null,
+      rawVs: entry?.vs ?? entry?.invested_mp ?? null,
       normalizedMain: normalizeHours(entry?.comp_main),
       normalizedMainExtra: normalizeHours(entry?.comp_plus),
       normalizedCompletionist: normalizeHours(entry?.comp_100),
+      normalizedSolo: normalizeHours(entry?.solo),
+      normalizedCoOp: firstPositiveHours(
+        normalizeHours(entry?.coOp),
+        normalizeHours(entry?.co_op),
+        normalizeHours(entry?.coop),
+        normalizeHours(entry?.invested_co)
+      ),
+      normalizedVs: firstPositiveHours(
+        normalizeHours(entry?.vs),
+        normalizeHours(entry?.invested_mp)
+      ),
     }));
     const lastStatus =
       networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
@@ -733,9 +805,18 @@ app.get('/v1/hltb/search', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`[hltb-scraper] listening on http://localhost:${port}`);
-});
+if (isMainModule) {
+  app.listen(port, () => {
+    console.log(`[hltb-scraper] listening on http://localhost:${port}`);
+  });
+}
+
+export const __testables = {
+  normalizeHours,
+  normalizeEntry,
+  rankCandidateEntries,
+  findBestMatch,
+};
 
 async function getSharedBrowser() {
   if (browserIdleTimer !== null) {

@@ -51,6 +51,19 @@ class RepositoryMock {
     return Promise.resolve(this.rows.slice(0, limit));
   }
 
+  listDiscoveryRowsByGameKeys(gameKeys: string[]): Promise<
+    Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>
+  > {
+    const allowed = new Set(gameKeys);
+    return Promise.resolve(
+      this.rows.filter((row) => allowed.has(`${row.igdbGameId}::${String(row.platformIgdbId)}`))
+    );
+  }
+
   updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
@@ -123,6 +136,190 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
     assert.equal(repository.updates[0]?.payload.hltbMainHours, 8.4);
     assert.equal(repository.updates[0]?.payload.metacriticScore, 88);
     assert.equal(repository.updates[0]?.payload.reviewSource, 'metacritic');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment can target explicit game keys', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+    {
+      igdbGameId: '2000',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Target Me',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 12, hltbMainExtraHours: 15, hltbCompletionistHours: 20 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 91, metacriticUrl: 'https://www.metacritic.com/game/target' },
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['2000::48'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.igdbGameId, '2000');
+    assert.equal(repository.updates[0]?.platformIgdbId, 48);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment does not fall back to a full scan when explicit game keys normalize empty', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const service = new DiscoveryEnrichmentService(repository as never, {
+    enabled: true,
+    startupDelayMs: 0,
+    intervalMinutes: 30,
+    maxGamesPerRun: 50,
+    requestTimeoutMs: 1000,
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168,
+  });
+
+  const result = await service.enrichNow({ gameKeys: [' ', 'bad-key', '1::0'] });
+
+  assert.deepEqual(result, {
+    scanned: 0,
+    updated: 0,
+    skipped: 0,
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(repository.updates.length, 0);
+});
+
+void test('discovery enrichment ignores invalid provider filters at runtime', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 8.4, hltbMainExtraHours: 11.2, hltbCompletionistHours: 13.8 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 88, metacriticUrl: 'https://www.metacritic.com/game/example' },
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({
+      limit: 10,
+      providers: ['invalid' as never],
+    });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.payload.hltbMainHours, 8.4);
+    assert.equal(repository.updates[0]?.payload.metacriticScore, 88);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -444,6 +641,242 @@ void test('discovery enrichment records steam retry state on transient steam loo
   assert.equal(steamRetry.lastTriedAt, nowIso);
   assert.equal(steamRetry.nextTryAt, '2026-03-10T01:00:00.000Z');
   assert.equal(repository.updates[0]?.payload.steamEnrichedAt, undefined);
+});
+
+void test('discovery enrichment skips locked HLTB and review providers', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '111',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Locked Discovery Game',
+        platform: 'PlayStation 4',
+        listType: 'discovery',
+        hltbMatchLocked: true,
+        reviewMatchLocked: true,
+      },
+    },
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+    const result = await service.enrichNow({ limit: 10 });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 0,
+      skipped: 1,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment refreshes locked HLTB when a preferred match exists but timings are missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '222',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Fallback Discovery Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        hltbMatchLocked: true,
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchQueryTitle: 'Manual HLTB Title',
+        hltbMatchQueryReleaseYear: 2000,
+        hltbMatchQueryPlatform: 'PS1',
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  const mockFetch: typeof fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 10.5, hltbMainExtraHours: 14, hltbCompletionistHours: 18 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  };
+  globalThis.fetch = mockFetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['222::48'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0]?.payload;
+    assert.ok(updatedPayload);
+    assert.equal(updatedPayload.hltbMainHours, 10.5);
+    assert.equal(updatedPayload.hltbMainExtraHours, 14);
+    assert.equal(updatedPayload.hltbCompletionistHours, 18);
+
+    const hltbRequest = fetchUrls.find((url) => url.includes('/v1/hltb/search'));
+    assert.ok(hltbRequest);
+    const requestUrl = new URL(hltbRequest);
+    assert.equal(requestUrl.searchParams.get('q'), 'Manual HLTB Title');
+    assert.equal(requestUrl.searchParams.get('releaseYear'), '2000');
+    assert.equal(requestUrl.searchParams.get('platform'), 'PS1');
+    assert.equal(requestUrl.searchParams.get('preferredHltbGameId'), '7002');
+    assert.equal(
+      requestUrl.searchParams.get('preferredHltbUrl'),
+      'https://howlongtobeat.com/game/7002'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment refreshes locked MobyGames review using stored game id', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '333',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Manual Review Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        reviewMatchLocked: true,
+        reviewSource: 'mobygames',
+        mobygamesGameId: 9999,
+        reviewMatchQueryTitle: 'Manual Review Query',
+        reviewMatchQueryReleaseYear: 2000,
+        reviewMatchQueryPlatform: 'PS1',
+        reviewMatchPlatformIgdbId: 167,
+        reviewMatchMobygamesGameId: 9999,
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+    }
+
+    if (url.includes('/v1/mobygames/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            games: [
+              {
+                game_id: 9999,
+                moby_url: 'https://www.mobygames.com/game/9999',
+                moby_score: 8.1,
+                critic_score: 81,
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({
+      gameKeys: ['333::167'],
+      forceLockedProviders: ['review'],
+    });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0]?.payload;
+    assert.ok(updatedPayload);
+    assert.equal(updatedPayload.reviewSource, 'mobygames');
+    assert.equal(updatedPayload.reviewScore, 81);
+    assert.equal(updatedPayload.mobyScore, 8.1);
+    assert.equal(updatedPayload.mobygamesGameId, 9999);
+    assert.equal(updatedPayload.reviewUrl, 'https://www.mobygames.com/game/9999');
+
+    const mobygamesRequest = fetchUrls.find((url) => url.includes('/v1/mobygames/search'));
+    assert.ok(mobygamesRequest);
+    const requestUrl = new URL(mobygamesRequest);
+    assert.equal(requestUrl.searchParams.get('q'), 'Manual Review Query');
+    assert.equal(requestUrl.searchParams.get('id'), '9999');
+    assert.equal(
+      requestUrl.searchParams.get('include'),
+      'game_id,moby_url,moby_score,critic_score'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {

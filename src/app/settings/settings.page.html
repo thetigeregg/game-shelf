@@ -156,6 +156,43 @@
 
     <ion-list lines="full">
       <ion-list-header>
+        <ion-label>Debug</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-icon slot="start" color="medium" name="bug"></ion-icon>
+        <ion-label>Verbose Trace Logs</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="verboseTracingEnabled"
+          (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      @if (isMgcImportFeatureEnabled) {
+        <input
+          #mgcCsvFileInput
+          class="hidden-file-input"
+          type="file"
+          accept=".csv,text/csv"
+          (change)="onMgcImportFileSelected($event)"
+        />
+        <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
+          <ion-icon slot="start" color="primary" name="download"></ion-icon>
+          <ion-label>Import MGC CSV</ion-label>
+        </ion-item>
+      }
+      <ion-item button detail="true" (click)="exportDebugLogs()">
+        <ion-icon slot="start" color="primary" name="bug"></ion-icon>
+        <ion-label>Export Debug Logs</ion-label>
+      </ion-item>
+      <ion-item button detail="true" (click)="clearDebugLogs()">
+        <ion-icon slot="start" color="danger" name="trash"></ion-icon>
+        <ion-label>Clear Debug Logs</ion-label>
+      </ion-item>
+    </ion-list>
+
+    <ion-list lines="full">
+      <ion-list-header>
         <ion-label>Advanced</ion-label>
       </ion-list-header>
 
@@ -200,42 +237,9 @@
           Clear
         </ion-button>
       </ion-item>
-    </ion-list>
-
-    <ion-list lines="full">
-      <ion-list-header>
-        <ion-label>Debug</ion-label>
-      </ion-list-header>
-
-      <ion-item>
-        <ion-icon slot="start" color="medium" name="bug"></ion-icon>
-        <ion-label>Verbose Trace Logs</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="verboseTracingEnabled"
-          (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      @if (isMgcImportFeatureEnabled) {
-        <input
-          #mgcCsvFileInput
-          class="hidden-file-input"
-          type="file"
-          accept=".csv,text/csv"
-          (change)="onMgcImportFileSelected($event)"
-        />
-        <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
-          <ion-icon slot="start" color="primary" name="download"></ion-icon>
-          <ion-label>Import MGC CSV</ion-label>
-        </ion-item>
-      }
-      <ion-item button detail="true" (click)="exportDebugLogs()">
-        <ion-icon slot="start" color="primary" name="bug"></ion-icon>
-        <ion-label>Export Debug Logs</ion-label>
-      </ion-item>
-      <ion-item button detail="true" (click)="clearDebugLogs()">
-        <ion-icon slot="start" color="danger" name="trash"></ion-icon>
-        <ion-label>Clear Debug Logs</ion-label>
+      <ion-item button detail="true" (click)="openAdminDiscoveryMatches()">
+        <ion-icon slot="start" color="primary" name="server"></ion-icon>
+        <ion-label>Discovery Match Admin</ion-label>
       </ion-item>
     </ion-list>
 

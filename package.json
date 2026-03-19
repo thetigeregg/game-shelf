@@ -49,7 +49,9 @@
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
     "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",
-    "pr:agent": "node scripts/pr-agent-prompt.mjs"
+    "pr:agent": "node scripts/pr-agent-prompt.mjs",
+    "deps:angular:update": "ng update @angular/core @angular/cli",
+    "deps:angular:ecosystem": "ng update @angular/cdk @angular-eslint/schematics @angular/fire"
   },
   "private": true,
   "dependencies": {

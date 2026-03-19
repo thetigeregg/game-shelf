@@ -452,7 +452,7 @@ export class ExplorePage implements OnInit {
     try {
       await this.ensureActiveRecommendationPageFilled();
       this.scheduleVisibleRecommendationDisplayMetadata();
-      void this.ensureVisibleDiscoveryPricingHydrated();
+      this.scheduleVisibleDiscoveryPricingHydration();
     } finally {
       await completeIonInfiniteScroll(event);
     }
@@ -1269,8 +1269,8 @@ export class ExplorePage implements OnInit {
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
       await this.ensureActiveRecommendationPageFilled();
-      await this.ensureVisibleRecommendationDisplayMetadata();
-      await this.ensureVisibleDiscoveryPricingHydrated();
+      this.scheduleVisibleRecommendationDisplayMetadata();
+      this.scheduleVisibleDiscoveryPricingHydration();
       return;
     }
 
@@ -1383,6 +1383,10 @@ export class ExplorePage implements OnInit {
 
   private scheduleVisibleRecommendationDisplayMetadata(): void {
     void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
+  }
+
+  private scheduleVisibleDiscoveryPricingHydration(): void {
+    void this.ensureVisibleDiscoveryPricingHydrated().catch(() => undefined);
   }
 
   private async ensureActiveRecommendationPageFilled(): Promise<void> {

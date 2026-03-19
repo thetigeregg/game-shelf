@@ -503,6 +503,49 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.activeLanesResponse?.runId).toBe(1);
   });
 
+  it('does not block cached recommendation loads on metadata hydration', async () => {
+    const page = createPage();
+    const privatePage = page as unknown as {
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      buildCacheKey: (target: string, runtimeMode: string, lane: string) => string;
+      lanesCache: Map<string, typeof mockLanesResponse>;
+      ensureActiveRecommendationPageFilled: () => Promise<void>;
+      ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
+    };
+
+    const cacheKey = privatePage.buildCacheKey('BACKLOG', 'NEUTRAL', 'overall');
+    privatePage.lanesCache.set(cacheKey, mockLanesResponse);
+
+    const pageFillSpy = vi
+      .spyOn(privatePage, 'ensureActiveRecommendationPageFilled')
+      .mockResolvedValue(undefined);
+    let resolveMetadata: () => void = () => undefined;
+    const metadataPromise = new Promise<void>((resolve) => {
+      resolveMetadata = resolve;
+    });
+    const metadataSpy = vi
+      .spyOn(privatePage, 'ensureVisibleRecommendationDisplayMetadata')
+      .mockReturnValue(metadataPromise);
+    const pricingSpy = vi
+      .spyOn(privatePage, 'ensureVisibleDiscoveryPricingHydrated')
+      .mockResolvedValue(undefined);
+
+    const loadPromise = privatePage.loadRecommendationLanes(false);
+    const settled = vi.fn();
+    void loadPromise.then(settled);
+
+    await flushAsync();
+
+    expect(pageFillSpy).toHaveBeenCalledTimes(1);
+    expect(metadataSpy).toHaveBeenCalledTimes(1);
+    expect(pricingSpy).toHaveBeenCalledTimes(1);
+    expect(settled).toHaveBeenCalledTimes(1);
+
+    resolveMetadata();
+    await metadataPromise;
+  });
+
   it('paginates recommendations in pages of 10', async () => {
     const page = createPage();
     const manyItems = Array.from({ length: 25 }, (_, index) => ({
@@ -556,7 +599,7 @@ describe('ExplorePage explore modes UX', () => {
       lanesCache: Map<string, MockLanesResponse>;
     };
 
-    let resolveNextPage: ((value: MockLanesResponse) => void) | null = null;
+    let resolveNextPage: (value: MockLanesResponse) => void = () => undefined;
     const nextPagePromise = new Promise<MockLanesResponse>((resolve) => {
       resolveNextPage = resolve;
     });
@@ -604,7 +647,7 @@ describe('ExplorePage explore modes UX', () => {
     await page.onRuntimeModeChange('SHORT');
     await flushAsync();
 
-    resolveNextPage?.(
+    resolveNextPage(
       createLaneResponse({
         items: [{ ...mockLaneItem, rank: 11, igdbGameId: 'stale-page' }],
         page: { offset: 10, limit: 10, hasMore: false, nextOffset: null },
@@ -691,7 +734,7 @@ describe('ExplorePage explore modes UX', () => {
   it('does not merge a stale popularity page after the selected feed changes', async () => {
     const page = createPage();
 
-    let resolveNextPage: ((value: typeof mockPopularityFeedResponse) => void) | null = null;
+    let resolveNextPage: (value: typeof mockPopularityFeedResponse) => void = () => undefined;
     const nextPagePromise = new Promise<typeof mockPopularityFeedResponse>((resolve) => {
       resolveNextPage = resolve;
     });
@@ -733,7 +776,7 @@ describe('ExplorePage explore modes UX', () => {
     await page.onPopularityFeedChange('upcoming');
     await flushAsync();
 
-    resolveNextPage?.({
+    resolveNextPage({
       items: [{ ...mockPopularityFeedItem, id: 'stale-popularity', name: 'Stale Trend' }],
       page: { offset: 10, limit: 10, hasMore: false, nextOffset: null },
     });

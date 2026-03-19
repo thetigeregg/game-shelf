@@ -216,8 +216,9 @@ function scheduleIgdbRevalidation(
 
   try {
     scheduleBackgroundRefresh(async () => {
+      let response: Response | null = null;
       try {
-        const response = await fetchMetadata(normalizedRequest.gameId);
+        response = await fetchMetadata(normalizedRequest.gameId);
 
         if (!response.ok) {
           incrementIgdbMetric('revalidateFailed');
@@ -231,7 +232,6 @@ function scheduleIgdbRevalidation(
           return;
         }
 
-        await cancelResponseBody(response);
         await persistIgdbCacheEntry(pool, cacheKey, normalizedRequest, payload, request);
         incrementIgdbMetric('revalidateSucceeded');
       } catch (error) {
@@ -241,6 +241,9 @@ function scheduleIgdbRevalidation(
           error: error instanceof Error ? error.message : String(error),
         });
       } finally {
+        if (response) {
+          await cancelResponseBody(response);
+        }
         revalidationInFlightByKey.delete(cacheKey);
         resolveDone?.();
       }

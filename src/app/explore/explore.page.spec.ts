@@ -488,6 +488,40 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getActiveLaneItems()).toHaveLength(25);
   });
 
+  it('does not block recommendation load-more while metadata hydration runs', async () => {
+    const page = createPage() as unknown as {
+      ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
+      loadMoreRecommendations: (event: Event) => Promise<void>;
+    };
+
+    let resolveMetadata: () => void = () => undefined;
+    const metadataPromise = new Promise<void>((resolve) => {
+      resolveMetadata = resolve;
+    });
+    const metadataSpy = vi
+      .spyOn(page, 'ensureVisibleRecommendationDisplayMetadata')
+      .mockReturnValue(metadataPromise);
+    const pricingSpy = vi
+      .spyOn(page, 'ensureVisibleDiscoveryPricingHydrated')
+      .mockResolvedValue(undefined);
+    const complete = vi.fn().mockResolvedValue(undefined);
+
+    const loadMorePromise = page.loadMoreRecommendations({
+      target: { complete },
+    } as unknown as Event);
+
+    await flushAsync();
+
+    expect(metadataSpy).toHaveBeenCalledTimes(1);
+    expect(pricingSpy).toHaveBeenCalledTimes(1);
+    expect(complete).toHaveBeenCalledTimes(1);
+    await loadMorePromise;
+
+    resolveMetadata();
+    await metadataPromise;
+  });
+
   it('paginates similar recommendations in pages of 5', async () => {
     const page = createPage();
     const similarItems = Array.from({ length: 12 }, (_, index) => ({
@@ -2243,6 +2277,51 @@ describe('ExplorePage explore modes UX', () => {
     expect(grouped.has('2500')).toBe(false);
   });
 
+  it('hydrates recommendation metadata from the provided response when it is not active', async () => {
+    const page = createPage() as unknown as {
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      visibleRecommendationCount: number;
+      activeLanesResponse: MockLanesResponse | null;
+      ensureVisibleRecommendationDisplayMetadata: (
+        response?: MockLanesResponse | null
+      ) => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+    };
+
+    page.selectedLaneKey = 'overall';
+    page.visibleRecommendationCount = 2;
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [{ ...mockLaneItem, igdbGameId: 'active-1', platformIgdbId: 6 }],
+      },
+    };
+
+    const alternateResponse: MockLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [
+          { ...mockLaneItem, igdbGameId: 'alt-1', platformIgdbId: 48 },
+          { ...mockLaneItem, igdbGameId: 'alt-2', platformIgdbId: 167 },
+        ],
+      },
+    };
+
+    const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
+    (
+      page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
+    ).populateRecommendationDisplayMetadata = populateSpy;
+
+    await page.ensureVisibleRecommendationDisplayMetadata(alternateResponse);
+
+    expect(populateSpy).toHaveBeenCalledTimes(1);
+    const grouped = populateSpy.mock.calls[0]?.[0];
+    expect(Array.from(grouped.keys())).toEqual(['alt-1', 'alt-2']);
+    expect(grouped.has('active-1')).toBe(false);
+  });
+
   it('skips local similar items when collecting display metadata', async () => {
     const page = createPage() as unknown as {
       localGameCacheByIdentity: Map<string, unknown>;
@@ -2396,6 +2475,31 @@ describe('ExplorePage explore modes UX', () => {
     await expect(secondRequest).resolves.toEqual(response);
     expect(page.catalogCache.has('1700')).toBe(true);
     expect(page.catalogRequestCache.size).toBe(0);
+  });
+
+  it('normalizes catalog cache keys across fetch and read paths', async () => {
+    const page = createPage() as unknown as {
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      getCatalogResult: (igdbGameId: string) => unknown;
+      catalogCache: Map<string, unknown>;
+    };
+
+    const response = {
+      title: 'Catalog',
+      coverUrl: null,
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }],
+      releaseYear: 2024,
+    };
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(response));
+
+    await expect(page.fetchCatalogResult(' 1701 ')).resolves.toEqual(response);
+
+    expect(igdbProxyServiceMock.getGameById).toHaveBeenCalledWith('1701');
+    expect(page.catalogCache.has('1701')).toBe(true);
+    expect(page.getCatalogResult('1701')).toEqual(response);
+    expect(page.getCatalogResult(' 1701 ')).toEqual(response);
   });
 
   it('rechecks discovery hydration when a rerun is requested without candidates', async () => {

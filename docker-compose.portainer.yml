@@ -41,6 +41,8 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:8080,http://localhost:8080}
       REQUIRE_AUTH: ${REQUIRE_AUTH:-true}
       DEBUG_HTTP_LOGS: ${DEBUG_HTTP_LOGS:-}
+      GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS: ${GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS:-50}
+      GAME_BY_ID_RATE_LIMIT_WINDOW_MS: ${GAME_BY_ID_RATE_LIMIT_WINDOW_MS:-60000}
       API_TOKEN_FILE: ${API_TOKEN_FILE:-/run/secrets/api_token}
       CLIENT_WRITE_TOKENS_FILE: ${CLIENT_WRITE_TOKENS_FILE:-/run/secrets/client_write_tokens}
       DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}

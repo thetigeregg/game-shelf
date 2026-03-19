@@ -6,6 +6,7 @@ export type BackgroundJobType =
   | 'igdb_popularity_ingest'
   | 'release_monitor_game'
   | 'discovery_enrichment_run'
+  | 'igdb_cache_revalidate'
   | 'hltb_cache_revalidate'
   | 'metacritic_cache_revalidate'
   | 'mobygames_cache_revalidate'

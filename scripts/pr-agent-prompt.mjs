@@ -316,9 +316,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
 
     // Ignore review summaries that are not actionable
     if (review.state === 'COMMENTED') continue;
-    if (!trimmedBody && (review.state === 'APPROVED' || review.state === 'DISMISSED')) {
-      continue;
-    }
+    if (!trimmedBody) continue;
 
     const author = review.author?.login || 'reviewer';
     if (!includeReviewItem(trimmedBody, author, review.state)) continue;

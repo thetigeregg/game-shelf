@@ -215,6 +215,49 @@ void test('GET /v1/recommendations/lanes returns a paged lane and resolves runti
   await app.close();
 });
 
+void test('GET /v1/recommendations/lanes defaults paged lane requests to a limit of 10', async () => {
+  const app = fastifyFactory({ logger: false });
+  const limits: number[] = [];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getRecommendationLanes: (_target, lane, offset, limit, runtimeMode) => {
+        limits.push(limit);
+        return Promise.resolve({
+          run: {
+            id: 11,
+            target: 'BACKLOG' as const,
+            status: 'SUCCESS' as const,
+            settingsHash: 'settings',
+            inputHash: 'input',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            finishedAt: '2026-01-01T00:01:00.000Z',
+            error: null,
+          },
+          runtimeMode: runtimeMode ?? 'NEUTRAL',
+          lane,
+          items: [],
+          page: { offset, limit, hasMore: false, nextOffset: null },
+        });
+      },
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&lane=overall',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+  };
+  assert.deepEqual(limits, [10]);
+  assert.deepEqual(body.page, { offset: 0, limit: 10, hasMore: false, nextOffset: null });
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/lanes caps oversized offsets before loading a lane', async () => {
   const app = fastifyFactory({ logger: false });
   const offsets: number[] = [];

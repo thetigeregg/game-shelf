@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-import { formatCleanupSummaryLine, removeMergedWorktrees } from './dev-cleanup.mjs';
+import {
+  formatCleanupSummaryLine,
+  removeMergedWorktrees,
+  removeOrphanedManagedWorktreeDirs,
+} from './dev-cleanup.mjs';
 
 test('formatCleanupSummaryLine omits branch list when the category is empty', () => {
   assert.equal(formatCleanupSummaryLine('Skipped dirty', []), 'Skipped dirty: 0');
@@ -107,5 +114,73 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
     skippedDirty: [],
     skippedRemovalFailed: [],
     skippedBranchDeleteFailed: [],
+  });
+});
+
+test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories whose branch is gone', () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const activeDir = path.join(managedRoot, 'feat', 'active');
+  const staleDir = path.join(managedRoot, 'feat', 'stale');
+
+  mkdirSync(activeDir, { recursive: true });
+  mkdirSync(staleDir, { recursive: true });
+  writeFileSync(path.join(activeDir, 'package.json'), '{}');
+  writeFileSync(path.join(activeDir, 'angular.json'), '{}');
+  writeFileSync(path.join(staleDir, 'package.json'), '{}');
+  writeFileSync(path.join(staleDir, 'angular.json'), '{}');
+
+  const removedDirs = [];
+  const prunedDirs = [];
+  const logs = [];
+
+  const summary = removeOrphanedManagedWorktreeDirs({
+    managedWorktreesRoot: managedRoot,
+    activeWorktreePaths: [activeDir],
+    branchExists: (branch) => branch === 'feat/active',
+    removeDir: (dirPath) => removedDirs.push(dirPath),
+    pruneAncestors: (dirPath, managedPath) => prunedDirs.push([dirPath, managedPath]),
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(removedDirs, [staleDir]);
+  assert.deepEqual(prunedDirs, [[staleDir, managedRoot]]);
+  assert.deepEqual(logs, [`Removing orphaned worktree directory ${staleDir}`]);
+  assert.deepEqual(summary, {
+    removed: [{ branch: 'feat/stale', path: staleDir }],
+    skippedExistingBranch: [],
+  });
+});
+
+test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the local branch still exists', () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const staleDir = path.join(managedRoot, 'feat', 'keep-me');
+
+  mkdirSync(staleDir, { recursive: true });
+  writeFileSync(path.join(staleDir, 'package.json'), '{}');
+  writeFileSync(path.join(staleDir, 'angular.json'), '{}');
+
+  const logs = [];
+
+  const summary = removeOrphanedManagedWorktreeDirs({
+    managedWorktreesRoot: managedRoot,
+    activeWorktreePaths: [],
+    branchExists: () => true,
+    removeDir: () => {
+      throw new Error('should not remove when local branch still exists');
+    },
+    pruneAncestors: () => {
+      throw new Error('should not prune when nothing was removed');
+    },
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(logs, [
+    `Skipping orphaned directory with local branch: feat/keep-me → ${staleDir}`,
+  ]);
+  assert.deepEqual(summary, {
+    removed: [],
+    skippedExistingBranch: [{ branch: 'feat/keep-me', path: staleDir }],
   });
 });

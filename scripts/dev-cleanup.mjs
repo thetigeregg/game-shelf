@@ -111,17 +111,27 @@ export function removeMergedWorktrees({
   gitRunner = runGit,
   log = console.log,
 }) {
+  const summary = {
+    removed: [],
+    skippedCurrent: [],
+    skippedDirty: [],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [],
+  };
+
   mergedWorktrees.forEach((w) => {
     const isCurrentWorktree = normalizePath(w.path) === currentWorktreePath;
     const isCurrentBranch = w.branch === currentBranch;
 
     if (isCurrentWorktree || isCurrentBranch) {
       log(`Skipping current worktree/branch: ${w.branch} → ${w.path}`);
+      summary.skippedCurrent.push(w);
       return;
     }
 
     if (!checkWorktreeClean(w.path)) {
       log(`Skipping dirty worktree/branch: ${w.branch} → ${w.path}`);
+      summary.skippedDirty.push(w);
       return;
     }
 
@@ -133,6 +143,7 @@ export function removeMergedWorktrees({
       removedWorktree = true;
     } catch {
       log(`Skipping worktree ${w.path}`);
+      summary.skippedRemovalFailed.push(w);
     }
 
     if (!removedWorktree) {
@@ -142,10 +153,14 @@ export function removeMergedWorktrees({
     try {
       log(`Deleting branch ${w.branch}`);
       gitRunner(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
+      summary.removed.push(w);
     } catch {
       log(`Skipping branch ${w.branch}`);
+      summary.skippedBranchDeleteFailed.push(w);
     }
   });
+
+  return summary;
 }
 
 export function main() {
@@ -244,11 +259,26 @@ AUTO MODE
 
   if (AUTO && mergedWorktrees.length > 0) {
     console.log('\n→ Removing merged worktrees and branches\n');
-    removeMergedWorktrees({
+    const removalSummary = removeMergedWorktrees({
       mergedWorktrees,
       currentWorktreePath: CURRENT_WORKTREE_PATH,
       currentBranch,
     });
+
+    const totalRemoved = removalSummary.removed.length;
+    const totalSkipped =
+      removalSummary.skippedCurrent.length +
+      removalSummary.skippedDirty.length +
+      removalSummary.skippedRemovalFailed.length +
+      removalSummary.skippedBranchDeleteFailed.length;
+
+    console.log('\n→ Cleanup summary\n');
+    console.log(`Removed: ${totalRemoved}`);
+    console.log(`Skipped current: ${removalSummary.skippedCurrent.length}`);
+    console.log(`Skipped dirty: ${removalSummary.skippedDirty.length}`);
+    console.log(`Skipped remove failed: ${removalSummary.skippedRemovalFailed.length}`);
+    console.log(`Skipped branch delete failed: ${removalSummary.skippedBranchDeleteFailed.length}`);
+    console.log(`Total skipped: ${totalSkipped}`);
   }
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

@@ -122,7 +122,8 @@ async function fetchFeedRows(
 ): Promise<{ items: PopularityFeedItem[]; page: PopularityPageInfo }> {
   const nowSec = params.nowSec;
   const cutoffRecentSec = nowSec - 90 * 24 * 60 * 60;
-  const queryLimit = Math.min(params.limit, params.rowLimit) + 1;
+  const effectiveLimit = Math.min(params.limit, params.rowLimit);
+  const queryLimit = effectiveLimit + 1;
 
   let limitPlaceholder = '$2';
   let offsetPlaceholder = '$3';
@@ -181,16 +182,16 @@ async function fetchFeedRows(
   const normalized = result.rows
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
-  const hasMore = result.rows.length > params.limit;
-  const items = normalized.slice(0, params.limit);
+  const hasMore = result.rows.length > effectiveLimit;
+  const items = normalized.slice(0, effectiveLimit);
 
   return {
     items,
     page: {
       offset: params.offset,
-      limit: params.limit,
+      limit: effectiveLimit,
       hasMore,
-      nextOffset: hasMore ? params.offset + params.limit : null,
+      nextOffset: hasMore ? params.offset + effectiveLimit : null,
     },
   };
 }

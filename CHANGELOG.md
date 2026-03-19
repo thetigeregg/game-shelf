@@ -2608,3 +2608,10 @@
 - 07d2b8c3 Merge branch 'main' into feat/bumpa
 - 240bc9c1 fix: refine discussion review item collection to exclude non-code comments
 
+## v1.9.0 - 2026-03-19
+- f3585f24 Merge pull request #254 from thetigeregg/feat/rates
+- 0b89c20e fix(api): handle recommendation metadata hydration safely
+- 88e8ac08 fix(explore): address recommendation metadata review feedback
+- 47ec319a feat: add game-by-id rate limit configuration to environment files and documentation
+- 19150d25 feat: add game-specific rate limit configuration and update explore page logic
+

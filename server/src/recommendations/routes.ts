@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { RecommendationServiceApi } from './service.js';
 import { parseRecommendationTarget, parseRuntimeModeOrNull } from './service.js';
+import type { RecommendationLaneKey } from './types.js';
+
+const MAX_PAGE_OFFSET = 1000;
 
 interface RebuildBody {
   target?: unknown;
@@ -88,7 +91,13 @@ export function registerRecommendationRoutes(
       },
     },
     handler: async (request, reply) => {
-      const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
+      const query = request.query as {
+        target?: unknown;
+        runtimeMode?: unknown;
+        lane?: unknown;
+        offset?: unknown;
+        limit?: unknown;
+      };
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {
@@ -106,9 +115,69 @@ export function registerRecommendationRoutes(
         return;
       }
 
-      const limit = parsePositiveInteger(query.limit) ?? 20;
+      const offset = Math.min(parseNonNegativeInteger(query.offset) ?? 0, MAX_PAGE_OFFSET);
+      const limit = parsePositiveInteger(query.limit);
+      const lane = query.lane === undefined ? null : parseRecommendationLaneKey(query.lane);
+
+      if (query.lane !== undefined && !lane) {
+        reply.code(400).send({
+          error:
+            'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
+        });
+        return;
+      }
+
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
-      const result = await service.getRecommendationLanes(target, limit, runtimeMode);
+
+      if (query.lane === undefined) {
+        const result = await service.getRecommendationLaneCollection(
+          target,
+          limit ?? 20,
+          runtimeMode
+        );
+
+        if (!result) {
+          let responseJobId = queueState.jobId;
+          let responseReason = queueState.reason;
+          if (!queueState.queued) {
+            const fallbackQueue = await service.enqueueRebuild({
+              target,
+              force: false,
+              triggeredBy: 'stale-read',
+            });
+            responseJobId = fallbackQueue.jobId;
+            responseReason = 'missing';
+          }
+          reply.code(202).send({
+            target,
+            status: 'QUEUED',
+            jobId: responseJobId,
+            reason: responseReason,
+            error: 'No recommendations available yet. Rebuild has been queued.',
+          });
+          return;
+        }
+
+        reply.send({
+          target,
+          runtimeMode: result.runtimeMode,
+          runId: result.run.id,
+          generatedAt: result.run.finishedAt ?? result.run.startedAt,
+          staleRefreshQueued: queueState.queued,
+          staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
+          staleRefreshJobId: queueState.jobId,
+          lanes: result.lanes,
+        });
+        return;
+      }
+
+      const result = await service.getRecommendationLanes(
+        target,
+        lane,
+        offset,
+        limit ?? 10,
+        runtimeMode
+      );
 
       if (!result) {
         let responseJobId = queueState.jobId;
@@ -140,7 +209,9 @@ export function registerRecommendationRoutes(
         staleRefreshQueued: queueState.queued,
         staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
         staleRefreshJobId: queueState.jobId,
-        lanes: result.lanes,
+        lane: result.lane,
+        items: result.items,
+        page: result.page,
       });
     },
   });
@@ -247,8 +318,13 @@ export function registerRecommendationRoutes(
 }
 
 function parsePositiveInteger(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-    return value;
+  const parsed = parseNonNegativeInteger(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
   }
 
   if (typeof value === 'string') {
@@ -256,9 +332,35 @@ function parsePositiveInteger(value: unknown): number | null {
     if (!/^\d+$/.test(normalized)) {
       return null;
     }
-    const parsed = Number.parseInt(normalized, 10);
-    return parsed > 0 ? parsed : null;
+
+    try {
+      const parsed = BigInt(normalized);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return null;
+      }
+      return Number(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return null;
+    }
+    return Number(value);
   }
 
   return null;
+}
+
+function parseRecommendationLaneKey(value: unknown): RecommendationLaneKey | null {
+  return value === 'overall' ||
+    value === 'hiddenGems' ||
+    value === 'exploration' ||
+    value === 'blended' ||
+    value === 'popular' ||
+    value === 'recent'
+    ? value
+    : null;
 }

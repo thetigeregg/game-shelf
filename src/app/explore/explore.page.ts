@@ -257,6 +257,7 @@ export class ExplorePage implements OnInit {
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly catalogCache = new Map<string, GameCatalogResult>();
+  private readonly catalogRequestCache = new Map<string, Promise<GameCatalogResult | null>>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
   private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
@@ -362,6 +363,7 @@ export class ExplorePage implements OnInit {
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     this.invalidateRecommendationVisibility();
+    void this.ensureVisibleRecommendationDisplayMetadata();
     void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
@@ -441,6 +443,7 @@ export class ExplorePage implements OnInit {
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    await this.ensureVisibleRecommendationDisplayMetadata();
     await this.ensureVisibleDiscoveryPricingHydrated();
     await completeIonInfiniteScroll(event);
   }
@@ -1263,6 +1266,7 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
+      void this.ensureVisibleRecommendationDisplayMetadata();
       void this.ensureVisibleDiscoveryPricingHydrated();
       return;
     }
@@ -1290,7 +1294,7 @@ export class ExplorePage implements OnInit {
       if (forceRefresh) {
         this.discoveryPricingHydrationAttempted.clear();
       }
-      await this.ensureRecommendationDisplayMetadata(response);
+      await this.ensureVisibleRecommendationDisplayMetadata(response);
       await this.ensureVisibleDiscoveryPricingHydrated();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
@@ -1982,13 +1986,20 @@ export class ExplorePage implements OnInit {
     return 'Unknown platform';
   }
 
-  private async ensureRecommendationDisplayMetadata(
-    response: RecommendationLanesResponse
+  private async ensureVisibleRecommendationDisplayMetadata(
+    response: RecommendationLanesResponse | null = this.activeLanesResponse
   ): Promise<void> {
-    const groupedPlatformIds = new Map<string, Set<number>>();
-    const allItems = Object.values(response.lanes).flat();
+    if (!response) {
+      return;
+    }
 
-    for (const item of allItems) {
+    const groupedPlatformIds = new Map<string, Set<number>>();
+    const visibleItems =
+      response === this.activeLanesResponse
+        ? this.getActiveLaneItems()
+        : this.getVisibleRecommendationItems().slice(0, this.visibleRecommendationCount);
+
+    for (const item of visibleItems) {
       if (this.getLocalGame(item)) {
         continue;
       }
@@ -2392,13 +2403,35 @@ export class ExplorePage implements OnInit {
   }
 
   private async fetchCatalogResult(igdbGameId: string): Promise<GameCatalogResult | null> {
-    try {
-      const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
-      this.catalogCache.set(igdbGameId, catalog);
-      return catalog;
-    } catch {
+    const normalizedId = igdbGameId.trim();
+    if (normalizedId.length === 0) {
       return null;
     }
+
+    const cached = this.catalogCache.get(normalizedId);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = this.catalogRequestCache.get(normalizedId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = (async () => {
+      try {
+        const catalog = await firstValueFrom(this.igdbProxyService.getGameById(normalizedId));
+        this.catalogCache.set(normalizedId, catalog);
+        return catalog;
+      } catch {
+        return null;
+      } finally {
+        this.catalogRequestCache.delete(normalizedId);
+      }
+    })();
+
+    this.catalogRequestCache.set(normalizedId, request);
+    return request;
   }
 
   private withCatalogPlatformContext(

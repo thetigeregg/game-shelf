@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -1507,6 +1507,7 @@ describe('ExplorePage explore modes UX', () => {
       canLoadMoreRecommendations: () => boolean;
       visibleRecommendationCount: number;
       activeLanesResponse: typeof mockLanesResponse | null;
+      invalidateRecommendationVisibility: () => void;
       localGameCacheByIdentity: Map<string, unknown>;
       recommendationDisplayMetadata: Map<
         string,
@@ -1548,9 +1549,13 @@ describe('ExplorePage explore modes UX', () => {
       ...mockLanesResponse,
       lanes: {
         ...mockLanesResponse.lanes,
-        overall: [row, { ...row, rank: 2, igdbGameId: '200' }],
+        overall: [
+          { ...row, igdbGameId: '200' },
+          { ...row, rank: 2, igdbGameId: '201' },
+        ],
       },
     };
+    privatePage.invalidateRecommendationVisibility();
     privatePage.visibleRecommendationCount = 1;
     expect(privatePage.canLoadMoreRecommendations()).toBe(true);
   });
@@ -2196,6 +2201,48 @@ describe('ExplorePage explore modes UX', () => {
     ).toBeNull();
   });
 
+  it('hydrates recommendation display metadata for visible lane rows only', async () => {
+    const page = createPage() as unknown as {
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      visibleRecommendationCount: number;
+      activeLanesResponse: MockLanesResponse | null;
+      ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+    };
+
+    page.selectedLaneKey = 'overall';
+    page.visibleRecommendationCount = 1;
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        overall: [
+          { ...mockLaneItem, igdbGameId: '1500', platformIgdbId: 6 },
+          { ...mockLaneItem, igdbGameId: '1501', platformIgdbId: 48 },
+        ],
+        hiddenGems: [{ ...mockLaneItem, igdbGameId: '2500', platformIgdbId: 167 }],
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: [],
+      },
+    };
+
+    const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
+    (
+      page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
+    ).populateRecommendationDisplayMetadata = populateSpy;
+
+    await page.ensureVisibleRecommendationDisplayMetadata();
+
+    expect(populateSpy).toHaveBeenCalledTimes(1);
+    const grouped = populateSpy.mock.calls[0]?.[0];
+    expect(Array.from(grouped.keys())).toEqual(['1500']);
+    expect(grouped.get('1500')).toEqual(new Set([6]));
+    expect(grouped.has('1501')).toBe(false);
+    expect(grouped.has('2500')).toBe(false);
+  });
+
   it('skips local similar items when collecting display metadata', async () => {
     const page = createPage() as unknown as {
       localGameCacheByIdentity: Map<string, unknown>;
@@ -2310,6 +2357,45 @@ describe('ExplorePage explore modes UX', () => {
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
     resolveHydration();
     await Promise.all([firstRun, secondRun]);
+  });
+
+  it('single-flights duplicate catalog lookups while a request is in flight', async () => {
+    const page = createPage() as unknown as {
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      catalogCache: Map<string, unknown>;
+      catalogRequestCache: Map<string, Promise<unknown>>;
+    };
+
+    let resolveRequest: (value: unknown) => void = () => undefined;
+    igdbProxyServiceMock.getGameById.mockImplementationOnce(
+      () =>
+        new Observable((subscriber) => {
+          resolveRequest = (value) => {
+            subscriber.next(value);
+            subscriber.complete();
+          };
+        })
+    );
+
+    const firstRequest = page.fetchCatalogResult('1700');
+    const secondRequest = page.fetchCatalogResult('1700');
+
+    expect(igdbProxyServiceMock.getGameById).toHaveBeenCalledTimes(1);
+
+    const response = {
+      title: 'Catalog',
+      coverUrl: null,
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }],
+      releaseYear: 2024,
+    };
+    resolveRequest(response);
+
+    await expect(firstRequest).resolves.toEqual(response);
+    await expect(secondRequest).resolves.toEqual(response);
+    expect(page.catalogCache.has('1700')).toBe(true);
+    expect(page.catalogRequestCache.size).toBe(0);
   });
 
   it('rechecks discovery hydration when a rerun is requested without candidates', async () => {

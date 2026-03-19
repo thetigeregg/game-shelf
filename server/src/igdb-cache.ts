@@ -287,26 +287,30 @@ export async function processQueuedIgdbCacheRevalidation(
   }
 
   const response = await fetchMetadataFromWorker(normalizedRequest.gameId);
-  if (!response.ok) {
-    throw new Error(`IGDB revalidation request failed with status ${String(response.status)}.`);
-  }
+  try {
+    if (!response.ok) {
+      throw new Error(`IGDB revalidation request failed with status ${String(response.status)}.`);
+    }
 
-  const parsed = await safeReadJson(response);
-  if (parsed === null || !isCacheableIgdbPayload(normalizedRequest, parsed)) {
-    throw new Error('IGDB revalidation returned uncacheable payload.');
-  }
+    const parsed = await safeReadJson(response);
+    if (parsed === null || !isCacheableIgdbPayload(normalizedRequest, parsed)) {
+      throw new Error('IGDB revalidation returned uncacheable payload.');
+    }
 
-  await pool.query(
-    `
-    INSERT INTO igdb_game_cache (cache_key, igdb_game_id, response_json, updated_at)
-    VALUES ($1, $2, $3::jsonb, NOW())
-    ON CONFLICT (cache_key)
-    DO UPDATE SET
-      response_json = EXCLUDED.response_json,
-      updated_at = NOW()
-    `,
-    [payload.cacheKey, normalizedRequest.gameId, JSON.stringify(parsed)]
-  );
+    await pool.query(
+      `
+      INSERT INTO igdb_game_cache (cache_key, igdb_game_id, response_json, updated_at)
+      VALUES ($1, $2, $3::jsonb, NOW())
+      ON CONFLICT (cache_key)
+      DO UPDATE SET
+        response_json = EXCLUDED.response_json,
+        updated_at = NOW()
+      `,
+      [payload.cacheKey, normalizedRequest.gameId, JSON.stringify(parsed)]
+    );
+  } finally {
+    await cancelResponseBody(response);
+  }
 }
 
 async function cancelResponseBody(response: Response): Promise<void> {

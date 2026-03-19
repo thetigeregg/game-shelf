@@ -882,19 +882,25 @@ function applyManualMatchPatch(
       return integerError;
     }
 
-    const reviewSource = parseReviewSource(body.reviewSource);
     const reviewScore = normalizeNumber(body.reviewScore);
     const reviewUrl = normalizeString(body.reviewUrl);
     const metacriticScore = normalizeNumber(body.metacriticScore);
     const metacriticUrl = normalizeString(body.metacriticUrl);
     const mobygamesGameId = normalizePositiveInteger(body.mobygamesGameId);
     const mobyScore = normalizeNumber(body.mobyScore);
+    const hasReviewFields = reviewScore !== null || reviewUrl !== null;
+    const hasMetacriticFields = metacriticScore !== null || metacriticUrl !== null;
+    const reviewSource =
+      parseReviewSource(body.reviewSource) ?? (hasMetacriticFields ? 'metacritic' : null);
     const scoreError =
       validateBoundedNumberField(reviewScore, 'Review score', 0, 100) ??
       validateBoundedNumberField(metacriticScore, 'Metacritic score', 0, 100) ??
       validateBoundedNumberField(mobyScore, 'MobyGames score', 0, 10);
     if (scoreError) {
       return scoreError;
+    }
+    if (reviewSource === null && hasReviewFields) {
+      return 'Review source is required when review score or review URL is provided.';
     }
     if (
       reviewSource === null &&

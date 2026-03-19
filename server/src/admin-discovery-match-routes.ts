@@ -179,11 +179,9 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       const provider = parseProvider(body.provider);
       const requestedKeys = parseGameKeys(body.gameKeys);
       if (Array.isArray(body.gameKeys) && requestedKeys !== null && requestedKeys.size === 0) {
-        reply
-          .code(400)
-          .send({
-            error: 'At least one valid discovery game key is required when gameKeys is provided.',
-          });
+        reply.code(400).send({
+          error: 'At least one valid discovery game key is required when gameKeys is provided.',
+        });
         return;
       }
 
@@ -898,6 +896,8 @@ function applyManualMatchPatch(
     const mobyScore = normalizeNumber(body.mobyScore);
     const hasReviewFields = reviewScore !== null || reviewUrl !== null;
     const hasMetacriticFields = metacriticScore !== null || metacriticUrl !== null;
+    const hasAnyReviewFields =
+      hasReviewFields || hasMetacriticFields || mobygamesGameId !== null || mobyScore !== null;
     const reviewSource =
       parseReviewSource(body.reviewSource) ?? (hasMetacriticFields ? 'metacritic' : null);
     const scoreError =
@@ -907,19 +907,11 @@ function applyManualMatchPatch(
     if (scoreError) {
       return scoreError;
     }
+    if (!hasAnyReviewFields) {
+      return 'Review updates require at least one review field.';
+    }
     if (reviewSource === null && hasReviewFields) {
       return 'Review source is required when review score or review URL is provided.';
-    }
-    if (
-      reviewSource === null &&
-      reviewScore === null &&
-      reviewUrl === null &&
-      metacriticScore === null &&
-      metacriticUrl === null &&
-      mobygamesGameId === null &&
-      mobyScore === null
-    ) {
-      return 'Review updates require at least one review field.';
     }
     payload['reviewSource'] = reviewSource;
     payload['reviewScore'] = reviewScore;

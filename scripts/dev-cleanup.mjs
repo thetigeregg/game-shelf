@@ -1,10 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const AUTO = process.argv.includes('--auto');
+const DRY_RUN = process.argv.includes('--dry-run');
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
+const IGNORABLE_DIRECTORY_ENTRIES = new Set(['.DS_Store', '.localized', 'Thumbs.db']);
 
 function normalizePathForCompare(pathValue) {
   let resolved = path.resolve(pathValue);
@@ -147,7 +149,16 @@ function getDisplayPath(targetPath) {
 }
 
 function listVisibleEntries(dirPath) {
-  return readdirSync(dirPath).filter((entry) => entry !== '.DS_Store');
+  return readdirSync(dirPath).filter((entry) => !IGNORABLE_DIRECTORY_ENTRIES.has(entry));
+}
+
+function removeIgnorableEntries(dirPath) {
+  for (const entry of IGNORABLE_DIRECTORY_ENTRIES) {
+    const entryPath = path.join(dirPath, entry);
+    if (existsSync(entryPath)) {
+      rmSync(entryPath, { force: true, recursive: false });
+    }
+  }
 }
 
 function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES_ROOT) {
@@ -163,20 +174,38 @@ function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES
       return;
     }
 
-    const dsStorePath = path.join(currentPath, '.DS_Store');
-    if (existsSync(dsStorePath)) {
-      rmSync(dsStorePath, { force: true });
-    }
-
+    removeIgnorableEntries(currentPath);
     rmSync(currentPath, { recursive: false, force: true });
     currentPath = normalizePathForCompare(path.dirname(currentPath));
   }
 }
 
+function getManagedWorktreeGitPointer(dirPath) {
+  const gitPath = path.join(dirPath, '.git');
+  if (!existsSync(gitPath)) {
+    return null;
+  }
+
+  try {
+    const gitFile = readFileSync(gitPath, 'utf8').trim();
+    const match = gitFile.match(/^gitdir:\s*(.+)$/);
+    if (!match) {
+      return null;
+    }
+
+    return normalizePathForCompare(path.resolve(dirPath, match[1].trim()));
+  } catch {
+    return null;
+  }
+}
+
 function looksLikeManagedWorktreeRoot(dirPath) {
-  return (
-    existsSync(path.join(dirPath, 'package.json')) && existsSync(path.join(dirPath, 'angular.json'))
-  );
+  const gitPointer = getManagedWorktreeGitPointer(dirPath);
+  if (!gitPointer) {
+    return false;
+  }
+
+  return gitPointer.includes('/.git/worktrees/');
 }
 
 function toBranchFromManagedWorktreePath(managedWorktreesRoot, dirPath) {
@@ -235,6 +264,7 @@ export function removeOrphanedManagedWorktreeDirs({
   branchExists = localBranchExists,
   removeDir = (dirPath) => rmSync(dirPath, { recursive: true, force: true }),
   pruneAncestors = pruneEmptyManagedAncestors,
+  dryRun = false,
   log = console.log,
 }) {
   const normalizedManagedRoot = normalizePathForCompare(managedWorktreesRoot);
@@ -255,14 +285,19 @@ export function removeOrphanedManagedWorktreeDirs({
     }
 
     if (branchExists(branch)) {
-      log(`Skipping orphaned directory with local branch: ${branch} → ${dirPath}`);
+      log(`Warning: orphaned directory still has a local branch: ${branch} → ${dirPath}`);
       summary.skippedExistingBranch.push({ branch, path: dirPath });
       return;
     }
 
-    log(`Removing orphaned worktree directory ${dirPath}`);
-    removeDir(dirPath);
-    pruneAncestors(dirPath, normalizedManagedRoot);
+    if (dryRun) {
+      log(`[dry-run] Would remove orphaned worktree directory ${dirPath}`);
+    } else {
+      log(`Removing orphaned worktree directory ${dirPath}`);
+      removeDir(dirPath);
+      pruneAncestors(dirPath, normalizedManagedRoot);
+    }
+
     summary.removed.push({ branch, path: dirPath });
   });
 
@@ -285,6 +320,8 @@ export function removeMergedWorktrees({
   normalizePath = normalizePathForCompare,
   checkWorktreeClean = isWorktreeClean,
   gitRunner = runGit,
+  pruneAncestors = pruneEmptyManagedAncestors,
+  dryRun = false,
   log = console.log,
 }) {
   const summary = {
@@ -313,23 +350,34 @@ export function removeMergedWorktrees({
 
     let removedWorktree = false;
 
-    try {
-      log(`Removing worktree ${w.path}`);
-      gitRunner(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });
+    if (dryRun) {
+      log(`[dry-run] Would remove worktree ${w.path}`);
       removedWorktree = true;
-    } catch {
-      log(`Skipping worktree ${w.path}`);
-      summary.skippedRemovalFailed.push(w);
+    } else {
+      try {
+        log(`Removing worktree ${w.path}`);
+        gitRunner(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });
+        removedWorktree = true;
+      } catch {
+        log(`Skipping worktree ${w.path}`);
+        summary.skippedRemovalFailed.push(w);
+      }
     }
 
     if (!removedWorktree) {
       return;
     }
 
+    if (dryRun) {
+      log(`[dry-run] Would delete branch ${w.branch}`);
+      summary.removed.push(w);
+      return;
+    }
+
     try {
       log(`Deleting branch ${w.branch}`);
       gitRunner(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
-      pruneEmptyManagedAncestors(w.path);
+      pruneAncestors(w.path);
       summary.removed.push(w);
     } catch {
       log(`Skipping branch ${w.branch}`);
@@ -340,10 +388,63 @@ export function removeMergedWorktrees({
   return summary;
 }
 
+export function removeMergedBranchesWithoutWorktrees({
+  mergedBranches,
+  activeWorktreeBranches,
+  currentBranch,
+  gitRunner = runGit,
+  dryRun = false,
+  log = console.log,
+}) {
+  const activeBranches = new Set(activeWorktreeBranches);
+  const summary = {
+    removed: [],
+    skippedCurrent: [],
+    skippedActiveWorktree: [],
+    skippedDeleteFailed: [],
+  };
+
+  mergedBranches.forEach((branch) => {
+    if (branch === currentBranch) {
+      log(`Skipping current branch: ${branch}`);
+      summary.skippedCurrent.push({ branch });
+      return;
+    }
+
+    if (activeBranches.has(branch)) {
+      summary.skippedActiveWorktree.push({ branch });
+      return;
+    }
+
+    if (dryRun) {
+      log(`[dry-run] Would delete merged branch without worktree ${branch}`);
+      summary.removed.push({ branch });
+      return;
+    }
+
+    try {
+      log(`Deleting merged branch without worktree ${branch}`);
+      gitRunner(['branch', '-D', '--', branch], { stdio: 'inherit', exitOnError: false });
+      summary.removed.push({ branch });
+    } catch {
+      log(`Skipping branch ${branch}`);
+      summary.skippedDeleteFailed.push({ branch });
+    }
+  });
+
+  return summary;
+}
+
 export function main() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('Repository cleanup');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  if (DRY_RUN) {
+    console.log(
+      'Dry run mode enabled. No fetch, prune, branch deletion, or filesystem removal will occur.\n'
+    );
+  }
 
   const status = runGit(['status', '--porcelain']).trim();
   if (status) {
@@ -356,10 +457,18 @@ export function main() {
   const currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
 
   console.log('→ Fetching latest refs from origin');
-  runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
+  if (DRY_RUN) {
+    console.log('[dry-run] Skipping fetch -- using current local refs');
+  } else {
+    runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
+  }
 
   console.log('\n→ Pruning stale worktrees');
-  runGit(['worktree', 'prune'], { stdio: 'inherit' });
+  if (DRY_RUN) {
+    console.log('[dry-run] Skipping worktree prune');
+  } else {
+    runGit(['worktree', 'prune'], { stdio: 'inherit' });
+  }
 
   console.log('\n→ Active worktrees');
   runGit(['worktree', 'list'], { stdio: 'inherit' });
@@ -430,6 +539,20 @@ Worktrees whose branch is merged
     });
   }
 
+  console.log('\n→ Merged branches without an active worktree\n');
+
+  const mergedBranchesWithoutWorktrees = mergedBranches.filter(
+    (branch) => !worktrees.some((worktree) => worktree.branch === branch)
+  );
+
+  if (mergedBranchesWithoutWorktrees.length === 0) {
+    console.log('None');
+  } else {
+    mergedBranchesWithoutWorktrees.forEach((branch) => {
+      console.log(branch);
+    });
+  }
+
   /*
 AUTO MODE
 */
@@ -440,6 +563,7 @@ AUTO MODE
       mergedWorktrees,
       currentWorktreePath: CURRENT_WORKTREE_PATH,
       currentBranch,
+      dryRun: DRY_RUN,
     });
 
     const totalRemoved = removalSummary.removed.length;
@@ -466,8 +590,34 @@ AUTO MODE
   }
 
   if (AUTO) {
+    const mergedBranchSummary = removeMergedBranchesWithoutWorktrees({
+      mergedBranches: mergedBranchesWithoutWorktrees,
+      activeWorktreeBranches: worktrees.map((worktree) => worktree.branch),
+      currentBranch,
+      dryRun: DRY_RUN,
+    });
+
+    console.log('\n→ Merged branches without worktrees cleanup\n');
+    console.log(formatCleanupSummaryLine('Removed merged branches', mergedBranchSummary.removed));
+    console.log(
+      formatCleanupSummaryLine('Skipped current branch', mergedBranchSummary.skippedCurrent)
+    );
+    console.log(
+      formatCleanupSummaryLine(
+        'Skipped active worktree branch',
+        mergedBranchSummary.skippedActiveWorktree
+      )
+    );
+    console.log(
+      formatCleanupSummaryLine(
+        'Skipped merged branch delete failed',
+        mergedBranchSummary.skippedDeleteFailed
+      )
+    );
+
     const orphanedSummary = removeOrphanedManagedWorktreeDirs({
       activeWorktreePaths: worktrees.map((worktree) => worktree.path),
+      dryRun: DRY_RUN,
     });
 
     console.log('\n→ Orphaned worktree directories\n');
@@ -478,6 +628,12 @@ AUTO MODE
         orphanedSummary.skippedExistingBranch
       )
     );
+
+    if (orphanedSummary.skippedExistingBranch.length > 0) {
+      console.log(
+        'Review skipped orphaned directories above. They still have local branches, which usually means Git metadata and the filesystem drifted out of sync.'
+      );
+    }
   }
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

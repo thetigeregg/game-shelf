@@ -257,6 +257,7 @@ export class ExplorePage implements OnInit {
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly catalogCache = new Map<string, GameCatalogResult>();
+  private readonly catalogRequestCache = new Map<string, Promise<GameCatalogResult | null>>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
   private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
@@ -362,6 +363,7 @@ export class ExplorePage implements OnInit {
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     this.invalidateRecommendationVisibility();
+    this.scheduleVisibleRecommendationDisplayMetadata();
     void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
@@ -441,8 +443,12 @@ export class ExplorePage implements OnInit {
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    await this.ensureVisibleDiscoveryPricingHydrated();
-    await completeIonInfiniteScroll(event);
+    this.scheduleVisibleRecommendationDisplayMetadata();
+    try {
+      await this.ensureVisibleDiscoveryPricingHydrated();
+    } finally {
+      await completeIonInfiniteScroll(event);
+    }
   }
 
   async loadMorePopularity(event: Event): Promise<void> {
@@ -1263,6 +1269,7 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
+      this.scheduleVisibleRecommendationDisplayMetadata();
       void this.ensureVisibleDiscoveryPricingHydrated();
       return;
     }
@@ -1290,7 +1297,7 @@ export class ExplorePage implements OnInit {
       if (forceRefresh) {
         this.discoveryPricingHydrationAttempted.clear();
       }
-      await this.ensureRecommendationDisplayMetadata(response);
+      await this.ensureVisibleRecommendationDisplayMetadata(response);
       await this.ensureVisibleDiscoveryPricingHydrated();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
@@ -1358,6 +1365,10 @@ export class ExplorePage implements OnInit {
 
   private scheduleVisiblePopularityCatalogHydration(): void {
     void this.ensureVisiblePopularityCatalogHydrated().catch(() => undefined);
+  }
+
+  private scheduleVisibleRecommendationDisplayMetadata(): void {
+    void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
@@ -1782,7 +1793,12 @@ export class ExplorePage implements OnInit {
   }
 
   private getCatalogResult(igdbGameId: string): GameCatalogResult | null {
-    return this.catalogCache.get(igdbGameId) ?? null;
+    const normalizedId = this.normalizeCatalogCacheKey(igdbGameId);
+    if (normalizedId.length === 0) {
+      return null;
+    }
+
+    return this.catalogCache.get(normalizedId) ?? null;
   }
 
   private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
@@ -1982,13 +1998,20 @@ export class ExplorePage implements OnInit {
     return 'Unknown platform';
   }
 
-  private async ensureRecommendationDisplayMetadata(
-    response: RecommendationLanesResponse
+  private async ensureVisibleRecommendationDisplayMetadata(
+    response: RecommendationLanesResponse | null = this.activeLanesResponse
   ): Promise<void> {
-    const groupedPlatformIds = new Map<string, Set<number>>();
-    const allItems = Object.values(response.lanes).flat();
+    if (!response) {
+      return;
+    }
 
-    for (const item of allItems) {
+    const groupedPlatformIds = new Map<string, Set<number>>();
+    const visibleItems = this.getVisibleRecommendationItemsForResponse(response).slice(
+      0,
+      this.visibleRecommendationCount
+    );
+
+    for (const item of visibleItems) {
       if (this.getLocalGame(item)) {
         continue;
       }
@@ -2120,7 +2143,7 @@ export class ExplorePage implements OnInit {
       await Promise.all(
         batch.map(async ([igdbGameId, platformIds]) => {
           const catalog =
-            this.catalogCache.get(igdbGameId) ?? (await this.fetchCatalogResult(igdbGameId));
+            this.getCatalogResult(igdbGameId) ?? (await this.fetchCatalogResult(igdbGameId));
 
           if (!catalog) {
             return;
@@ -2392,13 +2415,39 @@ export class ExplorePage implements OnInit {
   }
 
   private async fetchCatalogResult(igdbGameId: string): Promise<GameCatalogResult | null> {
-    try {
-      const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
-      this.catalogCache.set(igdbGameId, catalog);
-      return catalog;
-    } catch {
+    const normalizedId = this.normalizeCatalogCacheKey(igdbGameId);
+    if (normalizedId.length === 0) {
       return null;
     }
+
+    const cached = this.catalogCache.get(normalizedId);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = this.catalogRequestCache.get(normalizedId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = (async () => {
+      try {
+        const catalog = await firstValueFrom(this.igdbProxyService.getGameById(normalizedId));
+        this.catalogCache.set(normalizedId, catalog);
+        return catalog;
+      } catch {
+        return null;
+      } finally {
+        this.catalogRequestCache.delete(normalizedId);
+      }
+    })();
+
+    this.catalogRequestCache.set(normalizedId, request);
+    return request;
+  }
+
+  private normalizeCatalogCacheKey(igdbGameId: string): string {
+    return igdbGameId.trim();
   }
 
   private withCatalogPlatformContext(
@@ -2478,6 +2527,20 @@ export class ExplorePage implements OnInit {
     );
     this.cachedVisibleRecommendationItemsRevision = this.recommendationVisibilityRevision;
     return this.cachedVisibleRecommendationItems;
+  }
+
+  private getVisibleRecommendationItemsForResponse(
+    response: RecommendationLanesResponse
+  ): RecommendationItem[] {
+    if (response === this.activeLanesResponse) {
+      return this.getVisibleRecommendationItems();
+    }
+
+    return this.getDeduplicatedLaneItems(
+      this.filterIgnoredRecommendationItems(
+        this.filterAlreadyInLibraryRecommendationItems(response.lanes[this.selectedLaneKey])
+      )
+    );
   }
 
   private getVisibleSimilarItems(): RecommendationSimilarItem[] {

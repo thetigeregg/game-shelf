@@ -289,6 +289,8 @@ cp .env.example .env
 
 Key metadata env vars in `.env`:
 
+- `GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS=50`
+- `GAME_BY_ID_RATE_LIMIT_WINDOW_MS=60000`
 - `METACRITIC_SCRAPER_BASE_URL=http://metacritic-scraper:8789`
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
 - `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`

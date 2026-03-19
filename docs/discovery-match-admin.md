@@ -127,22 +127,28 @@ It refreshes the page from server state. Nothing is changed in storage.
 
 ### Queue current results
 
-`Queue current results` sends the currently visible discovery row keys to the server and enqueues a `discovery_enrichment_run` background job.
+`Queue current results` sends the currently visible discovery row keys to the server and enqueues background work for the selected provider.
 
 Behavior:
 
 - it targets only the rows currently visible in the admin list
-- when `provider` is `hltb` or `review`, the job also targets only that provider and passes that provider as a forced locked refresh target
-- the job is deduped with a single discovery enrichment dedupe key
-- if an equivalent run is already queued, the response is marked as deduped and no second run is added
+- when `provider` is `pricing`, the route queues pricing refresh jobs for those rows instead of a `discovery_enrichment_run`
+- when `provider` is `hltb` or `review`, the route queues a `discovery_enrichment_run` that targets only that provider and passes that provider as a forced locked refresh target
+- discovery enrichment runs are deduped with a single discovery enrichment dedupe key
+- pricing refresh jobs are deduped per queued Steam or PSPrices revalidation job
+- if an equivalent job is already queued, the response is marked as deduped and no second job is added
 
 This action does not edit the selected rows directly. It only queues background work.
 
-#### Important limitation
+#### Provider-specific behavior
 
-The queued job runs the discovery enrichment worker, which currently handles HLTB, review, and Steam enrichment logic. It is not the mechanism that refreshes PSPrices pricing matches.
+When the selected provider is `pricing`, this action queues pricing refresh work directly:
 
-That means queueing discovery enrichment is useful for HLTB or review gaps, but it is not the direct fix path for pricing-only issues.
+- Steam rows queue `steam_price_revalidate`
+- supported PlayStation rows queue `psprices_price_revalidate`
+- pricing requeue ignores `psPricesMatchLocked`, so an admin-triggered refresh can run even when pricing was manually locked
+
+When the selected provider is `hltb` or `review`, this action queues the discovery enrichment worker for those rows.
 
 ### Clear visible permanent misses
 
@@ -308,11 +314,15 @@ Once a provider is cleared, automatic enrichment is allowed to populate it again
 
 ### Queue this game
 
-The modal-level queue action enqueues a targeted `discovery_enrichment_run` for exactly that row key.
+The modal-level queue action enqueues provider-specific background work for the selected discovery row.
 
-Like the list-level queue button, this is deduped. If a discovery enrichment run is already queued, the server reports that the request was deduped.
+Like the list-level queue button:
 
-If the operator queues a specific `hltb` or `review` provider, that targeted run also opts into forced locked refresh handling for that provider.
+- `pricing` queues pricing refresh jobs for the selected row and any related discovery rows for the same IGDB game
+- `hltb` and `review` queue a targeted `discovery_enrichment_run`
+- equivalent queued work is deduped and reported as deduped instead of adding a duplicate job
+
+If the operator queues a specific `hltb` or `review` provider, that targeted discovery run also opts into forced locked refresh handling for that provider.
 
 ## What locking means
 
@@ -405,9 +415,9 @@ Pricing rows can surface as `retrying` or `permanentMiss` when PSPrices retry me
 
 Unlike HLTB and review, the admin page does not expose a `Clear visible permanent misses` reset path for pricing. Pricing repair flows on this page are manual save/clear and pricing requeue actions.
 
-### Queue buttons are not the pricing repair path
+### Pricing requeue complements manual pricing repair
 
-If the selected problem is pricing-only, the most direct fixes are manual save/clear and the PSPrices-specific lookup paths. The discovery enrichment queue is primarily for HLTB and review enrichment.
+If the selected problem is pricing-only, the direct repair paths are manual save/clear and pricing requeue actions. The pricing queue path schedules Steam or PSPrices refresh work, while HLTB and review queue actions schedule discovery enrichment.
 
 ## Practical triage examples
 

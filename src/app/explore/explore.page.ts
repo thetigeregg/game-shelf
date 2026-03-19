@@ -363,7 +363,7 @@ export class ExplorePage implements OnInit {
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     this.invalidateRecommendationVisibility();
-    void this.ensureVisibleRecommendationDisplayMetadata();
+    this.scheduleVisibleRecommendationDisplayMetadata();
     void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
@@ -443,7 +443,7 @@ export class ExplorePage implements OnInit {
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    void this.ensureVisibleRecommendationDisplayMetadata();
+    this.scheduleVisibleRecommendationDisplayMetadata();
     try {
       await this.ensureVisibleDiscoveryPricingHydrated();
     } finally {
@@ -1269,7 +1269,7 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
-      void this.ensureVisibleRecommendationDisplayMetadata();
+      this.scheduleVisibleRecommendationDisplayMetadata();
       void this.ensureVisibleDiscoveryPricingHydrated();
       return;
     }
@@ -1365,6 +1365,10 @@ export class ExplorePage implements OnInit {
 
   private scheduleVisiblePopularityCatalogHydration(): void {
     void this.ensureVisiblePopularityCatalogHydrated().catch(() => undefined);
+  }
+
+  private scheduleVisibleRecommendationDisplayMetadata(): void {
+    void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {

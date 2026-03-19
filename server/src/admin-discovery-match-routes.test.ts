@@ -546,6 +546,42 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
   }
 });
 
+void test('admin discovery list requeue route rejects provided game keys when none normalize', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+      payload: {
+        gameKeys: ['not-a-key', '   '],
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(JSON.parse(response.body), {
+      error: 'At least one valid discovery game key is required when gameKeys is provided.',
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery pricing list requeue route respects selected game keys and skips unsupported rows', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

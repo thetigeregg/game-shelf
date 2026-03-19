@@ -398,6 +398,7 @@ export interface PriceMatchCandidate {
   isFree: boolean | null;
   url: string | null;
   score: number | null;
+  source?: 'steam_store' | 'psprices';
   isRecommended?: boolean;
   imageUrl?: string | null;
 }

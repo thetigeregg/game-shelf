@@ -119,6 +119,15 @@ npm run build
 - Game detail actions in Collection/Wishlist also support the same **Pricing picker** flow for PSPrices platforms.
 - Metadata Validator includes **Missing Pricing (supported platforms)** and only evaluates the platforms above.
 
+## Discovery Match Admin
+
+- Settings includes a **Discovery Match Admin** page for discovery-queue enrichment triage.
+- The page uses the existing device write token from Settings. There is no separate admin token for discovery match controls.
+- Admin controls support filtering unmatched discovery rows by provider/state, loading full match state, manually saving or clearing HLTB/review/pricing matches, resetting visible permanent misses for HLTB or review, and requeueing targeted discovery enrichment for either one row or the current visible results.
+- Candidate search is built into the modal for HLTB, review, and pricing so operators can search upstream metadata and paste or apply a chosen match.
+- List-level and per-row requeue actions enqueue targeted discovery enrichment keyed by the visible discovery rows, which reduces unnecessary churn across unrelated discovery items.
+- Detailed behavior, state rules, and side effects are documented in [docs/discovery-match-admin.md](docs/discovery-match-admin.md).
+
 ## Testing and Quality
 
 Run lint:

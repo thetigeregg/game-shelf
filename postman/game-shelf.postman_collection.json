@@ -35,6 +35,26 @@
       "key": "metacriticScraperBaseUrl",
       "value": "http://metacritic-scraper:8789",
       "type": "string"
+    },
+    {
+      "key": "sampleDiscoveryGameId",
+      "value": "123",
+      "type": "string"
+    },
+    {
+      "key": "sampleDiscoveryPlatformIgdbId",
+      "value": "48",
+      "type": "string"
+    },
+    {
+      "key": "sampleDiscoveryProvider",
+      "value": "hltb",
+      "type": "string"
+    },
+    {
+      "key": "sampleDiscoveryGameKeysJson",
+      "value": "[\"123::48\"]",
+      "type": "string"
     }
   ],
   "item": [
@@ -585,6 +605,342 @@
               ]
             },
             "description": "Focused failed-job check for release monitor delivery pipeline."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discovery Match Admin",
+      "description": "Admin discovery-match endpoints for triaging unmatched HLTB, review, and pricing metadata on discovery rows.",
+      "item": [
+        {
+          "name": "List Unmatched Discovery Matches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/matches/unmatched?provider=hltb&state=missing&limit=25",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "admin", "discovery", "matches", "unmatched"],
+              "query": [
+                {
+                  "key": "provider",
+                  "value": "hltb"
+                },
+                {
+                  "key": "state",
+                  "value": "missing"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            },
+            "description": "Lists unmatched discovery rows for a provider/state filter. Adjust provider/state/search to target the queue slice you want to inspect."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200, 401, or 429', function () {",
+                  "  pm.expect([200, 401, 429]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Discovery Match State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/match-state",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "match-state"
+              ]
+            },
+            "description": "Loads the full admin match state for one discovery row, including provider payload fields and retry/lock status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200, 401, 404, or 429', function () {",
+                  "  pm.expect([200, 401, 404, 429]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patch Discovery HLTB Match",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"hltb\",\n  \"hltbGameId\": 7002,\n  \"hltbUrl\": \"https://howlongtobeat.com/game/7002\",\n  \"hltbMainHours\": 8.5,\n  \"hltbMainExtraHours\": 11,\n  \"hltbCompletionistHours\": 16,\n  \"queryTitle\": \"Night in the Woods\",\n  \"queryReleaseYear\": 2017,\n  \"queryPlatform\": \"PC\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/match",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "match"
+              ]
+            },
+            "description": "Example manual HLTB match write. Swap the payload shape when testing review or pricing writes against the same endpoint."
+          }
+        },
+        {
+          "name": "Patch Discovery Review Match",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"review\",\n  \"reviewSource\": \"metacritic\",\n  \"reviewScore\": 91,\n  \"reviewUrl\": \"https://www.metacritic.com/game/chrono-trigger/\",\n  \"metacriticScore\": 91,\n  \"metacriticUrl\": \"https://www.metacritic.com/game/chrono-trigger/\",\n  \"queryTitle\": \"Chrono Trigger\",\n  \"queryReleaseYear\": 1999,\n  \"queryPlatform\": \"PlayStation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/match",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "match"
+              ]
+            },
+            "description": "Example review match write for Metacritic-backed review data."
+          }
+        },
+        {
+          "name": "Patch Discovery Pricing Match",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"pricing\",\n  \"priceSource\": \"psprices\",\n  \"priceFetchedAt\": \"2026-03-17T00:00:00.000Z\",\n  \"priceAmount\": 19.99,\n  \"priceCurrency\": \"USD\",\n  \"priceRegularAmount\": 39.99,\n  \"priceDiscountPercent\": 50,\n  \"priceIsFree\": false,\n  \"priceUrl\": \"https://psprices.com/us/game/chrono-trigger\",\n  \"psPricesUrl\": \"https://psprices.com/us/game/chrono-trigger\",\n  \"psPricesTitle\": \"Chrono Trigger\",\n  \"psPricesPlatform\": \"PlayStation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/match",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "match"
+              ]
+            },
+            "description": "Example pricing match write for a PSPrices-backed discovery row."
+          }
+        },
+        {
+          "name": "Clear Discovery Provider Match",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/match/{{sampleDiscoveryProvider}}",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "match",
+                "{{sampleDiscoveryProvider}}"
+              ]
+            },
+            "description": "Clears the saved manual match for one provider on a discovery row and unlocks it for future enrichment."
+          }
+        },
+        {
+          "name": "Clear Discovery Permanent Misses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"review\",\n  \"gameKeys\": {{sampleDiscoveryGameKeysJson}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/matches/clear-permanent-miss",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "admin", "discovery", "matches", "clear-permanent-miss"]
+            },
+            "description": "Resets permanent-miss retry state for explicit discovery rows. Provider must be hltb or review."
+          }
+        },
+        {
+          "name": "Queue Discovery Enrichment For One Row",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/games/{{sampleDiscoveryGameId}}/{{sampleDiscoveryPlatformIgdbId}}/requeue-enrichment",
+              "host": ["{{apiBaseUrl}}"],
+              "path": [
+                "v1",
+                "admin",
+                "discovery",
+                "games",
+                "{{sampleDiscoveryGameId}}",
+                "{{sampleDiscoveryPlatformIgdbId}}",
+                "requeue-enrichment"
+              ]
+            },
+            "description": "Queues targeted discovery enrichment for one explicit discovery row."
+          }
+        },
+        {
+          "name": "Queue Discovery Enrichment For Explicit Keys",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gameKeys\": {{sampleDiscoveryGameKeysJson}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/discovery/requeue-enrichment",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "admin", "discovery", "requeue-enrichment"]
+            },
+            "description": "Queues targeted discovery enrichment for a tiny explicit discovery row set, matching the admin page's list-level action."
           }
         }
       ]

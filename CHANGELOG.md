@@ -2537,3 +2537,61 @@
 - fb2cb712 chore(deps): update Angular dependencies to version 21.2.5
 - 028ef2db feat: add Angular dependency update scripts to package.json
 
+## v1.8.0 - 2026-03-19
+- 08ce9271 Merge pull request #249 from thetigeregg/feat/backmatch
+- 4b36cdcb Merge branch 'main' into feat/backmatch
+- 19b148f5 Revert "fix(discovery): reject empty review match patches"
+- ab6159fa fix(discovery): reject empty review match patches
+- 2f91a27d fix(admin-discovery-match): enhance review field validation in patch route
+- 60813d42 fix(discovery): guard empty admin enrichment requeues
+- 0dcf028e docs(discovery): clarify admin pricing requeue behavior
+- 87b1f24d fix(admin-discovery-match): use explicit queue status colors
+- 433de491 fix(discovery): normalize admin discovery base url
+- 27d1af77 fix(discovery): preserve unknown admin pricing free state
+- 695524e7 fix(discovery): resolve admin match retry and pricing patch semantics
+- 1d4761ba fix(worker): limit psprices backoff to discovery refreshes
+- a27cd230 fix(discovery): validate admin review match source
+- 70ab9ebd fix(discovery): move admin match initial load to ngOnInit
+- e9b6a422 fix(ui): guard discovery permanent-miss reset without write token
+- b533d141 fix(discovery): handle explicit enrichment keys and rearm psprices retries
+- 3b6d78ac feat(discovery): add default pricing source handling for Steam rows in pricing patch route
+- f9ae3f81 feat: implement validation for positive integers in admin discovery routes and forms
+- eb90b52f feat(discovery): enhance pricing source handling and add tests for admin discovery routes
+- 95f82b76 test: add unit tests for discovery game key parsing and normalization
+- 39b24d3a refactor: consolidate and enhance admin discovery match utilities
+- 1d2f730a feat(discovery): implement transaction handling for admin discovery match routes
+- 4fcf605a Potential fix for code scanning alert no. 67: Incorrect suffix check
+- 5e0a9f10 Potential fix for code scanning alert no. 68: Incorrect suffix check
+- f45db0df feat(discovery): enhance admin discovery routes with improved validation and concurrency handling
+- 0c7efbcc feat(discovery): enhance unmatched route filtering and improve pricing job handling
+- e005bf7e feat(discovery): enhance admin discovery match routes with key-based filtering
+- f034311a fix(discovery): correct admin match state handling
+- 85890a86 fix(discovery): address admin pricing review feedback
+- c6f8cb76 Merge branch 'main' into feat/backmatch
+- e32ffe8b feat: add mock for server icon in settings page tests
+- 51de2b21 feat: enhance admin discovery match routes with PSPrices metadata handling
+- f7b61732 feat: enhance PSPrices revalidation with retry state management and backoff logic
+- e1186cde feat: implement pricing source resolution and enhance pricing candidate handling
+- 6ce560ba feat: add pricing filter logic to exclude unsupported platforms in discovery matches
+- aba51e35 feat: add tests for normalizeEntry and ranking functions to validate multiplayer timings
+- f4ff46b6 feat: enhance admin discovery match routes with pricing refresh functionality
+- 8a3bc460 feat: add automated pre-PR cleanup agent script for code quality improvements
+- 65b49799 feat: add HLTB lookup context and refresh logic for locked matches
+- 61ce405b feat: enhance admin discovery match functionality with grouped items and improved UI labels
+- be144768 feat: add documentation for Discovery Match Admin functionality and usage
+- 58babe63 feat: refactor searchbars and add active queue status message in admin discovery match UI
+- 7e21db2f feat: enhance admin discovery match UI with improved button styles and layout adjustments
+- 80f762bd feat: add debug options and restore Discovery Match Admin item
+- 5e63cd8a Merge branch 'main' into feat/backmatch
+- ec1a80f9 feat: refactor admin discovery match functionality to use device write token, remove admin token
+- 9afa41c4 feat: add Discovery Match Admin functionality and update related Postman collection and tests
+- 3039af31 feat: enhance queue status messages with detailed descriptions for targeted rows
+- 65274f92 feat: implement targeted discovery enrichment requeue functionality
+- 79b2e156 feat: add queue status messages and tones for enrichment processes
+- c0a0b9bf Merge branch 'main' into feat/backmatch
+- 7062e08e feat: implement requeue enrichment functionality for admin discovery matches
+- 9dac5cfb feat: add requeue enrichment functionality for admin discovery matches
+- 54055f3e feat: implement candidate search functionality for HLTB, review, and pricing providers
+- 2d398bbd feat: add admin discovery match page and related services
+- c8e45c02 feat(api): add discovery match admin routes
+

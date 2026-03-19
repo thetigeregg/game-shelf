@@ -2679,3 +2679,8 @@
 - ea8e56a5 fix(pr-agent): improve coverage artifact download handling and add debug logging
 - 3890e354 fix: update
 - f98036db fix(pr-agent): enhance isActionableThread logic to handle null threads and filter GHAS comments
+
+## v1.10.2 - 2026-03-19
+
+- 67cfdd15 Merge pull request #261 from thetigeregg/feat/bumperzaa
+- e4616d4e chore: update dependencies in package-lock.json

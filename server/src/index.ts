@@ -243,8 +243,8 @@ async function main(): Promise<void> {
       url: '/v1/games/:id',
       config: {
         rateLimit: {
-          max: 50,
-          timeWindow: '1 minute',
+          max: config.gameByIdRateLimitMaxRequests,
+          timeWindow: `${String(Math.max(1, Math.floor(config.gameByIdRateLimitWindowMs / 1000)))} seconds`,
         },
       },
       handler: proxyMetadataToWorker,

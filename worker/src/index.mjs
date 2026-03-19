@@ -387,7 +387,9 @@ class UpstreamRateLimitError extends Error {
   }
 }
 
-function getLocalRequestLimiter(env = {}) {
+function getLocalRequestLimiter(env = {}, options = {}) {
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+
   if (!localRequestLimiter) {
     localRequestLimiter = createProviderLimiter(
       'igdb_metadata_proxy_local',
@@ -418,14 +420,16 @@ function getLocalRequestLimiter(env = {}) {
           IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
         ),
       },
-      { now: () => Date.now() }
+      { now }
     );
   }
 
   return localRequestLimiter;
 }
 
-function getIgdbOutboundLimiter(env = {}) {
+function getIgdbOutboundLimiter(env = {}, options = {}) {
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+
   if (!igdbOutboundLimiter) {
     igdbOutboundLimiter = createProviderLimiter(
       'igdb_metadata_proxy',
@@ -446,7 +450,7 @@ function getIgdbOutboundLimiter(env = {}) {
           IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
         ),
       },
-      { now: () => Date.now() }
+      { now }
     );
   }
 
@@ -1662,7 +1666,9 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   return normalizeIgdbGame(data[0]);
 }
 
-export async function handleRequest(request, env, fetchImpl = fetch) {
+export async function handleRequest(request, env, fetchImpl = fetch, options = {}) {
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+
   if (request.method !== 'GET') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -1689,12 +1695,12 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
     }
   }
 
-  const nowMs = Date.now();
+  const nowMs = now();
   const ipAddress =
     request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
   const isIgdbRoute = isGameSearchPath || isPlatformListPath || isGameByIdPath;
   try {
-    await getLocalRequestLimiter(env).acquire({ scopeKey: ipAddress });
+    await getLocalRequestLimiter(env, { now }).acquire({ scopeKey: ipAddress });
   } catch (error) {
     if (error instanceof ProviderThrottleError) {
       return jsonResponse(
@@ -1707,8 +1713,9 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
   }
 
   if (isIgdbRoute) {
-    const upstreamRetryAfterSeconds =
-      getIgdbOutboundLimiter(env).getCooldownRemainingSeconds(nowMs);
+    const upstreamRetryAfterSeconds = getIgdbOutboundLimiter(env, {
+      now,
+    }).getCooldownRemainingSeconds(nowMs);
 
     if (upstreamRetryAfterSeconds > 0) {
       return jsonResponse(
@@ -1758,7 +1765,7 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
     return jsonResponse({ item }, 200);
   } catch (error) {
     if (error instanceof UpstreamRateLimitError) {
-      const retryAfterSeconds = getIgdbOutboundLimiter(env).applyCooldown(
+      const retryAfterSeconds = getIgdbOutboundLimiter(env, { now }).applyCooldown(
         error.retryAfterSeconds,
         'upstream_429',
         nowMs

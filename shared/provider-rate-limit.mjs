@@ -171,19 +171,6 @@ export function createProviderLimiter(policyName, policy, options = {}) {
       throw buildError('upstream_429', cooldownRemainingSeconds, scopeKey);
     }
 
-    const windowError = reserveWindowSlot(scopeKey, nowMs);
-    if (windowError) {
-      onEvent({
-        type: 'blocked',
-        policyName,
-        source: 'local_window',
-        retryAfterSeconds: windowError.retryAfterSeconds,
-        scopeKey,
-        nowMs,
-      });
-      throw windowError;
-    }
-
     const delayMs = reserveDelayMs(scopeKey, nowMs);
 
     if (delayMs > 0) {
@@ -199,6 +186,33 @@ export function createProviderLimiter(policyName, policy, options = {}) {
     }
 
     const settledNowMs = now();
+    const settledCooldownRemainingSeconds = getCooldownRemainingSeconds(settledNowMs);
+
+    if (settledCooldownRemainingSeconds > 0) {
+      onEvent({
+        type: 'blocked',
+        policyName,
+        source: 'upstream_429',
+        retryAfterSeconds: settledCooldownRemainingSeconds,
+        scopeKey,
+        nowMs: settledNowMs,
+      });
+      throw buildError('upstream_429', settledCooldownRemainingSeconds, scopeKey, delayMs);
+    }
+
+    const windowError = reserveWindowSlot(scopeKey, settledNowMs);
+    if (windowError) {
+      onEvent({
+        type: 'blocked',
+        policyName,
+        source: 'local_window',
+        retryAfterSeconds: windowError.retryAfterSeconds,
+        scopeKey,
+        nowMs: settledNowMs,
+      });
+      throw windowError;
+    }
+
     return { delayMs, scopeKey };
   }
 

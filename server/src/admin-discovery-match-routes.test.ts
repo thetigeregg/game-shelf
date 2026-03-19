@@ -1570,6 +1570,7 @@ void test('admin discovery match-state route returns provider detail and retryin
       reviewMatchQueryPlatform: 'PS5',
       reviewMatchPlatformIgdbId: 167,
       reviewMatchMobygamesGameId: 9001,
+      priceIsFree: null,
       enrichmentRetry: {
         metacritic: {
           attempts: 2,
@@ -1596,7 +1597,10 @@ void test('admin discovery match-state route returns provider detail and retryin
     const body = JSON.parse(response.body) as {
       igdbGameId: string;
       matchState: { review: { status: string; locked: boolean; attempts: number } };
-      providers: { review: { queryTitle: string | null; queryMobygamesGameId: number | null } };
+      providers: {
+        review: { queryTitle: string | null; queryMobygamesGameId: number | null };
+        pricing: { priceIsFree: boolean | null };
+      };
     };
 
     assert.equal(body.igdbGameId, '40');
@@ -1605,6 +1609,7 @@ void test('admin discovery match-state route returns provider detail and retryin
     assert.equal(body.matchState.review.attempts, 2);
     assert.equal(body.providers.review.queryTitle, 'Detail Query');
     assert.equal(body.providers.review.queryMobygamesGameId, 9001);
+    assert.equal(body.providers.pricing.priceIsFree, null);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

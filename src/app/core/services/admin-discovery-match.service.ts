@@ -74,7 +74,7 @@ export interface AdminDiscoveryDetailResponse extends AdminDiscoveryListItem {
       priceCurrency: string | null;
       priceRegularAmount: number | null;
       priceDiscountPercent: number | null;
-      priceIsFree: boolean;
+      priceIsFree: boolean | null;
       priceUrl: string | null;
       psPricesUrl: string | null;
       psPricesTitle: string | null;

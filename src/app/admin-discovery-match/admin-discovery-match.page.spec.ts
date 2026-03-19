@@ -111,7 +111,7 @@ function createDetail(): AdminDiscoveryDetailResponse {
         priceCurrency: null,
         priceRegularAmount: null,
         priceDiscountPercent: null,
-        priceIsFree: false,
+        priceIsFree: null,
         priceUrl: null,
         psPricesUrl: null,
         psPricesTitle: null,
@@ -249,7 +249,7 @@ function createPageHarness(): {
     priceCurrency: '',
     priceRegularAmount: '',
     priceDiscountPercent: '',
-    priceIsFree: false,
+    priceIsFree: null,
     priceUrl: '',
     psPricesUrl: '',
     psPricesTitle: '',
@@ -395,6 +395,25 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
   });
 
+  it('preserves unknown pricing free state when applying a pricing candidate', () => {
+    const { page } = createPageHarness();
+
+    page.applyPricingCandidate({
+      title: 'Chrono Trigger',
+      amount: null,
+      currency: 'USD',
+      regularAmount: null,
+      discountPercent: null,
+      isFree: null,
+      url: 'https://psprices.com/us/game/chrono-trigger',
+      score: 0.96,
+      source: 'psprices',
+      isRecommended: true,
+    });
+
+    expect(page.pricingForm.priceIsFree).toBeNull();
+  });
+
   it('defaults PC pricing form source to steam and applies steam candidates without psprices fields', () => {
     const { page } = createPageHarness();
     const detail: AdminDiscoveryDetailResponse = {
@@ -469,6 +488,34 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(request['psPricesUrl']).toBeNull();
     expect(request['psPricesTitle']).toBeNull();
     expect(request['psPricesPlatform']).toBeNull();
+  });
+
+  it('keeps unknown pricing free state when syncing detail into the form and building a request', () => {
+    const { page } = createPageHarness();
+    const detail: AdminDiscoveryDetailResponse = {
+      ...createDetail(),
+      providers: {
+        ...createDetail().providers,
+        pricing: {
+          ...createDetail().providers.pricing,
+          priceIsFree: null,
+        },
+      },
+    };
+
+    (
+      page as unknown as { syncFormsFromDetail: (payload: AdminDiscoveryDetailResponse) => void }
+    ).syncFormsFromDetail(detail);
+
+    expect(page.pricingForm.priceIsFree).toBeNull();
+
+    const request = (
+      page as unknown as {
+        buildUpdateRequest: (provider: 'pricing') => Record<string, unknown>;
+      }
+    ).buildUpdateRequest('pricing');
+
+    expect(request['priceIsFree']).toBeNull();
   });
 
   it('drops negative admin ids and years from HLTB and review update payloads', () => {

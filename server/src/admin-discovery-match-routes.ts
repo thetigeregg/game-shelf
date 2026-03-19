@@ -673,7 +673,7 @@ function buildDetailResponse(
         priceCurrency: normalizeString(payload['priceCurrency']),
         priceRegularAmount: normalizeNumber(payload['priceRegularAmount']),
         priceDiscountPercent: normalizeNumber(payload['priceDiscountPercent']),
-        priceIsFree: payload['priceIsFree'] === true,
+        priceIsFree: normalizeBoolean(payload['priceIsFree']),
         priceUrl: normalizeString(payload['priceUrl']),
         psPricesUrl: normalizeString(payload['psPricesUrl']),
         psPricesTitle: normalizeString(payload['psPricesTitle']),

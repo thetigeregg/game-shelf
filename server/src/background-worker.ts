@@ -9,6 +9,7 @@ import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
 import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
 import { PopularityIngestService } from './popularity/ingest-service.js';
+import { processQueuedIgdbCacheRevalidation } from './igdb-cache.js';
 import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
 import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
@@ -1139,6 +1140,13 @@ async function main(): Promise<void> {
               });
         return { summary };
       }
+      case 'igdb_cache_revalidate': {
+        await processQueuedIgdbCacheRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          gameId: stringOrEmpty(job.payload['gameId']),
+        });
+        return { revalidated: true };
+      }
       case 'hltb_cache_revalidate': {
         await processQueuedHltbCacheRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
@@ -1213,6 +1221,7 @@ async function main(): Promise<void> {
       context.igdbGameId = job.payload['igdbGameId'] ?? job.payload['igdb_game_id'];
       context.platformIgdbId = job.payload['platformIgdbId'] ?? job.payload['platform_igdb_id'];
     } else if (
+      job.jobType === 'igdb_cache_revalidate' ||
       job.jobType === 'hltb_cache_revalidate' ||
       job.jobType === 'metacritic_cache_revalidate' ||
       job.jobType === 'mobygames_cache_revalidate' ||
@@ -1313,6 +1322,7 @@ async function main(): Promise<void> {
     startConsumers('igdb_popularity_ingest', popularityIngestConcurrency);
     startConsumers('release_monitor_game', releaseMonitorConcurrency);
     startConsumers('discovery_enrichment_run', discoveryEnrichmentConcurrency);
+    startConsumers('igdb_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);

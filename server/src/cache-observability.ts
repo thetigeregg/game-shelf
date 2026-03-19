@@ -9,6 +9,7 @@ interface CacheCountRow {
 
 interface CacheCountSnapshot {
   imageAssetCount: number | null;
+  igdbEntryCount: number | null;
   hltbEntryCount: number | null;
   metacriticEntryCount: number | null;
   mobygamesEntryCount: number | null;
@@ -39,6 +40,7 @@ export async function registerCacheObservabilityRoutes(
 
   let snapshot: CacheCountSnapshot = {
     imageAssetCount: null,
+    igdbEntryCount: null,
     hltbEntryCount: null,
     metacriticEntryCount: null,
     mobygamesEntryCount: null,
@@ -51,6 +53,9 @@ export async function registerCacheObservabilityRoutes(
     try {
       const imageCountResult = await pool.query<CacheCountRow>(
         'SELECT COUNT(*)::text AS count FROM image_assets'
+      );
+      const igdbCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM igdb_game_cache'
       );
       const hltbCountResult = await pool.query<CacheCountRow>(
         'SELECT COUNT(*)::text AS count FROM hltb_search_cache'
@@ -70,6 +75,7 @@ export async function registerCacheObservabilityRoutes(
 
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
+        igdbEntryCount: Number.parseInt(igdbCountResult.rows[0]?.count ?? '0', 10),
         hltbEntryCount: Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10),
         metacriticEntryCount: Number.parseInt(metacriticCountResult.rows[0]?.count ?? '0', 10),
         mobygamesEntryCount: Number.parseInt(mobygamesCountResult.rows[0]?.count ?? '0', 10),
@@ -83,6 +89,7 @@ export async function registerCacheObservabilityRoutes(
     } catch (error) {
       snapshot = {
         imageAssetCount: null,
+        igdbEntryCount: null,
         hltbEntryCount: null,
         metacriticEntryCount: null,
         mobygamesEntryCount: null,
@@ -121,6 +128,7 @@ export async function registerCacheObservabilityRoutes(
         metrics,
         counts: {
           imageAssets: snapshot.imageAssetCount,
+          igdbEntries: snapshot.igdbEntryCount,
           hltbEntries: snapshot.hltbEntryCount,
           metacriticEntries: snapshot.metacriticEntryCount,
           mobygamesEntries: snapshot.mobygamesEntryCount,

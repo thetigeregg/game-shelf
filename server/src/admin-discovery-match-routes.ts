@@ -12,6 +12,7 @@ import {
   shouldAttemptProvider,
   type ProviderRetryState,
 } from './recommendations/provider-retry-state.js';
+import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
@@ -106,21 +107,6 @@ interface DiscoveryProviderState {
   permanentMiss: boolean;
 }
 
-const LIST_RATE_LIMIT = {
-  max: 20,
-  timeWindow: '1 minute',
-} as const;
-
-const DETAIL_RATE_LIMIT = {
-  max: 30,
-  timeWindow: '1 minute',
-} as const;
-
-const MUTATION_RATE_LIMIT = {
-  max: 10,
-  timeWindow: '1 minute',
-} as const;
-
 const MAX_LIST_LIMIT = 200;
 const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
@@ -134,9 +120,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
   app.get(
     '/v1/admin/discovery/matches/unmatched',
     {
-      config: {
-        rateLimit: LIST_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('admin_read'),
     },
     async (request, reply) => {
       if (!isAdminAuthorized(request, reply)) {
@@ -166,9 +150,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
   app.post(
     '/v1/admin/discovery/requeue-enrichment',
     {
-      config: {
-        rateLimit: MUTATION_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('admin_mutation'),
     },
     async (request, reply) => {
       if (!isAdminAuthorized(request, reply)) {
@@ -211,7 +193,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/match-state',
     {
       config: {
-        rateLimit: DETAIL_RATE_LIMIT,
+        rateLimit: applyRouteRateLimit('admin_detail').rateLimit,
       },
     },
     async (request, reply) => {
@@ -234,7 +216,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/match',
     {
       config: {
-        rateLimit: MUTATION_RATE_LIMIT,
+        rateLimit: applyRouteRateLimit('admin_mutation').rateLimit,
       },
     },
     async (request, reply) => {
@@ -305,7 +287,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/match/:provider',
     {
       config: {
-        rateLimit: MUTATION_RATE_LIMIT,
+        rateLimit: applyRouteRateLimit('admin_mutation').rateLimit,
       },
     },
     async (request, reply) => {
@@ -367,7 +349,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     '/v1/admin/discovery/games/:igdbGameId/:platformIgdbId/requeue-enrichment',
     {
       config: {
-        rateLimit: MUTATION_RATE_LIMIT,
+        rateLimit: applyRouteRateLimit('admin_mutation').rateLimit,
       },
     },
     async (request, reply) => {
@@ -413,7 +395,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
     '/v1/admin/discovery/matches/clear-permanent-miss',
     {
       config: {
-        rateLimit: MUTATION_RATE_LIMIT,
+        rateLimit: applyRouteRateLimit('admin_mutation').rateLimit,
       },
     },
     async (request, reply) => {

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RecommendationServiceApi } from './service.js';
 import { parseRecommendationTarget, parseRuntimeModeOrNull } from './service.js';
+import { applyRouteRateLimit } from '../rate-limit.js';
 
 interface RebuildBody {
   target?: unknown;
@@ -14,12 +15,7 @@ export function registerRecommendationRoutes(
   app.route({
     method: 'GET',
     url: '/v1/recommendations/top',
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('recommendations_read'),
     handler: async (request, reply) => {
       const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
       const target = parseRecommendationTarget(query.target);
@@ -81,12 +77,7 @@ export function registerRecommendationRoutes(
   app.route({
     method: 'GET',
     url: '/v1/recommendations/lanes',
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('recommendations_read'),
     handler: async (request, reply) => {
       const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
       const target = parseRecommendationTarget(query.target);
@@ -148,12 +139,7 @@ export function registerRecommendationRoutes(
   app.route({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
-    config: {
-      rateLimit: {
-        max: 10,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('recommendations_rebuild'),
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as RebuildBody;
       const target = parseRecommendationTarget(body.target);
@@ -177,12 +163,7 @@ export function registerRecommendationRoutes(
   app.route({
     method: 'GET',
     url: '/v1/recommendations/similar/:igdbGameId',
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('recommendations_read'),
     handler: async (request, reply) => {
       const params = request.params as { igdbGameId?: unknown };
       const query = request.query as {

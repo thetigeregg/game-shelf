@@ -3,10 +3,13 @@ import {
   normalizeIgdbScreenshotList,
   normalizeIgdbVideoList,
 } from '../../shared/igdb-media-normalization.mjs';
+import {
+  createProviderLimiter,
+  parseRetryAfterSeconds as parseSharedRetryAfterSeconds,
+  ProviderThrottleError,
+} from '../../shared/provider-rate-limit.mjs';
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 60;
 const IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS = 20;
 const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
 const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
@@ -25,11 +28,6 @@ const tokenCache = {
   accessToken: null,
   expiresAt: 0,
 };
-
-const rateLimitCache = new Map();
-const RATE_LIMIT_CACHE_SWEEP_INTERVAL = 250;
-const RATE_LIMIT_CACHE_MAX_SIZE = 5000;
-let rateLimitSweepCounter = 0;
 const igdbSearchVariantCache = {
   preferredVariantIndex: 0,
   disabledVariants: new Set(),
@@ -38,19 +36,21 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0,
 };
-const igdbRateLimitState = {
-  cooldownUntilMs: 0,
-};
+let currentNowProvider = () => Date.now();
+let localRequestLimiter = null;
+let igdbOutboundLimiter = null;
 
 export function resetCaches() {
   tokenCache.accessToken = null;
   tokenCache.expiresAt = 0;
-  rateLimitCache.clear();
   igdbSearchVariantCache.preferredVariantIndex = 0;
   igdbSearchVariantCache.disabledVariants.clear();
   igdbPlatformCache.items = null;
   igdbPlatformCache.expiresAt = 0;
-  igdbRateLimitState.cooldownUntilMs = 0;
+  localRequestLimiter?.reset();
+  igdbOutboundLimiter?.reset();
+  localRequestLimiter = null;
+  igdbOutboundLimiter = null;
 }
 
 function jsonResponse(body, status = 200, extraHeaders = {}) {
@@ -357,65 +357,11 @@ function isBoxArtSearchPath(pathname) {
   return pathname === '/v1/images/boxart/search';
 }
 
-function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
-  sweepLocalRateLimitCache(nowMs);
-  const key = ipAddress || 'unknown';
-  const entry = rateLimitCache.get(key);
-
-  if (!entry || nowMs - entry.startedAt > RATE_LIMIT_WINDOW_MS) {
-    rateLimitCache.set(key, { startedAt: nowMs, count: 1 });
-    return null;
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfterMs = Math.max(RATE_LIMIT_WINDOW_MS - (nowMs - entry.startedAt), 0);
-    return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.ceil(retryAfterMs / 1000));
-  }
-
-  entry.count += 1;
-  return null;
-}
-
-function sweepLocalRateLimitCache(nowMs) {
-  rateLimitSweepCounter += 1;
-  const shouldSweepByInterval = rateLimitSweepCounter % RATE_LIMIT_CACHE_SWEEP_INTERVAL === 0;
-
-  if (!shouldSweepByInterval && rateLimitCache.size <= RATE_LIMIT_CACHE_MAX_SIZE) {
-    return;
-  }
-
-  for (const [key, entry] of rateLimitCache.entries()) {
-    if (nowMs - entry.startedAt > RATE_LIMIT_WINDOW_MS) {
-      rateLimitCache.delete(key);
-    }
-  }
-}
-
 function parseRetryAfterSeconds(value, nowMs) {
-  if (!value) {
-    return null;
-  }
-
-  const seconds = Number.parseInt(String(value).trim(), 10);
-
-  if (Number.isInteger(seconds) && seconds >= 0) {
-    return Math.max(
-      IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
-      Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
-    );
-  }
-
-  const dateMs = Date.parse(String(value));
-
-  if (Number.isNaN(dateMs)) {
-    return null;
-  }
-
-  const deltaSeconds = Math.ceil(Math.max(dateMs - nowMs, 0) / 1000);
-  return Math.max(
-    IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
-    Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
-  );
+  return parseSharedRetryAfterSeconds(value, nowMs, {
+    minCooldownSeconds: IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
+    maxCooldownSeconds: IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS,
+  });
 }
 
 function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
@@ -427,25 +373,11 @@ function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
 }
 
 function getUpstreamCooldownRemainingSeconds(nowMs) {
-  if (igdbRateLimitState.cooldownUntilMs <= nowMs) {
-    return 0;
-  }
-
-  const remainingMs = igdbRateLimitState.cooldownUntilMs - nowMs;
-  return Math.max(1, Math.ceil(remainingMs / 1000));
+  return getIgdbOutboundLimiter().getCooldownRemainingSeconds(nowMs);
 }
 
 function setUpstreamCooldown(retryAfterSeconds, nowMs) {
-  const clampedSeconds = Math.max(
-    IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
-    Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
-  );
-  const nextCooldownUntilMs = nowMs + clampedSeconds * 1000;
-  igdbRateLimitState.cooldownUntilMs = Math.max(
-    igdbRateLimitState.cooldownUntilMs,
-    nextCooldownUntilMs
-  );
-  return getUpstreamCooldownRemainingSeconds(nowMs);
+  return getIgdbOutboundLimiter().applyCooldown(retryAfterSeconds, 'upstream_429', nowMs);
 }
 
 class UpstreamRateLimitError extends Error {
@@ -454,6 +386,72 @@ class UpstreamRateLimitError extends Error {
     this.name = 'UpstreamRateLimitError';
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+function getLocalRequestLimiter(env = {}) {
+  if (!localRequestLimiter) {
+    localRequestLimiter = createProviderLimiter(
+      'igdb_metadata_proxy_local',
+      {
+        maxRequests: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_REQUESTS',
+          60
+        ),
+        windowMs: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_WINDOW_MS',
+          60_000
+        ),
+        minCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MIN_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS
+        ),
+        defaultCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_DEFAULT_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS
+        ),
+        maxCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
+        ),
+      },
+      { now: () => currentNowProvider() }
+    );
+  }
+
+  return localRequestLimiter;
+}
+
+function getIgdbOutboundLimiter(env = {}) {
+  if (!igdbOutboundLimiter) {
+    igdbOutboundLimiter = createProviderLimiter(
+      'igdb_metadata_proxy',
+      {
+        minCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MIN_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS
+        ),
+        defaultCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_DEFAULT_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS
+        ),
+        maxCooldownSeconds: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_COOLDOWN_SECONDS',
+          IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS
+        ),
+      },
+      { now: () => currentNowProvider() }
+    );
+  }
+
+  return igdbOutboundLimiter;
 }
 
 export const __testables = {
@@ -858,13 +856,22 @@ function getTheGamesDbApiKey(env) {
 }
 
 function getIgdbRequestTimeoutMs(env) {
-  const raw = Number.parseInt(String(env.IGDB_REQUEST_TIMEOUT_MS ?? ''), 10);
+  const raw = readPositiveIntegerEnv(
+    env,
+    'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS',
+    readPositiveIntegerEnv(env, 'IGDB_REQUEST_TIMEOUT_MS', IGDB_REQUEST_TIMEOUT_DEFAULT_MS)
+  );
 
   if (!Number.isInteger(raw) || raw < 1000) {
     return IGDB_REQUEST_TIMEOUT_DEFAULT_MS;
   }
 
   return Math.min(raw, 120_000);
+}
+
+function readPositiveIntegerEnv(env, name, fallback) {
+  const raw = Number.parseInt(String(env?.[name] ?? ''), 10);
+  return Number.isInteger(raw) && raw > 0 ? raw : fallback;
 }
 
 function getTheGamesDbRequestTimeoutMs(env) {
@@ -1657,6 +1664,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
 }
 
 export async function handleRequest(request, env, fetchImpl = fetch, now = () => Date.now()) {
+  currentNowProvider = now;
   if (request.method !== 'GET') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -1687,19 +1695,22 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const ipAddress =
     request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
   const isIgdbRoute = isGameSearchPath || isPlatformListPath || isGameByIdPath;
-
-  const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
-
-  if (localRetryAfterSeconds !== null) {
-    return jsonResponse(
-      { error: `Rate limit exceeded. Retry after ${localRetryAfterSeconds}s.` },
-      429,
-      { 'Retry-After': String(localRetryAfterSeconds) }
-    );
+  try {
+    await getLocalRequestLimiter(env).acquire({ scopeKey: ipAddress });
+  } catch (error) {
+    if (error instanceof ProviderThrottleError) {
+      return jsonResponse(
+        { error: `Rate limit exceeded. Retry after ${error.retryAfterSeconds}s.` },
+        429,
+        { 'Retry-After': String(error.retryAfterSeconds) }
+      );
+    }
+    throw error;
   }
 
   if (isIgdbRoute) {
-    const upstreamRetryAfterSeconds = getUpstreamCooldownRemainingSeconds(nowMs);
+    const upstreamRetryAfterSeconds =
+      getIgdbOutboundLimiter(env).getCooldownRemainingSeconds(nowMs);
 
     if (upstreamRetryAfterSeconds > 0) {
       return jsonResponse(
@@ -1749,7 +1760,11 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     return jsonResponse({ item }, 200);
   } catch (error) {
     if (error instanceof UpstreamRateLimitError) {
-      const retryAfterSeconds = setUpstreamCooldown(error.retryAfterSeconds, nowMs);
+      const retryAfterSeconds = getIgdbOutboundLimiter(env).applyCooldown(
+        error.retryAfterSeconds,
+        'upstream_429',
+        nowMs
+      );
       return jsonResponse(
         { error: `Rate limit exceeded. Retry after ${retryAfterSeconds}s.` },
         429,

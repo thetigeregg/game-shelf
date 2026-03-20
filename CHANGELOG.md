@@ -2713,3 +2713,29 @@
 - 4c038aa4 feat(dev-cleanup): add formatCleanupSummaryLine function
 - 5c13ed68 feat(dev-cleanup): enhance removeMergedWorktrees to return a summary
 - 20f8db85 feat(cleanup): enhance dev-cleanup script with worktree management and add tests
+
+## v1.12.0 - 2026-03-20
+- 9183dfb6 Merge pull request #259 from thetigeregg/feat/rate-limit
+- 20e5569b docs(rate-limit): document shared IGDB outbound throttle knobs
+- 3e6563a7 fix(handler): simplify getIgdbOutboundLimiter calls in handleRequest
+- 03c87069 feat(config): add outbound IGDB metadata proxy rate limit configuration
+- 927dc585 fix(server): round image proxy rate limit window overrides up
+- 7c79005e fix(server): address rate limit PR review feedback
+- 04434f35 Merge branch 'main' into feat/rate-limit
+- e6625a0d feat(tests): add tests for formatTimeWindow and handleRequest options validation
+- ca963ab4 feat(rate-limit): streamline rate limit configuration by removing requestTimeoutMs
+- 1cf2fd25 Merge branch 'main' into feat/rate-limit
+- 98663d98 feat(provider-limiter): implement drainConcurrencyWaiters function and update reset behavior
+- 23ff67fa feat(rate-limit): add maxConcurrent option to rate limit configuration
+- 8538d577 fix(server): address rate limit PR review feedback
+- ff953070 fix(worker): remove unused IGDB cooldown helpers
+- b50d87e5 Merge branch 'main' into feat/rate-limit
+- 899340c2 fix(worker): address provider limiter PR feedback
+- c16c8bb0 Merge branch 'main' into feat/rate-limit
+- 70038c6a fix(rate-limit): resolve remaining PR review notes
+- e5aa59a9 test(provider): add comprehensive tests for rate limiting functionality
+- 43a5fb58 Merge branch 'main' into feat/rate-limit
+- 7fbad413 Merge branch 'main' into feat/rate-limit
+- d652250e refactor: rate limiting configuration and environment variables
+- 62fd0961 refactor: rate limiting implementation across services
+

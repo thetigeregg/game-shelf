@@ -55,3 +55,39 @@ test('extractMetacriticSearchResults keeps tbd results from the saved Nuxt layou
     imageUrl: 'https://images.example/stonks.jpg',
   });
 });
+
+test('extractMetacriticSearchResults normalizes plain TBA payload years for tbd results', () => {
+  const html = `
+    <main>
+      <section>
+        <article>
+          <a href="/game/star-wars-eclipse/">
+            <img src="https://images.example/eclipse.jpg" alt="cover" />
+            <h3>Star Wars EclipsegameTBAPCtbd</h3>
+          </a>
+          <div>
+            <span data-testid="product-metascore"><span>tbd</span></span>
+            <span>PC</span>
+            <span>TBA</span>
+            <span class="visually-hidden">2097</span>
+          </div>
+        </article>
+      </section>
+      <script type="application/json" id="__NUXT_DATA__">
+        [{"id":1,"type":2,"typeId":3,"title":4,"slug":5,"images":6,"criticScoreSummary":7,"rating":8,"releaseDate":9,"premiereYear":10,"genres":11,"platforms":12},1300835783,"game-title",13,"Star Wars Eclipse","star-wars-eclipse",[],{"url":14,"score":15},"RP","TBA",2097,[16],{"id":17,"name":18},"Action Adventure",[19],{"id":20,"name":21},"PC","/game/star-wars-eclipse/critic-reviews/",0]
+      </script>
+    </main>
+  `;
+
+  const results = parseHtml(html);
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    title: 'Star Wars Eclipse',
+    releaseYear: null,
+    platform: 'PC',
+    metacriticScore: null,
+    metacriticUrl: 'https://www.metacritic.com/game/star-wars-eclipse/',
+    imageUrl: 'https://images.example/eclipse.jpg',
+  });
+});

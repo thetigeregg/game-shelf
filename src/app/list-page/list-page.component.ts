@@ -623,7 +623,10 @@ export class ListPageComponent {
     try {
       const addResult = await this.addToLibraryWorkflow.addToLibrary(
         this.selectedAddGameDetail,
-        this.listType
+        this.listType,
+        {
+          preferredPlatformIgdbId: this.selectedAddGameDetail.platformIgdbId,
+        }
       );
 
       if (addResult.status === 'added' || addResult.status === 'duplicate') {

@@ -77,7 +77,6 @@ export class DiscoveryIgdbClient {
         'igdb_discovery',
         {
           ...resolveOutboundRateLimit('igdb_discovery'),
-          requestTimeoutMs: options.requestTimeoutMs,
           requestsPerSecond: options.maxRequestsPerSecond,
         },
         { now: () => Date.now() }

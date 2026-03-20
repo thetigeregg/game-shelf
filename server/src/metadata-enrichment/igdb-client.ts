@@ -41,10 +41,7 @@ export class MetadataEnrichmentIgdbClient {
       options.limiter ??
       createProviderLimiter(
         'igdb_metadata_enrichment',
-        {
-          ...resolveOutboundRateLimit('igdb_metadata_enrichment'),
-          requestTimeoutMs: options.requestTimeoutMs,
-        },
+        resolveOutboundRateLimit('igdb_metadata_enrichment'),
         { now: () => Date.now() }
       );
   }

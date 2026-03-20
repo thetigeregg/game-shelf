@@ -529,6 +529,12 @@ export class ListPageComponent {
 
   async openAddGameDetail(result: GameCatalogResult): Promise<void> {
     const requestedIdentityKey = this.buildCatalogIdentityKey(result);
+    const platformIgdbId =
+      typeof result.platformIgdbId === 'number' &&
+      Number.isInteger(result.platformIgdbId) &&
+      result.platformIgdbId > 0
+        ? result.platformIgdbId
+        : null;
     this.selectedAddGameDetail = result;
     this.isAddGameDetailModalOpen = true;
     this.isAddGameDetailLoading = true;
@@ -537,8 +543,12 @@ export class ListPageComponent {
     this.isAddGameDetailAddLoading = false;
 
     try {
+      if (platformIgdbId === null) {
+        throw new Error('Platform selection is required.');
+      }
+
       const [existingEntry, hydratedCatalog] = await Promise.all([
-        this.gameShelfService.findGameByIdentity(result.igdbGameId, result.platformIgdbId ?? null),
+        this.gameShelfService.findGameByIdentity(result.igdbGameId, platformIgdbId),
         firstValueFrom(this.igdbProxyService.getGameById(result.igdbGameId)),
       ]);
 
@@ -546,10 +556,7 @@ export class ListPageComponent {
         return;
       }
 
-      this.selectedAddGameDetail = applyGameCatalogPlatformContext(
-        hydratedCatalog,
-        result.platformIgdbId ?? null
-      );
+      this.selectedAddGameDetail = applyGameCatalogPlatformContext(hydratedCatalog, platformIgdbId);
       this.isAddGameDetailInLibrary = Boolean(existingEntry);
     } catch (error) {
       if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
@@ -558,10 +565,10 @@ export class ListPageComponent {
 
       this.addGameDetailErrorMessage =
         error instanceof Error ? error.message : 'Unable to load game details.';
-      const existingEntry = await this.gameShelfService.findGameByIdentity(
-        result.igdbGameId,
-        result.platformIgdbId ?? null
-      );
+      const existingEntry =
+        platformIgdbId === null
+          ? undefined
+          : await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformIgdbId);
 
       if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
         this.isAddGameDetailInLibrary = Boolean(existingEntry);

@@ -46,6 +46,8 @@ describe('buildDetailWebsiteModalItems', () => {
       'GOG',
       'Discord',
     ]);
+    expect(items.find((item) => item.label === 'Google')?.icon).toBe('google');
+    expect(items.find((item) => item.label === 'Official Website')?.icon).toBe('ion:globe');
   });
 
   it('prefers direct wikipedia and youtube links over search fallbacks', () => {
@@ -71,6 +73,8 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'YouTube')?.url).toBe(
       'https://www.youtube.com/@testgame'
     );
+    expect(items.find((item) => item.label === 'Wikipedia')?.icon).toBe('wikipedia');
+    expect(items.find((item) => item.label === 'YouTube')?.icon).toBe('youtube');
   });
 
   it('does not duplicate wikipedia or youtube when igdb already supplies them', () => {
@@ -92,5 +96,54 @@ describe('buildDetailWebsiteModalItems', () => {
 
     expect(items.filter((item) => item.label === 'Wikipedia')).toHaveLength(1);
     expect(items.filter((item) => item.label === 'YouTube')).toHaveLength(1);
+  });
+
+  it('assigns simple-icon brands for supported website types', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://www.twitch.tv/testgame',
+          typeId: 6,
+          typeName: 'Twitch',
+        }),
+        makeWebsite({
+          url: 'https://store.steampowered.com/app/123',
+          typeId: 13,
+          typeName: 'Steam',
+        }),
+        makeWebsite({
+          url: 'https://store.epicgames.com/en-US/p/test',
+          typeId: 16,
+          typeName: 'Epic',
+        }),
+        makeWebsite({
+          url: 'https://www.playstation.com/en-us/games/test/',
+          typeId: 23,
+          typeName: 'PlayStation',
+        }),
+        makeWebsite({
+          url: 'https://apps.apple.com/us/app/test/id123',
+          typeId: 10,
+          typeName: 'App Store (iPhone)',
+        }),
+        makeWebsite({
+          url: 'https://play.google.com/store/apps/details?id=test',
+          typeId: 12,
+          typeName: 'Google Play',
+        }),
+        makeWebsite({ url: 'https://test.itch.io/game', typeId: 15, typeName: 'Itch' }),
+        makeWebsite({ url: 'https://www.gog.com/en/game/test', typeId: 17, typeName: 'GOG' }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
+    expect(items.find((item) => item.label === 'Steam')?.icon).toBe('steam');
+    expect(items.find((item) => item.label === 'Epic')?.icon).toBe('epicgames');
+    expect(items.find((item) => item.label === 'PlayStation')?.icon).toBe('playstation');
+    expect(items.find((item) => item.label === 'App Store (iPhone)')?.icon).toBe('appstore');
+    expect(items.find((item) => item.label === 'Google Play')?.icon).toBe('googleplay');
+    expect(items.find((item) => item.label === 'Itch')?.icon).toBe('itchdotio');
+    expect(items.find((item) => item.label === 'GOG')?.icon).toBe('gogdotcom');
   });
 });

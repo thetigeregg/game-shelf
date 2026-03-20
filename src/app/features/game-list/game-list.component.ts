@@ -78,6 +78,7 @@ import {
   GameEntry,
   GameRowReleaseDateDisplay,
   GameVideo,
+  GameWebsite,
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
@@ -138,6 +139,12 @@ import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
+import { DetailWebsitesModalComponent } from '../game-detail/detail-websites-modal.component';
+import {
+  DetailWebsiteModalItem,
+  DetailWebsiteSearchProvider,
+  buildDetailWebsiteModalItems,
+} from '../game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
@@ -272,6 +279,7 @@ type NotesToolbarAction =
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
     DetailVideosModalComponent,
+    DetailWebsitesModalComponent,
     SimilarGameRowComponent,
   ],
 })
@@ -358,6 +366,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
   isVideosModalOpen = false;
+  isWebsitesModalOpen = false;
   isHltbUpdateLoading = false;
   isReviewUpdateLoading = false;
   isHltbPickerModalOpen = false;
@@ -1383,6 +1392,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
     this.isVideosModalOpen = false;
+    this.isWebsitesModalOpen = false;
     this.resetNoteEditorState();
     if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
@@ -1461,6 +1471,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
     this.isVideosModalOpen = false;
+    this.isWebsitesModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarDetailMode = 'library';
@@ -2922,26 +2933,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.getActiveDetailTitleForSearch();
-
-    if (!query) {
+    const url = this.buildShortcutSearchUrl(provider);
+    if (!url) {
       return;
     }
 
-    const encodedQuery = encodeURIComponent(query);
-    let url = '';
-
-    if (provider === 'google') {
-      url = `https://www.google.com/search?q=${encodedQuery}`;
-    } else if (provider === 'youtube') {
-      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    } else if (provider === 'wikipedia') {
-      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    } else {
-      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
-    }
-
     this.openExternalUrl(url);
+  }
+
+  get detailWebsiteItems(): DetailWebsiteModalItem[] {
+    return buildDetailWebsiteModalItems({
+      websites: this.getActiveDetailWebsites(),
+      buildSearchUrl: (provider) => this.buildShortcutSearchUrl(provider),
+    });
   }
 
   get detailVideos(): GameVideo[] {
@@ -2963,6 +2967,23 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   closeVideosModal(): void {
     this.isVideosModalOpen = false;
+  }
+
+  openWebsitesModal(): void {
+    if (this.detailWebsiteItems.length === 0) {
+      return;
+    }
+
+    this.isWebsitesModalOpen = true;
+  }
+
+  closeWebsitesModal(): void {
+    this.isWebsitesModalOpen = false;
+  }
+
+  openDetailWebsite(item: DetailWebsiteModalItem): void {
+    this.closeWebsitesModal();
+    this.openExternalUrl(item.url);
   }
 
   get shouldShowOpenManualButton(): boolean {
@@ -4289,6 +4310,31 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     return this.selectedGame;
+  }
+
+  private getActiveDetailWebsites(): GameWebsite[] {
+    const activeDetailGame = this.getActiveDetailGameForUi();
+    return Array.isArray(activeDetailGame?.websites) ? activeDetailGame.websites : [];
+  }
+
+  private buildShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
+    const query = this.getActiveDetailTitleForSearch();
+    if (!query) {
+      return null;
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+    if (provider === 'google') {
+      return `https://www.google.com/search?q=${encodedQuery}`;
+    }
+    if (provider === 'youtube') {
+      return `https://www.youtube.com/results?search_query=${encodedQuery}`;
+    }
+    if (provider === 'wikipedia') {
+      return `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+    }
+
+    return `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
   }
 
   getGameDisplayTitle(game: GameEntry): string {

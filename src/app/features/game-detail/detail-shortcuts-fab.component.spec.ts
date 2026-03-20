@@ -22,8 +22,6 @@ vi.mock('ionicons/icons', () => ({
   documentText: {},
   film: {},
   globe: {},
-  logoGoogle: {},
-  logoYoutube: {},
 }));
 
 describe('DetailShortcutsFabComponent', () => {
@@ -35,15 +33,15 @@ describe('DetailShortcutsFabComponent', () => {
     expect(addIconsMock).toHaveBeenCalledOnce();
   });
 
-  it('emits shortcut and action events', () => {
+  it('emits websites and action events', () => {
     const component = new DetailShortcutsFabComponent();
-    const shortcutSpy = vi.fn();
+    const websitesSpy = vi.fn();
     const notesSpy = vi.fn();
     const videosSpy = vi.fn();
     const manualSpy = vi.fn();
     const listSpy = vi.fn();
     const closeSpy = vi.fn();
-    component.shortcutSearch.subscribe(shortcutSpy);
+    component.websitesClick.subscribe(websitesSpy);
     component.notesClick.subscribe(notesSpy);
     component.videosClick.subscribe(videosSpy);
     component.openManualClick.subscribe(manualSpy);
@@ -51,12 +49,12 @@ describe('DetailShortcutsFabComponent', () => {
     (component as unknown as { fab?: { close: () => void } }).fab = { close: closeSpy };
 
     component.onListClick();
-    component.onShortcutSearch('google');
+    component.onWebsitesClick();
     component.onVideosClick();
     component.onNotesClick();
     component.onOpenManualClick();
 
-    expect(shortcutSpy).toHaveBeenCalledWith('google');
+    expect(websitesSpy).toHaveBeenCalledOnce();
     expect(videosSpy).toHaveBeenCalledOnce();
     expect(notesSpy).toHaveBeenCalledOnce();
     expect(manualSpy).toHaveBeenCalledOnce();

@@ -358,8 +358,8 @@
       @if (selectedGameDetail) {
         <app-detail-shortcuts-fab
           [showVideosShortcut]="hasDetailVideosShortcut"
+          (websitesClick)="openWebsitesModal()"
           (videosClick)="openVideosModal()"
-          (shortcutSearch)="openShortcutSearch($event)"
         ></app-detail-shortcuts-fab>
       }
     </ion-content>
@@ -371,6 +371,13 @@
   [videos]="detailVideos"
   (dismiss)="closeVideosModal()"
 ></app-detail-videos-modal>
+
+<app-detail-websites-modal
+  [isOpen]="isWebsitesModalOpen"
+  [items]="detailWebsiteItems"
+  (dismiss)="closeWebsitesModal()"
+  (websiteSelect)="openDetailWebsite($event)"
+></app-detail-websites-modal>
 
 <ng-template
   #recommendationRowTemplate

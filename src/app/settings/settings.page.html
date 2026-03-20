@@ -37,9 +37,8 @@
       </ion-list-header>
 
       <ion-item>
-        <ion-label>Collection Release Date Display</ion-label>
         <ion-select
-          labelPlacement="end"
+          label="Collection Release Date Display"
           interface="popover"
           [value]="collectionReleaseDateDisplay"
           (ionChange)="onCollectionReleaseDateDisplayChange($any($event).detail.value)"
@@ -53,9 +52,8 @@
       </ion-item>
 
       <ion-item>
-        <ion-label>Wishlist Release Date Display</ion-label>
         <ion-select
-          labelPlacement="end"
+          label="Wishlist Release Date Display"
           interface="popover"
           [value]="wishlistReleaseDateDisplay"
           (ionChange)="onWishlistReleaseDateDisplayChange($any($event).detail.value)"

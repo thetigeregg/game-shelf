@@ -249,12 +249,16 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  async requestDetail(result: GameCatalogResult): Promise<void> {
+  requestDetail(event: Event | undefined, result: GameCatalogResult): void {
     if (!this.enableDetailNavigation) {
       return;
     }
 
-    const platformSelection = await this.resolvePlatformSelection(result);
+    if (this.isFromNestedInteractiveElement(event)) {
+      return;
+    }
+
+    const platformSelection = this.resolveDetailPlatformSelection(result);
 
     if (platformSelection === undefined) {
       return;
@@ -268,6 +272,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onActionButtonClick(event: Event, result: GameCatalogResult): void {
+    event.preventDefault();
     event.stopPropagation();
     void this.addGame(result);
   }
@@ -286,6 +291,16 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     if (target instanceof HTMLImageElement) {
       target.src = 'assets/icon/placeholder.png';
     }
+  }
+
+  private isFromNestedInteractiveElement(event: Event | undefined): boolean {
+    if (!(event?.target instanceof Element)) {
+      return false;
+    }
+
+    return (
+      event.target.closest('ion-button,button,a,input,select,textarea,[role="button"]') !== null
+    );
   }
 
   getPlatformLabel(result: GameCatalogResult): string {
@@ -408,6 +423,29 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     return platforms[selectedIndex];
+  }
+
+  private resolveDetailPlatformSelection(result: GameCatalogResult): SelectedPlatform | undefined {
+    const platforms = this.getPlatformOptions(result);
+
+    if (platforms.length === 0) {
+      return undefined;
+    }
+
+    const currentPlatformIgdbId =
+      typeof result.platformIgdbId === 'number' && Number.isInteger(result.platformIgdbId)
+        ? result.platformIgdbId
+        : null;
+
+    if (currentPlatformIgdbId !== null) {
+      const existingPlatform = platforms.find((platform) => platform.id === currentPlatformIgdbId);
+
+      if (existingPlatform) {
+        return existingPlatform;
+      }
+    }
+
+    return platforms[0];
   }
 
   private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {

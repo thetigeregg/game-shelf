@@ -47,6 +47,7 @@ describe('buildDetailWebsiteModalItems', () => {
       'Discord',
     ]);
     expect(items.find((item) => item.label === 'Google')?.icon).toBe('google');
+    expect(items.find((item) => item.label === 'GameFAQs')?.icon).toBe('gamefaqs');
     expect(items.find((item) => item.label === 'Official Website')?.icon).toBe('ion:globe');
   });
 
@@ -116,6 +117,20 @@ describe('buildDetailWebsiteModalItems', () => {
           typeName: 'Reddit',
         }),
         makeWebsite({
+          url: 'https://www.nintendo.com/us/store/products/test-game-switch/',
+          typeId: 1,
+          typeName: 'Official Website',
+        }),
+        makeWebsite({
+          url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
+          typeId: 1,
+          typeName: 'Official Website',
+        }),
+        makeWebsite({
+          url: 'https://gamefaqs.gamespot.com/switch/123456-test-game',
+          typeName: 'GameFAQs',
+        }),
+        makeWebsite({
           url: 'https://store.steampowered.com/app/123',
           typeId: 13,
           typeName: 'Steam',
@@ -149,6 +164,12 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
     expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
     expect(items.find((item) => item.label === 'Reddit')?.icon).toBe('reddit');
+    expect(items.find((item) => item.url.includes('nintendo.com'))?.icon).toBe('nintendo');
+    expect(items.find((item) => item.url.includes('xbox.com'))?.icon).toBe('xbox');
+    expect(
+      items.find((item) => item.label === 'GameFAQs' && item.url.includes('gamefaqs.gamespot.com'))
+        ?.icon
+    ).toBe('gamefaqs');
     expect(items.find((item) => item.label === 'Steam')?.icon).toBe('steam');
     expect(items.find((item) => item.label === 'Epic')?.icon).toBe('epicgames');
     expect(items.find((item) => item.label === 'PlayStation')?.icon).toBe('playstation');

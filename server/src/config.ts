@@ -518,6 +518,8 @@ const rateLimitConfig: RateLimitConfig = {
       maxCooldownSeconds: 60,
       windowSweepInterval: 250,
       windowStateMaxSize: 5000,
+      maxRequests: 60,
+      windowMs: 60_000,
     }),
     igdb_discovery: readOutboundPolicyConfig('IGDB_DISCOVERY', {
       requestTimeoutMs: 15_000,

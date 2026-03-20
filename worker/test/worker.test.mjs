@@ -21,8 +21,6 @@ function createFetchStub({
   igdbResponses = null,
   igdbPlatformsStatus = 200,
   igdbPlatformsBody = [],
-  externalGameSourcesStatus = 200,
-  externalGameSourcesBody = [],
   websiteTypesStatus = 200,
   websiteTypesBody = [],
   tokenStatus = 200,
@@ -35,10 +33,8 @@ function createFetchStub({
     igdbBodies: [],
     igdbPlatforms: 0,
     igdbPlatformBodies: [],
-    externalGameSources: 0,
     websiteTypeBodies: [],
     websiteTypes: 0,
-    externalGameSourceBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: [],
   };
@@ -78,14 +74,6 @@ function createFetchStub({
       calls.igdbPlatforms += 1;
       calls.igdbPlatformBodies.push(typeof options.body === 'string' ? options.body : '');
       return new Response(JSON.stringify(igdbPlatformsBody), { status: igdbPlatformsStatus });
-    }
-
-    if (normalizedUrl === 'https://api.igdb.com/v4/external_game_sources') {
-      calls.externalGameSources += 1;
-      calls.externalGameSourceBodies.push(typeof options.body === 'string' ? options.body : '');
-      return new Response(JSON.stringify(externalGameSourcesBody), {
-        status: externalGameSourcesStatus,
-      });
     }
 
     if (normalizedUrl === 'https://api.igdb.com/v4/website_types') {
@@ -251,51 +239,34 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
-  assert.equal(
-    calls.igdbBodies[0].includes(
-      'external_games.external_game_source,external_games.category,external_games.uid,external_games.url'
-    ),
-    true
-  );
+  assert.equal(calls.igdbBodies[0].includes('websites.type,websites.category,websites.url'), true);
+  assert.equal(calls.igdbBodies[0].includes('external_games.external_game_source'), false);
 });
 
-test('normalizeIgdbGame extracts steam app id from external_games', () => {
+test('normalizeIgdbGame extracts steam app id from websites', () => {
   const normalized = normalizeIgdbGame({
     id: 123,
     name: 'Steam Test',
-    external_games: [
-      {
-        external_game_source: 2,
-        uid: '100',
-      },
-      {
-        external_game_source: 1,
-        uid: '3764200',
-      },
-    ],
+    websites: [{ type: 13, url: 'https://store.steampowered.com/app/3764200/' }],
   });
 
   assert.equal(normalized.steamAppId, 3764200);
 });
 
-test('normalizeIgdbGame builds storefront links from external games and website fallback', () => {
+test('normalizeIgdbGame builds websites from website rows', () => {
   const normalized = normalizeIgdbGame(
     {
       id: 124,
-      name: 'Store Links',
-      external_games: [
-        {
-          external_game_source: 1,
-          uid: '480',
-        },
-        {
-          category: 31,
-          uid: 'xbox-1',
-          url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-          platform: 169,
-        },
-      ],
+      name: 'Websites',
       websites: [
+        {
+          type: 13,
+          url: 'https://store.steampowered.com/app/480/Spacewar/',
+        },
+        {
+          url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
+          trusted: true,
+        },
         {
           category: 17,
           url: 'https://www.gog.com/en/game/test_game',
@@ -304,49 +275,36 @@ test('normalizeIgdbGame builds storefront links from external games and website 
       ],
     },
     {
-      externalGameSourceNames: new Map([[1, 'Steam']]),
-      websiteTypeNames: new Map([[17, 'gog']]),
+      websiteTypeNames: new Map([
+        [13, 'Steam'],
+        [17, 'gog'],
+      ]),
     }
   );
 
-  assert.deepEqual(normalized.storefrontLinks, [
+  assert.deepEqual(normalized.websites, [
     {
       provider: 'steam',
       providerLabel: 'Steam',
-      url: 'https://store.steampowered.com/app/480',
-      sourceKind: 'external_game',
-      sourceId: 1,
+      url: 'https://store.steampowered.com/app/480/Spacewar/',
+      sourceId: 13,
       sourceName: 'Steam',
-      uid: '480',
-      platformIgdbId: null,
-      countryCode: null,
-      releaseFormat: null,
       trusted: null,
     },
     {
       provider: 'xbox',
       providerLabel: 'Xbox',
       url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-      sourceKind: 'external_game',
-      sourceId: 31,
-      sourceName: 'xbox_marketplace',
-      uid: 'xbox-1',
-      platformIgdbId: 169,
-      countryCode: null,
-      releaseFormat: null,
-      trusted: null,
+      sourceId: null,
+      sourceName: null,
+      trusted: true,
     },
     {
       provider: 'gog',
       providerLabel: 'GOG',
       url: 'https://www.gog.com/en/game/test_game',
-      sourceKind: 'website',
       sourceId: 17,
       sourceName: 'gog',
-      uid: null,
-      platformIgdbId: null,
-      countryCode: null,
-      releaseFormat: null,
       trusted: true,
     },
   ]);

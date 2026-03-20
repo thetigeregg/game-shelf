@@ -270,7 +270,7 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
   assert.equal(rows[0]?.source, 'recent');
 });
 
-void test('discovery source fetch includes storefront links and derived steam app id', async () => {
+void test('discovery source fetch includes websites and derived steam app id', async () => {
   const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -289,15 +289,17 @@ void test('discovery source fetch includes storefront links and derived steam ap
       );
     }
 
-    if (url.includes('/v4/external_game_sources')) {
-      return Promise.resolve(
-        new Response(JSON.stringify([{ id: 1, name: 'Steam' }]), { status: 200 })
-      );
-    }
-
     if (url.includes('/v4/website_types')) {
       return Promise.resolve(
-        new Response(JSON.stringify([{ id: 17, type: 'GOG' }]), { status: 200 })
+        new Response(
+          JSON.stringify([
+            { id: 13, type: 'Steam' },
+            { id: 17, type: 'GOG' },
+          ]),
+          {
+            status: 200,
+          }
+        )
       );
     }
 
@@ -309,8 +311,8 @@ void test('discovery source fetch includes storefront links and derived steam ap
               id: 100,
               name: 'Store Test',
               platforms: [{ id: 6, name: 'PC' }],
-              external_games: [{ external_game_source: 1, uid: '570', platform: 6 }],
               websites: [
+                { type: 13, url: 'https://store.steampowered.com/app/570/Dota_2/' },
                 { type: 17, url: 'https://www.gog.com/en/game/store_test', trusted: true },
               ],
               total_rating_count: 50,
@@ -340,31 +342,21 @@ void test('discovery source fetch includes storefront links and derived steam ap
 
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.payload.steamAppId, 570);
-  assert.deepEqual(rows[0]?.payload.storefrontLinks, [
+  assert.deepEqual(rows[0]?.payload.websites, [
     {
       provider: 'steam',
       providerLabel: 'Steam',
       url: 'https://store.steampowered.com/app/570',
-      sourceKind: 'external_game',
-      sourceId: 1,
+      sourceId: 13,
       sourceName: 'Steam',
-      uid: '570',
-      platformIgdbId: 6,
-      countryCode: null,
-      releaseFormat: null,
       trusted: null,
     },
     {
       provider: 'gog',
       providerLabel: 'GOG',
       url: 'https://www.gog.com/en/game/store_test',
-      sourceKind: 'website',
       sourceId: 17,
       sourceName: 'GOG',
-      uid: null,
-      platformIgdbId: null,
-      countryCode: null,
-      releaseFormat: null,
       trusted: true,
     },
   ]);

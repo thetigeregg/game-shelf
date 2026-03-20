@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,7 @@ import {
   formatWorktreeDisplayPath,
   isEntrypoint,
   parseWorktrees,
+  pruneEmptyManagedAncestors,
   removeMergedWorktrees,
   removeMergedBranchesWithoutWorktrees,
   removeOrphanedManagedWorktreeDirs,
@@ -56,6 +57,12 @@ detached
 
 test('formatWorktreeDisplayPath keeps absolute paths outside the managed repo root unchanged', () => {
   const externalPath = path.join(os.tmpdir(), 'dev-cleanup-external-worktree');
+
+  assert.equal(formatWorktreeDisplayPath(externalPath), path.resolve(externalPath));
+});
+
+test('formatWorktreeDisplayPath does not prefix normalized absolute paths with dot-slash', () => {
+  const externalPath = `${os.tmpdir()}${path.sep}nested${path.sep}..${path.sep}dev-cleanup-external-worktree`;
 
   assert.equal(formatWorktreeDisplayPath(externalPath), path.resolve(externalPath));
 });
@@ -470,6 +477,20 @@ test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without 
     removed: [{ branch: 'feat/preview-me', path: staleDir }],
     skippedExistingBranch: [],
   });
+
+  rmSync(rootDir, { recursive: true, force: true });
+});
+
+test('pruneEmptyManagedAncestors skips missing ancestor directories without throwing', () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-prune-'));
+  const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const existingParent = path.join(managedRoot, 'feat');
+  const removedPath = path.join(existingParent, 'missing', 'leaf');
+
+  mkdirSync(existingParent, { recursive: true });
+
+  assert.doesNotThrow(() => pruneEmptyManagedAncestors(removedPath, managedRoot));
+  assert.equal(existsSync(existingParent), false);
 
   rmSync(rootDir, { recursive: true, force: true });
 });

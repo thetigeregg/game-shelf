@@ -32,6 +32,7 @@ import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GameRowReleaseDateDisplay,
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameGroupByField,
@@ -131,6 +132,11 @@ import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY,
 } from '../core/services/time-preference.service';
+import {
+  COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+  GameRowReleaseDateDisplayService,
+  WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+} from '../core/services/game-row-release-date-display.service';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -146,6 +152,8 @@ import {
   key,
   eyeOff,
   server,
+  heart,
+  gameController,
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
@@ -375,6 +383,14 @@ export class SettingsPage {
     { label: 'Light', value: 'light' },
     { label: 'Dark', value: 'dark' },
   ];
+  readonly releaseDateDisplayOptions: Array<{
+    label: string;
+    value: GameRowReleaseDateDisplay;
+  }> = [
+    { label: 'Year only', value: 'year' },
+    { label: 'Month + year', value: 'monthYear' },
+    { label: 'Full date', value: 'fullDate' },
+  ];
   readonly appVersion = getAppVersion();
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
   readonly isTasFeatureEnabled = isTasFeatureEnabled();
@@ -393,6 +409,8 @@ export class SettingsPage {
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
   timePreference = 15;
+  collectionReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
+  wishlistReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isPlatformOrderModalOpen = false;
   isPlatformOrderLoading = false;
   platformOrderItems: PlatformCustomizationItem[] = [];
@@ -443,6 +461,7 @@ export class SettingsPage {
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly notificationService = inject(NotificationService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
@@ -452,6 +471,10 @@ export class SettingsPage {
     this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
     this.timePreference = this.timePreferenceService.getTimePreference();
+    this.collectionReleaseDateDisplay =
+      this.gameRowReleaseDateDisplayService.getPreference('collection');
+    this.wishlistReleaseDateDisplay =
+      this.gameRowReleaseDateDisplayService.getPreference('wishlist');
     void this.refreshImageCacheUsage();
     addIcons({
       close,
@@ -467,6 +490,8 @@ export class SettingsPage {
       key,
       eyeOff,
       server,
+      heart,
+      gameController,
     });
   }
 
@@ -520,6 +545,28 @@ export class SettingsPage {
     if (this.timePreference !== previous) {
       this.scheduleTimePreferenceSync(this.timePreference);
     }
+  }
+
+  onCollectionReleaseDateDisplayChange(value: string): void {
+    const normalized = this.gameRowReleaseDateDisplayService.normalize(value);
+    this.gameRowReleaseDateDisplayService.setPreference('collection', normalized);
+    this.collectionReleaseDateDisplay =
+      this.gameRowReleaseDateDisplayService.getPreference('collection');
+    this.queueSettingUpsert(
+      COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+      this.collectionReleaseDateDisplay
+    );
+  }
+
+  onWishlistReleaseDateDisplayChange(value: string): void {
+    const normalized = this.gameRowReleaseDateDisplayService.normalize(value);
+    this.gameRowReleaseDateDisplayService.setPreference('wishlist', normalized);
+    this.wishlistReleaseDateDisplay =
+      this.gameRowReleaseDateDisplayService.getPreference('wishlist');
+    this.queueSettingUpsert(
+      WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+      this.wishlistReleaseDateDisplay
+    );
   }
 
   async showAttributions(): Promise<void> {
@@ -3354,6 +3401,20 @@ export class SettingsPage {
       entries.push([colorSchemeKey, this.themeService.getColorSchemePreference()]);
     }
 
+    if (!entries.some(([key]) => key === COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY)) {
+      entries.push([
+        COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        this.gameRowReleaseDateDisplayService.getPreference('collection'),
+      ]);
+    }
+
+    if (!entries.some(([key]) => key === WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY)) {
+      entries.push([
+        WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        this.gameRowReleaseDateDisplayService.getPreference('wishlist'),
+      ]);
+    }
+
     return entries;
   }
 
@@ -3458,6 +3519,22 @@ export class SettingsPage {
         } catch {
           // Ignore storage write failures.
         }
+
+        this.queueSettingUpsert(row.key, normalizedValue);
+      }
+
+      if (row.key === COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY) {
+        const normalizedValue = this.gameRowReleaseDateDisplayService.normalize(row.value);
+        this.gameRowReleaseDateDisplayService.setPreference('collection', normalizedValue);
+        this.collectionReleaseDateDisplay = normalizedValue;
+
+        this.queueSettingUpsert(row.key, normalizedValue);
+      }
+
+      if (row.key === WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY) {
+        const normalizedValue = this.gameRowReleaseDateDisplayService.normalize(row.value);
+        this.gameRowReleaseDateDisplayService.setPreference('wishlist', normalizedValue);
+        this.wishlistReleaseDateDisplay = normalizedValue;
 
         this.queueSettingUpsert(row.key, normalizedValue);
       }

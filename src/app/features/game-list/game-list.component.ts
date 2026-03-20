@@ -69,13 +69,14 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { distinctUntilChanged, filter, map, switchMap, tap } from 'rxjs/operators';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GAME_RATING_VALUES,
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameRowReleaseDateDisplay,
   GameVideo,
   GameGroupByField,
   GameListFilters,
@@ -99,6 +100,7 @@ import { PlatformCustomizationService } from '../../core/services/platform-custo
 import { DebugLogService } from '../../core/services/debug-log.service';
 import { LayoutModeService } from '../../core/services/layout-mode.service';
 import { TimePreferenceService } from '../../core/services/time-preference.service';
+import { GameRowReleaseDateDisplayService } from '../../core/services/game-row-release-date-display.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { IgdbProxyService } from '../../core/api/igdb-proxy.service';
@@ -313,6 +315,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120,
   ]);
+  private static readonly ROW_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    year: 'numeric',
+  });
+  private static readonly ROW_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  private static readonly RELEASE_DATE_PREFIX_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
   readonly noneTagFilterValue = '__none__';
   readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
@@ -340,6 +352,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   games$: Observable<GameEntry[]> = of([]);
   groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
+  rowReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isGameDetailModalOpen = false;
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
@@ -458,6 +471,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
@@ -466,6 +480,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
     ...DEFAULT_GAME_LIST_FILTERS,
   });
+  private readonly listType$ = new BehaviorSubject<ListType | null>(null);
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
@@ -562,6 +577,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('listType' in changes && changes['listType'].currentValue) {
+      this.listType$.next(this.listType);
+      this.rowReleaseDateDisplay = this.gameRowReleaseDateDisplayService.getPreference(
+        this.listType
+      );
       const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
         tap((games) => {
           this.platformOptionsChange.emit(this.extractPlatforms(games));
@@ -586,6 +605,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           this.syncSelectionWithDisplayedGames();
           this.displayedGamesChange.emit(games);
           this.emitSelectionState();
+          this.changeDetectorRef.markForCheck();
         })
       );
 
@@ -624,6 +644,60 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
     this.notesEditor?.destroy();
     this.notesEditor = null;
+  }
+
+  getGameReleaseDateLabel(game: GameEntry): string {
+    const date = GameListComponent.parseReleaseDateAsLocalDate(game.releaseDate);
+
+    if (date) {
+      if (this.rowReleaseDateDisplay === 'monthYear') {
+        return GameListComponent.ROW_MONTH_YEAR_FORMATTER.format(date);
+      }
+
+      if (this.rowReleaseDateDisplay === 'fullDate') {
+        return this.formatFullReleaseDate(date);
+      }
+    }
+
+    if (Number.isInteger(game.releaseYear)) {
+      return String(game.releaseYear);
+    }
+
+    return 'Unknown year';
+  }
+
+  private static parseReleaseDateAsLocalDate(releaseDate: unknown): Date | null {
+    if (typeof releaseDate !== 'string') {
+      return null;
+    }
+
+    const trimmed = releaseDate.trim();
+    if (trimmed.length < 10) {
+      return null;
+    }
+
+    const match = GameListComponent.RELEASE_DATE_PREFIX_PATTERN.exec(trimmed.slice(0, 10));
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+
+    if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) {
+      return null;
+    }
+
+    const date = new Date(year, monthIndex, day);
+
+    return date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day
+      ? date
+      : null;
+  }
+
+  private formatFullReleaseDate(date: Date): string {
+    return GameListComponent.ROW_FULL_DATE_FORMATTER.format(date);
   }
 
   async moveGame(game: GameEntry): Promise<void> {
@@ -5261,6 +5335,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   constructor() {
+    this.listType$
+      .pipe(
+        filter((listType): listType is ListType => listType !== null),
+        distinctUntilChanged(),
+        switchMap((listType) => this.gameRowReleaseDateDisplayService.getPreference$(listType)),
+        takeUntilDestroyed()
+      )
+      .subscribe((releaseDateDisplay) => {
+        this.rowReleaseDateDisplay = releaseDateDisplay;
+        this.changeDetectorRef.markForCheck();
+      });
+
     this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
       const nextDesktop = mode === 'desktop';
 

@@ -15,6 +15,9 @@ export type DetailWebsiteModalIcon =
   | 'twitch'
   | 'discord'
   | 'reddit'
+  | 'gamefaqs'
+  | 'nintendo'
+  | 'xbox'
   | 'wikipedia'
   | 'epicgames'
   | 'steam'
@@ -56,7 +59,7 @@ export function buildDetailWebsiteModalItems(options: {
       key: 'fixed:gamefaqs',
       label: 'GameFAQs',
       url: gamefaqsUrl,
-      icon: 'ion:link',
+      icon: 'gamefaqs',
     });
   }
 
@@ -247,6 +250,11 @@ function resolveWebsiteLabel(website: GameWebsite): string {
 }
 
 function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): DetailWebsiteModalIcon {
+  const hostnameIcon = resolveWebsiteIconFromHostname(website.url);
+  if (hostnameIcon) {
+    return hostnameIcon;
+  }
+
   const typeId = normalizePositiveInteger(website.typeId);
   if (typeId === 1) {
     return 'ion:globe';
@@ -298,6 +306,15 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   if (label === 'reddit') {
     return 'reddit';
   }
+  if (label === 'gamefaqs') {
+    return 'gamefaqs';
+  }
+  if (label === 'nintendo' || label === 'nintendo eshop') {
+    return 'nintendo';
+  }
+  if (label === 'xbox' || label === 'xbox games store' || label === 'xbox marketplace') {
+    return 'xbox';
+  }
   if (label === 'wikipedia') {
     return 'wikipedia';
   }
@@ -326,47 +343,60 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
     return 'ion:globe';
   }
 
-  if (matchesHostname(website.url, ['google.com'])) {
-    return 'google';
-  }
-  if (matchesHostname(website.url, ['youtube.com', 'youtu.be'])) {
-    return 'youtube';
-  }
-  if (matchesHostname(website.url, ['twitch.tv'])) {
-    return 'twitch';
-  }
-  if (matchesHostname(website.url, ['discord.com', 'discord.gg'])) {
-    return 'discord';
-  }
-  if (matchesHostname(website.url, ['reddit.com', 'redd.it'])) {
-    return 'reddit';
-  }
-  if (matchesHostname(website.url, ['wikipedia.org'])) {
-    return 'wikipedia';
-  }
-  if (matchesHostname(website.url, ['epicgames.com'])) {
-    return 'epicgames';
-  }
-  if (matchesHostname(website.url, ['steampowered.com', 'steamcommunity.com'])) {
-    return 'steam';
-  }
-  if (matchesHostname(website.url, ['playstation.com'])) {
-    return 'playstation';
-  }
-  if (matchesHostname(website.url, ['apps.apple.com'])) {
-    return 'appstore';
-  }
-  if (matchesHostname(website.url, ['play.google.com'])) {
+  return 'ion:link';
+}
+
+function resolveWebsiteIconFromHostname(url: string): DetailWebsiteModalIcon | null {
+  if (matchesHostname(url, ['play.google.com'])) {
     return 'googleplay';
   }
-  if (matchesHostname(website.url, ['itch.io'])) {
+  if (matchesHostname(url, ['apps.apple.com'])) {
+    return 'appstore';
+  }
+  if (matchesHostname(url, ['google.com'])) {
+    return 'google';
+  }
+  if (matchesHostname(url, ['youtube.com', 'youtu.be'])) {
+    return 'youtube';
+  }
+  if (matchesHostname(url, ['twitch.tv'])) {
+    return 'twitch';
+  }
+  if (matchesHostname(url, ['discord.com', 'discord.gg'])) {
+    return 'discord';
+  }
+  if (matchesHostname(url, ['reddit.com', 'redd.it'])) {
+    return 'reddit';
+  }
+  if (matchesHostname(url, ['gamefaqs.gamespot.com'])) {
+    return 'gamefaqs';
+  }
+  if (matchesHostname(url, ['nintendo.com'])) {
+    return 'nintendo';
+  }
+  if (matchesHostname(url, ['xbox.com'])) {
+    return 'xbox';
+  }
+  if (matchesHostname(url, ['wikipedia.org'])) {
+    return 'wikipedia';
+  }
+  if (matchesHostname(url, ['epicgames.com'])) {
+    return 'epicgames';
+  }
+  if (matchesHostname(url, ['steampowered.com', 'steamcommunity.com'])) {
+    return 'steam';
+  }
+  if (matchesHostname(url, ['playstation.com'])) {
+    return 'playstation';
+  }
+  if (matchesHostname(url, ['itch.io'])) {
     return 'itchdotio';
   }
-  if (matchesHostname(website.url, ['gog.com'])) {
+  if (matchesHostname(url, ['gog.com'])) {
     return 'gogdotcom';
   }
 
-  return 'ion:link';
+  return null;
 }
 
 function normalizePositiveInteger(value: unknown): number | null {

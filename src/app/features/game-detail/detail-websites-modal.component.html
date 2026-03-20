@@ -12,7 +12,7 @@
     <ion-content class="gs-safe-bottom">
       <ion-list>
         @for (item of items; track item.key) {
-          <ion-item button detail="true" (click)="websiteSelect.emit(item)">
+          <ion-item button detail="true" lines="full" (click)="websiteSelect.emit(item)">
             @switch (item.icon) {
               @case ('google') {
                 <svg slot="start" class="website-brand-icon" siGoogleIcon aria-hidden="true"></svg>
@@ -28,6 +28,33 @@
               }
               @case ('reddit') {
                 <svg slot="start" class="website-brand-icon" siRedditIcon aria-hidden="true"></svg>
+              }
+              @case ('gamefaqs') {
+                <img
+                  slot="start"
+                  class="website-brand-icon"
+                  src="assets/icon/websites/gamefaqs.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+              @case ('nintendo') {
+                <img
+                  slot="start"
+                  class="website-brand-icon"
+                  src="assets/icon/websites/nintendo.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+              @case ('xbox') {
+                <img
+                  slot="start"
+                  class="website-brand-icon"
+                  src="assets/icon/websites/xbox.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
               }
               @case ('wikipedia') {
                 <svg

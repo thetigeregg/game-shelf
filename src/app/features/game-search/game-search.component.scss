@@ -7,6 +7,35 @@
   justify-content: center;
 }
 
+.search-result-trigger {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.search-result-trigger:focus-visible {
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.search-result-trigger--static {
+  cursor: default;
+}
+
+.search-result-trigger ion-label {
+  margin: 0;
+}
+
 .game-art img {
   height: 100%;
   width: 100%;

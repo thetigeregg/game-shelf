@@ -319,10 +319,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     month: 'short',
     year: 'numeric',
   });
-  private static readonly ROW_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
+  private static readonly ROW_FULL_DATE_MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
   });
 
   readonly noneTagFilterValue = '__none__';
@@ -656,7 +654,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       }
 
       if (this.rowReleaseDateDisplay === 'fullDate') {
-        return GameListComponent.ROW_FULL_DATE_FORMATTER.format(date);
+        return this.formatFullReleaseDate(date);
       }
     }
 
@@ -665,6 +663,33 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     return 'Unknown year';
+  }
+
+  private formatFullReleaseDate(date: Date): string {
+    const month = GameListComponent.ROW_FULL_DATE_MONTH_FORMATTER.format(date);
+    const day = date.getDate();
+    const year = date.getFullYear();
+
+    return `${month} ${String(day)}${this.getOrdinalSuffix(day)}, ${String(year)}`;
+  }
+
+  private getOrdinalSuffix(day: number): string {
+    const modHundred = day % 100;
+
+    if (modHundred >= 11 && modHundred <= 13) {
+      return 'th';
+    }
+
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
   }
 
   async moveGame(game: GameEntry): Promise<void> {

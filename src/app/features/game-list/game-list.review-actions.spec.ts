@@ -136,7 +136,7 @@ describe('game-list review actions', () => {
     page.rowReleaseDateDisplay = 'monthYear';
     expect(page.getGameReleaseDateLabel(game)).toBe(
       new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(
-        new Date('2020-01-10T00:00:00.000Z')
+        new Date(2020, 0, 10)
       )
     );
 
@@ -193,6 +193,31 @@ describe('game-list review actions', () => {
         createGame({ releaseDate: '2020-01-23T00:00:00.000Z', releaseYear: 2020 })
       )
     ).toBe('Jan 23rd, 2020');
+  });
+
+  it('treats ISO timestamps as date-only values so labels stay stable across timezones', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
+    };
+    const utcMidnightGame = createGame({
+      releaseDate: '2020-01-10T00:00:00.000Z',
+      releaseYear: 2020,
+    });
+    const dateOnlyGame = createGame({
+      releaseDate: '2020-01-10',
+      releaseYear: 2020,
+    });
+
+    page.rowReleaseDateDisplay = 'monthYear';
+    expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
+      page.getGameReleaseDateLabel(dateOnlyGame)
+    );
+
+    page.rowReleaseDateDisplay = 'fullDate';
+    expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe('Jan 10th, 2020');
+    expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
+      page.getGameReleaseDateLabel(dateOnlyGame)
+    );
   });
 
   it('paginates similar library games in pages of 5', async () => {

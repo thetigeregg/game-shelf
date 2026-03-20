@@ -5,6 +5,7 @@ import { openExternalUrl } from './open-external-url';
 describe('openExternalUrl', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('ignores missing and blank urls', () => {

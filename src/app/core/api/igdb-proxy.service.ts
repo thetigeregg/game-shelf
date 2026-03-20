@@ -1574,6 +1574,13 @@ export class IgdbProxyService implements GameSearchApi {
             ? candidate.platform.trim()
             : null;
         const candidateRecord = candidate as unknown as Record<string, unknown>;
+        const rawMetacriticPlatforms = candidateRecord['metacriticPlatforms'];
+        const metacriticPlatforms = Array.isArray(rawMetacriticPlatforms)
+          ? rawMetacriticPlatforms
+              .filter((platformName): platformName is string => typeof platformName === 'string')
+              .map((platformName) => platformName.trim())
+              .filter((platformName) => platformName.length > 0)
+          : [];
         const imageUrl = this.normalizeExternalImageUrl(
           typeof candidate.imageUrl === 'string'
             ? candidate.imageUrl
@@ -1594,6 +1601,7 @@ export class IgdbProxyService implements GameSearchApi {
           mobyScore: null,
           metacriticScore: reviewScore,
           metacriticUrl: reviewUrl,
+          ...(metacriticPlatforms.length > 0 ? { metacriticPlatforms } : {}),
           ...(imageUrl ? { imageUrl } : {}),
         };
       })
@@ -1819,6 +1827,9 @@ export class IgdbProxyService implements GameSearchApi {
       title: candidate.title,
       releaseYear: candidate.releaseYear,
       platform: candidate.platform,
+      ...(candidate.metacriticPlatforms
+        ? { metacriticPlatforms: candidate.metacriticPlatforms }
+        : {}),
       metacriticScore: this.normalizeMetacriticScore(candidate.reviewScore),
       metacriticUrl: this.normalizeExternalUrl(candidate.reviewUrl),
       isRecommended: candidate.isRecommended,

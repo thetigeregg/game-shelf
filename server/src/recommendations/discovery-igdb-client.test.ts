@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ProviderThrottleError } from '../provider-rate-limit.js';
 import { DiscoveryIgdbClient } from './discovery-igdb-client.js';
 
 void test('discovery popular query uses game_type and excludes deprecated category filters', async () => {
@@ -330,5 +331,61 @@ void test('discovery client throws for token and game endpoint failures', async 
         preferredPlatformIds: [],
       }),
     /IGDB discovery fetch failed/
+  );
+});
+
+void test('discovery client converts upstream 429 responses into provider throttle errors', async () => {
+  const retryAfterSeconds = 42;
+  const client = new DiscoveryIgdbClient({
+    twitchClientId: 'client',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    maxRequestsPerSecond: 20,
+    fetchImpl: (input: RequestInfo | URL) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+          })
+        );
+      }
+
+      if (url.includes('/v4/game_types')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([{ id: 1, type: 'Main Game' }]), { status: 200 })
+        );
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 429,
+            headers: {
+              'retry-after': String(retryAfterSeconds),
+            },
+          })
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      client.fetchDiscoveryCandidatesBySource({
+        source: 'popular',
+        poolSize: 1,
+        preferredPlatformIds: [],
+      }),
+    /** @returns {boolean} */ (error) =>
+      error instanceof ProviderThrottleError &&
+      error.policyName === 'igdb_discovery' &&
+      error.source === 'upstream_429' &&
+      error.retryAfterSeconds === retryAfterSeconds &&
+      error.message === 'IGDB discovery request throttled'
   );
 });

@@ -527,6 +527,44 @@ void test('Image proxy route rate limits by client IP', async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
+void test('Image proxy rounds overridden rate limit window up to avoid shortening it', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'gs-image-cache-rate-limit-window-rounding-test-')
+  );
+
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    rateLimitWindowMs: 1_500,
+    imageProxyMaxRequestsPerWindow: 1,
+    fetchImpl: () =>
+      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      }),
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/window-rounding-1.jpg',
+  });
+  assert.equal(first.statusCode, 200);
+
+  await new Promise((resolve) => {
+    setTimeout(resolve, 1_100);
+  });
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/window-rounding-2.jpg',
+  });
+  assert.equal(second.statusCode, 429);
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
 void test('Image purge route rate limits by client IP', async () => {
   resetCacheMetrics();
   const pool = new ImagePoolMock();

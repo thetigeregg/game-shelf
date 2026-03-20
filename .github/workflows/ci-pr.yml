@@ -67,6 +67,9 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: Script tests
+        run: npm run test:scripts
+
       - name: Backend tests
         env:
           MIGRATION_DRIFT_TEST_DATABASE_URL: postgresql://drift:drift@127.0.0.1:55432/drift_test

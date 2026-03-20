@@ -372,6 +372,7 @@ export interface MetacriticMatchCandidate extends MetacriticScoreResult {
   title: string;
   releaseYear: number | null;
   platform: string | null;
+  metacriticPlatforms?: string[] | null;
   imageUrl?: string | null;
   isRecommended?: boolean;
 }
@@ -391,6 +392,7 @@ export interface ReviewMatchCandidate extends ReviewScoreResult {
   title: string;
   releaseYear: number | null;
   platform: string | null;
+  metacriticPlatforms?: string[] | null;
   imageUrl?: string | null;
   isRecommended?: boolean;
 }

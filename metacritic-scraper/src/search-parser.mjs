@@ -367,6 +367,7 @@ export function extractMetacriticSearchResults(config = {}) {
           title,
           releaseYear: Number.isInteger(releaseYearCandidate) ? releaseYearCandidate : null,
           platform: platformNames[0] ? normalizePlatformTextInPage(platformNames[0]) : null,
+          metacriticPlatforms: platformNames.map((name) => normalizePlatformTextInPage(name)),
           metacriticScore: parseMetacriticScoreInPage(candidate?.criticScoreSummary?.score),
           metacriticUrl,
           imageUrl: normalizedImageUrl,
@@ -451,6 +452,7 @@ export function extractMetacriticSearchResults(config = {}) {
           title,
           releaseYear: Number.isInteger(parsedReleaseYear) ? parsedReleaseYear : null,
           platform: platformMatch ? normalizePlatformTextInPage(platformMatch[1]) : null,
+          metacriticPlatforms: platformMatch ? [normalizePlatformTextInPage(platformMatch[1])] : [],
           metacriticScore:
             Number.isInteger(parsedScore) && parsedScore >= 1 && parsedScore <= 100
               ? parsedScore
@@ -522,6 +524,15 @@ export function extractMetacriticSearchResults(config = {}) {
             : item.title,
         releaseYear: item.releaseYear ?? payloadCandidate.releaseYear ?? null,
         platform: payloadCandidate.platform ?? item.platform ?? null,
+        metacriticPlatforms:
+          Array.isArray(payloadCandidate.metacriticPlatforms) &&
+          payloadCandidate.metacriticPlatforms.length > 0
+            ? payloadCandidate.metacriticPlatforms
+            : Array.isArray(item.metacriticPlatforms)
+              ? item.metacriticPlatforms
+              : item.platform
+                ? [item.platform]
+                : [],
         metacriticScore: item.metacriticScore ?? payloadCandidate.metacriticScore ?? null,
         imageUrl: item.imageUrl ?? payloadCandidate.imageUrl ?? null,
       };
@@ -595,6 +606,7 @@ export function extractMetacriticSearchResults(config = {}) {
       title,
       releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
       platform: platform && platform.length > 0 ? platform : null,
+      metacriticPlatforms: platform && platform.length > 0 ? [platform] : [],
       metacriticScore: scoreValue,
       metacriticUrl: url,
       imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,
@@ -661,6 +673,7 @@ export function extractMetacriticSearchResults(config = {}) {
       title,
       releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
       platform: platform && platform.length > 0 ? platform : null,
+      metacriticPlatforms: platform && platform.length > 0 ? [platform] : [],
       metacriticScore: scoreValue,
       metacriticUrl: url,
       imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,

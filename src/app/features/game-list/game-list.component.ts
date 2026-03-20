@@ -151,6 +151,7 @@ import {
 } from './notes-editor.utils';
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
 import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
+import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -4141,22 +4142,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     catalog: GameCatalogResult,
     platformIgdbId: number
   ): GameCatalogResult {
-    const platformOption = Array.isArray(catalog.platformOptions)
-      ? (catalog.platformOptions.find((option) => option.id === platformIgdbId) ?? null)
-      : null;
-    const selectedPlatformName =
-      platformOption?.name.trim() ??
-      (catalog.platformIgdbId === platformIgdbId &&
-      typeof catalog.platform === 'string' &&
-      catalog.platform.trim().length > 0
-        ? catalog.platform.trim()
-        : null);
-
-    return {
-      ...catalog,
-      platformIgdbId,
-      platform: selectedPlatformName,
-    };
+    return applyGameCatalogPlatformContext(catalog, platformIgdbId);
   }
 
   private isLibraryEntry(value: GameCatalogResult | GameEntry | null): value is GameEntry {

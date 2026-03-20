@@ -204,6 +204,18 @@ describe('SettingsPage CSV review fields', () => {
         .fn()
         .mockImplementation((listType: 'collection' | 'wishlist', value: string) => {
           const normalized = value === 'monthYear' || value === 'fullDate' ? value : 'year';
+
+          try {
+            localStorage.setItem(
+              listType === 'collection'
+                ? COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY
+                : WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+              normalized
+            );
+          } catch {
+            // Ignore storage failures to match the concrete service behavior.
+          }
+
           if (listType === 'collection') {
             collectionReleaseDateDisplay = normalized;
           } else {
@@ -708,10 +720,13 @@ describe('SettingsPage CSV review fields', () => {
       },
     ]);
 
-    expect(gameRowReleaseDateDisplayServiceMock.refreshFromStorage).toHaveBeenCalledWith(
-      'collection'
+    expect(gameRowReleaseDateDisplayServiceMock.normalize).toHaveBeenCalledWith('monthYear');
+    expect(gameRowReleaseDateDisplayServiceMock.setPreference).toHaveBeenCalledWith(
+      'collection',
+      'monthYear'
     );
     expect(page.collectionReleaseDateDisplay).toBe('monthYear');
+    expect(localStorage.getItem(COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY)).toBe('monthYear');
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
@@ -735,8 +750,10 @@ describe('SettingsPage CSV review fields', () => {
       },
     ]);
 
-    expect(gameRowReleaseDateDisplayServiceMock.refreshFromStorage).toHaveBeenCalledWith(
-      'wishlist'
+    expect(gameRowReleaseDateDisplayServiceMock.normalize).toHaveBeenCalledWith('nope');
+    expect(gameRowReleaseDateDisplayServiceMock.setPreference).toHaveBeenCalledWith(
+      'wishlist',
+      'year'
     );
     expect(page.wishlistReleaseDateDisplay).toBe('year');
     expect(localStorage.getItem(WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY)).toBe('year');
@@ -748,6 +765,38 @@ describe('SettingsPage CSV review fields', () => {
         value: 'year',
       },
     });
+  });
+
+  it('keeps imported collection release date display in memory when storage writes fail', async () => {
+    const page = createPage();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'fullDate',
+      },
+    ]);
+
+    expect(gameRowReleaseDateDisplayServiceMock.normalize).toHaveBeenCalledWith('fullDate');
+    expect(gameRowReleaseDateDisplayServiceMock.setPreference).toHaveBeenCalledWith(
+      'collection',
+      'fullDate'
+    );
+    expect(page.collectionReleaseDateDisplay).toBe('fullDate');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'fullDate',
+      },
+    });
+
+    setItemSpy.mockRestore();
   });
 
   it('normalizes invalid imported time preference before persisting and syncing', async () => {

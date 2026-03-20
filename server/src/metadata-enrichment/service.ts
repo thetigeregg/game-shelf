@@ -181,7 +181,8 @@ function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
   return (
     isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['mediaEnrichedAt'])) ||
-    isBlank(payloadValueAsString(payload['steamEnrichedAt']))
+    isBlank(payloadValueAsString(payload['steamEnrichedAt'])) ||
+    !Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks')
   );
 }
 

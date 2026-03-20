@@ -5,7 +5,7 @@ import { DiscoveryIgdbClient } from './discovery-igdb-client.js';
 
 void test('discovery popular query uses game_type and excludes deprecated category filters', async () => {
   const gameRequests: string[] = [];
-  const fetchMock: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -24,7 +24,7 @@ void test('discovery popular query uses game_type and excludes deprecated catego
     }
 
     if (url.includes('/v4/games')) {
-      const body = typeof init?.body === 'string' ? init.body : '';
+      const body = typeof _init?.body === 'string' ? _init.body : '';
       gameRequests.push(body);
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
@@ -49,7 +49,7 @@ void test('discovery popular query uses game_type and excludes deprecated catego
   assert.equal(gameRequests.length, 1);
   const query = gameRequests[0] ?? '';
   assert.match(query, /\bgame_type = \(1\)/);
-  assert.doesNotMatch(query, /\bcategory\b/);
+  assert.doesNotMatch(query, /where[^;]*\bcategory\b/);
   assert.match(query, /sort total_rating_count desc;/);
   assert.match(query, /parent_game = null/);
   assert.match(query, /version_parent = null/);
@@ -57,7 +57,7 @@ void test('discovery popular query uses game_type and excludes deprecated catego
 
 void test('discovery recent query applies quality and release window filters', async () => {
   const gameRequests: string[] = [];
-  const fetchMock: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -76,7 +76,7 @@ void test('discovery recent query applies quality and release window filters', a
     }
 
     if (url.includes('/v4/games')) {
-      const body = typeof init?.body === 'string' ? init.body : '';
+      const body = typeof _init?.body === 'string' ? _init.body : '';
       gameRequests.push(body);
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
@@ -104,11 +104,11 @@ void test('discovery recent query applies quality and release window filters', a
   assert.match(query, /\(total_rating_count >= 25 \| aggregated_rating_count >= 25\)/);
   assert.match(query, /sort first_release_date desc;/);
   assert.match(query, /\bgame_type = \(1\)/);
-  assert.doesNotMatch(query, /\bcategory\b/);
+  assert.doesNotMatch(query, /where[^;]*\bcategory\b/);
 });
 
 void test('discovery source fetch normalizes payload rows and prioritizes preferred platforms', async () => {
-  const fetchMock: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -135,7 +135,7 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
     }
 
     if (url.includes('/v4/games')) {
-      const body = typeof init?.body === 'string' ? init.body : '';
+      const body = typeof _init?.body === 'string' ? _init.body : '';
       const sourceScore = body.includes('sort total_rating_count desc') ? 10 : 5;
       return Promise.resolve(
         new Response(
@@ -199,7 +199,7 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
 });
 
 void test('discovery merged fetch dedupes by game/platform and picks highest source score', async () => {
-  const fetchMock: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -218,7 +218,7 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
     }
 
     if (url.includes('/v4/games')) {
-      const body = typeof init?.body === 'string' ? init.body : '';
+      const body = typeof _init?.body === 'string' ? _init.body : '';
       if (body.includes('sort total_rating_count desc')) {
         return Promise.resolve(
           new Response(
@@ -268,6 +268,106 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
   });
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.source, 'recent');
+});
+
+void test('discovery source fetch includes storefront links and derived steam app id', async () => {
+  const fetchMock: typeof fetch = (input: RequestInfo | URL, _init?: RequestInit) => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes('id.twitch.tv/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+          status: 200,
+        })
+      );
+    }
+
+    if (url.includes('/v4/game_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 1, type: 'Main Game' }]), { status: 200 })
+      );
+    }
+
+    if (url.includes('/v4/external_game_sources')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 1, name: 'Steam' }]), { status: 200 })
+      );
+    }
+
+    if (url.includes('/v4/website_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 17, type: 'GOG' }]), { status: 200 })
+      );
+    }
+
+    if (url.includes('/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 100,
+              name: 'Store Test',
+              platforms: [{ id: 6, name: 'PC' }],
+              external_games: [{ external_game_source: 1, uid: '570', platform: 6 }],
+              websites: [
+                { type: 17, url: 'https://www.gog.com/en/game/store_test', trusted: true },
+              ],
+              total_rating_count: 50,
+            },
+          ]),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  const client = new DiscoveryIgdbClient({
+    twitchClientId: 'client',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    maxRequestsPerSecond: 20,
+    fetchImpl: fetchMock,
+  });
+
+  const rows = await client.fetchDiscoveryCandidatesBySource({
+    source: 'popular',
+    poolSize: 1,
+    preferredPlatformIds: [],
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.payload.steamAppId, 570);
+  assert.deepEqual(rows[0]?.payload.storefrontLinks, [
+    {
+      provider: 'steam',
+      providerLabel: 'Steam',
+      url: 'https://store.steampowered.com/app/570',
+      sourceKind: 'external_game',
+      sourceId: 1,
+      sourceName: 'Steam',
+      uid: '570',
+      platformIgdbId: 6,
+      countryCode: null,
+      releaseFormat: null,
+      trusted: null,
+    },
+    {
+      provider: 'gog',
+      providerLabel: 'GOG',
+      url: 'https://www.gog.com/en/game/store_test',
+      sourceKind: 'website',
+      sourceId: 17,
+      sourceName: 'GOG',
+      uid: null,
+      platformIgdbId: null,
+      countryCode: null,
+      releaseFormat: null,
+      trusted: true,
+    },
+  ]);
 });
 
 void test('discovery client throws for token and game endpoint failures', async () => {

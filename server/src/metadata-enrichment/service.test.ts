@@ -160,6 +160,54 @@ void test('metadata enrichment skips when advisory lock is not acquired', async 
   assert.equal(repository.updates.length, 0);
 });
 
+void test('metadata enrichment backfills storefront links for collection rows with prior timestamps', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '999',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Existing Collection Game',
+        listType: 'collection',
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+      },
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '999',
+        {
+          themes: [],
+          themeIds: [],
+          keywords: [],
+          keywordIds: [],
+          screenshots: [],
+          videos: [],
+          storefrontLinks: [],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 1);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['storefrontLinks'], []);
+  assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], null);
+});
+
 void test('metadata enrichment tolerates failed batches and still updates successful batches', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
@@ -294,6 +342,8 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         keywords: ['Shooter'],
         screenshots: [],
         videos: [],
+        storefrontLinks: [],
+        steamAppId: null,
       },
     },
   ];
@@ -380,6 +430,8 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+        storefrontLinks: [],
+        steamAppId: null,
       },
     },
   ];

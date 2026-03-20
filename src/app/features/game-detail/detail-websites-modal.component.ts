@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import {
   IonButton,
   IonButtons,
@@ -13,13 +13,37 @@ import {
   IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { globe, search } from 'ionicons/icons';
-import { DetailWebsiteModalItem } from './detail-websites-modal.utils';
+import { globe, link } from 'ionicons/icons';
+import {
+  SiAppStoreIcon,
+  SiEpicGamesIcon,
+  SiGogDotComIcon,
+  SiGoogleIcon,
+  SiGooglePlayIcon,
+  SiItchDotIoIcon,
+  SiPlaystationIcon,
+  SiSteamIcon,
+  SiTwitchIcon,
+  SiWikipediaIcon,
+  SiYoutubeIcon,
+} from '@semantic-icons/simple-icons';
+import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-websites-modal.utils';
 
 @Component({
   selector: 'app-detail-websites-modal',
   standalone: true,
   templateUrl: './detail-websites-modal.component.html',
+  styles: [
+    `
+      .website-brand-icon {
+        width: 1.375rem;
+        height: 1.375rem;
+        flex: 0 0 1.375rem;
+        display: block;
+      }
+    `,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     IonModal,
     IonHeader,
@@ -32,6 +56,17 @@ import { DetailWebsiteModalItem } from './detail-websites-modal.utils';
     IonItem,
     IonIcon,
     IonLabel,
+    SiGoogleIcon,
+    SiYoutubeIcon,
+    SiTwitchIcon,
+    SiWikipediaIcon,
+    SiEpicGamesIcon,
+    SiSteamIcon,
+    SiPlaystationIcon,
+    SiAppStoreIcon,
+    SiGooglePlayIcon,
+    SiItchDotIoIcon,
+    SiGogDotComIcon,
   ],
 })
 export class DetailWebsitesModalComponent {
@@ -43,7 +78,11 @@ export class DetailWebsitesModalComponent {
   constructor() {
     addIcons({
       globe,
-      search,
+      link,
     });
+  }
+
+  isSimpleIcon(icon: DetailWebsiteModalIcon): boolean {
+    return icon !== 'ion:globe' && icon !== 'ion:link';
   }
 }

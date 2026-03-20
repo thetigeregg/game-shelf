@@ -26,11 +26,28 @@ vi.mock('ionicons', () => ({
 
 vi.mock('ionicons/icons', () => ({
   globe: {},
-  search: {},
+  link: {},
 }));
 
+vi.mock('@semantic-icons/simple-icons', () => {
+  const Stub = () => null;
+  return {
+    SiGoogleIcon: Stub,
+    SiYoutubeIcon: Stub,
+    SiTwitchIcon: Stub,
+    SiWikipediaIcon: Stub,
+    SiEpicGamesIcon: Stub,
+    SiSteamIcon: Stub,
+    SiPlaystationIcon: Stub,
+    SiAppStoreIcon: Stub,
+    SiGooglePlayIcon: Stub,
+    SiItchDotIoIcon: Stub,
+    SiGogDotComIcon: Stub,
+  };
+});
+
 describe('DetailWebsitesModalComponent', () => {
-  it('initializes closed and registers placeholder icons', () => {
+  it('initializes closed with an empty list and ionicon registration', () => {
     const component = new DetailWebsitesModalComponent();
 
     expect(component.isOpen).toBe(false);
@@ -46,7 +63,7 @@ describe('DetailWebsitesModalComponent', () => {
       key: 'item:wikipedia',
       label: 'Wikipedia',
       url: 'https://en.wikipedia.org/wiki/Test',
-      icon: 'globe',
+      icon: 'wikipedia' as const,
     };
 
     component.dismiss.subscribe(dismissSpy);
@@ -57,5 +74,13 @@ describe('DetailWebsitesModalComponent', () => {
 
     expect(dismissSpy).toHaveBeenCalledOnce();
     expect(selectSpy).toHaveBeenCalledWith(item);
+  });
+
+  it('recognizes simple icons separately from ionicons', () => {
+    const component = new DetailWebsitesModalComponent();
+
+    expect(component.isSimpleIcon('google')).toBe(true);
+    expect(component.isSimpleIcon('ion:globe')).toBe(false);
+    expect(component.isSimpleIcon('ion:link')).toBe(false);
   });
 });

@@ -6,8 +6,23 @@ export interface DetailWebsiteModalItem {
   key: string;
   label: string;
   url: string;
-  icon: string;
+  icon: DetailWebsiteModalIcon;
 }
+
+export type DetailWebsiteModalIcon =
+  | 'google'
+  | 'youtube'
+  | 'twitch'
+  | 'wikipedia'
+  | 'epicgames'
+  | 'steam'
+  | 'playstation'
+  | 'appstore'
+  | 'googleplay'
+  | 'itchdotio'
+  | 'gogdotcom'
+  | 'ion:globe'
+  | 'ion:link';
 
 interface DetailWebsiteCandidate extends DetailWebsiteModalItem {
   typeId: number | null;
@@ -30,7 +45,7 @@ export function buildDetailWebsiteModalItems(options: {
       key: 'fixed:google',
       label: 'Google',
       url: googleUrl,
-      icon: 'search',
+      icon: 'google',
     });
   }
 
@@ -39,7 +54,7 @@ export function buildDetailWebsiteModalItems(options: {
       key: 'fixed:gamefaqs',
       label: 'GameFAQs',
       url: gamefaqsUrl,
-      icon: 'search',
+      icon: 'ion:link',
     });
   }
 
@@ -65,7 +80,7 @@ export function buildDetailWebsiteModalItems(options: {
       key: 'special:wikipedia',
       label: 'Wikipedia',
       url: wikipediaWebsite.url,
-      icon: 'globe',
+      icon: resolveWebsiteIcon(wikipediaWebsite, 'Wikipedia'),
       typeId: normalizePositiveInteger(wikipediaWebsite.typeId) ?? WIKIPEDIA_TYPE_ID,
       priority: Number.MAX_SAFE_INTEGER - 1,
     });
@@ -76,7 +91,7 @@ export function buildDetailWebsiteModalItems(options: {
         key: 'fallback:wikipedia',
         label: 'Wikipedia',
         url: wikipediaSearchUrl,
-        icon: 'globe',
+        icon: 'wikipedia',
         typeId: WIKIPEDIA_TYPE_ID,
         priority: Number.MAX_SAFE_INTEGER - 1,
       });
@@ -88,7 +103,7 @@ export function buildDetailWebsiteModalItems(options: {
       key: 'special:youtube',
       label: 'YouTube',
       url: youtubeWebsite.url,
-      icon: 'globe',
+      icon: resolveWebsiteIcon(youtubeWebsite, 'YouTube'),
       typeId: normalizePositiveInteger(youtubeWebsite.typeId) ?? YOUTUBE_TYPE_ID,
       priority: Number.MAX_SAFE_INTEGER,
     });
@@ -99,7 +114,7 @@ export function buildDetailWebsiteModalItems(options: {
         key: 'fallback:youtube',
         label: 'YouTube',
         url: youtubeSearchUrl,
-        icon: 'globe',
+        icon: 'youtube',
         typeId: YOUTUBE_TYPE_ID,
         priority: Number.MAX_SAFE_INTEGER,
       });
@@ -162,7 +177,7 @@ function createWebsiteCandidate(website: GameWebsite, priority: number): DetailW
     key: `website:${buildWebsiteDedupKey(website)}`,
     label: resolveWebsiteLabel(website),
     url: website.url,
-    icon: 'globe',
+    icon: resolveWebsiteIcon(website),
     typeId: normalizePositiveInteger(website.typeId),
     priority,
   };
@@ -227,6 +242,114 @@ function resolveWebsiteLabel(website: GameWebsite): string {
   } catch {
     return website.url;
   }
+}
+
+function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): DetailWebsiteModalIcon {
+  const typeId = normalizePositiveInteger(website.typeId);
+  if (typeId === 1) {
+    return 'ion:globe';
+  }
+  if (typeId === 6) {
+    return 'twitch';
+  }
+  if (typeId === 9) {
+    return 'youtube';
+  }
+  if (typeId === 10) {
+    return 'appstore';
+  }
+  if (typeId === 12) {
+    return 'googleplay';
+  }
+  if (typeId === 13) {
+    return 'steam';
+  }
+  if (typeId === 15) {
+    return 'itchdotio';
+  }
+  if (typeId === 16) {
+    return 'epicgames';
+  }
+  if (typeId === 17) {
+    return 'gogdotcom';
+  }
+  if (typeId === 23) {
+    return 'playstation';
+  }
+
+  const label = (fallbackLabel ?? resolveWebsiteLabel(website)).trim().toLowerCase();
+  if (label === 'google') {
+    return 'google';
+  }
+  if (label === 'youtube') {
+    return 'youtube';
+  }
+  if (label === 'twitch') {
+    return 'twitch';
+  }
+  if (label === 'wikipedia') {
+    return 'wikipedia';
+  }
+  if (label === 'epic' || label === 'epic games' || label === 'epic games store') {
+    return 'epicgames';
+  }
+  if (label === 'steam') {
+    return 'steam';
+  }
+  if (label === 'playstation') {
+    return 'playstation';
+  }
+  if (label === 'app store (iphone)' || label === 'app store') {
+    return 'appstore';
+  }
+  if (label === 'google play') {
+    return 'googleplay';
+  }
+  if (label === 'itch' || label === 'itch.io') {
+    return 'itchdotio';
+  }
+  if (label === 'gog' || label === 'gog.com') {
+    return 'gogdotcom';
+  }
+  if (label === 'official website') {
+    return 'ion:globe';
+  }
+
+  if (matchesHostname(website.url, ['google.com'])) {
+    return 'google';
+  }
+  if (matchesHostname(website.url, ['youtube.com', 'youtu.be'])) {
+    return 'youtube';
+  }
+  if (matchesHostname(website.url, ['twitch.tv'])) {
+    return 'twitch';
+  }
+  if (matchesHostname(website.url, ['wikipedia.org'])) {
+    return 'wikipedia';
+  }
+  if (matchesHostname(website.url, ['epicgames.com'])) {
+    return 'epicgames';
+  }
+  if (matchesHostname(website.url, ['steampowered.com', 'steamcommunity.com'])) {
+    return 'steam';
+  }
+  if (matchesHostname(website.url, ['playstation.com'])) {
+    return 'playstation';
+  }
+  if (matchesHostname(website.url, ['apps.apple.com'])) {
+    return 'appstore';
+  }
+  if (matchesHostname(website.url, ['play.google.com'])) {
+    return 'googleplay';
+  }
+  if (matchesHostname(website.url, ['itch.io'])) {
+    return 'itchdotio';
+  }
+  if (matchesHostname(website.url, ['gog.com'])) {
+    return 'gogdotcom';
+  }
+
+  return 'ion:link';
 }
 
 function normalizePositiveInteger(value: unknown): number | null {

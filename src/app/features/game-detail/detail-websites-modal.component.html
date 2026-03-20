@@ -13,7 +13,82 @@
       <ion-list>
         @for (item of items; track item.key) {
           <ion-item button detail="true" (click)="websiteSelect.emit(item)">
-            <ion-icon slot="start" [name]="item.icon" aria-hidden="true"></ion-icon>
+            @switch (item.icon) {
+              @case ('google') {
+                <svg slot="start" class="website-brand-icon" siGoogleIcon aria-hidden="true"></svg>
+              }
+              @case ('youtube') {
+                <svg slot="start" class="website-brand-icon" siYoutubeIcon aria-hidden="true"></svg>
+              }
+              @case ('twitch') {
+                <svg slot="start" class="website-brand-icon" siTwitchIcon aria-hidden="true"></svg>
+              }
+              @case ('wikipedia') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siWikipediaIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('epicgames') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siEpicGamesIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('steam') {
+                <svg slot="start" class="website-brand-icon" siSteamIcon aria-hidden="true"></svg>
+              }
+              @case ('playstation') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siPlaystationIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('appstore') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siAppStoreIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('googleplay') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siGooglePlayIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('itchdotio') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siItchDotIoIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('gogdotcom') {
+                <svg
+                  slot="start"
+                  class="website-brand-icon"
+                  siGogDotComIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('ion:globe') {
+                <ion-icon slot="start" name="globe" aria-hidden="true"></ion-icon>
+              }
+              @default {
+                <ion-icon slot="start" name="link" aria-hidden="true"></ion-icon>
+              }
+            }
             <ion-label>{{ item.label }}</ion-label>
           </ion-item>
         }

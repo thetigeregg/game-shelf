@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import {
   formatCleanupSummaryLine,
+  isEntrypoint,
   parseWorktrees,
   removeMergedWorktrees,
   removeMergedBranchesWithoutWorktrees,
@@ -50,6 +51,26 @@ detached
     { path: '/repo/main', branch: 'main' },
     { path: '/repo/worktrees/detached', branch: undefined },
   ]);
+});
+
+test('isEntrypoint resolves relative argv[1] paths before comparing against import.meta.url', () => {
+  assert.equal(
+    isEntrypoint({
+      argv1: 'scripts/dev-cleanup.mjs',
+      moduleUrl: new URL('./dev-cleanup.mjs', import.meta.url).href,
+    }),
+    true
+  );
+});
+
+test('isEntrypoint returns false when argv[1] is missing', () => {
+  assert.equal(
+    isEntrypoint({
+      argv1: undefined,
+      moduleUrl: new URL('./dev-cleanup.mjs', import.meta.url).href,
+    }),
+    false
+  );
 });
 
 test('removeMergedWorktrees skips dirty worktrees without deleting the branch', () => {

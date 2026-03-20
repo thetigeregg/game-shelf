@@ -79,6 +79,11 @@ import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY,
 } from '../core/services/time-preference.service';
+import {
+  COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+  GameRowReleaseDateDisplayService,
+  WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+} from '../core/services/game-row-release-date-display.service';
 import { RECOMMENDATION_IGNORED_STORAGE_KEY } from '../core/services/recommendation-ignore.service';
 
 type PrivateSettingsPage = SettingsPage & Record<string, (...args: unknown[]) => unknown>;
@@ -148,6 +153,14 @@ describe('SettingsPage CSV review fields', () => {
     setTimePreference: ReturnType<typeof vi.fn>;
     refreshFromStorage: ReturnType<typeof vi.fn>;
   };
+  let collectionReleaseDateDisplay = 'year';
+  let wishlistReleaseDateDisplay = 'year';
+  let gameRowReleaseDateDisplayServiceMock: {
+    getPreference: ReturnType<typeof vi.fn>;
+    setPreference: ReturnType<typeof vi.fn>;
+    refreshFromStorage: ReturnType<typeof vi.fn>;
+    normalize: ReturnType<typeof vi.fn>;
+  };
   let outboxWriterMock: {
     enqueueOperation: ReturnType<typeof vi.fn>;
   };
@@ -155,6 +168,8 @@ describe('SettingsPage CSV review fields', () => {
   beforeEach(() => {
     localStorage.clear();
     timePreference = 15;
+    collectionReleaseDateDisplay = 'year';
+    wishlistReleaseDateDisplay = 'year';
 
     repositoryMock = {
       listAll: vi.fn().mockResolvedValue([] as GameEntry[]),
@@ -174,6 +189,52 @@ describe('SettingsPage CSV review fields', () => {
           timePreference = Math.max(5, Math.min(Math.round(parsed), 100));
         }
       }),
+    };
+    gameRowReleaseDateDisplayServiceMock = {
+      getPreference: vi
+        .fn()
+        .mockImplementation((listType: 'collection' | 'wishlist') =>
+          listType === 'collection' ? collectionReleaseDateDisplay : wishlistReleaseDateDisplay
+        ),
+      setPreference: vi
+        .fn()
+        .mockImplementation((listType: 'collection' | 'wishlist', value: string) => {
+          const normalized = value === 'monthYear' || value === 'fullDate' ? value : 'year';
+          if (listType === 'collection') {
+            collectionReleaseDateDisplay = normalized;
+          } else {
+            wishlistReleaseDateDisplay = normalized;
+          }
+        }),
+      refreshFromStorage: vi.fn().mockImplementation((listType?: 'collection' | 'wishlist') => {
+        const refreshSingle = (target: 'collection' | 'wishlist') => {
+          const key =
+            target === 'collection'
+              ? COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY
+              : WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY;
+          const raw = localStorage.getItem(key);
+          const normalized =
+            raw === 'monthYear' || raw === 'fullDate' || raw === 'year' ? raw : 'year';
+          if (target === 'collection') {
+            collectionReleaseDateDisplay = normalized;
+          } else {
+            wishlistReleaseDateDisplay = normalized;
+          }
+        };
+
+        if (!listType || listType === 'collection') {
+          refreshSingle('collection');
+        }
+
+        if (!listType || listType === 'wishlist') {
+          refreshSingle('wishlist');
+        }
+      }),
+      normalize: vi
+        .fn()
+        .mockImplementation((value: string) =>
+          value === 'monthYear' || value === 'fullDate' || value === 'year' ? value : 'year'
+        ),
     };
     outboxWriterMock = {
       enqueueOperation: vi.fn().mockResolvedValue(undefined),
@@ -246,6 +307,10 @@ describe('SettingsPage CSV review fields', () => {
         {
           provide: TimePreferenceService,
           useValue: timePreferenceServiceMock,
+        },
+        {
+          provide: GameRowReleaseDateDisplayService,
+          useValue: gameRowReleaseDateDisplayServiceMock,
         },
         {
           provide: SYNC_OUTBOX_WRITER,
@@ -484,6 +549,15 @@ describe('SettingsPage CSV review fields', () => {
     expect(gameLine).toContain(',mobygames,8.6,4501,');
   });
 
+  it('includes release date display settings in exported settings even when defaults are not stored', () => {
+    const page = createPage();
+
+    const entries = page['readExportableSettings']();
+
+    expect(entries).toContainEqual([COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY, 'year']);
+    expect(entries).toContainEqual([WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY, 'year']);
+  });
+
   it('loads time preference from service and persists updates', () => {
     vi.useFakeTimers();
     const page = createPage();
@@ -516,6 +590,48 @@ describe('SettingsPage CSV review fields', () => {
 
     page.onTimePreferenceChange('1e2');
     expect(page.timePreference).toBe(100);
+  });
+
+  it('loads release date display preferences from service and persists collection updates', () => {
+    collectionReleaseDateDisplay = 'monthYear';
+    wishlistReleaseDateDisplay = 'fullDate';
+    const page = createPage();
+
+    expect(page.collectionReleaseDateDisplay).toBe('monthYear');
+    expect(page.wishlistReleaseDateDisplay).toBe('fullDate');
+
+    page.onCollectionReleaseDateDisplayChange('fullDate');
+
+    expect(gameRowReleaseDateDisplayServiceMock.setPreference).toHaveBeenCalledWith(
+      'collection',
+      'fullDate'
+    );
+    expect(page.collectionReleaseDateDisplay).toBe('fullDate');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'fullDate',
+      },
+    });
+  });
+
+  it('normalizes invalid wishlist release date display changes before persisting', () => {
+    const page = createPage();
+
+    page.onWishlistReleaseDateDisplayChange('bad-value');
+
+    expect(gameRowReleaseDateDisplayServiceMock.normalize).toHaveBeenCalledWith('bad-value');
+    expect(page.wishlistReleaseDateDisplay).toBe('year');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'year',
+      },
+    });
   });
 
   it('debounces outbox writes while typing time preference', () => {
@@ -560,6 +676,61 @@ describe('SettingsPage CSV review fields', () => {
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
         value: '27',
+      },
+    });
+  });
+
+  it('refreshes and queues collection release date display when imported as a setting row', async () => {
+    const page = createPage();
+    localStorage.removeItem(COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY);
+    expect(page.collectionReleaseDateDisplay).toBe('year');
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'monthYear',
+      },
+    ]);
+
+    expect(gameRowReleaseDateDisplayServiceMock.refreshFromStorage).toHaveBeenCalledWith(
+      'collection'
+    );
+    expect(page.collectionReleaseDateDisplay).toBe('monthYear');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'monthYear',
+      },
+    });
+  });
+
+  it('normalizes invalid imported wishlist release date display before persisting and syncing', async () => {
+    const page = createPage();
+    localStorage.removeItem(WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY);
+    expect(page.wishlistReleaseDateDisplay).toBe('year');
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'nope',
+      },
+    ]);
+
+    expect(gameRowReleaseDateDisplayServiceMock.refreshFromStorage).toHaveBeenCalledWith(
+      'wishlist'
+    );
+    expect(page.wishlistReleaseDateDisplay).toBe('year');
+    expect(localStorage.getItem(WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY)).toBe('year');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
+        value: 'year',
       },
     });
   });

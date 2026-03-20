@@ -121,6 +121,52 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
 }
 
 describe('game-list review actions', () => {
+  it('formats row release dates using the configured display preference', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
+    };
+    const game = createGame({
+      releaseDate: '2020-01-10T00:00:00.000Z',
+      releaseYear: 2020,
+    });
+
+    page.rowReleaseDateDisplay = 'year';
+    expect(page.getGameReleaseDateLabel(game)).toBe('2020');
+
+    page.rowReleaseDateDisplay = 'monthYear';
+    expect(page.getGameReleaseDateLabel(game)).toBe(
+      new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(
+        new Date('2020-01-10T00:00:00.000Z')
+      )
+    );
+
+    page.rowReleaseDateDisplay = 'fullDate';
+    expect(page.getGameReleaseDateLabel(game)).toBe(
+      new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      }).format(new Date('2020-01-10T00:00:00.000Z'))
+    );
+  });
+
+  it('falls back from missing or invalid release dates to year and unknown year', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
+    };
+
+    page.rowReleaseDateDisplay = 'fullDate';
+    expect(page.getGameReleaseDateLabel(createGame({ releaseDate: null, releaseYear: 1999 }))).toBe(
+      '1999'
+    );
+    expect(
+      page.getGameReleaseDateLabel(createGame({ releaseDate: 'bad-date', releaseYear: 2001 }))
+    ).toBe('2001');
+    expect(page.getGameReleaseDateLabel(createGame({ releaseDate: null, releaseYear: null }))).toBe(
+      'Unknown year'
+    );
+  });
+
   it('paginates similar library games in pages of 5', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       similarLibraryGames: Array<{

@@ -76,6 +76,7 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameRowReleaseDateDisplay,
   GameVideo,
   GameGroupByField,
   GameListFilters,
@@ -99,6 +100,7 @@ import { PlatformCustomizationService } from '../../core/services/platform-custo
 import { DebugLogService } from '../../core/services/debug-log.service';
 import { LayoutModeService } from '../../core/services/layout-mode.service';
 import { TimePreferenceService } from '../../core/services/time-preference.service';
+import { GameRowReleaseDateDisplayService } from '../../core/services/game-row-release-date-display.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { IgdbProxyService } from '../../core/api/igdb-proxy.service';
@@ -313,6 +315,15 @@ export class GameListComponent implements OnChanges, OnDestroy {
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120,
   ]);
+  private static readonly ROW_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    year: 'numeric',
+  });
+  private static readonly ROW_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  });
 
   readonly noneTagFilterValue = '__none__';
   readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
@@ -340,6 +351,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   games$: Observable<GameEntry[]> = of([]);
   groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
+  rowReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isGameDetailModalOpen = false;
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
@@ -458,6 +470,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
@@ -577,15 +590,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.filters$,
         this.searchQuery$,
         this.timePreferenceService.timePreference$,
+        this.gameRowReleaseDateDisplayService.getPreference$(this.listType),
       ]).pipe(
-        map(([games, filters, searchQuery, timePreference]) =>
-          this.applyFiltersAndSort(games, filters, searchQuery, timePreference)
-        ),
+        map(([games, filters, searchQuery, timePreference, releaseDateDisplay]) => {
+          this.rowReleaseDateDisplay = releaseDateDisplay;
+          return this.applyFiltersAndSort(games, filters, searchQuery, timePreference);
+        }),
         tap((games) => {
           this.displayedGames = games;
           this.syncSelectionWithDisplayedGames();
           this.displayedGamesChange.emit(games);
           this.emitSelectionState();
+          this.changeDetectorRef.markForCheck();
         })
       );
 
@@ -624,6 +640,31 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
     this.notesEditor?.destroy();
     this.notesEditor = null;
+  }
+
+  getGameReleaseDateLabel(game: GameEntry): string {
+    const timestamp =
+      typeof game.releaseDate === 'string' && game.releaseDate.trim().length > 0
+        ? Date.parse(game.releaseDate)
+        : Number.NaN;
+
+    if (!Number.isNaN(timestamp)) {
+      const date = new Date(timestamp);
+
+      if (this.rowReleaseDateDisplay === 'monthYear') {
+        return GameListComponent.ROW_MONTH_YEAR_FORMATTER.format(date);
+      }
+
+      if (this.rowReleaseDateDisplay === 'fullDate') {
+        return GameListComponent.ROW_FULL_DATE_FORMATTER.format(date);
+      }
+    }
+
+    if (Number.isInteger(game.releaseYear)) {
+      return String(game.releaseYear);
+    }
+
+    return 'Unknown year';
   }
 
   async moveGame(game: GameEntry): Promise<void> {

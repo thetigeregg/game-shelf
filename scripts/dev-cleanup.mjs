@@ -448,6 +448,14 @@ export function removeMergedBranchesWithoutWorktrees({
   return summary;
 }
 
+export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.url } = {}) {
+  if (!argv1) {
+    return false;
+  }
+
+  return moduleUrl === pathToFileURL(path.resolve(argv1)).href;
+}
+
 export function main() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('Repository cleanup');
@@ -680,6 +688,6 @@ AUTO MODE
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isEntrypoint()) {
   main();
 }

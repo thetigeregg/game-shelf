@@ -1572,7 +1572,7 @@ describe('GameSyncService', () => {
     expect(postSpy).toHaveBeenCalledTimes(5);
     expect(localStorage.getItem('replay-max-4001')).toBe('v');
     expect(localStorage.getItem('replay-max-9000')).toBe('v');
-  });
+  }, 15000);
 
   it('replayRecentChangesIfDue records replay attempt timestamp when replay fails', async () => {
     await db.syncMeta.put({

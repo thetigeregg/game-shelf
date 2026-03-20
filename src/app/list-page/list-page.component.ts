@@ -2,6 +2,7 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
   MenuController,
@@ -25,10 +26,12 @@ import {
   IonFabButton,
   IonFabList,
   IonSplitPane,
+  IonText,
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GameCatalogResult,
   GameEntry,
   GameGroupByField,
   GameListFilters,
@@ -44,7 +47,10 @@ import {
   applyMetadataSelectionToFilters,
 } from '../features/game-list/metadata-filter.utils';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
+import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
+import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
+import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
@@ -63,6 +69,7 @@ import {
 } from './list-page-preferences';
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
+import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -119,6 +126,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     FormsModule,
     GameListComponent,
     GameSearchComponent,
+    GameDetailContentComponent,
     GameFiltersMenuComponent,
     IonHeader,
     IonToolbar,
@@ -138,6 +146,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonFabButton,
     IonFabList,
     IonSplitPane,
+    IonText,
   ],
 })
 export class ListPageComponent {
@@ -174,6 +183,12 @@ export class ListPageComponent {
   listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
+  isAddGameDetailModalOpen = false;
+  selectedAddGameDetail: GameCatalogResult | null = null;
+  isAddGameDetailLoading = false;
+  addGameDetailErrorMessage = '';
+  isAddGameDetailInLibrary = false;
+  isAddGameDetailAddLoading = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -194,6 +209,8 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly igdbProxyService = inject(IgdbProxyService);
+  private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
@@ -507,6 +524,91 @@ export class ListPageComponent {
 
   closeAddGameModal(): void {
     this.isAddGameModalOpen = false;
+    this.closeAddGameDetailModal();
+  }
+
+  async openAddGameDetail(result: GameCatalogResult): Promise<void> {
+    const requestedIdentityKey = this.buildCatalogIdentityKey(result);
+    this.selectedAddGameDetail = result;
+    this.isAddGameDetailModalOpen = true;
+    this.isAddGameDetailLoading = true;
+    this.addGameDetailErrorMessage = '';
+    this.isAddGameDetailInLibrary = false;
+    this.isAddGameDetailAddLoading = false;
+
+    try {
+      const [existingEntry, hydratedCatalog] = await Promise.all([
+        this.gameShelfService.findGameByIdentity(result.igdbGameId, result.platformIgdbId ?? null),
+        firstValueFrom(this.igdbProxyService.getGameById(result.igdbGameId)),
+      ]);
+
+      if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        return;
+      }
+
+      this.selectedAddGameDetail = applyGameCatalogPlatformContext(
+        hydratedCatalog,
+        result.platformIgdbId ?? null
+      );
+      this.isAddGameDetailInLibrary = Boolean(existingEntry);
+    } catch (error) {
+      if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        return;
+      }
+
+      this.addGameDetailErrorMessage =
+        error instanceof Error ? error.message : 'Unable to load game details.';
+      const existingEntry = await this.gameShelfService.findGameByIdentity(
+        result.igdbGameId,
+        result.platformIgdbId ?? null
+      );
+
+      if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        this.isAddGameDetailInLibrary = Boolean(existingEntry);
+      }
+    } finally {
+      if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        this.isAddGameDetailLoading = false;
+      }
+    }
+  }
+
+  closeAddGameDetailModal(): void {
+    this.isAddGameDetailModalOpen = false;
+    this.selectedAddGameDetail = null;
+    this.isAddGameDetailLoading = false;
+    this.addGameDetailErrorMessage = '';
+    this.isAddGameDetailInLibrary = false;
+    this.isAddGameDetailAddLoading = false;
+  }
+
+  async addSelectedAddGameDetailToLibrary(): Promise<void> {
+    if (
+      !this.selectedAddGameDetail ||
+      this.isAddGameDetailInLibrary ||
+      this.isAddGameDetailAddLoading
+    ) {
+      return;
+    }
+
+    this.isAddGameDetailAddLoading = true;
+
+    try {
+      const addResult = await this.addToLibraryWorkflow.addToLibrary(
+        this.selectedAddGameDetail,
+        this.listType
+      );
+
+      if (addResult.status === 'added' || addResult.status === 'duplicate') {
+        this.isAddGameDetailInLibrary = true;
+      }
+
+      if (addResult.status === 'added') {
+        this.closeAddGameDetailModal();
+      }
+    } finally {
+      this.isAddGameDetailAddLoading = false;
+    }
   }
 
   async openFiltersMenu(): Promise<void> {
@@ -920,5 +1022,20 @@ export class ListPageComponent {
         replaceUrl: true,
       });
     }
+  }
+
+  private buildCatalogIdentityKey(
+    result: Pick<GameCatalogResult, 'igdbGameId' | 'platformIgdbId'>
+  ): string {
+    return `${result.igdbGameId}::${String(result.platformIgdbId ?? 'none')}`;
+  }
+
+  private hasRequestedAddGameDetail(identityKey: string): boolean {
+    const selectedDetail = this.selectedAddGameDetail;
+    if (!selectedDetail) {
+      return false;
+    }
+
+    return this.buildCatalogIdentityKey(selectedDetail) === identityKey;
   }
 }

@@ -206,7 +206,50 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="gs-safe-bottom">
-      <app-game-search [listType]="listType"></app-game-search>
+      <app-game-search
+        [listType]="listType"
+        [enableDetailNavigation]="true"
+        (detailRequested)="openAddGameDetail($event)"
+      ></app-game-search>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddGameDetailModalOpen" (didDismiss)="closeAddGameDetailModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ selectedAddGameDetail?.title || 'Game Details' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeAddGameDetailModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="gs-safe-bottom">
+      <ion-loading
+        [isOpen]="isAddGameDetailLoading"
+        message="Loading game details..."
+        spinner="crescent"
+        [backdropDismiss]="false"
+      ></ion-loading>
+
+      @if (addGameDetailErrorMessage.length > 0) {
+        <ion-item lines="none">
+          <ion-text color="danger">{{ addGameDetailErrorMessage }}</ion-text>
+        </ion-item>
+      }
+
+      @if (selectedAddGameDetail; as game) {
+        <app-game-detail-content
+          [game]="game"
+          context="explore"
+          [showAddToLibraryAction]="true"
+          [showIgnoreAction]="false"
+          [isInLibrary]="isAddGameDetailInLibrary"
+          [isAddToLibraryLoading]="isAddGameDetailAddLoading"
+          (addToLibrary)="addSelectedAddGameDetailToLibrary()"
+        ></app-game-detail-content>
+      }
     </ion-content>
   </ng-template>
 </ion-modal>

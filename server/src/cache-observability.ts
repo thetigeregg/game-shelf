@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
-import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered, formatTimeWindow } from './rate-limit.js';
 
 interface CacheCountRow {
   count: string;
@@ -34,9 +34,9 @@ export async function registerCacheObservabilityRoutes(
     rateLimitConfig.rateLimit.max = Number(options.cacheStatsMaxRequestsPerWindow);
   }
   if (Number.isInteger(options.cacheStatsRateLimitWindowMs)) {
-    rateLimitConfig.rateLimit.timeWindow = `${String(
-      Math.max(1, Math.floor(Number(options.cacheStatsRateLimitWindowMs) / 1000))
-    )} seconds`;
+    rateLimitConfig.rateLimit.timeWindow = formatTimeWindow(
+      Number(options.cacheStatsRateLimitWindowMs)
+    );
   }
 
   let snapshot: CacheCountSnapshot = {

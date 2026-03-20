@@ -157,7 +157,6 @@ export class PopularityIngestService {
         'igdb_popularity',
         {
           ...resolveOutboundRateLimit('igdb_popularity'),
-          requestTimeoutMs: options.requestTimeoutMs,
           requestsPerSecond: options.maxRequestsPerSecond,
         },
         { now: () => Date.now() }

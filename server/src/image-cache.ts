@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
-import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered, formatTimeWindow } from './rate-limit.js';
 interface ImageAssetRow {
   cache_key: string;
   source_url: string;
@@ -41,7 +41,7 @@ export async function registerImageProxyRoute(
   const imagePurgeRateLimit = applyRouteRateLimit('image_purge');
   const imageProxyRateLimit = applyRouteRateLimit('image_proxy');
   if (Number.isInteger(options.rateLimitWindowMs)) {
-    const timeWindow = `${String(Math.max(1, Math.floor(Number(options.rateLimitWindowMs) / 1000)))} seconds`;
+    const timeWindow = formatTimeWindow(Number(options.rateLimitWindowMs));
     imagePurgeRateLimit.rateLimit.timeWindow = timeWindow;
     imageProxyRateLimit.rateLimit.timeWindow = timeWindow;
   }

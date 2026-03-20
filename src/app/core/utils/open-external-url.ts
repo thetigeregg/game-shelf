@@ -1,14 +1,16 @@
+import { parseHttpUrl } from './url-host.util';
+
 export function openExternalUrl(url: string | null | undefined): void {
   if (typeof url !== 'string') {
     return;
   }
 
-  const normalizedUrl = url.trim();
-  if (normalizedUrl.length === 0) {
+  const parsedUrl = parseHttpUrl(url);
+  if (!parsedUrl) {
     return;
   }
 
-  const newWindow = window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+  const newWindow = window.open(parsedUrl.href, '_blank', 'noopener,noreferrer');
 
   if (newWindow) {
     newWindow.opener = null;

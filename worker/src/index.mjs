@@ -1687,6 +1687,10 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
 }
 
 export async function handleRequest(request, env, fetchImpl = fetch, options = {}) {
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    throw new TypeError('handleRequest options must be an object');
+  }
+
   const now = typeof options.now === 'function' ? options.now : () => Date.now();
 
   if (request.method !== 'GET') {

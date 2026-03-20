@@ -85,5 +85,5 @@ export async function ensureRateLimitRegistered(app: FastifyInstance): Promise<v
 }
 
 export function formatTimeWindow(windowMs: number): string {
-  return `${String(Math.max(1, Math.floor(windowMs / 1000)))} seconds`;
+  return `${String(Math.max(1, Math.ceil(windowMs / 1000)))} seconds`;
 }

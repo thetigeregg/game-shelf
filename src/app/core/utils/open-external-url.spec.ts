@@ -32,6 +32,31 @@ describe('openExternalUrl', () => {
     expect(openedWindow.opener).toBeNull();
   });
 
+  it('normalizes protocol-relative urls before opening them', () => {
+    const openedWindow = { opener: {} } as Window;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(openedWindow);
+
+    openExternalUrl('//example.com/game');
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://example.com/game',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    expect(openedWindow.opener).toBeNull();
+  });
+
+  it('rejects malformed and non-http(s) urls', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    openExternalUrl('javascript:alert(1)');
+    openExternalUrl('data:text/html,test');
+    openExternalUrl('/relative/path');
+    openExternalUrl('http://[::1]:notaport');
+
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
   it('does not fail when the browser blocks the popup', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
 

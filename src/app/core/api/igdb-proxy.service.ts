@@ -1131,8 +1131,7 @@ export class IgdbProxyService implements GameSearchApi {
       (result as GameCatalogResult & { steamAppId?: unknown }).steamAppId
     );
     const normalizedWebsites = this.normalizeWebsites(
-      (result as GameCatalogResult & { websites?: unknown; storefrontLinks?: unknown }).websites ??
-        (result as GameCatalogResult & { storefrontLinks?: unknown }).storefrontLinks
+      (result as GameCatalogResult & { websites?: unknown }).websites
     );
     const normalizedPriceSource = this.normalizePriceSource(
       (result as GameCatalogResult & { priceSource?: unknown }).priceSource

@@ -5,7 +5,7 @@ export function openExternalUrl(url: string | null | undefined): void {
     return;
   }
 
-  const parsedUrl = parseHttpUrl(url);
+  const parsedUrl = resolveOpenableUrl(url);
   if (!parsedUrl) {
     return;
   }
@@ -15,4 +15,23 @@ export function openExternalUrl(url: string | null | undefined): void {
   if (newWindow) {
     newWindow.opener = null;
   }
+}
+
+function resolveOpenableUrl(url: string): URL | null {
+  const trimmedUrl = url.trim();
+
+  if (trimmedUrl.length === 0) {
+    return null;
+  }
+
+  if (trimmedUrl.startsWith('/') && !trimmedUrl.startsWith('//')) {
+    try {
+      const parsedUrl = new URL(trimmedUrl, window.location.origin);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:' ? parsedUrl : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return parseHttpUrl(trimmedUrl);
 }

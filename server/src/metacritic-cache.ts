@@ -1,15 +1,14 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementMetacriticMetric } from './cache-metrics.js';
-import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -48,9 +47,7 @@ export async function registerMetacriticCachedRoute(
   pool: Pool,
   options: MetacriticCacheRouteOptions = {}
 ): Promise<void> {
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
-  }
+  await ensureRateLimitRegistered(app);
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =
@@ -73,12 +70,7 @@ export async function registerMetacriticCachedRoute(
   app.route({
     method: 'GET',
     url: '/v1/metacritic/search',
-    config: {
-      rateLimit: {
-        max: config.metacriticSearchRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('metacritic_search'),
     handler: async (request, reply) => {
       const normalized = normalizeMetacriticQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;

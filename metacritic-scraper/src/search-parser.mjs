@@ -27,6 +27,7 @@ export function extractMetacriticSearchResults(config = {}) {
     /(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)(?:\s*(?:[1-9]\d?|100|tbd))?\s*$/i;
   const scoreTailPatternInPage = /\s*(?:[1-9]\d?|100|tbd)\s*$/i;
   const metadataGameTailPatternInPage = /game\s*$/i;
+  const titleParentheticalYearPatternInPage = /\((19|20)\d{2}\)/;
 
   const isAllowedMetacriticHostnameInPage = (rawHostname) => {
     const hostname = String(rawHostname ?? '')
@@ -591,7 +592,7 @@ export function extractMetacriticSearchResults(config = {}) {
       row.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(titleParentheticalYearPatternInPage);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
     const rowText = String(row.textContent ?? '').trim();
@@ -657,7 +658,7 @@ export function extractMetacriticSearchResults(config = {}) {
       container.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(titleParentheticalYearPatternInPage);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
     const containerText = String(container.textContent ?? '').trim();

@@ -93,3 +93,38 @@ test('extractMetacriticSearchResults normalizes plain TBA payload years for tbd 
     imageUrl: 'https://images.example/eclipse.jpg',
   });
 });
+
+test('extractMetacriticSearchResults does not infer release year from numbered titles like Metro 2033', () => {
+  const html = `
+    <main>
+      <section>
+        <article>
+          <a href="/game/metro-2033-redux/">
+            <img src="https://images.example/metro.jpg" alt="cover" />
+            <h3>Metro: 2033 ReduxgamePC90</h3>
+          </a>
+          <div>
+            <span data-testid="product-metascore"><span>90</span></span>
+            <span>PC</span>
+          </div>
+        </article>
+      </section>
+      <script type="application/json" id="__NUXT_DATA__">
+        [{"id":1,"type":2,"typeId":3,"title":4,"slug":5,"images":6,"criticScoreSummary":7,"rating":8,"releaseDate":9,"premiereYear":10,"genres":11,"platforms":12},1300735541,"game-title",13,"Metro: 2033 Redux","metro-2033-redux",[],{"url":14,"score":15},"M","2014-08-26",2014,[16],{"id":17,"name":18},"Shooter",[19],{"id":20,"name":21},"PC","/game/metro-2033-redux/critic-reviews/",90]
+      </script>
+    </main>
+  `;
+
+  const results = parseHtml(html);
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    title: 'Metro: 2033 Redux',
+    releaseYear: 2014,
+    platform: 'PC',
+    metacriticPlatforms: ['PC'],
+    metacriticScore: 90,
+    metacriticUrl: 'https://www.metacritic.com/game/metro-2033-redux/',
+    imageUrl: 'https://images.example/metro.jpg',
+  });
+});

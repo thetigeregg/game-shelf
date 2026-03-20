@@ -2674,3 +2674,26 @@
 - 925379d7 Merge pull request #262 from thetigeregg/dependabot/npm_and_yarn/server/fast-xml-parser-5.5.7
 - 93c3ff62 chore(deps): bump fast-xml-parser from 5.5.6 to 5.5.7 in /server
 
+## v1.11.0 - 2026-03-20
+- 34e7914e Merge pull request #260 from thetigeregg/feat/script-again-again-again-again
+- 8e9eb115 feat(dev-cleanup): refactor common Git directory handling and update tests
+- b9681164 Merge branch 'main' into feat/script-again-again-again-again
+- ed228f71 test(dev-cleanup): ensure temporary directories are cleaned up after tests
+- 4c34a276 feat(dev-cleanup): enhance formatCleanupSummaryLine to include paths
+- 8fa196d9 fix(scripts): harden dev-cleanup path formatting and pruning
+- 850d86ec feat(tests): add normalization check for current worktree in removeMergedWorktrees
+- d3048899 feat(dev-cleanup): enhance path normalization and add tests for formatWorktreeDisplayPath
+- d9d6f375 feat(dev-cleanup): add isEntrypoint function and corresponding tests
+- 770486f2 fix(scripts): make script test runner cross-platform
+- f983a28f feat(dev-cleanup): update REPO_ROOT resolution to use git common directory
+- 80fa1078 Merge branch 'main' into feat/script-again-again-again-again
+- fb8e802e feat(dev-cleanup): enhance worktree path logging and add formatWorktreeDisplayPath function
+- 92ba7066 feat(dev-cleanup): enhance parseWorktrees function and update cleanup summaries for dry-run mode
+- 93af138f Merge branch 'main' into feat/script-again-again-again-again
+- 89f0fadf feat(tests): add script tests to CI workflow and define test:scripts command
+- a5cc711d feat(dev-cleanup): add dry-run functionality and enhance branch removal logic
+- 81740fec feat(dev-cleanup): implement orphaned worktree removal and add tests
+- 4c038aa4 feat(dev-cleanup): add formatCleanupSummaryLine function
+- 5c13ed68 feat(dev-cleanup): enhance removeMergedWorktrees to return a summary
+- 20f8db85 feat(cleanup): enhance dev-cleanup script with worktree management and add tests
+

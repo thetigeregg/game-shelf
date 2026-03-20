@@ -47,46 +47,26 @@
       </ion-item>
     }
     @for (result of results; track trackByExternalId($index, result)) {
-      <ion-item lines="full" [detail]="false">
-        @if (enableDetailNavigation) {
-          <button
-            type="button"
-            class="search-result-trigger"
-            (click)="requestDetail($event, result)"
-          >
-            <div class="game-art">
-              <img
-                [src]="result.coverUrl || 'assets/icon/placeholder.png'"
-                [alt]="result.title"
-                (error)="onImageError($event)"
-              />
-            </div>
-            <ion-label>
-              <h2>{{ result.title }}</h2>
-              @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
-                <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
-              }
-              <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
-            </ion-label>
-          </button>
-        } @else {
-          <div class="search-result-trigger search-result-trigger--static">
-            <div class="game-art">
-              <img
-                [src]="result.coverUrl || 'assets/icon/placeholder.png'"
-                [alt]="result.title"
-                (error)="onImageError($event)"
-              />
-            </div>
-            <ion-label>
-              <h2>{{ result.title }}</h2>
-              @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
-                <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
-              }
-              <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
-            </ion-label>
-          </div>
-        }
+      <ion-item
+        lines="full"
+        [button]="enableDetailNavigation"
+        [detail]="enableDetailNavigation"
+        (click)="requestDetail($event, result)"
+      >
+        <div slot="start" class="game-art">
+          <img
+            [src]="result.coverUrl || 'assets/icon/placeholder.png'"
+            [alt]="result.title"
+            (error)="onImageError($event)"
+          />
+        </div>
+        <ion-label>
+          <h2>{{ result.title }}</h2>
+          @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
+            <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
+          }
+          <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
+        </ion-label>
         <ion-button
           slot="end"
           fill="outline"

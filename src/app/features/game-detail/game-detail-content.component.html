@@ -287,20 +287,20 @@
             </ion-item>
           }
 
-          @if (showStorefrontSection) {
+          @if (showWebsiteSection) {
             <ion-item>
               <ion-icon slot="start" name="pricetags" aria-hidden="true"></ion-icon>
               <ion-label>
-                <h2>Storefronts</h2>
+                <h2>Websites</h2>
                 <div class="detail-storefront-links">
-                  @for (storefrontLink of visibleStorefrontLinks; track storefrontLink.url) {
+                  @for (website of visibleWebsites; track website.url) {
                     <a
                       class="detail-storefront-link"
-                      [href]="storefrontLink.url"
+                      [href]="website.url"
                       target="_blank"
                       rel="noopener noreferrer external"
                     >
-                      {{ storefrontLink.providerLabel }}
+                      {{ website.providerLabel }}
                     </a>
                   }
                 </div>

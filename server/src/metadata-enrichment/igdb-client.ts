@@ -1,6 +1,6 @@
 import { IgdbMetadataRecord } from './types.js';
 import * as mediaNormalization from '../../../shared/igdb-media-normalization.mjs';
-import * as storefrontNormalization from '../../../shared/igdb-storefront-normalization.mjs';
+import * as websiteNormalization from '../../../shared/igdb-websites-normalization.mjs';
 import {
   createProviderLimiter,
   type ProviderLimiter,
@@ -17,17 +17,15 @@ const normalizeIgdbVideoList = mediaNormalization.normalizeIgdbVideoList as (
   value: unknown,
   options?: { limit?: number }
 ) => IgdbMetadataRecord['videos'];
-const normalizeIgdbStorefrontLinks = storefrontNormalization.normalizeIgdbStorefrontLinks as (
-  input: { externalGames?: unknown; websites?: unknown },
+const normalizeIgdbWebsites = websiteNormalization.normalizeIgdbWebsites as (
+  input: { websites?: unknown },
   options?: {
-    externalGameSourceNames?: ReadonlyMap<number, string> | null;
     websiteTypeNames?: ReadonlyMap<number, string> | null;
   }
-) => IgdbMetadataRecord['storefrontLinks'];
-const deriveSteamAppIdFromStorefrontLinks =
-  storefrontNormalization.deriveSteamAppIdFromStorefrontLinks as (
-    value: unknown
-  ) => IgdbMetadataRecord['steamAppId'];
+) => IgdbMetadataRecord['websites'];
+const deriveSteamAppIdFromWebsites = websiteNormalization.deriveSteamAppIdFromWebsites as (
+  value: unknown
+) => IgdbMetadataRecord['steamAppId'];
 
 interface TokenCache {
   accessToken: string;
@@ -51,7 +49,6 @@ export class MetadataEnrichmentIgdbClient {
   private readonly fetchImpl: typeof fetch;
   private readonly limiter: ProviderLimiter;
   private tokenCache: TokenCache | null = null;
-  private externalGameSourceCache: SourceNameCache | null = null;
   private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(private readonly options: MetadataEnrichmentIgdbClientOptions) {
@@ -79,10 +76,7 @@ export class MetadataEnrichmentIgdbClient {
     }
 
     const token = await this.getAccessToken();
-    const [externalGameSourceNames, websiteTypeNames] = await Promise.all([
-      this.getExternalGameSourceNames(token),
-      this.getWebsiteTypeNames(token),
-    ]);
+    const websiteTypeNames = await this.getWebsiteTypeNames(token);
     const body = [
       `where id = (${normalizedIds.join(',')});`,
       [
@@ -91,7 +85,6 @@ export class MetadataEnrichmentIgdbClient {
         'keywords.id,keywords.name',
         'screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height',
         'videos.id,videos.name,videos.video_id',
-        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform,external_games.countries,external_games.game_release_format',
         'websites.type,websites.category,websites.url,websites.trusted;',
       ].join(','),
       `limit ${String(normalizedIds.length)};`,
@@ -144,13 +137,11 @@ export class MetadataEnrichmentIgdbClient {
         videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
           limit: 5,
         }),
-        storefrontLinks: normalizeIgdbStorefrontLinks(
+        websites: normalizeIgdbWebsites(
           {
-            externalGames: (row as { external_games?: unknown }).external_games,
             websites: (row as { websites?: unknown }).websites,
           },
           {
-            externalGameSourceNames,
             websiteTypeNames,
           }
         ),
@@ -158,31 +149,11 @@ export class MetadataEnrichmentIgdbClient {
       });
       const metadata = map.get(String(id));
       if (metadata) {
-        metadata.steamAppId = deriveSteamAppIdFromStorefrontLinks(metadata.storefrontLinks);
+        metadata.steamAppId = deriveSteamAppIdFromWebsites(metadata.websites);
       }
     }
 
     return map;
-  }
-
-  private async getExternalGameSourceNames(token: string): Promise<ReadonlyMap<number, string>> {
-    const cached = this.externalGameSourceCache;
-    const now = Date.now();
-    if (cached && cached.expiresAtMs > now) {
-      return cached.values;
-    }
-
-    const values = await this.fetchNameMap({
-      token,
-      url: 'https://api.igdb.com/v4/external_game_sources',
-      fields: 'fields id,name; limit 500;',
-      valueKey: 'name',
-    });
-    this.externalGameSourceCache = {
-      values,
-      expiresAtMs: now + 6 * 60 * 60 * 1000,
-    };
-    return values;
   }
 
   private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {

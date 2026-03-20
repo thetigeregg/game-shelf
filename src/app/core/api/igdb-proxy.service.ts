@@ -6,7 +6,7 @@ import { environment } from '../../../environments/environment';
 import {
   GameCatalogPlatformOption,
   GameCatalogResult,
-  GameStorefrontLink,
+  GameWebsite,
   GameType,
   HltbCompletionTimes,
   HltbMatchCandidate,
@@ -1130,8 +1130,9 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedSteamAppId = this.normalizePositiveInteger(
       (result as GameCatalogResult & { steamAppId?: unknown }).steamAppId
     );
-    const normalizedStorefrontLinks = this.normalizeStorefrontLinks(
-      (result as GameCatalogResult & { storefrontLinks?: unknown }).storefrontLinks
+    const normalizedWebsites = this.normalizeWebsites(
+      (result as GameCatalogResult & { websites?: unknown; storefrontLinks?: unknown }).websites ??
+        (result as GameCatalogResult & { storefrontLinks?: unknown }).storefrontLinks
     );
     const normalizedPriceSource = this.normalizePriceSource(
       (result as GameCatalogResult & { priceSource?: unknown }).priceSource
@@ -1213,9 +1214,7 @@ export class IgdbProxyService implements GameSearchApi {
       ...(result.keywordIds !== undefined
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
         : {}),
-      ...(normalizedStorefrontLinks !== undefined
-        ? { storefrontLinks: normalizedStorefrontLinks }
-        : {}),
+      ...(normalizedWebsites !== undefined ? { websites: normalizedWebsites } : {}),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       ...(normalizedPriceSource !== null ? { priceSource: normalizedPriceSource } : {}),
       ...(normalizedPriceFetchedAt !== null ? { priceFetchedAt: normalizedPriceFetchedAt } : {}),
@@ -2199,7 +2198,7 @@ export class IgdbProxyService implements GameSearchApi {
     return null;
   }
 
-  private normalizeStorefrontLinks(value: unknown): GameStorefrontLink[] | undefined {
+  private normalizeWebsites(value: unknown): GameWebsite[] | undefined {
     if (value === undefined) {
       return undefined;
     }
@@ -2208,7 +2207,7 @@ export class IgdbProxyService implements GameSearchApi {
       return [];
     }
 
-    const normalized: GameStorefrontLink[] = [];
+    const normalized: GameWebsite[] = [];
     const seen = new Set<string>();
 
     for (const entry of value) {
@@ -2217,7 +2216,7 @@ export class IgdbProxyService implements GameSearchApi {
       }
 
       const record = entry as Record<string, unknown>;
-      const provider = this.normalizeStorefrontProvider(record['provider']);
+      const provider = this.normalizeWebsiteProvider(record['provider']);
       const url = this.normalizeExternalUrl(
         typeof record['url'] === 'string' ? record['url'] : null
       );
@@ -2234,15 +2233,10 @@ export class IgdbProxyService implements GameSearchApi {
       seen.add(dedupeKey);
       normalized.push({
         provider,
-        providerLabel: this.normalizeStorefrontProviderLabel(record['providerLabel'], provider),
+        providerLabel: this.normalizeWebsiteProviderLabel(record['providerLabel'], provider),
         url,
-        sourceKind: this.normalizeStorefrontSourceKind(record['sourceKind']),
         sourceId: this.normalizePositiveInteger(record['sourceId']),
         sourceName: this.normalizeOptionalText(record['sourceName']),
-        uid: this.normalizeOptionalText(record['uid']),
-        platformIgdbId: this.normalizePositiveInteger(record['platformIgdbId']),
-        countryCode: this.normalizeStorefrontCountryCode(record['countryCode']),
-        releaseFormat: this.normalizePositiveInteger(record['releaseFormat']),
         trusted: this.normalizeOptionalBoolean(record['trusted']),
       });
     }
@@ -2250,7 +2244,7 @@ export class IgdbProxyService implements GameSearchApi {
     return normalized;
   }
 
-  private normalizeStorefrontProvider(value: unknown): GameStorefrontLink['provider'] | null {
+  private normalizeWebsiteProvider(value: unknown): GameWebsite['provider'] | null {
     return value === 'steam' ||
       value === 'playstation' ||
       value === 'xbox' ||
@@ -2270,10 +2264,7 @@ export class IgdbProxyService implements GameSearchApi {
       : null;
   }
 
-  private normalizeStorefrontProviderLabel(
-    value: unknown,
-    provider: GameStorefrontLink['provider']
-  ): string {
+  private normalizeWebsiteProviderLabel(value: unknown, provider: GameWebsite['provider']): string {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (normalized.length > 0) {
       return normalized;
@@ -2311,19 +2302,6 @@ export class IgdbProxyService implements GameSearchApi {
       default:
         return 'Unknown Store';
     }
-  }
-
-  private normalizeStorefrontSourceKind(value: unknown): GameStorefrontLink['sourceKind'] {
-    return value === 'website' ? 'website' : 'external_game';
-  }
-
-  private normalizeStorefrontCountryCode(value: unknown): string | null {
-    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    return /^[A-Z]{2}$/.test(normalized) || /^\d+$/.test(normalized) ? normalized : null;
   }
 
   private inferReviewSourceFromUrl(url: string | null): 'metacritic' | 'mobygames' | null {

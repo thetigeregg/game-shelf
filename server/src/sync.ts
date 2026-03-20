@@ -243,7 +243,7 @@ async function applyGameOperation(
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
-        'storefrontLinks', COALESCE(EXCLUDED.payload -> 'storefrontLinks', games.payload -> 'storefrontLinks'),
+        'websites', COALESCE(EXCLUDED.payload -> 'websites', COALESCE(EXCLUDED.payload -> 'storefrontLinks', COALESCE(games.payload -> 'websites', games.payload -> 'storefrontLinks'))),
         'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
         'priceSource', COALESCE(EXCLUDED.payload -> 'priceSource', games.payload -> 'priceSource'),
         'priceFetchedAt', COALESCE(EXCLUDED.payload -> 'priceFetchedAt', games.payload -> 'priceFetchedAt'),
@@ -727,7 +727,9 @@ function normalizeGamePayload(
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
   const hasSteamAppId = Object.prototype.hasOwnProperty.call(payload, 'steamAppId');
-  const hasStorefrontLinks = Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks');
+  const hasWebsites =
+    Object.prototype.hasOwnProperty.call(payload, 'websites') ||
+    Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks');
   const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
@@ -771,7 +773,7 @@ function normalizeGamePayload(
   const mobygamesGameId =
     Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
   const steamAppId = Number.isInteger(steamAppIdRaw) && steamAppIdRaw > 0 ? steamAppIdRaw : null;
-  const storefrontLinks = normalizeStorefrontLinks(payload.storefrontLinks);
+  const websites = normalizeWebsites(payload.websites ?? payload.storefrontLinks);
   const mobyScore =
     Number.isFinite(mobyScoreRaw) && mobyScoreRaw > 0 && mobyScoreRaw <= 10
       ? Math.round(mobyScoreRaw * 10) / 10
@@ -788,7 +790,7 @@ function normalizeGamePayload(
     notes,
     mobyScore,
     mobygamesGameId,
-    ...(hasStorefrontLinks ? { storefrontLinks } : {}),
+    ...(hasWebsites ? { websites } : {}),
     ...(hasSteamAppId ? { steamAppId } : {}),
     updatedAt,
     ...(hasPriceSource ? { priceSource } : {}),
@@ -843,7 +845,7 @@ function normalizeSettingPayload(value: unknown): { key: string; value: string }
   };
 }
 
-function normalizeStorefrontLinks(value: unknown): Array<Record<string, unknown>> {
+function normalizeWebsites(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -888,16 +890,10 @@ function normalizeStorefrontLinks(value: unknown): Array<Record<string, unknown>
     seen.add(dedupeKey);
     normalized.push({
       provider,
-      providerLabel:
-        normalizeString(record.providerLabel) ?? defaultStorefrontProviderLabel(provider),
+      providerLabel: normalizeString(record.providerLabel) ?? defaultWebsiteProviderLabel(provider),
       url,
-      sourceKind: record.sourceKind === 'website' ? 'website' : 'external_game',
       sourceId: normalizeOptionalPositiveInteger(record.sourceId),
       sourceName: normalizeString(record.sourceName),
-      uid: normalizeString(record.uid),
-      platformIgdbId: normalizeOptionalPositiveInteger(record.platformIgdbId),
-      countryCode: normalizeStorefrontCountryCode(record.countryCode),
-      releaseFormat: normalizeOptionalPositiveInteger(record.releaseFormat),
       trusted: typeof record.trusted === 'boolean' ? record.trusted : null,
     });
   }
@@ -932,14 +928,7 @@ function normalizeOptionalPositiveInteger(value: unknown): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function normalizeStorefrontCountryCode(value: unknown): string | null {
-  const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
-  return normalized.length > 0 && (/^[A-Z]{2}$/.test(normalized) || /^\d+$/.test(normalized))
-    ? normalized
-    : null;
-}
-
-function defaultStorefrontProviderLabel(provider: string): string {
+function defaultWebsiteProviderLabel(provider: string): string {
   switch (provider) {
     case 'steam':
       return 'Steam';

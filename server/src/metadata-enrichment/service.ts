@@ -151,7 +151,7 @@ function buildMetadataPatch(params: {
     nextValues['keywordIds'] = params.metadata.keywordIds;
     nextValues['screenshots'] = params.metadata.screenshots;
     nextValues['videos'] = params.metadata.videos;
-    nextValues['storefrontLinks'] = params.metadata.storefrontLinks;
+    nextValues['websites'] = params.metadata.websites;
     nextValues['steamAppId'] = params.metadata.steamAppId;
   }
   nextValues['taxonomyEnrichmentStatus'] = status;
@@ -182,7 +182,7 @@ function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
     isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['mediaEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['steamEnrichedAt'])) ||
-    !Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks')
+    !Object.prototype.hasOwnProperty.call(payload, 'websites')
   );
 }
 

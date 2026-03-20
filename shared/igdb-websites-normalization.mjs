@@ -1,28 +1,5 @@
 const STEAM_APP_URL_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
 
-const EXTERNAL_GAME_CATEGORY_NAMES = new Map([
-  [1, 'steam'],
-  [5, 'gog'],
-  [10, 'youtube'],
-  [11, 'microsoft'],
-  [13, 'apple'],
-  [14, 'twitch'],
-  [15, 'android'],
-  [20, 'amazon_asin'],
-  [22, 'amazon_luna'],
-  [23, 'amazon_adg'],
-  [26, 'epic_game_store'],
-  [28, 'oculus'],
-  [29, 'utomik'],
-  [30, 'itch_io'],
-  [31, 'xbox_marketplace'],
-  [32, 'kartridge'],
-  [36, 'playstation_store_us'],
-  [37, 'focus_entertainment'],
-  [54, 'xbox_game_pass_ultimate_cloud'],
-  [55, 'gamejolt'],
-]);
-
 const WEBSITE_CATEGORY_NAMES = new Map([
   [1, 'official'],
   [2, 'wikia'],
@@ -109,11 +86,6 @@ function normalizeLookupKey(value) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '')
     : '';
-}
-
-function buildSteamUrlFromUid(uid) {
-  const steamAppId = parsePositiveInteger(uid);
-  return steamAppId !== null ? `https://store.steampowered.com/app/${String(steamAppId)}` : null;
 }
 
 function inferProviderFromHost(url) {
@@ -240,100 +212,54 @@ function classifyProvider(sourceName, url) {
   return inferProviderFromHost(url);
 }
 
-function normalizeCountryCode(value) {
-  if (Array.isArray(value)) {
-    return normalizeCountryCode(value[0]);
+function resolveWebsiteSourceName(entry, options) {
+  const sourceId = parsePositiveInteger(entry?.type) ?? parsePositiveInteger(entry?.category);
+  if (sourceId === null) {
+    return null;
   }
 
-  if (typeof value === 'string') {
-    const normalized = value.trim().toUpperCase();
-    if (normalized.length === 2 || /^\d+$/.test(normalized)) {
-      return normalized;
-    }
-  }
-
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-    return String(value);
-  }
-
-  return null;
-}
-
-function resolveSourceName(entry, options, sourceKind) {
-  const sourceId =
-    parsePositiveInteger(entry?.external_game_source ?? entry?.type) ??
-    parsePositiveInteger(entry?.category);
-
-  if (sourceKind === 'external_game') {
-    if (sourceId !== null) {
-      const mapped =
-        options?.externalGameSourceNames?.get(sourceId) ??
-        EXTERNAL_GAME_CATEGORY_NAMES.get(sourceId);
-      if (typeof mapped === 'string' && mapped.trim().length > 0) {
-        return mapped.trim();
-      }
-    }
-  } else if (sourceId !== null) {
-    const mapped = options?.websiteTypeNames?.get(sourceId) ?? WEBSITE_CATEGORY_NAMES.get(sourceId);
-    if (typeof mapped === 'string' && mapped.trim().length > 0) {
-      return mapped.trim();
-    }
-  }
-
-  return null;
+  const mapped = options?.websiteTypeNames?.get(sourceId) ?? WEBSITE_CATEGORY_NAMES.get(sourceId);
+  return typeof mapped === 'string' && mapped.trim().length > 0 ? mapped.trim() : null;
 }
 
 function getProviderLabel(provider) {
   return PROVIDER_LABELS[provider] ?? PROVIDER_LABELS.unknown;
 }
 
-function createStorefrontLink(entry, sourceKind, options) {
+function createNormalizedWebsite(entry, options) {
   if (!entry || typeof entry !== 'object') {
     return null;
   }
 
-  const sourceName = resolveSourceName(entry, options, sourceKind);
-  const providerFromNameOrHost = classifyProvider(sourceName, entry.url);
-  const uid = normalizeText(entry.uid);
-  const url =
-    normalizeHttpUrl(entry.url) ??
-    (providerFromNameOrHost === 'steam' ? buildSteamUrlFromUid(uid) : null);
+  const sourceName = resolveWebsiteSourceName(entry, options);
+  const url = normalizeHttpUrl(entry.url);
   if (!url) {
     return null;
   }
 
-  const provider = providerFromNameOrHost ?? inferProviderFromHost(url);
+  const provider = classifyProvider(sourceName, url) ?? inferProviderFromHost(url);
   if (!provider) {
     return null;
   }
 
-  const sourceId =
-    parsePositiveInteger(entry.external_game_source ?? entry.type) ??
-    parsePositiveInteger(entry.category);
+  const sourceId = parsePositiveInteger(entry.type) ?? parsePositiveInteger(entry.category);
 
   return {
     provider,
     providerLabel: getProviderLabel(provider),
     url,
-    sourceKind,
     sourceId,
     sourceName,
-    uid,
-    platformIgdbId: parsePositiveInteger(entry.platform),
-    countryCode: sourceKind === 'external_game' ? normalizeCountryCode(entry.countries) : null,
-    releaseFormat:
-      sourceKind === 'external_game' ? parsePositiveInteger(entry.game_release_format) : null,
-    trusted: sourceKind === 'website' && typeof entry.trusted === 'boolean' ? entry.trusted : null,
+    trusted: typeof entry.trusted === 'boolean' ? entry.trusted : null,
   };
 }
 
-export function normalizeIgdbStorefrontLinks(input, options = {}) {
-  const externalGames = Array.isArray(input?.externalGames) ? input.externalGames : [];
+export function normalizeIgdbWebsites(input, options = {}) {
   const websites = Array.isArray(input?.websites) ? input.websites : [];
   const deduped = new Map();
 
-  for (const entry of externalGames) {
-    const normalized = createStorefrontLink(entry, 'external_game', options);
+  for (const entry of websites) {
+    const normalized = createNormalizedWebsite(entry, options);
     if (!normalized) {
       continue;
     }
@@ -341,22 +267,10 @@ export function normalizeIgdbStorefrontLinks(input, options = {}) {
     deduped.set(`${normalized.provider}::${normalized.url}`, normalized);
   }
 
-  for (const entry of websites) {
-    const normalized = createStorefrontLink(entry, 'website', options);
-    if (!normalized) {
-      continue;
-    }
-
-    const dedupeKey = `${normalized.provider}::${normalized.url}`;
-    if (!deduped.has(dedupeKey)) {
-      deduped.set(dedupeKey, normalized);
-    }
-  }
-
   return [...deduped.values()];
 }
 
-export function deriveSteamAppIdFromStorefrontLinks(value) {
+export function deriveSteamAppIdFromWebsites(value) {
   if (!Array.isArray(value)) {
     return null;
   }
@@ -364,11 +278,6 @@ export function deriveSteamAppIdFromStorefrontLinks(value) {
   for (const entry of value) {
     if (!entry || typeof entry !== 'object' || entry.provider !== 'steam') {
       continue;
-    }
-
-    const fromUid = parsePositiveInteger(entry.uid);
-    if (fromUid !== null) {
-      return fromUid;
     }
 
     const url = normalizeHttpUrl(entry.url);

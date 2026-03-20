@@ -143,7 +143,7 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
-  it('normalizes storefront links metadata when present', async () => {
+  it('normalizes websites metadata when present', async () => {
     const promise = firstValueFrom(service.searchGames('halo'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=halo`);
 
@@ -154,25 +154,19 @@ describe('IgdbProxyService', () => {
           title: 'Halo',
           coverUrl: '',
           coverSource: 'none',
-          storefrontLinks: [
+          websites: [
             {
               provider: 'xbox',
               providerLabel: 'Xbox',
               url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
-              sourceKind: 'external_game',
               sourceId: 31,
               sourceName: 'Xbox Marketplace',
-              uid: 'xbox-1',
-              platformIgdbId: 169,
-              countryCode: '840',
-              releaseFormat: 1,
               trusted: null,
             },
             {
               provider: 'xbox',
               providerLabel: '',
               url: 'ftp://invalid.example',
-              sourceKind: 'external_game',
             },
           ],
           platforms: ['Xbox Series X|S'],
@@ -185,18 +179,13 @@ describe('IgdbProxyService', () => {
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
-        storefrontLinks: [
+        websites: [
           {
             provider: 'xbox',
             providerLabel: 'Xbox',
             url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
-            sourceKind: 'external_game',
             sourceId: 31,
             sourceName: 'Xbox Marketplace',
-            uid: 'xbox-1',
-            platformIgdbId: 169,
-            countryCode: '840',
-            releaseFormat: 1,
             trusted: null,
           },
         ],

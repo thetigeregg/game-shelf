@@ -2752,3 +2752,16 @@
 - 1fbbfa62 feat(search-parser): add test for normalizing TBA payload years in tbd results
 - 02635139 feat(rankCandidate): enhance ranking logic for base games
 - ceaaef4f feat(search-parser): add normalization for release year and implement tests
+
+## v1.14.0 - 2026-03-20
+
+- dc314f16 Merge pull request #264 from thetigeregg/feat/release-dates
+- 2fe8eb50 fix(settings): apply imported release date preferences before storage sync
+- aee38569 feat(game-list): refactor release date formatting; use consistent date formatter
+- 9ef82278 feat(game-list): improve release date handling and formatting; add parsing for ISO timestamps
+- b070c999 feat(game-list): shorten month names in release date labels
+- 0b236c9c feat(settings): remove extra whitespace from heart icon color attribute
+- 973d784a feat(game-list): enhance full release date formatting with ordinal suffixes
+- 74f5537a feat(settings): add icons for release date display options
+- ea4ac9d4 feat(settings): update ion-select labels for release date display options
+- a52bb0b0 feat(release): add configurable release date display options

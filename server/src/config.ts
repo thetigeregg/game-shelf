@@ -231,12 +231,12 @@ export interface AppConfig {
   igdbMetadataEnrichRequestTimeoutMs: number;
 }
 
-interface NamedInboundRateLimitConfig {
+export interface NamedInboundRateLimitConfig {
   max: number;
   windowMs: number;
 }
 
-interface NamedOutboundRateLimitConfig {
+export interface NamedOutboundRateLimitConfig {
   requestsPerSecond?: number;
   minIntervalMs?: number;
   maxDelayMs?: number;
@@ -251,7 +251,7 @@ interface NamedOutboundRateLimitConfig {
   windowStateMaxSize?: number;
 }
 
-interface RateLimitConfig {
+export interface RateLimitConfig {
   inbound: {
     globalBaseline: NamedInboundRateLimitConfig;
     public_read: NamedInboundRateLimitConfig;

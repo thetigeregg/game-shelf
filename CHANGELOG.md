@@ -2739,3 +2739,15 @@
 - d652250e refactor: rate limiting configuration and environment variables
 - 62fd0961 refactor: rate limiting implementation across services
 
+## v1.13.0 - 2026-03-20
+- eea7d7df Merge pull request #263 from thetigeregg/feat/hltb-tbd
+- c568e4ba Merge branch 'main' into feat/hltb-tbd
+- 974926b2 Merge branch 'main' into feat/hltb-tbd
+- 04b9fe53 feat(igdb-proxy): add tests for sanitizing
+- 08e6f926 feat(rankCandidate): enhance ranking logic with spinoff token handling and semantic title variants
+- 96c39dcf feat(search-parser): add regex pattern to extract year from titles and update tests
+- 5d68fd22 feat(metacritic): add support for multiple platform aliases in candidate ranking and search results
+- 1fbbfa62 feat(search-parser): add test for normalizing TBA payload years in tbd results
+- 02635139 feat(rankCandidate): enhance ranking logic for base games
+- ceaaef4f feat(search-parser): add normalization for release year and implement tests
+

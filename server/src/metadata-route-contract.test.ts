@@ -117,7 +117,7 @@ void test('all server metadata proxy routes are implemented by worker handler', 
       method: 'GET',
     });
 
-    const response = await handleRequest(request, workerEnv, fetchStub, () => Date.now());
+    const response = await handleRequest(request, workerEnv, fetchStub);
 
     assert.notEqual(
       response.status,

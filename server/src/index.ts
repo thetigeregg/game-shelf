@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import rateLimit from 'fastify-rate-limit';
+import rateLimit from '@fastify/rate-limit';
 import { registerAdminDiscoveryMatchRoutes } from './admin-discovery-match-routes.js';
 import { registerBackgroundJobRoutes } from './background-jobs-routes.js';
 import { BackgroundJobRepository } from './background-jobs.js';
@@ -36,6 +36,7 @@ import {
   isAuthorizedMutatingRequest,
   shouldRequireAuth,
 } from './request-security.js';
+import { applyRouteRateLimit, formatTimeWindow } from './rate-limit.js';
 import { registerSyncRoutes } from './sync.js';
 
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -155,7 +156,12 @@ async function main(): Promise<void> {
     await app.register(rateLimit, {
       global: true,
       max: config.globalRateLimitMaxRequests,
-      timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`,
+      timeWindow: formatTimeWindow(config.globalRateLimitWindowMs),
+      addHeaders: {
+        'x-ratelimit-limit': true,
+        'x-ratelimit-remaining': true,
+        'x-ratelimit-reset': true,
+      },
     });
 
     await app.register(cors, {
@@ -210,12 +216,7 @@ async function main(): Promise<void> {
     app.route({
       method: 'GET',
       url: '/v1/health',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute',
-        },
-      },
+      config: applyRouteRateLimit('public_read'),
       handler: async (request, reply) => {
         try {
           await pool.query('SELECT 1');
@@ -230,36 +231,21 @@ async function main(): Promise<void> {
     app.route({
       method: 'GET',
       url: '/v1/games/search',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute',
-        },
-      },
+      config: applyRouteRateLimit('search_read'),
       handler: proxyMetadataToWorker,
     });
 
     app.route({
       method: 'GET',
       url: '/v1/platforms',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute',
-        },
-      },
+      config: applyRouteRateLimit('search_read'),
       handler: proxyMetadataToWorker,
     });
 
     app.route({
       method: 'GET',
       url: '/v1/images/boxart/search',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute',
-        },
-      },
+      config: applyRouteRateLimit('search_read'),
       handler: proxyMetadataToWorker,
     });
 

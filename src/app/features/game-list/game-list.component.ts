@@ -320,7 +320,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     year: 'numeric',
   });
   private static readonly ROW_FULL_DATE_MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', {
-    month: 'long',
+    month: 'short',
   });
 
   readonly noneTagFilterValue = '__none__';

@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
 import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
@@ -7,6 +6,7 @@ import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import {
   hasMeaningfulRetryState,
   maybeRearmProviderRetryState,
@@ -208,9 +208,7 @@ export async function registerPsPricesRoute(
   pool: Pool,
   options: PsPricesRouteOptions = {}
 ): Promise<void> {
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
-  }
+  await ensureRateLimitRegistered(app);
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const nowProvider = options.nowProvider ?? (() => Date.now());
@@ -240,12 +238,7 @@ export async function registerPsPricesRoute(
   app.route({
     method: 'GET',
     url: '/v1/psprices/prices',
-    config: {
-      rateLimit: {
-        max: 60,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('psprices_prices'),
     handler: async (request, reply) => {
       const query = request.query as Record<string, unknown>;
       const igdbGameId = normalizeGameId(query['igdbGameId']);

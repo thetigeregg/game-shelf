@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool, PoolClient } from 'pg';
 import type {
   ClientSyncOperation,
@@ -7,7 +6,7 @@ import type {
   SyncOperationType,
   SyncPushResult,
 } from './types.js';
-import { config } from './config.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface SyncEventRow {
   event_id: number;
@@ -40,18 +39,11 @@ interface LatestCursorRow {
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
   let latestKnownSyncEventId = 0;
 
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
-  }
+  await ensureRateLimitRegistered(app);
   app.route({
     method: 'POST',
     url: '/v1/sync/push',
-    config: {
-      rateLimit: {
-        max: config.syncPushRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('sync_push'),
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PushBody;
       const operations = normalizeOperations(body.operations);
@@ -122,12 +114,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
   app.route({
     method: 'POST',
     url: '/v1/sync/pull',
-    config: {
-      rateLimit: {
-        max: config.syncPullRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('sync_pull'),
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
       const cursor = normalizeCursor(body.cursor);

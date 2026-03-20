@@ -1,5 +1,12 @@
 import type { Pool, QueryResult, QueryResultRow } from 'pg';
 import { PopularityRepository } from './repository.js';
+import {
+  createProviderLimiter,
+  type ProviderLimiter,
+  parseRetryAfterSeconds,
+  ProviderThrottleError,
+} from '../provider-rate-limit.js';
+import { resolveOutboundRateLimit } from '../rate-limit.js';
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
@@ -13,10 +20,6 @@ interface Queryable {
     text: string,
     values?: unknown[]
   ): Promise<QueryResult<T>>;
-}
-
-interface IngestRunState {
-  nextRequestAtMs: number;
 }
 
 interface PopularityTypeItem {
@@ -134,11 +137,12 @@ export interface PopularityIngestServiceOptions {
   twitchClientSecret: string;
   requestTimeoutMs: number;
   maxRequestsPerSecond: number;
+  limiter?: ProviderLimiter;
 }
 
 export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
-  private igdbRateLimitedUntilMs = 0;
+  private readonly limiter: ProviderLimiter;
   private readonly repository: PopularityRepository;
 
   constructor(
@@ -147,6 +151,16 @@ export class PopularityIngestService {
     private readonly fetchImpl: typeof fetch = fetch
   ) {
     this.repository = new PopularityRepository(pool);
+    this.limiter =
+      options.limiter ??
+      createProviderLimiter(
+        'igdb_popularity',
+        {
+          ...resolveOutboundRateLimit('igdb_popularity'),
+          requestsPerSecond: options.maxRequestsPerSecond,
+        },
+        { now: () => Date.now() }
+      );
   }
 
   async runOnce(): Promise<PopularityIngestSummary> {
@@ -162,20 +176,16 @@ export class PopularityIngestService {
       };
     }
 
-    if (Date.now() < this.igdbRateLimitedUntilMs) {
+    if (this.limiter.getCooldownRemainingSeconds() > 0) {
       return this.emptyEnabledSummary();
     }
-
-    const state: IngestRunState = {
-      nextRequestAtMs: 0,
-    };
     const lock = await this.repository.withAdvisoryLock({
       namespace: POPULARITY_INGEST_LOCK_NAMESPACE,
       key: POPULARITY_INGEST_LOCK_KEY,
       callback: async (client) => {
         let typeIds: number[];
         try {
-          typeIds = await this.resolvePopularityTypeIds(state);
+          typeIds = await this.resolvePopularityTypeIds();
         } catch (error) {
           if (error instanceof IgdbRateLimitError) {
             return this.emptyEnabledSummary();
@@ -194,7 +204,7 @@ export class PopularityIngestService {
         for (const typeId of typeIds) {
           let items: PopularityPrimitiveItem[];
           try {
-            items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+            items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit);
           } catch (error) {
             if (error instanceof IgdbRateLimitError) {
               throttledByRateLimit = true;
@@ -224,7 +234,7 @@ export class PopularityIngestService {
         const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
         let gameMap = new Map<string, WorkerGameItem>();
         try {
-          gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
+          gameMap = await this.fetchGamesByIds(uniqueGameIds);
         } catch (error) {
           if (!(error instanceof IgdbRateLimitError)) {
             throw error;
@@ -259,7 +269,7 @@ export class PopularityIngestService {
     return lock.value;
   }
 
-  private async resolvePopularityTypeIds(state: IngestRunState): Promise<number[]> {
+  private async resolvePopularityTypeIds(): Promise<number[]> {
     if (Array.isArray(this.options.sourceTypeIds) && this.options.sourceTypeIds.length > 0) {
       return [
         ...new Set(
@@ -269,17 +279,21 @@ export class PopularityIngestService {
     }
 
     const token = await this.getAccessToken();
-    await this.throttle(state);
-
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: 'fields id; sort id asc; limit 500;',
-    });
+    const release = await this.acquireLimiter('popularity types');
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: 'fields id; sort id asc; limit 500;',
+      });
+    } finally {
+      release();
+    }
 
     if (response.status === 429) {
       throw this.createIgdbRateLimitError(response, 'popularity types');
@@ -306,28 +320,34 @@ export class PopularityIngestService {
 
   private async fetchPopularityPrimitives(
     popularityTypeId: number,
-    limit: number,
-    state: IngestRunState
+    limit: number
   ): Promise<PopularityPrimitiveItem[]> {
     const token = await this.getAccessToken();
-    await this.throttle(state);
+    const release = await this.acquireLimiter(
+      `popularity primitives for type ${String(popularityTypeId)}`
+    );
 
     const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 500) : 500;
 
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_primitives', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: [
-        `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
-        'fields game_id,popularity_type,value;',
-        'sort value desc;',
-        `limit ${String(normalizedLimit)};`,
-      ].join(' '),
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_primitives', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: [
+          `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
+          'fields game_id,popularity_type,value;',
+          'sort value desc;',
+          `limit ${String(normalizedLimit)};`,
+        ].join(' '),
+      });
+    } finally {
+      release();
+    }
 
     if (response.status === 429) {
       throw this.createIgdbRateLimitError(
@@ -369,10 +389,7 @@ export class PopularityIngestService {
       .filter((item): item is PopularityPrimitiveItem => item !== null);
   }
 
-  private async fetchGamesByIds(
-    gameIds: string[],
-    state: IngestRunState
-  ): Promise<Map<string, WorkerGameItem>> {
+  private async fetchGamesByIds(gameIds: string[]): Promise<Map<string, WorkerGameItem>> {
     const map = new Map<string, WorkerGameItem>();
     if (gameIds.length === 0) {
       return map;
@@ -382,21 +399,25 @@ export class PopularityIngestService {
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
-      await this.throttle(state);
-
-      const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: {
-          'Client-ID': this.options.twitchClientId,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'text/plain',
-        },
-        body: [
-          `where id = (${batch.join(',')});`,
-          'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
-          `limit ${String(batch.length)};`,
-        ].join(' '),
-      });
+      const release = await this.acquireLimiter('game metadata');
+      let response: Response;
+      try {
+        response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
+          method: 'POST',
+          headers: {
+            'Client-ID': this.options.twitchClientId,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'text/plain',
+          },
+          body: [
+            `where id = (${batch.join(',')});`,
+            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
+            `limit ${String(batch.length)};`,
+          ].join(' '),
+        });
+      } finally {
+        release();
+      }
 
       if (response.status === 429) {
         throw this.createIgdbRateLimitError(response, 'game metadata');
@@ -729,21 +750,6 @@ export class PopularityIngestService {
     return accessToken;
   }
 
-  private async throttle(state: IngestRunState): Promise<void> {
-    const requestsPerSecond = Math.max(1, Math.floor(this.options.maxRequestsPerSecond));
-    const minIntervalMs = Math.ceil(1000 / requestsPerSecond);
-    const now = Date.now();
-    const waitMs = Math.max(0, state.nextRequestAtMs - now);
-
-    if (waitMs > 0) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, waitMs);
-      });
-    }
-
-    state.nextRequestAtMs = Math.max(now, state.nextRequestAtMs) + minIntervalMs;
-  }
-
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const timeoutMs = Math.max(1_000, this.options.requestTimeoutMs);
     const controller = new AbortController();
@@ -779,11 +785,24 @@ export class PopularityIngestService {
       1_000,
       retryAfterMs ?? IGDB_RATE_LIMIT_COOLDOWN_FALLBACK_MS
     );
-    this.igdbRateLimitedUntilMs = Math.max(
-      this.igdbRateLimitedUntilMs,
-      Date.now() + normalizedRetryAfterMs
-    );
+    const retryAfterSeconds =
+      parseRetryAfterSeconds(response.headers.get('retry-after'), Date.now(), {
+        ...resolveOutboundRateLimit('igdb_popularity'),
+      }) ?? Math.ceil(normalizedRetryAfterMs / 1000);
+    this.limiter.applyCooldown(retryAfterSeconds, 'upstream_429');
     return new IgdbRateLimitError(operation, normalizedRetryAfterMs);
+  }
+
+  private async acquireLimiter(operation: string): Promise<() => void> {
+    try {
+      const lease = await this.limiter.acquire();
+      return lease.release;
+    } catch (error) {
+      if (error instanceof ProviderThrottleError) {
+        throw new IgdbRateLimitError(operation, error.retryAfterSeconds * 1000);
+      }
+      throw error;
+    }
   }
 }
 

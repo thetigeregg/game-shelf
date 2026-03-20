@@ -3524,29 +3524,17 @@ export class SettingsPage {
       }
 
       if (row.key === COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY) {
-        this.gameRowReleaseDateDisplayService.refreshFromStorage('collection');
-        const normalizedValue = this.gameRowReleaseDateDisplayService.getPreference('collection');
+        const normalizedValue = this.gameRowReleaseDateDisplayService.normalize(row.value);
+        this.gameRowReleaseDateDisplayService.setPreference('collection', normalizedValue);
         this.collectionReleaseDateDisplay = normalizedValue;
-
-        try {
-          localStorage.setItem(row.key, normalizedValue);
-        } catch {
-          // Ignore storage write failures.
-        }
 
         this.queueSettingUpsert(row.key, normalizedValue);
       }
 
       if (row.key === WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY) {
-        this.gameRowReleaseDateDisplayService.refreshFromStorage('wishlist');
-        const normalizedValue = this.gameRowReleaseDateDisplayService.getPreference('wishlist');
+        const normalizedValue = this.gameRowReleaseDateDisplayService.normalize(row.value);
+        this.gameRowReleaseDateDisplayService.setPreference('wishlist', normalizedValue);
         this.wishlistReleaseDateDisplay = normalizedValue;
-
-        try {
-          localStorage.setItem(row.key, normalizedValue);
-        } catch {
-          // Ignore storage write failures.
-        }
 
         this.queueSettingUpsert(row.key, normalizedValue);
       }

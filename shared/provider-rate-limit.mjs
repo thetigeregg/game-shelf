@@ -135,6 +135,13 @@ export function createProviderLimiter(policyName, policy, options = {}) {
     nextWaiter?.();
   }
 
+  function drainConcurrencyWaiters() {
+    const waiters = state.concurrencyWaiters.splice(0);
+    for (const resolve of waiters) {
+      resolve();
+    }
+  }
+
   async function reserveConcurrencySlot() {
     const maxConcurrent = normalizePositiveInteger(policy.maxConcurrent, 0);
     if (maxConcurrent <= 0) {
@@ -290,7 +297,7 @@ export function createProviderLimiter(policyName, policy, options = {}) {
     state.windowEntries.clear();
     state.sweepCounter = 0;
     state.activeRequests = 0;
-    state.concurrencyWaiters.length = 0;
+    drainConcurrencyWaiters();
   }
 
   return {

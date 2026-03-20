@@ -1060,10 +1060,22 @@ test('limits IGDB metadata proxy concurrency to eight open upstream requests', a
   };
 
   const requests = Array.from({ length: 9 }, () =>
-    handleRequest(new Request('https://worker.example/v1/games/search?q=halo'), env, fetchStub)
+    handleRequest(
+      new Request('https://worker.example/v1/games/search?q=halo'),
+      {
+        ...env,
+        RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND: '1000',
+        RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_CONCURRENT: '8',
+      },
+      fetchStub
+    )
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  const deadlineMs = Date.now() + 250;
+  while (activeIgdbRequests < 8 && Date.now() < deadlineMs) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
   assert.equal(maxActiveIgdbRequests, 8);
   assert.equal(activeIgdbRequests, 8);
 

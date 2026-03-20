@@ -2358,6 +2358,92 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('sanitizes metacritic platform aliases on normalized review candidates', async () => {
+    const promise = firstValueFrom(
+      service.lookupReviewCandidates('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+      },
+      candidates: [
+        {
+          title: ' Okami ',
+          releaseYear: 2006,
+          platform: ' Wii ',
+          metacriticPlatforms: [' Wii ', '', null, 'PlayStation 2', 7],
+          metacriticScore: 91,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        reviewScore: 91,
+        reviewUrl: 'https://www.metacritic.com/game/okami/',
+        reviewSource: 'metacritic',
+        mobyScore: null,
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        metacriticPlatforms: ['Wii', 'PlayStation 2'],
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+        isRecommended: true,
+      },
+    ]);
+  });
+
+  it('preserves metacritic platform aliases when mapping review candidates to legacy candidates', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticPlatforms: ['Wii', 'PlayStation 2'],
+          metacriticScore: 91,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticPlatforms: ['Wii', 'PlayStation 2'],
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        isRecommended: true,
+      },
+    ]);
+  });
+
   it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
     const nullItemPromise = firstValueFrom(
       service.lookupMetacriticScore('Okami', undefined, undefined, 21)

@@ -31,6 +31,10 @@ const romanToArabicSeriesMap = new Map([
   ['x', '10'],
 ]);
 
+const arabicToRomanSeriesMap = new Map(
+  [...romanToArabicSeriesMap.entries()].map(([roman, arabic]) => [arabic, roman])
+);
+
 function hasVariantToken(normalizedTitle) {
   const title = String(normalizedTitle ?? '');
   const tokens = title.split(' ').filter(Boolean);
@@ -70,7 +74,15 @@ function hasAddonQualifier(rawTitle, normalizedTitle) {
   const normalized = String(normalizedTitle ?? '');
 
   if (
-    /\b(dlc|expansion|expansions|season pass|expansion pass|add on|add-on|addon|downloadable content)\b/.test(
+    /\b(dlc|expansion|expansions|season pass|expansion pass|add on|add-on|addon|downloadable content|episode|chapters?)\b/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(blood and wine|hearts of stone|new quest|quest pack|side quest|contract|scavenger hunt)\b/.test(
       normalized
     )
   ) {
@@ -90,6 +102,55 @@ function hasAddonQualifier(rawTitle, normalizedTitle) {
   }
 
   return false;
+}
+
+function buildInitialismTokens(normalizedTitle) {
+  const compactNormalizedTitle = String(normalizedTitle ?? '').replace(/\s+/g, '');
+  const tokens = String(normalizedTitle ?? '')
+    .split(' ')
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return new Set();
+  }
+
+  const stopwords = new Set(['the', 'and', 'of']);
+  const initials = [];
+  for (const token of tokens) {
+    if (stopwords.has(token)) {
+      continue;
+    }
+    if (/^\d+$/.test(token)) {
+      initials.push(token);
+      continue;
+    }
+    if (/^[a-z]$/i.test(token)) {
+      initials.push(token.toLowerCase());
+      continue;
+    }
+    initials.push(token.charAt(0));
+  }
+
+  const compact = initials.join('');
+  const spaced = initials.join(' ');
+  const variants = new Set(
+    [compactNormalizedTitle, compact, spaced].filter((value) => value.length > 1)
+  );
+
+  for (const value of [compact, spaced]) {
+    const match = value.match(/^(.*?)(\d+)$/);
+    if (!match) {
+      continue;
+    }
+
+    const roman = arabicToRomanSeriesMap.get(match[2]);
+    if (!roman) {
+      continue;
+    }
+
+    variants.add(`${match[1]}${roman}`);
+  }
+
+  return variants;
 }
 
 function normalizePlatformValue(value) {
@@ -186,6 +247,8 @@ export function rankCandidate(
       : new Map();
   const normalizedExpected = normalizeTitleForMatching(expectedTitle);
   const normalizedCandidate = normalizeTitleForMatching(candidate.title);
+  const expectedInitialisms = buildInitialismTokens(normalizedExpected);
+  const candidateInitialisms = buildInitialismTokens(normalizedCandidate);
 
   if (!normalizedExpected || !normalizedCandidate) {
     return -1;
@@ -210,6 +273,19 @@ export function rankCandidate(
     normalizedCandidate.includes(normalizedExpected)
   ) {
     score += 20;
+  }
+
+  const exactInitialismMatch = [...expectedInitialisms].some((expectedInitialism) =>
+    candidateInitialisms.has(expectedInitialism)
+  );
+  const sharesInitialism = [...expectedInitialisms].some(
+    (expectedInitialism) =>
+      candidateInitialisms.has(expectedInitialism) || normalizedCandidate === expectedInitialism
+  );
+  if (exactInitialismMatch) {
+    score += 140;
+  } else if (sharesInitialism) {
+    score += 40;
   }
 
   const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);

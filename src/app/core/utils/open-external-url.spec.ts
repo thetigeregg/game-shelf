@@ -57,6 +57,29 @@ describe('openExternalUrl', () => {
     expect(openedWindow.opener).toBeNull();
   });
 
+  it('rejects root-relative urls when URL resolution produces a non-http protocol', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const OriginalUrl = URL;
+
+    vi.stubGlobal(
+      'URL',
+      class URLStub extends OriginalUrl {
+        constructor(input: string | URL, base?: string | URL) {
+          if (String(input).startsWith('/')) {
+            super('ftp://example.com/manual.pdf');
+            return;
+          }
+
+          super(input, base);
+        }
+      }
+    );
+
+    openExternalUrl('/manuals/ps2/game-manual.pdf');
+
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed and non-http(s) urls', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 

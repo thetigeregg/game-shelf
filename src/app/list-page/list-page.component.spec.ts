@@ -262,7 +262,8 @@ describe('ListPageComponent', () => {
 
     expect(addToLibraryWorkflowMock.addToLibrary).toHaveBeenCalledWith(
       selectedDetail,
-      'collection'
+      'collection',
+      { preferredPlatformIgdbId: 21 }
     );
     expect(component.isAddGameDetailModalOpen).toBe(false);
     expect(component.selectedAddGameDetail).toBeNull();
@@ -282,6 +283,21 @@ describe('ListPageComponent', () => {
     expect(component.isAddGameDetailModalOpen).toBe(true);
     expect(component.selectedAddGameDetail).toBe(selectedDetail);
     expect(component.isAddGameDetailInLibrary).toBe(true);
+    expect(component.isAddGameDetailAddLoading).toBe(false);
+  });
+
+  it('keeps detail modal state unchanged when add-to-library is cancelled', async () => {
+    const component = createComponent();
+    const selectedDetail = makeResult();
+    component.selectedAddGameDetail = selectedDetail;
+    component.isAddGameDetailModalOpen = true;
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValueOnce({ status: 'cancelled' });
+
+    await component.addSelectedAddGameDetailToLibrary();
+
+    expect(component.isAddGameDetailModalOpen).toBe(true);
+    expect(component.selectedAddGameDetail).toBe(selectedDetail);
+    expect(component.isAddGameDetailInLibrary).toBe(false);
     expect(component.isAddGameDetailAddLoading).toBe(false);
   });
 
@@ -332,6 +348,50 @@ describe('ListPageComponent', () => {
       'noopener,noreferrer'
     );
     expect(openedWindow.opener).toBeNull();
+  });
+
+  it('ignores stale add-game detail errors after the modal closes', async () => {
+    const component = createComponent();
+    const result = makeResult();
+    let rejectExistingEntry: (error: unknown) => void = () => undefined;
+    let failHydratedCatalog: (() => void) | null = null;
+
+    gameShelfServiceMock.findGameByIdentity.mockReturnValueOnce(
+      new Promise<{ id: number } | null>((_, reject) => {
+        rejectExistingEntry = reject;
+      })
+    );
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(
+      new Observable<GameCatalogResult | null>((subscriber) => {
+        failHydratedCatalog = () => {
+          subscriber.error(new Error('late boom'));
+        };
+      })
+    );
+
+    const pendingRequest = component.openAddGameDetail(result);
+    component.closeAddGameDetailModal();
+    rejectExistingEntry(new Error('identity failed'));
+    failHydratedCatalog?.();
+    await pendingRequest;
+
+    expect(component.isAddGameDetailModalOpen).toBe(false);
+    expect(component.selectedAddGameDetail).toBeNull();
+    expect(component.addGameDetailErrorMessage).toBe('');
+    expect(component.isAddGameDetailLoading).toBe(false);
+  });
+
+  it('falls back to a generic detail error message for non-Error failures', async () => {
+    const component = createComponent();
+    const result = makeResult();
+
+    gameShelfServiceMock.findGameByIdentity.mockResolvedValueOnce(null);
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(throwError(() => 'bad payload'));
+
+    await component.openAddGameDetail(result);
+
+    expect(component.addGameDetailErrorMessage).toBe('Unable to load game details.');
+    expect(component.isAddGameDetailLoading).toBe(false);
   });
 
   it('skips external shortcut opening when the selected title is blank', () => {

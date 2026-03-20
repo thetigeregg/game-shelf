@@ -287,6 +287,27 @@
             </ion-item>
           }
 
+          @if (showStorefrontSection) {
+            <ion-item>
+              <ion-icon slot="start" name="pricetags" aria-hidden="true"></ion-icon>
+              <ion-label>
+                <h2>Storefronts</h2>
+                <div class="detail-storefront-links">
+                  @for (storefrontLink of visibleStorefrontLinks; track storefrontLink.url) {
+                    <a
+                      class="detail-storefront-link"
+                      [href]="storefrontLink.url"
+                      target="_blank"
+                      rel="noopener noreferrer external"
+                    >
+                      {{ storefrontLink.providerLabel }}
+                    </a>
+                  }
+                </div>
+              </ion-label>
+            </ion-item>
+          }
+
           @if (showLibrarySections) {
             <ion-item>
               <ion-icon slot="start" name="time" aria-hidden="true"></ion-icon>

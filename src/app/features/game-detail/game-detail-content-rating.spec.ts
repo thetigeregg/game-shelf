@@ -57,7 +57,7 @@ vi.mock('swiper/modules', () => ({
 
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
-import type { GameEntry } from '../../core/models/game.models';
+import type { GameEntry, GameStorefrontLink } from '../../core/models/game.models';
 
 type SwiperInstanceMock = {
   allowTouchMove: boolean;
@@ -94,6 +94,23 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makeStorefrontLink(overrides: Partial<GameStorefrontLink> = {}): GameStorefrontLink {
+  return {
+    provider: 'steam',
+    providerLabel: 'Steam',
+    url: 'https://store.steampowered.com/app/123',
+    sourceKind: 'external_game',
+    sourceId: 1,
+    sourceName: 'Steam',
+    uid: '123',
+    platformIgdbId: 130,
+    countryCode: null,
+    releaseFormat: null,
+    trusted: null,
     ...overrides,
   };
 }
@@ -226,6 +243,159 @@ describe('GameDetailContentComponent rating display', () => {
     });
 
     expect(component.currentPriceLabel).toBe('Free');
+  });
+
+  it('hides storefront section when no storefront links are available', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      storefrontLinks: [],
+    });
+
+    expect(component.showStorefrontSection).toBe(false);
+    expect(component.visibleStorefrontLinks).toEqual([]);
+  });
+
+  it('shows storefront links matching the viewed platform', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      platformIgdbId: 6,
+      storefrontLinks: [
+        makeStorefrontLink({
+          provider: 'steam',
+          providerLabel: 'Steam',
+          platformIgdbId: 6,
+          url: 'https://store.steampowered.com/app/10',
+        }),
+        makeStorefrontLink({
+          provider: 'xbox',
+          providerLabel: 'Xbox',
+          platformIgdbId: 12,
+          url: 'https://www.xbox.com/games/store/example',
+        }),
+      ],
+    });
+
+    expect(component.showStorefrontSection).toBe(true);
+    expect(component.visibleStorefrontLinks).toEqual([
+      {
+        provider: 'steam',
+        providerLabel: 'Steam',
+        url: 'https://store.steampowered.com/app/10',
+      },
+    ]);
+  });
+
+  it('falls back to platform-agnostic storefront links when no explicit platform match exists', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      platformIgdbId: 48,
+      storefrontLinks: [
+        makeStorefrontLink({
+          provider: 'gog',
+          providerLabel: 'GOG',
+          platformIgdbId: null,
+          url: 'https://www.gog.com/en/game/example',
+        }),
+        makeStorefrontLink({
+          provider: 'epic',
+          providerLabel: 'Epic Games Store',
+          platformIgdbId: null,
+          url: 'https://store.epicgames.com/en-US/p/example',
+        }),
+      ],
+    });
+
+    expect(component.visibleStorefrontLinks).toEqual([
+      {
+        provider: 'epic',
+        providerLabel: 'Epic Games Store',
+        url: 'https://store.epicgames.com/en-US/p/example',
+      },
+      {
+        provider: 'gog',
+        providerLabel: 'GOG',
+        url: 'https://www.gog.com/en/game/example',
+      },
+    ]);
+  });
+
+  it('does not include platform-agnostic links when explicit platform links exist', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      platformIgdbId: 167,
+      storefrontLinks: [
+        makeStorefrontLink({
+          provider: 'nintendo',
+          providerLabel: 'Nintendo eShop',
+          platformIgdbId: 167,
+          url: 'https://www.nintendo.com/store/products/example-switch',
+        }),
+        makeStorefrontLink({
+          provider: 'amazon',
+          providerLabel: 'Amazon',
+          platformIgdbId: null,
+          url: 'https://www.amazon.com/dp/example',
+        }),
+      ],
+    });
+
+    expect(component.visibleStorefrontLinks).toEqual([
+      {
+        provider: 'nintendo',
+        providerLabel: 'Nintendo eShop',
+        url: 'https://www.nintendo.com/store/products/example-switch',
+      },
+    ]);
+  });
+
+  it('keeps multiple matching storefront providers and sorts core providers first', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      platformIgdbId: 6,
+      storefrontLinks: [
+        makeStorefrontLink({
+          provider: 'gog',
+          providerLabel: 'GOG',
+          platformIgdbId: 6,
+          url: 'https://www.gog.com/en/game/example',
+        }),
+        makeStorefrontLink({
+          provider: 'epic',
+          providerLabel: 'Epic Games Store',
+          platformIgdbId: 6,
+          url: 'https://store.epicgames.com/en-US/p/example',
+        }),
+        makeStorefrontLink({
+          provider: 'steam',
+          providerLabel: 'Steam',
+          platformIgdbId: 6,
+          url: 'https://store.steampowered.com/app/10',
+        }),
+      ],
+    });
+
+    expect(component.visibleStorefrontLinks).toEqual([
+      {
+        provider: 'steam',
+        providerLabel: 'Steam',
+        url: 'https://store.steampowered.com/app/10',
+      },
+      {
+        provider: 'epic',
+        providerLabel: 'Epic Games Store',
+        url: 'https://store.epicgames.com/en-US/p/example',
+      },
+      {
+        provider: 'gog',
+        providerLabel: 'GOG',
+        url: 'https://www.gog.com/en/game/example',
+      },
+    ]);
   });
 
   it('falls back to default currency formatting when Intl throws for a currency code', () => {

@@ -16,10 +16,6 @@ export interface AddToLibraryResult {
   entry?: GameEntry;
 }
 
-export interface AddToLibraryOptions {
-  preferredPlatformIgdbId?: number | null;
-}
-
 @Injectable({ providedIn: 'root' })
 export class AddToLibraryWorkflowService {
   private readonly gameShelfService = inject(GameShelfService);
@@ -28,15 +24,8 @@ export class AddToLibraryWorkflowService {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
 
-  async addToLibrary(
-    result: GameCatalogResult,
-    listType: ListType,
-    options: AddToLibraryOptions = {}
-  ): Promise<AddToLibraryResult> {
-    const platformSelection = await this.resolvePlatformSelection(
-      result,
-      options.preferredPlatformIgdbId
-    );
+  async addToLibrary(result: GameCatalogResult, listType: ListType): Promise<AddToLibraryResult> {
+    const platformSelection = await this.resolvePlatformSelection(result);
 
     if (platformSelection === undefined) {
       return { status: 'cancelled' };
@@ -79,8 +68,7 @@ export class AddToLibraryWorkflowService {
   }
 
   private async resolvePlatformSelection(
-    result: GameCatalogResult,
-    preferredPlatformIgdbId?: number | null
+    result: GameCatalogResult
   ): Promise<SelectedPlatform | undefined> {
     const platforms = this.getPlatformOptions(result);
 
@@ -91,12 +79,6 @@ export class AddToLibraryWorkflowService {
 
     if (platforms.length === 1) {
       return platforms[0];
-    }
-
-    const preferredPlatform = this.findPreferredPlatform(platforms, preferredPlatformIgdbId);
-
-    if (preferredPlatform) {
-      return preferredPlatform;
     }
 
     let selectedIndex = 0;
@@ -167,21 +149,6 @@ export class AddToLibraryWorkflowService {
     }
 
     return [];
-  }
-
-  private findPreferredPlatform(
-    platforms: SelectedPlatform[],
-    preferredPlatformIgdbId: number | null | undefined
-  ): SelectedPlatform | undefined {
-    if (
-      typeof preferredPlatformIgdbId !== 'number' ||
-      !Number.isInteger(preferredPlatformIgdbId) ||
-      preferredPlatformIgdbId <= 0
-    ) {
-      return undefined;
-    }
-
-    return platforms.find((platform) => platform.id === preferredPlatformIgdbId);
   }
 
   private async resolveCoverForAdd(

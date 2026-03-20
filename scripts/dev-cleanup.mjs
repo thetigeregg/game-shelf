@@ -20,6 +20,11 @@ function normalizePathForCompare(pathValue) {
   return resolved.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
+function normalizePathForMatch(pathValue) {
+  const normalizedPath = normalizePathForCompare(pathValue);
+  return process.platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath;
+}
+
 function getCurrentWorktreePath() {
   try {
     const toplevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
@@ -139,16 +144,25 @@ export function parseWorktrees(worktreesOutput) {
 }
 
 function isPathInside(parentPath, childPath) {
-  const normalizedParent = normalizePathForCompare(parentPath);
-  const normalizedChild = normalizePathForCompare(childPath);
+  const normalizedParent = normalizePathForMatch(parentPath);
+  const normalizedChild = normalizePathForMatch(childPath);
   return normalizedChild === normalizedParent || normalizedChild.startsWith(`${normalizedParent}/`);
 }
 
 function getDisplayPath(targetPath) {
-  return normalizePathForCompare(targetPath).replace(`${COMMON_REPO_ROOT}/`, '');
+  const normalizedTargetPath = normalizePathForCompare(targetPath);
+
+  if (
+    !isPathInside(COMMON_REPO_ROOT, normalizedTargetPath) ||
+    normalizedTargetPath === COMMON_REPO_ROOT
+  ) {
+    return normalizedTargetPath;
+  }
+
+  return normalizedTargetPath.slice(COMMON_REPO_ROOT.length + 1);
 }
 
-function formatWorktreeDisplayPath(targetPath) {
+export function formatWorktreeDisplayPath(targetPath) {
   const displayPath = getDisplayPath(targetPath);
   return displayPath === targetPath ? targetPath : `./${displayPath}`;
 }
@@ -387,10 +401,11 @@ export function removeMergedWorktrees({
       return;
     }
 
+    pruneAncestors(w.path);
+
     try {
       log(`Deleting branch ${w.branch}`);
       gitRunner(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
-      pruneAncestors(w.path);
       summary.removed.push(w);
     } catch {
       log(`Skipping branch ${w.branch}`);

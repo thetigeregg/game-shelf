@@ -2765,3 +2765,28 @@
 - 74f5537a feat(settings): add icons for release date display options
 - ea4ac9d4 feat(settings): update ion-select labels for release date display options
 - a52bb0b0 feat(release): add configurable release date display options
+
+## v1.15.0 - 2026-03-20
+
+- a0665631 Merge pull request #265 from thetigeregg/feat/search-detail
+- 3ef3de33 test(list-page): cover list page PR note scenarios
+- 8270df77 Revert "fix(list-page): preserve add-game detail platform context"
+- c3075235 Revert "fix(game-search): avoid nested interactive controls in search results"
+- 045783f4 fix(open-external-url): ensure global mocks are unstubbed after each test
+- 05d587d1 fix(game-search): avoid nested interactive controls in search results
+- d72000e4 fix(game-search): remove unreachable add-to-library status
+- df9589aa fix(list-page): preserve add-game detail platform context
+- 3e535ad9 fix(ui): support same-origin manual links in external URL helper
+- c87ed6cd fix(list-page): clear add-game detail loading state immediately on fetch error
+- 362a06d7 feat(open-external-url): enhance URL handling by normalizing protocol-relative URLs
+- 39740401 feat(open-external-url): implement openExternalUrl utility
+- a534d755 fix(list-page): reuse add-game detail lookup on IGDB errors
+- dbf8da50 fix(game-search): allow detail row clicks when item is the interactive element
+- 8d090e32 test(core): align platform context spec with expected label behavior
+- 8f013742 fix(detail-shortcuts): update positioning to use CSS variables for safe area insets
+- e35f3d13 feat(list-page): add detail shortcuts and video modal functionality
+- 6ba0ed42 fix(game-search): update requestDetail method to handle event and prevent nested interactions
+- 9402c006 fix(game-search): update requestDetail method to handle platform selection
+- 1dba21ad fix(settings): update labels for collection and wishlist display settings
+- f2eb30ad Merge branch 'main' into feat/search-detail
+- fe4a23e4 feat: implement game catalog platform context handling

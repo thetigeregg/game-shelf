@@ -371,14 +371,6 @@ function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
   );
 }
 
-function getUpstreamCooldownRemainingSeconds(nowMs) {
-  return getIgdbOutboundLimiter().getCooldownRemainingSeconds(nowMs);
-}
-
-function setUpstreamCooldown(retryAfterSeconds, nowMs) {
-  return getIgdbOutboundLimiter().applyCooldown(retryAfterSeconds, 'upstream_429', nowMs);
-}
-
 class UpstreamRateLimitError extends Error {
   constructor(retryAfterSeconds) {
     super('IGDB upstream rate limit exceeded');

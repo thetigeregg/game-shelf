@@ -893,6 +893,60 @@ describe('DexieGameRepository', () => {
     expect(updated?.steamAppId).toBeNull();
   });
 
+  it('persists normalized storefront links from catalog updates', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        storefrontLinks: [
+          {
+            provider: 'steam',
+            providerLabel: '',
+            url: 'https://store.steampowered.com/app/620',
+            sourceKind: 'external_game',
+            sourceId: 1,
+            sourceName: 'Steam',
+            uid: '620',
+            platformIgdbId: 6,
+            countryCode: null,
+            releaseFormat: null,
+            trusted: null,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://store.steampowered.com/app/620',
+            sourceKind: 'website',
+            sourceId: 13,
+            sourceName: 'steam',
+            uid: null,
+            platformIgdbId: null,
+            countryCode: null,
+            releaseFormat: null,
+            trusted: true,
+          },
+        ],
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.storefrontLinks).toEqual([
+      {
+        provider: 'steam',
+        providerLabel: 'Steam',
+        url: 'https://store.steampowered.com/app/620',
+        sourceKind: 'external_game',
+        sourceId: 1,
+        sourceName: 'Steam',
+        uid: '620',
+        platformIgdbId: 6,
+        countryCode: null,
+        releaseFormat: null,
+        trusted: null,
+      },
+    ]);
+  });
+
   it('returns null for custom platform igdb id when it matches the default platform', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

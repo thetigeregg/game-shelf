@@ -82,6 +82,21 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           keywordIds: [100],
           screenshots: [],
           videos: [],
+          storefrontLinks: [
+            {
+              provider: 'steam',
+              providerLabel: 'Steam',
+              url: 'https://store.steampowered.com/app/12345',
+              sourceKind: 'external_game',
+              sourceId: 1,
+              sourceName: 'steam',
+              uid: '12345',
+              platformIgdbId: 6,
+              countryCode: null,
+              releaseFormat: null,
+              trusted: null,
+            },
+          ],
           steamAppId: 12345,
         },
       ],
@@ -108,6 +123,21 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(repository.updates[0]?.payloadPatch['mediaEnrichmentStatus'], 'success');
   assert.equal(typeof repository.updates[0]?.payloadPatch['steamEnrichedAt'], 'string');
   assert.equal(repository.updates[0]?.payloadPatch['steamEnrichmentStatus'], 'success');
+  assert.deepEqual(repository.updates[0]?.payloadPatch['storefrontLinks'], [
+    {
+      provider: 'steam',
+      providerLabel: 'Steam',
+      url: 'https://store.steampowered.com/app/12345',
+      sourceKind: 'external_game',
+      sourceId: 1,
+      sourceName: 'steam',
+      uid: '12345',
+      platformIgdbId: 6,
+      countryCode: null,
+      releaseFormat: null,
+      trusted: null,
+    },
+  ]);
   assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], 12345);
 });
 
@@ -147,6 +177,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [11],
           screenshots: [],
           videos: [],
+          storefrontLinks: [],
           steamAppId: 101,
         },
       ],
@@ -159,6 +190,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [22],
           screenshots: [],
           videos: [],
+          storefrontLinks: [],
           steamAppId: 202,
         },
       ],
@@ -200,6 +232,7 @@ void test('metadata enrichment is idempotent on rerun', async () => {
           keywordIds: [4],
           screenshots: [],
           videos: [],
+          storefrontLinks: [],
           steamAppId: 999,
         },
       ],
@@ -309,6 +342,7 @@ void test('metadata enrichment patch updates preserve manual override lock field
           keywordIds: [8],
           screenshots: [],
           videos: [],
+          storefrontLinks: [],
           steamAppId: 4242,
         },
       ],

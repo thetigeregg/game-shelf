@@ -107,6 +107,15 @@ describe('buildDetailWebsiteModalItems', () => {
           typeName: 'Twitch',
         }),
         makeWebsite({
+          url: 'https://discord.gg/testgame',
+          typeId: 18,
+          typeName: 'Discord',
+        }),
+        makeWebsite({
+          url: 'https://www.reddit.com/r/testgame',
+          typeName: 'Reddit',
+        }),
+        makeWebsite({
           url: 'https://store.steampowered.com/app/123',
           typeId: 13,
           typeName: 'Steam',
@@ -138,6 +147,8 @@ describe('buildDetailWebsiteModalItems', () => {
     });
 
     expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
+    expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
+    expect(items.find((item) => item.label === 'Reddit')?.icon).toBe('reddit');
     expect(items.find((item) => item.label === 'Steam')?.icon).toBe('steam');
     expect(items.find((item) => item.label === 'Epic')?.icon).toBe('epicgames');
     expect(items.find((item) => item.label === 'PlayStation')?.icon).toBe('playstation');

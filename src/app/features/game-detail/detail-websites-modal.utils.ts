@@ -13,6 +13,8 @@ export type DetailWebsiteModalIcon =
   | 'google'
   | 'youtube'
   | 'twitch'
+  | 'discord'
+  | 'reddit'
   | 'wikipedia'
   | 'epicgames'
   | 'steam'
@@ -252,6 +254,9 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   if (typeId === 6) {
     return 'twitch';
   }
+  if (typeId === 18) {
+    return 'discord';
+  }
   if (typeId === 9) {
     return 'youtube';
   }
@@ -286,6 +291,12 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   }
   if (label === 'twitch') {
     return 'twitch';
+  }
+  if (label === 'discord') {
+    return 'discord';
+  }
+  if (label === 'reddit') {
+    return 'reddit';
   }
   if (label === 'wikipedia') {
     return 'wikipedia';
@@ -323,6 +334,12 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   }
   if (matchesHostname(website.url, ['twitch.tv'])) {
     return 'twitch';
+  }
+  if (matchesHostname(website.url, ['discord.com', 'discord.gg'])) {
+    return 'discord';
+  }
+  if (matchesHostname(website.url, ['reddit.com', 'redd.it'])) {
+    return 'reddit';
   }
   if (matchesHostname(website.url, ['wikipedia.org'])) {
     return 'wikipedia';

@@ -36,6 +36,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameType,
+  GameVideo,
   ListType,
 } from '../core/models/game.models';
 import {
@@ -50,6 +51,8 @@ import { GameSearchComponent } from '../features/game-search/game-search.compone
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
+import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
+import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
@@ -70,6 +73,7 @@ import {
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
+import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -127,6 +131,8 @@ function buildConfig(listType: ListType): ListPageConfig {
     GameListComponent,
     GameSearchComponent,
     GameDetailContentComponent,
+    DetailShortcutsFabComponent,
+    DetailVideosModalComponent,
     GameFiltersMenuComponent,
     IonHeader,
     IonToolbar,
@@ -189,6 +195,7 @@ export class ListPageComponent {
   addGameDetailErrorMessage = '';
   isAddGameDetailInLibrary = false;
   isAddGameDetailAddLoading = false;
+  isAddGameVideosModalOpen = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -587,6 +594,7 @@ export class ListPageComponent {
     this.addGameDetailErrorMessage = '';
     this.isAddGameDetailInLibrary = false;
     this.isAddGameDetailAddLoading = false;
+    this.isAddGameVideosModalOpen = false;
   }
 
   async addSelectedAddGameDetailToLibrary(): Promise<void> {
@@ -616,6 +624,51 @@ export class ListPageComponent {
     } finally {
       this.isAddGameDetailAddLoading = false;
     }
+  }
+
+  openAddGameDetailShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
+    const query = this.selectedAddGameDetail?.title.trim();
+
+    if (!query) {
+      return;
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+    let url = '';
+
+    if (provider === 'google') {
+      url = `https://www.google.com/search?q=${encodedQuery}`;
+    } else if (provider === 'youtube') {
+      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
+    } else if (provider === 'wikipedia') {
+      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+    } else {
+      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    }
+
+    this.openExternalUrl(url);
+  }
+
+  get addGameDetailVideos(): GameVideo[] {
+    return Array.isArray(this.selectedAddGameDetail?.videos)
+      ? this.selectedAddGameDetail.videos
+      : [];
+  }
+
+  get hasAddGameDetailVideosShortcut(): boolean {
+    return this.addGameDetailVideos.some((video) => isValidYouTubeVideoId(video.videoId));
+  }
+
+  openAddGameVideosModal(): void {
+    if (!this.hasAddGameDetailVideosShortcut) {
+      return;
+    }
+
+    this.isAddGameVideosModalOpen = true;
+  }
+
+  closeAddGameVideosModal(): void {
+    this.isAddGameVideosModalOpen = false;
   }
 
   async openFiltersMenu(): Promise<void> {
@@ -1044,5 +1097,16 @@ export class ListPageComponent {
     }
 
     return this.buildCatalogIdentityKey(selectedDetail) === identityKey;
+  }
+
+  private openExternalUrl(url: string): void {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   }
 }

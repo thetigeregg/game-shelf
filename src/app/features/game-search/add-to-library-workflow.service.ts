@@ -12,7 +12,7 @@ interface SelectedPlatform {
 }
 
 export interface AddToLibraryResult {
-  status: 'added' | 'cancelled' | 'duplicate' | 'invalid-platform';
+  status: 'added' | 'cancelled' | 'duplicate';
   entry?: GameEntry;
 }
 

@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import {
   formatCleanupSummaryLine,
+  formatWorktreeDisplayPath,
   isEntrypoint,
   parseWorktrees,
   removeMergedWorktrees,
@@ -51,6 +52,12 @@ detached
     { path: '/repo/main', branch: 'main' },
     { path: '/repo/worktrees/detached', branch: undefined },
   ]);
+});
+
+test('formatWorktreeDisplayPath keeps absolute paths outside the managed repo root unchanged', () => {
+  const externalPath = path.join(os.tmpdir(), 'dev-cleanup-external-worktree');
+
+  assert.equal(formatWorktreeDisplayPath(externalPath), path.resolve(externalPath));
 });
 
 test('isEntrypoint resolves relative argv[1] paths before comparing against import.meta.url', () => {
@@ -156,6 +163,7 @@ test('removeMergedWorktrees does not delete a branch when worktree removal fails
 test('removeMergedWorktrees deletes the branch after successful worktree removal', () => {
   const logs = [];
   const gitCalls = [];
+  const pruneCalls = [];
   const worktreePath = path.join(
     REPO_ROOT,
     'worktrees',
@@ -175,7 +183,7 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
       gitCalls.push(args);
       return '';
     },
-    pruneAncestors: () => {},
+    pruneAncestors: (dirPath) => pruneCalls.push(dirPath),
     log: (message) => logs.push(message),
   });
 
@@ -183,6 +191,7 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
     ['worktree', 'remove', '--', worktreePath],
     ['branch', '-D', '--', 'feat/clean'],
   ]);
+  assert.deepEqual(pruneCalls, [worktreePath]);
   assert.deepEqual(logs, [
     'Removing worktree ./worktrees/feat/script-again-again-again-again/tmp/worktree-clean',
     'Deleting branch feat/clean',
@@ -193,6 +202,54 @@ test('removeMergedWorktrees deletes the branch after successful worktree removal
     skippedDirty: [],
     skippedRemovalFailed: [],
     skippedBranchDeleteFailed: [],
+  });
+});
+
+test('removeMergedWorktrees prunes ancestors immediately after worktree removal even if branch deletion fails', () => {
+  const events = [];
+  const logs = [];
+  const worktreePath = path.join(
+    REPO_ROOT,
+    'worktrees',
+    'feat',
+    'script-again-again-again-again',
+    'tmp',
+    'worktree-branch-delete-fails'
+  );
+
+  const summary = removeMergedWorktrees({
+    mergedWorktrees: [{ branch: 'feat/branch-delete-fails', path: worktreePath }],
+    currentWorktreePath: '/tmp/current',
+    currentBranch: 'main',
+    normalizePath: (value) => value,
+    checkWorktreeClean: () => true,
+    gitRunner: (args) => {
+      events.push(['git', ...args]);
+      if (args[0] === 'branch') {
+        throw new Error('branch delete failed');
+      }
+      return '';
+    },
+    pruneAncestors: (dirPath) => events.push(['prune', dirPath]),
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(events, [
+    ['git', 'worktree', 'remove', '--', worktreePath],
+    ['prune', worktreePath],
+    ['git', 'branch', '-D', '--', 'feat/branch-delete-fails'],
+  ]);
+  assert.deepEqual(logs, [
+    'Removing worktree ./worktrees/feat/script-again-again-again-again/tmp/worktree-branch-delete-fails',
+    'Deleting branch feat/branch-delete-fails',
+    'Skipping branch feat/branch-delete-fails',
+  ]);
+  assert.deepEqual(summary, {
+    removed: [],
+    skippedCurrent: [],
+    skippedDirty: [],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [{ branch: 'feat/branch-delete-fails', path: worktreePath }],
   });
 });
 

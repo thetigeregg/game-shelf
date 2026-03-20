@@ -200,6 +200,20 @@ test('returns 400 for short query', async () => {
   assert.equal(response.status, 400);
 });
 
+test('throws when handleRequest receives a non-object options argument', async () => {
+  resetCaches();
+
+  await assert.rejects(
+    handleRequest(
+      new Request('https://worker.example/v1/games/search?q=halo'),
+      env,
+      async () => new Response(JSON.stringify([]), { status: 200 }),
+      () => Date.now()
+    ),
+    /handleRequest options must be an object/
+  );
+});
+
 test('returns IGDB metadata without TheGamesDB lookup during game search', async () => {
   resetCaches();
 
@@ -486,18 +500,12 @@ test('reuses cached token between requests', async () => {
   const { stub, calls } = createFetchStub({ igdbBody: [] });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
-  await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=mario'),
-    env,
-    stub,
-    now
-  );
-  await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=zelda'),
-    env,
-    stub,
-    now
-  );
+  await handleRequest(new Request('https://worker.example/v1/games/search?q=mario'), env, stub, {
+    now,
+  });
+  await handleRequest(new Request('https://worker.example/v1/games/search?q=zelda'), env, stub, {
+    now,
+  });
 
   assert.equal(calls.token, 1);
   assert.equal(calls.igdb, 2);
@@ -514,18 +522,15 @@ test('returns IGDB platform filters and caches the platform response', async () 
   });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
-  const first = await handleRequest(
-    new Request('https://worker.example/v1/platforms'),
-    env,
-    stub,
-    now
-  );
+  const first = await handleRequest(new Request('https://worker.example/v1/platforms'), env, stub, {
+    now,
+  });
 
   const second = await handleRequest(
     new Request('https://worker.example/v1/platforms'),
     env,
     stub,
-    now
+    { now }
   );
 
   assert.equal(first.status, 200);
@@ -573,7 +578,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
     new Request('https://worker.example/v1/games/search?q=halo'),
     env,
     stub,
-    now
+    { now }
   );
 
   assert.equal(first.status, 429);
@@ -587,7 +592,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
     new Request('https://worker.example/v1/games/123'),
     env,
     stub,
-    now
+    { now }
   );
 
   assert.equal(second.status, 429);
@@ -1101,7 +1106,7 @@ test('returns 429 for local burst rate limiting', async () => {
       }),
       env,
       stub,
-      now
+      { now }
     );
   }
 
@@ -1123,6 +1128,71 @@ test('returns 429 when IGDB platforms endpoint is rate limited', async () => {
   );
   assert.equal(response.status, 429);
   assert.ok(Number(response.headers.get('Retry-After') ?? '0') >= 20);
+});
+
+test('limits IGDB metadata proxy concurrency to eight open upstream requests', async () => {
+  resetCaches();
+
+  let activeIgdbRequests = 0;
+  let maxActiveIgdbRequests = 0;
+  let releaseIgdbRequests;
+  let resolveEightStarted;
+  const igdbReleasePromise = new Promise((resolve) => {
+    releaseIgdbRequests = resolve;
+  });
+  const eightStartedPromise = new Promise((resolve) => {
+    resolveEightStarted = resolve;
+  });
+
+  const fetchStub = async (url) => {
+    const normalizedUrl = String(url);
+
+    if (normalizedUrl.startsWith('https://id.twitch.tv/oauth2/token')) {
+      return new Response(JSON.stringify({ access_token: 'abc123', expires_in: 3600 }), {
+        status: 200,
+      });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/games') {
+      activeIgdbRequests += 1;
+      maxActiveIgdbRequests = Math.max(maxActiveIgdbRequests, activeIgdbRequests);
+      if (activeIgdbRequests === 8) {
+        resolveEightStarted();
+      }
+      await igdbReleasePromise;
+      activeIgdbRequests -= 1;
+
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const requests = Array.from({ length: 9 }, () =>
+    handleRequest(
+      new Request('https://worker.example/v1/games/search?q=halo'),
+      {
+        ...env,
+        RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND: '1000',
+        RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_CONCURRENT: '8',
+      },
+      fetchStub
+    )
+  );
+
+  await eightStartedPromise;
+
+  assert.equal(maxActiveIgdbRequests, 8);
+  assert.equal(activeIgdbRequests, 8);
+
+  releaseIgdbRequests();
+  const responses = await Promise.all(requests);
+
+  assert.equal(maxActiveIgdbRequests, 8);
+  assert.equal(
+    responses.every((response) => response.status === 200),
+    true
+  );
 });
 
 test('returns 502 when Twitch credentials are missing for IGDB routes', async () => {
@@ -1245,8 +1315,18 @@ test('testable helpers cover IGDB remaster/remake ranking and original reference
 });
 
 test('testable helpers cover timeouts, escaping, and box art candidate ranking utilities', () => {
-  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '500' }), 15000);
-  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '150000' }), 120000);
+  assert.equal(
+    __testables.getIgdbRequestTimeoutMs({
+      RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: '500',
+    }),
+    15000
+  );
+  assert.equal(
+    __testables.getIgdbRequestTimeoutMs({
+      RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: '150000',
+    }),
+    120000
+  );
   assert.equal(
     __testables.getTheGamesDbRequestTimeoutMs({ THEGAMESDB_REQUEST_TIMEOUT_MS: '2000' }),
     2000

@@ -1,3 +1,10 @@
+import {
+  createProviderLimiter,
+  type ProviderLimiter,
+  ProviderThrottleError,
+} from '../provider-rate-limit.js';
+import { resolveOutboundRateLimit } from '../rate-limit.js';
+
 interface TokenCache {
   accessToken: string;
   expiresAtMs: number;
@@ -14,6 +21,7 @@ export interface DiscoveryIgdbClientOptions {
   requestTimeoutMs: number;
   maxRequestsPerSecond: number;
   fetchImpl?: typeof fetch;
+  limiter?: ProviderLimiter;
 }
 
 export interface DiscoveryCandidateRecord {
@@ -57,12 +65,22 @@ const RECENT_MIN_RATING_COUNT = 25;
 
 export class DiscoveryIgdbClient {
   private readonly fetchImpl: typeof fetch;
+  private readonly limiter: ProviderLimiter;
   private tokenCache: TokenCache | null = null;
   private gameTypeCache: GameTypeCache | null = null;
-  private nextRequestAtMs = 0;
 
   constructor(private readonly options: DiscoveryIgdbClientOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.limiter =
+      options.limiter ??
+      createProviderLimiter(
+        'igdb_discovery',
+        {
+          ...resolveOutboundRateLimit('igdb_discovery'),
+          requestsPerSecond: options.maxRequestsPerSecond,
+        },
+        { now: () => Date.now() }
+      );
   }
 
   async fetchDiscoveryCandidates(params: {
@@ -155,24 +173,38 @@ export class DiscoveryIgdbClient {
     mainGameTypeIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const token = await this.getAccessToken();
-    await this.throttle();
+    const lease = await this.limiter.acquire();
     const body = buildGamesQuery({
       source: params.source,
       offset: params.offset,
       limit: params.limit,
       mainGameTypeIds: params.mainGameTypeIds,
     });
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body,
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body,
+      });
+    } finally {
+      lease.release();
+    }
 
     if (!response.ok) {
+      if (response.status === 429) {
+        this.limiter.consumeRateLimitHeaders(response.headers);
+        throw new ProviderThrottleError({
+          policyName: 'igdb_discovery',
+          source: 'upstream_429',
+          retryAfterSeconds: this.limiter.getCooldownRemainingSeconds(),
+          message: 'IGDB discovery request throttled',
+        });
+      }
       const errorBody = await safeReadText(response);
       throw new Error(
         `IGDB discovery fetch failed (${params.source}) with status ${String(response.status)}${errorBody ? `: ${errorBody.slice(0, 280)}` : ''}`
@@ -259,19 +291,33 @@ export class DiscoveryIgdbClient {
     }
 
     const token = await this.getAccessToken();
-    await this.throttle();
+    const lease = await this.limiter.acquire();
 
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/game_types', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: 'fields id,type;',
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/game_types', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: 'fields id,type;',
+      });
+    } finally {
+      lease.release();
+    }
 
     if (!response.ok) {
+      if (response.status === 429) {
+        this.limiter.consumeRateLimitHeaders(response.headers);
+        throw new ProviderThrottleError({
+          policyName: 'igdb_discovery',
+          source: 'upstream_429',
+          retryAfterSeconds: this.limiter.getCooldownRemainingSeconds(),
+          message: 'IGDB game_types request throttled',
+        });
+      }
       const errorBody = await safeReadText(response);
       throw new Error(
         `IGDB game_types fetch failed with status ${String(response.status)}${errorBody ? `: ${errorBody.slice(0, 280)}` : ''}`
@@ -302,17 +348,6 @@ export class DiscoveryIgdbClient {
     };
 
     return mainGameTypeIds;
-  }
-
-  private async throttle(): Promise<void> {
-    const rps = Math.max(1, Math.floor(this.options.maxRequestsPerSecond));
-    const minIntervalMs = Math.ceil(1000 / rps);
-    const now = Date.now();
-    const waitMs = Math.max(0, this.nextRequestAtMs - now);
-    if (waitMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
-    this.nextRequestAtMs = Math.max(now, this.nextRequestAtMs) + minIntervalMs;
   }
 
   private async getAccessToken(): Promise<string> {

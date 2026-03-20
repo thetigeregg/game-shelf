@@ -7,6 +7,14 @@ interface WorkerEnvLike {
   TWITCH_CLIENT_SECRET: string;
   THEGAMESDB_API_KEY: string;
   DEBUG_HTTP_LOGS?: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_REQUESTS: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_WINDOW_MS: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_CONCURRENT: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MIN_COOLDOWN_SECONDS: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_DEFAULT_COOLDOWN_SECONDS: string;
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_COOLDOWN_SECONDS: string;
 }
 
 const workerEnv: WorkerEnvLike = {
@@ -14,6 +22,31 @@ const workerEnv: WorkerEnvLike = {
   TWITCH_CLIENT_SECRET: config.twitchClientSecret,
   THEGAMESDB_API_KEY: config.theGamesDbApiKey,
   DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? '',
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.requestTimeoutMs ??
+      config.igdbMetadataEnrichRequestTimeoutMs
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_REQUESTS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.maxRequests ?? 60
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_WINDOW_MS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.windowMs ?? 60_000
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.requestsPerSecond ?? 4
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_CONCURRENT: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.maxConcurrent ?? 8
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MIN_COOLDOWN_SECONDS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.minCooldownSeconds ?? 20
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_DEFAULT_COOLDOWN_SECONDS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.defaultCooldownSeconds ?? 15
+  ),
+  RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_COOLDOWN_SECONDS: String(
+    config.rateLimit.outbound.igdb_metadata_proxy.maxCooldownSeconds ?? 60
+  ),
 };
 
 export async function proxyMetadataToWorker(
@@ -35,7 +68,7 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
     proxiedRequest,
     workerEnv as unknown as Record<string, unknown>,
     fetch,
-    () => Date.now()
+    { now: () => Date.now() }
   );
 }
 
@@ -63,7 +96,7 @@ export async function fetchMetadataPathFromWorker(
     proxiedRequest,
     workerEnv as unknown as Record<string, unknown>,
     fetch,
-    () => Date.now()
+    { now: () => Date.now() }
   );
 }
 

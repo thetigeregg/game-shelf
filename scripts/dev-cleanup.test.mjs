@@ -396,13 +396,20 @@ test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories 
     rmSync(rootDir, { recursive: true, force: true });
   });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const gitCommonDir = path.join(rootDir, '.git');
   const activeDir = path.join(managedRoot, 'feat', 'active');
   const staleDir = path.join(managedRoot, 'feat', 'stale');
 
   mkdirSync(activeDir, { recursive: true });
   mkdirSync(staleDir, { recursive: true });
-  writeFileSync(path.join(activeDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/active\n');
-  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/stale\n');
+  writeFileSync(
+    path.join(activeDir, '.git'),
+    `gitdir: ${path.join(gitCommonDir, 'worktrees', 'active')}\n`
+  );
+  writeFileSync(
+    path.join(staleDir, '.git'),
+    `gitdir: ${path.join(gitCommonDir, 'worktrees', 'stale')}\n`
+  );
 
   const removedDirs = [];
   const prunedDirs = [];
@@ -411,6 +418,7 @@ test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories 
   const summary = removeOrphanedManagedWorktreeDirs({
     managedWorktreesRoot: managedRoot,
     activeWorktreePaths: [activeDir],
+    gitCommonDir,
     branchExists: (branch) => branch === 'feat/active',
     removeDir: (dirPath) => removedDirs.push(dirPath),
     pruneAncestors: (dirPath, managedPath) => prunedDirs.push([dirPath, managedPath]),
@@ -432,16 +440,21 @@ test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the loca
     rmSync(rootDir, { recursive: true, force: true });
   });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const gitCommonDir = path.join(rootDir, '.git');
   const staleDir = path.join(managedRoot, 'feat', 'keep-me');
 
   mkdirSync(staleDir, { recursive: true });
-  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/keep-me\n');
+  writeFileSync(
+    path.join(staleDir, '.git'),
+    `gitdir: ${path.join(gitCommonDir, 'worktrees', 'keep-me')}\n`
+  );
 
   const logs = [];
 
   const summary = removeOrphanedManagedWorktreeDirs({
     managedWorktreesRoot: managedRoot,
     activeWorktreePaths: [],
+    gitCommonDir,
     branchExists: () => true,
     removeDir: () => {
       throw new Error('should not remove when local branch still exists');
@@ -467,16 +480,21 @@ test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without 
     rmSync(rootDir, { recursive: true, force: true });
   });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const gitCommonDir = path.join(rootDir, '.git');
   const staleDir = path.join(managedRoot, 'feat', 'preview-me');
 
   mkdirSync(staleDir, { recursive: true });
-  writeFileSync(path.join(staleDir, '.git'), 'gitdir: /tmp/repo/.git/worktrees/preview-me\n');
+  writeFileSync(
+    path.join(staleDir, '.git'),
+    `gitdir: ${path.join(gitCommonDir, 'worktrees', 'preview-me')}\n`
+  );
 
   const logs = [];
 
   const summary = removeOrphanedManagedWorktreeDirs({
     managedWorktreesRoot: managedRoot,
     activeWorktreePaths: [],
+    gitCommonDir,
     branchExists: () => false,
     removeDir: () => {
       throw new Error('dry-run should not remove directories');
@@ -491,6 +509,41 @@ test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without 
   assert.deepEqual(logs, [`[dry-run] Would remove orphaned worktree directory ${staleDir}`]);
   assert.deepEqual(summary, {
     removed: [{ branch: 'feat/preview-me', path: staleDir }],
+    skippedExistingBranch: [],
+  });
+});
+
+test('removeOrphanedManagedWorktreeDirs ignores directories whose git pointer belongs to another repository', (t) => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  t.after(() => {
+    rmSync(rootDir, { recursive: true, force: true });
+  });
+  const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
+  const gitCommonDir = path.join(rootDir, '.git');
+  const foreignGitCommonDir = path.join(rootDir, 'foreign-repo', '.git');
+  const foreignDir = path.join(managedRoot, 'feat', 'foreign-copy');
+
+  mkdirSync(foreignDir, { recursive: true });
+  writeFileSync(
+    path.join(foreignDir, '.git'),
+    `gitdir: ${path.join(foreignGitCommonDir, 'worktrees', 'foreign-copy')}\n`
+  );
+
+  const summary = removeOrphanedManagedWorktreeDirs({
+    managedWorktreesRoot: managedRoot,
+    activeWorktreePaths: [],
+    gitCommonDir,
+    branchExists: () => false,
+    removeDir: () => {
+      throw new Error('should not remove directories for another repository');
+    },
+    pruneAncestors: () => {
+      throw new Error('should not prune directories for another repository');
+    },
+  });
+
+  assert.deepEqual(summary, {
+    removed: [],
     skippedExistingBranch: [],
   });
 });

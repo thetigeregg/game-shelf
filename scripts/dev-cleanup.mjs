@@ -44,7 +44,7 @@ function getCurrentWorktreePath() {
 
 const CURRENT_WORKTREE_PATH = getCurrentWorktreePath();
 
-function getCommonRepoRoot() {
+function getCommonGitDir() {
   try {
     const commonDir = execFileSync('git', ['rev-parse', '--git-common-dir'], {
       encoding: 'utf8',
@@ -52,16 +52,21 @@ function getCommonRepoRoot() {
     }).trim();
 
     if (commonDir) {
-      return normalizePathForCompare(path.resolve(commonDir, '..'));
+      return normalizePathForCompare(commonDir);
     }
   } catch {
     // Fallback to current worktree when common git dir detection fails.
   }
 
-  return CURRENT_WORKTREE_PATH;
+  return normalizePathForCompare(path.join(CURRENT_WORKTREE_PATH, '.git'));
 }
 
-const COMMON_REPO_ROOT = getCommonRepoRoot();
+function getCommonRepoRoot(commonGitDir) {
+  return normalizePathForCompare(path.resolve(commonGitDir, '..'));
+}
+
+const COMMON_GIT_DIR = getCommonGitDir();
+const COMMON_REPO_ROOT = getCommonRepoRoot(COMMON_GIT_DIR);
 const MANAGED_WORKTREES_ROOT = normalizePathForCompare(path.join(COMMON_REPO_ROOT, 'worktrees'));
 
 function runGit(args, options = {}) {
@@ -223,13 +228,14 @@ function getManagedWorktreeGitPointer(dirPath) {
   }
 }
 
-function looksLikeManagedWorktreeRoot(dirPath) {
+function looksLikeManagedWorktreeRoot(dirPath, gitCommonDir = COMMON_GIT_DIR) {
   const gitPointer = getManagedWorktreeGitPointer(dirPath);
   if (!gitPointer) {
     return false;
   }
 
-  return gitPointer.includes('/.git/worktrees/');
+  const expectedWorktreesGitDir = normalizePathForCompare(path.join(gitCommonDir, 'worktrees'));
+  return isPathInside(expectedWorktreesGitDir, gitPointer);
 }
 
 function toBranchFromManagedWorktreePath(managedWorktreesRoot, dirPath) {
@@ -242,6 +248,7 @@ function toBranchFromManagedWorktreePath(managedWorktreesRoot, dirPath) {
 function findOrphanedManagedWorktreeDirs({
   managedWorktreesRoot = MANAGED_WORKTREES_ROOT,
   activeWorktreePaths = [],
+  gitCommonDir = COMMON_GIT_DIR,
 }) {
   const normalizedManagedRoot = normalizePathForCompare(managedWorktreesRoot);
   if (!existsSync(normalizedManagedRoot)) {
@@ -260,7 +267,7 @@ function findOrphanedManagedWorktreeDirs({
       return;
     }
 
-    if (looksLikeManagedWorktreeRoot(normalizedDirPath)) {
+    if (looksLikeManagedWorktreeRoot(normalizedDirPath, gitCommonDir)) {
       orphanedDirs.push(normalizedDirPath);
       return;
     }
@@ -285,6 +292,7 @@ function localBranchExists(branch) {
 export function removeOrphanedManagedWorktreeDirs({
   managedWorktreesRoot = MANAGED_WORKTREES_ROOT,
   activeWorktreePaths = [],
+  gitCommonDir = COMMON_GIT_DIR,
   branchExists = localBranchExists,
   removeDir = (dirPath) => rmSync(dirPath, { recursive: true, force: true }),
   pruneAncestors = pruneEmptyManagedAncestors,
@@ -295,6 +303,7 @@ export function removeOrphanedManagedWorktreeDirs({
   const orphanedDirs = findOrphanedManagedWorktreeDirs({
     managedWorktreesRoot: normalizedManagedRoot,
     activeWorktreePaths,
+    gitCommonDir,
   });
   const summary = {
     removed: [],

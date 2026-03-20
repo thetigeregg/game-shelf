@@ -178,6 +178,20 @@ test('returns 400 for short query', async () => {
   assert.equal(response.status, 400);
 });
 
+test('throws when handleRequest receives a non-object options argument', async () => {
+  resetCaches();
+
+  await assert.rejects(
+    handleRequest(
+      new Request('https://worker.example/v1/games/search?q=halo'),
+      env,
+      async () => new Response(JSON.stringify([]), { status: 200 }),
+      () => Date.now()
+    ),
+    /handleRequest options must be an object/
+  );
+});
+
 test('returns IGDB metadata without TheGamesDB lookup during game search', async () => {
   resetCaches();
 
@@ -389,18 +403,12 @@ test('reuses cached token between requests', async () => {
   const { stub, calls } = createFetchStub({ igdbBody: [] });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
-  await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=mario'),
-    env,
-    stub,
-    now
-  );
-  await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=zelda'),
-    env,
-    stub,
-    now
-  );
+  await handleRequest(new Request('https://worker.example/v1/games/search?q=mario'), env, stub, {
+    now,
+  });
+  await handleRequest(new Request('https://worker.example/v1/games/search?q=zelda'), env, stub, {
+    now,
+  });
 
   assert.equal(calls.token, 1);
   assert.equal(calls.igdb, 2);
@@ -417,18 +425,15 @@ test('returns IGDB platform filters and caches the platform response', async () 
   });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
-  const first = await handleRequest(
-    new Request('https://worker.example/v1/platforms'),
-    env,
-    stub,
-    now
-  );
+  const first = await handleRequest(new Request('https://worker.example/v1/platforms'), env, stub, {
+    now,
+  });
 
   const second = await handleRequest(
     new Request('https://worker.example/v1/platforms'),
     env,
     stub,
-    now
+    { now }
   );
 
   assert.equal(first.status, 200);
@@ -1004,7 +1009,7 @@ test('returns 429 for local burst rate limiting', async () => {
       }),
       env,
       stub,
-      now
+      { now }
     );
   }
 
@@ -1034,8 +1039,12 @@ test('limits IGDB metadata proxy concurrency to eight open upstream requests', a
   let activeIgdbRequests = 0;
   let maxActiveIgdbRequests = 0;
   let releaseIgdbRequests;
+  let resolveEightStarted;
   const igdbReleasePromise = new Promise((resolve) => {
     releaseIgdbRequests = resolve;
+  });
+  const eightStartedPromise = new Promise((resolve) => {
+    resolveEightStarted = resolve;
   });
 
   const fetchStub = async (url) => {
@@ -1050,6 +1059,9 @@ test('limits IGDB metadata proxy concurrency to eight open upstream requests', a
     if (normalizedUrl === 'https://api.igdb.com/v4/games') {
       activeIgdbRequests += 1;
       maxActiveIgdbRequests = Math.max(maxActiveIgdbRequests, activeIgdbRequests);
+      if (activeIgdbRequests === 8) {
+        resolveEightStarted();
+      }
       await igdbReleasePromise;
       activeIgdbRequests -= 1;
 
@@ -1071,10 +1083,7 @@ test('limits IGDB metadata proxy concurrency to eight open upstream requests', a
     )
   );
 
-  const deadlineMs = Date.now() + 250;
-  while (activeIgdbRequests < 8 && Date.now() < deadlineMs) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
+  await eightStartedPromise;
 
   assert.equal(maxActiveIgdbRequests, 8);
   assert.equal(activeIgdbRequests, 8);

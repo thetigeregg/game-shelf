@@ -100,7 +100,7 @@
                   {{ gameTypeBadgeLabel }}
                 </ion-badge>
               }
-              <p>{{ game.releaseYear || 'Unknown year' }}</p>
+              <p>{{ getGameReleaseDateLabel(game) }}</p>
               <p>{{ getGameDisplayPlatformLabel(game) }}</p>
               @if (game.tags && game.tags.length > 0) {
                 <div class="game-tags">

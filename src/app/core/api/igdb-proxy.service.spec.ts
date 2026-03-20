@@ -143,6 +143,67 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('normalizes storefront links metadata when present', async () => {
+    const promise = firstValueFrom(service.searchGames('halo'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=halo`);
+
+    req.flush({
+      items: [
+        {
+          igdbGameId: '201',
+          title: 'Halo',
+          coverUrl: '',
+          coverSource: 'none',
+          storefrontLinks: [
+            {
+              provider: 'xbox',
+              providerLabel: 'Xbox',
+              url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
+              sourceKind: 'external_game',
+              sourceId: 31,
+              sourceName: 'Xbox Marketplace',
+              uid: 'xbox-1',
+              platformIgdbId: 169,
+              countryCode: '840',
+              releaseFormat: 1,
+              trusted: null,
+            },
+            {
+              provider: 'xbox',
+              providerLabel: '',
+              url: 'ftp://invalid.example',
+              sourceKind: 'external_game',
+            },
+          ],
+          platforms: ['Xbox Series X|S'],
+          platform: 'Xbox Series X|S',
+          releaseDate: '2021-11-15T00:00:00.000Z',
+          releaseYear: 2021,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        storefrontLinks: [
+          {
+            provider: 'xbox',
+            providerLabel: 'Xbox',
+            url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
+            sourceKind: 'external_game',
+            sourceId: 31,
+            sourceName: 'Xbox Marketplace',
+            uid: 'xbox-1',
+            platformIgdbId: 169,
+            countryCode: '840',
+            releaseFormat: 1,
+            trusted: null,
+          },
+        ],
+      }),
+    ]);
+  });
+
   it('includes IGDB platform id in search query params when provided', async () => {
     const promise = firstValueFrom(service.searchGames('mario', 130));
 

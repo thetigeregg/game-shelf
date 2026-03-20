@@ -256,6 +256,7 @@ async function applyGameOperation(
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
+        'storefrontLinks', COALESCE(EXCLUDED.payload -> 'storefrontLinks', games.payload -> 'storefrontLinks'),
         'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
         'priceSource', COALESCE(EXCLUDED.payload -> 'priceSource', games.payload -> 'priceSource'),
         'priceFetchedAt', COALESCE(EXCLUDED.payload -> 'priceFetchedAt', games.payload -> 'priceFetchedAt'),
@@ -739,6 +740,7 @@ function normalizeGamePayload(
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
   const hasSteamAppId = Object.prototype.hasOwnProperty.call(payload, 'steamAppId');
+  const hasStorefrontLinks = Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks');
   const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
@@ -782,6 +784,7 @@ function normalizeGamePayload(
   const mobygamesGameId =
     Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
   const steamAppId = Number.isInteger(steamAppIdRaw) && steamAppIdRaw > 0 ? steamAppIdRaw : null;
+  const storefrontLinks = normalizeStorefrontLinks(payload.storefrontLinks);
   const mobyScore =
     Number.isFinite(mobyScoreRaw) && mobyScoreRaw > 0 && mobyScoreRaw <= 10
       ? Math.round(mobyScoreRaw * 10) / 10
@@ -798,6 +801,7 @@ function normalizeGamePayload(
     notes,
     mobyScore,
     mobygamesGameId,
+    ...(hasStorefrontLinks ? { storefrontLinks } : {}),
     ...(hasSteamAppId ? { steamAppId } : {}),
     updatedAt,
     ...(hasPriceSource ? { priceSource } : {}),
@@ -850,6 +854,137 @@ function normalizeSettingPayload(value: unknown): { key: string; value: string }
     key,
     value: settingValue,
   };
+}
+
+function normalizeStorefrontLinks(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const normalized: Array<Record<string, unknown>> = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      continue;
+    }
+
+    const record = entry as Record<string, unknown>;
+    const provider =
+      record.provider === 'steam' ||
+      record.provider === 'playstation' ||
+      record.provider === 'xbox' ||
+      record.provider === 'nintendo' ||
+      record.provider === 'epic' ||
+      record.provider === 'gog' ||
+      record.provider === 'itch' ||
+      record.provider === 'apple' ||
+      record.provider === 'android' ||
+      record.provider === 'amazon' ||
+      record.provider === 'oculus' ||
+      record.provider === 'gamejolt' ||
+      record.provider === 'kartridge' ||
+      record.provider === 'utomik' ||
+      record.provider === 'unknown'
+        ? record.provider
+        : null;
+    const url = normalizeExternalUrl(record.url);
+    if (provider === null || url === null) {
+      continue;
+    }
+
+    const dedupeKey = `${provider}::${url}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    normalized.push({
+      provider,
+      providerLabel:
+        normalizeString(record.providerLabel) ?? defaultStorefrontProviderLabel(provider),
+      url,
+      sourceKind: record.sourceKind === 'website' ? 'website' : 'external_game',
+      sourceId: normalizeOptionalPositiveInteger(record.sourceId),
+      sourceName: normalizeString(record.sourceName),
+      uid: normalizeString(record.uid),
+      platformIgdbId: normalizeOptionalPositiveInteger(record.platformIgdbId),
+      countryCode: normalizeStorefrontCountryCode(record.countryCode),
+      releaseFormat: normalizeOptionalPositiveInteger(record.releaseFormat),
+      trusted: typeof record.trusted === 'boolean' ? record.trusted : null,
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeExternalUrl(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+
+  return null;
+}
+
+function normalizeString(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalPositiveInteger(value: unknown): number | null {
+  const parsed = parseInteger(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeStorefrontCountryCode(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  return normalized.length > 0 && (/^[A-Z]{2}$/.test(normalized) || /^\d+$/.test(normalized))
+    ? normalized
+    : null;
+}
+
+function defaultStorefrontProviderLabel(provider: string): string {
+  switch (provider) {
+    case 'steam':
+      return 'Steam';
+    case 'playstation':
+      return 'PlayStation';
+    case 'xbox':
+      return 'Xbox';
+    case 'nintendo':
+      return 'Nintendo';
+    case 'epic':
+      return 'Epic Games Store';
+    case 'gog':
+      return 'GOG';
+    case 'itch':
+      return 'itch.io';
+    case 'apple':
+      return 'Apple App Store';
+    case 'android':
+      return 'Google Play';
+    case 'amazon':
+      return 'Amazon';
+    case 'oculus':
+      return 'Meta Quest';
+    case 'gamejolt':
+      return 'Game Jolt';
+    case 'kartridge':
+      return 'Kartridge';
+    case 'utomik':
+      return 'Utomik';
+    default:
+      return 'Unknown Store';
+  }
 }
 
 function normalizeSettingIdentityPayload(value: unknown): { key: string } {

@@ -1,5 +1,6 @@
 import { IgdbMetadataRecord } from './types.js';
 import * as mediaNormalization from '../../../shared/igdb-media-normalization.mjs';
+import * as storefrontNormalization from '../../../shared/igdb-storefront-normalization.mjs';
 
 const normalizeIgdbScreenshotList = mediaNormalization.normalizeIgdbScreenshotList as (
   value: unknown,
@@ -10,9 +11,25 @@ const normalizeIgdbVideoList = mediaNormalization.normalizeIgdbVideoList as (
   value: unknown,
   options?: { limit?: number }
 ) => IgdbMetadataRecord['videos'];
+const normalizeIgdbStorefrontLinks = storefrontNormalization.normalizeIgdbStorefrontLinks as (
+  input: { externalGames?: unknown; websites?: unknown },
+  options?: {
+    externalGameSourceNames?: ReadonlyMap<number, string> | null;
+    websiteTypeNames?: ReadonlyMap<number, string> | null;
+  }
+) => IgdbMetadataRecord['storefrontLinks'];
+const deriveSteamAppIdFromStorefrontLinks =
+  storefrontNormalization.deriveSteamAppIdFromStorefrontLinks as (
+    value: unknown
+  ) => IgdbMetadataRecord['steamAppId'];
 
 interface TokenCache {
   accessToken: string;
+  expiresAtMs: number;
+}
+
+interface SourceNameCache {
+  values: ReadonlyMap<number, string>;
   expiresAtMs: number;
 }
 
@@ -26,6 +43,8 @@ export interface MetadataEnrichmentIgdbClientOptions {
 export class MetadataEnrichmentIgdbClient {
   private readonly fetchImpl: typeof fetch;
   private tokenCache: TokenCache | null = null;
+  private externalGameSourceCache: SourceNameCache | null = null;
+  private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(private readonly options: MetadataEnrichmentIgdbClientOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -45,6 +64,10 @@ export class MetadataEnrichmentIgdbClient {
     }
 
     const token = await this.getAccessToken();
+    const [externalGameSourceNames, websiteTypeNames] = await Promise.all([
+      this.getExternalGameSourceNames(token),
+      this.getWebsiteTypeNames(token),
+    ]);
     const body = [
       `where id = (${normalizedIds.join(',')});`,
       [
@@ -53,7 +76,8 @@ export class MetadataEnrichmentIgdbClient {
         'keywords.id,keywords.name',
         'screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height',
         'videos.id,videos.name,videos.video_id',
-        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform;',
+        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform,external_games.countries,external_games.game_release_format',
+        'websites.type,websites.category,websites.url,websites.trusted;',
       ].join(','),
       `limit ${String(normalizedIds.length)};`,
     ].join(' ');
@@ -96,11 +120,65 @@ export class MetadataEnrichmentIgdbClient {
         videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
           limit: 5,
         }),
-        steamAppId: normalizeSteamAppId((row as { external_games?: unknown }).external_games),
+        storefrontLinks: normalizeIgdbStorefrontLinks(
+          {
+            externalGames: (row as { external_games?: unknown }).external_games,
+            websites: (row as { websites?: unknown }).websites,
+          },
+          {
+            externalGameSourceNames,
+            websiteTypeNames,
+          }
+        ),
+        steamAppId: null,
       });
+      const metadata = map.get(String(id));
+      if (metadata) {
+        metadata.steamAppId = deriveSteamAppIdFromStorefrontLinks(metadata.storefrontLinks);
+      }
     }
 
     return map;
+  }
+
+  private async getExternalGameSourceNames(token: string): Promise<ReadonlyMap<number, string>> {
+    const cached = this.externalGameSourceCache;
+    const now = Date.now();
+    if (cached && cached.expiresAtMs > now) {
+      return cached.values;
+    }
+
+    const values = await this.fetchNameMap({
+      token,
+      url: 'https://api.igdb.com/v4/external_game_sources',
+      fields: 'fields id,name; limit 500;',
+      valueKey: 'name',
+    });
+    this.externalGameSourceCache = {
+      values,
+      expiresAtMs: now + 6 * 60 * 60 * 1000,
+    };
+    return values;
+  }
+
+  private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {
+    const cached = this.websiteTypeCache;
+    const now = Date.now();
+    if (cached && cached.expiresAtMs > now) {
+      return cached.values;
+    }
+
+    const values = await this.fetchNameMap({
+      token,
+      url: 'https://api.igdb.com/v4/website_types',
+      fields: 'fields id,type; limit 500;',
+      valueKey: 'type',
+    });
+    this.websiteTypeCache = {
+      values,
+      expiresAtMs: now + 6 * 60 * 60 * 1000,
+    };
+    return values;
   }
 
   private async getAccessToken(): Promise<string> {
@@ -159,6 +237,52 @@ export class MetadataEnrichmentIgdbClient {
       clearTimeout(timeoutId);
     }
   }
+
+  private async fetchNameMap(params: {
+    token: string;
+    url: string;
+    fields: string;
+    valueKey: 'name' | 'type';
+  }): Promise<ReadonlyMap<number, string>> {
+    try {
+      const response = await this.fetchWithTimeout(params.url, {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${params.token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: params.fields,
+      });
+
+      if (!response.ok) {
+        return new Map();
+      }
+
+      const payload: unknown = await response.json();
+      if (!Array.isArray(payload)) {
+        return new Map();
+      }
+
+      const map = new Map<number, string>();
+      for (const entry of payload) {
+        if (!entry || typeof entry !== 'object') {
+          continue;
+        }
+
+        const id = parsePositiveInteger((entry as { id?: unknown }).id);
+        const value = (entry as Record<string, unknown>)[params.valueKey];
+        const normalizedValue = typeof value === 'string' ? value.trim() : '';
+        if (id !== null && normalizedValue.length > 0) {
+          map.set(id, normalizedValue);
+        }
+      }
+
+      return map;
+    } catch {
+      return new Map();
+    }
+  }
 }
 
 function parsePositiveInteger(value: unknown): number | null {
@@ -215,46 +339,4 @@ function normalizeIdList(value: unknown): number[] {
         .filter((entry) => Number.isInteger(entry) && entry > 0)
     ),
   ];
-}
-
-const STEAM_EXTERNAL_GAME_SOURCE_ID = 1;
-const STEAM_EXTERNAL_GAME_CATEGORY_ID = 1;
-const STEAM_URL_APP_ID_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
-
-function normalizeSteamAppId(value: unknown): number | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  for (const entry of value) {
-    if (!entry || typeof entry !== 'object') {
-      continue;
-    }
-
-    const record = entry as Record<string, unknown>;
-    const externalGameSourceId = parsePositiveInteger(record['external_game_source']);
-    const categoryId = parsePositiveInteger(record['category']);
-    const isSteamBySource = externalGameSourceId === STEAM_EXTERNAL_GAME_SOURCE_ID;
-    const isSteamByDeprecatedCategory = categoryId === STEAM_EXTERNAL_GAME_CATEGORY_ID;
-
-    if (!isSteamBySource && !isSteamByDeprecatedCategory) {
-      continue;
-    }
-
-    const uidAppId = parsePositiveInteger(record['uid']);
-    if (uidAppId !== null) {
-      return uidAppId;
-    }
-
-    const urlValue = typeof record['url'] === 'string' ? record['url'].trim() : '';
-    const match = STEAM_URL_APP_ID_PATTERN.exec(urlValue);
-    if (match) {
-      const parsedFromUrl = parsePositiveInteger(match[1]);
-      if (parsedFromUrl !== null) {
-        return parsedFromUrl;
-      }
-    }
-  }
-
-  return null;
 }

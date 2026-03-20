@@ -141,13 +141,7 @@ describe('game-list review actions', () => {
     );
 
     page.rowReleaseDateDisplay = 'fullDate';
-    expect(page.getGameReleaseDateLabel(game)).toBe(
-      new Intl.DateTimeFormat(undefined, {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-      }).format(new Date('2020-01-10T00:00:00.000Z'))
-    );
+    expect(page.getGameReleaseDateLabel(game)).toBe('January 10th, 2020');
   });
 
   it('falls back from missing or invalid release dates to year and unknown year', () => {
@@ -165,6 +159,40 @@ describe('game-list review actions', () => {
     expect(page.getGameReleaseDateLabel(createGame({ releaseDate: null, releaseYear: null }))).toBe(
       'Unknown year'
     );
+  });
+
+  it('uses the correct ordinal suffixes for full date labels', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
+    };
+
+    page.rowReleaseDateDisplay = 'fullDate';
+
+    expect(
+      page.getGameReleaseDateLabel(
+        createGame({ releaseDate: '2020-01-01T00:00:00.000Z', releaseYear: 2020 })
+      )
+    ).toBe('January 1st, 2020');
+    expect(
+      page.getGameReleaseDateLabel(
+        createGame({ releaseDate: '2020-01-02T00:00:00.000Z', releaseYear: 2020 })
+      )
+    ).toBe('January 2nd, 2020');
+    expect(
+      page.getGameReleaseDateLabel(
+        createGame({ releaseDate: '2020-01-03T00:00:00.000Z', releaseYear: 2020 })
+      )
+    ).toBe('January 3rd, 2020');
+    expect(
+      page.getGameReleaseDateLabel(
+        createGame({ releaseDate: '2020-01-11T00:00:00.000Z', releaseYear: 2020 })
+      )
+    ).toBe('January 11th, 2020');
+    expect(
+      page.getGameReleaseDateLabel(
+        createGame({ releaseDate: '2020-01-23T00:00:00.000Z', releaseYear: 2020 })
+      )
+    ).toBe('January 23rd, 2020');
   });
 
   it('paginates similar library games in pages of 5', async () => {

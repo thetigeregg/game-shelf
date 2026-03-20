@@ -152,6 +152,8 @@ import {
   key,
   eyeOff,
   server,
+  heart,
+  gameController,
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
@@ -488,6 +490,8 @@ export class SettingsPage {
       key,
       eyeOff,
       server,
+      heart,
+      gameController,
     });
   }
 

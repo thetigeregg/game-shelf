@@ -69,7 +69,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { distinctUntilChanged, filter, map, switchMap, tap } from 'rxjs/operators';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GAME_RATING_VALUES,
@@ -319,7 +319,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     month: 'short',
     year: 'numeric',
   });
-  private static readonly ROW_FULL_DATE_MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  private static readonly ROW_FULL_DATE_MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, {
     month: 'short',
   });
 
@@ -477,6 +477,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
     ...DEFAULT_GAME_LIST_FILTERS,
   });
+  private readonly listType$ = new BehaviorSubject<ListType | null>(null);
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
@@ -573,6 +574,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('listType' in changes && changes['listType'].currentValue) {
+      this.listType$.next(this.listType);
+      this.rowReleaseDateDisplay = this.gameRowReleaseDateDisplayService.getPreference(
+        this.listType
+      );
       const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
         tap((games) => {
           this.platformOptionsChange.emit(this.extractPlatforms(games));
@@ -588,12 +593,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.filters$,
         this.searchQuery$,
         this.timePreferenceService.timePreference$,
-        this.gameRowReleaseDateDisplayService.getPreference$(this.listType),
       ]).pipe(
-        map(([games, filters, searchQuery, timePreference, releaseDateDisplay]) => {
-          this.rowReleaseDateDisplay = releaseDateDisplay;
-          return this.applyFiltersAndSort(games, filters, searchQuery, timePreference);
-        }),
+        map(([games, filters, searchQuery, timePreference]) =>
+          this.applyFiltersAndSort(games, filters, searchQuery, timePreference)
+        ),
         tap((games) => {
           this.displayedGames = games;
           this.syncSelectionWithDisplayedGames();
@@ -641,14 +644,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getGameReleaseDateLabel(game: GameEntry): string {
-    const timestamp =
-      typeof game.releaseDate === 'string' && game.releaseDate.trim().length > 0
-        ? Date.parse(game.releaseDate)
-        : Number.NaN;
+    const date = GameListComponent.parseReleaseDateAsLocalDate(game.releaseDate);
 
-    if (!Number.isNaN(timestamp)) {
-      const date = new Date(timestamp);
-
+    if (date) {
       if (this.rowReleaseDateDisplay === 'monthYear') {
         return GameListComponent.ROW_MONTH_YEAR_FORMATTER.format(date);
       }
@@ -663,6 +661,36 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     return 'Unknown year';
+  }
+
+  private static parseReleaseDateAsLocalDate(releaseDate: unknown): Date | null {
+    if (typeof releaseDate !== 'string') {
+      return null;
+    }
+
+    const trimmed = releaseDate.trim();
+    if (trimmed.length < 10) {
+      return null;
+    }
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed.slice(0, 10));
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+
+    if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) {
+      return null;
+    }
+
+    const date = new Date(year, monthIndex, day);
+
+    return date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day
+      ? date
+      : null;
   }
 
   private formatFullReleaseDate(date: Date): string {
@@ -5327,6 +5355,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   constructor() {
+    this.listType$
+      .pipe(
+        filter((listType): listType is ListType => listType !== null),
+        distinctUntilChanged(),
+        switchMap((listType) => this.gameRowReleaseDateDisplayService.getPreference$(listType)),
+        takeUntilDestroyed()
+      )
+      .subscribe((releaseDateDisplay) => {
+        this.rowReleaseDateDisplay = releaseDateDisplay;
+        this.changeDetectorRef.markForCheck();
+      });
+
     this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
       const nextDesktop = mode === 'desktop';
 

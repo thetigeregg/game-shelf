@@ -227,6 +227,15 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       );
     }
 
+    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
     return Promise.reject(new Error(`Unexpected fetch URL in test: ${url}`));
   };
 
@@ -242,6 +251,134 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
   assert.equal(summary.gamesInserted, 0);
   assert.equal(summary.scoresUpdated, 2);
   assert.deepEqual(recomputeParams, [[['10', '11']]]);
+});
+
+void test('runOnce carries storefront links and steam app ids into refreshed game payloads', async () => {
+  let refreshPayloadJson = '';
+
+  const pool = new PoolMock((sql, params) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    if (normalized.includes('insert into game_popularity')) {
+      return queryResult([], 1);
+    }
+
+    if (
+      normalized.startsWith(
+        'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
+      )
+    ) {
+      return queryResult([{ igdb_game_id: '10', platform_igdb_id: 6 } as QueryResultRow]);
+    }
+
+    if (
+      normalized.startsWith('with typed as (') &&
+      normalized.includes('update games as g set payload = merged.payload')
+    ) {
+      const payloadParam = params?.[2];
+      refreshPayloadJson = typeof payloadParam === 'string' ? payloadParam : '';
+      return queryResult([], 1);
+    }
+
+    if (normalized.includes('with target_game_ids as')) {
+      return queryResult([{ popularity_score: 123 } as QueryResultRow], 1);
+    }
+
+    throw new Error(`Unexpected SQL in test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input, init) => {
+    const url = toRequestUrl(input);
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 1 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ game_id: 10, popularity_type: 1, value: 99 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/external_game_sources')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 1, name: 'Steam' }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/website_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ id: 17, type: 'GOG' }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/games')) {
+      const body = typeof init?.body === 'string' ? init.body : '';
+      if (!body.includes('external_games.external_game_source')) {
+        throw new Error('Expected storefront fields in IGDB game metadata query');
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 10,
+              name: 'Ten',
+              game_type: { type: 'main_game' },
+              platforms: [{ id: 6, name: 'PC' }],
+              external_games: [{ external_game_source: 1, uid: '480', platform: 6 }],
+              websites: [{ type: 17, url: 'https://www.gog.com/en/game/ten', trusted: true }],
+            },
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL in test: ${url}`));
+  };
+
+  const service = new PopularityIngestService(pool as unknown as Pool, baseOptions(), fetchMock);
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.match(refreshPayloadJson, /"steamAppId":480/);
+  assert.match(refreshPayloadJson, /"storefrontLinks"/);
+  assert.match(refreshPayloadJson, /store\.steampowered\.com\/app\/480/);
+  assert.match(refreshPayloadJson, /gog\.com\/en\/game\/ten/);
 });
 
 void test('runOnce batches signal upserts in 500-row chunks', async () => {
@@ -350,6 +487,15 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       }));
       return Promise.resolve(
         new Response(JSON.stringify(games), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([]), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         })
@@ -604,6 +750,10 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
       );
     }
 
+    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    }
+
     return Promise.reject(new Error(`Unexpected fetch URL for missing game insert test: ${url}`));
   };
 
@@ -738,6 +888,10 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
           }
         )
       );
+    }
+
+    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
 
     return Promise.reject(new Error(`Unexpected fetch URL for existing game refresh test: ${url}`));
@@ -975,6 +1129,10 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
       return Promise.resolve(
         new Response('rate limited', { status: 429, headers: { 'Retry-After': '45' } })
       );
+    }
+
+    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
 
     return Promise.reject(

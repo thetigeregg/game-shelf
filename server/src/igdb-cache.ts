@@ -1,9 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementIgdbMetric } from './cache-metrics.js';
-import { config } from './config.js';
 import { fetchMetadataPathFromWorker, sendWebResponse } from './metadata.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface IgdbCacheRow {
   response_json: unknown;
@@ -38,9 +37,7 @@ export async function registerIgdbCachedByIdRoute(
   pool: Pool,
   options: IgdbCacheRouteOptions = {}
 ): Promise<void> {
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
-  }
+  await ensureRateLimitRegistered(app);
 
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
@@ -64,12 +61,7 @@ export async function registerIgdbCachedByIdRoute(
   app.route({
     method: 'GET',
     url: '/v1/games/:id',
-    config: {
-      rateLimit: {
-        max: config.gameByIdRateLimitMaxRequests,
-        timeWindow: config.gameByIdRateLimitWindowMs,
-      },
-    },
+    config: applyRouteRateLimit('metadata_game_by_id'),
     handler: async (request, reply) => {
       const normalized = normalizeIgdbGameIdRequest(request.params);
       if (!normalized) {

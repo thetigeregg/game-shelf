@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
+import { applyRouteRateLimit } from './rate-limit.js';
 
 const MANUAL_SCAN_CACHE_TTL_MS = 60_000;
 const MANUALS_CATALOG_SNAPSHOT_KEY = 'manuals.catalog.snapshot.v1';
@@ -152,12 +153,7 @@ export function registerManualRoutes(
   app.route({
     method: 'GET',
     url: '/v1/manuals/resolve',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('manuals_read'),
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
 
@@ -245,12 +241,7 @@ export function registerManualRoutes(
   app.route({
     method: 'GET',
     url: '/v1/manuals/search',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('manuals_read'),
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
 
@@ -300,12 +291,7 @@ export function registerManualRoutes(
   app.route({
     method: 'POST',
     url: '/v1/manuals/refresh',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute',
-      },
-    },
+    config: applyRouteRateLimit('manuals_refresh'),
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
 

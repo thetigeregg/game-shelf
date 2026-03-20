@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ProviderThrottleError } from '../provider-rate-limit.js';
 import { MetadataEnrichmentIgdbClient } from './igdb-client.js';
 
 interface FetchCall {
@@ -212,4 +213,46 @@ void test('ignores non-steam external ids', async () => {
   const item = map.get('13');
   assert.ok(item);
   assert.equal(item.steamAppId, null);
+});
+
+void test('metadata enrichment client converts upstream 429 responses into provider throttle errors', async () => {
+  const retryAfterSeconds = 42;
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 429,
+            headers: { 'retry-after': String(retryAfterSeconds) },
+          })
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    },
+  });
+
+  await assert.rejects(
+    () => client.fetchGameMetadataByIds(['10']),
+    /** @returns {boolean} */ (error) =>
+      error instanceof ProviderThrottleError &&
+      error.policyName === 'igdb_metadata_enrichment' &&
+      error.source === 'upstream_429' &&
+      error.retryAfterSeconds === retryAfterSeconds &&
+      error.message === 'IGDB metadata enrichment request throttled'
+  );
 });

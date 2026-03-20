@@ -2,9 +2,9 @@ import crypto from 'node:crypto';
 import fs, { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
+import { applyRouteRateLimit, ensureRateLimitRegistered, formatTimeWindow } from './rate-limit.js';
 interface ImageAssetRow {
   cache_key: string;
   source_url: string;
@@ -37,19 +37,25 @@ export async function registerImageProxyRoute(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
-  if (!app.hasDecorator('rateLimit')) {
-    await app.register(rateLimit, { global: false });
+  await ensureRateLimitRegistered(app);
+  const imagePurgeRateLimit = applyRouteRateLimit('image_purge');
+  const imageProxyRateLimit = applyRouteRateLimit('image_proxy');
+  if (Number.isInteger(options.rateLimitWindowMs)) {
+    const timeWindow = formatTimeWindow(Number(options.rateLimitWindowMs));
+    imagePurgeRateLimit.rateLimit.timeWindow = timeWindow;
+    imageProxyRateLimit.rateLimit.timeWindow = timeWindow;
+  }
+  if (Number.isInteger(options.imagePurgeMaxRequestsPerWindow)) {
+    imagePurgeRateLimit.rateLimit.max = Number(options.imagePurgeMaxRequestsPerWindow);
+  }
+  if (Number.isInteger(options.imageProxyMaxRequestsPerWindow)) {
+    imageProxyRateLimit.rateLimit.max = Number(options.imageProxyMaxRequestsPerWindow);
   }
 
   app.route({
     method: 'POST',
     url: '/v1/images/cache/purge',
-    config: {
-      rateLimit: {
-        max: 10,
-        timeWindow: '1 minute',
-      },
-    },
+    config: imagePurgeRateLimit,
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as { urls?: unknown };
       const rawUrls = Array.isArray(body.urls) ? body.urls : [];
@@ -105,12 +111,7 @@ export async function registerImageProxyRoute(
   app.route({
     method: 'GET',
     url: '/v1/images/proxy',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute',
-      },
-    },
+    config: imageProxyRateLimit,
     handler: async (request, reply) => {
       const normalizedImageUrl = normalizeProxyImageUrl(
         (request.query as Record<string, unknown>)['url']

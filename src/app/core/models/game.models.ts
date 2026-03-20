@@ -45,11 +45,11 @@ export type GameWebsiteProvider =
   | 'unknown';
 
 export interface GameWebsite {
-  provider: GameWebsiteProvider;
-  providerLabel: string;
+  provider: GameWebsiteProvider | null;
+  providerLabel: string | null;
   url: string;
-  sourceId: number | null;
-  sourceName: string | null;
+  typeId: number | null;
+  typeName: string | null;
   trusted: boolean | null;
 }
 

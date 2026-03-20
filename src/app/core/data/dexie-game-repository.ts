@@ -923,11 +923,11 @@ export class DexieGameRepository implements GameRepository {
     for (const entry of values) {
       const provider = this.normalizeWebsiteProvider(entry.provider);
       const url = this.normalizeExternalUrl(entry.url);
-      if (provider === null || url === null) {
+      if (url === null) {
         continue;
       }
 
-      const dedupeKey = `${provider}::${url}`;
+      const dedupeKey = url;
       if (seen.has(dedupeKey)) {
         continue;
       }
@@ -935,10 +935,13 @@ export class DexieGameRepository implements GameRepository {
       seen.add(dedupeKey);
       normalized.push({
         provider,
-        providerLabel: this.normalizeWebsiteProviderLabel(entry.providerLabel, provider),
+        providerLabel:
+          provider !== null
+            ? this.normalizeWebsiteProviderLabel(entry.providerLabel, provider)
+            : this.normalizeLookupQueryTitle(entry.providerLabel),
         url,
-        sourceId: this.normalizeLookupQueryPlatformIgdbId(entry.sourceId),
-        sourceName: this.normalizeLookupQueryTitle(entry.sourceName),
+        typeId: this.normalizeLookupQueryPlatformIgdbId(entry.typeId),
+        typeName: this.normalizeLookupQueryTitle(entry.typeName),
         trusted: this.normalizeMatchLock(entry.trusted),
       });
     }
@@ -1104,7 +1107,7 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeWebsiteProviderLabel(
     value: string | null | undefined,
-    provider: GameWebsite['provider']
+    provider: Exclude<GameWebsite['provider'], null>
   ): string {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (normalized.length > 0) {

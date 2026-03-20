@@ -66,8 +66,7 @@ type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
 type DetailWebsiteViewModel = {
-  provider: GameWebsite['provider'];
-  providerLabel: string;
+  label: string;
   url: string;
 };
 
@@ -96,23 +95,12 @@ type DetailWebsiteViewModel = {
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
-  private static readonly WEBSITE_PROVIDER_ORDER: Record<GameWebsite['provider'], number> = {
-    steam: 0,
-    playstation: 1,
-    xbox: 2,
-    nintendo: 3,
-    amazon: 4,
-    android: 5,
-    apple: 6,
-    epic: 7,
-    gamejolt: 8,
-    gog: 9,
-    itch: 10,
-    kartridge: 11,
-    oculus: 12,
-    utomik: 13,
-    unknown: 14,
-  };
+  private static readonly VISIBLE_WEBSITE_TYPE_IDS = [
+    2, 6, 3, 12, 14, 1, 9, 10, 15, 13, 16, 17, 22, 23, 24,
+  ] as const;
+  private static readonly WEBSITE_TYPE_ORDER: ReadonlyMap<number, number> = new Map<number, number>(
+    GameDetailContentComponent.VISIBLE_WEBSITE_TYPE_IDS.map((id, index) => [id, index])
+  );
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -570,8 +558,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     return websites.map((link) => ({
-      provider: link.provider,
-      providerLabel: link.providerLabel,
+      label: this.resolveWebsiteLabel(link),
       url: link.url,
     }));
   }
@@ -668,7 +655,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       return false;
     }
 
-    if (typeof link.providerLabel !== 'string' || link.providerLabel.trim().length === 0) {
+    const typeId = this.normalizePositiveInteger(link.typeId);
+    if (typeId === null || !GameDetailContentComponent.WEBSITE_TYPE_ORDER.has(typeId)) {
       return false;
     }
 
@@ -676,16 +664,21 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private compareWebsites(left: GameWebsite, right: GameWebsite): number {
-    const providerOrder =
-      this.resolveWebsiteProviderOrder(left.provider) -
-      this.resolveWebsiteProviderOrder(right.provider);
-    if (providerOrder !== 0) {
-      return providerOrder;
+    const leftTypeId = this.normalizePositiveInteger(left.typeId);
+    const rightTypeId = this.normalizePositiveInteger(right.typeId);
+    const typeOrder =
+      this.resolveWebsiteTypeOrder(leftTypeId) - this.resolveWebsiteTypeOrder(rightTypeId);
+    if (typeOrder !== 0) {
+      return typeOrder;
     }
 
-    const labelOrder = left.providerLabel.localeCompare(right.providerLabel, undefined, {
-      sensitivity: 'base',
-    });
+    const labelOrder = this.resolveWebsiteLabel(left).localeCompare(
+      this.resolveWebsiteLabel(right),
+      undefined,
+      {
+        sensitivity: 'base',
+      }
+    );
     if (labelOrder !== 0) {
       return labelOrder;
     }
@@ -695,8 +688,29 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     });
   }
 
-  private resolveWebsiteProviderOrder(provider: GameWebsite['provider']): number {
-    return GameDetailContentComponent.WEBSITE_PROVIDER_ORDER[provider];
+  private resolveWebsiteTypeOrder(typeId: number | null): number {
+    return typeId === null
+      ? Number.MAX_SAFE_INTEGER
+      : (GameDetailContentComponent.WEBSITE_TYPE_ORDER.get(typeId) ?? Number.MAX_SAFE_INTEGER);
+  }
+
+  private resolveWebsiteLabel(website: GameWebsite): string {
+    const typeName = typeof website.typeName === 'string' ? website.typeName.trim() : '';
+    if (typeName.length > 0) {
+      return typeName;
+    }
+
+    const providerLabel =
+      typeof website.providerLabel === 'string' ? website.providerLabel.trim() : '';
+    if (providerLabel.length > 0) {
+      return providerLabel;
+    }
+
+    try {
+      return new URL(website.url).hostname;
+    } catch {
+      return website.url;
+    }
   }
 
   private normalizePositiveInteger(value: unknown): number | null {

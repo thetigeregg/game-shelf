@@ -1737,9 +1737,8 @@ export async function handleRequest(request, env, fetchImpl = fetch, options = {
   }
 
   if (isIgdbRoute) {
-    const upstreamRetryAfterSeconds = getIgdbOutboundLimiter(env, {
-      now,
-    }).getCooldownRemainingSeconds(nowMs);
+    const upstreamRetryAfterSeconds =
+      getIgdbOutboundLimiter(env).getCooldownRemainingSeconds(nowMs);
 
     if (upstreamRetryAfterSeconds > 0) {
       return jsonResponse(
@@ -1789,7 +1788,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, options = {
     return jsonResponse({ item }, 200);
   } catch (error) {
     if (error instanceof UpstreamRateLimitError) {
-      const retryAfterSeconds = getIgdbOutboundLimiter(env, { now }).applyCooldown(
+      const retryAfterSeconds = getIgdbOutboundLimiter(env).applyCooldown(
         error.retryAfterSeconds,
         'upstream_429',
         nowMs

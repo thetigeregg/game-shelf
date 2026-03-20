@@ -639,8 +639,8 @@ describe('SettingsPage CSV review fields', () => {
       'utf8'
     );
 
-    expect(template).toContain('label="Collection Release Date Display"');
-    expect(template).toContain('label="Wishlist Release Date Display"');
+    expect(template).toContain('label="Collection Display"');
+    expect(template).toContain('label="Wishlist Display"');
     expect(template).not.toContain('label="Release Date Display"');
   });
 

@@ -2037,21 +2037,15 @@ describe('ExplorePage explore modes UX', () => {
       })
     ).resolves.toBe(false);
 
-    const clickSpy = vi.fn();
-    const anchor = {
-      href: '',
-      target: '',
-      rel: '',
-      click: clickSpy,
-    } as unknown as HTMLAnchorElement;
-    const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+    const openedWindow = { opener: {} } as Window;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(openedWindow);
     page.openExternalUrl('https://example.com/game');
-    expect(createElementSpy).toHaveBeenCalledWith('a');
-    expect(anchor.href).toBe('https://example.com/game');
-    expect(anchor.target).toBe('_blank');
-    expect(anchor.rel).toBe('noopener noreferrer external');
-    expect(clickSpy).toHaveBeenCalledOnce();
-    createElementSpy.mockRestore();
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://example.com/game',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    expect(openedWindow.opener).toBeNull();
   });
 
   it('populates recommendation metadata per platform batch with title fallback', async () => {

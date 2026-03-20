@@ -72,20 +72,20 @@ describe('GameSearchComponent', () => {
     };
   }
 
-  it('emits detail requests only when detail navigation is enabled', async () => {
+  it('emits detail requests only when detail navigation is enabled', () => {
     const emitSpy = vi.fn();
     const result = makeResult();
     component.detailRequested.subscribe(emitSpy);
 
-    await component.requestDetail(result);
+    component.requestDetail(undefined, result);
     component.enableDetailNavigation = true;
-    await component.requestDetail(result);
+    component.requestDetail(undefined, result);
 
     expect(emitSpy).toHaveBeenCalledOnce();
     expect(emitSpy).toHaveBeenCalledWith(result);
   });
 
-  it('resolves a concrete platform before emitting a detail request', async () => {
+  it('resolves a concrete platform before emitting a detail request without prompting', () => {
     const emitSpy = vi.fn();
     const result = makeResult({
       platform: null,
@@ -97,20 +97,15 @@ describe('GameSearchComponent', () => {
       ],
       platforms: ['Xbox', 'Nintendo GameCube', 'PlayStation 2'],
     });
-    alertController.create.mockResolvedValue({
-      present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
-    });
     platformOrderService.comparePlatformNames.mockImplementation((left: string, right: string) =>
       left.localeCompare(right)
     );
     component.enableDetailNavigation = true;
     component.detailRequested.subscribe(emitSpy);
 
-    const requestPromise = component.requestDetail(result);
-    await requestPromise;
+    component.requestDetail(undefined, result);
 
-    expect(alertController.create).toHaveBeenCalledOnce();
+    expect(alertController.create).not.toHaveBeenCalled();
     expect(emitSpy).toHaveBeenCalledOnce();
     expect(emitSpy).toHaveBeenCalledWith({
       ...result,
@@ -122,14 +117,28 @@ describe('GameSearchComponent', () => {
   it('stops propagation and triggers add action from the row button', async () => {
     const result = makeResult();
     const stopPropagation = vi.fn();
+    const preventDefault = vi.fn();
     const addGameSpy = vi.spyOn(component, 'addGame').mockResolvedValue(undefined);
 
-    component.onActionButtonClick({ stopPropagation } as unknown as Event, result);
+    component.onActionButtonClick({ stopPropagation, preventDefault } as unknown as Event, result);
     await Promise.resolve();
 
+    expect(preventDefault).toHaveBeenCalledOnce();
     expect(stopPropagation).toHaveBeenCalledOnce();
     expect(addGameSpy).toHaveBeenCalledOnce();
     expect(addGameSpy).toHaveBeenCalledWith(result);
+  });
+
+  it('ignores row detail clicks that originate from nested buttons', () => {
+    const emitSpy = vi.fn();
+    const result = makeResult();
+    const button = document.createElement('button');
+    component.enableDetailNavigation = true;
+    component.detailRequested.subscribe(emitSpy);
+
+    component.requestDetail({ target: button } as Event, result);
+
+    expect(emitSpy).not.toHaveBeenCalled();
   });
 
   it('keeps detail navigation disabled by default', () => {

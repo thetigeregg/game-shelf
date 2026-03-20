@@ -38,7 +38,7 @@ describe('applyGameCatalogPlatformContext', () => {
     expect(contextual.platform).toBe('PlayStation 3');
   });
 
-  it('preserves the existing platform label when the catalog already matches the requested platform', () => {
+  it('prefers the matching platform option label when the requested platform is known', () => {
     const contextual = applyGameCatalogPlatformContext(
       makeCatalog({ platform: 'Custom Xbox 360' }),
       12

@@ -15,7 +15,12 @@
           <ion-item button detail="true" lines="full" (click)="websiteSelect.emit(item)">
             @switch (item.icon) {
               @case ('google') {
-                <svg slot="start" class="website-brand-icon" siGoogleIcon aria-hidden="true"></svg>
+                <svg
+                  slot="start"
+                  class="website-brand-icon website-brand-icon--forest"
+                  siGoogleIcon
+                  aria-hidden="true"
+                ></svg>
               }
               @case ('youtube') {
                 <svg slot="start" class="website-brand-icon" siYoutubeIcon aria-hidden="true"></svg>

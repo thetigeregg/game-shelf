@@ -72,6 +72,7 @@ import {
 import { isExploreEnabled } from '../core/config/runtime-config';
 import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
+import { openExternalUrl } from '../core/utils/open-external-url';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
@@ -2898,10 +2899,6 @@ export class ExplorePage implements OnInit {
   }
 
   private openExternalUrl(url: string): void {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer external';
-    anchor.click();
+    openExternalUrl(url);
   }
 }

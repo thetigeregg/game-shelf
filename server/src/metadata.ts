@@ -60,7 +60,7 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
     proxiedRequest,
     workerEnv as unknown as Record<string, unknown>,
     fetch,
-    () => Date.now()
+    { now: () => Date.now() }
   );
 }
 
@@ -88,7 +88,7 @@ export async function fetchMetadataPathFromWorker(
     proxiedRequest,
     workerEnv as unknown as Record<string, unknown>,
     fetch,
-    () => Date.now()
+    { now: () => Date.now() }
   );
 }
 

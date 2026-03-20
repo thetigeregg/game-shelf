@@ -8,22 +8,21 @@ import {
 } from '../provider-rate-limit.js';
 import { resolveOutboundRateLimit } from '../rate-limit.js';
 import {
-  deriveSteamAppIdFromStorefrontLinks,
-  normalizeIgdbStorefrontLinks,
-} from '../../../shared/igdb-storefront-normalization.mjs';
-import type { NormalizedStorefrontLink } from '../../../shared/igdb-storefront-normalization.mjs';
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../../shared/igdb-websites-normalization.mjs';
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
 
-const normalizeStorefrontLinks = normalizeIgdbStorefrontLinks as (
-  input: { externalGames?: unknown; websites?: unknown },
+const normalizeWebsites = normalizeIgdbWebsites as (
+  input: { websites?: unknown },
   options?: {
-    externalGameSourceNames?: ReadonlyMap<number, string> | null;
     websiteTypeNames?: ReadonlyMap<number, string> | null;
   }
-) => ReturnType<typeof normalizeIgdbStorefrontLinks>;
+) => ReturnType<typeof normalizeIgdbWebsites>;
 
-const deriveSteamAppId = deriveSteamAppIdFromStorefrontLinks as (
+const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
   value: unknown
-) => ReturnType<typeof deriveSteamAppIdFromStorefrontLinks>;
+) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
@@ -86,7 +85,6 @@ interface RawIgdbGame {
     publisher?: unknown;
     company?: { name?: unknown } | null;
   }> | null;
-  external_games?: unknown;
   websites?: unknown;
 }
 
@@ -118,7 +116,7 @@ interface WorkerGameItem {
   similarGameIds: string[];
   developers: string[];
   publishers: string[];
-  storefrontLinks: NormalizedStorefrontLink[];
+  websites: NormalizedWebsite[];
   steamAppId: number | null;
 }
 
@@ -171,7 +169,6 @@ export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
   private readonly limiter: ProviderLimiter;
   private readonly repository: PopularityRepository;
-  private externalGameSourceCache: SourceNameCache | null = null;
   private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(
@@ -425,10 +422,7 @@ export class PopularityIngestService {
     }
 
     const token = await this.getAccessToken();
-    const [externalGameSourceNames, websiteTypeNames] = await Promise.all([
-      this.getExternalGameSourceNames(token),
-      this.getWebsiteTypeNames(token),
-    ]);
+    const websiteTypeNames = await this.getWebsiteTypeNames(token);
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
@@ -444,7 +438,7 @@ export class PopularityIngestService {
           },
           body: [
             `where id = (${batch.join(',')});`,
-            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform,external_games.countries,external_games.game_release_format,websites.type,websites.category,websites.url,websites.trusted;',
+            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,websites.type,websites.category,websites.url,websites.trusted;',
             `limit ${String(batch.length)};`,
           ].join(' '),
         });
@@ -465,7 +459,6 @@ export class PopularityIngestService {
 
       for (const raw of rows) {
         const normalized = normalizeIgdbGame(raw as RawIgdbGame, {
-          externalGameSourceNames,
           websiteTypeNames,
         });
         if (!normalized) {
@@ -786,26 +779,6 @@ export class PopularityIngestService {
     return accessToken;
   }
 
-  private async getExternalGameSourceNames(token: string): Promise<ReadonlyMap<number, string>> {
-    const cached = this.externalGameSourceCache;
-    const now = Date.now();
-    if (cached && cached.expiresAtMs > now) {
-      return cached.values;
-    }
-
-    const values = await this.fetchNameMap({
-      token,
-      url: 'https://api.igdb.com/v4/external_game_sources',
-      fields: 'fields id,name; limit 500;',
-      valueKey: 'name',
-    });
-    this.externalGameSourceCache = {
-      values,
-      expiresAtMs: now + SOURCE_NAME_CACHE_TTL_MS,
-    };
-    return values;
-  }
-
   private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {
     const cached = this.websiteTypeCache;
     const now = Date.now();
@@ -959,7 +932,6 @@ function dedupeSignals(rows: PopularityPrimitiveItem[]): PopularityPrimitiveItem
 function normalizeIgdbGame(
   raw: RawIgdbGame,
   options?: {
-    externalGameSourceNames?: ReadonlyMap<number, string> | null;
     websiteTypeNames?: ReadonlyMap<number, string> | null;
   }
 ): WorkerGameItem | null {
@@ -987,16 +959,14 @@ function normalizeIgdbGame(
     : [];
 
   const platforms = platformOptions.map((platform) => platform.name);
-  const storefrontLinks = normalizeStorefrontLinks(
+  const websites = normalizeWebsites(
     {
-      externalGames: raw.external_games,
       websites: raw.websites,
     },
     {
-      externalGameSourceNames: options?.externalGameSourceNames ?? null,
       websiteTypeNames: options?.websiteTypeNames ?? null,
     }
-  ) as NormalizedStorefrontLink[];
+  ) as NormalizedWebsite[];
 
   return {
     igdbGameId,
@@ -1021,8 +991,8 @@ function normalizeIgdbGame(
     similarGameIds: normalizeSimilarGameIds(raw.similar_games),
     developers: normalizeCompanyRole(raw.involved_companies, 'developer'),
     publishers: normalizeCompanyRole(raw.involved_companies, 'publisher'),
-    storefrontLinks,
-    steamAppId: deriveSteamAppId(storefrontLinks) as number | null,
+    websites,
+    steamAppId: deriveSteamAppId(websites) as number | null,
   };
 }
 
@@ -1060,7 +1030,7 @@ function buildGamePayload(
     similarGameIgdbIds: item.similarGameIds,
     developers: item.developers,
     publishers: item.publishers,
-    storefrontLinks: item.storefrontLinks,
+    websites: item.websites,
     steamAppId: item.steamAppId,
   };
 }
@@ -1082,7 +1052,7 @@ function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> 
     version_parent: item.versionParent,
     versionParent: item.versionParent,
     gameType: item.gameType ?? 'main_game',
-    storefrontLinks: item.storefrontLinks,
+    websites: item.websites,
     steamAppId: item.steamAppId,
   };
 }

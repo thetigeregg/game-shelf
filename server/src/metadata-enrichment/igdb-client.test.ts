@@ -9,7 +9,7 @@ interface FetchCall {
   body: string;
 }
 
-void test('extracts steam app id from external_game_source uid', async () => {
+void test('extracts steam app id from steam website url', async () => {
   const calls: FetchCall[] = [];
   const client = new MetadataEnrichmentIgdbClient({
     twitchClientId: 'cid',
@@ -40,7 +40,7 @@ void test('extracts steam app id from external_game_source uid', async () => {
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ external_game_source: 1, uid: '570' }],
+                websites: [{ type: 13, url: 'https://store.steampowered.com/app/570/Dota_2/' }],
               },
             ]),
             {
@@ -58,29 +58,24 @@ void test('extracts steam app id from external_game_source uid', async () => {
   const map = await client.fetchGameMetadataByIds(['10']);
   const item = map.get('10');
   assert.ok(item);
-  assert.deepEqual(item.storefrontLinks, [
+  assert.deepEqual(item.websites, [
     {
       provider: 'steam',
       providerLabel: 'Steam',
       url: 'https://store.steampowered.com/app/570',
-      sourceKind: 'external_game',
-      sourceId: 1,
+      sourceId: 13,
       sourceName: 'steam',
-      uid: '570',
-      platformIgdbId: null,
-      countryCode: null,
-      releaseFormat: null,
       trusted: null,
     },
   ]);
   assert.equal(item.steamAppId, 570);
   assert.equal(
-    calls.some((call) => call.body.includes('external_games.external_game_source')),
+    calls.some((call) => call.body.includes('websites.type')),
     true
   );
 });
 
-void test('normalizes storefront links from external games and website fallback', async () => {
+void test('normalizes websites and deduplicates by provider and url', async () => {
   const client = new MetadataEnrichmentIgdbClient({
     twitchClientId: 'cid',
     twitchClientSecret: 'secret',
@@ -97,24 +92,18 @@ void test('normalizes storefront links from external games and website fallback'
         );
       }
 
-      if (url.includes('/v4/external_game_sources')) {
+      if (url.includes('/v4/website_types')) {
         return Promise.resolve(
           new Response(
             JSON.stringify([
-              { id: 31, name: 'Xbox Marketplace' },
-              { id: 36, name: 'PlayStation Store US' },
+              { id: 13, type: 'steam' },
+              { id: 17, type: 'gog' },
             ]),
-            { status: 200, headers: { 'content-type': 'application/json' } }
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }
           )
-        );
-      }
-
-      if (url.includes('/v4/website_types')) {
-        return Promise.resolve(
-          new Response(JSON.stringify([{ id: 17, type: 'gog' }]), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          })
         );
       }
 
@@ -133,23 +122,15 @@ void test('normalizes storefront links from external games and website fallback'
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [
-                  {
-                    external_game_source: 36,
-                    uid: 'ps-1',
-                    url: 'https://store.playstation.com/en-us/product/UP0001-CUSA00001_00-GAMETEST0000001',
-                    platform: 167,
-                    countries: [840],
-                    game_release_format: 1,
-                  },
-                  {
-                    external_game_source: 31,
-                    uid: 'xbox-1',
-                    url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-                    platform: 169,
-                  },
-                ],
                 websites: [
+                  {
+                    url: 'https://store.playstation.com/en-us/product/UP0001-CUSA00001_00-GAMETEST0000001',
+                    trusted: true,
+                  },
+                  {
+                    url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
+                    trusted: true,
+                  },
                   {
                     type: 17,
                     url: 'https://www.gog.com/en/game/test_game',
@@ -178,50 +159,35 @@ void test('normalizes storefront links from external games and website fallback'
   const map = await client.fetchGameMetadataByIds(['14']);
   const item = map.get('14');
   assert.ok(item);
-  assert.deepEqual(item.storefrontLinks, [
+  assert.deepEqual(item.websites, [
     {
       provider: 'playstation',
       providerLabel: 'PlayStation',
       url: 'https://store.playstation.com/en-us/product/UP0001-CUSA00001_00-GAMETEST0000001',
-      sourceKind: 'external_game',
-      sourceId: 36,
-      sourceName: 'PlayStation Store US',
-      uid: 'ps-1',
-      platformIgdbId: 167,
-      countryCode: '840',
-      releaseFormat: 1,
-      trusted: null,
+      sourceId: null,
+      sourceName: null,
+      trusted: true,
     },
     {
       provider: 'xbox',
       providerLabel: 'Xbox',
       url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-      sourceKind: 'external_game',
-      sourceId: 31,
-      sourceName: 'Xbox Marketplace',
-      uid: 'xbox-1',
-      platformIgdbId: 169,
-      countryCode: null,
-      releaseFormat: null,
-      trusted: null,
+      sourceId: null,
+      sourceName: null,
+      trusted: true,
     },
     {
       provider: 'gog',
       providerLabel: 'GOG',
       url: 'https://www.gog.com/en/game/test_game',
-      sourceKind: 'website',
       sourceId: 17,
       sourceName: 'gog',
-      uid: null,
-      platformIgdbId: null,
-      countryCode: null,
-      releaseFormat: null,
       trusted: true,
     },
   ]);
 });
 
-void test('falls back to deprecated category steam enum for steam app id', async () => {
+void test('derives steam app id from website category and url', async () => {
   const client = new MetadataEnrichmentIgdbClient({
     twitchClientId: 'cid',
     twitchClientSecret: 'secret',
@@ -248,7 +214,7 @@ void test('falls back to deprecated category steam enum for steam app id', async
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ category: 1, uid: '730' }],
+                websites: [{ category: 13, url: 'https://store.steampowered.com/app/730/' }],
               },
             ]),
             {
@@ -269,7 +235,7 @@ void test('falls back to deprecated category steam enum for steam app id', async
   assert.equal(item.steamAppId, 730);
 });
 
-void test('falls back to parsing steam app id from URL when uid is missing', async () => {
+void test('parses steam app id from website url when no website type name is available', async () => {
   const client = new MetadataEnrichmentIgdbClient({
     twitchClientId: 'cid',
     twitchClientSecret: 'secret',
@@ -296,10 +262,9 @@ void test('falls back to parsing steam app id from URL when uid is missing', asy
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [
+                websites: [
                   {
-                    external_game_source: 1,
-                    uid: null,
+                    type: 13,
                     url: 'https://store.steampowered.com/app/1245620/ELDEN_RING/',
                   },
                 ],
@@ -323,7 +288,7 @@ void test('falls back to parsing steam app id from URL when uid is missing', asy
   assert.equal(item.steamAppId, 1245620);
 });
 
-void test('ignores non-steam external ids', async () => {
+void test('ignores non-steam websites for steam app id derivation', async () => {
   const client = new MetadataEnrichmentIgdbClient({
     twitchClientId: 'cid',
     twitchClientSecret: 'secret',
@@ -350,7 +315,7 @@ void test('ignores non-steam external ids', async () => {
                 keywords: [],
                 screenshots: [],
                 videos: [],
-                external_games: [{ external_game_source: 5, uid: 'gog-12345' }],
+                websites: [{ type: 17, url: 'https://www.gog.com/en/game/example', trusted: true }],
               },
             ]),
             {

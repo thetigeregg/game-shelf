@@ -82,18 +82,13 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           keywordIds: [100],
           screenshots: [],
           videos: [],
-          storefrontLinks: [
+          websites: [
             {
               provider: 'steam',
               providerLabel: 'Steam',
               url: 'https://store.steampowered.com/app/12345',
-              sourceKind: 'external_game',
-              sourceId: 1,
+              sourceId: 13,
               sourceName: 'steam',
-              uid: '12345',
-              platformIgdbId: 6,
-              countryCode: null,
-              releaseFormat: null,
               trusted: null,
             },
           ],
@@ -123,18 +118,13 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(repository.updates[0]?.payloadPatch['mediaEnrichmentStatus'], 'success');
   assert.equal(typeof repository.updates[0]?.payloadPatch['steamEnrichedAt'], 'string');
   assert.equal(repository.updates[0]?.payloadPatch['steamEnrichmentStatus'], 'success');
-  assert.deepEqual(repository.updates[0]?.payloadPatch['storefrontLinks'], [
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], [
     {
       provider: 'steam',
       providerLabel: 'Steam',
       url: 'https://store.steampowered.com/app/12345',
-      sourceKind: 'external_game',
-      sourceId: 1,
+      sourceId: 13,
       sourceName: 'steam',
-      uid: '12345',
-      platformIgdbId: 6,
-      countryCode: null,
-      releaseFormat: null,
       trusted: null,
     },
   ]);
@@ -187,7 +177,7 @@ void test('metadata enrichment backfills storefront links for collection rows wi
           keywordIds: [],
           screenshots: [],
           videos: [],
-          storefrontLinks: [],
+          websites: [],
           steamAppId: null,
         },
       ],
@@ -204,7 +194,7 @@ void test('metadata enrichment backfills storefront links for collection rows wi
   const summary = await service.runOnce();
   assert.ok(summary);
   assert.equal(summary.updatedRows, 1);
-  assert.deepEqual(repository.updates[0]?.payloadPatch['storefrontLinks'], []);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], []);
   assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], null);
 });
 
@@ -225,7 +215,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [11],
           screenshots: [],
           videos: [],
-          storefrontLinks: [],
+          websites: [],
           steamAppId: 101,
         },
       ],
@@ -238,7 +228,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [22],
           screenshots: [],
           videos: [],
-          storefrontLinks: [],
+          websites: [],
           steamAppId: 202,
         },
       ],
@@ -280,7 +270,7 @@ void test('metadata enrichment is idempotent on rerun', async () => {
           keywordIds: [4],
           screenshots: [],
           videos: [],
-          storefrontLinks: [],
+          websites: [],
           steamAppId: 999,
         },
       ],
@@ -342,7 +332,7 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         keywords: ['Shooter'],
         screenshots: [],
         videos: [],
-        storefrontLinks: [],
+        websites: [],
         steamAppId: null,
       },
     },
@@ -392,7 +382,7 @@ void test('metadata enrichment patch updates preserve manual override lock field
           keywordIds: [8],
           screenshots: [],
           videos: [],
-          storefrontLinks: [],
+          websites: [],
           steamAppId: 4242,
         },
       ],
@@ -430,7 +420,7 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
-        storefrontLinks: [],
+        websites: [],
         steamAppId: null,
       },
     },

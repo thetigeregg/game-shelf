@@ -253,7 +253,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
   assert.deepEqual(recomputeParams, [[['10', '11']]]);
 });
 
-void test('runOnce carries storefront links and steam app ids into refreshed game payloads', async () => {
+void test('runOnce carries websites and steam app ids into refreshed game payloads', async () => {
   let refreshPayloadJson = '';
 
   const pool = new PoolMock((sql, params) => {
@@ -324,28 +324,25 @@ void test('runOnce carries storefront links and steam app ids into refreshed gam
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources')) {
-      return Promise.resolve(
-        new Response(JSON.stringify([{ id: 1, name: 'Steam' }]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-      );
-    }
-
     if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(
-        new Response(JSON.stringify([{ id: 17, type: 'GOG' }]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
+        new Response(
+          JSON.stringify([
+            { id: 13, type: 'Steam' },
+            { id: 17, type: 'GOG' },
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     }
 
     if (url.endsWith('/v4/games')) {
       const body = typeof init?.body === 'string' ? init.body : '';
-      if (!body.includes('external_games.external_game_source')) {
-        throw new Error('Expected storefront fields in IGDB game metadata query');
+      if (!body.includes('websites.type') || body.includes('external_games.external_game_source')) {
+        throw new Error('Expected website fields in IGDB game metadata query');
       }
 
       return Promise.resolve(
@@ -356,8 +353,10 @@ void test('runOnce carries storefront links and steam app ids into refreshed gam
               name: 'Ten',
               game_type: { type: 'main_game' },
               platforms: [{ id: 6, name: 'PC' }],
-              external_games: [{ external_game_source: 1, uid: '480', platform: 6 }],
-              websites: [{ type: 17, url: 'https://www.gog.com/en/game/ten', trusted: true }],
+              websites: [
+                { type: 13, url: 'https://store.steampowered.com/app/480/Spacewar/' },
+                { type: 17, url: 'https://www.gog.com/en/game/ten', trusted: true },
+              ],
             },
           ]),
           {
@@ -376,7 +375,7 @@ void test('runOnce carries storefront links and steam app ids into refreshed gam
 
   assert.equal(summary.enabled, true);
   assert.match(refreshPayloadJson, /"steamAppId":480/);
-  assert.match(refreshPayloadJson, /"storefrontLinks"/);
+  assert.match(refreshPayloadJson, /"websites"/);
   assert.match(refreshPayloadJson, /store\.steampowered\.com\/app\/480/);
   assert.match(refreshPayloadJson, /gog\.com\/en\/game\/ten/);
 });

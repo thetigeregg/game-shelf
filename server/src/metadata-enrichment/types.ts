@@ -1,4 +1,4 @@
-import type { NormalizedStorefrontLink } from '../../../shared/igdb-storefront-normalization.mjs';
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
 
 export interface MetadataEnrichmentGameRow {
   igdbGameId: string;
@@ -28,7 +28,7 @@ export interface IgdbMetadataRecord {
   keywordIds: number[];
   screenshots: IgdbGameScreenshot[];
   videos: IgdbGameVideo[];
-  storefrontLinks: NormalizedStorefrontLink[];
+  websites: NormalizedWebsite[];
   steamAppId: number | null;
 }
 

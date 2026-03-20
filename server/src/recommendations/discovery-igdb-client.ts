@@ -5,22 +5,21 @@ import {
 } from '../provider-rate-limit.js';
 import { resolveOutboundRateLimit } from '../rate-limit.js';
 import {
-  deriveSteamAppIdFromStorefrontLinks,
-  normalizeIgdbStorefrontLinks,
-} from '../../../shared/igdb-storefront-normalization.mjs';
-import type { NormalizedStorefrontLink } from '../../../shared/igdb-storefront-normalization.mjs';
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../../shared/igdb-websites-normalization.mjs';
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
 
-const normalizeStorefrontLinks = normalizeIgdbStorefrontLinks as (
-  input: { externalGames?: unknown; websites?: unknown },
+const normalizeWebsites = normalizeIgdbWebsites as (
+  input: { websites?: unknown },
   options?: {
-    externalGameSourceNames?: ReadonlyMap<number, string> | null;
     websiteTypeNames?: ReadonlyMap<number, string> | null;
   }
-) => ReturnType<typeof normalizeIgdbStorefrontLinks>;
+) => ReturnType<typeof normalizeIgdbWebsites>;
 
-const deriveSteamAppId = deriveSteamAppIdFromStorefrontLinks as (
+const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
   value: unknown
-) => ReturnType<typeof deriveSteamAppIdFromStorefrontLinks>;
+) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
 
 interface TokenCache {
   accessToken: string;
@@ -73,7 +72,6 @@ interface RawIgdbGame {
   }>;
   total_rating_count?: number;
   aggregated_rating_count?: number;
-  external_games?: unknown;
   websites?: unknown;
 }
 
@@ -93,7 +91,6 @@ export class DiscoveryIgdbClient {
   private readonly limiter: ProviderLimiter;
   private tokenCache: TokenCache | null = null;
   private gameTypeCache: GameTypeCache | null = null;
-  private externalGameSourceCache: SourceNameCache | null = null;
   private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(private readonly options: DiscoveryIgdbClientOptions) {
@@ -200,10 +197,7 @@ export class DiscoveryIgdbClient {
     mainGameTypeIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const token = await this.getAccessToken();
-    const [externalGameSourceNames, websiteTypeNames] = await Promise.all([
-      this.getExternalGameSourceNames(token),
-      this.getWebsiteTypeNames(token),
-    ]);
+    const websiteTypeNames = await this.getWebsiteTypeNames(token);
     const lease = await this.limiter.acquire();
     const body = buildGamesQuery({
       source: params.source,
@@ -269,17 +263,15 @@ export class DiscoveryIgdbClient {
       const score = computeSourceScore(raw, params.source);
       const developers = normalizeCompanies(raw.involved_companies, 'developer');
       const publishers = normalizeCompanies(raw.involved_companies, 'publisher');
-      const storefrontLinks = normalizeStorefrontLinks(
+      const websites = normalizeWebsites(
         {
-          externalGames: raw.external_games,
           websites: raw.websites,
         },
         {
-          externalGameSourceNames,
           websiteTypeNames,
         }
-      ) as NormalizedStorefrontLink[];
-      const steamAppId = deriveSteamAppId(storefrontLinks) as number | null;
+      ) as NormalizedWebsite[];
+      const steamAppId = deriveSteamAppId(websites) as number | null;
       const payloadBase: Record<string, unknown> = {
         igdbGameId: String(igdbGameId),
         title,
@@ -303,7 +295,7 @@ export class DiscoveryIgdbClient {
         status: null,
         rating: null,
         listType: 'discovery',
-        storefrontLinks,
+        websites,
         steamAppId,
       };
 
@@ -392,26 +384,6 @@ export class DiscoveryIgdbClient {
     };
 
     return mainGameTypeIds;
-  }
-
-  private async getExternalGameSourceNames(token: string): Promise<ReadonlyMap<number, string>> {
-    const cached = this.externalGameSourceCache;
-    const now = Date.now();
-    if (cached && cached.expiresAtMs > now) {
-      return cached.values;
-    }
-
-    const values = await this.fetchNameMap({
-      token,
-      url: 'https://api.igdb.com/v4/external_game_sources',
-      fields: 'fields id,name; limit 500;',
-      valueKey: 'name',
-    });
-    this.externalGameSourceCache = {
-      values,
-      expiresAtMs: now + SOURCE_NAME_CACHE_TTL_MS,
-    };
-    return values;
   }
 
   private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {
@@ -564,7 +536,6 @@ function buildGamesQuery(params: {
     'genres.name,themes.name,keywords.name,collections.name,franchises.name,',
     'involved_companies.company.name,involved_companies.developer,involved_companies.publisher,',
     'total_rating_count,aggregated_rating_count,',
-    'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform,external_games.countries,external_games.game_release_format,',
     'websites.type,websites.category,websites.url,websites.trusted;',
     sourceWhereClause,
     sortClause,

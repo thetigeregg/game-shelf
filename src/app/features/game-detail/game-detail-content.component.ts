@@ -52,7 +52,7 @@ import {
   GameEntry,
   GameRating,
   GameScreenshot,
-  GameStorefrontLink,
+  GameWebsite,
   GameStatus,
 } from '../../core/models/game.models';
 import SwiperClass from 'swiper';
@@ -65,8 +65,8 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
-type DetailStorefrontLinkViewModel = {
-  provider: GameStorefrontLink['provider'];
+type DetailWebsiteViewModel = {
+  provider: GameWebsite['provider'];
   providerLabel: string;
   url: string;
 };
@@ -96,10 +96,7 @@ type DetailStorefrontLinkViewModel = {
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
-  private static readonly STOREFRONT_PROVIDER_ORDER: Record<
-    GameStorefrontLink['provider'],
-    number
-  > = {
+  private static readonly WEBSITE_PROVIDER_ORDER: Record<GameWebsite['provider'], number> = {
     steam: 0,
     playstation: 1,
     xbox: 2,
@@ -565,32 +562,22 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return parts.length > 0 ? parts.join(' · ') : null;
   }
 
-  get visibleStorefrontLinks(): DetailStorefrontLinkViewModel[] {
-    const storefrontLinks = this.normalizeStorefrontLinks(this.game.storefrontLinks);
+  get visibleWebsites(): DetailWebsiteViewModel[] {
+    const websites = this.normalizeWebsites(this.game.websites);
 
-    if (storefrontLinks.length === 0) {
+    if (websites.length === 0) {
       return [];
     }
 
-    const viewedPlatformId = this.normalizePositiveInteger(this.game.platformIgdbId);
-    const platformSpecificLinks = storefrontLinks.filter((link) => {
-      return viewedPlatformId !== null && link.platformIgdbId === viewedPlatformId;
-    });
-
-    const scopedLinks =
-      platformSpecificLinks.length > 0
-        ? platformSpecificLinks
-        : storefrontLinks.filter((link) => link.platformIgdbId === null);
-
-    return scopedLinks.map((link) => ({
+    return websites.map((link) => ({
       provider: link.provider,
       providerLabel: link.providerLabel,
       url: link.url,
     }));
   }
 
-  get showStorefrontSection(): boolean {
-    return this.visibleStorefrontLinks.length > 0;
+  get showWebsiteSection(): boolean {
+    return this.visibleWebsites.length > 0;
   }
 
   private hasCurrentPriceValue(): boolean {
@@ -661,24 +648,22 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return normalized;
   }
 
-  private normalizeStorefrontLinks(
-    value: GameStorefrontLink[] | null | undefined
-  ): GameStorefrontLink[] {
+  private normalizeWebsites(value: GameWebsite[] | null | undefined): GameWebsite[] {
     if (!Array.isArray(value) || value.length === 0) {
       return [];
     }
 
     return value
-      .filter((link): link is GameStorefrontLink => this.isValidStorefrontLink(link))
-      .sort((left, right) => this.compareStorefrontLinks(left, right));
+      .filter((link): link is GameWebsite => this.isValidWebsite(link))
+      .sort((left, right) => this.compareWebsites(left, right));
   }
 
-  private isValidStorefrontLink(value: unknown): value is GameStorefrontLink {
+  private isValidWebsite(value: unknown): value is GameWebsite {
     if (!value || typeof value !== 'object') {
       return false;
     }
 
-    const link = value as Partial<GameStorefrontLink>;
+    const link = value as Partial<GameWebsite>;
     if (typeof link.url !== 'string' || link.url.trim().length === 0) {
       return false;
     }
@@ -690,10 +675,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return true;
   }
 
-  private compareStorefrontLinks(left: GameStorefrontLink, right: GameStorefrontLink): number {
+  private compareWebsites(left: GameWebsite, right: GameWebsite): number {
     const providerOrder =
-      this.resolveStorefrontProviderOrder(left.provider) -
-      this.resolveStorefrontProviderOrder(right.provider);
+      this.resolveWebsiteProviderOrder(left.provider) -
+      this.resolveWebsiteProviderOrder(right.provider);
     if (providerOrder !== 0) {
       return providerOrder;
     }
@@ -710,8 +695,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     });
   }
 
-  private resolveStorefrontProviderOrder(provider: GameStorefrontLink['provider']): number {
-    return GameDetailContentComponent.STOREFRONT_PROVIDER_ORDER[provider];
+  private resolveWebsiteProviderOrder(provider: GameWebsite['provider']): number {
+    return GameDetailContentComponent.WEBSITE_PROVIDER_ORDER[provider];
   }
 
   private normalizePositiveInteger(value: unknown): number | null {

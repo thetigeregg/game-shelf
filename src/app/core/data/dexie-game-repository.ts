@@ -9,7 +9,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
-  GameStorefrontLink,
+  GameWebsite,
   GameListView,
   GameRating,
   GameStatus,
@@ -172,10 +172,10 @@ export class DexieGameRepository implements GameRepository {
           result.keywordIds === undefined
             ? this.normalizePositiveIntegerList(existing.keywordIds)
             : this.normalizePositiveIntegerList(result.keywordIds),
-        storefrontLinks:
-          result.storefrontLinks === undefined
-            ? this.normalizeStorefrontLinks(existing.storefrontLinks)
-            : this.normalizeStorefrontLinks(result.storefrontLinks),
+        websites:
+          result.websites === undefined
+            ? this.normalizeWebsites(existing.websites)
+            : this.normalizeWebsites(result.websites),
         ...(result.steamAppId !== undefined
           ? { steamAppId: resolvedSteamAppId }
           : resolvedSteamAppId !== null
@@ -290,7 +290,7 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
-      storefrontLinks: this.normalizeStorefrontLinks(result.storefrontLinks),
+      websites: this.normalizeWebsites(result.websites),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       priceSource: this.normalizePriceSource(result.priceSource),
       priceFetchedAt: this.normalizePriceFetchedAt(result.priceFetchedAt),
@@ -912,16 +912,16 @@ export class DexieGameRepository implements GameRepository {
     return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
   }
 
-  private normalizeStorefrontLinks(values: GameStorefrontLink[] | undefined): GameStorefrontLink[] {
+  private normalizeWebsites(values: GameWebsite[] | undefined): GameWebsite[] {
     if (!Array.isArray(values)) {
       return [];
     }
 
-    const normalized: GameStorefrontLink[] = [];
+    const normalized: GameWebsite[] = [];
     const seen = new Set<string>();
 
     for (const entry of values) {
-      const provider = this.normalizeStorefrontProvider(entry.provider);
+      const provider = this.normalizeWebsiteProvider(entry.provider);
       const url = this.normalizeExternalUrl(entry.url);
       if (provider === null || url === null) {
         continue;
@@ -935,15 +935,10 @@ export class DexieGameRepository implements GameRepository {
       seen.add(dedupeKey);
       normalized.push({
         provider,
-        providerLabel: this.normalizeStorefrontProviderLabel(entry.providerLabel, provider),
+        providerLabel: this.normalizeWebsiteProviderLabel(entry.providerLabel, provider),
         url,
-        sourceKind: entry.sourceKind === 'website' ? 'website' : 'external_game',
         sourceId: this.normalizeLookupQueryPlatformIgdbId(entry.sourceId),
         sourceName: this.normalizeLookupQueryTitle(entry.sourceName),
-        uid: this.normalizeLookupQueryTitle(entry.uid),
-        platformIgdbId: this.normalizeLookupQueryPlatformIgdbId(entry.platformIgdbId),
-        countryCode: this.normalizeStorefrontCountryCode(entry.countryCode),
-        releaseFormat: this.normalizeLookupQueryPlatformIgdbId(entry.releaseFormat),
         trusted: this.normalizeMatchLock(entry.trusted),
       });
     }
@@ -1087,7 +1082,7 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
-  private normalizeStorefrontProvider(value: unknown): GameStorefrontLink['provider'] | null {
+  private normalizeWebsiteProvider(value: unknown): GameWebsite['provider'] | null {
     return value === 'steam' ||
       value === 'playstation' ||
       value === 'xbox' ||
@@ -1107,9 +1102,9 @@ export class DexieGameRepository implements GameRepository {
       : null;
   }
 
-  private normalizeStorefrontProviderLabel(
+  private normalizeWebsiteProviderLabel(
     value: string | null | undefined,
-    provider: GameStorefrontLink['provider']
+    provider: GameWebsite['provider']
   ): string {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (normalized.length > 0) {
@@ -1148,13 +1143,6 @@ export class DexieGameRepository implements GameRepository {
       default:
         return 'Unknown Store';
     }
-  }
-
-  private normalizeStorefrontCountryCode(value: string | null | undefined): string | null {
-    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
-    return normalized.length > 0 && (/^[A-Z]{2}$/.test(normalized) || /^\d+$/.test(normalized))
-      ? normalized
-      : null;
   }
 
   private normalizePriceSource(

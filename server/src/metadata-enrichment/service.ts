@@ -151,6 +151,7 @@ function buildMetadataPatch(params: {
     nextValues['keywordIds'] = params.metadata.keywordIds;
     nextValues['screenshots'] = params.metadata.screenshots;
     nextValues['videos'] = params.metadata.videos;
+    nextValues['storefrontLinks'] = params.metadata.storefrontLinks;
     nextValues['steamAppId'] = params.metadata.steamAppId;
   }
   nextValues['taxonomyEnrichmentStatus'] = status;

@@ -9,6 +9,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameStorefrontLink,
   GameListView,
   GameRating,
   GameStatus,
@@ -171,6 +172,10 @@ export class DexieGameRepository implements GameRepository {
           result.keywordIds === undefined
             ? this.normalizePositiveIntegerList(existing.keywordIds)
             : this.normalizePositiveIntegerList(result.keywordIds),
+        storefrontLinks:
+          result.storefrontLinks === undefined
+            ? this.normalizeStorefrontLinks(existing.storefrontLinks)
+            : this.normalizeStorefrontLinks(result.storefrontLinks),
         ...(result.steamAppId !== undefined
           ? { steamAppId: resolvedSteamAppId }
           : resolvedSteamAppId !== null
@@ -285,6 +290,7 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+      storefrontLinks: this.normalizeStorefrontLinks(result.storefrontLinks),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       priceSource: this.normalizePriceSource(result.priceSource),
       priceFetchedAt: this.normalizePriceFetchedAt(result.priceFetchedAt),
@@ -906,6 +912,45 @@ export class DexieGameRepository implements GameRepository {
     return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
   }
 
+  private normalizeStorefrontLinks(values: GameStorefrontLink[] | undefined): GameStorefrontLink[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const normalized: GameStorefrontLink[] = [];
+    const seen = new Set<string>();
+
+    for (const entry of values) {
+      const provider = this.normalizeStorefrontProvider(entry.provider);
+      const url = this.normalizeExternalUrl(entry.url);
+      if (provider === null || url === null) {
+        continue;
+      }
+
+      const dedupeKey = `${provider}::${url}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      normalized.push({
+        provider,
+        providerLabel: this.normalizeStorefrontProviderLabel(entry.providerLabel, provider),
+        url,
+        sourceKind: entry.sourceKind === 'website' ? 'website' : 'external_game',
+        sourceId: this.normalizeLookupQueryPlatformIgdbId(entry.sourceId),
+        sourceName: this.normalizeLookupQueryTitle(entry.sourceName),
+        uid: this.normalizeLookupQueryTitle(entry.uid),
+        platformIgdbId: this.normalizeLookupQueryPlatformIgdbId(entry.platformIgdbId),
+        countryCode: this.normalizeStorefrontCountryCode(entry.countryCode),
+        releaseFormat: this.normalizeLookupQueryPlatformIgdbId(entry.releaseFormat),
+        trusted: this.normalizeMatchLock(entry.trusted),
+      });
+    }
+
+    return normalized;
+  }
+
   private normalizeCompletionHours(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
       return null;
@@ -1040,6 +1085,76 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return value;
+  }
+
+  private normalizeStorefrontProvider(value: unknown): GameStorefrontLink['provider'] | null {
+    return value === 'steam' ||
+      value === 'playstation' ||
+      value === 'xbox' ||
+      value === 'nintendo' ||
+      value === 'epic' ||
+      value === 'gog' ||
+      value === 'itch' ||
+      value === 'apple' ||
+      value === 'android' ||
+      value === 'amazon' ||
+      value === 'oculus' ||
+      value === 'gamejolt' ||
+      value === 'kartridge' ||
+      value === 'utomik' ||
+      value === 'unknown'
+      ? value
+      : null;
+  }
+
+  private normalizeStorefrontProviderLabel(
+    value: string | null | undefined,
+    provider: GameStorefrontLink['provider']
+  ): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
+    switch (provider) {
+      case 'steam':
+        return 'Steam';
+      case 'playstation':
+        return 'PlayStation';
+      case 'xbox':
+        return 'Xbox';
+      case 'nintendo':
+        return 'Nintendo';
+      case 'epic':
+        return 'Epic Games Store';
+      case 'gog':
+        return 'GOG';
+      case 'itch':
+        return 'itch.io';
+      case 'apple':
+        return 'Apple App Store';
+      case 'android':
+        return 'Google Play';
+      case 'amazon':
+        return 'Amazon';
+      case 'oculus':
+        return 'Meta Quest';
+      case 'gamejolt':
+        return 'Game Jolt';
+      case 'kartridge':
+        return 'Kartridge';
+      case 'utomik':
+        return 'Utomik';
+      default:
+        return 'Unknown Store';
+    }
+  }
+
+  private normalizeStorefrontCountryCode(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return normalized.length > 0 && (/^[A-Z]{2}$/.test(normalized) || /^\d+$/.test(normalized))
+      ? normalized
+      : null;
   }
 
   private normalizePriceSource(

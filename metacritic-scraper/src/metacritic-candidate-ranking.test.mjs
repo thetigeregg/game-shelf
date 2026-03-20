@@ -92,3 +92,36 @@ test('rankCandidate supports acronym-style GTA queries', () => {
   assert.ok(gtavExactScore >= 115);
   assert.ok(gtaVExactScore >= 40);
 });
+
+test('rankCandidate matches against any retained Metacritic platform alias', () => {
+  const multiPlatformCandidate = {
+    title: 'The Elder Scrolls V: Skyrim',
+    releaseYear: 2011,
+    platform: 'Xbox 360',
+    metacriticPlatforms: ['Xbox 360', 'PlayStation 3', 'PC'],
+    metacriticScore: 96,
+  };
+  const singlePlatformCandidate = {
+    title: 'The Elder Scrolls V: Skyrim',
+    releaseYear: 2011,
+    platform: 'Xbox 360',
+    metacriticScore: 96,
+  };
+
+  const multiPlatformScore = rankCandidate(
+    'The Elder Scrolls V: Skyrim',
+    2011,
+    'PC',
+    null,
+    multiPlatformCandidate
+  );
+  const singlePlatformScore = rankCandidate(
+    'The Elder Scrolls V: Skyrim',
+    2011,
+    'PC',
+    null,
+    singlePlatformCandidate
+  );
+
+  assert.ok(multiPlatformScore > singlePlatformScore);
+});

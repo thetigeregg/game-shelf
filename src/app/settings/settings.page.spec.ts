@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 vi.mock('@ionic/angular/standalone', () => {
   class MockAlertController {
@@ -617,6 +619,17 @@ describe('SettingsPage CSV review fields', () => {
         value: 'fullDate',
       },
     });
+  });
+
+  it('uses distinct release date display labels in the settings template', () => {
+    const template = readFileSync(
+      resolve(process.cwd(), 'src/app/settings/settings.page.html'),
+      'utf8'
+    );
+
+    expect(template).toContain('label="Collection Release Date Display"');
+    expect(template).toContain('label="Wishlist Release Date Display"');
+    expect(template).not.toContain('label="Release Date Display"');
   });
 
   it('normalizes invalid wishlist release date display changes before persisting', () => {

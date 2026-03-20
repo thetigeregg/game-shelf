@@ -73,6 +73,7 @@ import {
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
+import { openExternalUrl } from '../core/utils/open-external-url';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
@@ -1106,13 +1107,6 @@ export class ListPageComponent {
   }
 
   private openExternalUrl(url: string): void {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    openExternalUrl(url);
   }
 }

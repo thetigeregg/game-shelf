@@ -154,6 +154,7 @@ import {
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
 import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
+import { openExternalUrl } from '../../core/utils/open-external-url';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -3425,14 +3426,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openExternalUrl(url: string): void {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    openExternalUrl(url);
   }
 
   private getSelectedGames(): GameEntry[] {

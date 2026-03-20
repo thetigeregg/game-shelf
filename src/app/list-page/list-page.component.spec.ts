@@ -75,6 +75,7 @@ import {
   PopoverController,
   ToastController,
 } from '@ionic/angular/standalone';
+import { serializeListPagePreferences } from './list-page-preferences';
 
 describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
@@ -534,5 +535,307 @@ describe('ListPageComponent', () => {
     expect(normalizeProvider('pricing', true)).toBe('pricing');
     expect(normalizeProvider('pricing', false)).toBeNull();
     expect(normalizeProvider('other', true)).toBeNull();
+  });
+
+  it('normalizes incoming filters and persists the cleaned preferences', () => {
+    const component = createComponent();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    component.onFiltersChange({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['  GameCube  ', '', 'GameCube'],
+      collections: [' Prime ', ''],
+      developers: [' Retro Studios ', ''],
+      franchises: [' Metroid ', ''],
+      publishers: [' Nintendo ', ''],
+      gameTypes: ['main_game', 'invalid' as never],
+      genres: [' Action ', ''],
+      statuses: ['playing', 'none'],
+      tags: ['favorite', component.noneTagFilterValue],
+      excludedPlatform: [' Wii ', ''],
+      excludedGenres: [' Shooter ', ''],
+      excludedStatuses: ['completed', 'none'],
+      excludedTags: ['backlog', component.noneTagFilterValue],
+      excludedGameTypes: ['dlc_addon', 'invalid' as never],
+      ratings: [4, 9 as never],
+      hltbMainHoursMin: 20,
+      hltbMainHoursMax: 5,
+      sortField: 'not-real' as never,
+      sortDirection: 'sideways' as never,
+    });
+
+    expect(component.filters).toMatchObject({
+      platform: ['GameCube'],
+      collections: ['Prime'],
+      developers: ['Retro Studios'],
+      franchises: ['Metroid'],
+      publishers: ['Nintendo'],
+      gameTypes: ['main_game'],
+      genres: ['Action'],
+      statuses: ['playing', 'none'],
+      tags: [component.noneTagFilterValue, 'favorite'],
+      excludedPlatform: ['Wii'],
+      excludedGenres: ['Shooter'],
+      excludedStatuses: ['completed'],
+      excludedTags: ['backlog'],
+      excludedGameTypes: ['dlc_addon'],
+      ratings: [4],
+      hltbMainHoursMin: 5,
+      hltbMainHoursMax: 20,
+      sortField: DEFAULT_GAME_LIST_FILTERS.sortField,
+      sortDirection: 'asc',
+    });
+    expect(setItemSpy).toHaveBeenCalledOnce();
+  });
+
+  it('accepts supported sort fields including wishlist price sorting', () => {
+    routeMock.snapshot.data.listType = 'wishlist';
+    const component = createComponent();
+
+    component.onFiltersChange({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      sortField: 'price',
+      sortDirection: 'desc',
+    });
+
+    expect(component.filters.sortField).toBe('price');
+    expect(component.filters.sortDirection).toBe('desc');
+    routeMock.snapshot.data.listType = 'collection';
+  });
+
+  it('trims invalid option selections when platform, genre, and collection options change', () => {
+    const component = createComponent();
+    component.filters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['GameCube', 'Wii'],
+      excludedPlatform: ['Switch'],
+      genres: ['Action', 'Puzzle'],
+      excludedGenres: ['Shooter'],
+      collections: ['Prime', 'Fusion'],
+    };
+
+    component.onPlatformOptionsChange(['GameCube']);
+    component.onGenreOptionsChange(['Action']);
+    component.onCollectionOptionsChange(['Prime']);
+
+    expect(component.filters.platform).toEqual(['GameCube']);
+    expect(component.filters.excludedPlatform).toEqual([]);
+    expect(component.filters.genres).toEqual(['Action']);
+    expect(component.filters.excludedGenres).toEqual([]);
+    expect(component.filters.collections).toEqual(['Prime']);
+  });
+
+  it('closes popovers and tolerates dismiss failures', async () => {
+    const component = createComponent();
+    const popoverController = (
+      component as unknown as {
+        popoverController: { dismiss: () => Promise<void> };
+      }
+    ).popoverController;
+
+    component.bulkActionsPopoverEvent = new Event('click');
+    component.isBulkActionsPopoverOpen = true;
+    component.headerActionsPopoverEvent = new Event('click');
+    component.isHeaderActionsPopoverOpen = true;
+    vi.spyOn(popoverController, 'dismiss').mockRejectedValueOnce(new Error('dismiss failed'));
+
+    component.closeBulkActionsPopover();
+    await component.closeHeaderActionsPopover();
+
+    expect(component.isBulkActionsPopoverOpen).toBe(false);
+    expect(component.bulkActionsPopoverEvent).toBeUndefined();
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+    expect(component.headerActionsPopoverEvent).toBeUndefined();
+  });
+
+  it('opens popovers and normalizes group-by selections before persisting', () => {
+    const component = createComponent();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const bulkEvent = new Event('click');
+    const headerEvent = new Event('contextmenu');
+
+    component.openBulkActionsPopover(bulkEvent);
+    component.openHeaderActionsPopover(headerEvent);
+    component.onGroupByChange('platform');
+    component.onGroupByChange('not-real' as never);
+
+    expect(component.bulkActionsPopoverEvent).toBe(bulkEvent);
+    expect(component.isBulkActionsPopoverOpen).toBe(true);
+    expect(component.headerActionsPopoverEvent).toBe(headerEvent);
+    expect(component.isHeaderActionsPopoverOpen).toBe(true);
+    expect(component.groupBy).toBe('none');
+    expect(setItemSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('restores persisted preferences and ignores storage failures', () => {
+    const storedValue = serializeListPagePreferences({
+      filters: {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        platform: ['GameCube'],
+        sortField: 'platform',
+      },
+      groupBy: 'platform',
+    });
+
+    localStorage.setItem('game-shelf:preferences:collection', storedValue);
+    const restoredComponent = createComponent();
+
+    expect(restoredComponent.filters.platform).toEqual(['GameCube']);
+    expect(restoredComponent.groupBy).toBe('platform');
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+      throw new Error('storage unavailable');
+    });
+    const fallbackComponent = createComponent();
+
+    expect(fallbackComponent.filters).toEqual(DEFAULT_GAME_LIST_FILTERS);
+    expect(fallbackComponent.groupBy).toBe('none');
+    localStorage.removeItem('game-shelf:preferences:collection');
+  });
+
+  it('returns display labels and tracks requested add-game detail identities', () => {
+    const component = createComponent();
+    component.displayedGames = [{ id: 1 } as never];
+
+    expect(component.getDisplayedGamesLabel()).toBe('1 game');
+    expect(component.getListCountSummary()).toBe('1 game');
+
+    component.displayedGames = [{ id: 1 } as never, { id: 2 } as never];
+
+    expect(component.getDisplayedGamesLabel()).toBe('2 games');
+    expect(component.getListCountSummary()).toBe('2 games');
+    expect(
+      (
+        component as {
+          buildCatalogIdentityKey(
+            result: Pick<GameCatalogResult, 'igdbGameId' | 'platformIgdbId'>
+          ): string;
+        }
+      ).buildCatalogIdentityKey(makeResult({ platformIgdbId: null }))
+    ).toBe('100::none');
+
+    component.selectedAddGameDetail = makeResult({ igdbGameId: '100', platformIgdbId: 21 });
+    expect(
+      (
+        component as {
+          hasRequestedAddGameDetail(identityKey: string): boolean;
+        }
+      ).hasRequestedAddGameDetail('100::21')
+    ).toBe(true);
+    expect(
+      (
+        component as {
+          hasRequestedAddGameDetail(identityKey: string): boolean;
+        }
+      ).hasRequestedAddGameDetail('100::999')
+    ).toBe(false);
+
+    component.selectedAddGameDetail = null;
+    expect(
+      (
+        component as {
+          hasRequestedAddGameDetail(identityKey: string): boolean;
+        }
+      ).hasRequestedAddGameDetail('100::21')
+    ).toBe(false);
+  });
+
+  it('creates toasts and swallows storage write failures', async () => {
+    const component = createComponent();
+    const toastController = (
+      component as unknown as {
+        toastController: { create: ReturnType<typeof vi.fn> };
+      }
+    ).toastController;
+    const toast = { present: vi.fn().mockResolvedValue(undefined) };
+    toastController.create = vi.fn().mockResolvedValue(toast);
+
+    await (
+      component as {
+        presentToast(message: string, color?: 'primary' | 'warning'): Promise<void>;
+      }
+    ).presentToast('Saved filters', 'warning');
+
+    expect(toastController.create).toHaveBeenCalledWith({
+      message: 'Saved filters',
+      duration: 1500,
+      position: 'bottom',
+      color: 'warning',
+    });
+    expect(toast.present).toHaveBeenCalledOnce();
+
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('quota exceeded');
+    });
+
+    expect(() => {
+      component.onGroupByChange('platform');
+    }).not.toThrow();
+  });
+
+  it('counts active filters and formats selection/header labels', () => {
+    routeMock.snapshot.data.listType = 'wishlist';
+    const component = createComponent();
+    component.selectedGamesCount = 2;
+    component.filters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['GameCube'],
+      genres: ['Action'],
+      collections: ['Prime'],
+      developers: ['Retro Studios'],
+      franchises: ['Metroid'],
+      publishers: ['Nintendo'],
+      gameTypes: ['main_game'],
+      tags: ['favorite'],
+      statuses: ['playing'],
+      excludedPlatform: ['Wii'],
+      excludedTags: ['backlog'],
+      excludedGenres: ['Shooter'],
+      excludedStatuses: ['completed'],
+      excludedGameTypes: ['dlc_addon'],
+      ratings: [4],
+      hltbMainHoursMin: 1,
+      hltbMainHoursMax: null,
+      releaseDateFrom: '2002-11-17',
+      releaseDateTo: null,
+    };
+
+    expect(component.getActiveFilterCount()).toBe(17);
+    expect(component.getSelectionHeaderLabel()).toBe('2 selected');
+    expect(component.getMoveTargetLabel()).toBe('Collection');
+    expect(component.getHeaderActionsAriaLabel()).toBe('Open wishlist actions');
+    routeMock.snapshot.data.listType = 'collection';
+  });
+
+  it('closes header actions before picking a random game and warns when none are displayed', async () => {
+    const component = createComponent();
+    const toastController = (
+      component as unknown as {
+        toastController: { create: ReturnType<typeof vi.fn> };
+      }
+    ).toastController;
+    const toast = { present: vi.fn().mockResolvedValue(undefined) };
+    const gameListComponentMock = { openGameDetail: vi.fn() };
+    toastController.create = vi.fn().mockResolvedValue(toast);
+    (component as { gameListComponent: unknown }).gameListComponent = gameListComponentMock;
+
+    component.headerActionsPopoverEvent = new Event('click');
+    component.isHeaderActionsPopoverOpen = true;
+    await component.pickRandomGameFromPopover();
+
+    expect(toastController.create).toHaveBeenCalledWith({
+      message: 'No games available in current results.',
+      duration: 1500,
+      position: 'bottom',
+      color: 'warning',
+    });
+    expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+
+    component.displayedGames = [{ id: 1, title: 'Metroid Prime' } as never];
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0);
+    await component.pickRandomGameFromPopover();
+
+    expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(component.displayedGames[0]);
   });
 });

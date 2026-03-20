@@ -18,6 +18,25 @@ const variantTokens = new Set([
   'hd',
 ]);
 
+const spinoffTokens = new Set([
+  'arena',
+  'ultimax',
+  'dancing',
+  'strikers',
+  'tactica',
+  'pirate',
+  'warriors',
+  'chronicles',
+  'survivor',
+  'kart',
+  'origins',
+  'mooncrash',
+  'ignition',
+  'extraction',
+  'revelations',
+  'gaiden',
+]);
+
 const romanToArabicSeriesMap = new Map([
   ['i', '1'],
   ['ii', '2'],
@@ -31,6 +50,12 @@ const romanToArabicSeriesMap = new Map([
   ['x', '10'],
 ]);
 
+const arabicToRomanSeriesMap = new Map(
+  [...romanToArabicSeriesMap.entries()].map(([roman, arabic]) => [arabic, roman])
+);
+
+const semanticAliasGroups = [['yakuza 7', 'yakuza like a dragon', 'like a dragon']];
+
 function hasVariantToken(normalizedTitle) {
   const title = String(normalizedTitle ?? '');
   const tokens = title.split(' ').filter(Boolean);
@@ -38,6 +63,12 @@ function hasVariantToken(normalizedTitle) {
     return true;
   }
   return title.includes('game of the year');
+}
+
+function hasSpinoffToken(normalizedTitle) {
+  const title = String(normalizedTitle ?? '');
+  const tokens = title.split(' ').filter(Boolean);
+  return tokens.some((token) => spinoffTokens.has(token));
 }
 
 function canonicalizeSeriesToken(token) {
@@ -70,7 +101,15 @@ function hasAddonQualifier(rawTitle, normalizedTitle) {
   const normalized = String(normalizedTitle ?? '');
 
   if (
-    /\b(dlc|expansion|expansions|season pass|expansion pass|add on|add-on|addon|downloadable content)\b/.test(
+    /\b(dlc|expansion|expansions|season pass|expansion pass|add on|add-on|addon|downloadable content|episode|chapters?)\b/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(blood and wine|hearts of stone|new quest|quest pack|side quest|contract|scavenger hunt)\b/.test(
       normalized
     )
   ) {
@@ -90,6 +129,107 @@ function hasAddonQualifier(rawTitle, normalizedTitle) {
   }
 
   return false;
+}
+
+function buildInitialismTokens(normalizedTitle) {
+  const compactNormalizedTitle = String(normalizedTitle ?? '').replace(/\s+/g, '');
+  const tokens = String(normalizedTitle ?? '')
+    .split(' ')
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return new Set();
+  }
+
+  const stopwords = new Set(['the', 'and', 'of']);
+  const initials = [];
+  for (const token of tokens) {
+    if (stopwords.has(token)) {
+      continue;
+    }
+    if (/^\d+$/.test(token)) {
+      initials.push(token);
+      continue;
+    }
+    if (/^[a-z]$/i.test(token)) {
+      initials.push(token.toLowerCase());
+      continue;
+    }
+    initials.push(token.charAt(0));
+  }
+
+  const compact = initials.join('');
+  const spaced = initials.join(' ');
+  const variants = new Set(
+    [compactNormalizedTitle, compact, spaced].filter((value) => value.length > 1)
+  );
+
+  for (const value of [compact, spaced]) {
+    const match = value.match(/^(.*?)(\d+)$/);
+    if (!match) {
+      continue;
+    }
+
+    const roman = arabicToRomanSeriesMap.get(match[2]);
+    if (!roman) {
+      continue;
+    }
+
+    variants.add(`${match[1]}${roman}`);
+  }
+
+  return variants;
+}
+
+function isLikelyInitialismQuery(normalizedTitle) {
+  const tokens = String(normalizedTitle ?? '')
+    .split(' ')
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return false;
+  }
+
+  if (tokens.length === 1) {
+    return tokens[0].length <= 5;
+  }
+
+  return tokens.every(
+    (token) => token.length <= 3 || /^\d+$/.test(token) || arabicToRomanSeriesMap.has(token)
+  );
+}
+
+function hasWholeTitleContainment(left, right) {
+  const leftTitle = String(left ?? '').trim();
+  const rightTitle = String(right ?? '').trim();
+  if (leftTitle.length === 0 || rightTitle.length === 0) {
+    return false;
+  }
+
+  if (leftTitle === rightTitle) {
+    return true;
+  }
+
+  return (
+    rightTitle.startsWith(`${leftTitle} `) ||
+    rightTitle.endsWith(` ${leftTitle}`) ||
+    rightTitle.includes(` ${leftTitle} `)
+  );
+}
+
+function buildSemanticTitleVariants(normalizedTitle) {
+  const normalized = String(normalizedTitle ?? '').trim();
+  const variants = new Set(normalized.length > 0 ? [normalized] : []);
+
+  for (const group of semanticAliasGroups) {
+    if (!group.includes(normalized)) {
+      continue;
+    }
+
+    for (const alias of group) {
+      variants.add(alias);
+    }
+  }
+
+  return variants;
 }
 
 function normalizePlatformValue(value) {
@@ -148,6 +288,27 @@ function canonicalizePlatform(value) {
   return normalized;
 }
 
+function extractCandidatePlatformAliases(candidate) {
+  const aliases = new Set();
+
+  const addAlias = (value) => {
+    const normalized = canonicalizePlatform(value);
+    if (normalized.length > 0) {
+      aliases.add(normalized);
+    }
+  };
+
+  addAlias(candidate?.platform);
+
+  if (Array.isArray(candidate?.metacriticPlatforms)) {
+    for (const platform of candidate.metacriticPlatforms) {
+      addAlias(platform);
+    }
+  }
+
+  return aliases;
+}
+
 function resolveExpectedPlatformAliases(
   expectedPlatform,
   expectedPlatformIgdbId,
@@ -186,6 +347,10 @@ export function rankCandidate(
       : new Map();
   const normalizedExpected = normalizeTitleForMatching(expectedTitle);
   const normalizedCandidate = normalizeTitleForMatching(candidate.title);
+  const expectedSemanticVariants = buildSemanticTitleVariants(normalizedExpected);
+  const candidateSemanticVariants = buildSemanticTitleVariants(normalizedCandidate);
+  const expectedInitialisms = buildInitialismTokens(normalizedExpected);
+  const candidateInitialisms = buildInitialismTokens(normalizedCandidate);
 
   if (!normalizedExpected || !normalizedCandidate) {
     return -1;
@@ -197,6 +362,13 @@ export function rankCandidate(
     score += 100;
   }
 
+  const hasExactSemanticAliasMatch = [...expectedSemanticVariants].some((expectedVariant) =>
+    candidateSemanticVariants.has(expectedVariant)
+  );
+  if (hasExactSemanticAliasMatch && normalizedExpected !== normalizedCandidate) {
+    score += 120;
+  }
+
   const expectedTokensList = normalizedExpected.split(' ').filter(Boolean);
   const candidateTokensList = normalizedCandidate.split(' ').filter(Boolean);
   if (expectedTokensList.length === 1 && normalizedExpected !== normalizedCandidate) {
@@ -206,10 +378,25 @@ export function rankCandidate(
   }
 
   if (
-    normalizedExpected.includes(normalizedCandidate) ||
-    normalizedCandidate.includes(normalizedExpected)
+    hasWholeTitleContainment(normalizedExpected, normalizedCandidate) ||
+    hasWholeTitleContainment(normalizedCandidate, normalizedExpected)
   ) {
     score += 20;
+  }
+
+  if (isLikelyInitialismQuery(normalizedExpected)) {
+    const exactInitialismMatch = [...expectedInitialisms].some((expectedInitialism) =>
+      candidateInitialisms.has(expectedInitialism)
+    );
+    const sharesInitialism = [...expectedInitialisms].some(
+      (expectedInitialism) =>
+        candidateInitialisms.has(expectedInitialism) || normalizedCandidate === expectedInitialism
+    );
+    if (exactInitialismMatch) {
+      score += 140;
+    } else if (sharesInitialism) {
+      score += 40;
+    }
   }
 
   const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);
@@ -224,13 +411,19 @@ export function rankCandidate(
     score -= 18;
   }
 
+  const expectedHasSpinoffToken = hasSpinoffToken(normalizedExpected);
+  const candidateHasSpinoffToken = hasSpinoffToken(normalizedCandidate);
+  if (expectedHasSpinoffToken !== candidateHasSpinoffToken && candidateHasSpinoffToken) {
+    score -= 26;
+  }
+
   const expectedSeriesTokens = extractSeriesTokens(normalizedExpected);
   const candidateSeriesTokens = extractSeriesTokens(normalizedCandidate);
   if (expectedSeriesTokens.size > 0) {
     const candidateMatchesAnyExpected = [...expectedSeriesTokens].some((token) =>
       candidateSeriesTokens.has(token)
     );
-    if (!candidateMatchesAnyExpected) {
+    if (!candidateMatchesAnyExpected && !hasExactSemanticAliasMatch) {
       score -= 30;
     } else {
       const hasUnexpectedSeriesToken = [...candidateSeriesTokens].some(
@@ -274,14 +467,16 @@ export function rankCandidate(
     expectedPlatformIgdbId,
     igdbToMetacriticPlatformDisplayById
   );
-  const normalizedCandidatePlatform = canonicalizePlatform(candidate.platform);
+  const candidatePlatformAliases = extractCandidatePlatformAliases(candidate);
 
-  if (expectedPlatformAliases.size > 0 && normalizedCandidatePlatform.length > 0) {
-    const isPlatformMatch = [...expectedPlatformAliases].some(
-      (expectedAlias) =>
-        normalizedCandidatePlatform === expectedAlias ||
-        normalizedCandidatePlatform.includes(expectedAlias) ||
-        expectedAlias.includes(normalizedCandidatePlatform)
+  if (expectedPlatformAliases.size > 0 && candidatePlatformAliases.size > 0) {
+    const isPlatformMatch = [...expectedPlatformAliases].some((expectedAlias) =>
+      [...candidatePlatformAliases].some(
+        (candidateAlias) =>
+          candidateAlias === expectedAlias ||
+          candidateAlias.includes(expectedAlias) ||
+          expectedAlias.includes(candidateAlias)
+      )
     );
 
     if (isPlatformMatch) {

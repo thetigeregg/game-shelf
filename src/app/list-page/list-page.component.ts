@@ -579,14 +579,19 @@ export class ListPageComponent {
 
       this.addGameDetailErrorMessage =
         error instanceof Error ? error.message : 'Unable to load game details.';
-      const existingEntry =
-        existingEntryPromise === null
-          ? undefined
-          : await existingEntryPromise.catch(() => undefined);
+      this.isAddGameDetailLoading = false;
 
-      if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
-        this.isAddGameDetailInLibrary = Boolean(existingEntry);
+      if (existingEntryPromise !== null) {
+        void existingEntryPromise
+          .then((existingEntry) => {
+            if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+              this.isAddGameDetailInLibrary = Boolean(existingEntry);
+            }
+          })
+          .catch(() => undefined);
       }
+
+      return;
     } finally {
       if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
         this.isAddGameDetailLoading = false;

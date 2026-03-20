@@ -358,9 +358,10 @@ export function removeMergedWorktrees({
     skippedRemovalFailed: [],
     skippedBranchDeleteFailed: [],
   };
+  const normalizedCurrentWorktreePath = normalizePath(currentWorktreePath);
 
   mergedWorktrees.forEach((w) => {
-    const isCurrentWorktree = normalizePath(w.path) === currentWorktreePath;
+    const isCurrentWorktree = normalizePath(w.path) === normalizedCurrentWorktreePath;
     const isCurrentBranch = w.branch === currentBranch;
 
     if (isCurrentWorktree || isCurrentBranch) {

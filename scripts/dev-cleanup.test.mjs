@@ -293,6 +293,38 @@ test('removeMergedWorktrees dry-run previews removals without calling git', () =
   });
 });
 
+test('removeMergedWorktrees normalizes both paths before checking the current worktree', () => {
+  const logs = [];
+  const gitCalls = [];
+
+  const summary = removeMergedWorktrees({
+    mergedWorktrees: [{ branch: 'feat/current', path: 'C:\\Repo\\Worktrees\\Feature' }],
+    currentWorktreePath: 'c:\\repo\\worktrees\\feature',
+    currentBranch: 'main',
+    normalizePath: (value) => value.replace(/\\/g, '/').toLowerCase(),
+    checkWorktreeClean: () => {
+      throw new Error('current worktree should be skipped before cleanliness is checked');
+    },
+    gitRunner: (args) => {
+      gitCalls.push(args);
+      return '';
+    },
+    log: (message) => logs.push(message),
+  });
+
+  assert.deepEqual(gitCalls, []);
+  assert.deepEqual(logs, [
+    `Skipping current worktree/branch: feat/current → ${formatWorktreeDisplayPath('C:\\Repo\\Worktrees\\Feature')}`,
+  ]);
+  assert.deepEqual(summary, {
+    removed: [],
+    skippedCurrent: [{ branch: 'feat/current', path: 'C:\\Repo\\Worktrees\\Feature' }],
+    skippedDirty: [],
+    skippedRemovalFailed: [],
+    skippedBranchDeleteFailed: [],
+  });
+});
+
 test('removeMergedBranchesWithoutWorktrees deletes merged branches that are not active anywhere', () => {
   const logs = [];
   const gitCalls = [];

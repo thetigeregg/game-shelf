@@ -57,6 +57,8 @@ vi.mock('ionicons/icons', () => ({
   key: {},
   eyeOff: {},
   server: {},
+  heart: {},
+  gameController: {},
 }));
 
 import { AlertController, ToastController } from '@ionic/angular/standalone';

@@ -243,7 +243,7 @@ async function applyGameOperation(
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
-        'websites', COALESCE(EXCLUDED.payload -> 'websites', COALESCE(EXCLUDED.payload -> 'storefrontLinks', COALESCE(games.payload -> 'websites', games.payload -> 'storefrontLinks'))),
+        'websites', COALESCE(EXCLUDED.payload -> 'websites', games.payload -> 'websites'),
         'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
         'priceSource', COALESCE(EXCLUDED.payload -> 'priceSource', games.payload -> 'priceSource'),
         'priceFetchedAt', COALESCE(EXCLUDED.payload -> 'priceFetchedAt', games.payload -> 'priceFetchedAt'),
@@ -727,9 +727,7 @@ function normalizeGamePayload(
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
   const hasSteamAppId = Object.prototype.hasOwnProperty.call(payload, 'steamAppId');
-  const hasWebsites =
-    Object.prototype.hasOwnProperty.call(payload, 'websites') ||
-    Object.prototype.hasOwnProperty.call(payload, 'storefrontLinks');
+  const hasWebsites = Object.prototype.hasOwnProperty.call(payload, 'websites');
   const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
@@ -773,7 +771,7 @@ function normalizeGamePayload(
   const mobygamesGameId =
     Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
   const steamAppId = Number.isInteger(steamAppIdRaw) && steamAppIdRaw > 0 ? steamAppIdRaw : null;
-  const websites = normalizeWebsites(payload.websites ?? payload.storefrontLinks);
+  const websites = normalizeWebsites(payload.websites);
   const mobyScore =
     Number.isFinite(mobyScoreRaw) && mobyScoreRaw > 0 && mobyScoreRaw <= 10
       ? Math.round(mobyScoreRaw * 10) / 10

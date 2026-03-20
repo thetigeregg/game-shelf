@@ -319,9 +319,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     month: 'short',
     year: 'numeric',
   });
-  private static readonly ROW_FULL_DATE_MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  private static readonly ROW_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
     month: 'short',
+    year: 'numeric',
   });
+  private static readonly RELEASE_DATE_PREFIX_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
   readonly noneTagFilterValue = '__none__';
   readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
@@ -673,7 +676,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return null;
     }
 
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed.slice(0, 10));
+    const match = GameListComponent.RELEASE_DATE_PREFIX_PATTERN.exec(trimmed.slice(0, 10));
     if (!match) {
       return null;
     }
@@ -694,30 +697,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private formatFullReleaseDate(date: Date): string {
-    const month = GameListComponent.ROW_FULL_DATE_MONTH_FORMATTER.format(date);
-    const day = date.getDate();
-    const year = date.getFullYear();
-
-    return `${month} ${String(day)}${this.getOrdinalSuffix(day)}, ${String(year)}`;
-  }
-
-  private getOrdinalSuffix(day: number): string {
-    const modHundred = day % 100;
-
-    if (modHundred >= 11 && modHundred <= 13) {
-      return 'th';
-    }
-
-    switch (day % 10) {
-      case 1:
-        return 'st';
-      case 2:
-        return 'nd';
-      case 3:
-        return 'rd';
-      default:
-        return 'th';
-    }
+    return GameListComponent.ROW_FULL_DATE_FORMATTER.format(date);
   }
 
   async moveGame(game: GameEntry): Promise<void> {

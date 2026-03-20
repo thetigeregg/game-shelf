@@ -298,9 +298,18 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       return false;
     }
 
-    return (
-      event.target.closest('ion-button,button,a,input,select,textarea,[role="button"]') !== null
-    );
+    const interactiveSelector = 'ion-button,button,a,input,select,textarea,[role="button"]';
+    const closestInteractive = event.target.closest(interactiveSelector);
+
+    if (!closestInteractive) {
+      return false;
+    }
+
+    if (event.currentTarget instanceof Element && closestInteractive === event.currentTarget) {
+      return false;
+    }
+
+    return true;
   }
 
   getPlatformLabel(result: GameCatalogResult): string {

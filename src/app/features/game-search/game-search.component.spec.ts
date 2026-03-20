@@ -133,12 +133,29 @@ describe('GameSearchComponent', () => {
     const emitSpy = vi.fn();
     const result = makeResult();
     const button = document.createElement('button');
+    const row = document.createElement('div');
+    row.setAttribute('role', 'button');
     component.enableDetailNavigation = true;
     component.detailRequested.subscribe(emitSpy);
 
-    component.requestDetail({ target: button } as Event, result);
+    row.append(button);
+    component.requestDetail({ currentTarget: row, target: button } as Event, result);
 
     expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('emits detail requests when the interactive element is the row itself', () => {
+    const emitSpy = vi.fn();
+    const result = makeResult();
+    const row = document.createElement('div');
+    row.setAttribute('role', 'button');
+    component.enableDetailNavigation = true;
+    component.detailRequested.subscribe(emitSpy);
+
+    component.requestDetail({ currentTarget: row, target: row } as Event, result);
+
+    expect(emitSpy).toHaveBeenCalledOnce();
+    expect(emitSpy).toHaveBeenCalledWith(result);
   });
 
   it('keeps detail navigation disabled by default', () => {

@@ -249,12 +249,22 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  requestDetail(result: GameCatalogResult): void {
+  async requestDetail(result: GameCatalogResult): Promise<void> {
     if (!this.enableDetailNavigation) {
       return;
     }
 
-    this.detailRequested.emit(result);
+    const platformSelection = await this.resolvePlatformSelection(result);
+
+    if (platformSelection === undefined) {
+      return;
+    }
+
+    this.detailRequested.emit({
+      ...result,
+      platform: platformSelection.name,
+      platformIgdbId: platformSelection.id,
+    });
   }
 
   onActionButtonClick(event: Event, result: GameCatalogResult): void {

@@ -87,6 +87,7 @@ export interface AppConfig {
   host: string;
   port: number;
   requestBodyLimitBytes: number;
+  rateLimit: RateLimitConfig;
   globalRateLimitMaxRequests: number;
   globalRateLimitWindowMs: number;
   gameByIdRateLimitMaxRequests: number;
@@ -230,6 +231,67 @@ export interface AppConfig {
   igdbMetadataEnrichRequestTimeoutMs: number;
 }
 
+export interface NamedInboundRateLimitConfig {
+  max: number;
+  windowMs: number;
+}
+
+export interface NamedOutboundRateLimitConfig {
+  requestsPerSecond?: number;
+  minIntervalMs?: number;
+  maxDelayMs?: number;
+  maxRequests?: number;
+  windowMs?: number;
+  maxConcurrent?: number;
+  minCooldownSeconds?: number;
+  defaultCooldownSeconds?: number;
+  maxCooldownSeconds?: number;
+  requestTimeoutMs?: number;
+  windowSweepInterval?: number;
+  windowStateMaxSize?: number;
+}
+
+export interface RateLimitConfig {
+  inbound: {
+    globalBaseline: NamedInboundRateLimitConfig;
+    public_read: NamedInboundRateLimitConfig;
+    search_read: NamedInboundRateLimitConfig;
+    metadata_game_by_id: NamedInboundRateLimitConfig;
+    image_proxy: NamedInboundRateLimitConfig;
+    image_purge: NamedInboundRateLimitConfig;
+    cache_stats: NamedInboundRateLimitConfig;
+    sync_push: NamedInboundRateLimitConfig;
+    sync_pull: NamedInboundRateLimitConfig;
+    recommendations_read: NamedInboundRateLimitConfig;
+    recommendations_rebuild: NamedInboundRateLimitConfig;
+    notifications_register: NamedInboundRateLimitConfig;
+    notifications_unregister: NamedInboundRateLimitConfig;
+    notifications_test: NamedInboundRateLimitConfig;
+    notifications_observability: NamedInboundRateLimitConfig;
+    admin_read: NamedInboundRateLimitConfig;
+    admin_detail: NamedInboundRateLimitConfig;
+    admin_mutation: NamedInboundRateLimitConfig;
+    background_jobs_stats: NamedInboundRateLimitConfig;
+    background_jobs_failed_list: NamedInboundRateLimitConfig;
+    background_jobs_replay: NamedInboundRateLimitConfig;
+    manuals_read: NamedInboundRateLimitConfig;
+    manuals_refresh: NamedInboundRateLimitConfig;
+    popularity_feed: NamedInboundRateLimitConfig;
+    steam_prices: NamedInboundRateLimitConfig;
+    psprices_prices: NamedInboundRateLimitConfig;
+    hltb_search: NamedInboundRateLimitConfig;
+    metacritic_search: NamedInboundRateLimitConfig;
+    mobygames_search: NamedInboundRateLimitConfig;
+  };
+  outbound: {
+    igdb_metadata_proxy: NamedOutboundRateLimitConfig;
+    igdb_discovery: NamedOutboundRateLimitConfig;
+    igdb_metadata_enrichment: NamedOutboundRateLimitConfig;
+    igdb_popularity: NamedOutboundRateLimitConfig;
+    mobygames: NamedOutboundRateLimitConfig;
+  };
+}
+
 function readTokenList(name: string, fallbackSecretName: string): string[] {
   const source = readSecretFile(name, fallbackSecretName);
 
@@ -286,6 +348,85 @@ function normalizeCountryCode(value: string): string | null {
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
 const POPULARITY_FEED_ROW_LIMIT_MAX = 200;
 
+function readInboundPolicyConfig(
+  newPrefix: string,
+  fallback: { max: number; windowMs: number }
+): NamedInboundRateLimitConfig {
+  return {
+    max: readIntegerEnv(`RATE_LIMIT_INBOUND_${newPrefix}_MAX_REQUESTS`, fallback.max),
+    windowMs: readIntegerEnv(`RATE_LIMIT_INBOUND_${newPrefix}_WINDOW_MS`, fallback.windowMs),
+  };
+}
+
+function readOutboundPolicyConfig(
+  newPrefix: string,
+  fallback: NamedOutboundRateLimitConfig
+): NamedOutboundRateLimitConfig {
+  const next: NamedOutboundRateLimitConfig = {};
+
+  if (fallback.requestsPerSecond !== undefined) {
+    next.requestsPerSecond = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_REQUESTS_PER_SECOND`,
+      fallback.requestsPerSecond
+    );
+  }
+  if (fallback.minIntervalMs !== undefined) {
+    next.minIntervalMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_INTERVAL_MS`,
+      fallback.minIntervalMs
+    );
+  }
+  if (fallback.maxDelayMs !== undefined) {
+    next.maxDelayMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_DELAY_MS`,
+      fallback.maxDelayMs
+    );
+  }
+  if (fallback.maxRequests !== undefined) {
+    next.maxRequests = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_REQUESTS`,
+      fallback.maxRequests
+    );
+  }
+  if (fallback.windowMs !== undefined) {
+    next.windowMs = readIntegerEnv(`RATE_LIMIT_OUTBOUND_${newPrefix}_WINDOW_MS`, fallback.windowMs);
+  }
+  if (fallback.maxConcurrent !== undefined) {
+    next.maxConcurrent = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_CONCURRENT`,
+      fallback.maxConcurrent
+    );
+  }
+  if (fallback.minCooldownSeconds !== undefined) {
+    next.minCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_COOLDOWN_SECONDS`,
+      fallback.minCooldownSeconds
+    );
+  }
+  if (fallback.defaultCooldownSeconds !== undefined) {
+    next.defaultCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_DEFAULT_COOLDOWN_SECONDS`,
+      fallback.defaultCooldownSeconds
+    );
+  }
+  if (fallback.maxCooldownSeconds !== undefined) {
+    next.maxCooldownSeconds = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_COOLDOWN_SECONDS`,
+      fallback.maxCooldownSeconds
+    );
+  }
+  if (fallback.requestTimeoutMs !== undefined) {
+    next.requestTimeoutMs = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_REQUEST_TIMEOUT_MS`,
+      fallback.requestTimeoutMs
+    );
+  }
+
+  next.windowSweepInterval = fallback.windowSweepInterval;
+  next.windowStateMaxSize = fallback.windowStateMaxSize;
+  return next;
+}
+
 function readEmbeddingDimensionsEnv(name: string): number {
   const value = readIntegerEnv(name, EMBEDDING_DIMENSIONS_SCHEMA);
   if (value !== EMBEDDING_DIMENSIONS_SCHEMA) {
@@ -296,14 +437,130 @@ function readEmbeddingDimensionsEnv(name: string): number {
   return value;
 }
 
+const rateLimitConfig: RateLimitConfig = {
+  inbound: {
+    globalBaseline: readInboundPolicyConfig('GLOBAL_BASELINE', {
+      max: 2000,
+      windowMs: 15 * 60 * 1000,
+    }),
+    public_read: readInboundPolicyConfig('PUBLIC_READ', { max: 50, windowMs: 60_000 }),
+    search_read: readInboundPolicyConfig('SEARCH_READ', { max: 50, windowMs: 60_000 }),
+    metadata_game_by_id: readInboundPolicyConfig('METADATA_GAME_BY_ID', {
+      max: 50,
+      windowMs: 60_000,
+    }),
+    image_proxy: readInboundPolicyConfig('IMAGE_PROXY', { max: 50, windowMs: 60_000 }),
+    image_purge: readInboundPolicyConfig('IMAGE_PURGE', { max: 10, windowMs: 60_000 }),
+    cache_stats: readInboundPolicyConfig('CACHE_STATS', { max: 10, windowMs: 60_000 }),
+    sync_push: readInboundPolicyConfig('SYNC_PUSH', { max: 120, windowMs: 60_000 }),
+    sync_pull: readInboundPolicyConfig('SYNC_PULL', { max: 120, windowMs: 60_000 }),
+    recommendations_read: readInboundPolicyConfig('RECOMMENDATIONS_READ', {
+      max: 30,
+      windowMs: 60_000,
+    }),
+    recommendations_rebuild: readInboundPolicyConfig('RECOMMENDATIONS_REBUILD', {
+      max: 10,
+      windowMs: 60_000,
+    }),
+    notifications_register: readInboundPolicyConfig('NOTIFICATIONS_REGISTER', {
+      max: 30,
+      windowMs: 60_000,
+    }),
+    notifications_unregister: readInboundPolicyConfig('NOTIFICATIONS_UNREGISTER', {
+      max: 30,
+      windowMs: 60_000,
+    }),
+    notifications_test: readInboundPolicyConfig('NOTIFICATIONS_TEST', {
+      max: 5,
+      windowMs: 60_000,
+    }),
+    notifications_observability: readInboundPolicyConfig('NOTIFICATIONS_OBSERVABILITY', {
+      max: 10,
+      windowMs: 60_000,
+    }),
+    admin_read: readInboundPolicyConfig('ADMIN_READ', { max: 20, windowMs: 60_000 }),
+    admin_detail: readInboundPolicyConfig('ADMIN_DETAIL', { max: 30, windowMs: 60_000 }),
+    admin_mutation: readInboundPolicyConfig('ADMIN_MUTATION', { max: 10, windowMs: 60_000 }),
+    background_jobs_stats: readInboundPolicyConfig('BACKGROUND_JOBS_STATS', {
+      max: 10,
+      windowMs: 60_000,
+    }),
+    background_jobs_failed_list: readInboundPolicyConfig('BACKGROUND_JOBS_FAILED_LIST', {
+      max: 10,
+      windowMs: 60_000,
+    }),
+    background_jobs_replay: readInboundPolicyConfig('BACKGROUND_JOBS_REPLAY', {
+      max: 5,
+      windowMs: 60_000,
+    }),
+    manuals_read: readInboundPolicyConfig('MANUALS_READ', { max: 50, windowMs: 60_000 }),
+    manuals_refresh: readInboundPolicyConfig('MANUALS_REFRESH', { max: 50, windowMs: 60_000 }),
+    popularity_feed: readInboundPolicyConfig('POPULARITY_FEED', { max: 50, windowMs: 60_000 }),
+    steam_prices: readInboundPolicyConfig('STEAM_PRICES', { max: 60, windowMs: 60_000 }),
+    psprices_prices: readInboundPolicyConfig('PSPRICES_PRICES', { max: 60, windowMs: 60_000 }),
+    hltb_search: readInboundPolicyConfig('HLTB_SEARCH', { max: 240, windowMs: 60_000 }),
+    metacritic_search: readInboundPolicyConfig('METACRITIC_SEARCH', {
+      max: 240,
+      windowMs: 60_000,
+    }),
+    mobygames_search: readInboundPolicyConfig('MOBYGAMES_SEARCH', {
+      max: 12,
+      windowMs: 60_000,
+    }),
+  },
+  outbound: {
+    igdb_metadata_proxy: readOutboundPolicyConfig('IGDB_METADATA_PROXY', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      maxConcurrent: 8,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+      windowSweepInterval: 250,
+      windowStateMaxSize: 5000,
+      maxRequests: 60,
+      windowMs: 60_000,
+    }),
+    igdb_discovery: readOutboundPolicyConfig('IGDB_DISCOVERY', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      maxConcurrent: 8,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+    }),
+    igdb_metadata_enrichment: readOutboundPolicyConfig('IGDB_METADATA_ENRICHMENT', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      maxConcurrent: 8,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 15,
+      maxCooldownSeconds: 60,
+    }),
+    igdb_popularity: readOutboundPolicyConfig('IGDB_POPULARITY', {
+      requestTimeoutMs: 15_000,
+      requestsPerSecond: 4,
+      maxConcurrent: 8,
+      minCooldownSeconds: 20,
+      defaultCooldownSeconds: 60,
+      maxCooldownSeconds: 300,
+    }),
+    mobygames: readOutboundPolicyConfig('MOBYGAMES', {
+      minIntervalMs: 5_000,
+      maxDelayMs: 30_000,
+    }),
+  },
+};
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
-  globalRateLimitMaxRequests: readIntegerEnv('GLOBAL_RATE_LIMIT_MAX_REQUESTS', 2000),
-  globalRateLimitWindowMs: readIntegerEnv('GLOBAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
-  gameByIdRateLimitMaxRequests: readIntegerEnv('GAME_BY_ID_RATE_LIMIT_MAX_REQUESTS', 50),
-  gameByIdRateLimitWindowMs: readIntegerEnv('GAME_BY_ID_RATE_LIMIT_WINDOW_MS', 60_000),
+  rateLimit: rateLimitConfig,
+  globalRateLimitMaxRequests: rateLimitConfig.inbound.globalBaseline.max,
+  globalRateLimitWindowMs: rateLimitConfig.inbound.globalBaseline.windowMs,
+  gameByIdRateLimitMaxRequests: rateLimitConfig.inbound.metadata_game_by_id.max,
+  gameByIdRateLimitWindowMs: rateLimitConfig.inbound.metadata_game_by_id.windowMs,
   corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
     'http://localhost:8080',
     'http://127.0.0.1:8080',
@@ -321,11 +578,11 @@ export const config: AppConfig = {
   twitchClientId: readRequiredSecretFile('TWITCH_CLIENT_ID', 'twitch_client_id'),
   twitchClientSecret: readRequiredSecretFile('TWITCH_CLIENT_SECRET', 'twitch_client_secret'),
   theGamesDbApiKey: readRequiredSecretFile('THEGAMESDB_API_KEY', 'thegamesdb_api_key'),
-  imageProxyRateLimitWindowMs: readIntegerEnv('IMAGE_PROXY_RATE_LIMIT_WINDOW_MS', 60_000),
-  imageProxyMaxRequestsPerWindow: readIntegerEnv('IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW', 120),
-  imagePurgeMaxRequestsPerWindow: readIntegerEnv('IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW', 30),
-  cacheStatsRateLimitWindowMs: readIntegerEnv('CACHE_STATS_RATE_LIMIT_WINDOW_MS', 60_000),
-  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 60),
+  imageProxyRateLimitWindowMs: rateLimitConfig.inbound.image_proxy.windowMs,
+  imageProxyMaxRequestsPerWindow: rateLimitConfig.inbound.image_proxy.max,
+  imagePurgeMaxRequestsPerWindow: rateLimitConfig.inbound.image_purge.max,
+  cacheStatsRateLimitWindowMs: rateLimitConfig.inbound.cache_stats.windowMs,
+  cacheStatsMaxRequestsPerWindow: rateLimitConfig.inbound.cache_stats.max,
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token'),
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
@@ -334,7 +591,7 @@ export const config: AppConfig = {
   ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
-  hltbSearchRateLimitMaxPerMinute: readIntegerEnv('HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE', 240),
+  hltbSearchRateLimitMaxPerMinute: rateLimitConfig.inbound.hltb_search.max,
   metacriticScraperBaseUrl: readEnv('METACRITIC_SCRAPER_BASE_URL', ''),
   metacriticScraperToken: readSecretFile('METACRITIC_SCRAPER_TOKEN', 'metacritic_scraper_token'),
   metacriticCacheEnableStaleWhileRevalidate: readBooleanEnv(
@@ -343,10 +600,7 @@ export const config: AppConfig = {
   ),
   metacriticCacheFreshTtlSeconds: readIntegerEnv('METACRITIC_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   metacriticCacheStaleTtlSeconds: readIntegerEnv('METACRITIC_CACHE_STALE_TTL_SECONDS', 86400 * 90),
-  metacriticSearchRateLimitMaxPerMinute: readIntegerEnv(
-    'METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
-    240
-  ),
+  metacriticSearchRateLimitMaxPerMinute: rateLimitConfig.inbound.metacritic_search.max,
   mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
   steamStoreApiBaseUrl: readEnv('STEAM_STORE_API_BASE_URL', 'https://store.steampowered.com'),
@@ -391,10 +645,7 @@ export const config: AppConfig = {
   ),
   mobygamesCacheFreshTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   mobygamesCacheStaleTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_STALE_TTL_SECONDS', 86400 * 90),
-  mobygamesSearchRateLimitMaxPerMinute: readIntegerEnv(
-    'MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
-    12
-  ),
+  mobygamesSearchRateLimitMaxPerMinute: rateLimitConfig.inbound.mobygames_search.max,
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   firebaseServiceAccountJson: readSecretFile(
     'FIREBASE_SERVICE_ACCOUNT_JSON',
@@ -423,8 +674,8 @@ export const config: AppConfig = {
     0.2
   ),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
-  syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
-  syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),
+  syncPushRateLimitMaxPerMinute: rateLimitConfig.inbound.sync_push.max,
+  syncPullRateLimitMaxPerMinute: rateLimitConfig.inbound.sync_pull.max,
   openaiApiKey: readSecretFile('OPENAI_API_KEY', 'openai_api_key'),
   recommendationsSchedulerEnabled: readBooleanEnv('RECOMMENDATIONS_SCHEDULER_ENABLED', true),
   recommendationsDailyStaleHours: readIntegerEnv('RECOMMENDATIONS_DAILY_STALE_HOURS', 24),
@@ -521,14 +772,10 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_DISCOVERY_RECENT_REFRESH_HOURS',
     Math.min(6, readIntegerEnv('RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS', 24))
   ),
-  recommendationsDiscoveryIgdbRequestTimeoutMs: readIntegerEnv(
-    'RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS',
-    15_000
-  ),
-  recommendationsDiscoveryIgdbMaxRequestsPerSecond: readIntegerEnv(
-    'RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND',
-    4
-  ),
+  recommendationsDiscoveryIgdbRequestTimeoutMs:
+    rateLimitConfig.outbound.igdb_discovery.requestTimeoutMs ?? 15_000,
+  recommendationsDiscoveryIgdbMaxRequestsPerSecond:
+    rateLimitConfig.outbound.igdb_discovery.requestsPerSecond ?? 4,
   recommendationsDiscoveryEnrichEnabled: readBooleanEnv(
     'RECOMMENDATIONS_DISCOVERY_ENRICH_ENABLED',
     true
@@ -571,14 +818,10 @@ export const config: AppConfig = {
   ),
   popularityIngestEnabled: readBooleanEnv('POPULARITY_INGEST_ENABLED', true),
   popularityIngestIntervalMinutes: readIntegerEnv('POPULARITY_INGEST_INTERVAL_MINUTES', 30),
-  popularityIngestIgdbRequestTimeoutMs: readIntegerEnv(
-    'POPULARITY_INGEST_IGDB_REQUEST_TIMEOUT_MS',
-    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS', 15_000)
-  ),
-  popularityIngestIgdbMaxRequestsPerSecond: readIntegerEnv(
-    'POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND',
-    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND', 4)
-  ),
+  popularityIngestIgdbRequestTimeoutMs:
+    rateLimitConfig.outbound.igdb_popularity.requestTimeoutMs ?? 15_000,
+  popularityIngestIgdbMaxRequestsPerSecond:
+    rateLimitConfig.outbound.igdb_popularity.requestsPerSecond ?? 4,
   popularityFeedRowLimit: Math.min(
     readIntegerEnv('POPULARITY_FEED_ROW_LIMIT', 50),
     POPULARITY_FEED_ROW_LIMIT_MAX
@@ -588,8 +831,6 @@ export const config: AppConfig = {
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),
   igdbMetadataEnrichMaxGamesPerRun: readIntegerEnv('IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN', 5000),
   igdbMetadataEnrichStartupDelayMs: readIntegerEnv('IGDB_METADATA_ENRICH_STARTUP_DELAY_MS', 5000),
-  igdbMetadataEnrichRequestTimeoutMs: readIntegerEnv(
-    'IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS',
-    15_000
-  ),
+  igdbMetadataEnrichRequestTimeoutMs:
+    rateLimitConfig.outbound.igdb_metadata_enrichment.requestTimeoutMs ?? 15_000,
 };

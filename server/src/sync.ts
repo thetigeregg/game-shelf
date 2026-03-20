@@ -876,11 +876,11 @@ function normalizeWebsites(value: unknown): Array<Record<string, unknown>> {
         ? record.provider
         : null;
     const url = normalizeExternalUrl(record.url);
-    if (provider === null || url === null) {
+    if (url === null) {
       continue;
     }
 
-    const dedupeKey = `${provider}::${url}`;
+    const dedupeKey = url;
     if (seen.has(dedupeKey)) {
       continue;
     }
@@ -888,10 +888,13 @@ function normalizeWebsites(value: unknown): Array<Record<string, unknown>> {
     seen.add(dedupeKey);
     normalized.push({
       provider,
-      providerLabel: normalizeString(record.providerLabel) ?? defaultWebsiteProviderLabel(provider),
+      providerLabel:
+        provider !== null
+          ? (normalizeString(record.providerLabel) ?? defaultWebsiteProviderLabel(provider))
+          : normalizeString(record.providerLabel),
       url,
-      sourceId: normalizeOptionalPositiveInteger(record.sourceId),
-      sourceName: normalizeString(record.sourceName),
+      typeId: normalizeOptionalPositiveInteger(record.typeId),
+      typeName: normalizeString(record.typeName),
       trusted: typeof record.trusted === 'boolean' ? record.trusted : null,
     });
   }

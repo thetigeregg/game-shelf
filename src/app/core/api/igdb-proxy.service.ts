@@ -2220,11 +2220,11 @@ export class IgdbProxyService implements GameSearchApi {
         typeof record['url'] === 'string' ? record['url'] : null
       );
 
-      if (provider === null || url === null) {
+      if (url === null) {
         continue;
       }
 
-      const dedupeKey = `${provider}::${url}`;
+      const dedupeKey = url;
       if (seen.has(dedupeKey)) {
         continue;
       }
@@ -2232,10 +2232,13 @@ export class IgdbProxyService implements GameSearchApi {
       seen.add(dedupeKey);
       normalized.push({
         provider,
-        providerLabel: this.normalizeWebsiteProviderLabel(record['providerLabel'], provider),
+        providerLabel:
+          provider !== null
+            ? this.normalizeWebsiteProviderLabel(record['providerLabel'], provider)
+            : this.normalizeOptionalText(record['providerLabel']),
         url,
-        sourceId: this.normalizePositiveInteger(record['sourceId']),
-        sourceName: this.normalizeOptionalText(record['sourceName']),
+        typeId: this.normalizePositiveInteger(record['typeId']),
+        typeName: this.normalizeOptionalText(record['typeName']),
         trusted: this.normalizeOptionalBoolean(record['trusted']),
       });
     }
@@ -2263,7 +2266,10 @@ export class IgdbProxyService implements GameSearchApi {
       : null;
   }
 
-  private normalizeWebsiteProviderLabel(value: unknown, provider: GameWebsite['provider']): string {
+  private normalizeWebsiteProviderLabel(
+    value: unknown,
+    provider: Exclude<GameWebsite['provider'], null>
+  ): string {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (normalized.length > 0) {
       return normalized;

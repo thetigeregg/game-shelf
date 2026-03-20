@@ -1,24 +1,28 @@
 const STEAM_APP_URL_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
 
 const WEBSITE_CATEGORY_NAMES = new Map([
-  [1, 'official'],
-  [2, 'wikia'],
-  [3, 'wikipedia'],
-  [4, 'facebook'],
-  [5, 'twitter'],
-  [6, 'twitch'],
-  [8, 'instagram'],
-  [9, 'youtube'],
-  [10, 'iphone'],
-  [11, 'ipad'],
-  [12, 'android'],
-  [13, 'steam'],
-  [14, 'reddit'],
-  [15, 'itch'],
-  [16, 'epicgames'],
-  [17, 'gog'],
-  [18, 'discord'],
-  [19, 'bluesky'],
+  [1, 'Official Website'],
+  [2, 'Community Wiki'],
+  [3, 'Wikipedia'],
+  [4, 'Facebook'],
+  [5, 'Twitter'],
+  [6, 'Twitch'],
+  [8, 'Instagram'],
+  [9, 'YouTube'],
+  [10, 'App Store (iPhone)'],
+  [11, 'App Store (iPad)'],
+  [12, 'Google Play'],
+  [13, 'Steam'],
+  [14, 'Subreddit'],
+  [15, 'Itch'],
+  [16, 'Epic'],
+  [17, 'GOG'],
+  [18, 'Discord'],
+  [19, 'Bluesky'],
+  [22, 'Xbox'],
+  [23, 'Playstation'],
+  [24, 'Nintendo'],
+  [25, 'Meta'],
 ]);
 
 const PROVIDER_LABELS = {
@@ -163,8 +167,8 @@ function inferProviderFromHost(url) {
   return null;
 }
 
-function classifyProvider(sourceName, url) {
-  const key = normalizeLookupKey(sourceName);
+function classifyProvider(typeName, url) {
+  const key = normalizeLookupKey(typeName);
 
   if (key.includes('steam')) {
     return 'steam';
@@ -212,13 +216,13 @@ function classifyProvider(sourceName, url) {
   return inferProviderFromHost(url);
 }
 
-function resolveWebsiteSourceName(entry, options) {
-  const sourceId = parsePositiveInteger(entry?.type) ?? parsePositiveInteger(entry?.category);
-  if (sourceId === null) {
+function resolveWebsiteTypeName(entry, options) {
+  const typeId = parsePositiveInteger(entry?.type) ?? parsePositiveInteger(entry?.category);
+  if (typeId === null) {
     return null;
   }
 
-  const mapped = options?.websiteTypeNames?.get(sourceId) ?? WEBSITE_CATEGORY_NAMES.get(sourceId);
+  const mapped = options?.websiteTypeNames?.get(typeId) ?? WEBSITE_CATEGORY_NAMES.get(typeId);
   return typeof mapped === 'string' && mapped.trim().length > 0 ? mapped.trim() : null;
 }
 
@@ -226,30 +230,44 @@ function getProviderLabel(provider) {
   return PROVIDER_LABELS[provider] ?? PROVIDER_LABELS.unknown;
 }
 
+function getWebsiteTypeId(entry) {
+  return parsePositiveInteger(entry?.type) ?? parsePositiveInteger(entry?.category);
+}
+
+function mergeWebsiteRecords(current, candidate) {
+  if (!current) {
+    return candidate;
+  }
+
+  const score = (value) =>
+    (value.typeId !== null ? 4 : 0) +
+    (value.typeName !== null ? 3 : 0) +
+    (value.trusted === true ? 2 : 0) +
+    (value.provider !== null ? 1 : 0);
+
+  return score(candidate) > score(current) ? candidate : current;
+}
+
 function createNormalizedWebsite(entry, options) {
   if (!entry || typeof entry !== 'object') {
     return null;
   }
 
-  const sourceName = resolveWebsiteSourceName(entry, options);
   const url = normalizeHttpUrl(entry.url);
   if (!url) {
     return null;
   }
 
-  const provider = classifyProvider(sourceName, url) ?? inferProviderFromHost(url);
-  if (!provider) {
-    return null;
-  }
-
-  const sourceId = parsePositiveInteger(entry.type) ?? parsePositiveInteger(entry.category);
+  const typeId = getWebsiteTypeId(entry);
+  const typeName = resolveWebsiteTypeName(entry, options);
+  const provider = classifyProvider(typeName, url) ?? inferProviderFromHost(url);
 
   return {
     provider,
-    providerLabel: getProviderLabel(provider),
+    providerLabel: provider ? getProviderLabel(provider) : null,
     url,
-    sourceId,
-    sourceName,
+    typeId,
+    typeName,
     trusted: typeof entry.trusted === 'boolean' ? entry.trusted : null,
   };
 }
@@ -264,7 +282,8 @@ export function normalizeIgdbWebsites(input, options = {}) {
       continue;
     }
 
-    deduped.set(`${normalized.provider}::${normalized.url}`, normalized);
+    const dedupeKey = normalized.url;
+    deduped.set(dedupeKey, mergeWebsiteRecords(deduped.get(dedupeKey) ?? null, normalized));
   }
 
   return [...deduped.values()];
@@ -276,7 +295,12 @@ export function deriveSteamAppIdFromWebsites(value) {
   }
 
   for (const entry of value) {
-    if (!entry || typeof entry !== 'object' || entry.provider !== 'steam') {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+
+    const typeId = parsePositiveInteger(entry.typeId);
+    if (entry.provider !== 'steam' && typeId !== 13) {
       continue;
     }
 

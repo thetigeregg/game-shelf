@@ -209,6 +209,27 @@ function canonicalizePlatform(value) {
   return normalized;
 }
 
+function extractCandidatePlatformAliases(candidate) {
+  const aliases = new Set();
+
+  const addAlias = (value) => {
+    const normalized = canonicalizePlatform(value);
+    if (normalized.length > 0) {
+      aliases.add(normalized);
+    }
+  };
+
+  addAlias(candidate?.platform);
+
+  if (Array.isArray(candidate?.metacriticPlatforms)) {
+    for (const platform of candidate.metacriticPlatforms) {
+      addAlias(platform);
+    }
+  }
+
+  return aliases;
+}
+
 function resolveExpectedPlatformAliases(
   expectedPlatform,
   expectedPlatformIgdbId,
@@ -350,14 +371,16 @@ export function rankCandidate(
     expectedPlatformIgdbId,
     igdbToMetacriticPlatformDisplayById
   );
-  const normalizedCandidatePlatform = canonicalizePlatform(candidate.platform);
+  const candidatePlatformAliases = extractCandidatePlatformAliases(candidate);
 
-  if (expectedPlatformAliases.size > 0 && normalizedCandidatePlatform.length > 0) {
-    const isPlatformMatch = [...expectedPlatformAliases].some(
-      (expectedAlias) =>
-        normalizedCandidatePlatform === expectedAlias ||
-        normalizedCandidatePlatform.includes(expectedAlias) ||
-        expectedAlias.includes(normalizedCandidatePlatform)
+  if (expectedPlatformAliases.size > 0 && candidatePlatformAliases.size > 0) {
+    const isPlatformMatch = [...expectedPlatformAliases].some((expectedAlias) =>
+      [...candidatePlatformAliases].some(
+        (candidateAlias) =>
+          candidateAlias === expectedAlias ||
+          candidateAlias.includes(expectedAlias) ||
+          expectedAlias.includes(candidateAlias)
+      )
     );
 
     if (isPlatformMatch) {

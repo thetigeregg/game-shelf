@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.10.3",
+  "version": "1.11.0",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -26,6 +26,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest run --coverage",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:server": "npm --prefix server test",
     "test:worker": "npm --prefix worker test",
     "test:backend": "npm run test:server && npm run test:worker",

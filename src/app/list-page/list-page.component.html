@@ -250,9 +250,23 @@
           (addToLibrary)="addSelectedAddGameDetailToLibrary()"
         ></app-game-detail-content>
       }
+
+      @if (selectedAddGameDetail) {
+        <app-detail-shortcuts-fab
+          [showVideosShortcut]="hasAddGameDetailVideosShortcut"
+          (videosClick)="openAddGameVideosModal()"
+          (shortcutSearch)="openAddGameDetailShortcutSearch($event)"
+        ></app-detail-shortcuts-fab>
+      }
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<app-detail-videos-modal
+  [isOpen]="isAddGameVideosModalOpen"
+  [videos]="addGameDetailVideos"
+  (dismiss)="closeAddGameVideosModal()"
+></app-detail-videos-modal>
 
 @if (!isDesktop) {
   <app-game-filters-menu

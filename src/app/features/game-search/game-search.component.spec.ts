@@ -14,6 +14,7 @@ import type { GameCatalogResult, GameCatalogPlatformOption } from '../../core/mo
 describe('GameSearchComponent', () => {
   let component: GameSearchComponent;
   let addToLibraryWorkflow: { addToLibrary: ReturnType<typeof vi.fn> };
+  let alertController: { create: ReturnType<typeof vi.fn> };
 
   const gameShelfService = {
     listSearchPlatforms: vi.fn(() => of([])),
@@ -35,6 +36,9 @@ describe('GameSearchComponent', () => {
     addToLibraryWorkflow = {
       addToLibrary: vi.fn().mockResolvedValue({ status: 'added' }),
     };
+    alertController = {
+      create: vi.fn(),
+    };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -42,7 +46,7 @@ describe('GameSearchComponent', () => {
         { provide: GameShelfService, useValue: gameShelfService },
         { provide: PlatformOrderService, useValue: platformOrderService },
         { provide: PlatformCustomizationService, useValue: platformCustomizationService },
-        { provide: AlertController, useValue: { create: vi.fn() } },
+        { provide: AlertController, useValue: alertController },
         { provide: AddToLibraryWorkflowService, useValue: addToLibraryWorkflow },
         { provide: ChangeDetectorRef, useValue: { markForCheck: vi.fn() } },
       ],
@@ -68,17 +72,51 @@ describe('GameSearchComponent', () => {
     };
   }
 
-  it('emits detail requests only when detail navigation is enabled', () => {
+  it('emits detail requests only when detail navigation is enabled', async () => {
     const emitSpy = vi.fn();
     const result = makeResult();
     component.detailRequested.subscribe(emitSpy);
 
-    component.requestDetail(result);
+    await component.requestDetail(result);
     component.enableDetailNavigation = true;
-    component.requestDetail(result);
+    await component.requestDetail(result);
 
     expect(emitSpy).toHaveBeenCalledOnce();
     expect(emitSpy).toHaveBeenCalledWith(result);
+  });
+
+  it('resolves a concrete platform before emitting a detail request', async () => {
+    const emitSpy = vi.fn();
+    const result = makeResult({
+      platform: null,
+      platformIgdbId: null,
+      platformOptions: [
+        { id: 11, name: 'Xbox' },
+        { id: 21, name: 'Nintendo GameCube' },
+        { id: 8, name: 'PlayStation 2' },
+      ],
+      platforms: ['Xbox', 'Nintendo GameCube', 'PlayStation 2'],
+    });
+    alertController.create.mockResolvedValue({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    });
+    platformOrderService.comparePlatformNames.mockImplementation((left: string, right: string) =>
+      left.localeCompare(right)
+    );
+    component.enableDetailNavigation = true;
+    component.detailRequested.subscribe(emitSpy);
+
+    const requestPromise = component.requestDetail(result);
+    await requestPromise;
+
+    expect(alertController.create).toHaveBeenCalledOnce();
+    expect(emitSpy).toHaveBeenCalledOnce();
+    expect(emitSpy).toHaveBeenCalledWith({
+      ...result,
+      platform: 'Nintendo GameCube',
+      platformIgdbId: 21,
+    });
   });
 
   it('stops propagation and triggers add action from the row button', async () => {

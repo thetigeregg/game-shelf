@@ -218,6 +218,29 @@ export function extractMetacriticSearchResults(config = {}) {
       .replace(/\s+/g, ' ')
       .trim();
 
+  const normalizePayloadReleaseYearInPage = (rawReleaseDate, rawPremiereYear) => {
+    const releaseDate = String(rawReleaseDate ?? '').trim();
+    const releaseDateYearMatch = releaseDate.match(/\b(19|20)\d{2}\b/);
+    const parsedPremiereYear =
+      typeof rawPremiereYear === 'number' && Number.isInteger(rawPremiereYear)
+        ? rawPremiereYear
+        : null;
+
+    if (
+      parsedPremiereYear !== null &&
+      /\b(tba|to be announced|early access|coming soon)\b/i.test(releaseDate) &&
+      !releaseDateYearMatch
+    ) {
+      return null;
+    }
+
+    if (parsedPremiereYear !== null) {
+      return parsedPremiereYear;
+    }
+
+    return releaseDateYearMatch ? Number.parseInt(releaseDateYearMatch[0], 10) : null;
+  };
+
   const decodePayloadStringInPage = (rawValue) => {
     const quoted = `"${String(rawValue ?? '')}"`;
 
@@ -313,13 +336,10 @@ export function extractMetacriticSearchResults(config = {}) {
         }
 
         const releaseDate = String(candidate?.releaseDate ?? '').trim();
-        const releaseDateYearMatch = releaseDate.match(/\b(19|20)\d{2}\b/);
-        const releaseYearCandidate =
-          typeof candidate?.premiereYear === 'number'
-            ? candidate.premiereYear
-            : releaseDateYearMatch
-              ? Number.parseInt(releaseDateYearMatch[0], 10)
-              : null;
+        const releaseYearCandidate = normalizePayloadReleaseYearInPage(
+          releaseDate,
+          candidate?.premiereYear
+        );
         const platformNames = Array.isArray(candidate?.platforms)
           ? candidate.platforms
               .map((platformEntry) => {
@@ -496,8 +516,12 @@ export function extractMetacriticSearchResults(config = {}) {
 
       return {
         ...item,
+        title:
+          typeof payloadCandidate.title === 'string' && payloadCandidate.title.trim().length > 0
+            ? payloadCandidate.title
+            : item.title,
         releaseYear: item.releaseYear ?? payloadCandidate.releaseYear ?? null,
-        platform: item.platform ?? payloadCandidate.platform ?? null,
+        platform: payloadCandidate.platform ?? item.platform ?? null,
         metacriticScore: item.metacriticScore ?? payloadCandidate.metacriticScore ?? null,
         imageUrl: item.imageUrl ?? payloadCandidate.imageUrl ?? null,
       };
@@ -555,13 +579,11 @@ export function extractMetacriticSearchResults(config = {}) {
     const releaseDateText = String(
       row.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
-    const rowText = String(row.textContent ?? '').trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ??
-      rowText.match(/\b(19|20)\d{2}\b/) ??
-      title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
+    const rowText = String(row.textContent ?? '').trim();
     const platformEl = row.querySelector(platformSelectorInPage);
     const platform = platformEl
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')
@@ -622,13 +644,11 @@ export function extractMetacriticSearchResults(config = {}) {
     const releaseDateText = String(
       container.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
-    const containerText = String(container.textContent ?? '').trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ??
-      containerText.match(/\b(19|20)\d{2}\b/) ??
-      title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
+    const containerText = String(container.textContent ?? '').trim();
     const platformEl = container.querySelector(platformSelectorInPage);
     const platform = platformEl
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')

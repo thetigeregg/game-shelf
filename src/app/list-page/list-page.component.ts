@@ -548,14 +548,20 @@ export class ListPageComponent {
     this.addGameDetailErrorMessage = '';
     this.isAddGameDetailInLibrary = false;
     this.isAddGameDetailAddLoading = false;
+    let existingEntryPromise: ReturnType<typeof this.gameShelfService.findGameByIdentity> | null =
+      null;
 
     try {
       if (platformIgdbId === null) {
         throw new Error('Platform selection is required.');
       }
 
+      existingEntryPromise = this.gameShelfService.findGameByIdentity(
+        result.igdbGameId,
+        platformIgdbId
+      );
       const [existingEntry, hydratedCatalog] = await Promise.all([
-        this.gameShelfService.findGameByIdentity(result.igdbGameId, platformIgdbId),
+        existingEntryPromise,
         firstValueFrom(this.igdbProxyService.getGameById(result.igdbGameId)),
       ]);
 
@@ -573,9 +579,9 @@ export class ListPageComponent {
       this.addGameDetailErrorMessage =
         error instanceof Error ? error.message : 'Unable to load game details.';
       const existingEntry =
-        platformIgdbId === null
+        existingEntryPromise === null
           ? undefined
-          : await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformIgdbId);
+          : await existingEntryPromise.catch(() => undefined);
 
       if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
         this.isAddGameDetailInLibrary = Boolean(existingEntry);

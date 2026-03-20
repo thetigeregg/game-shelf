@@ -125,3 +125,82 @@ test('rankCandidate matches against any retained Metacritic platform alias', () 
 
   assert.ok(multiPlatformScore > singlePlatformScore);
 });
+
+test('rankCandidate maps Yakuza 7 queries to Yakuza Like a Dragon', () => {
+  const localizedCandidate = {
+    title: 'Yakuza: Like a Dragon',
+    releaseYear: 2020,
+    platform: 'PlayStation 4',
+    metacriticScore: 84,
+  };
+  const unrelatedNumberCandidate = {
+    title: 'Gran Turismo 7',
+    releaseYear: 2022,
+    platform: 'PlayStation 5',
+    metacriticScore: 87,
+  };
+
+  const localizedScore = rankCandidate('yakuza 7', null, null, null, localizedCandidate);
+  const unrelatedScore = rankCandidate('yakuza 7', null, null, null, unrelatedNumberCandidate);
+
+  assert.ok(localizedScore > unrelatedScore);
+  assert.ok(localizedScore >= 100);
+});
+
+test('rankCandidate penalizes spinoff qualifiers for Persona 4 base queries', () => {
+  const baseCandidate = {
+    title: 'Shin Megami Tensei: Persona 4',
+    releaseYear: 2008,
+    platform: 'PlayStation 2',
+    metacriticScore: 90,
+  };
+  const goldenCandidate = {
+    title: 'Persona 4 Golden',
+    releaseYear: 2012,
+    platform: 'PlayStation Vita',
+    metacriticScore: 93,
+  };
+  const arenaCandidate = {
+    title: 'Persona 4 Arena',
+    releaseYear: 2012,
+    platform: 'PlayStation 3',
+    metacriticScore: 86,
+  };
+  const dancingCandidate = {
+    title: 'Persona 4: Dancing All Night',
+    releaseYear: 2015,
+    platform: 'PlayStation Vita',
+    metacriticScore: 76,
+  };
+
+  const baseScore = rankCandidate('persona 4', null, null, null, baseCandidate);
+  const goldenScore = rankCandidate('persona 4', null, null, null, goldenCandidate);
+  const arenaScore = rankCandidate('persona 4', null, null, null, arenaCandidate);
+  const dancingScore = rankCandidate('persona 4', null, null, null, dancingCandidate);
+
+  assert.ok(baseScore > arenaScore);
+  assert.ok(baseScore > dancingScore);
+  assert.ok(goldenScore > arenaScore);
+  assert.ok(goldenScore > dancingScore);
+});
+
+test('rankCandidate does not overboost compact initialism matches for full title queries', () => {
+  const exactCandidate = {
+    title: 'Dead Space',
+    releaseYear: 2023,
+    platform: 'PlayStation 5',
+    metacriticScore: 89,
+  };
+  const compactFalsePositive = {
+    title: 'Dead Spaceshot',
+    releaseYear: null,
+    platform: 'PC',
+    metacriticScore: null,
+  };
+
+  const exactScore = rankCandidate('dead space', null, null, null, exactCandidate);
+  const falsePositiveScore = rankCandidate('dead space', null, null, null, compactFalsePositive);
+
+  assert.ok(exactScore > falsePositiveScore);
+  assert.ok(falsePositiveScore < 100);
+});

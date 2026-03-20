@@ -18,6 +18,25 @@ const variantTokens = new Set([
   'hd',
 ]);
 
+const spinoffTokens = new Set([
+  'arena',
+  'ultimax',
+  'dancing',
+  'strikers',
+  'tactica',
+  'pirate',
+  'warriors',
+  'chronicles',
+  'survivor',
+  'kart',
+  'origins',
+  'mooncrash',
+  'ignition',
+  'extraction',
+  'revelations',
+  'gaiden',
+]);
+
 const romanToArabicSeriesMap = new Map([
   ['i', '1'],
   ['ii', '2'],
@@ -35,6 +54,8 @@ const arabicToRomanSeriesMap = new Map(
   [...romanToArabicSeriesMap.entries()].map(([roman, arabic]) => [arabic, roman])
 );
 
+const semanticAliasGroups = [['yakuza 7', 'yakuza like a dragon', 'like a dragon']];
+
 function hasVariantToken(normalizedTitle) {
   const title = String(normalizedTitle ?? '');
   const tokens = title.split(' ').filter(Boolean);
@@ -42,6 +63,12 @@ function hasVariantToken(normalizedTitle) {
     return true;
   }
   return title.includes('game of the year');
+}
+
+function hasSpinoffToken(normalizedTitle) {
+  const title = String(normalizedTitle ?? '');
+  const tokens = title.split(' ').filter(Boolean);
+  return tokens.some((token) => spinoffTokens.has(token));
 }
 
 function canonicalizeSeriesToken(token) {
@@ -148,6 +175,58 @@ function buildInitialismTokens(normalizedTitle) {
     }
 
     variants.add(`${match[1]}${roman}`);
+  }
+
+  return variants;
+}
+
+function isLikelyInitialismQuery(normalizedTitle) {
+  const tokens = String(normalizedTitle ?? '')
+    .split(' ')
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return false;
+  }
+
+  if (tokens.length === 1) {
+    return tokens[0].length <= 5;
+  }
+
+  return tokens.every(
+    (token) => token.length <= 3 || /^\d+$/.test(token) || arabicToRomanSeriesMap.has(token)
+  );
+}
+
+function hasWholeTitleContainment(left, right) {
+  const leftTitle = String(left ?? '').trim();
+  const rightTitle = String(right ?? '').trim();
+  if (leftTitle.length === 0 || rightTitle.length === 0) {
+    return false;
+  }
+
+  if (leftTitle === rightTitle) {
+    return true;
+  }
+
+  return (
+    rightTitle.startsWith(`${leftTitle} `) ||
+    rightTitle.endsWith(` ${leftTitle}`) ||
+    rightTitle.includes(` ${leftTitle} `)
+  );
+}
+
+function buildSemanticTitleVariants(normalizedTitle) {
+  const normalized = String(normalizedTitle ?? '').trim();
+  const variants = new Set(normalized.length > 0 ? [normalized] : []);
+
+  for (const group of semanticAliasGroups) {
+    if (!group.includes(normalized)) {
+      continue;
+    }
+
+    for (const alias of group) {
+      variants.add(alias);
+    }
   }
 
   return variants;
@@ -268,6 +347,8 @@ export function rankCandidate(
       : new Map();
   const normalizedExpected = normalizeTitleForMatching(expectedTitle);
   const normalizedCandidate = normalizeTitleForMatching(candidate.title);
+  const expectedSemanticVariants = buildSemanticTitleVariants(normalizedExpected);
+  const candidateSemanticVariants = buildSemanticTitleVariants(normalizedCandidate);
   const expectedInitialisms = buildInitialismTokens(normalizedExpected);
   const candidateInitialisms = buildInitialismTokens(normalizedCandidate);
 
@@ -281,6 +362,13 @@ export function rankCandidate(
     score += 100;
   }
 
+  const hasExactSemanticAliasMatch = [...expectedSemanticVariants].some((expectedVariant) =>
+    candidateSemanticVariants.has(expectedVariant)
+  );
+  if (hasExactSemanticAliasMatch && normalizedExpected !== normalizedCandidate) {
+    score += 120;
+  }
+
   const expectedTokensList = normalizedExpected.split(' ').filter(Boolean);
   const candidateTokensList = normalizedCandidate.split(' ').filter(Boolean);
   if (expectedTokensList.length === 1 && normalizedExpected !== normalizedCandidate) {
@@ -290,23 +378,25 @@ export function rankCandidate(
   }
 
   if (
-    normalizedExpected.includes(normalizedCandidate) ||
-    normalizedCandidate.includes(normalizedExpected)
+    hasWholeTitleContainment(normalizedExpected, normalizedCandidate) ||
+    hasWholeTitleContainment(normalizedCandidate, normalizedExpected)
   ) {
     score += 20;
   }
 
-  const exactInitialismMatch = [...expectedInitialisms].some((expectedInitialism) =>
-    candidateInitialisms.has(expectedInitialism)
-  );
-  const sharesInitialism = [...expectedInitialisms].some(
-    (expectedInitialism) =>
-      candidateInitialisms.has(expectedInitialism) || normalizedCandidate === expectedInitialism
-  );
-  if (exactInitialismMatch) {
-    score += 140;
-  } else if (sharesInitialism) {
-    score += 40;
+  if (isLikelyInitialismQuery(normalizedExpected)) {
+    const exactInitialismMatch = [...expectedInitialisms].some((expectedInitialism) =>
+      candidateInitialisms.has(expectedInitialism)
+    );
+    const sharesInitialism = [...expectedInitialisms].some(
+      (expectedInitialism) =>
+        candidateInitialisms.has(expectedInitialism) || normalizedCandidate === expectedInitialism
+    );
+    if (exactInitialismMatch) {
+      score += 140;
+    } else if (sharesInitialism) {
+      score += 40;
+    }
   }
 
   const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);
@@ -321,13 +411,19 @@ export function rankCandidate(
     score -= 18;
   }
 
+  const expectedHasSpinoffToken = hasSpinoffToken(normalizedExpected);
+  const candidateHasSpinoffToken = hasSpinoffToken(normalizedCandidate);
+  if (expectedHasSpinoffToken !== candidateHasSpinoffToken && candidateHasSpinoffToken) {
+    score -= 26;
+  }
+
   const expectedSeriesTokens = extractSeriesTokens(normalizedExpected);
   const candidateSeriesTokens = extractSeriesTokens(normalizedCandidate);
   if (expectedSeriesTokens.size > 0) {
     const candidateMatchesAnyExpected = [...expectedSeriesTokens].some((token) =>
       candidateSeriesTokens.has(token)
     );
-    if (!candidateMatchesAnyExpected) {
+    if (!candidateMatchesAnyExpected && !hasExactSemanticAliasMatch) {
       score -= 30;
     } else {
       const hasUnexpectedSeriesToken = [...candidateSeriesTokens].some(

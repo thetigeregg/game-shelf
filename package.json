@@ -74,6 +74,7 @@
     "@capacitor/status-bar": "8.0.1",
     "@ionic/angular": "^8.8.1",
     "@playwright/test": "^1.58.2",
+    "@semantic-icons/simple-icons": "^0.58.0",
     "@tiptap/core": "^3.20.4",
     "@tiptap/extension-details": "^3.20.4",
     "@tiptap/extension-list": "^3.20.4",

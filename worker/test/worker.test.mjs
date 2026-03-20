@@ -1028,6 +1028,55 @@ test('returns 429 when IGDB platforms endpoint is rate limited', async () => {
   assert.ok(Number(response.headers.get('Retry-After') ?? '0') >= 20);
 });
 
+test('limits IGDB metadata proxy concurrency to eight open upstream requests', async () => {
+  resetCaches();
+
+  let activeIgdbRequests = 0;
+  let maxActiveIgdbRequests = 0;
+  let releaseIgdbRequests;
+  const igdbReleasePromise = new Promise((resolve) => {
+    releaseIgdbRequests = resolve;
+  });
+
+  const fetchStub = async (url) => {
+    const normalizedUrl = String(url);
+
+    if (normalizedUrl.startsWith('https://id.twitch.tv/oauth2/token')) {
+      return new Response(JSON.stringify({ access_token: 'abc123', expires_in: 3600 }), {
+        status: 200,
+      });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/games') {
+      activeIgdbRequests += 1;
+      maxActiveIgdbRequests = Math.max(maxActiveIgdbRequests, activeIgdbRequests);
+      await igdbReleasePromise;
+      activeIgdbRequests -= 1;
+
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const requests = Array.from({ length: 9 }, () =>
+    handleRequest(new Request('https://worker.example/v1/games/search?q=halo'), env, fetchStub)
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(maxActiveIgdbRequests, 8);
+  assert.equal(activeIgdbRequests, 8);
+
+  releaseIgdbRequests();
+  const responses = await Promise.all(requests);
+
+  assert.equal(maxActiveIgdbRequests, 8);
+  assert.equal(
+    responses.every((response) => response.status === 200),
+    true
+  );
+});
+
 test('returns 502 when Twitch credentials are missing for IGDB routes', async () => {
   resetCaches();
 

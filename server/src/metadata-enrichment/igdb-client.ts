@@ -172,7 +172,7 @@ export class MetadataEnrichmentIgdbClient {
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
-    await this.limiter.acquire();
+    const lease = await this.limiter.acquire();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
@@ -185,6 +185,7 @@ export class MetadataEnrichmentIgdbClient {
       });
     } finally {
       clearTimeout(timeoutId);
+      lease.release();
     }
   }
 }

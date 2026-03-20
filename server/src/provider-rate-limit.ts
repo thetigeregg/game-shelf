@@ -8,6 +8,7 @@ export interface SharedProviderRateLimitPolicy {
   maxDelayMs?: number;
   maxRequests?: number;
   windowMs?: number;
+  maxConcurrent?: number;
   minCooldownSeconds?: number;
   defaultCooldownSeconds?: number;
   maxCooldownSeconds?: number;
@@ -22,6 +23,7 @@ export interface ProviderLimiterAcquireOptions {
 export interface ProviderLimiterAcquireResult {
   delayMs: number;
   scopeKey: string;
+  release: () => void;
 }
 
 export interface ProviderLimiterEvent {

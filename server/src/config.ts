@@ -242,6 +242,7 @@ interface NamedOutboundRateLimitConfig {
   maxDelayMs?: number;
   maxRequests?: number;
   windowMs?: number;
+  maxConcurrent?: number;
   minCooldownSeconds?: number;
   defaultCooldownSeconds?: number;
   maxCooldownSeconds?: number;
@@ -390,6 +391,12 @@ function readOutboundPolicyConfig(
   if (fallback.windowMs !== undefined) {
     next.windowMs = readIntegerEnv(`RATE_LIMIT_OUTBOUND_${newPrefix}_WINDOW_MS`, fallback.windowMs);
   }
+  if (fallback.maxConcurrent !== undefined) {
+    next.maxConcurrent = readIntegerEnv(
+      `RATE_LIMIT_OUTBOUND_${newPrefix}_MAX_CONCURRENT`,
+      fallback.maxConcurrent
+    );
+  }
   if (fallback.minCooldownSeconds !== undefined) {
     next.minCooldownSeconds = readIntegerEnv(
       `RATE_LIMIT_OUTBOUND_${newPrefix}_MIN_COOLDOWN_SECONDS`,
@@ -504,8 +511,8 @@ const rateLimitConfig: RateLimitConfig = {
   outbound: {
     igdb_metadata_proxy: readOutboundPolicyConfig('IGDB_METADATA_PROXY', {
       requestTimeoutMs: 15_000,
-      maxRequests: 60,
-      windowMs: 60_000,
+      requestsPerSecond: 4,
+      maxConcurrent: 8,
       minCooldownSeconds: 20,
       defaultCooldownSeconds: 15,
       maxCooldownSeconds: 60,
@@ -515,6 +522,7 @@ const rateLimitConfig: RateLimitConfig = {
     igdb_discovery: readOutboundPolicyConfig('IGDB_DISCOVERY', {
       requestTimeoutMs: 15_000,
       requestsPerSecond: 4,
+      maxConcurrent: 8,
       minCooldownSeconds: 20,
       defaultCooldownSeconds: 15,
       maxCooldownSeconds: 60,
@@ -522,6 +530,7 @@ const rateLimitConfig: RateLimitConfig = {
     igdb_metadata_enrichment: readOutboundPolicyConfig('IGDB_METADATA_ENRICHMENT', {
       requestTimeoutMs: 15_000,
       requestsPerSecond: 4,
+      maxConcurrent: 8,
       minCooldownSeconds: 20,
       defaultCooldownSeconds: 15,
       maxCooldownSeconds: 60,
@@ -529,6 +538,7 @@ const rateLimitConfig: RateLimitConfig = {
     igdb_popularity: readOutboundPolicyConfig('IGDB_POPULARITY', {
       requestTimeoutMs: 15_000,
       requestsPerSecond: 4,
+      maxConcurrent: 8,
       minCooldownSeconds: 20,
       defaultCooldownSeconds: 60,
       maxCooldownSeconds: 300,

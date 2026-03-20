@@ -56,6 +56,8 @@ export function createProviderLimiter(policyName, policy, options = {}) {
     nextRequestAtMs: 0,
     windowEntries: new Map(),
     sweepCounter: 0,
+    activeRequests: 0,
+    concurrencyWaiters: [],
   };
 
   function sweepWindowEntries(nowMs) {
@@ -122,6 +124,40 @@ export function createProviderLimiter(policyName, policy, options = {}) {
       delayMs,
       message: `Rate limit exceeded. Retry after ${String(retryAfterSeconds)}s.`,
     });
+  }
+
+  function releaseConcurrencySlot() {
+    if (state.activeRequests > 0) {
+      state.activeRequests -= 1;
+    }
+
+    const nextWaiter = state.concurrencyWaiters.shift();
+    nextWaiter?.();
+  }
+
+  async function reserveConcurrencySlot() {
+    const maxConcurrent = normalizePositiveInteger(policy.maxConcurrent, 0);
+    if (maxConcurrent <= 0) {
+      return () => undefined;
+    }
+
+    while (state.activeRequests >= maxConcurrent) {
+      await new Promise((resolve) => {
+        state.concurrencyWaiters.push(resolve);
+      });
+    }
+
+    state.activeRequests += 1;
+    let released = false;
+
+    return () => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      releaseConcurrencySlot();
+    };
   }
 
   function reserveWindowSlot(scopeKey, nowMs) {
@@ -213,7 +249,8 @@ export function createProviderLimiter(policyName, policy, options = {}) {
       throw windowError;
     }
 
-    return { delayMs, scopeKey };
+    const release = await reserveConcurrencySlot();
+    return { delayMs, scopeKey, release };
   }
 
   function reserveDelayMs(scopeKey = 'global', nowMs = now()) {
@@ -252,6 +289,8 @@ export function createProviderLimiter(policyName, policy, options = {}) {
     state.nextRequestAtMs = 0;
     state.windowEntries.clear();
     state.sweepCounter = 0;
+    state.activeRequests = 0;
+    state.concurrencyWaiters.length = 0;
   }
 
   return {

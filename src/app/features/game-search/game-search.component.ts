@@ -73,8 +73,10 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   @Input() actionMode: 'add' | 'select' = 'add';
   @Input() initialQuery = '';
   @Input() initialPlatformIgdbId: number | null = null;
+  @Input() enableDetailNavigation = false;
   @Output() gameAdded = new EventEmitter<void>();
   @Output() matchSelected = new EventEmitter<GameCatalogResult>();
+  @Output() detailRequested = new EventEmitter<GameCatalogResult>();
 
   query = '';
   results: GameCatalogResult[] = [];
@@ -245,6 +247,19 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     } finally {
       this.setAddingState(result.igdbGameId, false);
     }
+  }
+
+  requestDetail(result: GameCatalogResult): void {
+    if (!this.enableDetailNavigation) {
+      return;
+    }
+
+    this.detailRequested.emit(result);
+  }
+
+  onActionButtonClick(event: Event, result: GameCatalogResult): void {
+    event.stopPropagation();
+    void this.addGame(result);
   }
 
   isAdding(externalId: string): boolean {

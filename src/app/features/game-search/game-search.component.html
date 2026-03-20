@@ -47,7 +47,12 @@
       </ion-item>
     }
     @for (result of results; track trackByExternalId($index, result)) {
-      <ion-item lines="full">
+      <ion-item
+        lines="full"
+        [button]="enableDetailNavigation"
+        [detail]="enableDetailNavigation"
+        (click)="requestDetail(result)"
+      >
         <div slot="start" class="game-art">
           <img
             [src]="result.coverUrl || 'assets/icon/placeholder.png'"
@@ -67,7 +72,7 @@
           fill="outline"
           size="small"
           [disabled]="isAdding(result.igdbGameId)"
-          (click)="addGame(result)"
+          (click)="onActionButtonClick($event, result)"
         >
           {{ getActionLabel(result.igdbGameId) }}
         </ion-button>

@@ -43,6 +43,11 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
         flex: 0 0 1.375rem;
         display: block;
       }
+
+      .website-brand-icon--forest {
+        color: var(--ion-color-forest);
+        fill: var(--ion-color-forest);
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

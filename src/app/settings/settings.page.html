@@ -33,6 +33,44 @@
 
     <ion-list lines="full">
       <ion-list-header>
+        <ion-label>Display</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-label>Collection Release Date Display</ion-label>
+        <ion-select
+          labelPlacement="end"
+          interface="popover"
+          [value]="collectionReleaseDateDisplay"
+          (ionChange)="onCollectionReleaseDateDisplayChange($any($event).detail.value)"
+        >
+          @for (option of releaseDateDisplayOptions; track option.value) {
+            <ion-select-option [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-label>Wishlist Release Date Display</ion-label>
+        <ion-select
+          labelPlacement="end"
+          interface="popover"
+          [value]="wishlistReleaseDateDisplay"
+          (ionChange)="onWishlistReleaseDateDisplayChange($any($event).detail.value)"
+        >
+          @for (option of releaseDateDisplayOptions; track option.value) {
+            <ion-select-option [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+    </ion-list>
+
+    <ion-list lines="full">
+      <ion-list-header>
         <ion-label>Data</ion-label>
       </ion-list-header>
 

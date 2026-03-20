@@ -280,17 +280,21 @@ export class PopularityIngestService {
     }
 
     const token = await this.getAccessToken();
-    await this.acquireLimiter('popularity types');
-
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: 'fields id; sort id asc; limit 500;',
-    });
+    const release = await this.acquireLimiter('popularity types');
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: 'fields id; sort id asc; limit 500;',
+      });
+    } finally {
+      release();
+    }
 
     if (response.status === 429) {
       throw this.createIgdbRateLimitError(response, 'popularity types');
@@ -320,24 +324,31 @@ export class PopularityIngestService {
     limit: number
   ): Promise<PopularityPrimitiveItem[]> {
     const token = await this.getAccessToken();
-    await this.acquireLimiter(`popularity primitives for type ${String(popularityTypeId)}`);
+    const release = await this.acquireLimiter(
+      `popularity primitives for type ${String(popularityTypeId)}`
+    );
 
     const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 500) : 500;
 
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_primitives', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: [
-        `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
-        'fields game_id,popularity_type,value;',
-        'sort value desc;',
-        `limit ${String(normalizedLimit)};`,
-      ].join(' '),
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_primitives', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: [
+          `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
+          'fields game_id,popularity_type,value;',
+          'sort value desc;',
+          `limit ${String(normalizedLimit)};`,
+        ].join(' '),
+      });
+    } finally {
+      release();
+    }
 
     if (response.status === 429) {
       throw this.createIgdbRateLimitError(
@@ -389,21 +400,25 @@ export class PopularityIngestService {
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
-      await this.acquireLimiter('game metadata');
-
-      const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: {
-          'Client-ID': this.options.twitchClientId,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'text/plain',
-        },
-        body: [
-          `where id = (${batch.join(',')});`,
-          'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
-          `limit ${String(batch.length)};`,
-        ].join(' '),
-      });
+      const release = await this.acquireLimiter('game metadata');
+      let response: Response;
+      try {
+        response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
+          method: 'POST',
+          headers: {
+            'Client-ID': this.options.twitchClientId,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'text/plain',
+          },
+          body: [
+            `where id = (${batch.join(',')});`,
+            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
+            `limit ${String(batch.length)};`,
+          ].join(' '),
+        });
+      } finally {
+        release();
+      }
 
       if (response.status === 429) {
         throw this.createIgdbRateLimitError(response, 'game metadata');
@@ -779,9 +794,10 @@ export class PopularityIngestService {
     return new IgdbRateLimitError(operation, normalizedRetryAfterMs);
   }
 
-  private async acquireLimiter(operation: string): Promise<void> {
+  private async acquireLimiter(operation: string): Promise<() => void> {
     try {
-      await this.limiter.acquire();
+      const lease = await this.limiter.acquire();
+      return lease.release;
     } catch (error) {
       if (error instanceof ProviderThrottleError) {
         throw new IgdbRateLimitError(operation, error.retryAfterSeconds * 1000);

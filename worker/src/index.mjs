@@ -426,6 +426,16 @@ function getIgdbOutboundLimiter(env = {}, options = {}) {
     igdbOutboundLimiter = createProviderLimiter(
       'igdb_metadata_proxy',
       {
+        requestsPerSecond: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND',
+          4
+        ),
+        maxConcurrent: readPositiveIntegerEnv(
+          env,
+          'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_CONCURRENT',
+          8
+        ),
         minCooldownSeconds: readPositiveIntegerEnv(
           env,
           'RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MIN_COOLDOWN_SECONDS',
@@ -1392,20 +1402,26 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
     `limit ${platformIds.length};`,
   ].join(' ');
 
-  const response = await fetchWithTimeout(
-    fetchImpl,
-    'https://api.igdb.com/v4/platforms',
-    {
-      method: 'POST',
-      headers: {
-        'Client-ID': env.TWITCH_CLIENT_ID,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+  const lease = await getIgdbOutboundLimiter(env).acquire({ scopeKey: 'platforms' });
+  let response;
+  try {
+    response = await fetchWithTimeout(
+      fetchImpl,
+      'https://api.igdb.com/v4/platforms',
+      {
+        method: 'POST',
+        headers: {
+          'Client-ID': env.TWITCH_CLIENT_ID,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body,
       },
-      body,
-    },
-    timeoutMs
-  );
+      timeoutMs
+    );
+  } finally {
+    lease.release();
+  }
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1513,16 +1529,22 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
         bodyParts.push('limit 25;');
 
         const body = bodyParts.join(' ');
-        const response = await fetchWithTimeout(
-          fetchImpl,
-          'https://api.igdb.com/v4/games',
-          {
-            method: 'POST',
-            headers: requestHeaders,
-            body,
-          },
-          timeoutMs
-        );
+        const lease = await getIgdbOutboundLimiter(env).acquire({ scopeKey: 'games_search' });
+        let response;
+        try {
+          response = await fetchWithTimeout(
+            fetchImpl,
+            'https://api.igdb.com/v4/games',
+            {
+              method: 'POST',
+              headers: requestHeaders,
+              body,
+            },
+            timeoutMs
+          );
+        } finally {
+          lease.release();
+        }
 
         if (response.status === 429) {
           throw new UpstreamRateLimitError(
@@ -1626,20 +1648,26 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
     'limit 1;',
   ].join(' ');
 
-  const response = await fetchWithTimeout(
-    fetchImpl,
-    'https://api.igdb.com/v4/games',
-    {
-      method: 'POST',
-      headers: {
-        'Client-ID': env.TWITCH_CLIENT_ID,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+  const lease = await getIgdbOutboundLimiter(env).acquire({ scopeKey: 'game_by_id' });
+  let response;
+  try {
+    response = await fetchWithTimeout(
+      fetchImpl,
+      'https://api.igdb.com/v4/games',
+      {
+        method: 'POST',
+        headers: {
+          'Client-ID': env.TWITCH_CLIENT_ID,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body,
       },
-      body,
-    },
-    timeoutMs
-  );
+      timeoutMs
+    );
+  } finally {
+    lease.release();
+  }
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));

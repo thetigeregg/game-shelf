@@ -1,0 +1,23 @@
+<ion-modal [isOpen]="isOpen" (didDismiss)="dismiss.emit()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Websites</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="dismiss.emit()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="gs-safe-bottom">
+      <ion-list>
+        @for (item of items; track item.key) {
+          <ion-item button detail="true" (click)="websiteSelect.emit(item)">
+            <ion-icon slot="start" [name]="item.icon" aria-hidden="true"></ion-icon>
+            <ion-label>{{ item.label }}</ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>

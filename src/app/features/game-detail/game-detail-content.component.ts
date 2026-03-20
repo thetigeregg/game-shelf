@@ -52,7 +52,6 @@ import {
   GameEntry,
   GameRating,
   GameScreenshot,
-  GameWebsite,
   GameStatus,
 } from '../../core/models/game.models';
 import SwiperClass from 'swiper';
@@ -65,10 +64,6 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
-type DetailWebsiteViewModel = {
-  label: string;
-  url: string;
-};
 
 @Component({
   selector: 'app-game-detail-content',
@@ -95,12 +90,6 @@ type DetailWebsiteViewModel = {
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
-  private static readonly VISIBLE_WEBSITE_TYPE_IDS = [
-    2, 6, 3, 12, 14, 1, 9, 10, 15, 13, 16, 17, 22, 23, 24,
-  ] as const;
-  private static readonly WEBSITE_TYPE_ORDER: ReadonlyMap<number, number> = new Map<number, number>(
-    GameDetailContentComponent.VISIBLE_WEBSITE_TYPE_IDS.map((id, index) => [id, index])
-  );
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -550,23 +539,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return parts.length > 0 ? parts.join(' · ') : null;
   }
 
-  get visibleWebsites(): DetailWebsiteViewModel[] {
-    const websites = this.normalizeWebsites(this.game.websites);
-
-    if (websites.length === 0) {
-      return [];
-    }
-
-    return websites.map((link) => ({
-      label: this.resolveWebsiteLabel(link),
-      url: link.url,
-    }));
-  }
-
-  get showWebsiteSection(): boolean {
-    return this.visibleWebsites.length > 0;
-  }
-
   private hasCurrentPriceValue(): boolean {
     if ((this.game as Partial<GameEntry>).priceIsFree === true) {
       return true;
@@ -633,88 +605,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     return normalized;
-  }
-
-  private normalizeWebsites(value: GameWebsite[] | null | undefined): GameWebsite[] {
-    if (!Array.isArray(value) || value.length === 0) {
-      return [];
-    }
-
-    return value
-      .filter((link): link is GameWebsite => this.isValidWebsite(link))
-      .sort((left, right) => this.compareWebsites(left, right));
-  }
-
-  private isValidWebsite(value: unknown): value is GameWebsite {
-    if (!value || typeof value !== 'object') {
-      return false;
-    }
-
-    const link = value as Partial<GameWebsite>;
-    if (typeof link.url !== 'string' || link.url.trim().length === 0) {
-      return false;
-    }
-
-    const typeId = this.normalizePositiveInteger(link.typeId);
-    if (typeId === null || !GameDetailContentComponent.WEBSITE_TYPE_ORDER.has(typeId)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private compareWebsites(left: GameWebsite, right: GameWebsite): number {
-    const leftTypeId = this.normalizePositiveInteger(left.typeId);
-    const rightTypeId = this.normalizePositiveInteger(right.typeId);
-    const typeOrder =
-      this.resolveWebsiteTypeOrder(leftTypeId) - this.resolveWebsiteTypeOrder(rightTypeId);
-    if (typeOrder !== 0) {
-      return typeOrder;
-    }
-
-    const labelOrder = this.resolveWebsiteLabel(left).localeCompare(
-      this.resolveWebsiteLabel(right),
-      undefined,
-      {
-        sensitivity: 'base',
-      }
-    );
-    if (labelOrder !== 0) {
-      return labelOrder;
-    }
-
-    return left.url.localeCompare(right.url, undefined, {
-      sensitivity: 'base',
-    });
-  }
-
-  private resolveWebsiteTypeOrder(typeId: number | null): number {
-    return typeId === null
-      ? Number.MAX_SAFE_INTEGER
-      : (GameDetailContentComponent.WEBSITE_TYPE_ORDER.get(typeId) ?? Number.MAX_SAFE_INTEGER);
-  }
-
-  private resolveWebsiteLabel(website: GameWebsite): string {
-    const typeName = typeof website.typeName === 'string' ? website.typeName.trim() : '';
-    if (typeName.length > 0) {
-      return typeName;
-    }
-
-    const providerLabel =
-      typeof website.providerLabel === 'string' ? website.providerLabel.trim() : '';
-    if (providerLabel.length > 0) {
-      return providerLabel;
-    }
-
-    try {
-      return new URL(website.url).hostname;
-    } catch {
-      return website.url;
-    }
-  }
-
-  private normalizePositiveInteger(value: unknown): number | null {
-    return Number.isInteger(value) && (value as number) > 0 ? (value as number) : null;
   }
 
   private resolvePriceCurrency(value: string | null | undefined): string {

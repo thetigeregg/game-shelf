@@ -57,7 +57,7 @@ vi.mock('swiper/modules', () => ({
 
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
-import type { GameEntry, GameWebsite } from '../../core/models/game.models';
+import type { GameEntry } from '../../core/models/game.models';
 
 type SwiperInstanceMock = {
   allowTouchMove: boolean;
@@ -94,18 +94,6 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
-function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
-  return {
-    provider: 'steam',
-    providerLabel: 'Steam',
-    url: 'https://store.steampowered.com/app/123',
-    typeId: 13,
-    typeName: 'Steam',
-    trusted: null,
     ...overrides,
   };
 }
@@ -238,127 +226,6 @@ describe('GameDetailContentComponent rating display', () => {
     });
 
     expect(component.currentPriceLabel).toBe('Free');
-  });
-
-  it('hides website section when no websites are available', () => {
-    const component = createComponent();
-    component.context = 'library';
-    component.game = makeLibraryGame({
-      websites: [],
-    });
-
-    expect(component.showWebsiteSection).toBe(false);
-    expect(component.visibleWebsites).toEqual([]);
-  });
-
-  it('shows websites when present', () => {
-    const component = createComponent();
-    component.context = 'library';
-    component.game = makeLibraryGame({
-      websites: [
-        makeWebsite({
-          provider: 'steam',
-          providerLabel: 'Steam',
-          typeId: 13,
-          typeName: 'Steam',
-          url: 'https://store.steampowered.com/app/10',
-        }),
-        makeWebsite({
-          provider: 'xbox',
-          providerLabel: 'Xbox',
-          typeId: 22,
-          typeName: 'Xbox',
-          url: 'https://www.xbox.com/games/store/example',
-        }),
-      ],
-    });
-
-    expect(component.showWebsiteSection).toBe(true);
-    expect(component.visibleWebsites).toEqual([
-      {
-        label: 'Steam',
-        url: 'https://store.steampowered.com/app/10',
-      },
-      {
-        label: 'Xbox',
-        url: 'https://www.xbox.com/games/store/example',
-      },
-    ]);
-  });
-
-  it('sorts websites by provider priority', () => {
-    const component = createComponent();
-    component.context = 'library';
-    component.game = makeLibraryGame({
-      websites: [
-        makeWebsite({
-          provider: 'gog',
-          providerLabel: 'GOG',
-          typeId: 17,
-          typeName: 'GOG',
-          url: 'https://www.gog.com/en/game/example',
-        }),
-        makeWebsite({
-          provider: 'epic',
-          providerLabel: 'Epic Games Store',
-          typeId: 16,
-          typeName: 'Epic',
-          url: 'https://store.epicgames.com/en-US/p/example',
-        }),
-        makeWebsite({
-          provider: 'steam',
-          providerLabel: 'Steam',
-          typeId: 13,
-          typeName: 'Steam',
-          url: 'https://store.steampowered.com/app/10',
-        }),
-      ],
-    });
-
-    expect(component.visibleWebsites).toEqual([
-      {
-        label: 'Steam',
-        url: 'https://store.steampowered.com/app/10',
-      },
-      {
-        label: 'Epic',
-        url: 'https://store.epicgames.com/en-US/p/example',
-      },
-      {
-        label: 'GOG',
-        url: 'https://www.gog.com/en/game/example',
-      },
-    ]);
-  });
-
-  it('hides non-whitelisted website types from the UI', () => {
-    const component = createComponent();
-    component.context = 'library';
-    component.game = makeLibraryGame({
-      websites: [
-        makeWebsite({
-          provider: null,
-          providerLabel: null,
-          typeId: 18,
-          typeName: 'Discord',
-          url: 'https://discord.gg/example',
-        }),
-        makeWebsite({
-          provider: null,
-          providerLabel: null,
-          typeId: 1,
-          typeName: 'Official Website',
-          url: 'https://example.com',
-        }),
-      ],
-    });
-
-    expect(component.visibleWebsites).toEqual([
-      {
-        label: 'Official Website',
-        url: 'https://example.com',
-      },
-    ]);
   });
 
   it('falls back to default currency formatting when Intl throws for a currency code', () => {

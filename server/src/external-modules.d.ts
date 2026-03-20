@@ -11,6 +11,7 @@ declare module '../../shared/provider-rate-limit.mjs' {
     maxDelayMs?: number;
     maxRequests?: number;
     windowMs?: number;
+    maxConcurrent?: number;
     minCooldownSeconds?: number;
     defaultCooldownSeconds?: number;
     maxCooldownSeconds?: number;
@@ -25,6 +26,7 @@ declare module '../../shared/provider-rate-limit.mjs' {
   export interface ProviderLimiterAcquireResult {
     delayMs: number;
     scopeKey: string;
+    release: () => void;
   }
 
   export interface ProviderLimiter {
@@ -91,6 +93,7 @@ declare module '../../../shared/provider-rate-limit.mjs' {
     maxDelayMs?: number;
     maxRequests?: number;
     windowMs?: number;
+    maxConcurrent?: number;
     minCooldownSeconds?: number;
     defaultCooldownSeconds?: number;
     maxCooldownSeconds?: number;
@@ -105,6 +108,7 @@ declare module '../../../shared/provider-rate-limit.mjs' {
   export interface ProviderLimiterAcquireResult {
     delayMs: number;
     scopeKey: string;
+    release: () => void;
   }
 
   export interface ProviderLimiter {

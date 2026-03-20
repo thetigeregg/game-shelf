@@ -59,7 +59,10 @@ test('provider limiter applies cooldown from headers and blocks acquires until r
   nowMs += 16_000;
   assert.equal(limiter.getCooldownRemainingSeconds(), 0);
   limiter.reset();
-  assert.deepEqual(await limiter.acquire(), { delayMs: 0, scopeKey: 'global' });
+  const acquired = await limiter.acquire();
+  assert.equal(acquired.delayMs, 0);
+  assert.equal(acquired.scopeKey, 'global');
+  assert.equal(typeof acquired.release, 'function');
 
   assert.equal(
     events.some(
@@ -100,14 +103,17 @@ test('provider limiter enforces local request pacing and queue limits', async ()
     }
   );
 
-  assert.deepEqual(await pacingLimiter.acquire({ scopeKey: 'boxart' }), {
-    delayMs: 0,
-    scopeKey: 'boxart',
-  });
-  assert.deepEqual(await pacingLimiter.acquire({ scopeKey: 'boxart' }), {
-    delayMs: 500,
-    scopeKey: 'boxart',
-  });
+  const firstAcquire = await pacingLimiter.acquire({ scopeKey: 'boxart' });
+  assert.equal(firstAcquire.delayMs, 0);
+  assert.equal(firstAcquire.scopeKey, 'boxart');
+  assert.equal(typeof firstAcquire.release, 'function');
+  firstAcquire.release();
+
+  const secondAcquire = await pacingLimiter.acquire({ scopeKey: 'boxart' });
+  assert.equal(secondAcquire.delayMs, 500);
+  assert.equal(secondAcquire.scopeKey, 'boxart');
+  assert.equal(typeof secondAcquire.release, 'function');
+  secondAcquire.release();
   assert.deepEqual(pacingSleeps, [500]);
 
   const queueEvents = [];
@@ -165,10 +171,10 @@ test('provider limiter does not consume window capacity when queue admission is 
     }
   );
 
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'boxart' }), {
-    delayMs: 0,
-    scopeKey: 'boxart',
-  });
+  const firstAcquire = await limiter.acquire({ scopeKey: 'boxart' });
+  assert.equal(firstAcquire.delayMs, 0);
+  assert.equal(firstAcquire.scopeKey, 'boxart');
+  firstAcquire.release();
 
   await assert.rejects(
     limiter.acquire({ scopeKey: 'boxart' }),
@@ -179,10 +185,10 @@ test('provider limiter does not consume window capacity when queue admission is 
   );
 
   nowMs = 500;
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'boxart' }), {
-    delayMs: 0,
-    scopeKey: 'boxart',
-  });
+  const secondAcquire = await limiter.acquire({ scopeKey: 'boxart' });
+  assert.equal(secondAcquire.delayMs, 0);
+  assert.equal(secondAcquire.scopeKey, 'boxart');
+  secondAcquire.release();
 });
 
 test('provider limiter enforces local window limits and evicts expired entries', async () => {
@@ -203,14 +209,15 @@ test('provider limiter enforces local window limits and evicts expired entries',
     }
   );
 
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'search' }), {
-    delayMs: 0,
-    scopeKey: 'search',
-  });
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'search' }), {
-    delayMs: 0,
-    scopeKey: 'search',
-  });
+  const firstAcquire = await limiter.acquire({ scopeKey: 'search' });
+  assert.equal(firstAcquire.delayMs, 0);
+  assert.equal(firstAcquire.scopeKey, 'search');
+  firstAcquire.release();
+
+  const secondAcquire = await limiter.acquire({ scopeKey: 'search' });
+  assert.equal(secondAcquire.delayMs, 0);
+  assert.equal(secondAcquire.scopeKey, 'search');
+  secondAcquire.release();
 
   await assert.rejects(
     limiter.acquire({ scopeKey: 'search' }),
@@ -221,10 +228,10 @@ test('provider limiter enforces local window limits and evicts expired entries',
   );
 
   nowMs = 1_500;
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'search' }), {
-    delayMs: 0,
-    scopeKey: 'search',
-  });
+  const thirdAcquire = await limiter.acquire({ scopeKey: 'search' });
+  assert.equal(thirdAcquire.delayMs, 0);
+  assert.equal(thirdAcquire.scopeKey, 'search');
+  thirdAcquire.release();
 });
 
 test('provider limiter re-checks cooldown after waiting for local pacing', async () => {
@@ -251,10 +258,10 @@ test('provider limiter re-checks cooldown after waiting for local pacing', async
     }
   );
 
-  assert.deepEqual(await limiter.acquire({ scopeKey: 'search' }), {
-    delayMs: 0,
-    scopeKey: 'search',
-  });
+  const firstAcquire = await limiter.acquire({ scopeKey: 'search' });
+  assert.equal(firstAcquire.delayMs, 0);
+  assert.equal(firstAcquire.scopeKey, 'search');
+  firstAcquire.release();
 
   await assert.rejects(
     limiter.acquire({ scopeKey: 'search' }),
@@ -264,4 +271,29 @@ test('provider limiter re-checks cooldown after waiting for local pacing', async
       error.retryAfterSeconds === 5 &&
       error.delayMs === 500
   );
+});
+
+test('provider limiter caps concurrent requests until a slot is released', async () => {
+  const limiter = createProviderLimiter('igdb', {
+    maxConcurrent: 2,
+  });
+
+  const first = await limiter.acquire({ scopeKey: 'search' });
+  const second = await limiter.acquire({ scopeKey: 'search' });
+
+  let thirdResolved = false;
+  const thirdPromise = limiter.acquire({ scopeKey: 'search' }).then((lease) => {
+    thirdResolved = true;
+    return lease;
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(thirdResolved, false);
+
+  first.release();
+  const third = await thirdPromise;
+  assert.equal(third.scopeKey, 'search');
+
+  second.release();
+  third.release();
 });

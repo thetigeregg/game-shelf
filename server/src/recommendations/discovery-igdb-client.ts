@@ -174,22 +174,27 @@ export class DiscoveryIgdbClient {
     mainGameTypeIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const token = await this.getAccessToken();
-    await this.limiter.acquire();
+    const lease = await this.limiter.acquire();
     const body = buildGamesQuery({
       source: params.source,
       offset: params.offset,
       limit: params.limit,
       mainGameTypeIds: params.mainGameTypeIds,
     });
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body,
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body,
+      });
+    } finally {
+      lease.release();
+    }
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -287,17 +292,22 @@ export class DiscoveryIgdbClient {
     }
 
     const token = await this.getAccessToken();
-    await this.limiter.acquire();
+    const lease = await this.limiter.acquire();
 
-    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/game_types', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.options.twitchClientId,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: 'fields id,type;',
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout('https://api.igdb.com/v4/game_types', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: 'fields id,type;',
+      });
+    } finally {
+      lease.release();
+    }
 
     if (!response.ok) {
       if (response.status === 429) {

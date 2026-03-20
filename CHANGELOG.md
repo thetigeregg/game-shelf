@@ -2684,3 +2684,8 @@
 
 - 67cfdd15 Merge pull request #261 from thetigeregg/feat/bumperzaa
 - e4616d4e chore: update dependencies in package-lock.json
+
+## v1.10.3 - 2026-03-20
+
+- 925379d7 Merge pull request #262 from thetigeregg/dependabot/npm_and_yarn/server/fast-xml-parser-5.5.7
+- 93c3ff62 chore(deps): bump fast-xml-parser from 5.5.6 to 5.5.7 in /server

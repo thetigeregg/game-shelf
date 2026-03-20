@@ -161,4 +161,83 @@ describe('GameSearchComponent', () => {
   it('keeps detail navigation disabled by default', () => {
     expect(component.enableDetailNavigation).toBe(false);
   });
+
+  it('ignores detail requests when no platform options are available', () => {
+    const emitSpy = vi.fn();
+    const result = makeResult({
+      platformOptions: [],
+      platforms: [],
+      platform: null,
+      platformIgdbId: null,
+    });
+    component.enableDetailNavigation = true;
+    component.detailRequested.subscribe(emitSpy);
+
+    component.requestDetail(undefined, result);
+
+    expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns platform labels for zero, one, and many platform results', () => {
+    expect(component.getPlatformLabel(makeResult({ platformOptions: [], platforms: [] }))).toBe(
+      'Unknown platform'
+    );
+    expect(component.getPlatformLabel(makeResult())).toBe('GameCube');
+    expect(
+      component.getPlatformLabel(
+        makeResult({
+          platformOptions: [
+            { id: 21, name: 'GameCube' },
+            { id: 8, name: 'PlayStation 2' },
+          ],
+          platforms: ['GameCube', 'PlayStation 2'],
+        })
+      )
+    ).toBe('2 platforms');
+  });
+
+  it('falls back to Unknown platform when display names normalize to blank', () => {
+    platformCustomizationService.getDisplayNameWithoutAlias.mockReturnValueOnce('   ');
+
+    expect(component.getPlatformDisplayName('GameCube', 21)).toBe('Unknown platform');
+  });
+
+  it('normalizes supported game type labels and ignores unsupported values', () => {
+    expect(component.getGameTypeBadgeLabel(makeResult({ gameType: 'main_game' }))).toBe(
+      'Main Game'
+    );
+    expect(component.getGameTypeBadgeLabel(makeResult({ gameType: 'standalone_expansion' }))).toBe(
+      'Standalone Expansion'
+    );
+    expect(component.getGameTypeBadgeLabel(makeResult({ gameType: 'not_real' }))).toBeNull();
+  });
+
+  it('updates selected platform ids from numeric and invalid search values', () => {
+    component.onSearchPlatformChange(21);
+    expect(component.selectedSearchPlatformIgdbId).toBe(21);
+
+    component.onSearchPlatformChange('8');
+    expect(component.selectedSearchPlatformIgdbId).toBe(8);
+
+    component.onSearchPlatformChange('bad');
+    expect(component.selectedSearchPlatformIgdbId).toBeNull();
+  });
+
+  it('returns action labels for add and select modes', () => {
+    expect(component.getActionLabel('100')).toBe('Add');
+
+    component.actionMode = 'select';
+    expect(component.getActionLabel('100')).toBe('Select');
+
+    (component as { addingExternalIds: Set<string> }).addingExternalIds.add('100');
+    expect(component.getActionLabel('100')).toBe('Selecting...');
+  });
+
+  it('replaces broken images with the placeholder asset', () => {
+    const image = document.createElement('img');
+
+    component.onImageError({ target: image } as unknown as Event);
+
+    expect(image.src).toContain('assets/icon/placeholder.png');
+  });
 });

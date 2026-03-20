@@ -73,8 +73,10 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   @Input() actionMode: 'add' | 'select' = 'add';
   @Input() initialQuery = '';
   @Input() initialPlatformIgdbId: number | null = null;
+  @Input() enableDetailNavigation = false;
   @Output() gameAdded = new EventEmitter<void>();
   @Output() matchSelected = new EventEmitter<GameCatalogResult>();
+  @Output() detailRequested = new EventEmitter<GameCatalogResult>();
 
   query = '';
   results: GameCatalogResult[] = [];
@@ -247,6 +249,34 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  requestDetail(event: Event | undefined, result: GameCatalogResult): void {
+    if (!this.enableDetailNavigation) {
+      return;
+    }
+
+    if (this.isFromNestedInteractiveElement(event)) {
+      return;
+    }
+
+    const platformSelection = this.resolveDetailPlatformSelection(result);
+
+    if (platformSelection === undefined) {
+      return;
+    }
+
+    this.detailRequested.emit({
+      ...result,
+      platform: platformSelection.name,
+      platformIgdbId: platformSelection.id,
+    });
+  }
+
+  onActionButtonClick(event: Event, result: GameCatalogResult): void {
+    event.preventDefault();
+    event.stopPropagation();
+    void this.addGame(result);
+  }
+
   isAdding(externalId: string): boolean {
     return this.addingExternalIds.has(externalId);
   }
@@ -261,6 +291,25 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     if (target instanceof HTMLImageElement) {
       target.src = 'assets/icon/placeholder.png';
     }
+  }
+
+  private isFromNestedInteractiveElement(event: Event | undefined): boolean {
+    if (!(event?.target instanceof Element)) {
+      return false;
+    }
+
+    const interactiveSelector = 'ion-button,button,a,input,select,textarea,[role="button"]';
+    const closestInteractive = event.target.closest(interactiveSelector);
+
+    if (!closestInteractive) {
+      return false;
+    }
+
+    if (event.currentTarget instanceof Element && closestInteractive === event.currentTarget) {
+      return false;
+    }
+
+    return true;
   }
 
   getPlatformLabel(result: GameCatalogResult): string {
@@ -383,6 +432,29 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     return platforms[selectedIndex];
+  }
+
+  private resolveDetailPlatformSelection(result: GameCatalogResult): SelectedPlatform | undefined {
+    const platforms = this.getPlatformOptions(result);
+
+    if (platforms.length === 0) {
+      return undefined;
+    }
+
+    const currentPlatformIgdbId =
+      typeof result.platformIgdbId === 'number' && Number.isInteger(result.platformIgdbId)
+        ? result.platformIgdbId
+        : null;
+
+    if (currentPlatformIgdbId !== null) {
+      const existingPlatform = platforms.find((platform) => platform.id === currentPlatformIgdbId);
+
+      if (existingPlatform) {
+        return existingPlatform;
+      }
+    }
+
+    return platforms[0];
   }
 
   private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {

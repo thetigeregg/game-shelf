@@ -16,11 +16,11 @@ export type NormalizedWebsiteProvider =
   | 'unknown';
 
 export interface NormalizedWebsite {
-  provider: NormalizedWebsiteProvider;
-  providerLabel: string;
+  provider: NormalizedWebsiteProvider | null;
+  providerLabel: string | null;
   url: string;
-  sourceId: number | null;
-  sourceName: string | null;
+  typeId: number | null;
+  typeName: string | null;
   trusted: boolean | null;
 }
 

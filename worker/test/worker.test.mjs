@@ -240,7 +240,7 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
   assert.equal(calls.igdbBodies[0].includes('websites.type,websites.category,websites.url'), true);
-  assert.equal(calls.igdbBodies[0].includes('external_games.external_game_source'), false);
+  assert.equal(calls.igdbBodies[0].includes('external_games.'), false);
 });
 
 test('normalizeIgdbGame extracts steam app id from websites', () => {
@@ -287,28 +287,88 @@ test('normalizeIgdbGame builds websites from website rows', () => {
       provider: 'steam',
       providerLabel: 'Steam',
       url: 'https://store.steampowered.com/app/480/Spacewar/',
-      sourceId: 13,
-      sourceName: 'Steam',
+      typeId: 13,
+      typeName: 'Steam',
       trusted: null,
     },
     {
       provider: 'xbox',
       providerLabel: 'Xbox',
       url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-      sourceId: null,
-      sourceName: null,
+      typeId: null,
+      typeName: null,
       trusted: true,
     },
     {
       provider: 'gog',
       providerLabel: 'GOG',
       url: 'https://www.gog.com/en/game/test_game',
-      sourceId: 17,
-      sourceName: 'gog',
+      typeId: 17,
+      typeName: 'gog',
       trusted: true,
     },
   ]);
   assert.equal(normalized.steamAppId, 480);
+});
+
+test('normalizeIgdbGame preserves non-store website types when urls are valid', () => {
+  const normalized = normalizeIgdbGame(
+    {
+      id: 125,
+      name: 'All Websites',
+      websites: [
+        {
+          type: 1,
+          url: 'https://www.residentevil.com/requiem/en-us/',
+          trusted: false,
+        },
+        {
+          type: 3,
+          url: 'https://en.wikipedia.org/wiki/Resident_Evil_Requiem',
+          trusted: true,
+        },
+        {
+          type: 14,
+          url: 'https://www.reddit.com/r/GTA6/',
+          trusted: true,
+        },
+      ],
+    },
+    {
+      websiteTypeNames: new Map([
+        [1, 'Official Website'],
+        [3, 'Wikipedia'],
+        [14, 'Subreddit'],
+      ]),
+    }
+  );
+
+  assert.deepEqual(normalized.websites, [
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.residentevil.com/requiem/en-us/',
+      typeId: 1,
+      typeName: 'Official Website',
+      trusted: false,
+    },
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://en.wikipedia.org/wiki/Resident_Evil_Requiem',
+      typeId: 3,
+      typeName: 'Wikipedia',
+      trusted: true,
+    },
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.reddit.com/r/GTA6/',
+      typeId: 14,
+      typeName: 'Subreddit',
+      trusted: true,
+    },
+  ]);
 });
 
 test('normalizeIgdbGame maps and deduplicates themes and keywords', () => {

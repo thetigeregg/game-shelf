@@ -103,8 +103,8 @@ function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
     provider: 'steam',
     providerLabel: 'Steam',
     url: 'https://store.steampowered.com/app/123',
-    sourceId: 13,
-    sourceName: 'Steam',
+    typeId: 13,
+    typeName: 'Steam',
     trusted: null,
     ...overrides,
   };
@@ -259,11 +259,15 @@ describe('GameDetailContentComponent rating display', () => {
         makeWebsite({
           provider: 'steam',
           providerLabel: 'Steam',
+          typeId: 13,
+          typeName: 'Steam',
           url: 'https://store.steampowered.com/app/10',
         }),
         makeWebsite({
           provider: 'xbox',
           providerLabel: 'Xbox',
+          typeId: 22,
+          typeName: 'Xbox',
           url: 'https://www.xbox.com/games/store/example',
         }),
       ],
@@ -272,13 +276,11 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.showWebsiteSection).toBe(true);
     expect(component.visibleWebsites).toEqual([
       {
-        provider: 'steam',
-        providerLabel: 'Steam',
+        label: 'Steam',
         url: 'https://store.steampowered.com/app/10',
       },
       {
-        provider: 'xbox',
-        providerLabel: 'Xbox',
+        label: 'Xbox',
         url: 'https://www.xbox.com/games/store/example',
       },
     ]);
@@ -292,16 +294,22 @@ describe('GameDetailContentComponent rating display', () => {
         makeWebsite({
           provider: 'gog',
           providerLabel: 'GOG',
+          typeId: 17,
+          typeName: 'GOG',
           url: 'https://www.gog.com/en/game/example',
         }),
         makeWebsite({
           provider: 'epic',
           providerLabel: 'Epic Games Store',
+          typeId: 16,
+          typeName: 'Epic',
           url: 'https://store.epicgames.com/en-US/p/example',
         }),
         makeWebsite({
           provider: 'steam',
           providerLabel: 'Steam',
+          typeId: 13,
+          typeName: 'Steam',
           url: 'https://store.steampowered.com/app/10',
         }),
       ],
@@ -309,19 +317,46 @@ describe('GameDetailContentComponent rating display', () => {
 
     expect(component.visibleWebsites).toEqual([
       {
-        provider: 'steam',
-        providerLabel: 'Steam',
+        label: 'Steam',
         url: 'https://store.steampowered.com/app/10',
       },
       {
-        provider: 'epic',
-        providerLabel: 'Epic Games Store',
+        label: 'Epic',
         url: 'https://store.epicgames.com/en-US/p/example',
       },
       {
-        provider: 'gog',
-        providerLabel: 'GOG',
+        label: 'GOG',
         url: 'https://www.gog.com/en/game/example',
+      },
+    ]);
+  });
+
+  it('hides non-whitelisted website types from the UI', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      websites: [
+        makeWebsite({
+          provider: null,
+          providerLabel: null,
+          typeId: 18,
+          typeName: 'Discord',
+          url: 'https://discord.gg/example',
+        }),
+        makeWebsite({
+          provider: null,
+          providerLabel: null,
+          typeId: 1,
+          typeName: 'Official Website',
+          url: 'https://example.com',
+        }),
+      ],
+    });
+
+    expect(component.visibleWebsites).toEqual([
+      {
+        label: 'Official Website',
+        url: 'https://example.com',
       },
     ]);
   });

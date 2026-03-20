@@ -227,7 +227,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+    if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(
         new Response(JSON.stringify([]), {
           status: 200,
@@ -341,7 +341,7 @@ void test('runOnce carries websites and steam app ids into refreshed game payloa
 
     if (url.endsWith('/v4/games')) {
       const body = typeof init?.body === 'string' ? init.body : '';
-      if (!body.includes('websites.type') || body.includes('external_games.external_game_source')) {
+      if (!body.includes('websites.type') || body.includes('external_games.')) {
         throw new Error('Expected website fields in IGDB game metadata query');
       }
 
@@ -492,7 +492,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+    if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(
         new Response(JSON.stringify([]), {
           status: 200,
@@ -749,7 +749,7 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+    if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
 
@@ -889,7 +889,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+    if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
 
@@ -1130,7 +1130,7 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
       );
     }
 
-    if (url.endsWith('/v4/external_game_sources') || url.endsWith('/v4/website_types')) {
+    if (url.endsWith('/v4/website_types')) {
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
     }
 

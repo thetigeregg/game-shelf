@@ -390,8 +390,11 @@ test('removeMergedBranchesWithoutWorktrees dry-run previews deletions', () => {
   });
 });
 
-test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories whose branch is gone', () => {
+test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories whose branch is gone', (t) => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  t.after(() => {
+    rmSync(rootDir, { recursive: true, force: true });
+  });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
   const activeDir = path.join(managedRoot, 'feat', 'active');
   const staleDir = path.join(managedRoot, 'feat', 'stale');
@@ -421,12 +424,13 @@ test('removeOrphanedManagedWorktreeDirs removes orphaned task-start directories 
     removed: [{ branch: 'feat/stale', path: staleDir }],
     skippedExistingBranch: [],
   });
-
-  rmSync(rootDir, { recursive: true, force: true });
 });
 
-test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the local branch still exists', () => {
+test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the local branch still exists', (t) => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  t.after(() => {
+    rmSync(rootDir, { recursive: true, force: true });
+  });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
   const staleDir = path.join(managedRoot, 'feat', 'keep-me');
 
@@ -455,12 +459,13 @@ test('removeOrphanedManagedWorktreeDirs keeps orphaned directories when the loca
     removed: [],
     skippedExistingBranch: [{ branch: 'feat/keep-me', path: staleDir }],
   });
-
-  rmSync(rootDir, { recursive: true, force: true });
 });
 
-test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without deleting', () => {
+test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without deleting', (t) => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-orphaned-'));
+  t.after(() => {
+    rmSync(rootDir, { recursive: true, force: true });
+  });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
   const staleDir = path.join(managedRoot, 'feat', 'preview-me');
 
@@ -488,12 +493,13 @@ test('removeOrphanedManagedWorktreeDirs dry-run previews orphan removal without 
     removed: [{ branch: 'feat/preview-me', path: staleDir }],
     skippedExistingBranch: [],
   });
-
-  rmSync(rootDir, { recursive: true, force: true });
 });
 
-test('pruneEmptyManagedAncestors skips missing ancestor directories without throwing', () => {
+test('pruneEmptyManagedAncestors skips missing ancestor directories without throwing', (t) => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'dev-cleanup-prune-'));
+  t.after(() => {
+    rmSync(rootDir, { recursive: true, force: true });
+  });
   const managedRoot = path.join(realpathSync(rootDir), 'worktrees');
   const existingParent = path.join(managedRoot, 'feat');
   const removedPath = path.join(existingParent, 'missing', 'leaf');
@@ -502,6 +508,4 @@ test('pruneEmptyManagedAncestors skips missing ancestor directories without thro
 
   assert.doesNotThrow(() => pruneEmptyManagedAncestors(removedPath, managedRoot));
   assert.equal(existsSync(existingParent), false);
-
-  rmSync(rootDir, { recursive: true, force: true });
 });

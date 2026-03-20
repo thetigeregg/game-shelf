@@ -2,6 +2,7 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
   MenuController,
@@ -25,14 +26,17 @@ import {
   IonFabButton,
   IonFabList,
   IonSplitPane,
+  IonText,
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GameCatalogResult,
   GameEntry,
   GameGroupByField,
   GameListFilters,
   GameType,
+  GameVideo,
   ListType,
 } from '../core/models/game.models';
 import {
@@ -44,7 +48,12 @@ import {
   applyMetadataSelectionToFilters,
 } from '../features/game-list/metadata-filter.utils';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
+import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
+import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
+import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
+import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
+import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
@@ -63,6 +72,9 @@ import {
 } from './list-page-preferences';
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
+import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
+import { openExternalUrl } from '../core/utils/open-external-url';
+import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -119,6 +131,9 @@ function buildConfig(listType: ListType): ListPageConfig {
     FormsModule,
     GameListComponent,
     GameSearchComponent,
+    GameDetailContentComponent,
+    DetailShortcutsFabComponent,
+    DetailVideosModalComponent,
     GameFiltersMenuComponent,
     IonHeader,
     IonToolbar,
@@ -138,6 +153,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonFabButton,
     IonFabList,
     IonSplitPane,
+    IonText,
   ],
 })
 export class ListPageComponent {
@@ -174,6 +190,13 @@ export class ListPageComponent {
   listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
+  isAddGameDetailModalOpen = false;
+  selectedAddGameDetail: GameCatalogResult | null = null;
+  isAddGameDetailLoading = false;
+  addGameDetailErrorMessage = '';
+  isAddGameDetailInLibrary = false;
+  isAddGameDetailAddLoading = false;
+  isAddGameVideosModalOpen = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -194,6 +217,8 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly igdbProxyService = inject(IgdbProxyService);
+  private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
@@ -507,6 +532,155 @@ export class ListPageComponent {
 
   closeAddGameModal(): void {
     this.isAddGameModalOpen = false;
+    this.closeAddGameDetailModal();
+  }
+
+  async openAddGameDetail(result: GameCatalogResult): Promise<void> {
+    const requestedIdentityKey = this.buildCatalogIdentityKey(result);
+    const platformIgdbId =
+      typeof result.platformIgdbId === 'number' &&
+      Number.isInteger(result.platformIgdbId) &&
+      result.platformIgdbId > 0
+        ? result.platformIgdbId
+        : null;
+    this.selectedAddGameDetail = result;
+    this.isAddGameDetailModalOpen = true;
+    this.isAddGameDetailLoading = true;
+    this.addGameDetailErrorMessage = '';
+    this.isAddGameDetailInLibrary = false;
+    this.isAddGameDetailAddLoading = false;
+    let existingEntryPromise: ReturnType<typeof this.gameShelfService.findGameByIdentity> | null =
+      null;
+
+    try {
+      if (platformIgdbId === null) {
+        throw new Error('Platform selection is required.');
+      }
+
+      existingEntryPromise = this.gameShelfService.findGameByIdentity(
+        result.igdbGameId,
+        platformIgdbId
+      );
+      const [existingEntry, hydratedCatalog] = await Promise.all([
+        existingEntryPromise,
+        firstValueFrom(this.igdbProxyService.getGameById(result.igdbGameId)),
+      ]);
+
+      if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        return;
+      }
+
+      this.selectedAddGameDetail = applyGameCatalogPlatformContext(hydratedCatalog, platformIgdbId);
+      this.isAddGameDetailInLibrary = Boolean(existingEntry);
+    } catch (error) {
+      if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        return;
+      }
+
+      this.addGameDetailErrorMessage =
+        error instanceof Error ? error.message : 'Unable to load game details.';
+      this.isAddGameDetailLoading = false;
+
+      if (existingEntryPromise !== null) {
+        void existingEntryPromise
+          .then((existingEntry) => {
+            if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+              this.isAddGameDetailInLibrary = Boolean(existingEntry);
+            }
+          })
+          .catch(() => undefined);
+      }
+
+      return;
+    } finally {
+      if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
+        this.isAddGameDetailLoading = false;
+      }
+    }
+  }
+
+  closeAddGameDetailModal(): void {
+    this.isAddGameDetailModalOpen = false;
+    this.selectedAddGameDetail = null;
+    this.isAddGameDetailLoading = false;
+    this.addGameDetailErrorMessage = '';
+    this.isAddGameDetailInLibrary = false;
+    this.isAddGameDetailAddLoading = false;
+    this.isAddGameVideosModalOpen = false;
+  }
+
+  async addSelectedAddGameDetailToLibrary(): Promise<void> {
+    if (
+      !this.selectedAddGameDetail ||
+      this.isAddGameDetailInLibrary ||
+      this.isAddGameDetailAddLoading
+    ) {
+      return;
+    }
+
+    this.isAddGameDetailAddLoading = true;
+
+    try {
+      const addResult = await this.addToLibraryWorkflow.addToLibrary(
+        this.selectedAddGameDetail,
+        this.listType
+      );
+
+      if (addResult.status === 'added' || addResult.status === 'duplicate') {
+        this.isAddGameDetailInLibrary = true;
+      }
+
+      if (addResult.status === 'added') {
+        this.closeAddGameDetailModal();
+      }
+    } finally {
+      this.isAddGameDetailAddLoading = false;
+    }
+  }
+
+  openAddGameDetailShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
+    const query = this.selectedAddGameDetail?.title.trim();
+
+    if (!query) {
+      return;
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+    let url = '';
+
+    if (provider === 'google') {
+      url = `https://www.google.com/search?q=${encodedQuery}`;
+    } else if (provider === 'youtube') {
+      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
+    } else if (provider === 'wikipedia') {
+      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+    } else {
+      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    }
+
+    this.openExternalUrl(url);
+  }
+
+  get addGameDetailVideos(): GameVideo[] {
+    return Array.isArray(this.selectedAddGameDetail?.videos)
+      ? this.selectedAddGameDetail.videos
+      : [];
+  }
+
+  get hasAddGameDetailVideosShortcut(): boolean {
+    return this.addGameDetailVideos.some((video) => isValidYouTubeVideoId(video.videoId));
+  }
+
+  openAddGameVideosModal(): void {
+    if (!this.hasAddGameDetailVideosShortcut) {
+      return;
+    }
+
+    this.isAddGameVideosModalOpen = true;
+  }
+
+  closeAddGameVideosModal(): void {
+    this.isAddGameVideosModalOpen = false;
   }
 
   async openFiltersMenu(): Promise<void> {
@@ -920,5 +1094,24 @@ export class ListPageComponent {
         replaceUrl: true,
       });
     }
+  }
+
+  private buildCatalogIdentityKey(
+    result: Pick<GameCatalogResult, 'igdbGameId' | 'platformIgdbId'>
+  ): string {
+    return `${result.igdbGameId}::${String(result.platformIgdbId ?? 'none')}`;
+  }
+
+  private hasRequestedAddGameDetail(identityKey: string): boolean {
+    const selectedDetail = this.selectedAddGameDetail;
+    if (!selectedDetail) {
+      return false;
+    }
+
+    return this.buildCatalogIdentityKey(selectedDetail) === identityKey;
+  }
+
+  private openExternalUrl(url: string): void {
+    openExternalUrl(url);
   }
 }

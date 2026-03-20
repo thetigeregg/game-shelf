@@ -58,8 +58,8 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
     `
       :host {
         position: fixed;
-        right: max(8px, env(safe-area-inset-right));
-        bottom: max(8px, env(safe-area-inset-bottom));
+        right: max(8px, var(--ion-safe-area-right, env(safe-area-inset-right)));
+        bottom: max(8px, var(--ion-safe-area-bottom, env(safe-area-inset-bottom)));
         z-index: 20;
       }
 

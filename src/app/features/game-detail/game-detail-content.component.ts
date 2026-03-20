@@ -52,6 +52,7 @@ import {
   GameEntry,
   GameRating,
   GameScreenshot,
+  GameStorefrontLink,
   GameStatus,
 } from '../../core/models/game.models';
 import SwiperClass from 'swiper';
@@ -64,6 +65,11 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
+type DetailStorefrontLinkViewModel = {
+  provider: GameStorefrontLink['provider'];
+  providerLabel: string;
+  url: string;
+};
 
 @Component({
   selector: 'app-game-detail-content',
@@ -90,6 +96,26 @@ type DetailMediaSlide = { key: string; src: string };
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
+  private static readonly STOREFRONT_PROVIDER_ORDER: Record<
+    GameStorefrontLink['provider'],
+    number
+  > = {
+    steam: 0,
+    playstation: 1,
+    xbox: 2,
+    nintendo: 3,
+    amazon: 4,
+    android: 5,
+    apple: 6,
+    epic: 7,
+    gamejolt: 8,
+    gog: 9,
+    itch: 10,
+    kartridge: 11,
+    oculus: 12,
+    utomik: 13,
+    unknown: 14,
+  };
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -539,6 +565,34 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return parts.length > 0 ? parts.join(' · ') : null;
   }
 
+  get visibleStorefrontLinks(): DetailStorefrontLinkViewModel[] {
+    const storefrontLinks = this.normalizeStorefrontLinks(this.game.storefrontLinks);
+
+    if (storefrontLinks.length === 0) {
+      return [];
+    }
+
+    const viewedPlatformId = this.normalizePositiveInteger(this.game.platformIgdbId);
+    const platformSpecificLinks = storefrontLinks.filter((link) => {
+      return viewedPlatformId !== null && link.platformIgdbId === viewedPlatformId;
+    });
+
+    const scopedLinks =
+      platformSpecificLinks.length > 0
+        ? platformSpecificLinks
+        : storefrontLinks.filter((link) => link.platformIgdbId === null);
+
+    return scopedLinks.map((link) => ({
+      provider: link.provider,
+      providerLabel: link.providerLabel,
+      url: link.url,
+    }));
+  }
+
+  get showStorefrontSection(): boolean {
+    return this.visibleStorefrontLinks.length > 0;
+  }
+
   private hasCurrentPriceValue(): boolean {
     if ((this.game as Partial<GameEntry>).priceIsFree === true) {
       return true;
@@ -605,6 +659,63 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     return normalized;
+  }
+
+  private normalizeStorefrontLinks(
+    value: GameStorefrontLink[] | null | undefined
+  ): GameStorefrontLink[] {
+    if (!Array.isArray(value) || value.length === 0) {
+      return [];
+    }
+
+    return value
+      .filter((link): link is GameStorefrontLink => this.isValidStorefrontLink(link))
+      .sort((left, right) => this.compareStorefrontLinks(left, right));
+  }
+
+  private isValidStorefrontLink(value: unknown): value is GameStorefrontLink {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const link = value as Partial<GameStorefrontLink>;
+    if (typeof link.url !== 'string' || link.url.trim().length === 0) {
+      return false;
+    }
+
+    if (typeof link.providerLabel !== 'string' || link.providerLabel.trim().length === 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private compareStorefrontLinks(left: GameStorefrontLink, right: GameStorefrontLink): number {
+    const providerOrder =
+      this.resolveStorefrontProviderOrder(left.provider) -
+      this.resolveStorefrontProviderOrder(right.provider);
+    if (providerOrder !== 0) {
+      return providerOrder;
+    }
+
+    const labelOrder = left.providerLabel.localeCompare(right.providerLabel, undefined, {
+      sensitivity: 'base',
+    });
+    if (labelOrder !== 0) {
+      return labelOrder;
+    }
+
+    return left.url.localeCompare(right.url, undefined, {
+      sensitivity: 'base',
+    });
+  }
+
+  private resolveStorefrontProviderOrder(provider: GameStorefrontLink['provider']): number {
+    return GameDetailContentComponent.STOREFRONT_PROVIDER_ORDER[provider];
+  }
+
+  private normalizePositiveInteger(value: unknown): number | null {
+    return Number.isInteger(value) && (value as number) > 0 ? (value as number) : null;
   }
 
   private resolvePriceCurrency(value: string | null | undefined): string {

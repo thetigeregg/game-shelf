@@ -125,6 +125,7 @@ describe('game-list review actions', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
     };
+    const releaseDate = new Date(2020, 0, 10);
     const game = createGame({
       releaseDate: '2020-01-10T00:00:00.000Z',
       releaseYear: 2020,
@@ -135,13 +136,17 @@ describe('game-list review actions', () => {
 
     page.rowReleaseDateDisplay = 'monthYear';
     expect(page.getGameReleaseDateLabel(game)).toBe(
-      new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(
-        new Date(2020, 0, 10)
-      )
+      new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(releaseDate)
     );
 
     page.rowReleaseDateDisplay = 'fullDate';
-    expect(page.getGameReleaseDateLabel(game)).toBe('Jan 10th, 2020');
+    expect(page.getGameReleaseDateLabel(game)).toBe(
+      new Intl.DateTimeFormat(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(releaseDate)
+    );
   });
 
   it('falls back from missing or invalid release dates to year and unknown year', () => {
@@ -161,10 +166,15 @@ describe('game-list review actions', () => {
     );
   });
 
-  it('uses the correct ordinal suffixes for full date labels', () => {
+  it('formats full date labels with localized month, day, and year values', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       rowReleaseDateDisplay: 'year' | 'monthYear' | 'fullDate';
     };
+    const formatter = new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
 
     page.rowReleaseDateDisplay = 'fullDate';
 
@@ -172,27 +182,27 @@ describe('game-list review actions', () => {
       page.getGameReleaseDateLabel(
         createGame({ releaseDate: '2020-01-01T00:00:00.000Z', releaseYear: 2020 })
       )
-    ).toBe('Jan 1st, 2020');
+    ).toBe(formatter.format(new Date(2020, 0, 1)));
     expect(
       page.getGameReleaseDateLabel(
         createGame({ releaseDate: '2020-01-02T00:00:00.000Z', releaseYear: 2020 })
       )
-    ).toBe('Jan 2nd, 2020');
+    ).toBe(formatter.format(new Date(2020, 0, 2)));
     expect(
       page.getGameReleaseDateLabel(
         createGame({ releaseDate: '2020-01-03T00:00:00.000Z', releaseYear: 2020 })
       )
-    ).toBe('Jan 3rd, 2020');
+    ).toBe(formatter.format(new Date(2020, 0, 3)));
     expect(
       page.getGameReleaseDateLabel(
         createGame({ releaseDate: '2020-01-11T00:00:00.000Z', releaseYear: 2020 })
       )
-    ).toBe('Jan 11th, 2020');
+    ).toBe(formatter.format(new Date(2020, 0, 11)));
     expect(
       page.getGameReleaseDateLabel(
         createGame({ releaseDate: '2020-01-23T00:00:00.000Z', releaseYear: 2020 })
       )
-    ).toBe('Jan 23rd, 2020');
+    ).toBe(formatter.format(new Date(2020, 0, 23)));
   });
 
   it('treats ISO timestamps as date-only values so labels stay stable across timezones', () => {
@@ -214,7 +224,13 @@ describe('game-list review actions', () => {
     );
 
     page.rowReleaseDateDisplay = 'fullDate';
-    expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe('Jan 10th, 2020');
+    expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
+      new Intl.DateTimeFormat(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(new Date(2020, 0, 10))
+    );
     expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
       page.getGameReleaseDateLabel(dateOnlyGame)
     );

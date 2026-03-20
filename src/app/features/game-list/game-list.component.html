@@ -611,10 +611,10 @@
       [showVideosShortcut]="hasDetailVideosShortcut"
       [showNotesShortcut]="shouldShowNotesShortcut"
       [showOpenManualButton]="shouldShowOpenManualButton"
+      (websitesClick)="openWebsitesModal()"
       (videosClick)="openVideosModal()"
       (notesClick)="openNotesEditor()"
       (openManualClick)="openManualPdf()"
-      (shortcutSearch)="openShortcutSearch($event)"
     ></app-detail-shortcuts-fab>
   </ion-content>
 </ng-template>
@@ -709,6 +709,13 @@
   [videos]="detailVideos"
   (dismiss)="closeVideosModal()"
 ></app-detail-videos-modal>
+
+<app-detail-websites-modal
+  [isOpen]="isWebsitesModalOpen"
+  [items]="detailWebsiteItems"
+  (dismiss)="closeWebsitesModal()"
+  (websiteSelect)="openDetailWebsite($event)"
+></app-detail-websites-modal>
 
 <input
   #customCoverFileInput

@@ -287,27 +287,6 @@
             </ion-item>
           }
 
-          @if (showWebsiteSection) {
-            <ion-item>
-              <ion-icon slot="start" name="pricetags" aria-hidden="true"></ion-icon>
-              <ion-label>
-                <h2>Websites</h2>
-                <div class="detail-storefront-links">
-                  @for (website of visibleWebsites; track website.url) {
-                    <a
-                      class="detail-storefront-link"
-                      [href]="website.url"
-                      target="_blank"
-                      rel="noopener noreferrer external"
-                    >
-                      {{ website.label }}
-                    </a>
-                  }
-                </div>
-              </ion-label>
-            </ion-item>
-          }
-
           @if (showLibrarySections) {
             <ion-item>
               <ion-icon slot="start" name="time" aria-hidden="true"></ion-icon>

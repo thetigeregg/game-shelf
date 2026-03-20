@@ -297,3 +297,29 @@ test('provider limiter caps concurrent requests until a slot is released', async
   second.release();
   third.release();
 });
+
+test('provider limiter reset wakes acquires waiting on concurrency limits', async () => {
+  const limiter = createProviderLimiter('igdb', {
+    maxConcurrent: 1,
+  });
+
+  const first = await limiter.acquire({ scopeKey: 'search' });
+
+  let secondResolved = false;
+  const secondPromise = limiter.acquire({ scopeKey: 'search' }).then((lease) => {
+    secondResolved = true;
+    return lease;
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(secondResolved, false);
+
+  limiter.reset();
+
+  const second = await secondPromise;
+  assert.equal(secondResolved, true);
+  assert.equal(second.scopeKey, 'search');
+
+  first.release();
+  second.release();
+});

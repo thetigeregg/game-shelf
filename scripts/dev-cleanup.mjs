@@ -164,7 +164,7 @@ function getDisplayPath(targetPath) {
 
 export function formatWorktreeDisplayPath(targetPath) {
   const displayPath = getDisplayPath(targetPath);
-  return displayPath === targetPath ? targetPath : `./${displayPath}`;
+  return path.isAbsolute(displayPath) ? displayPath : `./${displayPath}`;
 }
 
 function listVisibleEntries(dirPath) {
@@ -180,7 +180,7 @@ function removeIgnorableEntries(dirPath) {
   }
 }
 
-function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES_ROOT) {
+export function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES_ROOT) {
   let currentPath = normalizePathForCompare(path.dirname(removedPath));
   const normalizedManagedRoot = normalizePathForCompare(managedRoot);
 
@@ -188,13 +188,18 @@ function pruneEmptyManagedAncestors(removedPath, managedRoot = MANAGED_WORKTREES
     isPathInside(normalizedManagedRoot, currentPath) &&
     currentPath !== normalizedManagedRoot
   ) {
+    if (!existsSync(currentPath)) {
+      currentPath = normalizePathForCompare(path.dirname(currentPath));
+      continue;
+    }
+
     const visibleEntries = listVisibleEntries(currentPath);
     if (visibleEntries.length > 0) {
       return;
     }
 
     removeIgnorableEntries(currentPath);
-    rmSync(currentPath, { recursive: false, force: true });
+    rmSync(currentPath, { recursive: true, force: true });
     currentPath = normalizePathForCompare(path.dirname(currentPath));
   }
 }

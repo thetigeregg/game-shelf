@@ -16,12 +16,14 @@ import { addIcons } from 'ionicons';
 import { globe, link } from 'ionicons/icons';
 import {
   SiAppStoreIcon,
+  SiDiscordIcon,
   SiEpicGamesIcon,
   SiGogDotComIcon,
   SiGoogleIcon,
   SiGooglePlayIcon,
   SiItchDotIoIcon,
   SiPlaystationIcon,
+  SiRedditIcon,
   SiSteamIcon,
   SiTwitchIcon,
   SiWikipediaIcon,
@@ -59,6 +61,8 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
     SiGoogleIcon,
     SiYoutubeIcon,
     SiTwitchIcon,
+    SiDiscordIcon,
+    SiRedditIcon,
     SiWikipediaIcon,
     SiEpicGamesIcon,
     SiSteamIcon,

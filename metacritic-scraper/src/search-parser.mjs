@@ -27,6 +27,7 @@ export function extractMetacriticSearchResults(config = {}) {
     /(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)(?:\s*(?:[1-9]\d?|100|tbd))?\s*$/i;
   const scoreTailPatternInPage = /\s*(?:[1-9]\d?|100|tbd)\s*$/i;
   const metadataGameTailPatternInPage = /game\s*$/i;
+  const titleParentheticalYearPatternInPage = /\((19|20)\d{2}\)/;
 
   const isAllowedMetacriticHostnameInPage = (rawHostname) => {
     const hostname = String(rawHostname ?? '')
@@ -218,6 +219,29 @@ export function extractMetacriticSearchResults(config = {}) {
       .replace(/\s+/g, ' ')
       .trim();
 
+  const normalizePayloadReleaseYearInPage = (rawReleaseDate, rawPremiereYear) => {
+    const releaseDate = String(rawReleaseDate ?? '').trim();
+    const releaseDateYearMatch = releaseDate.match(/\b(19|20)\d{2}\b/);
+    const parsedPremiereYear =
+      typeof rawPremiereYear === 'number' && Number.isInteger(rawPremiereYear)
+        ? rawPremiereYear
+        : null;
+
+    if (
+      parsedPremiereYear !== null &&
+      /\b(tba|to be announced|early access|coming soon)\b/i.test(releaseDate) &&
+      !releaseDateYearMatch
+    ) {
+      return null;
+    }
+
+    if (parsedPremiereYear !== null) {
+      return parsedPremiereYear;
+    }
+
+    return releaseDateYearMatch ? Number.parseInt(releaseDateYearMatch[0], 10) : null;
+  };
+
   const decodePayloadStringInPage = (rawValue) => {
     const quoted = `"${String(rawValue ?? '')}"`;
 
@@ -313,13 +337,10 @@ export function extractMetacriticSearchResults(config = {}) {
         }
 
         const releaseDate = String(candidate?.releaseDate ?? '').trim();
-        const releaseDateYearMatch = releaseDate.match(/\b(19|20)\d{2}\b/);
-        const releaseYearCandidate =
-          typeof candidate?.premiereYear === 'number'
-            ? candidate.premiereYear
-            : releaseDateYearMatch
-              ? Number.parseInt(releaseDateYearMatch[0], 10)
-              : null;
+        const releaseYearCandidate = normalizePayloadReleaseYearInPage(
+          releaseDate,
+          candidate?.premiereYear
+        );
         const platformNames = Array.isArray(candidate?.platforms)
           ? candidate.platforms
               .map((platformEntry) => {
@@ -347,6 +368,7 @@ export function extractMetacriticSearchResults(config = {}) {
           title,
           releaseYear: Number.isInteger(releaseYearCandidate) ? releaseYearCandidate : null,
           platform: platformNames[0] ? normalizePlatformTextInPage(platformNames[0]) : null,
+          metacriticPlatforms: platformNames.map((name) => normalizePlatformTextInPage(name)),
           metacriticScore: parseMetacriticScoreInPage(candidate?.criticScoreSummary?.score),
           metacriticUrl,
           imageUrl: normalizedImageUrl,
@@ -431,6 +453,7 @@ export function extractMetacriticSearchResults(config = {}) {
           title,
           releaseYear: Number.isInteger(parsedReleaseYear) ? parsedReleaseYear : null,
           platform: platformMatch ? normalizePlatformTextInPage(platformMatch[1]) : null,
+          metacriticPlatforms: platformMatch ? [normalizePlatformTextInPage(platformMatch[1])] : [],
           metacriticScore:
             Number.isInteger(parsedScore) && parsedScore >= 1 && parsedScore <= 100
               ? parsedScore
@@ -496,8 +519,21 @@ export function extractMetacriticSearchResults(config = {}) {
 
       return {
         ...item,
+        title:
+          typeof payloadCandidate.title === 'string' && payloadCandidate.title.trim().length > 0
+            ? payloadCandidate.title
+            : item.title,
         releaseYear: item.releaseYear ?? payloadCandidate.releaseYear ?? null,
-        platform: item.platform ?? payloadCandidate.platform ?? null,
+        platform: payloadCandidate.platform ?? item.platform ?? null,
+        metacriticPlatforms:
+          Array.isArray(payloadCandidate.metacriticPlatforms) &&
+          payloadCandidate.metacriticPlatforms.length > 0
+            ? payloadCandidate.metacriticPlatforms
+            : Array.isArray(item.metacriticPlatforms)
+              ? item.metacriticPlatforms
+              : item.platform
+                ? [item.platform]
+                : [],
         metacriticScore: item.metacriticScore ?? payloadCandidate.metacriticScore ?? null,
         imageUrl: item.imageUrl ?? payloadCandidate.imageUrl ?? null,
       };
@@ -555,13 +591,11 @@ export function extractMetacriticSearchResults(config = {}) {
     const releaseDateText = String(
       row.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
-    const rowText = String(row.textContent ?? '').trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ??
-      rowText.match(/\b(19|20)\d{2}\b/) ??
-      title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(titleParentheticalYearPatternInPage);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
+    const rowText = String(row.textContent ?? '').trim();
     const platformEl = row.querySelector(platformSelectorInPage);
     const platform = platformEl
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')
@@ -573,6 +607,7 @@ export function extractMetacriticSearchResults(config = {}) {
       title,
       releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
       platform: platform && platform.length > 0 ? platform : null,
+      metacriticPlatforms: platform && platform.length > 0 ? [platform] : [],
       metacriticScore: scoreValue,
       metacriticUrl: url,
       imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,
@@ -622,13 +657,11 @@ export function extractMetacriticSearchResults(config = {}) {
     const releaseDateText = String(
       container.querySelector(releaseDateSelectorInPage)?.textContent ?? ''
     ).trim();
-    const containerText = String(container.textContent ?? '').trim();
     const yearMatch =
-      releaseDateText.match(/\b(19|20)\d{2}\b/) ??
-      containerText.match(/\b(19|20)\d{2}\b/) ??
-      title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
+      releaseDateText.match(/\b(19|20)\d{2}\b/) ?? title.match(titleParentheticalYearPatternInPage);
     const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
+    const containerText = String(container.textContent ?? '').trim();
     const platformEl = container.querySelector(platformSelectorInPage);
     const platform = platformEl
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')
@@ -641,6 +674,7 @@ export function extractMetacriticSearchResults(config = {}) {
       title,
       releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
       platform: platform && platform.length > 0 ? platform : null,
+      metacriticPlatforms: platform && platform.length > 0 ? [platform] : [],
       metacriticScore: scoreValue,
       metacriticUrl: url,
       imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,

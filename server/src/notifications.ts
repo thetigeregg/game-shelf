@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import { sendFcmMulticast } from './fcm.js';
+import { applyRouteRateLimit } from './rate-limit.js';
 import { isAuthorizedMutatingRequest } from './request-security.js';
 
 interface RegisterBody {
@@ -16,35 +17,13 @@ interface UnregisterBody {
   token?: unknown;
 }
 
-const REGISTER_RATE_LIMIT = {
-  max: 30,
-  timeWindow: '1 minute',
-} as const;
-
-const UNREGISTER_RATE_LIMIT = {
-  max: 30,
-  timeWindow: '1 minute',
-} as const;
-
-const TEST_RATE_LIMIT = {
-  max: 5,
-  timeWindow: '1 minute',
-} as const;
-
 const TEST_ENDPOINT_MAX_ACTIVE_TOKENS = 5_000;
-
-const OBSERVABILITY_RATE_LIMIT = {
-  max: 10,
-  timeWindow: '1 minute',
-} as const;
 
 export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): void {
   app.get(
     '/v1/notifications/observability',
     {
-      config: {
-        rateLimit: OBSERVABILITY_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('notifications_observability'),
     },
     async (_request, reply) => {
       if (!config.notificationsObservabilityEndpointEnabled) {
@@ -113,9 +92,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
   app.post(
     '/v1/notifications/fcm/register',
     {
-      config: {
-        rateLimit: REGISTER_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('notifications_register'),
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as RegisterBody;
@@ -165,9 +142,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
   app.post(
     '/v1/notifications/fcm/unregister',
     {
-      config: {
-        rateLimit: UNREGISTER_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('notifications_unregister'),
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as UnregisterBody;
@@ -194,9 +169,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
   app.post(
     '/v1/notifications/test',
     {
-      config: {
-        rateLimit: TEST_RATE_LIMIT,
-      },
+      config: applyRouteRateLimit('notifications_test'),
     },
     async (_request, reply) => {
       if (!config.notificationsTestEndpointEnabled) {

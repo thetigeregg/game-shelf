@@ -22,6 +22,7 @@ vi.mock('ionicons/icons', () => ({
   documentText: {},
   film: {},
   globe: {},
+  link: {},
 }));
 
 describe('DetailShortcutsFabComponent', () => {

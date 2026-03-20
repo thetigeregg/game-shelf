@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { book, documentText, film, globe } from 'ionicons/icons';
+import { book, documentText, film, globe, link } from 'ionicons/icons';
 
 @Component({
   selector: 'app-detail-shortcuts-fab',
@@ -39,7 +39,7 @@ import { book, documentText, film, globe } from 'ionicons/icons';
           aria-label="Open websites"
           (click)="onWebsitesClick()"
         >
-          <ion-icon name="globe" aria-hidden="true"></ion-icon>
+          <ion-icon name="link" aria-hidden="true"></ion-icon>
         </ion-fab-button>
         @if (showVideosShortcut) {
           <ion-fab-button
@@ -91,6 +91,7 @@ export class DetailShortcutsFabComponent {
   constructor() {
     addIcons({
       globe,
+      link,
       film,
       documentText,
       book,

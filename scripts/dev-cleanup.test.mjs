@@ -39,6 +39,17 @@ test('formatCleanupSummaryLine includes branch names when entries exist', () => 
   );
 });
 
+test('formatCleanupSummaryLine falls back to path or a placeholder when branch is missing', () => {
+  assert.equal(
+    formatCleanupSummaryLine('Skipped dirty', [
+      { branch: 'feat/dirty-one', path: '/tmp/dirty-one' },
+      { branch: undefined, path: '/tmp/detached' },
+      { branch: undefined, path: undefined },
+    ]),
+    'Skipped dirty: 3 (feat/dirty-one, /tmp/detached, <no-branch>)'
+  );
+});
+
 test('parseWorktrees keeps detached worktree paths without inventing a branch', () => {
   const worktrees = parseWorktrees(`worktree /repo/main
 HEAD abcdef1234567890

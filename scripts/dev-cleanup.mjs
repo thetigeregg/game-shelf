@@ -337,8 +337,19 @@ export function formatCleanupSummaryLine(label, worktrees) {
     return `${label}: 0`;
   }
 
-  const branches = worktrees.map((worktree) => worktree.branch).join(', ');
-  return `${label}: ${worktrees.length} (${branches})`;
+  const items = worktrees.map((worktree) => {
+    if (worktree.branch) {
+      return worktree.branch;
+    }
+
+    if (worktree.path) {
+      return worktree.path;
+    }
+
+    return '<no-branch>';
+  });
+  const details = items.join(', ');
+  return `${label}: ${worktrees.length} (${details})`;
 }
 
 function getSummaryActionLabel({ dryRun, action, previewAction }) {

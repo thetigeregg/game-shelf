@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -234,6 +234,9 @@ describe('ExplorePage explore modes UX', () => {
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
   };
+  const popoverControllerMock = {
+    dismiss: vi.fn().mockResolvedValue(true),
+  };
   const routerMock = {
     navigateByUrl: vi.fn().mockResolvedValue(true),
   };
@@ -254,6 +257,7 @@ describe('ExplorePage explore modes UX', () => {
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
     igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
+    popoverControllerMock.dismiss.mockResolvedValue(true);
     routerMock.navigateByUrl.mockResolvedValue(true);
 
     TestBed.configureTestingModule({
@@ -264,6 +268,7 @@ describe('ExplorePage explore modes UX', () => {
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
+        { provide: PopoverController, useValue: popoverControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: Router, useValue: routerMock },
       ],
@@ -1642,6 +1647,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.headerActionsPopoverEvent).toBe(event);
 
     await page.openSettingsFromPopover();
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
     expect(page.isHeaderActionsPopoverOpen).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();

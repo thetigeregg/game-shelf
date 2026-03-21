@@ -8,6 +8,7 @@ import {
   DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
   GameListView,
+  GameWebsite,
   SyncChangeEvent,
   SyncPushResult,
   Tag,
@@ -737,6 +738,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.keywordIds === undefined
           ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
           : this.normalizePositiveIntegerList(payload.keywordIds),
+      websites:
+        payload.websites === undefined
+          ? this.normalizeWebsites(existingByIdentity?.websites)
+          : this.normalizeWebsites(payload.websites),
       steamAppId:
         payload.steamAppId === undefined
           ? this.parsePositiveInteger(existingByIdentity?.steamAppId)
@@ -1063,6 +1068,63 @@ export class GameSyncService implements SyncOutboxWriter {
           .filter((entry) => entry.length > 0)
       ),
     ];
+  }
+
+  private normalizeWebsites(value: unknown): GameWebsite[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: GameWebsite[] = [];
+    const seen = new Set<string>();
+
+    for (const entry of value) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const url = this.normalizeExternalUrl(record['url']);
+      if (url === null) {
+        continue;
+      }
+
+      if (seen.has(url)) {
+        continue;
+      }
+
+      seen.add(url);
+      normalized.push({
+        provider: this.normalizeWebsiteProvider(record['provider']),
+        providerLabel: this.normalizeOptionalText(record['providerLabel']),
+        url,
+        typeId: this.parsePositiveInteger(record['typeId']),
+        typeName: this.normalizeOptionalText(record['typeName']),
+        trusted: this.normalizeOptionalBoolean(record['trusted']),
+      });
+    }
+
+    return normalized;
+  }
+
+  private normalizeWebsiteProvider(value: unknown): GameWebsite['provider'] {
+    return value === 'steam' ||
+      value === 'playstation' ||
+      value === 'xbox' ||
+      value === 'nintendo' ||
+      value === 'epic' ||
+      value === 'gog' ||
+      value === 'itch' ||
+      value === 'apple' ||
+      value === 'android' ||
+      value === 'amazon' ||
+      value === 'oculus' ||
+      value === 'gamejolt' ||
+      value === 'kartridge' ||
+      value === 'utomik' ||
+      value === 'unknown'
+      ? value
+      : null;
   }
 
   private normalizePositiveIntegerList(value: unknown): number[] {

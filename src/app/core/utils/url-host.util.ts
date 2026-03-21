@@ -4,6 +4,10 @@ export interface SanitizeExternalHttpUrlOptions {
   allowedDomains?: readonly string[];
 }
 
+function hasUrlCredentials(url: URL): boolean {
+  return url.username.length > 0 || url.password.length > 0;
+}
+
 export function parseHttpUrl(input: string): URL | null {
   const raw = typeof input === 'string' ? input.trim() : '';
   if (raw.length === 0) {
@@ -18,6 +22,9 @@ export function parseHttpUrl(input: string): URL | null {
   try {
     const parsed = new URL(withScheme);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    if (hasUrlCredentials(parsed)) {
       return null;
     }
     return parsed;
@@ -35,10 +42,6 @@ export function sanitizeExternalHttpUrl(
     return null;
   }
 
-  if (parsed.username.length > 0 || parsed.password.length > 0) {
-    return null;
-  }
-
   const allowedDomains = options.allowedDomains;
   if (allowedDomains && allowedDomains.length > 0) {
     const hostname = parsed.hostname.toLowerCase();
@@ -51,6 +54,13 @@ export function sanitizeExternalHttpUrl(
   }
 
   return parsed;
+}
+
+export function sanitizeExternalHttpUrlString(
+  input: string,
+  options: SanitizeExternalHttpUrlOptions = {}
+): string | null {
+  return sanitizeExternalHttpUrl(input, options)?.toString() ?? null;
 }
 
 export function hostIsDomainOrSubdomain(hostname: string, baseDomain: string): boolean {

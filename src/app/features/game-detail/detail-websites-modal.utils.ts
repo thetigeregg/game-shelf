@@ -1,5 +1,9 @@
 import { GameWebsite } from '../../core/models/game.models';
-import { sanitizeExternalHttpUrl } from '../../core/utils/url-host.util';
+import {
+  hostIsDomainOrSubdomain,
+  sanitizeExternalHttpUrl,
+  sanitizeExternalHttpUrlString,
+} from '../../core/utils/url-host.util';
 
 export type DetailWebsiteSearchProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
@@ -208,11 +212,9 @@ export function buildDetailWebsiteSearchUrl(
   }
 
   const encodedQuery = encodeURIComponent(normalizedQuery);
-  return (
-    sanitizeExternalHttpUrl(SEARCH_PROVIDER_URL_BUILDERS[provider](encodedQuery), {
-      allowedDomains: SEARCH_PROVIDER_ALLOWED_DOMAINS[provider],
-    })?.toString() ?? null
-  );
+  return sanitizeExternalHttpUrlString(SEARCH_PROVIDER_URL_BUILDERS[provider](encodedQuery), {
+    allowedDomains: SEARCH_PROVIDER_ALLOWED_DOMAINS[provider],
+  });
 }
 
 function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebsite[] {
@@ -275,14 +277,12 @@ function buildWebsiteDedupKey(website: GameWebsite): string {
 
 function sanitizeWebsiteUrl(website: GameWebsite): string | null {
   if (website.trusted === true) {
-    return sanitizeExternalHttpUrl(website.url)?.toString() ?? null;
+    return sanitizeExternalHttpUrlString(website.url);
   }
 
-  return (
-    sanitizeExternalHttpUrl(website.url, {
-      allowedDomains: SAFE_UNTRUSTED_WEBSITE_DOMAINS,
-    })?.toString() ?? null
-  );
+  return sanitizeExternalHttpUrlString(website.url, {
+    allowedDomains: SAFE_UNTRUSTED_WEBSITE_DOMAINS,
+  });
 }
 
 function isAllowedWebsite(website: GameWebsite): boolean {
@@ -343,58 +343,59 @@ function isYouTubeWebsite(website: GameWebsite): boolean {
 }
 
 function matchesHostname(url: string, hostnames: string[]): boolean {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return hostnames.some((host) => hostname === host || hostname.endsWith(`.${host}`));
-  } catch {
+  const parsed = sanitizeExternalHttpUrl(url);
+  if (!parsed) {
     return false;
   }
+
+  const hostname = parsed.hostname.toLowerCase();
+  return hostnames.some((host) => hostIsDomainOrSubdomain(hostname, host));
 }
 
 function isKnownStorefrontUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname.toLowerCase();
-
-    if (hostname === 'store.steampowered.com' || hostname.endsWith('.steampowered.com')) {
-      return true;
-    }
-    if (hostname === 'store.playstation.com' || hostname.endsWith('.playstation.com')) {
-      return true;
-    }
-    if (hostname === 'xbox.com' || hostname.endsWith('.xbox.com')) {
-      return true;
-    }
-    if (hostname === 'microsoft.com' || hostname.endsWith('.microsoft.com')) {
-      return pathname.includes('/store/');
-    }
-    if (
-      hostname === 'nintendo.com' ||
-      hostname.endsWith('.nintendo.com') ||
-      hostname.endsWith('.nintendo-europe.com')
-    ) {
-      return true;
-    }
-    if (hostname === 'store.epicgames.com' || hostname.endsWith('.epicgames.com')) {
-      return true;
-    }
-    if (hostname === 'gog.com' || hostname.endsWith('.gog.com')) {
-      return true;
-    }
-    if (hostname === 'itch.io' || hostname.endsWith('.itch.io')) {
-      return true;
-    }
-    if (hostname === 'apps.apple.com') {
-      return true;
-    }
-    if (hostname === 'play.google.com') {
-      return true;
-    }
-    return false;
-  } catch {
+  const parsed = sanitizeExternalHttpUrl(url);
+  if (!parsed) {
     return false;
   }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const pathname = parsed.pathname.toLowerCase();
+
+  if (hostIsDomainOrSubdomain(hostname, 'steampowered.com')) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'playstation.com')) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'xbox.com')) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'microsoft.com')) {
+    return pathname.includes('/store/');
+  }
+  if (
+    hostIsDomainOrSubdomain(hostname, 'nintendo.com') ||
+    hostIsDomainOrSubdomain(hostname, 'nintendo-europe.com')
+  ) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'epicgames.com')) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'gog.com')) {
+    return true;
+  }
+  if (hostIsDomainOrSubdomain(hostname, 'itch.io')) {
+    return true;
+  }
+  if (hostname === 'apps.apple.com') {
+    return true;
+  }
+  if (hostname === 'play.google.com') {
+    return true;
+  }
+
+  return false;
 }
 
 function resolveWebsiteLabel(website: GameWebsite): string {

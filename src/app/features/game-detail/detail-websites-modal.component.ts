@@ -74,11 +74,6 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
         fill: var(--ion-color-orange);
       }
 
-      .website-item-icon--firetruck {
-        color: var(--ion-color-firetruck);
-        fill: var(--ion-color-firetruck);
-      }
-
       .website-item-icon--deep-ocean {
         color: var(--ion-color-deep-ocean);
         fill: var(--ion-color-deep-ocean);

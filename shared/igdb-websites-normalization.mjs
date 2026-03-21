@@ -141,6 +141,7 @@ function inferProviderFromHost(url) {
   }
   if (
     hostname === 'nintendo.com' ||
+    hostname === 'nintendo-europe.com' ||
     hostname.endsWith('.nintendo.com') ||
     hostname.endsWith('.nintendo-europe.com')
   ) {

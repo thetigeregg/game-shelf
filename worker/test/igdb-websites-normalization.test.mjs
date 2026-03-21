@@ -46,6 +46,12 @@ test('normalizeIgdbWebsites maps all whitelisted website hosts to the expected p
       expectedLabel: 'Nintendo',
     },
     {
+      name: 'Nintendo Europe apex',
+      url: 'https://nintendo-europe.com/Games/Nintendo-Switch-2-games/Test-Game-1234567.html',
+      expectedProvider: 'nintendo',
+      expectedLabel: 'Nintendo',
+    },
+    {
       name: 'Epic Games Store',
       url: 'https://store.epicgames.com/en-US/p/test-game',
       expectedProvider: 'epic',

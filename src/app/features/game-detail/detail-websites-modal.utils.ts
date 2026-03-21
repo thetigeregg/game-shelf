@@ -263,12 +263,7 @@ function isValidWebsite(website: unknown): website is GameWebsite {
     return false;
   }
 
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return sanitizeExternalHttpUrl(url) !== null;
 }
 
 function buildWebsiteDedupKey(website: GameWebsite): string {

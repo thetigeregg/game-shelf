@@ -2843,3 +2843,9 @@
 - 84411e76 Merge branch 'main' into feat/external-link
 - bdcf5f49 feat: add storefront links normalization and persistence
 
+## v1.18.0 - 2026-03-21
+- 87552ea4 Merge pull request #268 from thetigeregg/feat/menu-close
+- 543499f2 fix(explore): separate header popover dismiss handling
+- 320ed851 feat: add test for settings routing on header popover dismissal rejection
+- 2c8a2c94 feat: add PopoverController to ExplorePage for improved popover management
+

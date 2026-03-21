@@ -37,8 +37,9 @@ interface DetailWebsiteCandidate extends DetailWebsiteModalItem {
 
 const WIKIPEDIA_TYPE_ID = 3;
 const YOUTUBE_TYPE_ID = 9;
-const ALLOWED_INFORMATIONAL_TYPE_IDS = new Set([1, 2]);
-const ALLOWED_STOREFRONT_TYPE_IDS = new Set([10, 11, 12, 13, 15, 16, 17, 22, 23, 24, 25]);
+const ALLOWED_MODAL_TYPE_IDS = new Set([
+  1, 2, 3, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24,
+]);
 
 export function buildDetailWebsiteModalItems(options: {
   websites: GameWebsite[] | null | undefined;
@@ -191,15 +192,7 @@ function isAllowedWebsite(website: GameWebsite): boolean {
 
   const typeId = normalizePositiveInteger(website.typeId);
   if (typeId !== null) {
-    if (ALLOWED_INFORMATIONAL_TYPE_IDS.has(typeId)) {
-      return true;
-    }
-
-    if (ALLOWED_STOREFRONT_TYPE_IDS.has(typeId)) {
-      return true;
-    }
-
-    return false;
+    return ALLOWED_MODAL_TYPE_IDS.has(typeId);
   }
 
   return isKnownStorefrontUrl(website.url);
@@ -316,11 +309,49 @@ function resolveWebsiteLabel(website: GameWebsite): string {
     return providerLabel;
   }
 
+  const inferredLabel = resolveWebsiteLabelFromHostname(website.url);
+  if (inferredLabel) {
+    return inferredLabel;
+  }
+
   try {
     return new URL(website.url).hostname;
   } catch {
     return website.url;
   }
+}
+
+function resolveWebsiteLabelFromHostname(url: string): string | null {
+  const icon = resolveWebsiteIconFromHostname(url);
+  if (icon === 'steam') {
+    return 'Steam';
+  }
+  if (icon === 'xbox') {
+    return 'Xbox';
+  }
+  if (icon === 'playstation') {
+    return 'PlayStation';
+  }
+  if (icon === 'nintendo') {
+    return 'Nintendo';
+  }
+  if (icon === 'epicgames') {
+    return 'Epic Games Store';
+  }
+  if (icon === 'gogdotcom') {
+    return 'GOG';
+  }
+  if (icon === 'itchdotio') {
+    return 'itch.io';
+  }
+  if (icon === 'appstore') {
+    return 'App Store';
+  }
+  if (icon === 'googleplay') {
+    return 'Google Play';
+  }
+
+  return null;
 }
 
 function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): DetailWebsiteModalIcon {

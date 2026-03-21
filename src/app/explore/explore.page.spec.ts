@@ -250,6 +250,7 @@ describe('ExplorePage explore modes UX', () => {
       of({
         source: { igdbGameId: '100', platformIgdbId: 6 },
         items: [],
+        page: { offset: 0, limit: 5, hasMore: false, nextOffset: null },
       })
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
@@ -873,12 +874,21 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     }));
-    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
-      of({
-        source: { igdbGameId: '100', platformIgdbId: 6 },
-        items: similarItems,
-      })
-    );
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: similarItems.slice(0, 5),
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: similarItems.slice(5, 10),
+          page: { offset: 5, limit: 5, hasMore: true, nextOffset: 10 },
+        })
+      );
 
     page.ngOnInit();
     await flushAsync();
@@ -887,9 +897,25 @@ describe('ExplorePage explore modes UX', () => {
     await flushAsync();
 
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(5);
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(1, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 0,
+      limit: 5,
+    });
     const complete = vi.fn().mockResolvedValue(undefined);
     await page.loadMoreSimilarRecommendations({ target: { complete } } as unknown as Event);
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(10);
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(2, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 5,
+      limit: 5,
+    });
   });
 
   it('lane change fetches the selected lane when it is not cached', async () => {
@@ -2025,7 +2051,8 @@ describe('ExplorePage explore modes UX', () => {
       runtimeMode: 'NEUTRAL',
       igdbGameId: '100',
       platformIgdbId: 6,
-      limit: 50,
+      offset: 0,
+      limit: 5,
     });
     expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');

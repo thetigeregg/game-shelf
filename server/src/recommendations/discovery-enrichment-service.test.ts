@@ -935,6 +935,65 @@ void test('discovery enrichment refreshes locked MobyGames review using stored g
   }
 });
 
+void test('discovery enrichment skips locked MobyGames review refresh when saved game id is missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '334',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Manual Review Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        reviewMatchLocked: true,
+        reviewSource: 'mobygames',
+        reviewMatchQueryTitle: 'Manual Review Query',
+        reviewMatchQueryReleaseYear: 2000,
+        reviewMatchQueryPlatform: 'PS1',
+        reviewMatchPlatformIgdbId: 167,
+        reviewMatchMobygamesGameId: null,
+        mobygamesGameId: null,
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['334::167'], providers: ['review'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 0,
+      skipped: 1,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchUrls.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

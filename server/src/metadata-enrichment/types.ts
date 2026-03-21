@@ -1,3 +1,5 @@
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
+
 export interface MetadataEnrichmentGameRow {
   igdbGameId: string;
   platformIgdbId: number;
@@ -26,6 +28,7 @@ export interface IgdbMetadataRecord {
   keywordIds: number[];
   screenshots: IgdbGameScreenshot[];
   videos: IgdbGameVideo[];
+  websites: NormalizedWebsite[];
   steamAppId: number | null;
 }
 

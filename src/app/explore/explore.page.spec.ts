@@ -1151,21 +1151,50 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.isRatingModalOpen).toBe(false);
   });
 
-  it('supports shortcut URL routing and image fallback', () => {
+  it('supports shortcut URL routing, websites modal fallbacks, and image fallback', () => {
     const page = createPage() as unknown as {
-      selectedGameDetail: { title?: string | null } | null;
-      openShortcutSearch: (provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs') => void;
+      selectedGameDetail: { title?: string | null; websites?: unknown[] } | null;
+      openWebsitesModal: () => void;
+      closeWebsitesModal: () => void;
+      openDetailWebsite: (item: { url: string }) => void;
+      isWebsitesModalOpen: boolean;
+      detailWebsiteItems: Array<{ label: string; url: string }>;
       onImageError: (event: Event) => void;
       openExternalUrl: (url: string) => void;
     };
     const openExternalUrl = vi.spyOn(page, 'openExternalUrl').mockImplementation(() => undefined);
 
-    page.selectedGameDetail = { title: 'Pokemon Red' };
-    page.openShortcutSearch('google');
-    page.openShortcutSearch('youtube');
-    page.openShortcutSearch('wikipedia');
-    page.openShortcutSearch('gamefaqs');
+    page.selectedGameDetail = {
+      title: 'Pokemon Red',
+      websites: [
+        { url: 'https://en.wikipedia.org/wiki/Pokemon_Red', typeId: 3, typeName: 'Wikipedia' },
+      ],
+    };
+
+    expect(page.detailWebsiteItems.map((item) => item.label)).toEqual([
+      'Wikipedia',
+      'GameFAQs',
+      'YouTube',
+      'Google',
+    ]);
+    expect(page.detailWebsiteItems.find((item) => item.label === 'Wikipedia')?.url).toBe(
+      'https://en.wikipedia.org/wiki/Pokemon_Red'
+    );
+    expect(page.detailWebsiteItems.find((item) => item.label === 'YouTube')?.url).toContain(
+      'youtube.com/results?search_query='
+    );
+    page.detailWebsiteItems.forEach((item) => {
+      page.openDetailWebsite(item);
+    });
     expect(openExternalUrl).toHaveBeenCalledTimes(4);
+
+    page.openWebsitesModal();
+    expect(page.isWebsitesModalOpen).toBe(true);
+    page.openDetailWebsite({ url: 'https://example.com' });
+    expect(page.isWebsitesModalOpen).toBe(false);
+    expect(openExternalUrl).toHaveBeenCalledWith('https://example.com');
+    page.closeWebsitesModal();
+    expect(page.isWebsitesModalOpen).toBe(false);
 
     const img = document.createElement('img');
     page.onImageError({ target: img } as unknown as Event);

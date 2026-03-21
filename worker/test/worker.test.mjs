@@ -21,6 +21,8 @@ function createFetchStub({
   igdbResponses = null,
   igdbPlatformsStatus = 200,
   igdbPlatformsBody = [],
+  websiteTypesStatus = 200,
+  websiteTypesBody = [],
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null,
@@ -31,6 +33,8 @@ function createFetchStub({
     igdbBodies: [],
     igdbPlatforms: 0,
     igdbPlatformBodies: [],
+    websiteTypeBodies: [],
+    websiteTypes: 0,
     theGamesDb: 0,
     theGamesDbUrls: [],
   };
@@ -70,6 +74,12 @@ function createFetchStub({
       calls.igdbPlatforms += 1;
       calls.igdbPlatformBodies.push(typeof options.body === 'string' ? options.body : '');
       return new Response(JSON.stringify(igdbPlatformsBody), { status: igdbPlatformsStatus });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/website_types') {
+      calls.websiteTypes += 1;
+      calls.websiteTypeBodies.push(typeof options.body === 'string' ? options.body : '');
+      return new Response(JSON.stringify(websiteTypesBody), { status: websiteTypesStatus });
     }
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
@@ -229,31 +239,136 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
-  assert.equal(
-    calls.igdbBodies[0].includes(
-      'external_games.external_game_source,external_games.category,external_games.uid,external_games.url'
-    ),
-    true
-  );
+  assert.equal(calls.igdbBodies[0].includes('websites.type,websites.category,websites.url'), true);
+  assert.equal(calls.igdbBodies[0].includes('external_games.'), false);
 });
 
-test('normalizeIgdbGame extracts steam app id from external_games', () => {
+test('normalizeIgdbGame extracts steam app id from websites', () => {
   const normalized = normalizeIgdbGame({
     id: 123,
     name: 'Steam Test',
-    external_games: [
-      {
-        external_game_source: 2,
-        uid: '100',
-      },
-      {
-        external_game_source: 1,
-        uid: '3764200',
-      },
-    ],
+    websites: [{ type: 13, url: 'https://store.steampowered.com/app/3764200/' }],
   });
 
   assert.equal(normalized.steamAppId, 3764200);
+});
+
+test('normalizeIgdbGame builds websites from website rows', () => {
+  const normalized = normalizeIgdbGame(
+    {
+      id: 124,
+      name: 'Websites',
+      websites: [
+        {
+          type: 13,
+          url: 'https://store.steampowered.com/app/480/Spacewar/',
+        },
+        {
+          url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
+          trusted: true,
+        },
+        {
+          category: 17,
+          url: 'https://www.gog.com/en/game/test_game',
+          trusted: true,
+        },
+      ],
+    },
+    {
+      websiteTypeNames: new Map([
+        [13, 'Steam'],
+        [17, 'gog'],
+      ]),
+    }
+  );
+
+  assert.deepEqual(normalized.websites, [
+    {
+      provider: 'steam',
+      providerLabel: 'Steam',
+      url: 'https://store.steampowered.com/app/480',
+      typeId: 13,
+      typeName: 'Steam',
+      trusted: null,
+    },
+    {
+      provider: 'xbox',
+      providerLabel: 'Xbox',
+      url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
+      typeId: null,
+      typeName: null,
+      trusted: true,
+    },
+    {
+      provider: 'gog',
+      providerLabel: 'GOG',
+      url: 'https://www.gog.com/en/game/test_game',
+      typeId: 17,
+      typeName: 'gog',
+      trusted: true,
+    },
+  ]);
+  assert.equal(normalized.steamAppId, 480);
+});
+
+test('normalizeIgdbGame preserves non-store website types when urls are valid', () => {
+  const normalized = normalizeIgdbGame(
+    {
+      id: 125,
+      name: 'All Websites',
+      websites: [
+        {
+          type: 1,
+          url: 'https://www.residentevil.com/requiem/en-us/',
+          trusted: false,
+        },
+        {
+          type: 3,
+          url: 'https://en.wikipedia.org/wiki/Resident_Evil_Requiem',
+          trusted: true,
+        },
+        {
+          type: 14,
+          url: 'https://www.reddit.com/r/GTA6/',
+          trusted: true,
+        },
+      ],
+    },
+    {
+      websiteTypeNames: new Map([
+        [1, 'Official Website'],
+        [3, 'Wikipedia'],
+        [14, 'Subreddit'],
+      ]),
+    }
+  );
+
+  assert.deepEqual(normalized.websites, [
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.residentevil.com/requiem/en-us/',
+      typeId: 1,
+      typeName: 'Official Website',
+      trusted: false,
+    },
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://en.wikipedia.org/wiki/Resident_Evil_Requiem',
+      typeId: 3,
+      typeName: 'Wikipedia',
+      trusted: true,
+    },
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.reddit.com/r/GTA6/',
+      typeId: 14,
+      typeName: 'Subreddit',
+      trusted: true,
+    },
+  ]);
 });
 
 test('normalizeIgdbGame maps and deduplicates themes and keywords', () => {

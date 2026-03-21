@@ -56,13 +56,20 @@ export class MetadataEnrichmentRepository {
       SELECT igdb_game_id, platform_igdb_id, payload
       FROM games
       WHERE
-        -- Intentionally wishlist-only: discovery rows are enriched by
+        -- Intentionally excludes discovery rows: those are enriched by
         -- recommendations/discovery-enrichment-service.ts.
-        COALESCE(payload ->> 'listType', '') = 'wishlist'
+        COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
         AND (
           COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
+          OR (
+            COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
+            AND (
+              NOT (payload ? 'websites')
+              OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+            )
+          )
           OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
         )
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC

@@ -2715,6 +2715,7 @@
 - 20f8db85 feat(cleanup): enhance dev-cleanup script with worktree management and add tests
 
 ## v1.12.0 - 2026-03-20
+
 - 9183dfb6 Merge pull request #259 from thetigeregg/feat/rate-limit
 - 20e5569b docs(rate-limit): document shared IGDB outbound throttle knobs
 - 3e6563a7 fix(handler): simplify getIgdbOutboundLimiter calls in handleRequest
@@ -2740,6 +2741,7 @@
 - 62fd0961 refactor: rate limiting implementation across services
 
 ## v1.13.0 - 2026-03-20
+
 - eea7d7df Merge pull request #263 from thetigeregg/feat/hltb-tbd
 - c568e4ba Merge branch 'main' into feat/hltb-tbd
 - 974926b2 Merge branch 'main' into feat/hltb-tbd
@@ -2752,6 +2754,7 @@
 - ceaaef4f feat(search-parser): add normalization for release year and implement tests
 
 ## v1.14.0 - 2026-03-20
+
 - dc314f16 Merge pull request #264 from thetigeregg/feat/release-dates
 - 2fe8eb50 fix(settings): apply imported release date preferences before storage sync
 - aee38569 feat(game-list): refactor release date formatting; use consistent date formatter
@@ -2764,6 +2767,7 @@
 - a52bb0b0 feat(release): add configurable release date display options
 
 ## v1.15.0 - 2026-03-20
+
 - a0665631 Merge pull request #265 from thetigeregg/feat/search-detail
 - 3ef3de33 test(list-page): cover list page PR note scenarios
 - 8270df77 Revert "fix(list-page): preserve add-game detail platform context"
@@ -2794,4 +2798,3 @@
 - a6e05db3 feat(discovery-match): enhance locking mechanism explanations and UI notes
 - 2928acee feat(discovery-enrichment): enhance locked HLTB and review provider handling with saved query fields
 - 68a95f49 feat(psprices): implement PSPrices refresh job builder and related tests
-

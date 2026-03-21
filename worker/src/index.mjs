@@ -4,6 +4,10 @@ import {
   normalizeIgdbVideoList,
 } from '../../shared/igdb-media-normalization.mjs';
 import {
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../shared/igdb-websites-normalization.mjs';
+import {
   createProviderLimiter,
   parseRetryAfterSeconds as parseSharedRetryAfterSeconds,
   ProviderThrottleError,
@@ -20,7 +24,7 @@ const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
 const THE_GAMES_DB_SECONDARY_REGION_IDS = new Set([1]);
-const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const IGDB_REFERENCE_DATA_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
 
@@ -36,6 +40,10 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0,
 };
+const websiteTypeCache = {
+  items: null,
+  expiresAt: 0,
+};
 let localRequestLimiter = null;
 let igdbOutboundLimiter = null;
 
@@ -46,6 +54,8 @@ export function resetCaches() {
   igdbSearchVariantCache.disabledVariants.clear();
   igdbPlatformCache.items = null;
   igdbPlatformCache.expiresAt = 0;
+  websiteTypeCache.items = null;
+  websiteTypeCache.expiresAt = 0;
   localRequestLimiter?.reset();
   igdbOutboundLimiter?.reset();
   localRequestLimiter = null;
@@ -620,7 +630,7 @@ export function normalizeIgdbReleaseDates(values) {
     });
 }
 
-export function normalizeIgdbGame(game) {
+export function normalizeIgdbGame(game, options = {}) {
   const igdbGameId = String(game.id ?? '').trim();
   const platformOptions = Array.isArray(game.platforms)
     ? game.platforms
@@ -663,7 +673,15 @@ export function normalizeIgdbGame(game) {
     size: 't_screenshot_huge',
   });
   const videos = normalizeIgdbVideoList(game?.videos, { limit: 5 });
-  const steamAppId = normalizeSteamAppId(game?.external_games);
+  const websites = normalizeIgdbWebsites(
+    {
+      websites: game?.websites,
+    },
+    {
+      websiteTypeNames: options.websiteTypeNames ?? null,
+    }
+  );
+  const steamAppId = deriveSteamAppIdFromWebsites(websites);
   const storyline = normalizeOptionalText(game?.storyline);
   const summary = normalizeOptionalText(game?.summary);
   const releaseDates = normalizeIgdbReleaseDates(game?.release_dates);
@@ -691,6 +709,7 @@ export function normalizeIgdbGame(game) {
     themeIds,
     keywords,
     keywordIds,
+    ...(websites.length > 0 ? { websites } : {}),
     steamAppId,
     screenshots,
     videos,
@@ -702,49 +721,6 @@ export function normalizeIgdbGame(game) {
     releaseDate,
     releaseYear,
   };
-}
-
-const STEAM_EXTERNAL_GAME_SOURCE_ID = 1;
-const STEAM_EXTERNAL_GAME_CATEGORY_ID = 1;
-const STEAM_URL_APP_ID_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
-
-function normalizeSteamAppId(value) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  for (const entry of value) {
-    if (!entry || typeof entry !== 'object') {
-      continue;
-    }
-
-    const externalGameSource = toPositiveInteger(entry.external_game_source);
-    const category = toPositiveInteger(entry.category);
-    const isSteamBySource = externalGameSource === STEAM_EXTERNAL_GAME_SOURCE_ID;
-    const isSteamByCategory = category === STEAM_EXTERNAL_GAME_CATEGORY_ID;
-
-    if (!isSteamBySource && !isSteamByCategory) {
-      continue;
-    }
-
-    const uid = toPositiveInteger(entry.uid);
-    if (uid !== null) {
-      return uid;
-    }
-
-    const url = typeof entry.url === 'string' ? entry.url.trim() : '';
-    const match = STEAM_URL_APP_ID_PATTERN.exec(url);
-    if (!match) {
-      continue;
-    }
-
-    const parsed = toPositiveInteger(match[1]);
-    if (parsed !== null) {
-      return parsed;
-    }
-  }
-
-  return null;
 }
 
 function toPositiveInteger(value) {
@@ -1392,7 +1368,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 
   if (platformIds.length === 0) {
     igdbPlatformCache.items = [];
-    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return [];
   }
 
@@ -1435,7 +1411,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 
   if (!Array.isArray(payload)) {
     igdbPlatformCache.items = [];
-    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return [];
   }
 
@@ -1449,28 +1425,108 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 
   igdbPlatformCache.items = items;
-  igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+  igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
   return items;
+}
+
+async function listIgdbWebsiteTypes(env, token, fetchImpl, nowMs) {
+  if (websiteTypeCache.items instanceof Map && websiteTypeCache.expiresAt > nowMs) {
+    return websiteTypeCache.items;
+  }
+
+  const items = await fetchIgdbNameMap(
+    {
+      env,
+      token,
+      fetchImpl,
+      nowMs,
+      url: 'https://api.igdb.com/v4/website_types',
+      body: 'fields id,type; limit 500;',
+      valueKey: 'type',
+    },
+    websiteTypeCache
+  );
+  return items;
+}
+
+async function fetchIgdbNameMap(params, cache) {
+  const timeoutMs = getIgdbRequestTimeoutMs(params.env);
+
+  try {
+    const response = await fetchWithTimeout(
+      params.fetchImpl,
+      params.url,
+      {
+        method: 'POST',
+        headers: {
+          'Client-ID': params.env.TWITCH_CLIENT_ID,
+          Authorization: `Bearer ${params.token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: params.body,
+      },
+      timeoutMs
+    );
+
+    if (response.status === 429) {
+      throw new UpstreamRateLimitError(
+        resolveRetryAfterSecondsFromHeaders(response.headers, params.nowMs)
+      );
+    }
+
+    if (!response.ok) {
+      cache.items = new Map();
+      cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
+      return cache.items;
+    }
+
+    const payload = await response.json();
+    const items = new Map();
+
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        const id = toPositiveInteger(item?.id);
+        const value =
+          typeof item?.[params.valueKey] === 'string' ? item[params.valueKey].trim() : '';
+        if (id !== null && value.length > 0) {
+          items.set(id, value);
+        }
+      }
+    }
+
+    cache.items = items;
+    cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
+    return items;
+  } catch (error) {
+    if (error instanceof UpstreamRateLimitError) {
+      throw error;
+    }
+
+    cache.items = new Map();
+    cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
+    return cache.items;
+  }
 }
 
 async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
+  const websiteTypeNames = await listIgdbWebsiteTypes(env, token, fetchImpl, nowMs);
   const normalizedPlatformIgdbId =
     Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
   const queryVariants = [
     {
       fields:
-        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,websites.type,websites.category,websites.url,websites.trusted,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,websites.type,websites.category,websites.url,websites.trusted,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,websites.type,websites.category,websites.url,websites.trusted,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
   ];
@@ -1607,7 +1663,11 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
 
         hadSuccessfulPayload = true;
         igdbSearchVariantCache.preferredVariantIndex = variantIndex;
-        const normalizedResults = sortIgdbSearchResults(data).map(normalizeIgdbGame);
+        const normalizedResults = sortIgdbSearchResults(data).map((entry) =>
+          normalizeIgdbGame(entry, {
+            websiteTypeNames,
+          })
+        );
 
         normalizedResults.forEach((result) => {
           const resultId = String(result?.igdbGameId ?? result?.externalId ?? '').trim();
@@ -1642,9 +1702,10 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
 
 async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
+  const websiteTypeNames = await listIgdbWebsiteTypes(env, token, fetchImpl, nowMs);
   const body = [
     `where id = ${gameId};`,
-    'fields id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,websites.type,websites.category,websites.url,websites.trusted,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     'limit 1;',
   ].join(' ');
 
@@ -1683,7 +1744,9 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
     return null;
   }
 
-  return normalizeIgdbGame(data[0]);
+  return normalizeIgdbGame(data[0], {
+    websiteTypeNames,
+  });
 }
 
 export async function handleRequest(request, env, fetchImpl = fetch, options = {}) {

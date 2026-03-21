@@ -158,6 +158,7 @@ export interface RecommendationServiceApi {
     platformIgdbId: number;
     target: RecommendationTarget;
     runtimeMode?: RecommendationRuntimeMode | null;
+    offset: number;
     limit: number;
   }): Promise<{
     runtimeMode: RecommendationRuntimeMode;
@@ -167,6 +168,7 @@ export interface RecommendationServiceApi {
       similarity: number;
       reasons: SimilarityReasons;
     }>;
+    page: RecommendationPageInfo;
   }>;
 }
 
@@ -511,6 +513,7 @@ export class RecommendationService implements RecommendationServiceApi {
     platformIgdbId: number;
     target: RecommendationTarget;
     runtimeMode?: RecommendationRuntimeMode | null;
+    offset: number;
     limit: number;
   }): Promise<{
     runtimeMode: RecommendationRuntimeMode;
@@ -520,26 +523,36 @@ export class RecommendationService implements RecommendationServiceApi {
       similarity: number;
       reasons: SimilarityReasons;
     }>;
+    page: RecommendationPageInfo;
   }> {
     const resolvedRuntimeMode = await this.resolveRuntimeMode(params.runtimeMode);
-    const safeLimit = normalizeLimit(params.limit, 50);
+    const safeLimit = normalizePageLimit(params.limit, 50);
+    const safeOffset = normalizeOffset(params.offset);
     const rows = await this.repository.readSimilarGames({
       igdbGameId: params.igdbGameId,
       platformIgdbId: params.platformIgdbId,
       target: params.target,
       runtimeMode: resolvedRuntimeMode,
-      limit: safeLimit,
+      limit: 50,
     });
-    const dedupedRows = dedupeSimilarRows(rows, safeLimit);
+    const dedupedRows = dedupeSimilarRows(rows, 50);
+    const pagedRows = dedupedRows.slice(safeOffset, safeOffset + safeLimit);
+    const hasMore = dedupedRows.length > safeOffset + safeLimit;
 
     return {
       runtimeMode: resolvedRuntimeMode,
-      items: dedupedRows.map((row) => ({
+      items: pagedRows.map((row) => ({
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
         similarity: row.similarity,
         reasons: row.reasons,
       })),
+      page: {
+        offset: safeOffset,
+        limit: safeLimit,
+        hasMore,
+        nextOffset: hasMore ? safeOffset + safeLimit : null,
+      },
     };
   }
 

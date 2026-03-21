@@ -273,6 +273,12 @@ export interface RecommendationSimilarResponse {
     platformIgdbId: number;
   };
   items: RecommendationSimilarItem[];
+  page: {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  };
 }
 
 export type PopularityFeedType = 'trending' | 'upcoming' | 'recent';

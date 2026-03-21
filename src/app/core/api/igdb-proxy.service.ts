@@ -148,6 +148,7 @@ interface RecommendationSimilarApiResponse {
   runtimeMode?: unknown;
   source?: unknown;
   items?: unknown;
+  page?: unknown;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -926,6 +927,7 @@ export class IgdbProxyService implements GameSearchApi {
     runtimeMode?: RecommendationRuntimeMode;
     igdbGameId: string;
     platformIgdbId: number;
+    offset?: number;
     limit?: number;
   }): Observable<RecommendationSimilarResponse> {
     const cooldownError = this.createCooldownErrorIfActive();
@@ -945,6 +947,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     const normalizedTarget = this.normalizeRecommendationTarget(params.target);
     const normalizedRuntimeMode = this.normalizeRecommendationRuntimeMode(params.runtimeMode);
+    const normalizedOffset = this.normalizeNonNegativeInteger(params.offset) ?? 0;
     const normalizedLimit =
       Number.isInteger(params.limit) && (params.limit as number) > 0
         ? Math.min(params.limit as number, 50)
@@ -957,6 +960,7 @@ export class IgdbProxyService implements GameSearchApi {
       query = query.set('runtimeMode', normalizedRuntimeMode);
     }
     query = query.set('platformIgdbId', String(normalizedPlatformIgdbId));
+    query = query.set('offset', String(normalizedOffset));
     query = query.set('limit', String(normalizedLimit));
     const url = `${this.recommendationsSimilarBaseUrl}/${encodeURIComponent(normalizedGameId)}`;
 
@@ -2878,6 +2882,7 @@ export class IgdbProxyService implements GameSearchApi {
           fallbackSource.platformIgdbId,
       },
       items: this.normalizeRecommendationSimilarItems(value.items),
+      page: this.normalizePageInfo(value.page),
     };
   }
 

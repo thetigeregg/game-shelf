@@ -54,6 +54,7 @@ import {
   RecommendationLanesResponse,
   RecommendationRuntimeMode,
   RecommendationSimilarItem,
+  RecommendationSimilarResponse,
   RecommendationTarget,
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -164,7 +165,6 @@ interface RecommendationDisplayMetadata {
 export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_PAGE_SIZE = 10;
   private static readonly SIMILAR_PAGE_SIZE = 5;
-  private static readonly SIMILAR_FETCH_LIMIT = 50;
   private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
   private static readonly POPULARITY_CATALOG_HYDRATION_CONCURRENCY = 4;
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
@@ -236,6 +236,7 @@ export class ExplorePage implements OnInit {
   isLoadingSimilar = false;
   similarRecommendationsError = '';
   similarRecommendationItems: RecommendationSimilarItem[] = [];
+  similarRecommendationsPage: RecommendationSimilarResponse['page'] | null = null;
   visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visiblePopularityCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
@@ -485,13 +486,21 @@ export class ExplorePage implements OnInit {
   }
 
   canLoadMoreSimilarRecommendations(): boolean {
-    return this.visibleSimilarRecommendationCount < this.getVisibleSimilarItems().length;
+    return this.similarRecommendationsPage?.hasMore === true;
   }
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {
-    this.visibleSimilarRecommendationCount += ExplorePage.SIMILAR_PAGE_SIZE;
     try {
-      this.scheduleVisibleSimilarDisplayMetadata();
+      const active = this.activeDetailRecommendation;
+      const nextOffset = this.similarRecommendationsPage?.nextOffset;
+      if (!active || nextOffset === null || nextOffset === undefined) {
+        return;
+      }
+
+      await this.loadSimilarRecommendations(active, {
+        append: true,
+        offset: nextOffset,
+      });
     } finally {
       await completeIonInfiniteScroll(event);
     }
@@ -878,6 +887,7 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = item;
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
@@ -946,6 +956,8 @@ export class ExplorePage implements OnInit {
     this.isLoadingSimilar = false;
     this.similarRecommendationsError = '';
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
+    this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
   }
 
@@ -2048,9 +2060,22 @@ export class ExplorePage implements OnInit {
     };
   }
 
-  private async loadSimilarRecommendations(item: RecommendationItem): Promise<void> {
+  private async loadSimilarRecommendations(
+    item: RecommendationItem,
+    options?: { append?: boolean; offset?: number }
+  ): Promise<void> {
+    const append = options?.append === true;
+    const offset = options?.offset ?? 0;
+    const requestIdentityKey = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+
     this.isLoadingSimilar = true;
     this.similarRecommendationsError = '';
+    if (!append) {
+      this.similarRecommendationItems = [];
+      this.similarRecommendationsPage = null;
+      this.invalidateSimilarVisibility();
+      this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
+    }
 
     try {
       const response = await firstValueFrom(
@@ -2059,21 +2084,61 @@ export class ExplorePage implements OnInit {
           runtimeMode: this.selectedRuntimeMode,
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          limit: ExplorePage.SIMILAR_FETCH_LIMIT,
+          offset,
+          limit: ExplorePage.SIMILAR_PAGE_SIZE,
         })
       );
 
-      this.similarRecommendationItems = response.items;
+      if (
+        this.activeDetailRecommendation &&
+        this.buildIdentityKey(
+          this.activeDetailRecommendation.igdbGameId,
+          this.activeDetailRecommendation.platformIgdbId
+        ) !== requestIdentityKey
+      ) {
+        return;
+      }
+
+      this.similarRecommendationItems = append
+        ? [...this.similarRecommendationItems, ...response.items]
+        : response.items;
+      this.similarRecommendationsPage = response.page;
+      this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
       this.invalidateSimilarVisibility();
-      this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
       this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
+      if (
+        this.activeDetailRecommendation &&
+        this.buildIdentityKey(
+          this.activeDetailRecommendation.igdbGameId,
+          this.activeDetailRecommendation.platformIgdbId
+        ) !== requestIdentityKey
+      ) {
+        return;
+      }
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
-      this.similarRecommendationItems = [];
-      this.invalidateSimilarVisibility();
+      if (!append) {
+        this.similarRecommendationItems = [];
+        this.similarRecommendationsPage = null;
+        this.invalidateSimilarVisibility();
+      } else if (this.similarRecommendationsPage) {
+        this.similarRecommendationsPage = {
+          ...this.similarRecommendationsPage,
+          hasMore: false,
+          nextOffset: null,
+        };
+      }
     } finally {
-      this.isLoadingSimilar = false;
+      if (
+        !this.activeDetailRecommendation ||
+        this.buildIdentityKey(
+          this.activeDetailRecommendation.igdbGameId,
+          this.activeDetailRecommendation.platformIgdbId
+        ) === requestIdentityKey
+      ) {
+        this.isLoadingSimilar = false;
+      }
     }
   }
 

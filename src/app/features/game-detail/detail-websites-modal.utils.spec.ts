@@ -377,13 +377,13 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.icon === 'steam')?.label).toBe('Steam');
     expect(items.find((item) => item.icon === 'xbox')?.label).toBe('Xbox');
     expect(items.find((item) => item.icon === 'playstation')?.label).toBe('PlayStation');
-    expect(items.find((item) => item.url.includes('microsoft.com'))?.icon).toBe('ion:link');
-    expect(items.find((item) => item.url.includes('nintendo-europe.com'))?.icon).toBe('ion:link');
-    expect(items.find((item) => item.url.includes('epicgames.com'))?.icon).toBe('epicgames');
-    expect(items.find((item) => item.url.includes('apps.apple.com'))?.icon).toBe('appstore');
-    expect(items.find((item) => item.url.includes('play.google.com'))?.icon).toBe('googleplay');
-    expect(items.find((item) => item.url.includes('itch.io'))?.icon).toBe('itchdotio');
-    expect(items.find((item) => item.url.includes('gog.com'))?.icon).toBe('gogdotcom');
+    expect(findItemByHostname(items, 'microsoft.com')?.icon).toBe('ion:link');
+    expect(findItemByHostname(items, 'nintendo-europe.com')?.icon).toBe('ion:link');
+    expect(findItemByHostname(items, 'epicgames.com')?.icon).toBe('epicgames');
+    expect(findItemByHostname(items, 'apps.apple.com')?.icon).toBe('appstore');
+    expect(findItemByHostname(items, 'play.google.com')?.icon).toBe('googleplay');
+    expect(findItemByHostname(items, 'itch.io')?.icon).toBe('itchdotio');
+    expect(findItemByHostname(items, 'gog.com')?.icon).toBe('gogdotcom');
   });
 
   it('filters invalid or duplicate websites and skips search fallbacks when unavailable', () => {

@@ -231,12 +231,17 @@ describe('GameDetailContentComponent rating display', () => {
   it('shows detail text toggles only for long summary and storyline values', () => {
     const component = createComponent();
 
-    expect(component.shouldShowDetailTextToggle('Short text')).toBe(false);
-    expect(component.shouldShowDetailTextToggle('x'.repeat(261))).toBe(true);
+    component.detailTextExpandable.summary = false;
+    component.detailTextExpandable.storyline = true;
+
+    expect(component.canToggleDetailText('summary')).toBe(false);
+    expect(component.canToggleDetailText('storyline')).toBe(true);
   });
 
-  it('toggles summary and storyline expansion independently', () => {
+  it('toggles summary and storyline expansion independently when expandable', () => {
     const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpandable.storyline = true;
 
     expect(component.isDetailTextExpanded('summary')).toBe(false);
     expect(component.isDetailTextExpanded('storyline')).toBe(false);
@@ -252,6 +257,55 @@ describe('GameDetailContentComponent rating display', () => {
     component.toggleDetailText('summary');
     expect(component.isDetailTextExpanded('summary')).toBe(false);
     expect(component.isDetailTextExpanded('storyline')).toBe(true);
+  });
+
+  it('does not toggle summary or storyline when the field is not expandable', () => {
+    const component = createComponent();
+
+    component.toggleDetailText('summary');
+    component.toggleDetailText('storyline');
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
+  it('keeps an existing detail text toggle enabled when overflow measurement reports no clipping', () => {
+    const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpandable.storyline = true;
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        storylineTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).summaryTextRef = {
+      nativeElement: {
+        clientHeight: 100,
+        scrollHeight: 100,
+      } as HTMLElement,
+    };
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        storylineTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).storylineTextRef = {
+      nativeElement: {
+        clientHeight: 120,
+        scrollHeight: 120,
+      } as HTMLElement,
+    };
+
+    (
+      component as unknown as {
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).refreshDetailTextExpandableState();
+
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.canToggleDetailText('storyline')).toBe(true);
   });
 
   it('resets expanded detail text when the selected game changes', () => {

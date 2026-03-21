@@ -36,6 +36,8 @@ interface DetailWebsiteCandidate extends DetailWebsiteModalItem {
 
 const WIKIPEDIA_TYPE_ID = 3;
 const YOUTUBE_TYPE_ID = 9;
+const ALLOWED_INFORMATIONAL_TYPE_IDS = new Set([1, 2]);
+const ALLOWED_STOREFRONT_TYPE_IDS = new Set([10, 11, 12, 13, 15, 16, 17, 22, 23, 24, 25]);
 
 export function buildDetailWebsiteModalItems(options: {
   websites: GameWebsite[] | null | undefined;
@@ -142,6 +144,10 @@ function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebs
       continue;
     }
 
+    if (!isAllowedWebsite(website)) {
+      continue;
+    }
+
     const key = buildWebsiteDedupKey(website);
     if (seen.has(key)) {
       continue;
@@ -175,6 +181,27 @@ function isValidWebsite(website: unknown): website is GameWebsite {
 
 function buildWebsiteDedupKey(website: GameWebsite): string {
   return website.url.trim().toLowerCase();
+}
+
+function isAllowedWebsite(website: GameWebsite): boolean {
+  if (isWikipediaWebsite(website) || isYouTubeWebsite(website)) {
+    return true;
+  }
+
+  const typeId = normalizePositiveInteger(website.typeId);
+  if (typeId !== null) {
+    if (ALLOWED_INFORMATIONAL_TYPE_IDS.has(typeId)) {
+      return true;
+    }
+
+    if (ALLOWED_STOREFRONT_TYPE_IDS.has(typeId)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  return isKnownStorefrontUrl(website.url);
 }
 
 function createWebsiteCandidate(website: GameWebsite, priority: number): DetailWebsiteCandidate {
@@ -225,6 +252,73 @@ function matchesHostname(url: string, hostnames: string[]): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
     return hostnames.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
+
+function isKnownStorefrontUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+
+    if (hostname === 'store.steampowered.com' || hostname.endsWith('.steampowered.com')) {
+      return true;
+    }
+    if (hostname === 'store.playstation.com' || hostname.endsWith('.playstation.com')) {
+      return true;
+    }
+    if (hostname === 'xbox.com' || hostname.endsWith('.xbox.com')) {
+      return true;
+    }
+    if (hostname === 'microsoft.com' || hostname.endsWith('.microsoft.com')) {
+      return pathname.includes('/store/');
+    }
+    if (
+      hostname === 'nintendo.com' ||
+      hostname.endsWith('.nintendo.com') ||
+      hostname.endsWith('.nintendo-europe.com')
+    ) {
+      return true;
+    }
+    if (hostname === 'store.epicgames.com' || hostname.endsWith('.epicgames.com')) {
+      return true;
+    }
+    if (hostname === 'gog.com' || hostname.endsWith('.gog.com')) {
+      return true;
+    }
+    if (hostname === 'itch.io' || hostname.endsWith('.itch.io')) {
+      return true;
+    }
+    if (hostname === 'apps.apple.com') {
+      return true;
+    }
+    if (hostname === 'play.google.com') {
+      return true;
+    }
+    if (hostname === 'amazon.com' || hostname.endsWith('.amazon.com')) {
+      return true;
+    }
+    if (
+      hostname === 'oculus.com' ||
+      hostname.endsWith('.oculus.com') ||
+      hostname === 'meta.com' ||
+      hostname.endsWith('.meta.com')
+    ) {
+      return pathname.includes('/experiences/') || pathname.includes('/app/');
+    }
+    if (hostname === 'utomik.com' || hostname.endsWith('.utomik.com')) {
+      return true;
+    }
+    if (hostname === 'gamejolt.com' || hostname.endsWith('.gamejolt.com')) {
+      return true;
+    }
+    if (hostname === 'kartridge.com' || hostname.endsWith('.kartridge.com')) {
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }

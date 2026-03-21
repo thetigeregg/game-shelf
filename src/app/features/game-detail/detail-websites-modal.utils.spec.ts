@@ -15,7 +15,7 @@ function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
 }
 
 describe('buildDetailWebsiteModalItems', () => {
-  it('prepends google and gamefaqs and sorts remaining websites by type id', () => {
+  it('prepends google and gamefaqs and sorts remaining allowed websites by type id', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
         makeWebsite({
@@ -44,11 +44,52 @@ describe('buildDetailWebsiteModalItems', () => {
       'Wikipedia',
       'YouTube',
       'GOG',
-      'Discord',
     ]);
     expect(items.find((item) => item.label === 'Google')?.icon).toBe('google');
     expect(items.find((item) => item.label === 'GameFAQs')?.icon).toBe('gamefaqs');
     expect(items.find((item) => item.label === 'Official Website')?.icon).toBe('ion:globe');
+    expect(items.find((item) => item.label === 'Discord')).toBeUndefined();
+  });
+
+  it('filters out social links even when upstream provider metadata is misleading', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://www.twitch.tv/directory/category/resident-evil-requiem',
+          typeId: 6,
+          typeName: 'Twitch',
+          provider: 'itch',
+          providerLabel: 'itch.io',
+        }),
+        makeWebsite({
+          url: 'https://residentevil.fandom.com/wiki/Resident_Evil_Requiem',
+          typeId: 2,
+          typeName: 'Community Wiki',
+        }),
+        makeWebsite({
+          url: 'https://www.residentevil.com/requiem/en-us/',
+          typeId: 1,
+          typeName: 'Official Website',
+        }),
+        makeWebsite({
+          url: 'https://store.playstation.com/en-us/concept/10015533/',
+          typeId: 23,
+          typeName: 'Playstation',
+        }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      'Google',
+      'GameFAQs',
+      'Official Website',
+      'Community Wiki',
+      'Wikipedia',
+      'YouTube',
+      'Playstation',
+    ]);
+    expect(items.find((item) => item.label === 'Twitch')).toBeUndefined();
   });
 
   it('prefers direct wikipedia and youtube links over search fallbacks', () => {
@@ -99,23 +140,9 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.filter((item) => item.label === 'YouTube')).toHaveLength(1);
   });
 
-  it('assigns simple-icon brands for supported website types', () => {
+  it('assigns simple-icon brands for supported allowed website types', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
-        makeWebsite({
-          url: 'https://www.twitch.tv/testgame',
-          typeId: 6,
-          typeName: 'Twitch',
-        }),
-        makeWebsite({
-          url: 'https://discord.gg/testgame',
-          typeId: 18,
-          typeName: 'Discord',
-        }),
-        makeWebsite({
-          url: 'https://www.reddit.com/r/testgame',
-          typeName: 'Reddit',
-        }),
         makeWebsite({
           url: 'https://www.nintendo.com/us/store/products/test-game-switch/',
           typeId: 1,
@@ -161,15 +188,8 @@ describe('buildDetailWebsiteModalItems', () => {
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
 
-    expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
-    expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
-    expect(items.find((item) => item.label === 'Reddit')?.icon).toBe('reddit');
     expect(items.find((item) => item.url.includes('nintendo.com'))?.icon).toBe('nintendo');
     expect(items.find((item) => item.url.includes('xbox.com'))?.icon).toBe('xbox');
-    expect(
-      items.find((item) => item.label === 'GameFAQs' && item.url.includes('gamefaqs.gamespot.com'))
-        ?.icon
-    ).toBe('gamefaqs');
     expect(items.find((item) => item.label === 'Steam')?.icon).toBe('steam');
     expect(items.find((item) => item.label === 'Epic')?.icon).toBe('epicgames');
     expect(items.find((item) => item.label === 'PlayStation')?.icon).toBe('playstation');

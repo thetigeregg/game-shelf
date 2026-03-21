@@ -188,7 +188,7 @@ function classifyProvider(typeName, url) {
   if (key === 'gog' || key.includes('goodoldgames')) {
     return 'gog';
   }
-  if (key.includes('itch')) {
+  if (key === 'itch' || key === 'itchio') {
     return 'itch';
   }
   if (key.includes('apple') || key.includes('iphone') || key.includes('ipad')) {

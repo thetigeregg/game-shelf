@@ -24,7 +24,7 @@ const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
 const THE_GAMES_DB_SECONDARY_REGION_IDS = new Set([1]);
-const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const IGDB_REFERENCE_DATA_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
 
@@ -1368,7 +1368,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 
   if (platformIds.length === 0) {
     igdbPlatformCache.items = [];
-    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return [];
   }
 
@@ -1411,7 +1411,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 
   if (!Array.isArray(payload)) {
     igdbPlatformCache.items = [];
-    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return [];
   }
 
@@ -1425,7 +1425,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 
   igdbPlatformCache.items = items;
-  igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+  igdbPlatformCache.expiresAt = nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
   return items;
 }
 
@@ -1476,7 +1476,7 @@ async function fetchIgdbNameMap(params, cache) {
 
     if (!response.ok) {
       cache.items = new Map();
-      cache.expiresAt = params.nowMs + PLATFORM_CACHE_TTL_MS;
+      cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
       return cache.items;
     }
 
@@ -1495,7 +1495,7 @@ async function fetchIgdbNameMap(params, cache) {
     }
 
     cache.items = items;
-    cache.expiresAt = params.nowMs + PLATFORM_CACHE_TTL_MS;
+    cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return items;
   } catch (error) {
     if (error instanceof UpstreamRateLimitError) {
@@ -1503,7 +1503,7 @@ async function fetchIgdbNameMap(params, cache) {
     }
 
     cache.items = new Map();
-    cache.expiresAt = params.nowMs + PLATFORM_CACHE_TTL_MS;
+    cache.expiresAt = params.nowMs + IGDB_REFERENCE_DATA_CACHE_TTL_MS;
     return cache.items;
   }
 }

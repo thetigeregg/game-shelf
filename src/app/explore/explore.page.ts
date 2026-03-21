@@ -957,7 +957,6 @@ export class ExplorePage implements OnInit {
     this.similarRecommendationsError = '';
     this.similarRecommendationItems = [];
     this.similarRecommendationsPage = null;
-    this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
   }
 

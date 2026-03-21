@@ -241,6 +241,7 @@ export function registerRecommendationRoutes(
         target?: unknown;
         runtimeMode?: unknown;
         platformIgdbId?: unknown;
+        offset?: unknown;
         limit?: unknown;
       };
       const igdbGameId = typeof params.igdbGameId === 'string' ? params.igdbGameId.trim() : '';
@@ -274,6 +275,7 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      const offset = parseNonNegativeInteger(query.offset) ?? 0;
       const limit = parsePositiveInteger(query.limit) ?? 20;
       await service.ensureRebuildQueuedIfStale(target, 'stale-read');
       const result = await service.getSimilarGames({
@@ -281,6 +283,7 @@ export function registerRecommendationRoutes(
         platformIgdbId,
         target,
         runtimeMode,
+        offset,
         limit,
       });
 
@@ -291,6 +294,7 @@ export function registerRecommendationRoutes(
         },
         runtimeMode: result.runtimeMode,
         items: result.items,
+        page: result.page,
       });
     },
   });

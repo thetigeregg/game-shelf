@@ -141,6 +141,7 @@ function createServiceMock(
             },
           },
         ],
+        page: { offset: params.offset, limit: params.limit, hasMore: false, nextOffset: null },
       }),
   };
 
@@ -187,6 +188,41 @@ void test('GET /v1/recommendations/top accepts DISCOVERY target', async () => {
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as { target: string };
   assert.equal(body.target, 'DISCOVERY');
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/top reuses an already queued stale refresh when data is missing', async () => {
+  const app = fastifyFactory({ logger: false });
+  let enqueueCalls = 0;
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      ensureRebuildQueuedIfStale: () =>
+        Promise.resolve({
+          queued: true,
+          reason: 'stale',
+          jobId: 912,
+        }),
+      enqueueRebuild: () => {
+        enqueueCalls += 1;
+        return Promise.resolve({ jobId: 913, deduped: false });
+      },
+      getTopRecommendations: () => Promise.resolve(null),
+    })
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/top?target=BACKLOG',
+  });
+
+  assert.equal(response.statusCode, 202);
+  const body = JSON.parse(response.body) as { status?: string; jobId?: number; reason?: string };
+  assert.equal(body.status, 'QUEUED');
+  assert.equal(body.jobId, 912);
+  assert.equal(body.reason, 'stale');
+  assert.equal(enqueueCalls, 0);
 
   await app.close();
 });
@@ -575,12 +611,13 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&limit=5',
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&offset=10&limit=5',
   });
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     runtimeMode: RecommendationRuntimeMode;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
     items: Array<{
       reasons?: {
         blendedSimilarity?: number;
@@ -589,6 +626,7 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
     }>;
   };
   assert.equal(body.runtimeMode, 'SHORT');
+  assert.deepEqual(body.page, { offset: 10, limit: 5, hasMore: false, nextOffset: null });
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.reasons?.blendedSimilarity, 0.76);
   assert.deepEqual(body.items[0]?.reasons?.sharedTokens?.themes, []);

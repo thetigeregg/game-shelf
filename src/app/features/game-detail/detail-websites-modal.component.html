@@ -17,7 +17,7 @@
               @case ('google') {
                 <svg
                   slot="start"
-                  class="website-item-icon website-item-icon--forest"
+                  class="website-item-icon website-item-icon--mc-okay"
                   siGoogleIcon
                   aria-hidden="true"
                 ></svg>
@@ -31,10 +31,18 @@
               @case ('discord') {
                 <svg slot="start" class="website-item-icon" siDiscordIcon aria-hidden="true"></svg>
               }
+              @case ('bluesky') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--ocean"
+                  siBlueskyIcon
+                  aria-hidden="true"
+                ></svg>
+              }
               @case ('reddit') {
                 <svg
                   slot="start"
-                  class="website-item-icon website-item-icon--mc-bad"
+                  class="website-item-icon website-item-icon--orange"
                   siRedditIcon
                   aria-hidden="true"
                 ></svg>
@@ -51,7 +59,7 @@
               @case ('nintendo') {
                 <img
                   slot="start"
-                  class="website-item-icon"
+                  class="website-item-icon website-item-icon--firetruck"
                   src="assets/icon/websites/nintendo.svg"
                   alt=""
                   aria-hidden="true"
@@ -60,7 +68,7 @@
               @case ('xbox') {
                 <ion-icon
                   slot="start"
-                  class="website-item-icon website-item-icon--forest"
+                  class="website-item-icon website-item-icon--forest-dark"
                   name="logo-xbox"
                   aria-hidden="true"
                 ></ion-icon>

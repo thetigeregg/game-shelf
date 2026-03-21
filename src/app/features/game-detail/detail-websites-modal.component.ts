@@ -16,6 +16,7 @@ import { addIcons } from 'ionicons';
 import { globe, library, link, logoXbox } from 'ionicons/icons';
 import {
   SiAppStoreIcon,
+  SiBlueskyIcon,
   SiDiscordIcon,
   SiEpicGamesIcon,
   SiGogDotComIcon,
@@ -53,9 +54,29 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
         fill: var(--ion-color-forest);
       }
 
+      .website-item-icon--forest-dark {
+        color: var(--ion-color-forest-dark);
+        fill: var(--ion-color-forest-dark);
+      }
+
+      .website-item-icon--mc-okay {
+        color: var(--ion-color-mc-okay);
+        fill: var(--ion-color-mc-okay);
+      }
+
       .website-item-icon--ocean {
         color: var(--ion-color-ocean);
         fill: var(--ion-color-ocean);
+      }
+
+      .website-item-icon--orange {
+        color: var(--ion-color-orange);
+        fill: var(--ion-color-orange);
+      }
+
+      .website-item-icon--firetruck {
+        color: var(--ion-color-firetruck);
+        fill: var(--ion-color-firetruck);
       }
 
       .website-item-icon--deep-ocean {
@@ -96,6 +117,7 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
     SiYoutubeIcon,
     SiTwitchIcon,
     SiDiscordIcon,
+    SiBlueskyIcon,
     SiRedditIcon,
     SiWikipediaIcon,
     SiEpicGamesIcon,

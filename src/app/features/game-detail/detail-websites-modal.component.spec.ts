@@ -38,6 +38,7 @@ vi.mock('@semantic-icons/simple-icons', () => {
     SiYoutubeIcon: Stub,
     SiTwitchIcon: Stub,
     SiDiscordIcon: Stub,
+    SiBlueskyIcon: Stub,
     SiRedditIcon: Stub,
     SiWikipediaIcon: Stub,
     SiEpicGamesIcon: Stub,

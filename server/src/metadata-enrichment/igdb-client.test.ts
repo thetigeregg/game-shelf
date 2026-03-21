@@ -336,6 +336,132 @@ void test('ignores non-steam websites for steam app id derivation', async () => 
   assert.equal(item.steamAppId, null);
 });
 
+void test('reuses cached website type names across metadata fetches', async () => {
+  let websiteTypeRequests = 0;
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/website_types')) {
+        websiteTypeRequests += 1;
+        return Promise.resolve(
+          new Response(JSON.stringify([{ id: 13, type: 'steam' }]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: 21,
+                themes: [],
+                keywords: [],
+                screenshots: [],
+                videos: [],
+                websites: [{ type: 13, url: 'https://store.steampowered.com/app/21/' }],
+              },
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    },
+  });
+
+  await client.fetchGameMetadataByIds(['21']);
+  await client.fetchGameMetadataByIds(['21']);
+
+  assert.equal(websiteTypeRequests, 1);
+});
+
+void test('falls back to built-in website category names when website type lookup fails', async () => {
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/website_types')) {
+        return Promise.resolve(new Response('{}', { status: 500 }));
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: 23,
+                themes: [],
+                keywords: [],
+                screenshots: [],
+                videos: [],
+                websites: [
+                  {
+                    type: 23,
+                    url: 'https://store.playstation.com/en-us/concept/10015533/',
+                    trusted: true,
+                  },
+                ],
+              },
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    },
+  });
+
+  const map = await client.fetchGameMetadataByIds(['23']);
+  const item = map.get('23');
+  assert.ok(item);
+  assert.deepEqual(item.websites, [
+    {
+      provider: 'playstation',
+      providerLabel: 'PlayStation',
+      url: 'https://store.playstation.com/en-us/concept/10015533/',
+      typeId: 23,
+      typeName: 'PlayStation',
+      trusted: true,
+    },
+  ]);
+});
+
 void test('metadata enrichment client converts upstream 429 responses into provider throttle errors', async () => {
   const retryAfterSeconds = 42;
   const client = new MetadataEnrichmentIgdbClient({

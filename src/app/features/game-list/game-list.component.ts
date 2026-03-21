@@ -143,6 +143,7 @@ import { DetailWebsitesModalComponent } from '../game-detail/detail-websites-mod
 import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
+  buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
@@ -4298,23 +4299,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private buildShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
-    const query = this.getActiveDetailTitleForSearch();
-    if (!query) {
-      return null;
-    }
-
-    const encodedQuery = encodeURIComponent(query);
-    if (provider === 'google') {
-      return `https://www.google.com/search?q=${encodedQuery}`;
-    }
-    if (provider === 'youtube') {
-      return `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    }
-    if (provider === 'wikipedia') {
-      return `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    }
-
-    return `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    return buildDetailWebsiteSearchUrl(this.getActiveDetailTitleForSearch(), provider);
   }
 
   getGameDisplayTitle(game: GameEntry): string {

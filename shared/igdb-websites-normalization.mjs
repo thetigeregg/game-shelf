@@ -20,7 +20,7 @@ const WEBSITE_CATEGORY_NAMES = new Map([
   [18, 'Discord'],
   [19, 'Bluesky'],
   [22, 'Xbox'],
-  [23, 'Playstation'],
+  [23, 'PlayStation'],
   [24, 'Nintendo'],
   [25, 'Meta'],
 ]);

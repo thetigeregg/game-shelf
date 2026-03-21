@@ -2,6 +2,16 @@ import { GameWebsite } from '../../core/models/game.models';
 
 export type DetailWebsiteSearchProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
+const SEARCH_PROVIDER_URL_BUILDERS: Record<
+  DetailWebsiteSearchProvider,
+  (encodedQuery: string) => string
+> = {
+  google: (encodedQuery) => `https://www.google.com/search?q=${encodedQuery}`,
+  youtube: (encodedQuery) => `https://www.youtube.com/results?search_query=${encodedQuery}`,
+  wikipedia: (encodedQuery) => `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`,
+  gamefaqs: (encodedQuery) => `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`,
+};
+
 export interface DetailWebsiteModalItem {
   key: string;
   label: string;
@@ -152,6 +162,19 @@ export function buildDetailWebsiteModalItems(options: {
     ...remainingItems,
     ...(googleItem ? [googleItem] : []),
   ];
+}
+
+export function buildDetailWebsiteSearchUrl(
+  query: string | null | undefined,
+  provider: DetailWebsiteSearchProvider
+): string | null {
+  const normalizedQuery = typeof query === 'string' ? query.trim() : '';
+  if (normalizedQuery.length === 0) {
+    return null;
+  }
+
+  const encodedQuery = encodeURIComponent(normalizedQuery);
+  return SEARCH_PROVIDER_URL_BUILDERS[provider](encodedQuery);
 }
 
 function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebsite[] {

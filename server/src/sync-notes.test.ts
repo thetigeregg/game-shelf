@@ -213,6 +213,130 @@ void test('sync push only includes steamAppId when provided in payload', async (
   await app.close();
 });
 
+void test('sync push rejects credential-bearing website urls from game payloads', async () => {
+  const app = await createSyncApp();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-websites-credentials-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '127',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'collection',
+            websites: [
+              {
+                provider: 'unknown',
+                providerLabel: 'Unknown Store',
+                url: 'https://user:pass@example.com/store/test-game',
+                typeId: 1,
+                typeName: 'Official Website',
+                trusted: true,
+              },
+              {
+                provider: 'steam',
+                providerLabel: 'Steam',
+                url: '//store.steampowered.com/app/620/Portal_2/',
+                typeId: 13,
+                typeName: 'Steam',
+                trusted: true,
+              },
+            ],
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.deepEqual(body.results[0]?.normalizedPayload?.['websites'], [
+    {
+      provider: 'steam',
+      providerLabel: 'Steam',
+      url: 'https://store.steampowered.com/app/620/Portal_2/',
+      typeId: 13,
+      typeName: 'Steam',
+      trusted: true,
+    },
+  ]);
+
+  await app.close();
+});
+
+void test('sync push rejects unsupported and malformed external urls from game payloads', async () => {
+  const app = await createSyncApp();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-websites-invalid-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '128',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'collection',
+            priceUrl: 'javascript:alert(1)',
+            websites: [
+              {
+                provider: null,
+                providerLabel: null,
+                url: '/local/path',
+                typeId: 1,
+                typeName: 'Official Website',
+                trusted: false,
+              },
+              {
+                provider: null,
+                providerLabel: null,
+                url: 'http://[::1]:notaport',
+                typeId: 1,
+                typeName: 'Official Website',
+                trusted: false,
+              },
+              {
+                provider: null,
+                providerLabel: null,
+                url: '//user:pass@example.com/store/test-game',
+                typeId: 1,
+                typeName: 'Official Website',
+                trusted: false,
+              },
+            ],
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  const normalizedPayload = body.results[0]?.normalizedPayload ?? {};
+  assert.equal(normalizedPayload['priceUrl'], null);
+  assert.deepEqual(normalizedPayload['websites'], []);
+
+  await app.close();
+});
+
 void test('sync push returns merged game payload from upsert result', async () => {
   class MergeAwareSyncClient extends FakeSyncClient {
     override query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {

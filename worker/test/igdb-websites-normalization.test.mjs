@@ -206,3 +206,11 @@ test('normalizeIgdbWebsites distinguishes Twitch and itch website type names', (
     }
   );
 });
+
+test('normalizeIgdbWebsites rejects urls with embedded credentials', () => {
+  const normalized = normalizeSingleWebsite({
+    url: 'https://user:pass@example.com/store/test-game',
+  });
+
+  assert.equal(normalized, null);
+});

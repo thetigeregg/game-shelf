@@ -908,15 +908,29 @@ function normalizeExternalUrl(value: unknown): string | null {
     return null;
   }
 
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    return normalized;
+  const candidate =
+    normalized.startsWith('http://') || normalized.startsWith('https://')
+      ? normalized
+      : normalized.startsWith('//')
+        ? `https:${normalized}`
+        : null;
+  if (candidate === null) {
+    return null;
   }
 
-  if (normalized.startsWith('//')) {
-    return `https:${normalized}`;
-  }
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    if (parsed.username || parsed.password) {
+      return null;
+    }
 
-  return null;
+    return candidate;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeString(value: unknown): string | null {

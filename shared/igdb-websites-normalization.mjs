@@ -76,6 +76,9 @@ function normalizeHttpUrl(value) {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return null;
     }
+    if (parsed.username || parsed.password) {
+      return null;
+    }
 
     const steamAppId = extractSteamAppIdFromUrl(parsed);
     if (steamAppId !== null) {

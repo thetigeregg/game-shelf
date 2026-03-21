@@ -859,7 +859,7 @@ describe('GameSyncService', () => {
           {
             provider: 'xbox',
             providerLabel: ' Xbox ',
-            url: 'https://www.xbox.com/en-us/games/store/test/9TEST',
+            url: '//www.xbox.com/en-us/games/store/test/9TEST',
             typeId: '22',
             typeName: ' Xbox ',
             trusted: false,
@@ -870,6 +870,14 @@ describe('GameSyncService', () => {
             url: 'https://www.xbox.com/en-us/games/store/test/9TEST',
             typeId: '22',
             typeName: 'Xbox',
+            trusted: true,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://user:pass@store.steampowered.com/app/620',
+            typeId: '13',
+            typeName: 'Steam',
             trusted: true,
           },
           {

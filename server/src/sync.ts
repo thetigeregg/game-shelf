@@ -927,7 +927,7 @@ function normalizeExternalUrl(value: unknown): string | null {
       return null;
     }
 
-    return candidate;
+    return parsed.toString();
   } catch {
     return null;
   }

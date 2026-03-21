@@ -2935,15 +2935,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
       .join(' ');
   }
 
-  openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const url = this.buildShortcutSearchUrl(provider);
-    if (!url) {
-      return;
-    }
-
-    this.openExternalUrl(url);
-  }
-
   get detailWebsiteItems(): DetailWebsiteModalItem[] {
     return buildDetailWebsiteModalItems({
       websites: this.getActiveDetailWebsites(),

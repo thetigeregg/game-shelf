@@ -1199,15 +1199,6 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const url = this.buildShortcutSearchUrl(provider);
-    if (!url) {
-      return;
-    }
-
-    this.openExternalUrl(url);
-  }
-
   get detailWebsiteItems(): DetailWebsiteModalItem[] {
     return buildDetailWebsiteModalItems({
       websites: this.detailWebsites,

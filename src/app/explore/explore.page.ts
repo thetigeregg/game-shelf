@@ -493,7 +493,8 @@ export class ExplorePage implements OnInit {
   }
 
   canLoadMoreSimilarRecommendations(): boolean {
-    return this.similarRecommendationsPage?.hasMore === true;
+    const page = this.similarRecommendationsPage;
+    return page?.hasMore === true && page.nextOffset !== null;
   }
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {

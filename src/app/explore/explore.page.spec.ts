@@ -971,6 +971,27 @@ describe('ExplorePage explore modes UX', () => {
     });
   });
 
+  it('disables similar load-more when page metadata is missing nextOffset', () => {
+    const page = createPage() as unknown as {
+      canLoadMoreSimilarRecommendations: () => boolean;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+    };
+
+    page.similarRecommendationsPage = {
+      offset: 0,
+      limit: 5,
+      hasMore: true,
+      nextOffset: null,
+    };
+
+    expect(page.canLoadMoreSimilarRecommendations()).toBe(false);
+  });
+
   it('auto-loads another similar page when the fetched rows are all filtered out', async () => {
     const page = createPage() as unknown as {
       ignoredRecommendationGameIds: Set<string>;

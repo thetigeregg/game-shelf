@@ -522,6 +522,53 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.selectedGameDetail?.igdbGameId).toBe('920');
   });
 
+  it('clears similar recommendation paging when opening popularity detail', async () => {
+    const page = createPage() as unknown as {
+      openPopularityGameDetail: (item: {
+        id: string;
+        name: string;
+        platformIgdbId: number;
+        popularityScore: number;
+        coverUrl: string | null;
+        rating: number | null;
+        firstReleaseDate: number | null;
+        platforms: Array<{ id: number; name: string }>;
+      }) => Promise<void>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+    };
+
+    page.similarRecommendationsPage = {
+      offset: 5,
+      limit: 5,
+      hasMore: true,
+      nextOffset: 10,
+    };
+    vi.spyOn(page, 'fetchCatalogResult').mockResolvedValue({
+      igdbGameId: '930',
+      platformIgdbId: 6,
+      platform: 'PC',
+    });
+
+    await page.openPopularityGameDetail({
+      id: '930',
+      name: 'Popular Reset',
+      platformIgdbId: 6,
+      popularityScore: 99,
+      coverUrl: null,
+      rating: null,
+      firstReleaseDate: null,
+      platforms: [{ id: 6, name: 'PC' }],
+    });
+
+    expect(page.similarRecommendationsPage).toBeNull();
+  });
+
   it('uses cache and ignores invalid/same selection updates', async () => {
     const page = createPage();
     const privatePage = page as unknown as {
@@ -1360,12 +1407,19 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     ];
+    page.similarRecommendationsPage = {
+      offset: 5,
+      limit: 5,
+      hasMore: true,
+      nextOffset: 10,
+    };
     page.closeGameDetailModal();
     expect(page.isGameDetailModalOpen).toBe(false);
     expect(page.isRatingModalOpen).toBe(false);
     expect(page.detailContext).toBe('explore');
     expect(page.detailNavigationStack).toEqual([]);
     expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
   });
 
   it('covers library mutation flows for status, rating, and tags', async () => {
@@ -2073,7 +2127,7 @@ describe('ExplorePage explore modes UX', () => {
       throwError(() => new Error('failed'))
     );
     await page.loadSimilarRecommendations(mockLanesResponse.items[0]);
-    expect(page.similarRecommendationsError).toContain('failed');
+    expect(page.similarRecommendationsError).toBe('');
     expect(page.similarRecommendationItems).toEqual([]);
   });
 
@@ -2102,6 +2156,103 @@ describe('ExplorePage explore modes UX', () => {
     });
     expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
+  });
+
+  it('ignores similar responses after the detail modal closes', async () => {
+    const page = createPage();
+    let emitResponse:
+      | ((response: {
+          source: { igdbGameId: string; platformIgdbId: number };
+          page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+          items: Array<{
+            igdbGameId: string;
+            platformIgdbId: number;
+            similarity: number;
+            reasons: {
+              summary: string;
+              structuredSimilarity: number;
+              semanticSimilarity: number;
+              blendedSimilarity: number;
+              sharedTokens: {
+                genres: string[];
+                developers: string[];
+                publishers: string[];
+                franchises: string[];
+                collections: string[];
+                themes: string[];
+                keywords: string[];
+              };
+            };
+          }>;
+        }) => void)
+      | null = null;
+
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
+      new Observable((subscriber) => {
+        emitResponse = (response) => {
+          subscriber.next(response);
+          subscriber.complete();
+        };
+      })
+    );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    page.closeGameDetailModal();
+    emitResponse?.({
+      source: { igdbGameId: '100', platformIgdbId: 6 },
+      page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+      items: [
+        {
+          igdbGameId: '200',
+          platformIgdbId: 6,
+          similarity: 0.8,
+          reasons: {
+            summary: 'late result',
+            structuredSimilarity: 0.5,
+            semanticSimilarity: 0.8,
+            blendedSimilarity: 0.8,
+            sharedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: [],
+            },
+          },
+        },
+      ],
+    });
+    await flushAsync();
+
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
+    expect(page.similarRecommendationsError).toBe('');
+    expect(page.isLoadingSimilar).toBe(false);
+  });
+
+  it('ignores similar errors after the detail modal closes', async () => {
+    const page = createPage();
+    let failRequest: ((error: unknown) => void) | null = null;
+
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
+      new Observable((subscriber) => {
+        failRequest = (error) => {
+          subscriber.error(error);
+        };
+      })
+    );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    page.closeGameDetailModal();
+    failRequest?.(new Error('late failure'));
+    await flushAsync();
+
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
+    expect(page.similarRecommendationsError).toBe('');
+    expect(page.isLoadingSimilar).toBe(false);
   });
 
   it('covers platform identity checks and external link opening helpers', async () => {

@@ -820,6 +820,7 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = null;
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
     this.invalidateSimilarVisibility();
@@ -2096,7 +2097,7 @@ export class ExplorePage implements OnInit {
       );
 
       if (
-        this.activeDetailRecommendation &&
+        !this.activeDetailRecommendation ||
         this.buildIdentityKey(
           this.activeDetailRecommendation.igdbGameId,
           this.activeDetailRecommendation.platformIgdbId
@@ -2114,7 +2115,7 @@ export class ExplorePage implements OnInit {
       this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
       if (
-        this.activeDetailRecommendation &&
+        !this.activeDetailRecommendation ||
         this.buildIdentityKey(
           this.activeDetailRecommendation.igdbGameId,
           this.activeDetailRecommendation.platformIgdbId

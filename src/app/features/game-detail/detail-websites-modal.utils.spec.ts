@@ -44,14 +44,15 @@ describe('buildDetailWebsiteModalItems', () => {
       'Wikipedia',
       'YouTube',
       'GOG',
+      'Discord',
     ]);
     expect(items.find((item) => item.label === 'Google')?.icon).toBe('google');
     expect(items.find((item) => item.label === 'GameFAQs')?.icon).toBe('gamefaqs');
     expect(items.find((item) => item.label === 'Official Website')?.icon).toBe('ion:globe');
-    expect(items.find((item) => item.label === 'Discord')).toBeUndefined();
+    expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
   });
 
-  it('filters out social links even when upstream provider metadata is misleading', () => {
+  it('keeps only the UI allowlist even when upstream provider metadata is misleading', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
         makeWebsite({
@@ -76,6 +77,26 @@ describe('buildDetailWebsiteModalItems', () => {
           typeId: 23,
           typeName: 'Playstation',
         }),
+        makeWebsite({
+          url: 'https://discord.gg/residentevil',
+          typeId: 18,
+          typeName: 'Discord',
+        }),
+        makeWebsite({
+          url: 'https://bsky.app/profile/residentevil.example',
+          typeId: 19,
+          typeName: 'Bluesky',
+        }),
+        makeWebsite({
+          url: 'https://facebook.com/residentevil',
+          typeId: 4,
+          typeName: 'Facebook',
+        }),
+        makeWebsite({
+          url: 'https://www.meta.com/experiences/test-game/1234567890/',
+          typeId: 25,
+          typeName: 'Meta',
+        }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
@@ -86,11 +107,17 @@ describe('buildDetailWebsiteModalItems', () => {
       'Official Website',
       'Community Wiki',
       'Wikipedia',
+      'Twitch',
       'YouTube',
+      'Discord',
+      'Bluesky',
       'Playstation',
     ]);
     expect(items.find((item) => item.label === 'Community Wiki')?.icon).toBe('ion:library');
-    expect(items.find((item) => item.label === 'Twitch')).toBeUndefined();
+    expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
+    expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
+    expect(items.find((item) => item.label === 'Facebook')).toBeUndefined();
+    expect(items.find((item) => item.label === 'Meta')).toBeUndefined();
   });
 
   it('prefers direct wikipedia and youtube links over search fallbacks', () => {
@@ -185,6 +212,13 @@ describe('buildDetailWebsiteModalItems', () => {
         }),
         makeWebsite({ url: 'https://test.itch.io/game', typeId: 15, typeName: 'Itch' }),
         makeWebsite({ url: 'https://www.gog.com/en/game/test', typeId: 17, typeName: 'GOG' }),
+        makeWebsite({ url: 'https://www.twitch.tv/testgame', typeId: 6, typeName: 'Twitch' }),
+        makeWebsite({ url: 'https://discord.gg/testgame', typeId: 18, typeName: 'Discord' }),
+        makeWebsite({
+          url: 'https://www.reddit.com/r/testgame/',
+          typeId: 14,
+          typeName: 'Subreddit',
+        }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
@@ -198,6 +232,9 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'Google Play')?.icon).toBe('googleplay');
     expect(items.find((item) => item.label === 'Itch')?.icon).toBe('itchdotio');
     expect(items.find((item) => item.label === 'GOG')?.icon).toBe('gogdotcom');
+    expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
+    expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
+    expect(items.find((item) => item.label === 'Subreddit')?.icon).toBe('reddit');
   });
 
   it('does not allow removed storefront host fallbacks without an allowed type id', () => {
@@ -214,5 +251,20 @@ describe('buildDetailWebsiteModalItems', () => {
     });
 
     expect(items.map((item) => item.label)).toEqual(['Google', 'GameFAQs', 'Wikipedia', 'YouTube']);
+  });
+
+  it('keeps known storefront host fallbacks without a type id', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({ url: 'https://store.steampowered.com/app/123/Test_Game/' }),
+        makeWebsite({ url: 'https://www.xbox.com/en-us/games/store/test-game/9TEST' }),
+        makeWebsite({ url: 'https://store.playstation.com/en-us/concept/10015533/' }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.find((item) => item.icon === 'steam')?.label).toBe('Steam');
+    expect(items.find((item) => item.icon === 'xbox')?.label).toBe('Xbox');
+    expect(items.find((item) => item.icon === 'playstation')?.label).toBe('PlayStation');
   });
 });

@@ -266,6 +266,110 @@ void test('PSPrices revalidation URL prefers psPricesUrl and falls back to pspri
   assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationUrl(nonPsprices), null);
 });
 
+void test('PSPrices refresh job builder keeps locked rows eligible for background refresh', () => {
+  const result = __backgroundWorkerTestables.buildPspricesRefreshJob({
+    igdbGameId: '332273',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'wishlist',
+      title: 'Monster Train 2',
+      psPricesMatchLocked: true,
+      psPricesMatchQueryTitle: 'Monster Train 2 Corrected',
+      psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+    },
+    dedupePrefix: 'pricing-refresh:wishlist',
+    region: 'region-ch',
+    show: 'games',
+    nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
+    maxAttempts: 6,
+    rearmAfterDays: 30,
+    rearmRecentReleaseYears: 1,
+  });
+
+  assert.deepEqual(result, {
+    kind: 'enqueue',
+    dedupeKey: 'pricing-refresh:wishlist:psprices:332273:167:region-ch:games',
+    payload: {
+      cacheKey: 'pricing-refresh:wishlist:332273:167:region-ch:games',
+      igdbGameId: '332273',
+      platformIgdbId: 167,
+      title: 'Monster Train 2 Corrected',
+      psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+    },
+  });
+});
+
+void test('PSPrices refresh job builder reports unsupported, backoff, and missing-data skips', () => {
+  const nowMs = Date.parse('2026-03-19T12:00:00.000Z');
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 999,
+      payload: {
+        listType: 'wishlist',
+        title: 'Monster Train 2',
+      },
+      dedupePrefix: 'pricing-refresh:wishlist',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'unsupported-platform' }
+  );
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 167,
+      payload: {
+        listType: 'discovery',
+        title: 'Monster Train 2',
+        releaseYear: 2026,
+        enrichmentRetry: {
+          psprices: {
+            attempts: 2,
+            lastTriedAt: '2026-03-18T07:00:00.000Z',
+            nextTryAt: '2026-03-20T07:00:00.000Z',
+            permanentMiss: false,
+          },
+        },
+      },
+      dedupePrefix: 'pricing-refresh:discovery',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'backoff' }
+  );
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 167,
+      payload: {
+        listType: 'wishlist',
+        title: '   ',
+        psPricesMatchQueryTitle: '',
+      },
+      dedupePrefix: 'pricing-refresh:wishlist',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'missing-data' }
+  );
+});
+
 void test('provider match lock helper only treats explicit true as locked', () => {
   assert.equal(
     __backgroundWorkerTestables.isProviderMatchLocked(

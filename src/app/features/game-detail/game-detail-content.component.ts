@@ -168,10 +168,17 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('game' in changes) {
-      this.detailTextExpanded = {
-        summary: false,
-        storyline: false,
-      };
+      const gameChange = changes['game'];
+      const currentIdentity = this.buildDetailGameIdentity(gameChange.currentValue as DetailGame);
+      const previousIdentity = this.buildDetailGameIdentity(gameChange.previousValue as DetailGame);
+
+      if (gameChange.firstChange || currentIdentity !== previousIdentity) {
+        this.detailTextExpanded = {
+          summary: false,
+          storyline: false,
+        };
+      }
+
       this.detailTextExpandable = {
         summary: this.hasPotentiallyLongDetailText(this.game.summary),
         storyline: this.hasPotentiallyLongDetailText(this.game.storyline),
@@ -584,7 +591,23 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       return;
     }
 
-    this.detailTextExpanded[field] = !this.detailTextExpanded[field];
+    this.detailTextExpanded = {
+      ...this.detailTextExpanded,
+      [field]: !this.detailTextExpanded[field],
+    };
+  }
+
+  private buildDetailGameIdentity(game: DetailGame | null | undefined): string {
+    if (!game) {
+      return '';
+    }
+
+    const platformIgdbId =
+      typeof game.platformIgdbId === 'number' && Number.isFinite(game.platformIgdbId)
+        ? String(game.platformIgdbId)
+        : '';
+
+    return `${game.igdbGameId}::${platformIgdbId}`;
   }
 
   private hasPotentiallyLongDetailText(value: string | null | undefined): boolean {

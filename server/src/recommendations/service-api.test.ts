@@ -333,6 +333,58 @@ void test('service caps recommendation lane offsets to a practical safe maximum'
   ]);
 });
 
+void test('service normalizes invalid similar pagination inputs and reports next page state', async () => {
+  const readSimilarCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
+
+  const repository = {
+    getRuntimeModeDefault: () => Promise.resolve('SHORT' as const),
+    readSimilarGames: (params: { limit: number; runtimeMode: RecommendationRuntimeMode }) => {
+      readSimilarCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
+      return Promise.resolve(
+        Array.from({ length: 12 }, (_, index) => ({
+          igdbGameId: String(500 + index),
+          platformIgdbId: 6,
+          similarity: 0.9 - index * 0.01,
+          reasons: {
+            summary: `similar-${String(index)}`,
+            structuredSimilarity: 0.8,
+            semanticSimilarity: 0.9,
+            blendedSimilarity: 0.85,
+            sharedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: [],
+            },
+          },
+        }))
+      );
+    },
+  };
+
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    nowProvider: () => NOW,
+  });
+
+  const result = await service.getSimilarGames({
+    target: 'BACKLOG',
+    igdbGameId: '100',
+    platformIgdbId: 6,
+    runtimeMode: null,
+    offset: -10,
+    limit: 0,
+  });
+
+  assert.equal(result.runtimeMode, 'SHORT');
+  assert.equal(result.items.length, 10);
+  assert.equal(result.items[0]?.igdbGameId, '500');
+  assert.deepEqual(result.page, { offset: 0, limit: 10, hasMore: true, nextOffset: 10 });
+  assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'SHORT' }]);
+});
+
 void test('service enqueues rebuild when stale or missing', async () => {
   const queued: Array<{ target: string; force: boolean; triggeredBy: string; reason: string }> = [];
   const repository = {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -243,6 +243,7 @@ describe('ExplorePage explore modes UX', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    recommendationIgnoreServiceMock.ignoredIds$ = of(new Set<string>());
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(of(mockLanesResponse));
     igdbProxyServiceMock.getPopularityFeed.mockReturnValue(of(mockPopularityFeedResponse));
     igdbProxyServiceMock.rebuildRecommendations.mockReturnValue(
@@ -967,6 +968,182 @@ describe('ExplorePage explore modes UX', () => {
       platformIgdbId: 6,
       offset: 5,
       limit: 5,
+    });
+  });
+
+  it('auto-loads another similar page when the fetched rows are all filtered out', async () => {
+    const page = createPage() as unknown as {
+      ignoredRecommendationGameIds: Set<string>;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+
+    page.ignoredRecommendationGameIds = new Set(['2000']);
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2000',
+              platformIgdbId: 6,
+              similarity: 0.8,
+              reasons: {
+                summary: 'filtered',
+                structuredSimilarity: 0.7,
+                semanticSimilarity: 0.6,
+                blendedSimilarity: 0.65,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2001',
+              platformIgdbId: 6,
+              similarity: 0.75,
+              reasons: {
+                summary: 'visible',
+                structuredSimilarity: 0.6,
+                semanticSimilarity: 0.7,
+                blendedSimilarity: 0.68,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 5, limit: 5, hasMore: false, nextOffset: null },
+        })
+      );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    await flushAsync();
+
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(1, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 0,
+      limit: 5,
+    });
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(2, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 5,
+      limit: 5,
+    });
+    expect(page.getVisibleSimilarRecommendationItems().map((item) => item.igdbGameId)).toEqual([
+      '2001',
+    ]);
+  });
+
+  it('clears similar items when every fetched page is filtered out', async () => {
+    const page = createPage() as unknown as {
+      ignoredRecommendationGameIds: Set<string>;
+      similarRecommendationItems: Array<{ igdbGameId: string }>;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+
+    page.ignoredRecommendationGameIds = new Set(['2100', '2101']);
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2100',
+              platformIgdbId: 6,
+              similarity: 0.8,
+              reasons: {
+                summary: 'filtered',
+                structuredSimilarity: 0.7,
+                semanticSimilarity: 0.6,
+                blendedSimilarity: 0.65,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2101',
+              platformIgdbId: 6,
+              similarity: 0.75,
+              reasons: {
+                summary: 'still filtered',
+                structuredSimilarity: 0.6,
+                semanticSimilarity: 0.7,
+                blendedSimilarity: 0.68,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 5, limit: 5, hasMore: false, nextOffset: null },
+        })
+      );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    await flushAsync();
+
+    expect(page.getVisibleSimilarRecommendationItems()).toEqual([]);
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toEqual({
+      offset: 5,
+      limit: 5,
+      hasMore: false,
+      nextOffset: null,
     });
   });
 
@@ -1835,6 +2012,55 @@ describe('ExplorePage explore modes UX', () => {
       igdbGameId: '100',
       title: 'Alpha',
     });
+  });
+
+  it('navigates to the previous non-ignored detail item when the active detail becomes ignored', () => {
+    const ignoredIds$ = new Subject<Set<string>>();
+    recommendationIgnoreServiceMock.ignoredIds$ = ignoredIds$;
+
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      detailNavigationStack: MockLaneItem[];
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+    const previousItem = {
+      ...mockLaneItem,
+      igdbGameId: '200',
+    };
+    const activeItem = {
+      ...mockLaneItem,
+      igdbGameId: '300',
+    };
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+
+    page.detailNavigationStack = [previousItem];
+    page.activeDetailRecommendation = activeItem;
+
+    ignoredIds$.next(new Set(['300']));
+
+    expect(openGameDetail).toHaveBeenCalledWith(previousItem);
+  });
+
+  it('closes the detail modal when the active detail becomes ignored without a fallback item', () => {
+    const ignoredIds$ = new Subject<Set<string>>();
+    recommendationIgnoreServiceMock.ignoredIds$ = ignoredIds$;
+
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      detailNavigationStack: MockLaneItem[];
+      closeGameDetailModal: () => void;
+    };
+    const closeGameDetailModal = vi.spyOn(page, 'closeGameDetailModal');
+
+    page.detailNavigationStack = [];
+    page.activeDetailRecommendation = {
+      ...mockLaneItem,
+      igdbGameId: '301',
+    };
+
+    ignoredIds$.next(new Set(['301']));
+
+    expect(closeGameDetailModal).toHaveBeenCalledTimes(1);
   });
 
   it('shows the lane-specific empty-state message when filtering removes selected lane items', () => {

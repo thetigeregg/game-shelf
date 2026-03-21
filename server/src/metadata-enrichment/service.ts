@@ -182,8 +182,13 @@ function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
     isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['mediaEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['steamEnrichedAt'])) ||
-    !Object.prototype.hasOwnProperty.call(payload, 'websites')
+    !hasNonEmptyWebsites(payload)
   );
+}
+
+function hasNonEmptyWebsites(payload: Record<string, unknown>): boolean {
+  const websites = payload['websites'];
+  return Array.isArray(websites) && websites.length > 0;
 }
 
 function payloadValueAsString(value: unknown): string {

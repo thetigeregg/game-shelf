@@ -4,6 +4,7 @@ import {
   hostIsDomainOrSubdomain,
   parseHttpUrl,
   sanitizeExternalHttpUrl,
+  sanitizeExternalHttpUrlString,
 } from './url-host.util';
 
 describe('url-host util', () => {
@@ -45,6 +46,10 @@ describe('url-host util', () => {
     expect(parseHttpUrl('http://[::1]:notaport')).toBeNull();
   });
 
+  it('returns null for urls with embedded credentials', () => {
+    expect(parseHttpUrl('https://user:pass@example.com/game')).toBeNull();
+  });
+
   it('sanitizes http urls and enforces allowed domains', () => {
     expect(
       sanitizeExternalHttpUrl('https://www.google.com/search?q=test', {
@@ -60,6 +65,10 @@ describe('url-host util', () => {
 
   it('rejects urls with embedded credentials', () => {
     expect(sanitizeExternalHttpUrl('https://user:pass@example.com/game')).toBeNull();
+  });
+
+  it('returns normalized sanitized url strings', () => {
+    expect(sanitizeExternalHttpUrlString('https://example.com')).toBe('https://example.com/');
   });
 
   it('validates hostname match against base domain safely', () => {

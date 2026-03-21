@@ -490,7 +490,11 @@ export class ExplorePage implements OnInit {
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {
     this.visibleSimilarRecommendationCount += ExplorePage.SIMILAR_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
+    try {
+      this.scheduleVisibleSimilarDisplayMetadata();
+    } finally {
+      await completeIonInfiniteScroll(event);
+    }
   }
 
   hasLoadedSelectedLaneItems(): boolean {
@@ -1396,6 +1400,10 @@ export class ExplorePage implements OnInit {
     void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
   }
 
+  private scheduleVisibleSimilarDisplayMetadata(): void {
+    void this.ensureVisibleSimilarDisplayMetadata().catch(() => undefined);
+  }
+
   private scheduleVisibleDiscoveryPricingHydration(): void {
     void this.ensureVisibleDiscoveryPricingHydrated().catch(() => undefined);
   }
@@ -2058,7 +2066,7 @@ export class ExplorePage implements OnInit {
       this.similarRecommendationItems = response.items;
       this.invalidateSimilarVisibility();
       this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
-      await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
+      this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
@@ -2286,6 +2294,10 @@ export class ExplorePage implements OnInit {
     }
 
     await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
+  }
+
+  private async ensureVisibleSimilarDisplayMetadata(): Promise<void> {
+    await this.ensureSimilarDisplayMetadata(this.getVisibleSimilarRecommendationItems());
   }
 
   private async populateRecommendationDisplayMetadata(

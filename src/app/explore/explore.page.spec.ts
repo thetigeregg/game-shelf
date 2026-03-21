@@ -388,6 +388,44 @@ describe('ExplorePage explore modes UX', () => {
     await hydrationPromise;
   });
 
+  it('does not block similar detail load while visible metadata hydration runs', async () => {
+    const page = createPage() as unknown as {
+      ngOnInit: () => void;
+      openGameDetail: (item: RecommendationItem) => Promise<void>;
+      ensureVisibleSimilarDisplayMetadata: () => Promise<void>;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      isGameDetailModalOpen: boolean;
+      isLoadingSimilar: boolean;
+    };
+    page.ngOnInit();
+    await flushAsync();
+
+    let resolveHydration: () => void = () => undefined;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisibleSimilarDisplayMetadata')
+      .mockReturnValue(hydrationPromise);
+
+    const openPromise = page.openGameDetail(mockLanesResponse.items[0]);
+
+    let openSettled = false;
+    void openPromise.then(() => {
+      openSettled = true;
+    });
+
+    await flushAsync();
+
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+    expect(openSettled).toBe(true);
+    expect(page.isGameDetailModalOpen).toBe(true);
+    expect(page.isLoadingSimilar).toBe(false);
+
+    resolveHydration();
+    await hydrationPromise;
+  });
+
   it('exposes popularity empty-state conditions when feed returns no items', async () => {
     igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(
       of({
@@ -2587,6 +2625,34 @@ describe('ExplorePage explore modes UX', () => {
     await page.ensureSimilarDisplayMetadata([{ igdbGameId: '910', platformIgdbId: 6 }]);
 
     expect(populateSpy).not.toHaveBeenCalled();
+  });
+
+  it('hydrates similar metadata for visible rows only', async () => {
+    const page = createPage() as unknown as {
+      similarRecommendationItems: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      visibleSimilarRecommendationCount: number;
+      ensureVisibleSimilarDisplayMetadata: () => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+    };
+
+    page.similarRecommendationItems = [
+      { igdbGameId: '910', platformIgdbId: 6 },
+      { igdbGameId: '911', platformIgdbId: 48 },
+      { igdbGameId: '912', platformIgdbId: 167 },
+    ];
+    page.visibleSimilarRecommendationCount = 2;
+
+    const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
+    (
+      page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
+    ).populateRecommendationDisplayMetadata = populateSpy;
+
+    await page.ensureVisibleSimilarDisplayMetadata();
+
+    expect(populateSpy).toHaveBeenCalledTimes(1);
+    const grouped = populateSpy.mock.calls[0]?.[0];
+    expect(Array.from(grouped.keys())).toEqual(['910', '911']);
+    expect(grouped.has('912')).toBe(false);
   });
 
   it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {

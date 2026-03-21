@@ -116,6 +116,7 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'Community Wiki')?.icon).toBe('ion:library');
     expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
     expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
+    expect(items.find((item) => item.label === 'Bluesky')?.icon).toBe('bluesky');
     expect(items.find((item) => item.label === 'Facebook')).toBeUndefined();
     expect(items.find((item) => item.label === 'Meta')).toBeUndefined();
   });

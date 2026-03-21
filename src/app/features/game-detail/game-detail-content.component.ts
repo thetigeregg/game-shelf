@@ -63,7 +63,11 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
-type DetailMediaSlide = { key: string; src: string };
+type DetailMediaSlide = {
+  key: string;
+  src: string;
+  kind: 'cover' | 'screenshot' | 'placeholder';
+};
 
 @Component({
   selector: 'app-game-detail-content',
@@ -89,7 +93,7 @@ type DetailMediaSlide = { key: string; src: string };
 })
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
-  private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
+  private static readonly EAGER_MEDIA_SLIDE_COUNT = 2;
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -370,6 +374,16 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   shouldEagerLoadMediaSlide(index: number): boolean {
+    const slide = this.mediaSlides.at(index);
+
+    if (slide === undefined) {
+      return false;
+    }
+
+    if (slide.kind === 'cover') {
+      return true;
+    }
+
     return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
   }
 
@@ -821,7 +835,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
     const coverUrl = typeof this.game.coverUrl === 'string' ? this.game.coverUrl.trim() : '';
     if (coverUrl.length > 0) {
-      slides.push({ key: `cover:${coverUrl}`, src: coverUrl });
+      slides.push({
+        key: `cover:${coverUrl}`,
+        src: coverUrl,
+        kind: 'cover',
+      });
       seen.add(coverUrl);
     }
 
@@ -834,11 +852,15 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         screenshot.id !== null
           ? `screenshot:${String(screenshot.id)}`
           : `screenshot:${screenshot.imageId}`;
-      slides.push({ key, src: screenshot.url });
+      slides.push({
+        key,
+        src: screenshot.url,
+        kind: 'screenshot',
+      });
       seen.add(screenshot.url);
     }
 
-    return slides.length > 0 ? slides : [{ key: 'placeholder', src: '' }];
+    return slides.length > 0 ? slides : [{ key: 'placeholder', src: '', kind: 'placeholder' }];
   }
 
   private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{

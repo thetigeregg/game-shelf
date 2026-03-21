@@ -12,7 +12,8 @@
               <div class="swiper-slide">
                 <!--
                 Temporary compromise for intermittent partial/white screenshot renders:
-                eager-load only the first few slides (active + nearby), keep the rest lazy.
+                eager-load only the active/nearby slides, keep the rest lazy,
+                and use a smaller screenshot asset for blurred backdrops.
               -->
                 <app-detail-media-slide
                   [class.with-pagination]="mediaSlides.length > 1"

@@ -342,6 +342,39 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.isDetailTextExpanded('storyline')).toBe(false);
   });
 
+  it('preserves expanded detail text when the same game is refreshed with a new object', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      summary: 'x'.repeat(261),
+      storyline: 'y'.repeat(261),
+    });
+
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpandable.storyline = true;
+    component.toggleDetailText('summary');
+
+    const previousGame = component.game;
+    component.game = makeLibraryGame({
+      igdbGameId: previousGame.igdbGameId,
+      platformIgdbId: previousGame.platformIgdbId,
+      summary: 'updated '.repeat(40),
+      storyline: 'y'.repeat(261),
+    });
+
+    component.ngOnChanges({
+      game: {
+        currentValue: component.game,
+        previousValue: previousGame,
+        firstChange: false,
+        isFirstChange: () => false,
+      },
+    });
+
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
   it('falls back to default currency formatting when Intl throws for a currency code', () => {
     const component = createComponent();
     component.context = 'library';

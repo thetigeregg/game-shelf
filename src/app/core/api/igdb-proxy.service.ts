@@ -34,7 +34,7 @@ import { PlatformCustomizationService } from '../services/platform-customization
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
-import { detectReviewSourceFromUrl } from '../utils/url-host.util';
+import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 
 interface SearchResponse {
@@ -2216,9 +2216,8 @@ export class IgdbProxyService implements GameSearchApi {
 
       const record = entry as Record<string, unknown>;
       const provider = this.normalizeWebsiteProvider(record['provider']);
-      const url = this.normalizeExternalUrl(
-        typeof record['url'] === 'string' ? record['url'] : null
-      );
+      const url =
+        typeof record['url'] === 'string' ? sanitizeExternalHttpUrlString(record['url']) : null;
 
       if (url === null) {
         continue;

@@ -23,7 +23,7 @@ import {
   normalizeNonNegativeNumber,
   normalizeStringList,
 } from '../utils/game-filter-utils';
-import { detectReviewSourceFromUrl } from '../utils/url-host.util';
+import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
@@ -922,7 +922,7 @@ export class DexieGameRepository implements GameRepository {
 
     for (const entry of values) {
       const provider = this.normalizeWebsiteProvider(entry.provider);
-      const url = this.normalizeExternalUrl(entry.url);
+      const url = sanitizeExternalHttpUrlString(entry.url);
       if (url === null) {
         continue;
       }

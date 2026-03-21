@@ -64,6 +64,7 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
+type DetailTextField = 'summary' | 'storyline';
 
 @Component({
   selector: 'app-game-detail-content',
@@ -113,8 +114,15 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @Output() addToLibrary = new EventEmitter<void>();
   @Output() ignore = new EventEmitter<void>();
   @ViewChild('swiperContainer') private swiperContainerRef?: ElementRef<HTMLElement>;
+  @ViewChild('summaryText') private summaryTextRef?: ElementRef<HTMLElement>;
+  @ViewChild('storylineText') private storylineTextRef?: ElementRef<HTMLElement>;
 
   detailTextExpanded = {
+    summary: false,
+    storyline: false,
+  };
+
+  detailTextExpandable = {
     summary: false,
     storyline: false,
   };
@@ -163,6 +171,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       this.detailTextExpanded = {
         summary: false,
         storyline: false,
+      };
+      this.detailTextExpandable = {
+        summary: this.hasPotentiallyLongDetailText(this.game.summary),
+        storyline: this.hasPotentiallyLongDetailText(this.game.storyline),
       };
     }
 
@@ -220,6 +232,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       }
 
       this.refreshSwiper();
+      this.refreshDetailTextExpandableState();
     });
   }
 
@@ -558,17 +571,55 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return amount !== null && amount >= 0;
   }
 
-  isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
+  isDetailTextExpanded(field: DetailTextField): boolean {
     return this.detailTextExpanded[field];
   }
 
-  toggleDetailText(field: 'summary' | 'storyline'): void {
+  canToggleDetailText(field: DetailTextField): boolean {
+    return this.detailTextExpandable[field];
+  }
+
+  toggleDetailText(field: DetailTextField): void {
+    if (!this.canToggleDetailText(field)) {
+      return;
+    }
+
     this.detailTextExpanded[field] = !this.detailTextExpanded[field];
   }
 
-  shouldShowDetailTextToggle(value: string | null | undefined): boolean {
+  private hasPotentiallyLongDetailText(value: string | null | undefined): boolean {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 260;
+  }
+
+  private refreshDetailTextExpandableState(): void {
+    const summaryExpandable =
+      this.detailTextExpandable.summary ||
+      this.isDetailTextOverflowing(this.summaryTextRef?.nativeElement);
+    const storylineExpandable =
+      this.detailTextExpandable.storyline ||
+      this.isDetailTextOverflowing(this.storylineTextRef?.nativeElement);
+
+    this.detailTextExpandable = {
+      summary: summaryExpandable,
+      storyline: storylineExpandable,
+    };
+
+    if (!summaryExpandable) {
+      this.detailTextExpanded.summary = false;
+    }
+
+    if (!storylineExpandable) {
+      this.detailTextExpanded.storyline = false;
+    }
+  }
+
+  private isDetailTextOverflowing(element: HTMLElement | undefined): boolean {
+    if (!element) {
+      return false;
+    }
+
+    return element.scrollHeight - element.clientHeight > 1;
   }
 
   formatDate(releaseDate: string | null | undefined): string {

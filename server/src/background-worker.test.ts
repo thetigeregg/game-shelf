@@ -299,6 +299,77 @@ void test('PSPrices refresh job builder keeps locked rows eligible for backgroun
   });
 });
 
+void test('PSPrices refresh job builder reports unsupported, backoff, and missing-data skips', () => {
+  const nowMs = Date.parse('2026-03-19T12:00:00.000Z');
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 999,
+      payload: {
+        listType: 'wishlist',
+        title: 'Monster Train 2',
+      },
+      dedupePrefix: 'pricing-refresh:wishlist',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'unsupported-platform' }
+  );
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 167,
+      payload: {
+        listType: 'discovery',
+        title: 'Monster Train 2',
+        releaseYear: 2026,
+        enrichmentRetry: {
+          psprices: {
+            attempts: 2,
+            lastTriedAt: '2026-03-18T07:00:00.000Z',
+            nextTryAt: '2026-03-20T07:00:00.000Z',
+            permanentMiss: false,
+          },
+        },
+      },
+      dedupePrefix: 'pricing-refresh:discovery',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'backoff' }
+  );
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPspricesRefreshJob({
+      igdbGameId: '332273',
+      platformIgdbId: 167,
+      payload: {
+        listType: 'wishlist',
+        title: '   ',
+        psPricesMatchQueryTitle: '',
+      },
+      dedupePrefix: 'pricing-refresh:wishlist',
+      region: 'region-ch',
+      show: 'games',
+      nowMs,
+      maxAttempts: 6,
+      rearmAfterDays: 30,
+      rearmRecentReleaseYears: 1,
+    }),
+    { kind: 'skip', reason: 'missing-data' }
+  );
+});
+
 void test('provider match lock helper only treats explicit true as locked', () => {
   assert.equal(
     __backgroundWorkerTestables.isProviderMatchLocked(

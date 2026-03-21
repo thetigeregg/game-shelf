@@ -283,6 +283,29 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(loadItemsSpy).not.toHaveBeenCalled();
   });
 
+  it('reports updated lock messaging for list and modal actions', () => {
+    const { page } = createPageHarness();
+
+    expect(page.listRequeueNote).toBe('queues targeted discovery enrichment for the visible games');
+    expect(page.lockMeaningNote).toBe(
+      'Locked matches keep the saved provider match during automatic refreshes.'
+    );
+    expect(page.activeLockMeaningNote).toBe(
+      'Locking keeps the saved match but still allows automatic refresh.'
+    );
+
+    page.selectedProvider = 'pricing';
+    page.activeModalProvider = 'pricing';
+
+    expect(page.listRequeueNote).toBe('queues targeted pricing refresh for the visible games');
+    expect(page.lockMeaningNote).toBe(
+      'Locked matches keep the saved pricing match during automatic refreshes.'
+    );
+    expect(page.activeLockMeaningNote).toBe(
+      'Locking keeps the saved pricing match but still allows automatic refresh.'
+    );
+  });
+
   it('searches and deduplicates HLTB candidates for the active provider', async () => {
     const { page, gameShelfService } = createPageHarness();
     const duplicateCandidate: HltbMatchCandidate = {

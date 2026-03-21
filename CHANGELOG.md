@@ -2843,3 +2843,19 @@
 - 84411e76 Merge branch 'main' into feat/external-link
 - bdcf5f49 feat: add storefront links normalization and persistence
 
+## v1.18.0 - 2026-03-21
+- 87552ea4 Merge pull request #268 from thetigeregg/feat/menu-close
+- 543499f2 fix(explore): separate header popover dismiss handling
+- 320ed851 feat: add test for settings routing on header popover dismissal rejection
+- 2c8a2c94 feat: add PopoverController to ExplorePage for improved popover management
+
+## v1.19.0 - 2026-03-21
+- 357b9a22 Merge pull request #269 from thetigeregg/feat/crash
+- fad9a7f4 fix(explore): require nextOffset for similar load-more
+- ef7c7d81 fix(explore): auto-fill filtered similar recommendation pages
+- ea7a9156 fix(explore): reset similar recommendations state on detail modal close
+- 57a0132b Merge branch 'main' into feat/crash
+- d7c541c8 fix: remove redundant initialization of similarRecommendationsPage
+- 8c16f8b7 feat: implement pagination for similar recommendations with offset and limit
+- bed077a0 feat: enhance similar recommendations metadata hydration and loading behavior
+

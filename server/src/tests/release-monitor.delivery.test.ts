@@ -862,6 +862,133 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
   }
 });
 
+void test('processGameRow refreshes locked HLTB/review metadata using saved match query fields', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((input: URL | RequestInfo) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('id.twitch.tv/oauth2/token')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'test-token',
+            expires_in: 3600,
+            token_type: 'bearer',
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      );
+    }
+
+    if (url.includes('api.igdb.com/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 52189,
+              name: 'Locked Better Title',
+              first_release_date: 1_767_225_600,
+              release_dates: [{ category: 0, platform: 167, y: 2026, m: 1, d: 1 }],
+              platforms: [{ id: 167, name: 'PlayStation 5' }],
+            },
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      );
+    }
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbMainHours: 11,
+              hltbMainExtraHours: 17,
+              hltbCompletionistHours: 26,
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      );
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              metacriticScore: 89,
+              metacriticUrl: 'https://metacritic.example/locked-game',
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  }) as typeof fetch;
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Original Locked Title',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          hltbMatchLocked: true,
+          hltbMatchQueryTitle: 'Locked HLTB Query',
+          hltbMatchQueryReleaseYear: 2007,
+          hltbMatchQueryPlatform: 'PS5',
+          reviewMatchLocked: true,
+          reviewMatchQueryTitle: 'Locked Review Query',
+          reviewMatchQueryReleaseYear: 2008,
+          reviewMatchQueryPlatform: 'PlayStation 5',
+          reviewMatchPlatformIgdbId: 167,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('processGameRow treats explicit mobygames override id mismatch as review miss', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = ((input: URL | RequestInfo) => {

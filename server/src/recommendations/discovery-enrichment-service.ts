@@ -300,7 +300,6 @@ export class DiscoveryEnrichmentService {
       platform,
       hltbMatchLocked
     );
-    const reviewMatchLocked = isProviderMatchLocked(payload, 'reviewMatchLocked');
     const reviewLookup = buildReviewLookupContext(
       payload,
       title,
@@ -350,9 +349,8 @@ export class DiscoveryEnrichmentService {
       }),
       psprices: retryState.psprices,
     };
-    const needsHltb = isHltbActive && !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked);
-    const needsMetacritic =
-      isReviewActive && !hasCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked);
+    const needsHltb = isHltbActive && !hasHltb;
+    const needsMetacritic = isReviewActive && !hasCritic;
     const shouldTryHltb =
       needsHltb &&
       shouldAttemptProvider({
@@ -517,8 +515,8 @@ export class DiscoveryEnrichmentService {
         activeHltb: isHltbActive,
         activeMetacritic: isReviewActive,
         activeSteam: isSteamActive,
-        needsHltb: !foundHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked),
-        needsMetacritic: !foundCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked),
+        needsHltb: !foundHltb,
+        needsMetacritic: !foundCritic,
         needsSteam: steamNeedsEnrichment,
       })
     );

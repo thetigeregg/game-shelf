@@ -429,9 +429,13 @@ export class ExplorePage implements OnInit {
     this.isHeaderActionsPopoverOpen = true;
   }
 
-  async closeHeaderActionsPopover(): Promise<void> {
+  onHeaderActionsPopoverDidDismiss(): void {
     this.isHeaderActionsPopoverOpen = false;
     this.headerActionsPopoverEvent = undefined;
+  }
+
+  async closeHeaderActionsPopover(): Promise<void> {
+    this.onHeaderActionsPopoverDidDismiss();
     await this.popoverController.dismiss().catch(() => undefined);
   }
 

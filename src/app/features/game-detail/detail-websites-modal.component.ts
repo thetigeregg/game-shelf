@@ -58,6 +58,11 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
         fill: var(--ion-color-ocean);
       }
 
+      .website-item-icon--deep-ocean {
+        color: var(--ion-color-deep-ocean);
+        fill: var(--ion-color-deep-ocean);
+      }
+
       .website-item-icon--mc-bad {
         color: var(--ion-color-mc-bad);
         fill: var(--ion-color-mc-bad);

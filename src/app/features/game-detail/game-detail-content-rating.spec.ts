@@ -228,6 +228,66 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.currentPriceLabel).toBe('Free');
   });
 
+  it('shows detail text toggles only for long summary and storyline values', () => {
+    const component = createComponent();
+
+    expect(component.shouldShowDetailTextToggle('Short text')).toBe(false);
+    expect(component.shouldShowDetailTextToggle('x'.repeat(261))).toBe(true);
+  });
+
+  it('toggles summary and storyline expansion independently', () => {
+    const component = createComponent();
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+
+    component.toggleDetailText('summary');
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+
+    component.toggleDetailText('storyline');
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(true);
+
+    component.toggleDetailText('summary');
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(true);
+  });
+
+  it('resets expanded detail text when the selected game changes', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      summary: 'x'.repeat(261),
+      storyline: 'y'.repeat(261),
+    });
+
+    component.toggleDetailText('summary');
+    component.toggleDetailText('storyline');
+
+    component.game = makeLibraryGame({
+      igdbGameId: '456',
+      title: 'Secret of Mana',
+      summary: 'a'.repeat(261),
+      storyline: 'b'.repeat(261),
+    });
+
+    component.ngOnChanges({
+      game: {
+        currentValue: component.game,
+        previousValue: makeLibraryGame({
+          summary: 'x'.repeat(261),
+          storyline: 'y'.repeat(261),
+        }),
+        firstChange: false,
+        isFirstChange: () => false,
+      },
+    });
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
   it('falls back to default currency formatting when Intl throws for a currency code', () => {
     const component = createComponent();
     component.context = 'library';

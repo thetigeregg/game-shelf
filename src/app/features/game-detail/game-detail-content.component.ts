@@ -159,6 +159,13 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if ('game' in changes) {
+      this.detailTextExpanded = {
+        summary: false,
+        storyline: false,
+      };
+    }
+
     if (!this.swiperDestroyed && 'game' in changes) {
       this.queueSwiperRefresh();
     }

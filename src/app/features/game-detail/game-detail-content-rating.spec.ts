@@ -330,7 +330,7 @@ describe('GameDetailContentComponent rating display', () => {
     ]);
   });
 
-  it('only eager-loads the active and nearby slides', () => {
+  it('only eager-loads the first slide', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({
@@ -343,7 +343,7 @@ describe('GameDetailContentComponent rating display', () => {
     });
 
     expect(component.shouldEagerLoadMediaSlide(0)).toBe(true);
-    expect(component.shouldEagerLoadMediaSlide(1)).toBe(true);
+    expect(component.shouldEagerLoadMediaSlide(1)).toBe(false);
     expect(component.shouldEagerLoadMediaSlide(2)).toBe(false);
     expect(component.shouldEagerLoadMediaSlide(3)).toBe(false);
   });

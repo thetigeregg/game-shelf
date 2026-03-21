@@ -89,6 +89,7 @@ describe('buildDetailWebsiteModalItems', () => {
       'YouTube',
       'Playstation',
     ]);
+    expect(items.find((item) => item.label === 'Community Wiki')?.icon).toBe('ion:library');
     expect(items.find((item) => item.label === 'Twitch')).toBeUndefined();
   });
 

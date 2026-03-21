@@ -26,7 +26,9 @@ vi.mock('ionicons', () => ({
 
 vi.mock('ionicons/icons', () => ({
   globe: {},
+  library: {},
   link: {},
+  logoXbox: {},
 }));
 
 vi.mock('@semantic-icons/simple-icons', () => {
@@ -35,6 +37,8 @@ vi.mock('@semantic-icons/simple-icons', () => {
     SiGoogleIcon: Stub,
     SiYoutubeIcon: Stub,
     SiTwitchIcon: Stub,
+    SiDiscordIcon: Stub,
+    SiRedditIcon: Stub,
     SiWikipediaIcon: Stub,
     SiEpicGamesIcon: Stub,
     SiSteamIcon: Stub,
@@ -81,6 +85,7 @@ describe('DetailWebsitesModalComponent', () => {
 
     expect(component.isSimpleIcon('google')).toBe(true);
     expect(component.isSimpleIcon('ion:globe')).toBe(false);
+    expect(component.isSimpleIcon('ion:library')).toBe(false);
     expect(component.isSimpleIcon('ion:link')).toBe(false);
   });
 });

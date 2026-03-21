@@ -13,7 +13,7 @@ import {
   IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { globe, link } from 'ionicons/icons';
+import { globe, library, link, logoXbox } from 'ionicons/icons';
 import {
   SiAppStoreIcon,
   SiDiscordIcon,
@@ -37,16 +37,40 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
   templateUrl: './detail-websites-modal.component.html',
   styles: [
     `
-      .website-brand-icon {
+      .website-item-icon {
         width: 1.375rem;
         height: 1.375rem;
         flex: 0 0 1.375rem;
         display: block;
       }
 
-      .website-brand-icon--forest {
+      ion-icon.website-item-icon {
+        font-size: 1.375rem;
+      }
+
+      .website-item-icon--forest {
         color: var(--ion-color-forest);
         fill: var(--ion-color-forest);
+      }
+
+      .website-item-icon--ocean {
+        color: var(--ion-color-ocean);
+        fill: var(--ion-color-ocean);
+      }
+
+      .website-item-icon--mc-bad {
+        color: var(--ion-color-mc-bad);
+        fill: var(--ion-color-mc-bad);
+      }
+
+      .website-item-icon--dark-gray {
+        color: var(--ion-color-dark-gray);
+        fill: var(--ion-color-dark-gray);
+      }
+
+      .website-item-icon--royal {
+        color: var(--ion-color-royal);
+        fill: var(--ion-color-royal);
       }
     `,
   ],
@@ -87,11 +111,13 @@ export class DetailWebsitesModalComponent {
   constructor() {
     addIcons({
       globe,
+      library,
       link,
+      logoXbox,
     });
   }
 
   isSimpleIcon(icon: DetailWebsiteModalIcon): boolean {
-    return icon !== 'ion:globe' && icon !== 'ion:link';
+    return icon !== 'ion:globe' && icon !== 'ion:library' && icon !== 'ion:link';
   }
 }

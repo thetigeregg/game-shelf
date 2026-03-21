@@ -27,6 +27,7 @@ export type DetailWebsiteModalIcon =
   | 'itchdotio'
   | 'gogdotcom'
   | 'ion:globe'
+  | 'ion:library'
   | 'ion:link';
 
 interface DetailWebsiteCandidate extends DetailWebsiteModalItem {
@@ -353,6 +354,9 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   if (typeId === 1) {
     return 'ion:globe';
   }
+  if (typeId === 2) {
+    return 'ion:library';
+  }
   if (typeId === 6) {
     return 'twitch';
   }
@@ -387,6 +391,9 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   const label = (fallbackLabel ?? resolveWebsiteLabel(website)).trim().toLowerCase();
   if (label === 'google') {
     return 'google';
+  }
+  if (label === 'community wiki') {
+    return 'ion:library';
   }
   if (label === 'youtube') {
     return 'youtube';

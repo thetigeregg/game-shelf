@@ -300,6 +300,54 @@ describe('GameDetailContentComponent rating display', () => {
     expect(swiper.pagination.update).toHaveBeenCalledTimes(2);
   });
 
+  it('builds media slides without separate backdrop metadata', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      coverUrl: 'https://img.example/cover.jpg',
+      screenshots: [
+        { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
+        { id: 3, imageId: 'shot-3', url: 'https://img.example/shot-3.jpg' },
+      ],
+    });
+
+    expect(component.mediaSlides).toEqual([
+      {
+        key: 'cover:https://img.example/cover.jpg',
+        src: 'https://img.example/cover.jpg',
+        kind: 'cover',
+      },
+      {
+        key: 'screenshot:2',
+        src: 'https://img.example/shot-2.jpg',
+        kind: 'screenshot',
+      },
+      {
+        key: 'screenshot:3',
+        src: 'https://img.example/shot-3.jpg',
+        kind: 'screenshot',
+      },
+    ]);
+  });
+
+  it('only eager-loads the active and nearby slides', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      coverUrl: 'https://img.example/cover.jpg',
+      screenshots: [
+        { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
+        { id: 3, imageId: 'shot-3', url: 'https://img.example/shot-3.jpg' },
+        { id: 4, imageId: 'shot-4', url: 'https://img.example/shot-4.jpg' },
+      ],
+    });
+
+    expect(component.shouldEagerLoadMediaSlide(0)).toBe(true);
+    expect(component.shouldEagerLoadMediaSlide(1)).toBe(true);
+    expect(component.shouldEagerLoadMediaSlide(2)).toBe(false);
+    expect(component.shouldEagerLoadMediaSlide(3)).toBe(false);
+  });
+
   it('destroys swiper and cancels queued refresh on destroy', () => {
     const component = createComponent();
     component.context = 'library';

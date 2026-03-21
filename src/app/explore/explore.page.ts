@@ -64,6 +64,7 @@ import { DetailWebsitesModalComponent } from '../features/game-detail/detail-web
 import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
+  buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
@@ -2929,22 +2930,6 @@ export class ExplorePage implements OnInit {
   }
 
   private buildShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
-    const query = this.selectedGameDetail?.title.trim();
-    if (!query) {
-      return null;
-    }
-
-    const encodedQuery = encodeURIComponent(query);
-    if (provider === 'google') {
-      return `https://www.google.com/search?q=${encodedQuery}`;
-    }
-    if (provider === 'youtube') {
-      return `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    }
-    if (provider === 'wikipedia') {
-      return `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    }
-
-    return `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    return buildDetailWebsiteSearchUrl(this.selectedGameDetail?.title, provider);
   }
 }

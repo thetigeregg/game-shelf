@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { GameWebsite } from '../../core/models/game.models';
-import { buildDetailWebsiteModalItems } from './detail-websites-modal.utils';
+import {
+  DetailWebsiteModalItem,
+  buildDetailWebsiteModalItems,
+} from './detail-websites-modal.utils';
 
 function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
   return {
@@ -12,6 +15,20 @@ function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
     trusted: null,
     ...overrides,
   };
+}
+
+function findItemByHostname(
+  items: DetailWebsiteModalItem[],
+  hostname: string
+): DetailWebsiteModalItem | undefined {
+  return items.find((item) => {
+    try {
+      const parsed = new URL(item.url);
+      return parsed.hostname === hostname || parsed.hostname.endsWith(`.${hostname}`);
+    } catch {
+      return false;
+    }
+  });
 }
 
 describe('buildDetailWebsiteModalItems', () => {
@@ -224,8 +241,8 @@ describe('buildDetailWebsiteModalItems', () => {
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
 
-    expect(items.find((item) => item.url.includes('nintendo.com'))?.icon).toBe('nintendo');
-    expect(items.find((item) => item.url.includes('xbox.com'))?.icon).toBe('xbox');
+    expect(findItemByHostname(items, 'nintendo.com')?.icon).toBe('nintendo');
+    expect(findItemByHostname(items, 'xbox.com')?.icon).toBe('xbox');
     expect(items.find((item) => item.label === 'Steam')?.icon).toBe('steam');
     expect(items.find((item) => item.label === 'Epic')?.icon).toBe('epicgames');
     expect(items.find((item) => item.label === 'PlayStation')?.icon).toBe('playstation');

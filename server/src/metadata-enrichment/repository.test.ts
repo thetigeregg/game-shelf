@@ -58,6 +58,10 @@ void test('repository selects rows missing enrichment markers', async () => {
   );
   assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''"), true);
   assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''"), true);
+  assert.equal(
+    sql.includes("COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''"),
+    true
+  );
   assert.equal(sql.includes("NOT (payload ? 'websites')"), true);
   assert.equal(
     sql.includes(

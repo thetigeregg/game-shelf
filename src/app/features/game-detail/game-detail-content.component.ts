@@ -374,17 +374,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   shouldEagerLoadMediaSlide(index: number): boolean {
-    const slide = this.mediaSlides.at(index);
-
-    if (slide === undefined) {
-      return false;
-    }
-
-    if (slide.kind === 'cover') {
-      return true;
-    }
-
-    return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
+    return index === 0;
   }
 
   get statusValue(): GameStatus | undefined {

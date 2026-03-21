@@ -275,7 +275,7 @@ function createNormalizedWebsite(entry, options) {
 
   const typeId = getWebsiteTypeId(entry);
   const typeName = resolveWebsiteTypeName(entry, options);
-  const provider = classifyProvider(typeName, url) ?? inferProviderFromHost(url);
+  const provider = classifyProvider(typeName, url);
 
   return {
     provider,

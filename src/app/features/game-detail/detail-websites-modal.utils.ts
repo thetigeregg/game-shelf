@@ -45,26 +45,27 @@ export function buildDetailWebsiteModalItems(options: {
   websites: GameWebsite[] | null | undefined;
   buildSearchUrl: (provider: DetailWebsiteSearchProvider) => string | null;
 }): DetailWebsiteModalItem[] {
-  const fixedItems: DetailWebsiteModalItem[] = [];
+  let googleItem: DetailWebsiteModalItem | null = null;
+  let gameFaqsItem: DetailWebsiteModalItem | null = null;
   const googleUrl = options.buildSearchUrl('google');
   const gamefaqsUrl = options.buildSearchUrl('gamefaqs');
 
   if (googleUrl) {
-    fixedItems.push({
+    googleItem = {
       key: 'fixed:google',
       label: 'Google',
       url: googleUrl,
       icon: 'google',
-    });
+    };
   }
 
   if (gamefaqsUrl) {
-    fixedItems.push({
+    gameFaqsItem = {
       key: 'fixed:gamefaqs',
       label: 'GameFAQs',
       url: gamefaqsUrl,
       icon: 'gamefaqs',
-    });
+    };
   }
 
   const normalizedWebsites = normalizeWebsites(options.websites);
@@ -131,7 +132,25 @@ export function buildDetailWebsiteModalItems(options: {
   }
 
   candidates.sort(compareCandidates);
-  return [...fixedItems, ...candidates];
+
+  const officialWebsiteItems = candidates.filter((candidate) => candidate.typeId === 1);
+  const communityWikiItems = candidates.filter((candidate) => candidate.typeId === 2);
+  const wikipediaItems = candidates.filter((candidate) => candidate.typeId === WIKIPEDIA_TYPE_ID);
+  const leadingKeys = new Set([
+    ...officialWebsiteItems.map((candidate) => candidate.key),
+    ...communityWikiItems.map((candidate) => candidate.key),
+    ...wikipediaItems.map((candidate) => candidate.key),
+  ]);
+  const remainingItems = candidates.filter((candidate) => !leadingKeys.has(candidate.key));
+
+  return [
+    ...officialWebsiteItems,
+    ...communityWikiItems,
+    ...wikipediaItems,
+    ...(gameFaqsItem ? [gameFaqsItem] : []),
+    ...remainingItems,
+    ...(googleItem ? [googleItem] : []),
+  ];
 }
 
 function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebsite[] {

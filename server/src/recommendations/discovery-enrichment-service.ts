@@ -87,7 +87,6 @@ interface HltbLookupContext {
   platform: string | null;
   preferredGameId: number | null;
   preferredUrl: string | null;
-  canRefreshLocked: boolean;
 }
 
 interface ReviewLookupContext {
@@ -97,7 +96,6 @@ interface ReviewLookupContext {
   platform: string | null;
   platformIgdbId: number;
   mobygamesGameId: number | null;
-  canRefreshLocked: boolean;
 }
 
 interface MobyGamesResponse {
@@ -198,7 +196,6 @@ export class DiscoveryEnrichmentService {
     queryable?: Queryable;
     gameKeys?: string[];
     providers?: DiscoveryEnrichmentProvider[];
-    forceLockedProviders?: DiscoveryEnrichmentProvider[];
   }): Promise<DiscoveryEnrichmentSummary> {
     if (!this.options.enabled) {
       return {
@@ -211,8 +208,6 @@ export class DiscoveryEnrichmentService {
     const queryable = params?.queryable;
     const normalizedGameKeys = this.normalizeGameKeys(params?.gameKeys);
     const normalizedProviders = normalizeTargetProviders(params?.providers);
-    const forcedLockedProviders =
-      normalizeTargetProviders(params?.forceLockedProviders) ?? new Set();
     if (normalizedGameKeys !== null && normalizedGameKeys.length === 0) {
       return {
         scanned: 0,
@@ -240,7 +235,6 @@ export class DiscoveryEnrichmentService {
     for (const row of rows) {
       const next = await this.enrichPayload(row.igdbGameId, row.payload, row.platformIgdbId, {
         providers: normalizedProviders,
-        forceLockedProviders: forcedLockedProviders,
       });
       if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
         skipped += 1;
@@ -273,7 +267,6 @@ export class DiscoveryEnrichmentService {
     platformIgdbId: number,
     options: {
       providers: Set<DiscoveryEnrichmentProvider> | null;
-      forceLockedProviders: Set<DiscoveryEnrichmentProvider>;
     }
   ): Promise<Record<string, unknown> | null> {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
@@ -305,8 +298,7 @@ export class DiscoveryEnrichmentService {
       title,
       releaseYear,
       platform,
-      platformIgdbId,
-      options.forceLockedProviders.has('review')
+      platformIgdbId
     );
     const hasHltb =
       hasPositiveNumber(payload.hltbMainHours) ||
@@ -719,7 +711,6 @@ function buildHltbLookupContext(
     platform,
     preferredGameId,
     preferredUrl,
-    canRefreshLocked: preferredGameId !== null || preferredUrl !== null,
   };
 }
 
@@ -728,8 +719,7 @@ function buildReviewLookupContext(
   fallbackTitle: string,
   fallbackReleaseYear: number | null,
   fallbackPlatform: string | null,
-  fallbackPlatformIgdbId: number,
-  forceLockedReviewRefresh: boolean
+  fallbackPlatformIgdbId: number
 ): ReviewLookupContext {
   const reviewSource = parseReviewSource(payload['reviewSource']);
   const title = normalizeTrimmedString(payload['reviewMatchQueryTitle']) ?? fallbackTitle;
@@ -749,9 +739,6 @@ function buildReviewLookupContext(
     platform,
     platformIgdbId,
     mobygamesGameId,
-    canRefreshLocked:
-      forceLockedReviewRefresh &&
-      ((reviewSource !== 'mobygames' && title.length >= 2) || mobygamesGameId !== null),
   };
 }
 

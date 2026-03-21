@@ -2798,3 +2798,48 @@
 - a6e05db3 feat(discovery-match): enhance locking mechanism explanations and UI notes
 - 2928acee feat(discovery-enrichment): enhance locked HLTB and review provider handling with saved query fields
 - 68a95f49 feat(psprices): implement PSPrices refresh job builder and related tests
+
+## v1.17.0 - 2026-03-21
+- 9df37192 Merge pull request #266 from thetigeregg/feat/external-link
+- 7442e8cd Merge branch 'main' into feat/external-link
+- aab370ef fix(websites): accept protocol-relative and Nintendo Europe links
+- 3af97122 fix(websites): harden external link normalization and remove dead shortcuts
+- 616e215b fix(websites): reject credential-bearing external urls
+- 27f15a6d refactor(tests): simplify icon retrieval by using findItemByHostname function
+- a2af0489 feat: enhance URL sanitization and validation in detail websites modal
+- 09db1b07 fix(websites): simplify provider fallback and cache ttl naming
+- ce6db94d feat: implement URL sanitization for external links and enhance website trust validation
+- 47e4415e test(websites): raise external link coverage for CI
+- 89ca4bc7 fix(websites): resolve external link review feedback and enrichment reruns
+- 65697d2c feat: update Steam URLs to remove specific app IDs for normalization
+- f4355db2 feat: update PlayStation icon style to use deep ocean color variant
+- 2d37b489 feat: simplify website item icon styles and update Nintendo SVG fill color
+- ba64cf4c feat: update website type IDs for Nintendo and Xbox, and improve icon resolution logic
+- ae3f7ce3 feat: add support for Bluesky with new icon styles and update color variables
+- ce060b2e feat: reorder website items to prioritize official, community wiki, and wikipedia links
+- f130c909 feat: enhance website modal logic to include additional platforms and improve label resolution
+- 6be132a8 feat: add deep ocean icon style for library website item
+- 48ca346a feat: remove unsupported storefront host fallbacks from isKnownStorefrontUrl function
+- 005c3ee4 feat: update website icons and add library icon support in detail websites modal
+- 2dc81aad feat: implement website filtering logic to exclude unsupported links
+- a8d3b7e0 feat: enhance metadata enrichment logic to handle empty websites array
+- 18b02008 feat: add websites modal and related functionality to list page
+- d23dc767 feat: enhance website classification for itch.io and add comprehensive tests
+- 4ffd9c22 feat: add website normalization logic to GameSyncService
+- 7e60d8b5 Merge branch 'main' into feat/external-link
+- 885f693e feat: update Google icon styling in detail websites modal
+- 686d5ebb feat: add GameFAQs, Nintendo, and Xbox icons to website modal and update related logic
+- 48b6c3d0 feat: add Discord and Reddit icons to website modal and update related logic
+- 4dfcefe4 feat: enhance website modal with semantic icons and refactor icon handling
+- f50345a2 feat: add @semantic-icons/simple-icons dependency to project
+- 3de89953 feat: add link icon to detail shortcuts FAB and update icon registration
+- 56bcf3ff feat: add websites modal and refactor website handling in game detail
+- 79b85c0c refactor: update website handling by replacing sourceId/sourceName with typeId/typeName
+- 2f406699 refactor: simplify handling of websites by removing storefrontLinks references
+- 2b2083c2 refactor: rename storefront links to websites and update related logic
+- 19edc981 Merge branch 'main' into feat/external-link
+- 2270c4c9 feat: implement storefront links display and normalization in game detail component
+- 89d88c8c feat: enhance metadata enrichment to support storefront links and steam app IDs
+- 84411e76 Merge branch 'main' into feat/external-link
+- bdcf5f49 feat: add storefront links normalization and persistence
+

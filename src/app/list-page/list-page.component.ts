@@ -37,6 +37,7 @@ import {
   GameListFilters,
   GameType,
   GameVideo,
+  GameWebsite,
   ListType,
 } from '../core/models/game.models';
 import {
@@ -53,6 +54,12 @@ import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-fil
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
+import { DetailWebsitesModalComponent } from '../features/game-detail/detail-websites-modal.component';
+import {
+  DetailWebsiteModalItem,
+  DetailWebsiteSearchProvider,
+  buildDetailWebsiteModalItems,
+} from '../features/game-detail/detail-websites-modal.utils';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
@@ -134,6 +141,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
     DetailVideosModalComponent,
+    DetailWebsitesModalComponent,
     GameFiltersMenuComponent,
     IonHeader,
     IonToolbar,
@@ -197,6 +205,7 @@ export class ListPageComponent {
   isAddGameDetailInLibrary = false;
   isAddGameDetailAddLoading = false;
   isAddGameVideosModalOpen = false;
+  isAddGameWebsitesModalOpen = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -607,6 +616,7 @@ export class ListPageComponent {
     this.isAddGameDetailInLibrary = false;
     this.isAddGameDetailAddLoading = false;
     this.isAddGameVideosModalOpen = false;
+    this.isAddGameWebsitesModalOpen = false;
   }
 
   async addSelectedAddGameDetailToLibrary(): Promise<void> {
@@ -638,32 +648,32 @@ export class ListPageComponent {
     }
   }
 
-  openAddGameDetailShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.selectedAddGameDetail?.title.trim();
+  openAddGameDetailShortcutSearch(provider: DetailWebsiteSearchProvider): void {
+    const url = this.openAddGameDetailShortcutSearchUrl(provider);
 
-    if (!query) {
+    if (!url) {
       return;
-    }
-
-    const encodedQuery = encodeURIComponent(query);
-    let url = '';
-
-    if (provider === 'google') {
-      url = `https://www.google.com/search?q=${encodedQuery}`;
-    } else if (provider === 'youtube') {
-      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    } else if (provider === 'wikipedia') {
-      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    } else {
-      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
     }
 
     this.openExternalUrl(url);
   }
 
+  get addGameDetailWebsiteItems(): DetailWebsiteModalItem[] {
+    return buildDetailWebsiteModalItems({
+      websites: this.addGameDetailWebsites,
+      buildSearchUrl: (provider) => this.openAddGameDetailShortcutSearchUrl(provider),
+    });
+  }
+
   get addGameDetailVideos(): GameVideo[] {
     return Array.isArray(this.selectedAddGameDetail?.videos)
       ? this.selectedAddGameDetail.videos
+      : [];
+  }
+
+  get addGameDetailWebsites(): GameWebsite[] {
+    return Array.isArray(this.selectedAddGameDetail?.websites)
+      ? this.selectedAddGameDetail.websites
       : [];
   }
 
@@ -681,6 +691,23 @@ export class ListPageComponent {
 
   closeAddGameVideosModal(): void {
     this.isAddGameVideosModalOpen = false;
+  }
+
+  openAddGameWebsitesModal(): void {
+    if (this.addGameDetailWebsiteItems.length === 0) {
+      return;
+    }
+
+    this.isAddGameWebsitesModalOpen = true;
+  }
+
+  closeAddGameWebsitesModal(): void {
+    this.isAddGameWebsitesModalOpen = false;
+  }
+
+  openAddGameDetailWebsite(item: DetailWebsiteModalItem): void {
+    this.closeAddGameWebsitesModal();
+    this.openExternalUrl(item.url);
   }
 
   async openFiltersMenu(): Promise<void> {
@@ -723,6 +750,30 @@ export class ListPageComponent {
         groupBy: this.groupBy,
       },
     });
+  }
+
+  private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
+    const query = this.selectedAddGameDetail?.title.trim();
+
+    if (!query) {
+      return null;
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+
+    if (provider === 'google') {
+      return `https://www.google.com/search?q=${encodedQuery}`;
+    }
+
+    if (provider === 'youtube') {
+      return `https://www.youtube.com/results?search_query=${encodedQuery}`;
+    }
+
+    if (provider === 'wikipedia') {
+      return `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+    }
+
+    return `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
   }
 
   async activateMultiSelectFromPopover(): Promise<void> {

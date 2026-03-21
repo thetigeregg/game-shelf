@@ -255,7 +255,7 @@
         <app-detail-shortcuts-fab
           [showVideosShortcut]="hasAddGameDetailVideosShortcut"
           (videosClick)="openAddGameVideosModal()"
-          (shortcutSearch)="openAddGameDetailShortcutSearch($event)"
+          (websitesClick)="openAddGameWebsitesModal()"
         ></app-detail-shortcuts-fab>
       }
     </ion-content>
@@ -267,6 +267,13 @@
   [videos]="addGameDetailVideos"
   (dismiss)="closeAddGameVideosModal()"
 ></app-detail-videos-modal>
+
+<app-detail-websites-modal
+  [isOpen]="isAddGameWebsitesModalOpen"
+  [items]="addGameDetailWebsiteItems"
+  (dismiss)="closeAddGameWebsitesModal()"
+  (websiteSelect)="openAddGameDetailWebsite($event)"
+></app-detail-websites-modal>
 
 @if (!isDesktop) {
   <app-game-filters-menu

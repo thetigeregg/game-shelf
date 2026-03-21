@@ -15,7 +15,7 @@ function makeWebsite(overrides: Partial<GameWebsite> = {}): GameWebsite {
 }
 
 describe('buildDetailWebsiteModalItems', () => {
-  it('prepends google and gamefaqs and sorts remaining allowed websites by type id', () => {
+  it('pins official, community wiki, wikipedia, and gamefaqs first and google last', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
         makeWebsite({
@@ -38,13 +38,13 @@ describe('buildDetailWebsiteModalItems', () => {
     });
 
     expect(items.map((item) => item.label)).toEqual([
-      'Google',
-      'GameFAQs',
       'Official Website',
       'Wikipedia',
+      'GameFAQs',
       'YouTube',
       'GOG',
       'Discord',
+      'Google',
     ]);
     expect(items.find((item) => item.label === 'Google')?.icon).toBe('google');
     expect(items.find((item) => item.label === 'GameFAQs')?.icon).toBe('gamefaqs');
@@ -102,16 +102,16 @@ describe('buildDetailWebsiteModalItems', () => {
     });
 
     expect(items.map((item) => item.label)).toEqual([
-      'Google',
-      'GameFAQs',
       'Official Website',
       'Community Wiki',
       'Wikipedia',
+      'GameFAQs',
       'Twitch',
       'YouTube',
       'Discord',
       'Bluesky',
       'Playstation',
+      'Google',
     ]);
     expect(items.find((item) => item.label === 'Community Wiki')?.icon).toBe('ion:library');
     expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
@@ -250,7 +250,7 @@ describe('buildDetailWebsiteModalItems', () => {
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
 
-    expect(items.map((item) => item.label)).toEqual(['Google', 'GameFAQs', 'Wikipedia', 'YouTube']);
+    expect(items.map((item) => item.label)).toEqual(['Wikipedia', 'GameFAQs', 'YouTube', 'Google']);
   });
 
   it('keeps known storefront host fallbacks without a type id', () => {

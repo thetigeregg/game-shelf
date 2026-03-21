@@ -447,10 +447,8 @@ async function processGameRow(
       lastMetacriticRefreshAt = nowIso;
     }
 
-    const hltbMatchLocked = isProviderMatchLocked(mergedPayload, 'hltbMatchLocked');
-    const reviewMatchLocked = isProviderMatchLocked(mergedPayload, 'reviewMatchLocked');
-    const hltbRefreshEligible = hltbEligible && !hltbMatchLocked;
-    const reviewRefreshEligible = metacriticEligible && !reviewMatchLocked;
+    const hltbRefreshEligible = hltbEligible;
+    const reviewRefreshEligible = metacriticEligible;
 
     const hltbDue =
       !isBootstrap &&

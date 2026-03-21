@@ -62,4 +62,15 @@ describe('DetailShortcutsFabComponent', () => {
     expect(listSpy).toHaveBeenCalledOnce();
     expect(closeSpy).toHaveBeenCalledTimes(4);
   });
+
+  it('tolerates action clicks when the fab view child is unavailable', () => {
+    const component = new DetailShortcutsFabComponent();
+
+    expect(() => {
+      component.onWebsitesClick();
+      component.onVideosClick();
+      component.onNotesClick();
+      component.onOpenManualClick();
+    }).not.toThrow();
+  });
 });

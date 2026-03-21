@@ -293,6 +293,7 @@ export class DiscoveryEnrichmentService {
       platform,
       hltbMatchLocked
     );
+    const reviewMatchLocked = isProviderMatchLocked(payload, 'reviewMatchLocked');
     const reviewLookup = buildReviewLookupContext(
       payload,
       title,
@@ -342,7 +343,8 @@ export class DiscoveryEnrichmentService {
       psprices: retryState.psprices,
     };
     const needsHltb = isHltbActive && !hasHltb;
-    const needsMetacritic = isReviewActive && !hasCritic;
+    const needsMetacritic =
+      isReviewActive && !hasCritic && (!reviewMatchLocked || canRefreshLockedReview(reviewLookup));
     const shouldTryHltb =
       needsHltb &&
       shouldAttemptProvider({
@@ -740,6 +742,14 @@ function buildReviewLookupContext(
     platformIgdbId,
     mobygamesGameId,
   };
+}
+
+function canRefreshLockedReview(context: ReviewLookupContext): boolean {
+  if (context.reviewSource === 'mobygames') {
+    return context.mobygamesGameId !== null;
+  }
+
+  return true;
 }
 
 function normalizeFiniteNumber(value: unknown): number | null {

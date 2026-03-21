@@ -2023,6 +2023,19 @@ export class ExplorePage implements OnInit {
     return `${igdbGameId}::${String(platformIgdbId)}`;
   }
 
+  private hasActiveDetailRecommendationIdentity(expectedIdentityKey: string): boolean {
+    if (!this.activeDetailRecommendation) {
+      return false;
+    }
+
+    return (
+      this.buildIdentityKey(
+        this.activeDetailRecommendation.igdbGameId,
+        this.activeDetailRecommendation.platformIgdbId
+      ) === expectedIdentityKey
+    );
+  }
+
   private createFallbackCatalogResult(params: {
     igdbGameId: string;
     platformIgdbId: number;
@@ -2096,13 +2109,7 @@ export class ExplorePage implements OnInit {
         })
       );
 
-      if (
-        !this.activeDetailRecommendation ||
-        this.buildIdentityKey(
-          this.activeDetailRecommendation.igdbGameId,
-          this.activeDetailRecommendation.platformIgdbId
-        ) !== requestIdentityKey
-      ) {
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
         return;
       }
 
@@ -2112,15 +2119,10 @@ export class ExplorePage implements OnInit {
       this.similarRecommendationsPage = response.page;
       this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
       this.invalidateSimilarVisibility();
+      await this.ensureSimilarRecommendationPageFilled(item, requestIdentityKey);
       this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
-      if (
-        !this.activeDetailRecommendation ||
-        this.buildIdentityKey(
-          this.activeDetailRecommendation.igdbGameId,
-          this.activeDetailRecommendation.platformIgdbId
-        ) !== requestIdentityKey
-      ) {
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
         return;
       }
       const normalized = this.normalizeRecommendationError(error);
@@ -2139,13 +2141,54 @@ export class ExplorePage implements OnInit {
     } finally {
       if (
         !this.activeDetailRecommendation ||
-        this.buildIdentityKey(
-          this.activeDetailRecommendation.igdbGameId,
-          this.activeDetailRecommendation.platformIgdbId
-        ) === requestIdentityKey
+        this.hasActiveDetailRecommendationIdentity(requestIdentityKey)
       ) {
         this.isLoadingSimilar = false;
       }
+    }
+  }
+
+  private async ensureSimilarRecommendationPageFilled(
+    item: RecommendationItem,
+    requestIdentityKey: string
+  ): Promise<void> {
+    while (
+      this.getVisibleSimilarRecommendationItems().length === 0 &&
+      this.similarRecommendationsPage?.hasMore === true
+    ) {
+      const nextOffset = this.similarRecommendationsPage.nextOffset;
+      if (nextOffset === null) {
+        break;
+      }
+
+      const response = await firstValueFrom(
+        this.igdbProxyService.getRecommendationSimilar({
+          target: this.selectedTarget,
+          runtimeMode: this.selectedRuntimeMode,
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          offset: nextOffset,
+          limit: ExplorePage.SIMILAR_PAGE_SIZE,
+        })
+      );
+
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
+        return;
+      }
+
+      this.similarRecommendationItems = [...this.similarRecommendationItems, ...response.items];
+      this.similarRecommendationsPage = response.page;
+      this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
+      this.invalidateSimilarVisibility();
+    }
+
+    if (
+      this.getVisibleSimilarRecommendationItems().length === 0 &&
+      (this.similarRecommendationsPage === null || !this.similarRecommendationsPage.hasMore)
+    ) {
+      this.similarRecommendationItems = [];
+      this.visibleSimilarRecommendationCount = 0;
+      this.invalidateSimilarVisibility();
     }
   }
 

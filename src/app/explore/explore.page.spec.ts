@@ -1178,13 +1178,17 @@ describe('ExplorePage explore modes UX', () => {
     expect(openExternalUrl).toHaveBeenCalledTimes(4);
 
     expect(page.detailWebsiteItems.map((item) => item.label)).toEqual([
-      'Google',
-      'GameFAQs',
       'Wikipedia',
+      'GameFAQs',
       'YouTube',
+      'Google',
     ]);
-    expect(page.detailWebsiteItems[2]?.url).toBe('https://en.wikipedia.org/wiki/Pokemon_Red');
-    expect(page.detailWebsiteItems[3]?.url).toContain('youtube.com/results?search_query=');
+    expect(page.detailWebsiteItems.find((item) => item.label === 'Wikipedia')?.url).toBe(
+      'https://en.wikipedia.org/wiki/Pokemon_Red'
+    );
+    expect(page.detailWebsiteItems.find((item) => item.label === 'YouTube')?.url).toContain(
+      'youtube.com/results?search_query='
+    );
 
     page.openWebsitesModal();
     expect(page.isWebsitesModalOpen).toBe(true);

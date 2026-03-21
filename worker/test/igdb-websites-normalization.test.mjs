@@ -119,7 +119,12 @@ test('normalizeIgdbWebsites maps all whitelisted website hosts to the expected p
     assert.ok(normalized, `${testCase.name} should normalize`);
     assert.equal(normalized.provider, testCase.expectedProvider, testCase.name);
     assert.equal(normalized.providerLabel, testCase.expectedLabel, testCase.name);
-    assert.equal(normalized.url, testCase.url);
+    assert.equal(
+      normalized.url,
+      testCase.expectedProvider === 'steam'
+        ? 'https://store.steampowered.com/app/123'
+        : testCase.url
+    );
     assert.equal(normalized.typeId, null);
     assert.equal(normalized.typeName, null);
   }

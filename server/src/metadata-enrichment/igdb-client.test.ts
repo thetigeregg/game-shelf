@@ -62,7 +62,7 @@ void test('extracts steam app id from steam website url', async () => {
     {
       provider: 'steam',
       providerLabel: 'Steam',
-      url: 'https://store.steampowered.com/app/570/Dota_2/',
+      url: 'https://store.steampowered.com/app/570',
       typeId: 13,
       typeName: 'Steam',
       trusted: null,

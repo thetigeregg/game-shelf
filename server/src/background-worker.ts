@@ -221,11 +221,72 @@ function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): str
 
 const resolvePspricesRevalidationUrl = resolvePreferredPsPricesUrl;
 
+function buildPspricesRefreshJob(params: {
+  igdbGameId: string;
+  platformIgdbId: number;
+  payload: Record<string, unknown>;
+  dedupePrefix: string;
+  region: string;
+  show: string;
+  nowMs: number;
+  maxAttempts: number;
+  rearmAfterDays: number;
+  rearmRecentReleaseYears: number;
+}):
+  | {
+      kind: 'enqueue';
+      dedupeKey: string;
+      payload: {
+        cacheKey: string;
+        igdbGameId: string;
+        platformIgdbId: number;
+        title: string;
+        psPricesUrl: string | null;
+      };
+    }
+  | { kind: 'skip'; reason: 'unsupported-platform' | 'backoff' | 'missing-data' } {
+  if (!PSPRICES_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
+    return { kind: 'skip', reason: 'unsupported-platform' };
+  }
+
+  if (
+    !shouldSchedulePspricesRefresh({
+      payload: params.payload,
+      platformIgdbId: params.platformIgdbId,
+      nowMs: params.nowMs,
+      maxAttempts: params.maxAttempts,
+      rearmAfterDays: params.rearmAfterDays,
+      rearmRecentReleaseYears: params.rearmRecentReleaseYears,
+    })
+  ) {
+    return { kind: 'skip', reason: 'backoff' };
+  }
+
+  const title = resolvePspricesRevalidationTitle(params.payload);
+  if (!title) {
+    return { kind: 'skip', reason: 'missing-data' };
+  }
+
+  const cacheKey = `${params.dedupePrefix}:${params.igdbGameId}:${String(params.platformIgdbId)}:${params.region}:${params.show}`;
+  return {
+    kind: 'enqueue',
+    dedupeKey: `${params.dedupePrefix}:psprices:${params.igdbGameId}:${String(params.platformIgdbId)}:${params.region}:${params.show}`,
+    payload: {
+      cacheKey,
+      igdbGameId: params.igdbGameId,
+      platformIgdbId: params.platformIgdbId,
+      title,
+      psPricesUrl: resolvePspricesRevalidationUrl(params.payload),
+    },
+  };
+}
+
 export const __backgroundWorkerTestables = {
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
   resolvePspricesRevalidationTitle,
   resolvePspricesRevalidationUrl,
+  buildPspricesRefreshJob,
   isProviderMatchLocked,
   readDiscoveryEnrichmentProviders,
   shouldSchedulePspricesRefresh,
@@ -852,44 +913,39 @@ async function main(): Promise<void> {
         continue;
       }
 
-      if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-        continue;
-      }
-      if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
-        continue;
-      }
+      const pspricesRefreshJob = buildPspricesRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: params.dedupePrefix,
+        region: pspricesRegion,
+        show: pspricesShow,
+        nowMs,
+        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+        rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+        rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+      });
       if (
-        !shouldSchedulePspricesRefresh({
-          payload,
-          platformIgdbId: row.platform_igdb_id,
-          nowMs,
-          maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-          rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-          rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-        })
+        pspricesRefreshJob.kind === 'skip' &&
+        pspricesRefreshJob.reason === 'unsupported-platform'
       ) {
+        continue;
+      }
+
+      if (pspricesRefreshJob.kind === 'skip' && pspricesRefreshJob.reason === 'backoff') {
         stats.skippedBackoff += 1;
         continue;
       }
 
-      const title = resolvePspricesRevalidationTitle(payload);
-      if (!title) {
+      if (pspricesRefreshJob.kind === 'skip') {
         stats.skippedMissingData += 1;
         continue;
       }
-      const psPricesUrl = resolvePspricesRevalidationUrl(payload);
 
-      const dedupeKey = `${params.dedupePrefix}:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`;
       const enqueueResult = await jobs.enqueue({
         jobType: 'psprices_price_revalidate',
-        dedupeKey,
-        payload: {
-          cacheKey: `${params.dedupePrefix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          title,
-          psPricesUrl,
-        },
+        dedupeKey: pspricesRefreshJob.dedupeKey,
+        payload: pspricesRefreshJob.payload,
         priority: 120,
         maxAttempts: 3,
       });

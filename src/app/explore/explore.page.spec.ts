@@ -1653,6 +1653,26 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.headerActionsPopoverEvent).toBeUndefined();
   });
 
+  it('routes settings even when header popover dismissal rejects', async () => {
+    const page = createPage() as unknown as {
+      isHeaderActionsPopoverOpen: boolean;
+      headerActionsPopoverEvent: Event | undefined;
+      openHeaderActionsPopover: (event: Event) => void;
+      openSettingsFromPopover: () => Promise<void>;
+    };
+    const event = { type: 'click' } as unknown as Event;
+
+    popoverControllerMock.dismiss.mockRejectedValueOnce(new Error('dismiss failed'));
+
+    page.openHeaderActionsPopover(event);
+    await page.openSettingsFromPopover();
+
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
+    expect(page.isHeaderActionsPopoverOpen).toBe(false);
+    expect(page.headerActionsPopoverEvent).toBeUndefined();
+  });
+
   it('confirms ignore with captured game identity even if selection changes before confirm', async () => {
     const page = createPage() as unknown as {
       activeDetailRecommendation: { igdbGameId: string; platformIgdbId: number } | null;

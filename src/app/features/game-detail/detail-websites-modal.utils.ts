@@ -298,27 +298,6 @@ function isKnownStorefrontUrl(url: string): boolean {
     if (hostname === 'play.google.com') {
       return true;
     }
-    if (hostname === 'amazon.com' || hostname.endsWith('.amazon.com')) {
-      return true;
-    }
-    if (
-      hostname === 'oculus.com' ||
-      hostname.endsWith('.oculus.com') ||
-      hostname === 'meta.com' ||
-      hostname.endsWith('.meta.com')
-    ) {
-      return pathname.includes('/experiences/') || pathname.includes('/app/');
-    }
-    if (hostname === 'utomik.com' || hostname.endsWith('.utomik.com')) {
-      return true;
-    }
-    if (hostname === 'gamejolt.com' || hostname.endsWith('.gamejolt.com')) {
-      return true;
-    }
-    if (hostname === 'kartridge.com' || hostname.endsWith('.kartridge.com')) {
-      return true;
-    }
-
     return false;
   } catch {
     return false;

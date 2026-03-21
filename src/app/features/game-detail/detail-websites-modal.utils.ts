@@ -375,11 +375,6 @@ function resolveWebsiteLabelFromHostname(url: string): string | null {
 }
 
 function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): DetailWebsiteModalIcon {
-  const hostnameIcon = resolveWebsiteIconFromHostname(website.url);
-  if (hostnameIcon) {
-    return hostnameIcon;
-  }
-
   const typeId = normalizePositiveInteger(website.typeId);
   if (typeId === 1) {
     return 'ion:globe';
@@ -416,6 +411,11 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   }
   if (typeId === 23) {
     return 'playstation';
+  }
+
+  const hostnameIcon = resolveWebsiteIconFromHostname(website.url);
+  if (hostnameIcon) {
+    return hostnameIcon;
   }
 
   const label = (fallbackLabel ?? resolveWebsiteLabel(website)).trim().toLowerCase();

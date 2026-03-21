@@ -174,13 +174,13 @@ describe('buildDetailWebsiteModalItems', () => {
       websites: [
         makeWebsite({
           url: 'https://www.nintendo.com/us/store/products/test-game-switch/',
-          typeId: 1,
-          typeName: 'Official Website',
+          typeId: 24,
+          typeName: 'Nintendo',
         }),
         makeWebsite({
           url: 'https://www.xbox.com/en-US/games/store/test-game/9NBLGGH12345',
-          typeId: 1,
-          typeName: 'Official Website',
+          typeId: 22,
+          typeName: 'Xbox',
         }),
         makeWebsite({
           url: 'https://gamefaqs.gamespot.com/switch/123456-test-game',
@@ -236,6 +236,21 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'Twitch')?.icon).toBe('twitch');
     expect(items.find((item) => item.label === 'Discord')?.icon).toBe('discord');
     expect(items.find((item) => item.label === 'Subreddit')?.icon).toBe('reddit');
+  });
+
+  it('keeps official website entries on the globe icon even when the hostname is branded', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://www.nintendo.com/us/store/products/test-game-switch/',
+          typeId: 1,
+          typeName: 'Official Website',
+        }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.find((item) => item.label === 'Official Website')?.icon).toBe('ion:globe');
   });
 
   it('does not allow removed storefront host fallbacks without an allowed type id', () => {

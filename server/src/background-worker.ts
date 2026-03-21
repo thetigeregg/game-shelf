@@ -1192,7 +1192,7 @@ async function main(): Promise<void> {
             : await discoveryEnrichmentService.enrichNow({
                 ...(gameKeys !== null ? { limit: Math.max(gameKeys.length, 1) } : {}),
                 ...(gameKeys !== null ? { gameKeys } : {}),
-                ...(providers !== null ? { providers, forceLockedProviders: providers } : {}),
+                ...(providers !== null ? { providers } : {}),
               });
         return { summary };
       }

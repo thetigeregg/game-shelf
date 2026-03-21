@@ -44,6 +44,7 @@ import {
   GameRating,
   GameStatus,
   GameVideo,
+  GameWebsite,
   ListType,
   PopularityFeedItem,
   PopularityFeedResponse,
@@ -59,6 +60,13 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
+import { DetailWebsitesModalComponent } from '../features/game-detail/detail-websites-modal.component';
+import {
+  DetailWebsiteModalItem,
+  DetailWebsiteSearchProvider,
+  buildDetailWebsiteSearchUrl,
+  buildDetailWebsiteModalItems,
+} from '../features/game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -149,6 +157,7 @@ interface RecommendationDisplayMetadata {
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
     DetailVideosModalComponent,
+    DetailWebsitesModalComponent,
     SimilarGameRowComponent,
   ],
 })
@@ -236,6 +245,7 @@ export class ExplorePage implements OnInit {
   detailNavigationStack: RecommendationItem[] = [];
   isRatingModalOpen = false;
   isVideosModalOpen = false;
+  isWebsitesModalOpen = false;
   ratingDraft: GameRating = 3;
   clearRatingOnSave = false;
   readonly statusOptions: { value: GameStatus; label: string }[] = [
@@ -782,6 +792,7 @@ export class ExplorePage implements OnInit {
 
     this.isGameDetailModalOpen = true;
     this.isVideosModalOpen = false;
+    this.isWebsitesModalOpen = false;
     this.isLoadingDetail = !local && !initialCatalog;
     this.detailErrorMessage = '';
     this.detailContext = local ? 'library' : 'explore';
@@ -855,6 +866,7 @@ export class ExplorePage implements OnInit {
 
     this.isGameDetailModalOpen = true;
     this.isVideosModalOpen = false;
+    this.isWebsitesModalOpen = false;
     this.isLoadingDetail = !local && !initialCatalog;
     this.detailErrorMessage = '';
     this.detailContext = local ? 'library' : 'explore';
@@ -916,6 +928,7 @@ export class ExplorePage implements OnInit {
     this.isGameDetailModalOpen = false;
     this.isRatingModalOpen = false;
     this.isVideosModalOpen = false;
+    this.isWebsitesModalOpen = false;
     this.ratingDraft = 3;
     this.clearRatingOnSave = false;
     this.isLoadingDetail = false;
@@ -1186,31 +1199,19 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.selectedGameDetail?.title.trim();
-
-    if (!query) {
-      return;
-    }
-
-    const encodedQuery = encodeURIComponent(query);
-    let url = '';
-
-    if (provider === 'google') {
-      url = `https://www.google.com/search?q=${encodedQuery}`;
-    } else if (provider === 'youtube') {
-      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    } else if (provider === 'wikipedia') {
-      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    } else {
-      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
-    }
-
-    this.openExternalUrl(url);
+  get detailWebsiteItems(): DetailWebsiteModalItem[] {
+    return buildDetailWebsiteModalItems({
+      websites: this.detailWebsites,
+      buildSearchUrl: (provider) => this.buildShortcutSearchUrl(provider),
+    });
   }
 
   get detailVideos(): GameVideo[] {
     return Array.isArray(this.selectedGameDetail?.videos) ? this.selectedGameDetail.videos : [];
+  }
+
+  get detailWebsites(): GameWebsite[] {
+    return Array.isArray(this.selectedGameDetail?.websites) ? this.selectedGameDetail.websites : [];
   }
 
   get hasDetailVideosShortcut(): boolean {
@@ -1234,6 +1235,23 @@ export class ExplorePage implements OnInit {
 
   closeVideosModal(): void {
     this.isVideosModalOpen = false;
+  }
+
+  openWebsitesModal(): void {
+    if (this.detailWebsiteItems.length === 0) {
+      return;
+    }
+
+    this.isWebsitesModalOpen = true;
+  }
+
+  closeWebsitesModal(): void {
+    this.isWebsitesModalOpen = false;
+  }
+
+  openDetailWebsite(item: DetailWebsiteModalItem): void {
+    this.closeWebsitesModal();
+    this.openExternalUrl(item.url);
   }
 
   onImageError(event: Event): void {
@@ -2900,5 +2918,9 @@ export class ExplorePage implements OnInit {
 
   private openExternalUrl(url: string): void {
     openExternalUrl(url);
+  }
+
+  private buildShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
+    return buildDetailWebsiteSearchUrl(this.selectedGameDetail?.title, provider);
   }
 }

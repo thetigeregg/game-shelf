@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { detectReviewSourceFromUrl, hostIsDomainOrSubdomain, parseHttpUrl } from './url-host.util';
+import {
+  detectReviewSourceFromUrl,
+  hostIsDomainOrSubdomain,
+  parseHttpUrl,
+  sanitizeExternalHttpUrl,
+  sanitizeExternalHttpUrlString,
+} from './url-host.util';
 
 describe('url-host util', () => {
   it('detects supported review sources by exact host and subdomain', () => {
@@ -38,6 +44,31 @@ describe('url-host util', () => {
 
   it('returns null when URL constructor throws for malformed urls', () => {
     expect(parseHttpUrl('http://[::1]:notaport')).toBeNull();
+  });
+
+  it('returns null for urls with embedded credentials', () => {
+    expect(parseHttpUrl('https://user:pass@example.com/game')).toBeNull();
+  });
+
+  it('sanitizes http urls and enforces allowed domains', () => {
+    expect(
+      sanitizeExternalHttpUrl('https://www.google.com/search?q=test', {
+        allowedDomains: ['google.com'],
+      })?.toString()
+    ).toBe('https://www.google.com/search?q=test');
+    expect(
+      sanitizeExternalHttpUrl('https://www.google.com.evil.example/search?q=test', {
+        allowedDomains: ['google.com'],
+      })
+    ).toBeNull();
+  });
+
+  it('rejects urls with embedded credentials', () => {
+    expect(sanitizeExternalHttpUrl('https://user:pass@example.com/game')).toBeNull();
+  });
+
+  it('returns normalized sanitized url strings', () => {
+    expect(sanitizeExternalHttpUrlString('https://example.com')).toBe('https://example.com/');
   });
 
   it('validates hostname match against base domain safely', () => {

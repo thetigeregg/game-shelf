@@ -143,6 +143,77 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('normalizes websites metadata when present', async () => {
+    const promise = firstValueFrom(service.searchGames('halo'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=halo`);
+
+    req.flush({
+      items: [
+        {
+          igdbGameId: '201',
+          title: 'Halo',
+          coverUrl: '',
+          coverSource: 'none',
+          websites: [
+            {
+              provider: 'xbox',
+              providerLabel: 'Xbox',
+              url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
+              typeId: 22,
+              typeName: 'Xbox',
+              trusted: null,
+            },
+            {
+              provider: 'xbox',
+              providerLabel: '',
+              url: 'ftp://invalid.example',
+            },
+            {
+              provider: 'steam',
+              providerLabel: 'Steam',
+              url: 'https://user:pass@store.steampowered.com/app/620',
+            },
+            {
+              provider: 'steam',
+              providerLabel: 'Steam',
+              url: '//store.steampowered.com/app/620',
+              typeId: 13,
+              typeName: 'Steam',
+              trusted: true,
+            },
+          ],
+          platforms: ['Xbox Series X|S'],
+          platform: 'Xbox Series X|S',
+          releaseDate: '2021-11-15T00:00:00.000Z',
+          releaseYear: 2021,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        websites: [
+          {
+            provider: 'xbox',
+            providerLabel: 'Xbox',
+            url: 'https://www.xbox.com/en-US/games/store/halo/9NBLGGH12345',
+            typeId: 22,
+            typeName: 'Xbox',
+            trusted: null,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://store.steampowered.com/app/620',
+            typeId: 13,
+            typeName: 'Steam',
+            trusted: true,
+          },
+        ],
+      }),
+    ]);
+  });
+
   it('includes IGDB platform id in search query params when provided', async () => {
     const promise = firstValueFrom(service.searchGames('mario', 130));
 

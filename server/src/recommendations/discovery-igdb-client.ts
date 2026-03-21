@@ -4,6 +4,22 @@ import {
   ProviderThrottleError,
 } from '../provider-rate-limit.js';
 import { resolveOutboundRateLimit } from '../rate-limit.js';
+import {
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../../shared/igdb-websites-normalization.mjs';
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
+
+const normalizeWebsites = normalizeIgdbWebsites as (
+  input: { websites?: unknown },
+  options?: {
+    websiteTypeNames?: ReadonlyMap<number, string> | null;
+  }
+) => ReturnType<typeof normalizeIgdbWebsites>;
+
+const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
+  value: unknown
+) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
 
 interface TokenCache {
   accessToken: string;
@@ -12,6 +28,11 @@ interface TokenCache {
 
 interface GameTypeCache {
   mainGameTypeIds: number[];
+  expiresAtMs: number;
+}
+
+interface SourceNameCache {
+  values: ReadonlyMap<number, string>;
   expiresAtMs: number;
 }
 
@@ -51,6 +72,7 @@ interface RawIgdbGame {
   }>;
   total_rating_count?: number;
   aggregated_rating_count?: number;
+  websites?: unknown;
 }
 
 interface RawGameType {
@@ -60,6 +82,7 @@ interface RawGameType {
 
 const IGDB_PAGE_SIZE = 500;
 const GAME_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const SOURCE_NAME_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_MAX_FUTURE_DAYS = 365;
 const RECENT_MIN_RATING_COUNT = 25;
 
@@ -68,6 +91,7 @@ export class DiscoveryIgdbClient {
   private readonly limiter: ProviderLimiter;
   private tokenCache: TokenCache | null = null;
   private gameTypeCache: GameTypeCache | null = null;
+  private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(private readonly options: DiscoveryIgdbClientOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -173,6 +197,7 @@ export class DiscoveryIgdbClient {
     mainGameTypeIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const token = await this.getAccessToken();
+    const websiteTypeNames = await this.getWebsiteTypeNames(token);
     const lease = await this.limiter.acquire();
     const body = buildGamesQuery({
       source: params.source,
@@ -238,6 +263,15 @@ export class DiscoveryIgdbClient {
       const score = computeSourceScore(raw, params.source);
       const developers = normalizeCompanies(raw.involved_companies, 'developer');
       const publishers = normalizeCompanies(raw.involved_companies, 'publisher');
+      const websites = normalizeWebsites(
+        {
+          websites: raw.websites,
+        },
+        {
+          websiteTypeNames,
+        }
+      ) as NormalizedWebsite[];
+      const steamAppId = deriveSteamAppId(websites) as number | null;
       const payloadBase: Record<string, unknown> = {
         igdbGameId: String(igdbGameId),
         title,
@@ -261,6 +295,8 @@ export class DiscoveryIgdbClient {
         status: null,
         rating: null,
         listType: 'discovery',
+        websites,
+        steamAppId,
       };
 
       for (const platform of platforms) {
@@ -350,6 +386,26 @@ export class DiscoveryIgdbClient {
     return mainGameTypeIds;
   }
 
+  private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {
+    const cached = this.websiteTypeCache;
+    const now = Date.now();
+    if (cached && cached.expiresAtMs > now) {
+      return cached.values;
+    }
+
+    const values = await this.fetchNameMap({
+      token,
+      url: 'https://api.igdb.com/v4/website_types',
+      fields: 'fields id,type; limit 500;',
+      valueKey: 'type',
+    });
+    this.websiteTypeCache = {
+      values,
+      expiresAtMs: now + SOURCE_NAME_CACHE_TTL_MS,
+    };
+    return values;
+  }
+
   private async getAccessToken(): Promise<string> {
     const now = Date.now();
     if (this.tokenCache && this.tokenCache.expiresAtMs > now + 30_000) {
@@ -398,6 +454,64 @@ export class DiscoveryIgdbClient {
       clearTimeout(timeoutId);
     }
   }
+
+  private async fetchNameMap(params: {
+    token: string;
+    url: string;
+    fields: string;
+    valueKey: 'name' | 'type';
+  }): Promise<ReadonlyMap<number, string>> {
+    const lease = await this.limiter.acquire();
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout(params.url, {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${params.token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: params.fields,
+      });
+    } finally {
+      lease.release();
+    }
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        this.limiter.consumeRateLimitHeaders(response.headers);
+        throw new ProviderThrottleError({
+          policyName: 'igdb_discovery',
+          source: 'upstream_429',
+          retryAfterSeconds: this.limiter.getCooldownRemainingSeconds(),
+          message: 'IGDB discovery source metadata request throttled',
+        });
+      }
+      return new Map();
+    }
+
+    const payload: unknown = await response.json();
+    if (!Array.isArray(payload)) {
+      return new Map();
+    }
+
+    const values = new Map<number, string>();
+    for (const row of payload) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        continue;
+      }
+
+      const id = parsePositiveInteger((row as { id?: unknown }).id);
+      const value = (row as { name?: unknown; type?: unknown })[params.valueKey];
+      if (!id || typeof value !== 'string' || value.trim().length === 0) {
+        continue;
+      }
+
+      values.set(id, value.trim());
+    }
+
+    return values;
+  }
 }
 
 function buildGamesQuery(params: {
@@ -421,7 +535,8 @@ function buildGamesQuery(params: {
     'fields id,name,summary,storyline,first_release_date,platforms.id,platforms.name,',
     'genres.name,themes.name,keywords.name,collections.name,franchises.name,',
     'involved_companies.company.name,involved_companies.developer,involved_companies.publisher,',
-    'total_rating_count,aggregated_rating_count;',
+    'total_rating_count,aggregated_rating_count,',
+    'websites.type,websites.category,websites.url,websites.trusted;',
     sourceWhereClause,
     sortClause,
     `limit ${String(params.limit)};`,

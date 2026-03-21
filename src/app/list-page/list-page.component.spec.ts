@@ -62,6 +62,9 @@ vi.mock('../features/game-detail/detail-shortcuts-fab.component', () => ({
 vi.mock('../features/game-detail/detail-videos-modal.component', () => ({
   DetailVideosModalComponent: () => null,
 }));
+vi.mock('../features/game-detail/detail-websites-modal.component', () => ({
+  DetailWebsitesModalComponent: () => null,
+}));
 
 import { ListPageComponent } from './list-page.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';

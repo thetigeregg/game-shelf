@@ -530,6 +530,9 @@ export class DiscoveryEnrichmentService {
     try {
       const metadata = await this.steamMetadataClient.fetchGameMetadataByIds([params.igdbGameId]);
       const record = metadata.get(params.igdbGameId);
+      if (record) {
+        params.next.websites = record.websites;
+      }
       const hasSteamAppId = typeof record?.steamAppId === 'number' && record.steamAppId > 0;
       if (hasSteamAppId) {
         params.next.steamAppId = record.steamAppId;

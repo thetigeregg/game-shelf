@@ -65,6 +65,81 @@ class IgdbClientMock {
   }
 }
 
+void test('metadata enrichment start skips scheduling when disabled', () => {
+  const service = new MetadataEnrichmentService(
+    new RepositoryMock() as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: false,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: 25,
+    }
+  );
+
+  let scheduled = false;
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = ((...args: unknown[]) => {
+    scheduled = true;
+    return originalSetTimeout(...(args as Parameters<typeof setTimeout>));
+  }) as typeof setTimeout;
+
+  try {
+    service.start();
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+
+  assert.equal(scheduled, false);
+});
+
+void test('metadata enrichment start schedules immediate run and logs startup failures', async () => {
+  const service = new MetadataEnrichmentService(
+    new RepositoryMock() as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: true,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: -10,
+    }
+  );
+
+  let scheduledDelay: number | undefined;
+  let scheduledCallback: (() => void) | undefined;
+  let loggedMessage: string | undefined;
+  let loggedPayload: unknown;
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalConsoleWarn = console.warn;
+  globalThis.setTimeout = ((callback: TimerHandler, delay?: number) => {
+    scheduledDelay = delay;
+    scheduledCallback = typeof callback === 'function' ? callback : undefined;
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+  console.warn = ((message?: unknown, payload?: unknown) => {
+    loggedMessage = typeof message === 'string' ? message : String(message);
+    loggedPayload = payload;
+  }) as typeof console.warn;
+  (service as { runOnce: () => Promise<null> }).runOnce = () =>
+    Promise.reject(new Error('startup_failed'));
+
+  try {
+    service.start();
+    assert.equal(scheduledDelay, 0);
+    assert.ok(scheduledCallback);
+    scheduledCallback();
+    await Promise.resolve();
+    await Promise.resolve();
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    console.warn = originalConsoleWarn;
+  }
+
+  assert.equal(loggedMessage, '[metadata_enrichment] startup_run_failed');
+  assert.deepEqual(loggedPayload, { message: 'startup_failed' });
+});
+
 void test('metadata enrichment updates all platform rows for same game id', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
@@ -82,6 +157,16 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           keywordIds: [100],
           screenshots: [],
           videos: [],
+          websites: [
+            {
+              provider: 'steam',
+              providerLabel: 'Steam',
+              url: 'https://store.steampowered.com/app/12345',
+              typeId: 13,
+              typeName: 'steam',
+              trusted: null,
+            },
+          ],
           steamAppId: 12345,
         },
       ],
@@ -108,6 +193,16 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(repository.updates[0]?.payloadPatch['mediaEnrichmentStatus'], 'success');
   assert.equal(typeof repository.updates[0]?.payloadPatch['steamEnrichedAt'], 'string');
   assert.equal(repository.updates[0]?.payloadPatch['steamEnrichmentStatus'], 'success');
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], [
+    {
+      provider: 'steam',
+      providerLabel: 'Steam',
+      url: 'https://store.steampowered.com/app/12345',
+      typeId: 13,
+      typeName: 'steam',
+      trusted: null,
+    },
+  ]);
   assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], 12345);
 });
 
@@ -130,6 +225,54 @@ void test('metadata enrichment skips when advisory lock is not acquired', async 
   assert.equal(repository.updates.length, 0);
 });
 
+void test('metadata enrichment backfills storefront links for collection rows with prior timestamps', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '999',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Existing Collection Game',
+        listType: 'collection',
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+      },
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '999',
+        {
+          themes: [],
+          themeIds: [],
+          keywords: [],
+          keywordIds: [],
+          screenshots: [],
+          videos: [],
+          websites: [],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 1);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], []);
+  assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], null);
+});
+
 void test('metadata enrichment tolerates failed batches and still updates successful batches', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
@@ -147,6 +290,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [11],
           screenshots: [],
           videos: [],
+          websites: [],
           steamAppId: 101,
         },
       ],
@@ -159,6 +303,7 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywordIds: [22],
           screenshots: [],
           videos: [],
+          websites: [],
           steamAppId: 202,
         },
       ],
@@ -200,6 +345,7 @@ void test('metadata enrichment is idempotent on rerun', async () => {
           keywordIds: [4],
           screenshots: [],
           videos: [],
+          websites: [],
           steamAppId: 999,
         },
       ],
@@ -261,6 +407,17 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         keywords: ['Shooter'],
         screenshots: [],
         videos: [],
+        websites: [
+          {
+            provider: null,
+            providerLabel: null,
+            url: 'https://example.com/existing',
+            typeId: 1,
+            typeName: 'Official Website',
+            trusted: true,
+          },
+        ],
+        steamAppId: null,
       },
     },
   ];
@@ -309,6 +466,7 @@ void test('metadata enrichment patch updates preserve manual override lock field
           keywordIds: [8],
           screenshots: [],
           videos: [],
+          websites: [],
           steamAppId: 4242,
         },
       ],
@@ -346,6 +504,17 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+        websites: [
+          {
+            provider: null,
+            providerLabel: null,
+            url: 'https://example.com/already-present',
+            typeId: 1,
+            typeName: 'Official Website',
+            trusted: true,
+          },
+        ],
+        steamAppId: null,
       },
     },
   ];
@@ -367,4 +536,74 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
   assert.equal(summary.updatedRows, 0);
   assert.equal(summary.skippedRows, 1);
   assert.equal(repository.updates.length, 0);
+});
+
+void test('metadata enrichment refetches rows when websites are present but empty', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '347668',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Resident Evil Requiem',
+        listType: 'wishlist',
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '347668',
+        {
+          themes: [],
+          themeIds: [],
+          keywords: [],
+          keywordIds: [],
+          screenshots: [],
+          videos: [],
+          websites: [
+            {
+              provider: null,
+              providerLabel: null,
+              url: 'https://www.residentevil.com/requiem/en-us/',
+              typeId: 1,
+              typeName: 'Official Website',
+              trusted: false,
+            },
+          ],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 1);
+  assert.equal(summary.updatedRows, 1);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], [
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.residentevil.com/requiem/en-us/',
+      typeId: 1,
+      typeName: 'Official Website',
+      trusted: false,
+    },
+  ]);
 });

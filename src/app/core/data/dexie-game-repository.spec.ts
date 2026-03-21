@@ -893,6 +893,53 @@ describe('DexieGameRepository', () => {
     expect(updated?.steamAppId).toBeNull();
   });
 
+  it('persists normalized websites from catalog updates', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        websites: [
+          {
+            provider: 'steam',
+            providerLabel: '',
+            url: '//store.steampowered.com/app/620',
+            typeId: 13,
+            typeName: 'Steam',
+            trusted: null,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://store.steampowered.com/app/620',
+            typeId: 13,
+            typeName: 'steam',
+            trusted: true,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://user:pass@store.steampowered.com/app/620',
+            typeId: 13,
+            typeName: 'Steam',
+            trusted: true,
+          },
+        ],
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.websites).toEqual([
+      {
+        provider: 'steam',
+        providerLabel: 'Steam',
+        url: 'https://store.steampowered.com/app/620',
+        typeId: 13,
+        typeName: 'Steam',
+        trusted: null,
+      },
+    ]);
+  });
+
   it('returns null for custom platform igdb id when it matches the default platform', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

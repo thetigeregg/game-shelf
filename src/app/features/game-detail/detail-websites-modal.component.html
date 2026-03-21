@@ -1,0 +1,171 @@
+<ion-modal [isOpen]="isOpen" (didDismiss)="dismiss.emit()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Websites</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="dismiss.emit()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="gs-safe-bottom">
+      <ion-list>
+        @for (item of items; track item.key) {
+          <ion-item button detail="true" lines="full" (click)="websiteSelect.emit(item)">
+            @switch (item.icon) {
+              @case ('google') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--mc-okay"
+                  siGoogleIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('youtube') {
+                <svg slot="start" class="website-item-icon" siYoutubeIcon aria-hidden="true"></svg>
+              }
+              @case ('twitch') {
+                <svg slot="start" class="website-item-icon" siTwitchIcon aria-hidden="true"></svg>
+              }
+              @case ('discord') {
+                <svg slot="start" class="website-item-icon" siDiscordIcon aria-hidden="true"></svg>
+              }
+              @case ('bluesky') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--ocean"
+                  siBlueskyIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('reddit') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--orange"
+                  siRedditIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('gamefaqs') {
+                <img
+                  slot="start"
+                  class="website-item-icon"
+                  src="assets/icon/websites/gamefaqs.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+              @case ('nintendo') {
+                <img
+                  slot="start"
+                  class="website-item-icon"
+                  src="assets/icon/websites/nintendo.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+              @case ('xbox') {
+                <ion-icon
+                  slot="start"
+                  class="website-item-icon website-item-icon--forest-dark"
+                  name="logo-xbox"
+                  aria-hidden="true"
+                ></ion-icon>
+              }
+              @case ('wikipedia') {
+                <svg
+                  slot="start"
+                  class="website-item-icon"
+                  siWikipediaIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('epicgames') {
+                <svg
+                  slot="start"
+                  class="website-item-icon"
+                  siEpicGamesIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('steam') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--dark-gray"
+                  siSteamIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('playstation') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--deep-ocean"
+                  siPlaystationIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('appstore') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--ocean"
+                  siAppStoreIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('googleplay') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--forest"
+                  siGooglePlayIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('itchdotio') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--mc-bad"
+                  siItchDotIoIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('gogdotcom') {
+                <svg
+                  slot="start"
+                  class="website-item-icon website-item-icon--royal"
+                  siGogDotComIcon
+                  aria-hidden="true"
+                ></svg>
+              }
+              @case ('ion:globe') {
+                <ion-icon
+                  slot="start"
+                  class="website-item-icon"
+                  name="globe"
+                  aria-hidden="true"
+                ></ion-icon>
+              }
+              @case ('ion:library') {
+                <ion-icon
+                  slot="start"
+                  class="website-item-icon website-item-icon--deep-ocean"
+                  name="library"
+                  aria-hidden="true"
+                ></ion-icon>
+              }
+              @default {
+                <ion-icon
+                  slot="start"
+                  class="website-item-icon"
+                  name="link"
+                  aria-hidden="true"
+                ></ion-icon>
+              }
+            }
+            <ion-label>{{ item.label }}</ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>

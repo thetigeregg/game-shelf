@@ -1641,14 +1641,34 @@ describe('ExplorePage explore modes UX', () => {
       openSettingsFromPopover: () => Promise<void>;
     };
     const event = { type: 'click' } as unknown as Event;
+    let resolveDismiss: ((value: boolean) => void) | undefined;
+
+    popoverControllerMock.dismiss.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveDismiss = resolve;
+        })
+    );
 
     page.openHeaderActionsPopover(event);
     expect(page.isHeaderActionsPopoverOpen).toBe(true);
     expect(page.headerActionsPopoverEvent).toBe(event);
 
-    await page.openSettingsFromPopover();
+    const openSettingsPromise = page.openSettingsFromPopover();
+
+    await Promise.resolve();
+
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
+
+    resolveDismiss?.(true);
+    await openSettingsPromise;
+
     expect(popoverControllerMock.dismiss).toHaveBeenCalled();
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
+    expect(popoverControllerMock.dismiss.mock.invocationCallOrder[0]).toBeLessThan(
+      routerMock.navigateByUrl.mock.invocationCallOrder[0]
+    );
     expect(page.isHeaderActionsPopoverOpen).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();
   });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameWebsite } from '../../core/models/game.models';
 import {
   DetailWebsiteModalItem,
+  buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from './detail-websites-modal.utils';
 
@@ -32,6 +33,17 @@ function findItemByHostname(
 }
 
 describe('buildDetailWebsiteModalItems', () => {
+  it('builds encoded search urls and rejects blank queries', () => {
+    expect(buildDetailWebsiteSearchUrl(' Resident Evil Requiem ', 'google')).toBe(
+      'https://www.google.com/search?q=Resident%20Evil%20Requiem'
+    );
+    expect(buildDetailWebsiteSearchUrl('Alan Wake 2', 'youtube')).toBe(
+      'https://www.youtube.com/results?search_query=Alan%20Wake%202'
+    );
+    expect(buildDetailWebsiteSearchUrl('  ', 'wikipedia')).toBeNull();
+    expect(buildDetailWebsiteSearchUrl(null, 'gamefaqs')).toBeNull();
+  });
+
   it('pins official, community wiki, wikipedia, and gamefaqs first and google last', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
@@ -292,6 +304,15 @@ describe('buildDetailWebsiteModalItems', () => {
         makeWebsite({ url: 'https://store.steampowered.com/app/123/Test_Game/' }),
         makeWebsite({ url: 'https://www.xbox.com/en-us/games/store/test-game/9TEST' }),
         makeWebsite({ url: 'https://store.playstation.com/en-us/concept/10015533/' }),
+        makeWebsite({ url: 'https://www.microsoft.com/en-us/store/p/test-game/9TEST' }),
+        makeWebsite({
+          url: 'https://www.nintendo-europe.com/Games/Nintendo-Switch-games/Test-123456.html',
+        }),
+        makeWebsite({ url: 'https://store.epicgames.com/en-US/p/test-game' }),
+        makeWebsite({ url: 'https://apps.apple.com/us/app/test/id123456789' }),
+        makeWebsite({ url: 'https://play.google.com/store/apps/details?id=com.example.test' }),
+        makeWebsite({ url: 'https://example.itch.io/test-game' }),
+        makeWebsite({ url: 'https://www.gog.com/en/game/test_game' }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
     });
@@ -299,5 +320,114 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.icon === 'steam')?.label).toBe('Steam');
     expect(items.find((item) => item.icon === 'xbox')?.label).toBe('Xbox');
     expect(items.find((item) => item.icon === 'playstation')?.label).toBe('PlayStation');
+    expect(items.find((item) => item.url.includes('microsoft.com'))?.icon).toBe('ion:link');
+    expect(items.find((item) => item.url.includes('nintendo-europe.com'))?.icon).toBe('ion:link');
+    expect(items.find((item) => item.url.includes('epicgames.com'))?.icon).toBe('epicgames');
+    expect(items.find((item) => item.url.includes('apps.apple.com'))?.icon).toBe('appstore');
+    expect(items.find((item) => item.url.includes('play.google.com'))?.icon).toBe('googleplay');
+    expect(items.find((item) => item.url.includes('itch.io'))?.icon).toBe('itchdotio');
+    expect(items.find((item) => item.url.includes('gog.com'))?.icon).toBe('gogdotcom');
+  });
+
+  it('filters invalid or duplicate websites and skips search fallbacks when unavailable', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        null as unknown as GameWebsite,
+        makeWebsite({ url: '   ' }),
+        makeWebsite({ url: 'ftp://example.com/file', typeId: 11, typeName: 'Reference' }),
+        makeWebsite({ url: 'not-a-url', typeId: 11, typeName: 'Reference' }),
+        makeWebsite({ url: 'https://example.com/reference', typeId: 11, typeName: 'Reference' }),
+        makeWebsite({ url: 'https://EXAMPLE.com/reference', typeId: 11, typeName: 'Reference' }),
+        makeWebsite({ url: 'https://facebook.com/test', typeId: 4, typeName: 'Facebook' }),
+      ],
+      buildSearchUrl: () => null,
+    });
+
+    expect(items).toEqual([
+      {
+        key: 'website:https://example.com/reference',
+        label: 'Reference',
+        url: 'https://example.com/reference',
+        icon: 'ion:link',
+        typeId: 11,
+        priority: 0,
+      },
+    ]);
+  });
+
+  it('uses hostname and label fallbacks for icons when type-specific mappings are unavailable', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({ url: 'https://gamefaqs.gamespot.com/pc/123-test-game', typeId: 11 }),
+        makeWebsite({
+          url: 'https://unknown.example/nintendo',
+          typeId: 11,
+          typeName: 'Nintendo eShop',
+        }),
+        makeWebsite({
+          url: 'https://unknown.example/xbox',
+          typeId: 11,
+          typeName: 'Xbox Marketplace',
+        }),
+        makeWebsite({
+          url: 'https://unknown.example/epic',
+          typeId: 11,
+          typeName: 'Epic Games Store',
+        }),
+        makeWebsite({
+          url: 'https://unknown.example/app-store',
+          typeId: 11,
+          typeName: 'App Store',
+        }),
+        makeWebsite({ url: 'https://unknown.example/itch', typeId: 11, typeName: 'itch.io' }),
+        makeWebsite({ url: 'https://unknown.example/gog', typeId: 11, typeName: 'gog.com' }),
+        makeWebsite({
+          url: 'https://unknown.example/official',
+          typeId: 11,
+          typeName: 'Official Website',
+        }),
+        makeWebsite({
+          url: 'https://unknown.example/fallback',
+          typeId: 11,
+          typeName: 'Documentation',
+        }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(findItemByHostname(items, 'gamefaqs.gamespot.com')?.icon).toBe('gamefaqs');
+    expect(items.find((item) => item.url.endsWith('/nintendo'))?.icon).toBe('nintendo');
+    expect(items.find((item) => item.url.endsWith('/xbox'))?.icon).toBe('xbox');
+    expect(items.find((item) => item.url.endsWith('/epic'))?.icon).toBe('epicgames');
+    expect(items.find((item) => item.url.endsWith('/app-store'))?.icon).toBe('appstore');
+    expect(items.find((item) => item.url.endsWith('/itch'))?.icon).toBe('itchdotio');
+    expect(items.find((item) => item.url.endsWith('/gog'))?.icon).toBe('gogdotcom');
+    expect(items.find((item) => item.url.endsWith('/official'))?.icon).toBe('ion:globe');
+    expect(items.find((item) => item.url.endsWith('/fallback'))?.icon).toBe('ion:link');
+  });
+
+  it('uses hostname-only icon fallbacks for search and community links', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://www.google.com/search?q=test',
+          typeId: 11,
+          typeName: 'Search',
+        }),
+        makeWebsite({ url: 'https://youtu.be/test-video' }),
+        makeWebsite({ url: 'https://www.twitch.tv/testgame', typeId: 11, typeName: 'Streaming' }),
+        makeWebsite({
+          url: 'https://discord.com/invite/testgame',
+          typeId: 11,
+          typeName: 'Community',
+        }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.find((item) => item.url.includes('google.com/search'))?.icon).toBe('google');
+    expect(items.find((item) => item.url.includes('youtu.be'))?.icon).toBe('youtube');
+    expect(items.find((item) => item.url.includes('twitch.tv'))?.icon).toBe('twitch');
+    expect(items.find((item) => item.url.includes('discord.com/invite'))?.icon).toBe('discord');
   });
 });

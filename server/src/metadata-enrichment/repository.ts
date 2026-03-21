@@ -63,8 +63,13 @@ export class MetadataEnrichmentRepository {
           COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
-          OR NOT (payload ? 'websites')
-          OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+          OR (
+            COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
+            AND (
+              NOT (payload ? 'websites')
+              OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+            )
+          )
           OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
         )
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC

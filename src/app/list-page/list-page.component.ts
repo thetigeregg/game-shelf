@@ -58,6 +58,7 @@ import { DetailWebsitesModalComponent } from '../features/game-detail/detail-web
 import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
+  buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -753,27 +754,7 @@ export class ListPageComponent {
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
-    const query = this.selectedAddGameDetail?.title.trim();
-
-    if (!query) {
-      return null;
-    }
-
-    const encodedQuery = encodeURIComponent(query);
-
-    if (provider === 'google') {
-      return `https://www.google.com/search?q=${encodedQuery}`;
-    }
-
-    if (provider === 'youtube') {
-      return `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    }
-
-    if (provider === 'wikipedia') {
-      return `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
-    }
-
-    return `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    return buildDetailWebsiteSearchUrl(this.selectedAddGameDetail?.title, provider);
   }
 
   async activateMultiSelectFromPopover(): Promise<void> {

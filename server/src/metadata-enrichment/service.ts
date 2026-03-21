@@ -154,6 +154,7 @@ function buildMetadataPatch(params: {
     nextValues['websites'] = params.metadata.websites;
     nextValues['steamAppId'] = params.metadata.steamAppId;
   }
+  nextValues['websitesEnrichedAt'] = params.completedAt;
   nextValues['taxonomyEnrichmentStatus'] = status;
   nextValues['taxonomyEnrichedAt'] = params.completedAt;
   nextValues['mediaEnrichmentStatus'] = status;
@@ -182,13 +183,21 @@ function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
     isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['mediaEnrichedAt'])) ||
     isBlank(payloadValueAsString(payload['steamEnrichedAt'])) ||
-    !hasNonEmptyWebsites(payload)
+    needsWebsiteMetadataFetch(payload)
   );
+}
+
+function needsWebsiteMetadataFetch(payload: Record<string, unknown>): boolean {
+  return !hasWebsiteEnrichmentMarker(payload) && !hasNonEmptyWebsites(payload);
 }
 
 function hasNonEmptyWebsites(payload: Record<string, unknown>): boolean {
   const websites = payload['websites'];
   return Array.isArray(websites) && websites.length > 0;
+}
+
+function hasWebsiteEnrichmentMarker(payload: Record<string, unknown>): boolean {
+  return !isBlank(payloadValueAsString(payload['websitesEnrichedAt']));
 }
 
 function payloadValueAsString(value: unknown): string {

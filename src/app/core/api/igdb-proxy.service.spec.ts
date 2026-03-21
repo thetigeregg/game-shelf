@@ -3451,7 +3451,8 @@ describe('IgdbProxyService', () => {
       (request) =>
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/42` &&
         request.params.get('target') === 'BACKLOG' &&
-        request.params.get('platformIgdbId') === '6'
+        request.params.get('platformIgdbId') === '6' &&
+        request.params.get('offset') === '0'
     );
     similarReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
     await expect(similarPromise).rejects.toMatchObject({ code: 'REQUEST_FAILED' });
@@ -3485,6 +3486,7 @@ describe('IgdbProxyService', () => {
         request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/11549` &&
         request.params.get('target') === 'BACKLOG' &&
         request.params.get('platformIgdbId') === '37' &&
+        request.params.get('offset') === '0' &&
         request.params.get('limit') === '3'
       );
     });
@@ -3493,6 +3495,12 @@ describe('IgdbProxyService', () => {
       source: {
         igdbGameId: '11549',
         platformIgdbId: 37,
+      },
+      page: {
+        offset: 0,
+        limit: 3,
+        hasMore: true,
+        nextOffset: 3,
       },
       items: [
         {
@@ -3523,6 +3531,12 @@ describe('IgdbProxyService', () => {
       source: {
         igdbGameId: '11549',
         platformIgdbId: 37,
+      },
+      page: {
+        offset: 0,
+        limit: 3,
+        hasMore: true,
+        nextOffset: 3,
       },
       items: [
         {

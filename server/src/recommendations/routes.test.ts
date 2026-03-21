@@ -141,6 +141,7 @@ function createServiceMock(
             },
           },
         ],
+        page: { offset: params.offset, limit: params.limit, hasMore: false, nextOffset: null },
       }),
   };
 
@@ -575,12 +576,13 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&limit=5',
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&offset=10&limit=5',
   });
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     runtimeMode: RecommendationRuntimeMode;
+    page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
     items: Array<{
       reasons?: {
         blendedSimilarity?: number;
@@ -589,6 +591,7 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
     }>;
   };
   assert.equal(body.runtimeMode, 'SHORT');
+  assert.deepEqual(body.page, { offset: 10, limit: 5, hasMore: false, nextOffset: null });
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.reasons?.blendedSimilarity, 0.76);
   assert.deepEqual(body.items[0]?.reasons?.sharedTokens?.themes, []);

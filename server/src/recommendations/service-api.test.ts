@@ -271,14 +271,16 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     igdbGameId: '100',
     platformIgdbId: 6,
     runtimeMode: 'LONG',
+    offset: 1,
     limit: 999,
   });
   assert.equal(similar.runtimeMode, 'LONG');
-  assert.equal(similar.items.length, 2);
+  assert.equal(similar.items.length, 1);
   assert.deepEqual(
     similar.items.map((item) => item.igdbGameId),
-    ['200', '201']
+    ['201']
   );
+  assert.deepEqual(similar.page, { offset: 1, limit: 50, hasMore: false, nextOffset: null });
   assert.deepEqual(readTopCalls, [{ limit: 200, runtimeMode: 'SHORT' }]);
   assert.deepEqual(readLaneCalls, [
     { lane: 'overall', offset: 0, limit: 10, runtimeMode: 'SHORT' },

@@ -386,6 +386,30 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(findItemByHostname(items, 'gog.com')?.icon).toBe('gogdotcom');
   });
 
+  it('accepts protocol-relative storefront urls and normalizes them to https', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: '//store.steampowered.com/app/123/Test_Game/',
+          typeId: 13,
+          typeName: 'Steam',
+        }),
+      ],
+      buildSearchUrl: () => null,
+    });
+
+    expect(items).toEqual([
+      {
+        key: 'website:https://store.steampowered.com/app/123/test_game/',
+        label: 'Steam',
+        url: 'https://store.steampowered.com/app/123/Test_Game/',
+        icon: 'steam',
+        typeId: 13,
+        priority: 0,
+      },
+    ]);
+  });
+
   it('filters invalid or duplicate websites and skips search fallbacks when unavailable', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [

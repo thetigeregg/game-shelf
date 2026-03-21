@@ -24,7 +24,7 @@ import {
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
-import { detectReviewSourceFromUrl } from '../utils/url-host.util';
+import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
 
@@ -1084,7 +1084,8 @@ export class GameSyncService implements SyncOutboxWriter {
       }
 
       const record = entry as Record<string, unknown>;
-      const url = this.normalizeExternalUrl(record['url']);
+      const url =
+        typeof record['url'] === 'string' ? sanitizeExternalHttpUrlString(record['url']) : null;
       if (url === null) {
         continue;
       }

@@ -1154,7 +1154,6 @@ describe('ExplorePage explore modes UX', () => {
   it('supports shortcut URL routing, websites modal fallbacks, and image fallback', () => {
     const page = createPage() as unknown as {
       selectedGameDetail: { title?: string | null; websites?: unknown[] } | null;
-      openShortcutSearch: (provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs') => void;
       openWebsitesModal: () => void;
       closeWebsitesModal: () => void;
       openDetailWebsite: (item: { url: string }) => void;
@@ -1171,11 +1170,6 @@ describe('ExplorePage explore modes UX', () => {
         { url: 'https://en.wikipedia.org/wiki/Pokemon_Red', typeId: 3, typeName: 'Wikipedia' },
       ],
     };
-    page.openShortcutSearch('google');
-    page.openShortcutSearch('youtube');
-    page.openShortcutSearch('wikipedia');
-    page.openShortcutSearch('gamefaqs');
-    expect(openExternalUrl).toHaveBeenCalledTimes(4);
 
     expect(page.detailWebsiteItems.map((item) => item.label)).toEqual([
       'Wikipedia',
@@ -1189,6 +1183,10 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.detailWebsiteItems.find((item) => item.label === 'YouTube')?.url).toContain(
       'youtube.com/results?search_query='
     );
+    page.detailWebsiteItems.forEach((item) => {
+      page.openDetailWebsite(item);
+    });
+    expect(openExternalUrl).toHaveBeenCalledTimes(4);
 
     page.openWebsitesModal();
     expect(page.isWebsitesModalOpen).toBe(true);

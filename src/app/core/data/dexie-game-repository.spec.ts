@@ -901,7 +901,7 @@ describe('DexieGameRepository', () => {
           {
             provider: 'steam',
             providerLabel: '',
-            url: 'https://store.steampowered.com/app/620',
+            url: '//store.steampowered.com/app/620',
             typeId: 13,
             typeName: 'Steam',
             trusted: null,
@@ -912,6 +912,14 @@ describe('DexieGameRepository', () => {
             url: 'https://store.steampowered.com/app/620',
             typeId: 13,
             typeName: 'steam',
+            trusted: true,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://user:pass@store.steampowered.com/app/620',
+            typeId: 13,
+            typeName: 'Steam',
             trusted: true,
           },
         ],

@@ -3471,6 +3471,106 @@ describe('IgdbProxyService', () => {
     await expect(invalidPromise).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
   });
 
+  it('normalizes recommendation similar paging metadata and fallback source values', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        runtimeMode: 'LONG',
+        igdbGameId: '11549',
+        platformIgdbId: 37,
+        offset: -5,
+        limit: 999,
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/11549` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('runtimeMode') === 'LONG' &&
+        request.params.get('platformIgdbId') === '37' &&
+        request.params.get('offset') === '0' &&
+        request.params.get('limit') === '50'
+      );
+    });
+
+    req.flush({
+      runtimeMode: 'INVALID',
+      source: {
+        igdbGameId: 'not-a-number',
+        platformIgdbId: 0,
+      },
+      page: {
+        offset: 'bad',
+        limit: 0,
+        hasMore: 'yes',
+        nextOffset: -1,
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: ' Shared tokens and embedding proximity ',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings'],
+            },
+          },
+        },
+        {
+          igdbGameId: null,
+          platformIgdbId: 37,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual({
+      runtimeMode: 'NEUTRAL',
+      source: {
+        igdbGameId: '11549',
+        platformIgdbId: 37,
+      },
+      page: {
+        offset: 0,
+        limit: 10,
+        hasMore: false,
+        nextOffset: null,
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: 'Shared tokens and embedding proximity',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings'],
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it('loads recommendation similar items with shared theme and keyword tokens', async () => {
     const promise = firstValueFrom(
       service.getRecommendationSimilar({

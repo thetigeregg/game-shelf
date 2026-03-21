@@ -44,6 +44,59 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(buildDetailWebsiteSearchUrl(null, 'gamefaqs')).toBeNull();
   });
 
+  it('keeps arbitrary hosts only when the provider marked the website as trusted', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://example.com',
+          typeId: 1,
+          typeName: 'Official Website',
+          trusted: true,
+        }),
+        makeWebsite({
+          url: 'https://docs.example.com/guide',
+          typeId: 11,
+          typeName: 'Reference',
+          trusted: null,
+        }),
+      ],
+      buildSearchUrl: () => null,
+    });
+
+    expect(items).toEqual([
+      {
+        key: 'website:https://example.com/',
+        label: 'Official Website',
+        url: 'https://example.com/',
+        icon: 'ion:globe',
+        typeId: 1,
+        priority: 0,
+      },
+    ]);
+  });
+
+  it('rejects untrusted lookalike and credential-bearing urls even when the type is allowed', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({
+          url: 'https://www.youtube.com.evil.example/watch?v=test',
+          typeId: 9,
+          typeName: 'YouTube',
+          trusted: false,
+        }),
+        makeWebsite({
+          url: 'https://user:pass@store.steampowered.com/app/123/Test_Game/',
+          typeId: 13,
+          typeName: 'Steam',
+          trusted: false,
+        }),
+      ],
+      buildSearchUrl: () => null,
+    });
+
+    expect(items).toEqual([]);
+  });
+
   it('pins official, community wiki, wikipedia, and gamefaqs first and google last', () => {
     const items = buildDetailWebsiteModalItems({
       websites: [
@@ -61,6 +114,7 @@ describe('buildDetailWebsiteModalItems', () => {
           url: 'https://example.com',
           typeId: 1,
           typeName: 'Official Website',
+          trusted: true,
         }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
@@ -95,11 +149,13 @@ describe('buildDetailWebsiteModalItems', () => {
           url: 'https://residentevil.fandom.com/wiki/Resident_Evil_Requiem',
           typeId: 2,
           typeName: 'Community Wiki',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://www.residentevil.com/requiem/en-us/',
           typeId: 1,
           typeName: 'Official Website',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://store.playstation.com/en-us/concept/10015533/',
@@ -274,6 +330,7 @@ describe('buildDetailWebsiteModalItems', () => {
           url: 'https://www.nintendo.com/us/store/products/test-game-switch/',
           typeId: 1,
           typeName: 'Official Website',
+          trusted: true,
         }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,
@@ -343,16 +400,7 @@ describe('buildDetailWebsiteModalItems', () => {
       buildSearchUrl: () => null,
     });
 
-    expect(items).toEqual([
-      {
-        key: 'website:https://example.com/reference',
-        label: 'Reference',
-        url: 'https://example.com/reference',
-        icon: 'ion:link',
-        typeId: 11,
-        priority: 0,
-      },
-    ]);
+    expect(items).toEqual([]);
   });
 
   it('uses hostname and label fallbacks for icons when type-specific mappings are unavailable', () => {
@@ -363,33 +411,49 @@ describe('buildDetailWebsiteModalItems', () => {
           url: 'https://unknown.example/nintendo',
           typeId: 11,
           typeName: 'Nintendo eShop',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://unknown.example/xbox',
           typeId: 11,
           typeName: 'Xbox Marketplace',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://unknown.example/epic',
           typeId: 11,
           typeName: 'Epic Games Store',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://unknown.example/app-store',
           typeId: 11,
           typeName: 'App Store',
+          trusted: true,
         }),
-        makeWebsite({ url: 'https://unknown.example/itch', typeId: 11, typeName: 'itch.io' }),
-        makeWebsite({ url: 'https://unknown.example/gog', typeId: 11, typeName: 'gog.com' }),
+        makeWebsite({
+          url: 'https://unknown.example/itch',
+          typeId: 11,
+          typeName: 'itch.io',
+          trusted: true,
+        }),
+        makeWebsite({
+          url: 'https://unknown.example/gog',
+          typeId: 11,
+          typeName: 'gog.com',
+          trusted: true,
+        }),
         makeWebsite({
           url: 'https://unknown.example/official',
           typeId: 11,
           typeName: 'Official Website',
+          trusted: true,
         }),
         makeWebsite({
           url: 'https://unknown.example/fallback',
           typeId: 11,
           typeName: 'Documentation',
+          trusted: true,
         }),
       ],
       buildSearchUrl: (provider) => `https://search.example/${provider}`,

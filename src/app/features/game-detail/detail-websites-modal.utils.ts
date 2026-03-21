@@ -1,4 +1,5 @@
 import { GameWebsite } from '../../core/models/game.models';
+import { sanitizeExternalHttpUrl } from '../../core/utils/url-host.util';
 
 export type DetailWebsiteSearchProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
@@ -11,6 +12,39 @@ const SEARCH_PROVIDER_URL_BUILDERS: Record<
   wikipedia: (encodedQuery) => `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`,
   gamefaqs: (encodedQuery) => `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`,
 };
+
+const SEARCH_PROVIDER_ALLOWED_DOMAINS: Record<DetailWebsiteSearchProvider, readonly string[]> = {
+  google: ['google.com'],
+  youtube: ['youtube.com'],
+  wikipedia: ['wikipedia.org'],
+  gamefaqs: ['gamefaqs.gamespot.com'],
+};
+
+const SAFE_UNTRUSTED_WEBSITE_DOMAINS = [
+  'apps.apple.com',
+  'bsky.app',
+  'discord.com',
+  'discord.gg',
+  'epicgames.com',
+  'gamefaqs.gamespot.com',
+  'gog.com',
+  'google.com',
+  'itch.io',
+  'microsoft.com',
+  'nintendo.com',
+  'nintendo-europe.com',
+  'play.google.com',
+  'playstation.com',
+  'reddit.com',
+  'redd.it',
+  'steampowered.com',
+  'steamcommunity.com',
+  'twitch.tv',
+  'wikipedia.org',
+  'xbox.com',
+  'youtube.com',
+  'youtu.be',
+] as const;
 
 export interface DetailWebsiteModalItem {
   key: string;
@@ -174,7 +208,11 @@ export function buildDetailWebsiteSearchUrl(
   }
 
   const encodedQuery = encodeURIComponent(normalizedQuery);
-  return SEARCH_PROVIDER_URL_BUILDERS[provider](encodedQuery);
+  return (
+    sanitizeExternalHttpUrl(SEARCH_PROVIDER_URL_BUILDERS[provider](encodedQuery), {
+      allowedDomains: SEARCH_PROVIDER_ALLOWED_DOMAINS[provider],
+    })?.toString() ?? null
+  );
 }
 
 function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebsite[] {
@@ -189,17 +227,24 @@ function normalizeWebsites(websites: GameWebsite[] | null | undefined): GameWebs
       continue;
     }
 
-    if (!isAllowedWebsite(website)) {
+    const sanitizedUrl = sanitizeWebsiteUrl(website);
+    if (!sanitizedUrl) {
       continue;
     }
 
-    const key = buildWebsiteDedupKey(website);
+    const sanitizedWebsite = { ...website, url: sanitizedUrl };
+
+    if (!isAllowedWebsite(sanitizedWebsite)) {
+      continue;
+    }
+
+    const key = buildWebsiteDedupKey(sanitizedWebsite);
     if (seen.has(key)) {
       continue;
     }
 
     seen.add(key);
-    normalized.push(website);
+    normalized.push(sanitizedWebsite);
   }
 
   return normalized;
@@ -226,6 +271,18 @@ function isValidWebsite(website: unknown): website is GameWebsite {
 
 function buildWebsiteDedupKey(website: GameWebsite): string {
   return website.url.trim().toLowerCase();
+}
+
+function sanitizeWebsiteUrl(website: GameWebsite): string | null {
+  if (website.trusted === true) {
+    return sanitizeExternalHttpUrl(website.url)?.toString() ?? null;
+  }
+
+  return (
+    sanitizeExternalHttpUrl(website.url, {
+      allowedDomains: SAFE_UNTRUSTED_WEBSITE_DOMAINS,
+    })?.toString() ?? null
+  );
 }
 
 function isAllowedWebsite(website: GameWebsite): boolean {

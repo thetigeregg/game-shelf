@@ -199,4 +199,20 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.label === 'Itch')?.icon).toBe('itchdotio');
     expect(items.find((item) => item.label === 'GOG')?.icon).toBe('gogdotcom');
   });
+
+  it('does not allow removed storefront host fallbacks without an allowed type id', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [
+        makeWebsite({ url: 'https://www.amazon.com/dp/B012345678' }),
+        makeWebsite({ url: 'https://www.meta.com/experiences/test-game/1234567890/' }),
+        makeWebsite({ url: 'https://www.oculus.com/experiences/quest/1234567890/' }),
+        makeWebsite({ url: 'https://www.utomik.com/games/test-game' }),
+        makeWebsite({ url: 'https://gamejolt.com/games/test-game/123456' }),
+        makeWebsite({ url: 'https://www.kartridge.com/games/test/test-game' }),
+      ],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+    });
+
+    expect(items.map((item) => item.label)).toEqual(['Google', 'GameFAQs', 'Wikipedia', 'YouTube']);
+  });
 });

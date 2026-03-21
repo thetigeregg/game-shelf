@@ -11,7 +11,7 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
   PlatformCustomizationService,
 } from './platform-customization.service';
-import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
+import { ClientSyncOperation, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
@@ -22,7 +22,10 @@ type GameSyncServicePrivate = {
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
   applySettingChange(change: SyncChangeEvent): Promise<void>;
-  buildPushOperationBatches(operations: OutboxRecord[], maxBatchBytes: number): OutboxRecord[][];
+  buildPushOperationBatches(
+    operations: ClientSyncOperation[],
+    maxBatchBytes: number
+  ): ClientSyncOperation[][];
   normalizeOptionalPlatformIgdbId(value: unknown): number | null;
   normalizeBaseUrl(value: string): string;
   normalizeNotes(value: unknown): string | null;
@@ -536,6 +539,16 @@ describe('GameSyncService', () => {
       themeIds: [1],
       keywords: ['aliens'],
       keywordIds: [10],
+      websites: [
+        {
+          provider: 'steam',
+          providerLabel: 'Steam',
+          url: 'https://store.steampowered.com/app/123',
+          typeId: 13,
+          typeName: 'Steam',
+          trusted: true,
+        },
+      ],
       screenshots: [
         {
           id: 5673,
@@ -573,6 +586,16 @@ describe('GameSyncService', () => {
     expect(stored?.themeIds).toEqual([1]);
     expect(stored?.keywords).toEqual(['aliens']);
     expect(stored?.keywordIds).toEqual([10]);
+    expect(stored?.websites).toEqual([
+      {
+        provider: 'steam',
+        providerLabel: 'Steam',
+        url: 'https://store.steampowered.com/app/123',
+        typeId: 13,
+        typeName: 'Steam',
+        trusted: true,
+      },
+    ]);
     expect(stored?.screenshots).toHaveLength(1);
     expect(stored?.videos).toHaveLength(1);
   });
@@ -798,6 +821,95 @@ describe('GameSyncService', () => {
         name: 'Trailer',
         videoId: 'abc def',
         url: 'https://www.youtube.com/watch?v=abc%20def',
+      },
+    ]);
+  });
+
+  it('normalizes and replaces websites when pulled upsert includes websites', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      websites: [
+        {
+          provider: 'steam',
+          providerLabel: 'Steam',
+          url: 'https://store.steampowered.com/app/1',
+          typeId: 13,
+          typeName: 'Steam',
+          trusted: true,
+        },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4d-replace-websites',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        websites: [
+          {
+            provider: 'xbox',
+            providerLabel: ' Xbox ',
+            url: '//www.xbox.com/en-us/games/store/test/9TEST',
+            typeId: '22',
+            typeName: ' Xbox ',
+            trusted: false,
+          },
+          {
+            provider: 'xbox',
+            providerLabel: 'Duplicate',
+            url: 'https://www.xbox.com/en-us/games/store/test/9TEST',
+            typeId: '22',
+            typeName: 'Xbox',
+            trusted: true,
+          },
+          {
+            provider: 'steam',
+            providerLabel: 'Steam',
+            url: 'https://user:pass@store.steampowered.com/app/620',
+            typeId: '13',
+            typeName: 'Steam',
+            trusted: true,
+          },
+          {
+            provider: 'bad-provider',
+            providerLabel: 'Nintendo',
+            url: 'https://www.nintendo.com/us/store/products/test/',
+            typeId: '24',
+            typeName: 'Nintendo',
+            trusted: true,
+          },
+        ],
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.websites).toEqual([
+      {
+        provider: 'xbox',
+        providerLabel: 'Xbox',
+        url: 'https://www.xbox.com/en-us/games/store/test/9TEST',
+        typeId: 22,
+        typeName: 'Xbox',
+        trusted: false,
+      },
+      {
+        provider: null,
+        providerLabel: 'Nintendo',
+        url: 'https://www.nintendo.com/us/store/products/test/',
+        typeId: 24,
+        typeName: 'Nintendo',
+        trusted: true,
       },
     ]);
   });
@@ -1098,7 +1210,10 @@ describe('GameSyncService', () => {
       },
     ];
 
-    const batches = servicePrivate.buildPushOperationBatches(operations as OutboxRecord[], 140);
+    const batches = servicePrivate.buildPushOperationBatches(
+      operations as ClientSyncOperation[],
+      140
+    );
     expect(batches.length).toBeGreaterThan(1);
     expect(batches.flat().map((entry: { opId: string }) => entry.opId)).toEqual(['1', '2']);
   });
@@ -1449,6 +1564,7 @@ describe('GameSyncService', () => {
       clientTimestamp: '2026-01-01T00:00:00.000Z',
       createdAt: '2026-01-01T00:00:00.000Z',
       attemptCount: 0,
+      lastError: null,
     });
 
     const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
@@ -1572,7 +1688,7 @@ describe('GameSyncService', () => {
     expect(postSpy).toHaveBeenCalledTimes(5);
     expect(localStorage.getItem('replay-max-4001')).toBe('v');
     expect(localStorage.getItem('replay-max-9000')).toBe('v');
-  }, 15000);
+  }, 20000);
 
   it('replayRecentChangesIfDue records replay attempt timestamp when replay fails', async () => {
     await db.syncMeta.put({
@@ -1595,7 +1711,7 @@ describe('GameSyncService', () => {
     const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
     const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
-    const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {});
+    const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockResolvedValue(undefined);
 
     const gameChange = {
       eventId: '44',

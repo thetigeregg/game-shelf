@@ -7,6 +7,22 @@ import {
   ProviderThrottleError,
 } from '../provider-rate-limit.js';
 import { resolveOutboundRateLimit } from '../rate-limit.js';
+import {
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../../shared/igdb-websites-normalization.mjs';
+import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
+
+const normalizeWebsites = normalizeIgdbWebsites as (
+  input: { websites?: unknown },
+  options?: {
+    websiteTypeNames?: ReadonlyMap<number, string> | null;
+  }
+) => ReturnType<typeof normalizeIgdbWebsites>;
+
+const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
+  value: unknown
+) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
@@ -14,6 +30,7 @@ const GAME_INSERT_BATCH_SIZE = 250;
 const POPULARITY_INGEST_LOCK_NAMESPACE = 77411;
 const POPULARITY_INGEST_LOCK_KEY = 1;
 const IGDB_RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
+const SOURCE_NAME_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 interface Queryable {
   query<T extends QueryResultRow = QueryResultRow>(
@@ -30,6 +47,11 @@ interface PopularityPrimitiveItem {
   gameId: string;
   popularityType: number;
   value: number;
+}
+
+interface SourceNameCache {
+  values: ReadonlyMap<number, string>;
+  expiresAtMs: number;
 }
 
 interface RawIgdbGame {
@@ -63,6 +85,7 @@ interface RawIgdbGame {
     publisher?: unknown;
     company?: { name?: unknown } | null;
   }> | null;
+  websites?: unknown;
 }
 
 interface WorkerGamePlatformOption {
@@ -93,6 +116,8 @@ interface WorkerGameItem {
   similarGameIds: string[];
   developers: string[];
   publishers: string[];
+  websites: NormalizedWebsite[];
+  steamAppId: number | null;
 }
 
 interface ExistingGamePlatformRow extends QueryResultRow {
@@ -144,6 +169,7 @@ export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
   private readonly limiter: ProviderLimiter;
   private readonly repository: PopularityRepository;
+  private websiteTypeCache: SourceNameCache | null = null;
 
   constructor(
     private readonly pool: Pool,
@@ -396,6 +422,7 @@ export class PopularityIngestService {
     }
 
     const token = await this.getAccessToken();
+    const websiteTypeNames = await this.getWebsiteTypeNames(token);
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
@@ -411,7 +438,7 @@ export class PopularityIngestService {
           },
           body: [
             `where id = (${batch.join(',')});`,
-            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
+            'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,websites.type,websites.category,websites.url,websites.trusted;',
             `limit ${String(batch.length)};`,
           ].join(' '),
         });
@@ -431,7 +458,9 @@ export class PopularityIngestService {
       const rows = Array.isArray(payload) ? payload : [];
 
       for (const raw of rows) {
-        const normalized = normalizeIgdbGame(raw as RawIgdbGame);
+        const normalized = normalizeIgdbGame(raw as RawIgdbGame, {
+          websiteTypeNames,
+        });
         if (!normalized) {
           continue;
         }
@@ -750,6 +779,26 @@ export class PopularityIngestService {
     return accessToken;
   }
 
+  private async getWebsiteTypeNames(token: string): Promise<ReadonlyMap<number, string>> {
+    const cached = this.websiteTypeCache;
+    const now = Date.now();
+    if (cached && cached.expiresAtMs > now) {
+      return cached.values;
+    }
+
+    const values = await this.fetchNameMap({
+      token,
+      url: 'https://api.igdb.com/v4/website_types',
+      fields: 'fields id,type; limit 500;',
+      valueKey: 'type',
+    });
+    this.websiteTypeCache = {
+      values,
+      expiresAtMs: now + SOURCE_NAME_CACHE_TTL_MS,
+    };
+    return values;
+  }
+
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const timeoutMs = Math.max(1_000, this.options.requestTimeoutMs);
     const controller = new AbortController();
@@ -765,6 +814,57 @@ export class PopularityIngestService {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private async fetchNameMap(params: {
+    token: string;
+    url: string;
+    fields: string;
+    valueKey: 'name' | 'type';
+  }): Promise<ReadonlyMap<number, string>> {
+    const release = await this.acquireLimiter('source metadata');
+    let response: Response;
+    try {
+      response = await this.fetchWithTimeout(params.url, {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${params.token}`,
+          'Content-Type': 'text/plain',
+        },
+        body: params.fields,
+      });
+    } finally {
+      release();
+    }
+
+    if (response.status === 429) {
+      throw this.createIgdbRateLimitError(response, 'source metadata');
+    }
+
+    if (!response.ok) {
+      return new Map();
+    }
+
+    const payload = (await response.json()) as unknown;
+    const rows = Array.isArray(payload) ? payload : [];
+    const values = new Map<number, string>();
+
+    for (const row of rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        continue;
+      }
+
+      const id = toPositiveInteger((row as { id?: unknown }).id);
+      const value = (row as { name?: unknown; type?: unknown })[params.valueKey];
+      if (!id || typeof value !== 'string' || value.trim().length === 0) {
+        continue;
+      }
+
+      values.set(id, value.trim());
+    }
+
+    return values;
   }
 
   private emptyEnabledSummary(): PopularityIngestSummary {
@@ -829,7 +929,12 @@ function dedupeSignals(rows: PopularityPrimitiveItem[]): PopularityPrimitiveItem
   return [...byKey.values()];
 }
 
-function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
+function normalizeIgdbGame(
+  raw: RawIgdbGame,
+  options?: {
+    websiteTypeNames?: ReadonlyMap<number, string> | null;
+  }
+): WorkerGameItem | null {
   const igdbGameId = normalizeId(raw.id);
   if (!igdbGameId) {
     return null;
@@ -854,6 +959,14 @@ function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
     : [];
 
   const platforms = platformOptions.map((platform) => platform.name);
+  const websites = normalizeWebsites(
+    {
+      websites: raw.websites,
+    },
+    {
+      websiteTypeNames: options?.websiteTypeNames ?? null,
+    }
+  ) as NormalizedWebsite[];
 
   return {
     igdbGameId,
@@ -878,6 +991,8 @@ function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
     similarGameIds: normalizeSimilarGameIds(raw.similar_games),
     developers: normalizeCompanyRole(raw.involved_companies, 'developer'),
     publishers: normalizeCompanyRole(raw.involved_companies, 'publisher'),
+    websites,
+    steamAppId: deriveSteamAppId(websites) as number | null,
   };
 }
 
@@ -915,6 +1030,8 @@ function buildGamePayload(
     similarGameIgdbIds: item.similarGameIds,
     developers: item.developers,
     publishers: item.publishers,
+    websites: item.websites,
+    steamAppId: item.steamAppId,
   };
 }
 
@@ -935,6 +1052,8 @@ function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> 
     version_parent: item.versionParent,
     versionParent: item.versionParent,
     gameType: item.gameType ?? 'main_game',
+    websites: item.websites,
+    steamAppId: item.steamAppId,
   };
 }
 

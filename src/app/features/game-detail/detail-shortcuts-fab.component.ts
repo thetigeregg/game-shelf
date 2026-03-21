@@ -1,9 +1,7 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { book, documentText, film, globe, logoGoogle, logoYoutube } from 'ionicons/icons';
-
-type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
+import { book, documentText, film, globe, link } from 'ionicons/icons';
 
 @Component({
   selector: 'app-detail-shortcuts-fab',
@@ -36,28 +34,12 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           </ion-fab-button>
         }
         <ion-fab-button
-          class="shortcut-gamefaqs"
+          class="shortcut-websites"
           color="royal"
-          aria-label="Search on GameFAQs"
-          (click)="onShortcutSearch('gamefaqs')"
+          aria-label="Open websites"
+          (click)="onWebsitesClick()"
         >
-          <span class="shortcut-text" aria-hidden="true">G</span>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-wikipedia"
-          color="white"
-          aria-label="Search on Wikipedia"
-          (click)="onShortcutSearch('wikipedia')"
-        >
-          <span class="shortcut-text" aria-hidden="true">W</span>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-youtube"
-          color="firetruck"
-          aria-label="Search on YouTube"
-          (click)="onShortcutSearch('youtube')"
-        >
-          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+          <ion-icon name="link" aria-hidden="true"></ion-icon>
         </ion-fab-button>
         @if (showVideosShortcut) {
           <ion-fab-button
@@ -69,14 +51,6 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
             <ion-icon name="film" aria-hidden="true"></ion-icon>
           </ion-fab-button>
         }
-        <ion-fab-button
-          class="shortcut-google"
-          color="forest"
-          aria-label="Search on Google"
-          (click)="onShortcutSearch('google')"
-        >
-          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
       </ion-fab-list>
     </ion-fab>
   `,
@@ -109,19 +83,18 @@ export class DetailShortcutsFabComponent {
   @Input() showOpenManualButton = false;
 
   @Output() listClick = new EventEmitter<void>();
+  @Output() websitesClick = new EventEmitter<void>();
   @Output() videosClick = new EventEmitter<void>();
   @Output() notesClick = new EventEmitter<void>();
   @Output() openManualClick = new EventEmitter<void>();
-  @Output() shortcutSearch = new EventEmitter<ShortcutProvider>();
 
   constructor() {
     addIcons({
       globe,
+      link,
       film,
       documentText,
       book,
-      logoGoogle,
-      logoYoutube,
     });
   }
 
@@ -144,8 +117,8 @@ export class DetailShortcutsFabComponent {
     this.closeFab();
   }
 
-  onShortcutSearch(provider: ShortcutProvider): void {
-    this.shortcutSearch.emit(provider);
+  onWebsitesClick(): void {
+    this.websitesClick.emit();
     this.closeFab();
   }
 

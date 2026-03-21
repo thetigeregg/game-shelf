@@ -27,6 +27,31 @@ export type GameType =
   | 'update';
 export type ReviewSource = 'metacritic' | 'mobygames';
 export type PriceSource = 'steam_store' | 'psprices';
+export type GameWebsiteProvider =
+  | 'steam'
+  | 'playstation'
+  | 'xbox'
+  | 'nintendo'
+  | 'epic'
+  | 'gog'
+  | 'itch'
+  | 'apple'
+  | 'android'
+  | 'amazon'
+  | 'oculus'
+  | 'gamejolt'
+  | 'kartridge'
+  | 'utomik'
+  | 'unknown';
+
+export interface GameWebsite {
+  provider: GameWebsiteProvider | null;
+  providerLabel: string | null;
+  url: string;
+  typeId: number | null;
+  typeName: string | null;
+  trusted: boolean | null;
+}
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -105,6 +130,7 @@ export interface GameCatalogResult {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  websites?: GameWebsite[];
   steamAppId?: number | null;
   priceSource?: PriceSource | null;
   priceFetchedAt?: string | null;
@@ -320,6 +346,7 @@ export interface GameEntry {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  websites?: GameWebsite[];
   steamAppId?: number | null;
   priceSource?: PriceSource | null;
   priceFetchedAt?: string | null;

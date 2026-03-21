@@ -59,6 +59,12 @@ void test('repository selects rows missing enrichment markers', async () => {
   assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''"), true);
   assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''"), true);
   assert.equal(sql.includes("NOT (payload ? 'websites')"), true);
+  assert.equal(
+    sql.includes(
+      "jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0"
+    ),
+    true
+  );
   assert.equal(/metadataSyncEnqueuedAt/.test(sql), true);
 });
 

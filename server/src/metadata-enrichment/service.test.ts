@@ -332,7 +332,16 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         keywords: ['Shooter'],
         screenshots: [],
         videos: [],
-        websites: [],
+        websites: [
+          {
+            provider: null,
+            providerLabel: null,
+            url: 'https://example.com/existing',
+            typeId: 1,
+            typeName: 'Official Website',
+            trusted: true,
+          },
+        ],
         steamAppId: null,
       },
     },
@@ -420,7 +429,16 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
-        websites: [],
+        websites: [
+          {
+            provider: null,
+            providerLabel: null,
+            url: 'https://example.com/already-present',
+            typeId: 1,
+            typeName: 'Official Website',
+            trusted: true,
+          },
+        ],
         steamAppId: null,
       },
     },
@@ -443,4 +461,74 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
   assert.equal(summary.updatedRows, 0);
   assert.equal(summary.skippedRows, 1);
   assert.equal(repository.updates.length, 0);
+});
+
+void test('metadata enrichment refetches rows when websites are present but empty', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '347668',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Resident Evil Requiem',
+        listType: 'wishlist',
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '347668',
+        {
+          themes: [],
+          themeIds: [],
+          keywords: [],
+          keywordIds: [],
+          screenshots: [],
+          videos: [],
+          websites: [
+            {
+              provider: null,
+              providerLabel: null,
+              url: 'https://www.residentevil.com/requiem/en-us/',
+              typeId: 1,
+              typeName: 'Official Website',
+              trusted: false,
+            },
+          ],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 1);
+  assert.equal(summary.updatedRows, 1);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['websites'], [
+    {
+      provider: null,
+      providerLabel: null,
+      url: 'https://www.residentevil.com/requiem/en-us/',
+      typeId: 1,
+      typeName: 'Official Website',
+      trusted: false,
+    },
+  ]);
 });

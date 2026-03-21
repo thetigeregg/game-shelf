@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
-import { getCacheMetrics } from './cache-metrics.js';
 import { config } from './config.js';
 import {
   processQueuedPspricesPriceRevalidation,
@@ -1050,6 +1049,145 @@ void test('queued PSPrices revalidation clears retry state after a successful di
   assert.equal(retry ?? null, null);
 });
 
+void test('queued PSPrices revalidation does not write retry state after a wishlist miss', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('1700', 167, {
+    listType: 'wishlist',
+    title: 'Wishlist PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+  });
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:wishlist:1700:167:region-ch:games',
+      igdbGameId: '1700',
+      platformIgdbId: 167,
+      title: 'Wishlist PS Game',
+      psPricesUrl: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('1700', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['enrichmentRetry'] ?? null, null);
+});
+
+void test('queued PSPrices revalidation clears stale retry state after a wishlist refresh', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('1701', 167, {
+    listType: 'wishlist',
+    title: 'Wishlist PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+    enrichmentRetry: {
+      psprices: {
+        attempts: 4,
+        lastTriedAt: '2026-03-01T00:00:00.000Z',
+        nextTryAt: '2026-03-02T00:00:00.000Z',
+        permanentMiss: false,
+      },
+    },
+  });
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: {
+            title: 'Wishlist PS Game',
+            priceAmount: 29.9,
+            currency: 'CHF',
+            url: 'https://psprices.com/region-ch/game/1701/wishlist-ps-game',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:wishlist:1701:167:region-ch:games',
+      igdbGameId: '1701',
+      platformIgdbId: 167,
+      title: 'Wishlist PS Game',
+      psPricesUrl: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('1701', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['enrichmentRetry'] ?? null, null);
+});
+
+void test('queued PSPrices revalidation refreshes locked games using the saved match', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('1702', 167, {
+    listType: 'wishlist',
+    title: 'Original Title',
+    psPricesMatchLocked: true,
+    psPricesMatchQueryTitle: 'Corrected Title',
+    psPricesUrl: 'https://psprices.com/region-ch/game/1702/corrected-title',
+  });
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: {
+            title: 'Corrected Title',
+            priceAmount: 24.9,
+            currency: 'CHF',
+            url: 'https://psprices.com/region-ch/game/1702/corrected-title',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    )) as typeof fetch;
+
+  try {
+    await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+      cacheKey: 'pricing-refresh:wishlist:1702:167:region-ch:games',
+      igdbGameId: '1702',
+      platformIgdbId: 167,
+      title: '',
+      psPricesUrl: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('1702', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesMatchQueryTitle'], 'Corrected Title');
+  assert.equal(persisted['psPricesTitle'], 'Corrected Title');
+  assert.equal(
+    persisted['psPricesUrl'],
+    'https://psprices.com/region-ch/game/1702/corrected-title'
+  );
+});
+
 void test('queued PSPrices revalidation rearms capped retry state before persisting the next miss', async () => {
   const originalFetch = globalThis.fetch;
   const originalMaxAttempts = config.recommendationsDiscoveryEnrichMaxAttempts;
@@ -1319,10 +1457,9 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   await app.close();
 });
 
-void test('PSPrices route skips stale revalidation when psPrices match is locked', async () => {
+void test('PSPrices route schedules stale revalidation when psPrices match is locked', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  const skippedBefore = getCacheMetrics().pspricesPrice.revalidateSkipped;
   pool.seed('5263323', 130, {
     title: 'Pokemon Violet',
     psPricesMatchLocked: true,
@@ -1354,10 +1491,13 @@ void test('PSPrices route skips stale revalidation when psPrices match is locked
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_STALE');
-  assert.equal(response.headers['x-gameshelf-psprices-revalidate'], 'skipped');
-  assert.equal(queuedPayloads.length, 0);
-  const skippedAfter = getCacheMetrics().pspricesPrice.revalidateSkipped;
-  assert.equal(skippedAfter, skippedBefore + 1);
+  assert.equal(response.headers['x-gameshelf-psprices-revalidate'], 'scheduled');
+  assert.equal(queuedPayloads.length, 1);
+  assert.equal(queuedPayloads[0]?.['title'], 'Pokemon Violet');
+  assert.equal(
+    queuedPayloads[0]?.['psPricesUrl'],
+    'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  );
 
   await app.close();
 });

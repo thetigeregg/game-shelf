@@ -2790,3 +2790,11 @@
 - 1dba21ad fix(settings): update labels for collection and wishlist display settings
 - f2eb30ad Merge branch 'main' into feat/search-detail
 - fe4a23e4 feat: implement game catalog platform context handling
+
+## v1.16.0 - 2026-03-21
+- 8d86fbfa Merge pull request #267 from thetigeregg/feat/wishlist-prices
+- fda1602f fix(enrichment): preserve locked mobygames review context during refresh
+- 207a8a10 feat(tests): add PSPrices refresh job builder tests for unsupported, backoff
+- a6e05db3 feat(discovery-match): enhance locking mechanism explanations and UI notes
+- 2928acee feat(discovery-enrichment): enhance locked HLTB and review provider handling with saved query fields
+- 68a95f49 feat(psprices): implement PSPrices refresh job builder and related tests

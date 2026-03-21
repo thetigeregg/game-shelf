@@ -322,8 +322,6 @@ Like the list-level queue button:
 - `hltb` and `review` queue a targeted `discovery_enrichment_run`
 - equivalent queued work is deduped and reported as deduped instead of adding a duplicate job
 
-If the operator queues a specific `hltb` or `review` provider, that targeted discovery run also opts into forced locked refresh handling for that provider.
-
 ## What locking means
 
 Locking is the mechanism that makes manual matches stick.
@@ -334,31 +332,26 @@ When a provider is saved manually:
 - review saves set `reviewMatchLocked = true`
 - pricing saves set `psPricesMatchLocked = true`
 
-These lock fields are important because later automation checks them before attempting provider refreshes.
+These lock fields tell later automation which saved external match identity to preserve.
 
 ### HLTB and review locks
 
-The discovery enrichment worker computes:
+Locked HLTB and review rows still participate in automatic refresh.
 
-- `needsHltb = !hasHltb && (!hltbMatchLocked || hltbLookup.canRefreshLocked)`
-- `needsMetacritic = !hasCritic && (!reviewMatchLocked || reviewLookup.canRefreshLocked)`
+The lock preserves the saved match context used for refresh, for example:
 
-That means a locked provider is not always skipped.
+- `hltbMatchQueryTitle`, `hltbMatchQueryReleaseYear`, `hltbMatchQueryPlatform`
+- `hltbMatchGameId` or `hltbMatchUrl` when available
+- `reviewMatchQueryTitle`, `reviewMatchQueryReleaseYear`, `reviewMatchQueryPlatform`
+- `reviewMatchPlatformIgdbId` and `reviewMatchMobygamesGameId` when available
 
-HLTB can still refresh on a locked row when the row already has a preferred HLTB match reference (`hltbMatchGameId` or `hltbMatchUrl`). In that case, enrichment can re-query HLTB to fill missing timing fields without discarding the locked preferred match.
-
-Review can still refresh on a locked row when the run explicitly forces locked review refreshes and the stored review lookup context is usable. In practice, admin-triggered provider-targeted review queue actions do this by passing `forceLockedProviders`, which allows refresh when either:
-
-- the stored review source is not MobyGames and the saved query title is still usable
-- a saved `reviewMatchMobygamesGameId` or `mobygamesGameId` exists for a MobyGames refresh
-
-Scheduled discovery enrichment without a targeted forced-review run still skips locked review rows.
+That means automatic enrichment can refresh missing or stale metadata without discarding the saved manual match.
 
 ### Pricing lock
 
-The pricing lock is used by the PSPrices refresh path. When `psPricesMatchLocked` is true, stale-while-revalidate pricing refreshes and queued PSPrices revalidation skip that row.
+Locked pricing rows also continue to refresh automatically.
 
-This means a manual pricing match is intentionally protected from automatic rematching or refresh churn until it is cleared.
+The pricing lock preserves the saved PSPrices match context used for refresh, such as `psPricesMatchQueryTitle` and `psPricesUrl`, so automatic refresh can update price data without discarding the saved manual match.
 
 ## When changes take effect
 
@@ -377,15 +370,10 @@ Server sync preserves the manual match and lock-related fields during upserts. T
 
 ### Effects on later automatic enrichment
 
-- a saved manual HLTB match prevents automatic HLTB enrichment from trying to rematch that row
-- a saved manual review match prevents ordinary automatic review enrichment from trying to rematch that row
-- a saved manual pricing match prevents PSPrices automatic revalidation from rematching that row
-- clearing a provider removes that protection and makes the row eligible again
-
-There are two important exceptions:
-
-- a locked HLTB row with a saved preferred HLTB match can still be refreshed to backfill missing HLTB timing fields
-- a targeted admin review requeue can force a locked review refresh when enough saved lookup context exists
+- a saved manual HLTB match keeps later refreshes anchored to the saved HLTB lookup context
+- a saved manual review match keeps later refreshes anchored to the saved review lookup context
+- a saved manual pricing match keeps later refreshes anchored to the saved PSPrices lookup context
+- clearing a provider removes that saved match context and allows future automation to find a new one
 
 ### Effects of resetting permanent miss
 

@@ -95,6 +95,9 @@
           Uses the device write token from Settings.
         }
       </ion-note>
+      @if (hasAccessToken) {
+        <ion-note color="medium">{{ lockMeaningNote }}</ion-note>
+      }
     </div>
 
     @if (listQueueStatusMessage) {
@@ -196,6 +199,7 @@
               @if (activePlatformNote) {
                 <p>{{ activePlatformNote }}</p>
               }
+              <p>{{ activeLockMeaningNote }}</p>
             </ion-label>
             <ion-badge [color]="getStatusColor(activeDetail, activeModalProvider)">
               {{ getStatusLabel(activeDetail, activeModalProvider) }}

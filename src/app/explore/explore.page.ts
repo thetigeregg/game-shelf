@@ -4,6 +4,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
+  PopoverController,
   ToastController,
   IonContent,
   IonHeader,
@@ -54,6 +55,7 @@ import {
   RecommendationLanesResponse,
   RecommendationRuntimeMode,
   RecommendationSimilarItem,
+  RecommendationSimilarResponse,
   RecommendationTarget,
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -164,7 +166,6 @@ interface RecommendationDisplayMetadata {
 export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_PAGE_SIZE = 10;
   private static readonly SIMILAR_PAGE_SIZE = 5;
-  private static readonly SIMILAR_FETCH_LIMIT = 50;
   private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
   private static readonly POPULARITY_CATALOG_HYDRATION_CONCURRENCY = 4;
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
@@ -236,6 +237,7 @@ export class ExplorePage implements OnInit {
   isLoadingSimilar = false;
   similarRecommendationsError = '';
   similarRecommendationItems: RecommendationSimilarItem[] = [];
+  similarRecommendationsPage: RecommendationSimilarResponse['page'] | null = null;
   visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visiblePopularityCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
@@ -263,6 +265,7 @@ export class ExplorePage implements OnInit {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly alertController = inject(AlertController);
+  private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
@@ -427,13 +430,18 @@ export class ExplorePage implements OnInit {
     this.isHeaderActionsPopoverOpen = true;
   }
 
-  closeHeaderActionsPopover(): void {
+  onHeaderActionsPopoverDidDismiss(): void {
     this.isHeaderActionsPopoverOpen = false;
     this.headerActionsPopoverEvent = undefined;
   }
 
+  async closeHeaderActionsPopover(): Promise<void> {
+    this.onHeaderActionsPopoverDidDismiss();
+    await this.popoverController.dismiss().catch(() => undefined);
+  }
+
   async openSettingsFromPopover(): Promise<void> {
-    this.closeHeaderActionsPopover();
+    await this.closeHeaderActionsPopover();
     await this.router.navigateByUrl('/settings');
   }
 
@@ -485,12 +493,25 @@ export class ExplorePage implements OnInit {
   }
 
   canLoadMoreSimilarRecommendations(): boolean {
-    return this.visibleSimilarRecommendationCount < this.getVisibleSimilarItems().length;
+    const page = this.similarRecommendationsPage;
+    return page?.hasMore === true && page.nextOffset !== null;
   }
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {
-    this.visibleSimilarRecommendationCount += ExplorePage.SIMILAR_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
+    try {
+      const active = this.activeDetailRecommendation;
+      const nextOffset = this.similarRecommendationsPage?.nextOffset;
+      if (!active || nextOffset === null || nextOffset === undefined) {
+        return;
+      }
+
+      await this.loadSimilarRecommendations(active, {
+        append: true,
+        offset: nextOffset,
+      });
+    } finally {
+      await completeIonInfiniteScroll(event);
+    }
   }
 
   hasLoadedSelectedLaneItems(): boolean {
@@ -800,6 +821,7 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = null;
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
     this.invalidateSimilarVisibility();
@@ -874,6 +896,7 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = item;
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
@@ -942,6 +965,7 @@ export class ExplorePage implements OnInit {
     this.isLoadingSimilar = false;
     this.similarRecommendationsError = '';
     this.similarRecommendationItems = [];
+    this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
   }
 
@@ -1394,6 +1418,10 @@ export class ExplorePage implements OnInit {
 
   private scheduleVisibleRecommendationDisplayMetadata(): void {
     void this.ensureVisibleRecommendationDisplayMetadata().catch(() => undefined);
+  }
+
+  private scheduleVisibleSimilarDisplayMetadata(): void {
+    void this.ensureVisibleSimilarDisplayMetadata().catch(() => undefined);
   }
 
   private scheduleVisibleDiscoveryPricingHydration(): void {
@@ -1996,6 +2024,19 @@ export class ExplorePage implements OnInit {
     return `${igdbGameId}::${String(platformIgdbId)}`;
   }
 
+  private hasActiveDetailRecommendationIdentity(expectedIdentityKey: string): boolean {
+    if (!this.activeDetailRecommendation) {
+      return false;
+    }
+
+    return (
+      this.buildIdentityKey(
+        this.activeDetailRecommendation.igdbGameId,
+        this.activeDetailRecommendation.platformIgdbId
+      ) === expectedIdentityKey
+    );
+  }
+
   private createFallbackCatalogResult(params: {
     igdbGameId: string;
     platformIgdbId: number;
@@ -2040,9 +2081,22 @@ export class ExplorePage implements OnInit {
     };
   }
 
-  private async loadSimilarRecommendations(item: RecommendationItem): Promise<void> {
+  private async loadSimilarRecommendations(
+    item: RecommendationItem,
+    options?: { append?: boolean; offset?: number }
+  ): Promise<void> {
+    const append = options?.append === true;
+    const offset = options?.offset ?? 0;
+    const requestIdentityKey = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+
     this.isLoadingSimilar = true;
     this.similarRecommendationsError = '';
+    if (!append) {
+      this.similarRecommendationItems = [];
+      this.similarRecommendationsPage = null;
+      this.invalidateSimilarVisibility();
+      this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
+    }
 
     try {
       const response = await firstValueFrom(
@@ -2051,21 +2105,91 @@ export class ExplorePage implements OnInit {
           runtimeMode: this.selectedRuntimeMode,
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          limit: ExplorePage.SIMILAR_FETCH_LIMIT,
+          offset,
+          limit: ExplorePage.SIMILAR_PAGE_SIZE,
         })
       );
 
-      this.similarRecommendationItems = response.items;
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
+        return;
+      }
+
+      this.similarRecommendationItems = append
+        ? [...this.similarRecommendationItems, ...response.items]
+        : response.items;
+      this.similarRecommendationsPage = response.page;
+      this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
       this.invalidateSimilarVisibility();
-      this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
-      await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
+      await this.ensureSimilarRecommendationPageFilled(item, requestIdentityKey);
+      this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
+        return;
+      }
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
-      this.similarRecommendationItems = [];
-      this.invalidateSimilarVisibility();
+      if (!append) {
+        this.similarRecommendationItems = [];
+        this.similarRecommendationsPage = null;
+        this.invalidateSimilarVisibility();
+      } else if (this.similarRecommendationsPage) {
+        this.similarRecommendationsPage = {
+          ...this.similarRecommendationsPage,
+          hasMore: false,
+          nextOffset: null,
+        };
+      }
     } finally {
-      this.isLoadingSimilar = false;
+      if (
+        !this.activeDetailRecommendation ||
+        this.hasActiveDetailRecommendationIdentity(requestIdentityKey)
+      ) {
+        this.isLoadingSimilar = false;
+      }
+    }
+  }
+
+  private async ensureSimilarRecommendationPageFilled(
+    item: RecommendationItem,
+    requestIdentityKey: string
+  ): Promise<void> {
+    while (
+      this.getVisibleSimilarRecommendationItems().length === 0 &&
+      this.similarRecommendationsPage?.hasMore === true
+    ) {
+      const nextOffset = this.similarRecommendationsPage.nextOffset;
+      if (nextOffset === null) {
+        break;
+      }
+
+      const response = await firstValueFrom(
+        this.igdbProxyService.getRecommendationSimilar({
+          target: this.selectedTarget,
+          runtimeMode: this.selectedRuntimeMode,
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          offset: nextOffset,
+          limit: ExplorePage.SIMILAR_PAGE_SIZE,
+        })
+      );
+
+      if (!this.hasActiveDetailRecommendationIdentity(requestIdentityKey)) {
+        return;
+      }
+
+      this.similarRecommendationItems = [...this.similarRecommendationItems, ...response.items];
+      this.similarRecommendationsPage = response.page;
+      this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
+      this.invalidateSimilarVisibility();
+    }
+
+    if (
+      this.getVisibleSimilarRecommendationItems().length === 0 &&
+      (this.similarRecommendationsPage === null || !this.similarRecommendationsPage.hasMore)
+    ) {
+      this.similarRecommendationItems = [];
+      this.visibleSimilarRecommendationCount = 0;
+      this.invalidateSimilarVisibility();
     }
   }
 
@@ -2286,6 +2410,10 @@ export class ExplorePage implements OnInit {
     }
 
     await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
+  }
+
+  private async ensureVisibleSimilarDisplayMetadata(): Promise<void> {
+    await this.ensureSimilarDisplayMetadata(this.getVisibleSimilarRecommendationItems());
   }
 
   private async populateRecommendationDisplayMetadata(

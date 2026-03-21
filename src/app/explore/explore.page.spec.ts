@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { Observable, Subject, of, throwError } from 'rxjs';
+import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -234,12 +234,16 @@ describe('ExplorePage explore modes UX', () => {
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
   };
+  const popoverControllerMock = {
+    dismiss: vi.fn().mockResolvedValue(true),
+  };
   const routerMock = {
     navigateByUrl: vi.fn().mockResolvedValue(true),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    recommendationIgnoreServiceMock.ignoredIds$ = of(new Set<string>());
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(of(mockLanesResponse));
     igdbProxyServiceMock.getPopularityFeed.mockReturnValue(of(mockPopularityFeedResponse));
     igdbProxyServiceMock.rebuildRecommendations.mockReturnValue(
@@ -250,10 +254,12 @@ describe('ExplorePage explore modes UX', () => {
       of({
         source: { igdbGameId: '100', platformIgdbId: 6 },
         items: [],
+        page: { offset: 0, limit: 5, hasMore: false, nextOffset: null },
       })
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
     igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
+    popoverControllerMock.dismiss.mockResolvedValue(true);
     routerMock.navigateByUrl.mockResolvedValue(true);
 
     TestBed.configureTestingModule({
@@ -264,6 +270,7 @@ describe('ExplorePage explore modes UX', () => {
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
+        { provide: PopoverController, useValue: popoverControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: Router, useValue: routerMock },
       ],
@@ -388,6 +395,44 @@ describe('ExplorePage explore modes UX', () => {
     await hydrationPromise;
   });
 
+  it('does not block similar detail load while visible metadata hydration runs', async () => {
+    const page = createPage() as unknown as {
+      ngOnInit: () => void;
+      openGameDetail: (item: RecommendationItem) => Promise<void>;
+      ensureVisibleSimilarDisplayMetadata: () => Promise<void>;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      isGameDetailModalOpen: boolean;
+      isLoadingSimilar: boolean;
+    };
+    page.ngOnInit();
+    await flushAsync();
+
+    let resolveHydration: () => void = () => undefined;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisibleSimilarDisplayMetadata')
+      .mockReturnValue(hydrationPromise);
+
+    const openPromise = page.openGameDetail(mockLanesResponse.items[0]);
+
+    let openSettled = false;
+    void openPromise.then(() => {
+      openSettled = true;
+    });
+
+    await flushAsync();
+
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+    expect(openSettled).toBe(true);
+    expect(page.isGameDetailModalOpen).toBe(true);
+    expect(page.isLoadingSimilar).toBe(false);
+
+    resolveHydration();
+    await hydrationPromise;
+  });
+
   it('exposes popularity empty-state conditions when feed returns no items', async () => {
     igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(
       of({
@@ -476,6 +521,53 @@ describe('ExplorePage explore modes UX', () => {
     deferredResolves.get('910')?.({ igdbGameId: '910', platformIgdbId: 6, platform: 'PC' });
     await firstCall;
     expect(page.selectedGameDetail?.igdbGameId).toBe('920');
+  });
+
+  it('clears similar recommendation paging when opening popularity detail', async () => {
+    const page = createPage() as unknown as {
+      openPopularityGameDetail: (item: {
+        id: string;
+        name: string;
+        platformIgdbId: number;
+        popularityScore: number;
+        coverUrl: string | null;
+        rating: number | null;
+        firstReleaseDate: number | null;
+        platforms: Array<{ id: number; name: string }>;
+      }) => Promise<void>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+    };
+
+    page.similarRecommendationsPage = {
+      offset: 5,
+      limit: 5,
+      hasMore: true,
+      nextOffset: 10,
+    };
+    vi.spyOn(page, 'fetchCatalogResult').mockResolvedValue({
+      igdbGameId: '930',
+      platformIgdbId: 6,
+      platform: 'PC',
+    });
+
+    await page.openPopularityGameDetail({
+      id: '930',
+      name: 'Popular Reset',
+      platformIgdbId: 6,
+      popularityScore: 99,
+      coverUrl: null,
+      rating: null,
+      firstReleaseDate: null,
+      platforms: [{ id: 6, name: 'PC' }],
+    });
+
+    expect(page.similarRecommendationsPage).toBeNull();
   });
 
   it('uses cache and ignores invalid/same selection updates', async () => {
@@ -835,12 +927,21 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     }));
-    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
-      of({
-        source: { igdbGameId: '100', platformIgdbId: 6 },
-        items: similarItems,
-      })
-    );
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: similarItems.slice(0, 5),
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: similarItems.slice(5, 10),
+          page: { offset: 5, limit: 5, hasMore: true, nextOffset: 10 },
+        })
+      );
 
     page.ngOnInit();
     await flushAsync();
@@ -849,9 +950,222 @@ describe('ExplorePage explore modes UX', () => {
     await flushAsync();
 
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(5);
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(1, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 0,
+      limit: 5,
+    });
     const complete = vi.fn().mockResolvedValue(undefined);
     await page.loadMoreSimilarRecommendations({ target: { complete } } as unknown as Event);
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(10);
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(2, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 5,
+      limit: 5,
+    });
+  });
+
+  it('disables similar load-more when page metadata is missing nextOffset', () => {
+    const page = createPage() as unknown as {
+      canLoadMoreSimilarRecommendations: () => boolean;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+    };
+
+    page.similarRecommendationsPage = {
+      offset: 0,
+      limit: 5,
+      hasMore: true,
+      nextOffset: null,
+    };
+
+    expect(page.canLoadMoreSimilarRecommendations()).toBe(false);
+  });
+
+  it('auto-loads another similar page when the fetched rows are all filtered out', async () => {
+    const page = createPage() as unknown as {
+      ignoredRecommendationGameIds: Set<string>;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+
+    page.ignoredRecommendationGameIds = new Set(['2000']);
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2000',
+              platformIgdbId: 6,
+              similarity: 0.8,
+              reasons: {
+                summary: 'filtered',
+                structuredSimilarity: 0.7,
+                semanticSimilarity: 0.6,
+                blendedSimilarity: 0.65,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2001',
+              platformIgdbId: 6,
+              similarity: 0.75,
+              reasons: {
+                summary: 'visible',
+                structuredSimilarity: 0.6,
+                semanticSimilarity: 0.7,
+                blendedSimilarity: 0.68,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 5, limit: 5, hasMore: false, nextOffset: null },
+        })
+      );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    await flushAsync();
+
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(1, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 0,
+      limit: 5,
+    });
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(2, {
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      offset: 5,
+      limit: 5,
+    });
+    expect(page.getVisibleSimilarRecommendationItems().map((item) => item.igdbGameId)).toEqual([
+      '2001',
+    ]);
+  });
+
+  it('clears similar items when every fetched page is filtered out', async () => {
+    const page = createPage() as unknown as {
+      ignoredRecommendationGameIds: Set<string>;
+      similarRecommendationItems: Array<{ igdbGameId: string }>;
+      similarRecommendationsPage: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      } | null;
+      getVisibleSimilarRecommendationItems: () => Array<{ igdbGameId: string }>;
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+
+    page.ignoredRecommendationGameIds = new Set(['2100', '2101']);
+    igdbProxyServiceMock.getRecommendationSimilar
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2100',
+              platformIgdbId: 6,
+              similarity: 0.8,
+              reasons: {
+                summary: 'filtered',
+                structuredSimilarity: 0.7,
+                semanticSimilarity: 0.6,
+                blendedSimilarity: 0.65,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          source: { igdbGameId: '100', platformIgdbId: 6 },
+          items: [
+            {
+              igdbGameId: '2101',
+              platformIgdbId: 6,
+              similarity: 0.75,
+              reasons: {
+                summary: 'still filtered',
+                structuredSimilarity: 0.6,
+                semanticSimilarity: 0.7,
+                blendedSimilarity: 0.68,
+                sharedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: [],
+                },
+              },
+            },
+          ],
+          page: { offset: 5, limit: 5, hasMore: false, nextOffset: null },
+        })
+      );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    await flushAsync();
+
+    expect(page.getVisibleSimilarRecommendationItems()).toEqual([]);
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toEqual({
+      offset: 5,
+      limit: 5,
+      hasMore: false,
+      nextOffset: null,
+    });
   });
 
   it('lane change fetches the selected lane when it is not cached', async () => {
@@ -1291,12 +1605,19 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     ];
+    page.similarRecommendationsPage = {
+      offset: 5,
+      limit: 5,
+      hasMore: true,
+      nextOffset: 10,
+    };
     page.closeGameDetailModal();
     expect(page.isGameDetailModalOpen).toBe(false);
     expect(page.isRatingModalOpen).toBe(false);
     expect(page.detailContext).toBe('explore');
     expect(page.detailNavigationStack).toEqual([]);
     expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
   });
 
   it('covers library mutation flows for status, rating, and tags', async () => {
@@ -1636,12 +1957,53 @@ describe('ExplorePage explore modes UX', () => {
       openSettingsFromPopover: () => Promise<void>;
     };
     const event = { type: 'click' } as unknown as Event;
+    let resolveDismiss: ((value: boolean) => void) | undefined;
+
+    popoverControllerMock.dismiss.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveDismiss = resolve;
+        })
+    );
 
     page.openHeaderActionsPopover(event);
     expect(page.isHeaderActionsPopoverOpen).toBe(true);
     expect(page.headerActionsPopoverEvent).toBe(event);
 
+    const openSettingsPromise = page.openSettingsFromPopover();
+
+    await Promise.resolve();
+
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
+
+    resolveDismiss?.(true);
+    await openSettingsPromise;
+
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
+    expect(popoverControllerMock.dismiss.mock.invocationCallOrder[0]).toBeLessThan(
+      routerMock.navigateByUrl.mock.invocationCallOrder[0]
+    );
+    expect(page.isHeaderActionsPopoverOpen).toBe(false);
+    expect(page.headerActionsPopoverEvent).toBeUndefined();
+  });
+
+  it('routes settings even when header popover dismissal rejects', async () => {
+    const page = createPage() as unknown as {
+      isHeaderActionsPopoverOpen: boolean;
+      headerActionsPopoverEvent: Event | undefined;
+      openHeaderActionsPopover: (event: Event) => void;
+      openSettingsFromPopover: () => Promise<void>;
+    };
+    const event = { type: 'click' } as unknown as Event;
+
+    popoverControllerMock.dismiss.mockRejectedValueOnce(new Error('dismiss failed'));
+
+    page.openHeaderActionsPopover(event);
     await page.openSettingsFromPopover();
+
+    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
     expect(page.isHeaderActionsPopoverOpen).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();
@@ -1671,6 +2033,55 @@ describe('ExplorePage explore modes UX', () => {
       igdbGameId: '100',
       title: 'Alpha',
     });
+  });
+
+  it('navigates to the previous non-ignored detail item when the active detail becomes ignored', () => {
+    const ignoredIds$ = new Subject<Set<string>>();
+    recommendationIgnoreServiceMock.ignoredIds$ = ignoredIds$;
+
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      detailNavigationStack: MockLaneItem[];
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+    const previousItem = {
+      ...mockLaneItem,
+      igdbGameId: '200',
+    };
+    const activeItem = {
+      ...mockLaneItem,
+      igdbGameId: '300',
+    };
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+
+    page.detailNavigationStack = [previousItem];
+    page.activeDetailRecommendation = activeItem;
+
+    ignoredIds$.next(new Set(['300']));
+
+    expect(openGameDetail).toHaveBeenCalledWith(previousItem);
+  });
+
+  it('closes the detail modal when the active detail becomes ignored without a fallback item', () => {
+    const ignoredIds$ = new Subject<Set<string>>();
+    recommendationIgnoreServiceMock.ignoredIds$ = ignoredIds$;
+
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      detailNavigationStack: MockLaneItem[];
+      closeGameDetailModal: () => void;
+    };
+    const closeGameDetailModal = vi.spyOn(page, 'closeGameDetailModal');
+
+    page.detailNavigationStack = [];
+    page.activeDetailRecommendation = {
+      ...mockLaneItem,
+      igdbGameId: '301',
+    };
+
+    ignoredIds$.next(new Set(['301']));
+
+    expect(closeGameDetailModal).toHaveBeenCalledTimes(1);
   });
 
   it('shows the lane-specific empty-state message when filtering removes selected lane items', () => {
@@ -1963,7 +2374,7 @@ describe('ExplorePage explore modes UX', () => {
       throwError(() => new Error('failed'))
     );
     await page.loadSimilarRecommendations(mockLanesResponse.items[0]);
-    expect(page.similarRecommendationsError).toContain('failed');
+    expect(page.similarRecommendationsError).toBe('');
     expect(page.similarRecommendationItems).toEqual([]);
   });
 
@@ -1987,10 +2398,108 @@ describe('ExplorePage explore modes UX', () => {
       runtimeMode: 'NEUTRAL',
       igdbGameId: '100',
       platformIgdbId: 6,
-      limit: 50,
+      offset: 0,
+      limit: 5,
     });
     expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
+  });
+
+  it('ignores similar responses after the detail modal closes', async () => {
+    const page = createPage();
+    let emitResponse:
+      | ((response: {
+          source: { igdbGameId: string; platformIgdbId: number };
+          page: { offset: number; limit: number; hasMore: boolean; nextOffset: number | null };
+          items: Array<{
+            igdbGameId: string;
+            platformIgdbId: number;
+            similarity: number;
+            reasons: {
+              summary: string;
+              structuredSimilarity: number;
+              semanticSimilarity: number;
+              blendedSimilarity: number;
+              sharedTokens: {
+                genres: string[];
+                developers: string[];
+                publishers: string[];
+                franchises: string[];
+                collections: string[];
+                themes: string[];
+                keywords: string[];
+              };
+            };
+          }>;
+        }) => void)
+      | null = null;
+
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
+      new Observable((subscriber) => {
+        emitResponse = (response) => {
+          subscriber.next(response);
+          subscriber.complete();
+        };
+      })
+    );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    page.closeGameDetailModal();
+    emitResponse?.({
+      source: { igdbGameId: '100', platformIgdbId: 6 },
+      page: { offset: 0, limit: 5, hasMore: true, nextOffset: 5 },
+      items: [
+        {
+          igdbGameId: '200',
+          platformIgdbId: 6,
+          similarity: 0.8,
+          reasons: {
+            summary: 'late result',
+            structuredSimilarity: 0.5,
+            semanticSimilarity: 0.8,
+            blendedSimilarity: 0.8,
+            sharedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: [],
+            },
+          },
+        },
+      ],
+    });
+    await flushAsync();
+
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
+    expect(page.similarRecommendationsError).toBe('');
+    expect(page.isLoadingSimilar).toBe(false);
+  });
+
+  it('ignores similar errors after the detail modal closes', async () => {
+    const page = createPage();
+    let failRequest: ((error: unknown) => void) | null = null;
+
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
+      new Observable((subscriber) => {
+        failRequest = (error) => {
+          subscriber.error(error);
+        };
+      })
+    );
+
+    await page.openGameDetail(mockLanesResponse.items[0]);
+    page.closeGameDetailModal();
+    failRequest?.(new Error('late failure'));
+    await flushAsync();
+
+    expect(page.similarRecommendationItems).toEqual([]);
+    expect(page.similarRecommendationsPage).toBeNull();
+    expect(page.similarRecommendationsError).toBe('');
+    expect(page.isLoadingSimilar).toBe(false);
   });
 
   it('covers platform identity checks and external link opening helpers', async () => {
@@ -2587,6 +3096,34 @@ describe('ExplorePage explore modes UX', () => {
     await page.ensureSimilarDisplayMetadata([{ igdbGameId: '910', platformIgdbId: 6 }]);
 
     expect(populateSpy).not.toHaveBeenCalled();
+  });
+
+  it('hydrates similar metadata for visible rows only', async () => {
+    const page = createPage() as unknown as {
+      similarRecommendationItems: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      visibleSimilarRecommendationCount: number;
+      ensureVisibleSimilarDisplayMetadata: () => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+    };
+
+    page.similarRecommendationItems = [
+      { igdbGameId: '910', platformIgdbId: 6 },
+      { igdbGameId: '911', platformIgdbId: 48 },
+      { igdbGameId: '912', platformIgdbId: 167 },
+    ];
+    page.visibleSimilarRecommendationCount = 2;
+
+    const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
+    (
+      page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
+    ).populateRecommendationDisplayMetadata = populateSpy;
+
+    await page.ensureVisibleSimilarDisplayMetadata();
+
+    expect(populateSpy).toHaveBeenCalledTimes(1);
+    const grouped = populateSpy.mock.calls[0]?.[0];
+    expect(Array.from(grouped.keys())).toEqual(['910', '911']);
+    expect(grouped.has('912')).toBe(false);
   });
 
   it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {

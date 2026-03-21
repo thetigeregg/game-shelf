@@ -14,6 +14,7 @@ export type DetailWebsiteModalIcon =
   | 'youtube'
   | 'twitch'
   | 'discord'
+  | 'bluesky'
   | 'reddit'
   | 'gamefaqs'
   | 'nintendo'
@@ -433,6 +434,9 @@ function resolveWebsiteIcon(website: GameWebsite, fallbackLabel?: string): Detai
   if (label === 'discord') {
     return 'discord';
   }
+  if (label === 'bluesky') {
+    return 'bluesky';
+  }
   if (label === 'reddit') {
     return 'reddit';
   }
@@ -494,6 +498,9 @@ function resolveWebsiteIconFromHostname(url: string): DetailWebsiteModalIcon | n
   }
   if (matchesHostname(url, ['discord.com', 'discord.gg'])) {
     return 'discord';
+  }
+  if (matchesHostname(url, ['bsky.app'])) {
+    return 'bluesky';
   }
   if (matchesHostname(url, ['reddit.com', 'redd.it'])) {
     return 'reddit';

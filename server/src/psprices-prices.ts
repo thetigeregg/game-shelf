@@ -4,7 +4,6 @@ import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
-import { isProviderMatchLocked } from './provider-match-lock.js';
 import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import {
@@ -307,7 +306,6 @@ export async function registerPsPricesRoute(
       const preferredPsPricesUrl =
         preferredPsPricesUrlOverride ??
         (hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload));
-      const psPricesMatchLocked = isProviderMatchLocked(payload, 'psPricesMatchLocked');
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {
           status: 'unavailable',
@@ -361,30 +359,25 @@ export async function registerPsPricesRoute(
         if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds) {
           incrementPspricesPriceMetric('hits');
           incrementPspricesPriceMetric('staleServed');
-          let scheduled = false;
-          if (psPricesMatchLocked) {
-            incrementPspricesPriceMetric('revalidateSkipped');
-          } else {
-            scheduled = schedulePspricesPriceRevalidation({
-              cacheKey: buildPspricesPriceCacheKey({
-                igdbGameId,
-                platformIgdbId,
-                regionPath: config.pspricesRegionPath,
-                show: config.pspricesShow,
-                platform: pspricesPlatform,
-              }),
-              request,
-              pool,
-              payload,
+          const scheduled = schedulePspricesPriceRevalidation({
+            cacheKey: buildPspricesPriceCacheKey({
               igdbGameId,
               platformIgdbId,
-              title,
-              preferredPsPricesUrl,
-              fetchImpl,
-              scheduleBackgroundRefresh,
-              enqueueRevalidationJob: options.enqueueRevalidationJob,
-            });
-          }
+              regionPath: config.pspricesRegionPath,
+              show: config.pspricesShow,
+              platform: pspricesPlatform,
+            }),
+            request,
+            pool,
+            payload,
+            igdbGameId,
+            platformIgdbId,
+            title,
+            preferredPsPricesUrl,
+            fetchImpl,
+            scheduleBackgroundRefresh,
+            enqueueRevalidationJob: options.enqueueRevalidationJob,
+          });
 
           reply.header('X-GameShelf-PSPrices-Cache', 'HIT_STALE');
           reply.header('X-GameShelf-PSPrices-Revalidate', scheduled ? 'scheduled' : 'skipped');
@@ -1775,9 +1768,7 @@ export async function processQueuedPspricesPriceRevalidation(
   if (!gamePayload) {
     throw new Error('PSPrices revalidation game row not found.');
   }
-  if (isProviderMatchLocked(gamePayload, 'psPricesMatchLocked')) {
-    return;
-  }
+  const isDiscoveryGame = isDiscoveryListType(gamePayload['listType']);
 
   const pspricesPlatform = PSPRICES_PLATFORM_BY_IGDB_ID.get(platformIgdbId) ?? null;
   if (!pspricesPlatform) {
@@ -1802,31 +1793,33 @@ export async function processQueuedPspricesPriceRevalidation(
     preferredUrl: preferredPsPricesUrl,
   });
 
-  const currentRetryState = maybeRearmProviderRetryState({
-    state: parseProviderRetryState(
-      gamePayload['enrichmentRetry'] &&
-        typeof gamePayload['enrichmentRetry'] === 'object' &&
-        !Array.isArray(gamePayload['enrichmentRetry'])
-        ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['psprices']
-        : null
-    ),
-    nowMs: Date.now(),
-    releaseYear:
-      typeof gamePayload['releaseYear'] === 'number' && Number.isInteger(gamePayload['releaseYear'])
-        ? gamePayload['releaseYear']
-        : null,
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-  });
-  const retryState = nextProviderRetryState({
-    current: currentRetryState,
-    nowIso: new Date().toISOString(),
-    success: pspricesLookup.snapshot !== null,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-    backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
-    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
-  });
+  const retryState = isDiscoveryGame
+    ? nextProviderRetryState({
+        current: maybeRearmProviderRetryState({
+          state: parseProviderRetryState(
+            gamePayload['enrichmentRetry'] &&
+              typeof gamePayload['enrichmentRetry'] === 'object' &&
+              !Array.isArray(gamePayload['enrichmentRetry'])
+              ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['psprices']
+              : null
+          ),
+          nowMs: Date.now(),
+          releaseYear:
+            typeof gamePayload['releaseYear'] === 'number' &&
+            Number.isInteger(gamePayload['releaseYear'])
+              ? gamePayload['releaseYear']
+              : null,
+          rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+          rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+          maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+        }),
+        nowIso: new Date().toISOString(),
+        success: pspricesLookup.snapshot !== null,
+        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+        backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
+        backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+      })
+    : null;
 
   await persistPsPricesSnapshot(pool, {
     igdbGameId,
@@ -1838,7 +1831,7 @@ export async function processQueuedPspricesPriceRevalidation(
     bestPrice: pspricesLookup.snapshot,
     match: pspricesLookup.match,
     candidates: pspricesLookup.candidates,
-    retryState,
+    retryState: isDiscoveryGame ? retryState : null,
   });
 }
 

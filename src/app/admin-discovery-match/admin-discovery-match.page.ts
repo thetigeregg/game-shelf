@@ -246,10 +246,22 @@ export class AdminDiscoveryMatchPage implements OnInit {
       : 'queues targeted discovery enrichment for the visible games';
   }
 
+  get lockMeaningNote(): string {
+    return this.selectedProvider === 'pricing'
+      ? 'Locked matches keep the saved pricing match during automatic refreshes.'
+      : 'Locked matches keep the saved provider match during automatic refreshes.';
+  }
+
   get activeRequeueLabel(): string {
     return this.activeModalProvider === 'pricing'
       ? 'Requeue pricing refresh'
       : 'Requeue enrichment';
+  }
+
+  get activeLockMeaningNote(): string {
+    return this.activeModalProvider === 'pricing'
+      ? 'Locking keeps the saved pricing match but still allows automatic refresh.'
+      : 'Locking keeps the saved match but still allows automatic refresh.';
   }
 
   get showPsPricesFields(): boolean {

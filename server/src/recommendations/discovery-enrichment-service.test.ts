@@ -645,7 +645,7 @@ void test('discovery enrichment records steam retry state on transient steam loo
   assert.equal(repository.updates[0]?.payload.steamEnrichedAt, undefined);
 });
 
-void test('discovery enrichment skips locked HLTB and review providers', async () => {
+void test('discovery enrichment refreshes locked HLTB and review providers using saved query fields', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
     {
@@ -653,18 +653,58 @@ void test('discovery enrichment skips locked HLTB and review providers', async (
       platformIgdbId: 48,
       payload: {
         title: 'Locked Discovery Game',
+        releaseYear: 2004,
         platform: 'PlayStation 4',
         listType: 'discovery',
         hltbMatchLocked: true,
+        hltbMatchQueryTitle: 'Locked HLTB Query',
+        hltbMatchQueryReleaseYear: 2005,
+        hltbMatchQueryPlatform: 'PS4',
         reviewMatchLocked: true,
+        reviewMatchQueryTitle: 'Locked Review Query',
+        reviewMatchQueryReleaseYear: 2006,
+        reviewMatchQueryPlatform: 'PlayStation 4',
+        reviewMatchPlatformIgdbId: 48,
       },
     },
   ];
 
-  let fetchCalls = 0;
+  const fetchUrls: string[] = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
-    fetchCalls += 1;
+  globalThis.fetch = ((input: URL | RequestInfo) => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbMainHours: 12,
+              hltbMainExtraHours: 18,
+              hltbCompletionistHours: 25,
+            },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              metacriticScore: 84,
+              metacriticUrl: 'https://metacritic.example/locked-discovery-game',
+            },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
     return Promise.resolve(new Response('{}', { status: 200 }));
   }) as typeof fetch;
 
@@ -684,11 +724,30 @@ void test('discovery enrichment skips locked HLTB and review providers', async (
 
     assert.deepEqual(result, {
       scanned: 1,
-      updated: 0,
-      skipped: 1,
+      updated: 1,
+      skipped: 0,
     } satisfies DiscoveryEnrichmentSummary);
-    assert.equal(fetchCalls, 0);
-    assert.equal(repository.updates.length, 0);
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0]?.payload;
+    assert.ok(updatedPayload);
+    assert.equal(updatedPayload.hltbMainHours, 12);
+    assert.equal(updatedPayload.reviewSource, 'metacritic');
+    assert.equal(updatedPayload.reviewScore, 84);
+
+    const hltbRequest = fetchUrls.find((url) => url.includes('/v1/hltb/search'));
+    assert.ok(hltbRequest);
+    const hltbUrl = new URL(hltbRequest);
+    assert.equal(hltbUrl.searchParams.get('q'), 'Locked HLTB Query');
+    assert.equal(hltbUrl.searchParams.get('releaseYear'), '2005');
+    assert.equal(hltbUrl.searchParams.get('platform'), 'PS4');
+
+    const reviewRequest = fetchUrls.find((url) => url.includes('/v1/metacritic/search'));
+    assert.ok(reviewRequest);
+    const reviewUrl = new URL(reviewRequest);
+    assert.equal(reviewUrl.searchParams.get('q'), 'Locked Review Query');
+    assert.equal(reviewUrl.searchParams.get('releaseYear'), '2006');
+    assert.equal(reviewUrl.searchParams.get('platform'), 'PlayStation 4');
+    assert.equal(reviewUrl.searchParams.get('platformIgdbId'), '48');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -848,10 +907,7 @@ void test('discovery enrichment refreshes locked MobyGames review using stored g
       backoffMaxHours: 168,
     });
 
-    const result = await service.enrichNow({
-      gameKeys: ['333::167'],
-      forceLockedProviders: ['review'],
-    });
+    const result = await service.enrichNow({ gameKeys: ['333::167'] });
 
     assert.deepEqual(result, {
       scanned: 1,
@@ -876,6 +932,65 @@ void test('discovery enrichment refreshes locked MobyGames review using stored g
       requestUrl.searchParams.get('include'),
       'game_id,moby_url,moby_score,critic_score'
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment skips locked MobyGames review refresh when saved game id is missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '334',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Manual Review Title',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+        reviewMatchLocked: true,
+        reviewSource: 'mobygames',
+        reviewMatchQueryTitle: 'Manual Review Query',
+        reviewMatchQueryReleaseYear: 2000,
+        reviewMatchQueryPlatform: 'PS1',
+        reviewMatchPlatformIgdbId: 167,
+        reviewMatchMobygamesGameId: null,
+        mobygamesGameId: null,
+      },
+    },
+  ];
+
+  const fetchUrls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    fetchUrls.push(url);
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['334::167'], providers: ['review'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 0,
+      skipped: 1,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchUrls.length, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

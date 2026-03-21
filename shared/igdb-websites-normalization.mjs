@@ -77,10 +77,25 @@ function normalizeHttpUrl(value) {
       return null;
     }
 
+    const steamAppId = extractSteamAppIdFromUrl(parsed);
+    if (steamAppId !== null) {
+      return `https://store.steampowered.com/app/${String(steamAppId)}`;
+    }
+
     return parsed.toString();
   } catch {
     return null;
   }
+}
+
+function extractSteamAppIdFromUrl(value) {
+  const url = value instanceof URL ? value.toString() : normalizeText(value);
+  if (!url) {
+    return null;
+  }
+
+  const match = STEAM_APP_URL_PATTERN.exec(url);
+  return match ? parsePositiveInteger(match[1]) : null;
 }
 
 function normalizeLookupKey(value) {
@@ -309,14 +324,9 @@ export function deriveSteamAppIdFromWebsites(value) {
       continue;
     }
 
-    const match = STEAM_APP_URL_PATTERN.exec(url);
-    if (!match) {
-      continue;
-    }
-
-    const parsed = parsePositiveInteger(match[1]);
-    if (parsed !== null) {
-      return parsed;
+    const steamAppId = extractSteamAppIdFromUrl(url);
+    if (steamAppId !== null) {
+      return steamAppId;
     }
   }
 

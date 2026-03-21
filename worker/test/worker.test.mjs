@@ -286,7 +286,7 @@ test('normalizeIgdbGame builds websites from website rows', () => {
     {
       provider: 'steam',
       providerLabel: 'Steam',
-      url: 'https://store.steampowered.com/app/480/Spacewar/',
+      url: 'https://store.steampowered.com/app/480',
       typeId: 13,
       typeName: 'Steam',
       trusted: null,

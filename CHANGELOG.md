@@ -2792,6 +2792,7 @@
 - fe4a23e4 feat: implement game catalog platform context handling
 
 ## v1.16.0 - 2026-03-21
+
 - 8d86fbfa Merge pull request #267 from thetigeregg/feat/wishlist-prices
 - fda1602f fix(enrichment): preserve locked mobygames review context during refresh
 - 207a8a10 feat(tests): add PSPrices refresh job builder tests for unsupported, backoff
@@ -2800,6 +2801,7 @@
 - 68a95f49 feat(psprices): implement PSPrices refresh job builder and related tests
 
 ## v1.17.0 - 2026-03-21
+
 - 9df37192 Merge pull request #266 from thetigeregg/feat/external-link
 - 7442e8cd Merge branch 'main' into feat/external-link
 - aab370ef fix(websites): accept protocol-relative and Nintendo Europe links
@@ -2844,12 +2846,14 @@
 - bdcf5f49 feat: add storefront links normalization and persistence
 
 ## v1.18.0 - 2026-03-21
+
 - 87552ea4 Merge pull request #268 from thetigeregg/feat/menu-close
 - 543499f2 fix(explore): separate header popover dismiss handling
 - 320ed851 feat: add test for settings routing on header popover dismissal rejection
 - 2c8a2c94 feat: add PopoverController to ExplorePage for improved popover management
 
 ## v1.19.0 - 2026-03-21
+
 - 357b9a22 Merge pull request #269 from thetigeregg/feat/crash
 - fad9a7f4 fix(explore): require nextOffset for similar load-more
 - ef7c7d81 fix(explore): auto-fill filtered similar recommendation pages
@@ -2859,3 +2863,12 @@
 - 8c16f8b7 feat: implement pagination for similar recommendations with offset and limit
 - bed077a0 feat: enhance similar recommendations metadata hydration and loading behavior
 
+## v1.20.0 - 2026-03-22
+
+- b55b210d Merge pull request #270 from thetigeregg/feat/show-more
+- ee457127 fix(game-detail): preserve detail text toggle expandability
+- e0159831 feat: improve detail text expandability logic in GameDetailContentComponent
+- c2802c6d Merge branch 'main' into feat/show-more
+- 630ea33b feat: preserve expanded detail text on game refresh and improve toggle functionality
+- 158632b7 feat: enhance detail text toggle functionality for summary and storyline
+- 5d7be486 feat: add detail text toggle functionality and reset on game change

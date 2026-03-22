@@ -58,6 +58,7 @@ vi.mock('swiper/modules', () => ({
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import type { GameEntry } from '../../core/models/game.models';
+import type { SimpleChanges } from '@angular/core';
 
 type SwiperInstanceMock = {
   allowTouchMove: boolean;
@@ -67,6 +68,11 @@ type SwiperInstanceMock = {
     update: ReturnType<typeof vi.fn>;
   };
   destroy: ReturnType<typeof vi.fn>;
+};
+
+type DetailTextMeasurementState = {
+  clientHeight: number;
+  scrollHeight: number;
 };
 
 function createSwiperInstance(): SwiperInstanceMock {
@@ -96,6 +102,37 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
+}
+
+function createDetailTextMeasurementElement(
+  expandedState: DetailTextMeasurementState,
+  collapsedState: DetailTextMeasurementState,
+  initiallyCollapsed = false
+): HTMLElement {
+  const collapsedClass = 'detail-long-text-collapsed';
+  let isCollapsed = initiallyCollapsed;
+
+  return {
+    classList: {
+      contains: (value: string) => value === collapsedClass && isCollapsed,
+      add: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = true;
+        }
+      },
+      remove: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = false;
+        }
+      },
+    },
+    get clientHeight() {
+      return isCollapsed ? collapsedState.clientHeight : expandedState.clientHeight;
+    },
+    get scrollHeight() {
+      return isCollapsed ? collapsedState.scrollHeight : expandedState.scrollHeight;
+    },
+  } as HTMLElement;
 }
 
 describe('GameDetailContentComponent rating display', () => {
@@ -134,6 +171,23 @@ describe('GameDetailContentComponent rating display', () => {
 
   function getCreatedSwiper(): SwiperInstanceMock {
     return swiperConstructorMock.mock.results[0]?.value as SwiperInstanceMock;
+  }
+
+  function updateGame(
+    component: GameDetailContentComponent,
+    currentValue: GameEntry,
+    previousValue?: GameEntry,
+    firstChange = false
+  ): void {
+    component.game = currentValue;
+    component.ngOnChanges({
+      game: {
+        currentValue,
+        previousValue,
+        firstChange,
+        isFirstChange: () => firstChange,
+      },
+    } as SimpleChanges);
   }
 
   it('shows rating label without trailing zeros and edit action when rated', () => {
@@ -228,6 +282,193 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.currentPriceLabel).toBe('Free');
   });
 
+  it('derives detail text toggle availability from summary and storyline length before render', () => {
+    const component = createComponent();
+    component.context = 'library';
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        summary: 'x'.repeat(261),
+        storyline: 'short storyline',
+      }),
+      undefined,
+      true
+    );
+
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.canToggleDetailText('storyline')).toBe(false);
+  });
+
+  it('toggles summary and storyline expansion independently when expandable', () => {
+    const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpandable.storyline = true;
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+
+    component.toggleDetailText('summary');
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+
+    component.toggleDetailText('storyline');
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(true);
+
+    component.toggleDetailText('summary');
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(true);
+  });
+
+  it('does not toggle summary or storyline when the field is not expandable', () => {
+    const component = createComponent();
+
+    component.toggleDetailText('summary');
+    component.toggleDetailText('storyline');
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
+  it('clears an existing detail text toggle when overflow measurement reports no clipping', () => {
+    const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpandable.storyline = true;
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        storylineTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).summaryTextRef = {
+      nativeElement: {
+        classList: {
+          contains: () => true,
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+        clientHeight: 100,
+        scrollHeight: 100,
+      } as unknown as HTMLElement,
+    };
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        storylineTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).storylineTextRef = {
+      nativeElement: {
+        classList: {
+          contains: () => true,
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+        clientHeight: 120,
+        scrollHeight: 120,
+      } as unknown as HTMLElement,
+    };
+
+    (
+      component as unknown as {
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).refreshDetailTextExpandableState();
+
+    expect(component.canToggleDetailText('summary')).toBe(false);
+    expect(component.canToggleDetailText('storyline')).toBe(false);
+  });
+
+  it('measures overflow in collapsed mode so expanded text remains expandable', () => {
+    const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpanded.summary = true;
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).summaryTextRef = {
+      nativeElement: createDetailTextMeasurementElement(
+        {
+          clientHeight: 180,
+          scrollHeight: 180,
+        },
+        {
+          clientHeight: 90,
+          scrollHeight: 150,
+        }
+      ),
+    };
+
+    (
+      component as unknown as {
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).refreshDetailTextExpandableState();
+
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+  });
+
+  it('resets expanded detail text when the selected game changes', () => {
+    const component = createComponent();
+    component.context = 'library';
+
+    const previousGame = makeLibraryGame({
+      summary: 'x'.repeat(261),
+      storyline: 'y'.repeat(261),
+    });
+
+    updateGame(component, previousGame, undefined, true);
+
+    component.toggleDetailText('summary');
+    component.toggleDetailText('storyline');
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        igdbGameId: '456',
+        title: 'Secret of Mana',
+        summary: 'a'.repeat(261),
+        storyline: 'b'.repeat(261),
+      }),
+      previousGame
+    );
+
+    expect(component.isDetailTextExpanded('summary')).toBe(false);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
+  it('preserves expanded detail text when the same game is refreshed with a new object', () => {
+    const component = createComponent();
+    component.context = 'library';
+
+    const previousGame = makeLibraryGame({
+      summary: 'x'.repeat(261),
+      storyline: 'y'.repeat(261),
+    });
+
+    updateGame(component, previousGame, undefined, true);
+
+    component.toggleDetailText('summary');
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        igdbGameId: previousGame.igdbGameId,
+        platformIgdbId: previousGame.platformIgdbId,
+        summary: 'updated '.repeat(40),
+        storyline: 'y'.repeat(261),
+      }),
+      previousGame
+    );
+
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('storyline')).toBe(false);
+  });
+
   it('falls back to default currency formatting when Intl throws for a currency code', () => {
     const component = createComponent();
     component.context = 'library';
@@ -283,7 +524,15 @@ describe('GameDetailContentComponent rating display', () => {
 
     component.game = makeLibraryGame({
       coverUrl: 'https://img.example/cover.jpg',
-      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }],
+      screenshots: [
+        {
+          id: 2,
+          imageId: 'shot-2',
+          url: 'https://img.example/shot-2.jpg',
+          width: 1280,
+          height: 720,
+        },
+      ],
     });
     component.ngOnChanges({
       game: {
@@ -356,9 +605,7 @@ describe('GameDetailContentComponent rating display', () => {
     });
     attachSwiperContainer(component);
 
-    let queuedFrameCallback: FrameRequestCallback | null = null;
-    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback): number => {
-      queuedFrameCallback = callback;
+    const requestAnimationFrameSpy = vi.fn((_callback: FrameRequestCallback): number => {
       return 42;
     });
     const cancelAnimationFrameSpy = vi.fn();
@@ -373,7 +620,10 @@ describe('GameDetailContentComponent rating display', () => {
     expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(42);
     expect(swiper.destroy).toHaveBeenCalledWith(true, true);
 
-    queuedFrameCallback?.(0);
+    const queuedCallback = requestAnimationFrameSpy.mock.calls[0]?.[0] as
+      | FrameRequestCallback
+      | undefined;
+    queuedCallback?.(0);
     expect(swiper.update).not.toHaveBeenCalled();
     expect(swiperConstructorMock).toHaveBeenCalledTimes(1);
   });

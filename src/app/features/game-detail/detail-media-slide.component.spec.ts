@@ -22,7 +22,17 @@ describe('DetailMediaSlideComponent', () => {
       'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
     );
 
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_big/hash.jpg';
+    expect(component.displayBackdropSrc).toBe(
+      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    );
+
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hash.jpg';
+    expect(component.displayBackdropSrc).toBe(
+      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    );
+
+    component.src = ' https://images.igdb.com/igdb/image/upload/t_screenshot_med_2x/hash.jpg ';
     expect(component.displayBackdropSrc).toBe(
       'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
     );

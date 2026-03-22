@@ -19,14 +19,14 @@ describe('game-media-normalization', () => {
       {
         id: 7,
         imageId: 'abc123',
-        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc123.jpg',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/abc123.jpg',
         width: 1280,
         height: 720,
       },
       {
         id: null,
         imageId: 'abc123',
-        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc123.jpg',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/abc123.jpg',
         width: null,
         height: null,
       },

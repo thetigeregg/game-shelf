@@ -112,6 +112,10 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     name: 'Super Mario Odyssey',
     first_release_date: 1508457600,
     cover: { image_id: 'abc123' },
+    screenshots: [
+      { id: 7, image_id: 'shot123', width: '1280', height: '720' },
+      { image_id: '   ' },
+    ],
     platforms: [{ name: 'Nintendo Switch' }],
   });
 
@@ -135,7 +139,15 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     keywords: [],
     keywordIds: [],
     steamAppId: null,
-    screenshots: [],
+    screenshots: [
+      {
+        id: 7,
+        imageId: 'shot123',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot123.jpg',
+        width: 1280,
+        height: 720,
+      },
+    ],
     videos: [],
     platforms: ['Nintendo Switch'],
     platformOptions: [{ id: null, name: 'Nintendo Switch' }],

@@ -6,6 +6,7 @@ describe('game-media-normalization', () => {
     const normalized = normalizeGameScreenshots(
       [
         null,
+        { imageId: '   ' },
         { id: '7', image_id: '  abc123  ', width: '1280', height: '720' },
         { id: 7, imageId: 'abc123', width: 2000, height: 1000 },
         { id: -1, imageId: 'abc123' },
@@ -42,6 +43,7 @@ describe('game-media-normalization', () => {
     const normalized = normalizeGameVideos(
       [
         null,
+        { videoId: '   ' },
         { id: '11', name: '  Trailer  ', video_id: 'PIF_fqFZEuk' },
         { id: 11, name: 'Duplicate id', videoId: 'DIFFERENT123' },
         { id: -2, name: '', videoId: 'a b c' },

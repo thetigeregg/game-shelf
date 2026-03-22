@@ -9,6 +9,7 @@ test('normalizeIgdbScreenshotList handles defaults, dedupe, ids, and cap', () =>
   const normalized = normalizeIgdbScreenshotList(
     [
       null,
+      { imageId: '   ' },
       { id: '5', image_id: '  abc  ', width: '1280', height: '720' },
       { id: 5, image_id: 'abc', width: 2000, height: 1000 },
       { imageId: 'def', width: 0, height: 'x' },
@@ -56,6 +57,7 @@ test('normalizeIgdbVideoList handles trimming, dedupe, ids, and URL encoding', (
   const normalized = normalizeIgdbVideoList(
     [
       null,
+      { videoId: '   ' },
       { id: '9', name: '  Trailer  ', video_id: 'PIF_fqFZEuk' },
       { id: 9, name: 'duplicate', video_id: 'DUPLICATE11' },
       { id: -1, name: '', videoId: 'a b c' },

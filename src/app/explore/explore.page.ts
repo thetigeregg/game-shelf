@@ -59,6 +59,7 @@ import {
   RecommendationTarget,
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
@@ -275,6 +276,8 @@ export class ExplorePage implements OnInit {
   private readonly catalogCache = new Map<string, GameCatalogResult>();
   private readonly catalogRequestCache = new Map<string, Promise<GameCatalogResult | null>>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedResponse>();
+  private readonly emptyDetailVideos: GameVideo[] = [];
+  private readonly emptyDetailWebsites: GameWebsite[] = [];
   private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
   private readonly popularityCatalogHydrationAttempted = new Set<string>();
@@ -294,7 +297,11 @@ export class ExplorePage implements OnInit {
   private cachedVisibleRecommendationItems: RecommendationItem[] = [];
   private cachedVisiblePopularityItems: PopularityFeedItem[] = [];
   private cachedVisibleSimilarItems: RecommendationSimilarItem[] = [];
+  private cachedDetailWebsiteItemsGame: GameCatalogResult | GameEntry | null = null;
+  private cachedDetailWebsiteItemsSource: GameWebsite[] = this.emptyDetailWebsites;
+  private cachedDetailWebsiteItems: DetailWebsiteModalItem[] = [];
   @ViewChild('detailContent') private detailContent?: IonContent;
+  private readonly debugLogService = inject(DebugLogService);
 
   constructor() {
     addIcons({
@@ -835,6 +842,14 @@ export class ExplorePage implements OnInit {
           title: this.getPopularityTitle(item),
         }));
 
+    this.debugLogService.trace('explore.detail.popularity.open', {
+      igdbGameId: item.id,
+      platformIgdbId: item.platformIgdbId,
+      hasLocal: Boolean(local),
+      hasCachedCatalog: Boolean(initialCatalog),
+      requestedIdentityKey,
+    });
+
     if (!local) {
       try {
         if (!initialCatalog) {
@@ -844,6 +859,11 @@ export class ExplorePage implements OnInit {
               fetchedCatalog,
               item.platformIgdbId
             );
+            this.debugLogService.trace('explore.detail.popularity.catalog_loaded', {
+              igdbGameId: item.id,
+              platformIgdbId: item.platformIgdbId,
+              requestedIdentityKey,
+            });
           }
         }
 
@@ -851,11 +871,26 @@ export class ExplorePage implements OnInit {
           this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
             this.selectedGameDetail
           );
+          this.debugLogService.trace('explore.detail.popularity.library_check_complete', {
+            igdbGameId: item.id,
+            platformIgdbId: item.platformIgdbId,
+            isSelectedGameInLibrary: this.isSelectedGameInLibrary,
+            requestedIdentityKey,
+          });
         }
       } catch (error) {
         if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
           this.detailErrorMessage =
             error instanceof Error ? error.message : 'Unable to load game details.';
+          this.debugLogService.trace('explore.detail.popularity.error', {
+            igdbGameId: item.id,
+            platformIgdbId: item.platformIgdbId,
+            requestedIdentityKey,
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : { value: String(error) },
+          });
         }
       } finally {
         if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
@@ -881,10 +916,14 @@ export class ExplorePage implements OnInit {
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
+    const previousActiveDetailRecommendation = this.activeDetailRecommendation;
 
-    if (options?.pushCurrentToStack && this.activeDetailRecommendation) {
-      this.detailNavigationStack.push(this.activeDetailRecommendation);
+    if (options?.pushCurrentToStack === true && previousActiveDetailRecommendation) {
+      this.detailNavigationStack.push(previousActiveDetailRecommendation);
     }
+
+    const pushedToStack =
+      options?.pushCurrentToStack === true && previousActiveDetailRecommendation !== null;
 
     this.isGameDetailModalOpen = true;
     this.isVideosModalOpen = false;
@@ -910,6 +949,18 @@ export class ExplorePage implements OnInit {
           title: this.getDisplayTitle(item),
         }));
 
+    this.debugLogService.trace('explore.detail.open', {
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId,
+      target: this.selectedTarget,
+      runtimeMode: this.selectedRuntimeMode,
+      lane: this.selectedLaneKey,
+      hasLocal: Boolean(local),
+      hasCachedCatalog: Boolean(initialCatalog),
+      pushedToStack,
+      activeStackDepth: this.detailNavigationStack.length,
+    });
+
     if (!local) {
       try {
         if (!initialCatalog) {
@@ -923,15 +974,32 @@ export class ExplorePage implements OnInit {
               fetchedCatalog,
               item.platformIgdbId
             );
+            this.debugLogService.trace('explore.detail.catalog_loaded', {
+              igdbGameId: item.igdbGameId,
+              platformIgdbId: item.platformIgdbId,
+            });
           }
         }
 
         this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
           this.selectedGameDetail
         );
+        this.debugLogService.trace('explore.detail.library_check_complete', {
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          isSelectedGameInLibrary: this.isSelectedGameInLibrary,
+        });
       } catch (error) {
         this.detailErrorMessage =
           error instanceof Error ? error.message : 'Unable to load game details.';
+        this.debugLogService.trace('explore.detail.error', {
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : { value: String(error) },
+        });
       } finally {
         this.isLoadingDetail = false;
       }
@@ -967,6 +1035,9 @@ export class ExplorePage implements OnInit {
     this.similarRecommendationItems = [];
     this.similarRecommendationsPage = null;
     this.invalidateSimilarVisibility();
+    this.cachedDetailWebsiteItemsGame = null;
+    this.cachedDetailWebsiteItemsSource = this.emptyDetailWebsites;
+    this.cachedDetailWebsiteItems = [];
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
@@ -1224,18 +1295,34 @@ export class ExplorePage implements OnInit {
   }
 
   get detailWebsiteItems(): DetailWebsiteModalItem[] {
-    return buildDetailWebsiteModalItems({
-      websites: this.detailWebsites,
+    const websites = this.detailWebsites;
+    if (
+      this.cachedDetailWebsiteItemsGame === this.selectedGameDetail &&
+      this.cachedDetailWebsiteItemsSource === websites
+    ) {
+      return this.cachedDetailWebsiteItems;
+    }
+
+    this.cachedDetailWebsiteItemsGame = this.selectedGameDetail;
+    this.cachedDetailWebsiteItemsSource = websites;
+    this.cachedDetailWebsiteItems = buildDetailWebsiteModalItems({
+      websites,
       buildSearchUrl: (provider) => this.buildShortcutSearchUrl(provider),
     });
+
+    return this.cachedDetailWebsiteItems;
   }
 
   get detailVideos(): GameVideo[] {
-    return Array.isArray(this.selectedGameDetail?.videos) ? this.selectedGameDetail.videos : [];
+    return Array.isArray(this.selectedGameDetail?.videos)
+      ? this.selectedGameDetail.videos
+      : this.emptyDetailVideos;
   }
 
   get detailWebsites(): GameWebsite[] {
-    return Array.isArray(this.selectedGameDetail?.websites) ? this.selectedGameDetail.websites : [];
+    return Array.isArray(this.selectedGameDetail?.websites)
+      ? this.selectedGameDetail.websites
+      : this.emptyDetailWebsites;
   }
 
   get hasDetailVideosShortcut(): boolean {
@@ -2098,6 +2185,16 @@ export class ExplorePage implements OnInit {
       this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
     }
 
+    this.debugLogService.trace('explore.detail.similar.load_start', {
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId,
+      target: this.selectedTarget,
+      runtimeMode: this.selectedRuntimeMode,
+      append,
+      offset,
+      requestIdentityKey,
+    });
+
     try {
       const response = await firstValueFrom(
         this.igdbProxyService.getRecommendationSimilar({
@@ -2120,6 +2217,17 @@ export class ExplorePage implements OnInit {
       this.similarRecommendationsPage = response.page;
       this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
       this.invalidateSimilarVisibility();
+      this.debugLogService.trace('explore.detail.similar.load_complete', {
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId,
+        append,
+        offset,
+        loadedCount: response.items.length,
+        totalCount: this.similarRecommendationItems.length,
+        hasMore: response.page.hasMore,
+        nextOffset: response.page.nextOffset,
+        requestIdentityKey,
+      });
       await this.ensureSimilarRecommendationPageFilled(item, requestIdentityKey);
       this.scheduleVisibleSimilarDisplayMetadata();
     } catch (error) {
@@ -2128,6 +2236,15 @@ export class ExplorePage implements OnInit {
       }
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
+      this.debugLogService.trace('explore.detail.similar.load_error', {
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId,
+        append,
+        offset,
+        requestIdentityKey,
+        code: normalized.code,
+        message: normalized.message,
+      });
       if (!append) {
         this.similarRecommendationItems = [];
         this.similarRecommendationsPage = null;
@@ -2162,6 +2279,13 @@ export class ExplorePage implements OnInit {
         break;
       }
 
+      this.debugLogService.trace('explore.detail.similar.autofill_request', {
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId,
+        nextOffset,
+        requestIdentityKey,
+      });
+
       const response = await firstValueFrom(
         this.igdbProxyService.getRecommendationSimilar({
           target: this.selectedTarget,
@@ -2181,6 +2305,15 @@ export class ExplorePage implements OnInit {
       this.similarRecommendationsPage = response.page;
       this.visibleSimilarRecommendationCount = this.similarRecommendationItems.length;
       this.invalidateSimilarVisibility();
+      this.debugLogService.trace('explore.detail.similar.autofill_complete', {
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId,
+        appendedCount: response.items.length,
+        totalCount: this.similarRecommendationItems.length,
+        hasMore: response.page.hasMore,
+        nextOffset: response.page.nextOffset,
+        requestIdentityKey,
+      });
     }
 
     if (

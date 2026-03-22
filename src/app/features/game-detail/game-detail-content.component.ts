@@ -64,6 +64,7 @@ import { DetailMediaSlideComponent } from './detail-media-slide.component';
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
 type DetailMediaSlide = { key: string; src: string };
+type DetailTextField = 'summary' | 'storyline';
 
 @Component({
   selector: 'app-game-detail-content',
@@ -90,6 +91,7 @@ type DetailMediaSlide = { key: string; src: string };
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
+  private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -113,8 +115,15 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @Output() addToLibrary = new EventEmitter<void>();
   @Output() ignore = new EventEmitter<void>();
   @ViewChild('swiperContainer') private swiperContainerRef?: ElementRef<HTMLElement>;
+  @ViewChild('summaryText') private summaryTextRef?: ElementRef<HTMLElement>;
+  @ViewChild('storylineText') private storylineTextRef?: ElementRef<HTMLElement>;
 
   detailTextExpanded = {
+    summary: false,
+    storyline: false,
+  };
+
+  detailTextExpandable = {
     summary: false,
     storyline: false,
   };
@@ -159,6 +168,24 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if ('game' in changes) {
+      const gameChange = changes['game'];
+      const currentIdentity = this.buildDetailGameIdentity(gameChange.currentValue as DetailGame);
+      const previousIdentity = this.buildDetailGameIdentity(gameChange.previousValue as DetailGame);
+
+      if (gameChange.firstChange || currentIdentity !== previousIdentity) {
+        this.detailTextExpanded = {
+          summary: false,
+          storyline: false,
+        };
+      }
+
+      this.detailTextExpandable = {
+        summary: this.hasPotentiallyLongDetailText(this.game.summary),
+        storyline: this.hasPotentiallyLongDetailText(this.game.storyline),
+      };
+    }
+
     if (!this.swiperDestroyed && 'game' in changes) {
       this.queueSwiperRefresh();
     }
@@ -213,6 +240,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       }
 
       this.refreshSwiper();
+      this.refreshDetailTextExpandableState();
     });
   }
 
@@ -551,17 +579,85 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return amount !== null && amount >= 0;
   }
 
-  isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
+  isDetailTextExpanded(field: DetailTextField): boolean {
     return this.detailTextExpanded[field];
   }
 
-  toggleDetailText(field: 'summary' | 'storyline'): void {
-    this.detailTextExpanded[field] = !this.detailTextExpanded[field];
+  canToggleDetailText(field: DetailTextField): boolean {
+    return this.detailTextExpandable[field];
   }
 
-  shouldShowDetailTextToggle(value: string | null | undefined): boolean {
+  toggleDetailText(field: DetailTextField): void {
+    if (!this.canToggleDetailText(field)) {
+      return;
+    }
+
+    this.detailTextExpanded = {
+      ...this.detailTextExpanded,
+      [field]: !this.detailTextExpanded[field],
+    };
+  }
+
+  private buildDetailGameIdentity(game: DetailGame | null | undefined): string {
+    if (!game) {
+      return '';
+    }
+
+    const platformIgdbId =
+      typeof game.platformIgdbId === 'number' && Number.isFinite(game.platformIgdbId)
+        ? String(game.platformIgdbId)
+        : '';
+
+    return `${game.igdbGameId}::${platformIgdbId}`;
+  }
+
+  private hasPotentiallyLongDetailText(value: string | null | undefined): boolean {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 260;
+  }
+
+  private refreshDetailTextExpandableState(): void {
+    const summaryElement = this.summaryTextRef?.nativeElement;
+    const storylineElement = this.storylineTextRef?.nativeElement;
+
+    const summaryExpandable = summaryElement
+      ? this.isDetailTextOverflowing(summaryElement)
+      : this.detailTextExpandable.summary;
+    const storylineExpandable = storylineElement
+      ? this.isDetailTextOverflowing(storylineElement)
+      : this.detailTextExpandable.storyline;
+
+    this.detailTextExpandable = {
+      summary: summaryExpandable,
+      storyline: storylineExpandable,
+    };
+
+    this.detailTextExpanded = {
+      ...this.detailTextExpanded,
+      summary: summaryExpandable ? this.detailTextExpanded.summary : false,
+      storyline: storylineExpandable ? this.detailTextExpanded.storyline : false,
+    };
+  }
+
+  private isDetailTextOverflowing(element: HTMLElement | undefined): boolean {
+    if (!element) {
+      return false;
+    }
+
+    const collapsedClass = GameDetailContentComponent.DETAIL_TEXT_COLLAPSED_CLASS;
+    const wasCollapsed = element.classList.contains(collapsedClass);
+
+    if (!wasCollapsed) {
+      element.classList.add(collapsedClass);
+    }
+
+    try {
+      return element.scrollHeight - element.clientHeight > 1;
+    } finally {
+      if (!wasCollapsed) {
+        element.classList.remove(collapsedClass);
+      }
+    }
   }
 
   formatDate(releaseDate: string | null | undefined): string {

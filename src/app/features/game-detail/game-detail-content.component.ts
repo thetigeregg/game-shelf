@@ -93,7 +93,7 @@ type DetailMediaSlide = {
 })
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
-  private static readonly EAGER_MEDIA_SLIDE_COUNT = 2;
+  private static readonly EAGER_MEDIA_SLIDE_COUNT = 1;
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -374,7 +374,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   shouldEagerLoadMediaSlide(index: number): boolean {
-    return index === 0;
+    return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
   }
 
   get statusValue(): GameStatus | undefined {

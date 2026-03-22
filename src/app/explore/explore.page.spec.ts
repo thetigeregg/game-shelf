@@ -427,6 +427,7 @@ describe('ExplorePage explore modes UX', () => {
       expect.objectContaining({
         igdbGameId: mockLaneItem.igdbGameId,
         platformIgdbId: mockLaneItem.platformIgdbId,
+        pushedToStack: false,
       })
     );
     expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
@@ -441,6 +442,36 @@ describe('ExplorePage explore modes UX', () => {
       expect.objectContaining({
         igdbGameId: mockLaneItem.igdbGameId,
         platformIgdbId: mockLaneItem.platformIgdbId,
+      })
+    );
+  });
+
+  it('logs when a detail navigation stack push actually occurs', async () => {
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      openGameDetail: (
+        item: MockLaneItem,
+        options?: { pushCurrentToStack?: boolean }
+      ) => Promise<void>;
+    };
+    const nextItem = {
+      ...mockLaneItem,
+      igdbGameId: '101',
+      platformIgdbId: 48,
+    };
+
+    page.activeDetailRecommendation = mockLaneItem;
+
+    await page.openGameDetail(nextItem, { pushCurrentToStack: true });
+    await flushAsync();
+
+    expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
+      'explore.detail.open',
+      expect.objectContaining({
+        igdbGameId: nextItem.igdbGameId,
+        platformIgdbId: nextItem.platformIgdbId,
+        pushedToStack: true,
+        activeStackDepth: 1,
       })
     );
   });

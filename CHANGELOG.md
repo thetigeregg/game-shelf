@@ -2872,3 +2872,14 @@
 - 630ea33b feat: preserve expanded detail text on game refresh and improve toggle functionality
 - 158632b7 feat: enhance detail text toggle functionality for summary and storyline
 - 5d7be486 feat: add detail text toggle functionality and reset on game change
+
+## v1.21.0 - 2026-03-22
+- cc76ccfc Merge pull request #271 from thetigeregg/feat/screenshots
+- 784d1f8e test(media): add coverage for 720p screenshot normalization branches
+- ffcfd3f8 fix(game-detail): address remaining media slide review feedback
+- 60392878 Merge branch 'main' into feat/screenshots
+- 477eee6b feat(game-detail): adjust eager-load logic to only load the active media slide
+- 587f615e feat: update screenshot size to 720p across the application
+- 5fcfca86 fix(game-detail): update eager-load logic to only load the first slide
+- bbe5f317 feat(detail-media): enhance backdrop handling and media slide structure
+

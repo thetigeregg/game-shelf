@@ -15,6 +15,7 @@ type SyncEventRow = {
 class InMemorySyncStore {
   idempotency = new Map<string, SyncPushResult>();
   syncEvents: SyncEventRow[] = [];
+  games = new Map<string, Record<string, unknown>>();
   tagIdSeq = 100;
   viewIdSeq = 200;
 }
@@ -78,6 +79,17 @@ class CoverageSyncClient {
       return Promise.resolve({ rows: [] });
     }
 
+    if (
+      normalized.startsWith(
+        'select payload from games where igdb_game_id = $1 and platform_igdb_id = $2 limit 1'
+      )
+    ) {
+      const igdbGameId = toPrimitiveString(params[0]);
+      const platformIgdbId = toPrimitiveString(params[1]);
+      const payload = this.store.games.get(this.gameKey(igdbGameId, platformIgdbId));
+      return Promise.resolve({ rows: payload ? [{ payload }] : [] });
+    }
+
     if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
       const maxEventId = this.store.syncEvents.reduce(
         (max, row) => (row.event_id > max ? row.event_id : max),
@@ -118,6 +130,10 @@ class CoverageSyncClient {
 
     if (normalized.startsWith('insert into games')) {
       const payload = JSON.parse(toPrimitiveString(params[2]) || '{}') as Record<string, unknown>;
+      this.store.games.set(
+        this.gameKey(toPrimitiveString(params[0]), toPrimitiveString(params[1])),
+        payload
+      );
       return Promise.resolve({ rows: [{ payload }] });
     }
 
@@ -126,6 +142,10 @@ class CoverageSyncClient {
 
   release(): void {
     // No-op for tests.
+  }
+
+  private gameKey(igdbGameId: string, platformIgdbId: string): string {
+    return `${igdbGameId}::${platformIgdbId}`;
   }
 }
 

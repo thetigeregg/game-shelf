@@ -3,8 +3,27 @@ import test from 'node:test';
 import fastifyFactory, { FastifyInstance } from 'fastify';
 import { registerSyncRoutes } from './sync.js';
 
+function toPrimitiveString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+
+  return '';
+}
+
 class FakeSyncClient {
   private latestEventId = 0;
+  private readonly games = new Map<string, Record<string, unknown>>();
+
+  seedGame(
+    payload: Record<string, unknown> & { igdbGameId: string; platformIgdbId: number }
+  ): void {
+    this.games.set(this.gameKey(payload.igdbGameId, payload.platformIgdbId), payload);
+  }
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -13,8 +32,20 @@ class FakeSyncClient {
       return Promise.resolve({ rows: [] });
     }
 
+    if (
+      normalized.startsWith(
+        'select payload from games where igdb_game_id = $1 and platform_igdb_id = $2 limit 1'
+      )
+    ) {
+      const igdbGameId = toPrimitiveString(params[0]);
+      const platformIgdbId = Number(params[1] ?? 0);
+      const payload = this.games.get(this.gameKey(igdbGameId, platformIgdbId));
+      return Promise.resolve({ rows: payload ? [{ payload }] : [] });
+    }
+
     if (normalized.startsWith('insert into games')) {
       const payload = parsePayload(params[2]);
+      this.games.set(this.gameKey(toPrimitiveString(params[0]), Number(params[1] ?? 0)), payload);
       return Promise.resolve({ rows: [{ payload }] });
     }
 
@@ -40,6 +71,10 @@ class FakeSyncClient {
 
   release(): void {
     // No-op for test client.
+  }
+
+  private gameKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${String(platformIgdbId)}`;
   }
 }
 
@@ -398,6 +433,137 @@ void test('sync push returns merged game payload from upsert result', async () =
   };
   assert.deepEqual(body.results[0]?.normalizedPayload?.['themes'], ['Action']);
   assert.deepEqual(body.results[0]?.normalizedPayload?.['keywords'], ['aliens']);
+
+  await app.close();
+});
+
+void test('sync push preserves existing thegamesdb cover when stale replay sends mixed igdb url', async () => {
+  class StaleCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '986',
+        platformIgdbId: 11,
+        title: 'Halo 2',
+        platform: 'Xbox',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:50:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/55555-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+      });
+    }
+  }
+
+  class StaleCoverPool extends FakePool {
+    override connect(): Promise<StaleCoverSyncClient> {
+      return Promise.resolve(new StaleCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new StaleCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-stale-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '986',
+            platformIgdbId: 11,
+            title: 'Halo 2',
+            platform: 'Xbox',
+            listType: 'collection',
+            updatedAt: '2026-03-14T14:37:38.764Z',
+            coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1xyz.jpg',
+            coverSource: 'thegamesdb',
+            customCoverUrl: null,
+          },
+          clientTimestamp: '2026-03-22T12:51:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['coverUrl'],
+    'https://cdn.thegamesdb.net/images/original/boxart/front/55555-1.jpg'
+  );
+  assert.equal(body.results[0]?.normalizedPayload?.['coverSource'], 'thegamesdb');
+
+  await app.close();
+});
+
+void test('sync push preserves newer custom cover against stale replay clear', async () => {
+  class CustomCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '1000',
+        platformIgdbId: 130,
+        title: 'Custom Cover Game',
+        platform: 'Switch',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:00:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/99999-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: 'data:image/png;base64,Zm9v',
+      });
+    }
+  }
+
+  class CustomCoverPool extends FakePool {
+    override connect(): Promise<CustomCoverSyncClient> {
+      return Promise.resolve(new CustomCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new CustomCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-custom-stale-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '1000',
+            platformIgdbId: 130,
+            title: 'Custom Cover Game',
+            platform: 'Switch',
+            listType: 'collection',
+            updatedAt: '2026-03-20T12:00:00.000Z',
+            coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/99999-1.jpg',
+            coverSource: 'thegamesdb',
+            customCoverUrl: null,
+          },
+          clientTimestamp: '2026-03-22T12:05:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['customCoverUrl'],
+    'data:image/png;base64,Zm9v'
+  );
 
   await app.close();
 });

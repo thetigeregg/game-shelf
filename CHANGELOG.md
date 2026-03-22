@@ -2883,3 +2883,8 @@
 - 5fcfca86 fix(game-detail): update eager-load logic to only load the first slide
 - bbe5f317 feat(detail-media): enhance backdrop handling and media slide structure
 
+## v1.22.0 - 2026-03-22
+- 7dab074f Merge pull request #272 from thetigeregg/feat/crash
+- 5db84705 fix(ui): align detail trace push logging and harden cache tests
+- c287057e feat(explore): implement debug logging and optimize detail data caching
+

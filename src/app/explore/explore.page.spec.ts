@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -12,6 +12,8 @@ import { DebugLogService } from '../core/services/debug-log.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
+
+const swiperConstructorMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@ionic/angular/standalone', () => {
   const Dummy = () => null;
@@ -30,6 +32,7 @@ vi.mock('@ionic/angular/standalone', () => {
     PopoverController: PopoverControllerToken,
     IonContent: Dummy,
     IonHeader: Dummy,
+    IonGrid: Dummy,
     IonItem: Dummy,
     IonLabel: Dummy,
     IonList: Dummy,
@@ -39,6 +42,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonSelectOption: Dummy,
     IonButton: Dummy,
     IonButtons: Dummy,
+    IonCol: Dummy,
     IonLoading: Dummy,
     IonSpinner: Dummy,
     IonTitle: Dummy,
@@ -58,6 +62,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy,
     IonPopover: Dummy,
+    IonRow: Dummy,
     IonSegment: Dummy,
     IonSegmentButton: Dummy,
     IonCard: Dummy,
@@ -65,9 +70,39 @@ vi.mock('@ionic/angular/standalone', () => {
     IonCardTitle: Dummy,
   };
 });
+vi.mock('swiper', () => ({
+  default: function SwiperMock(this: unknown, ...args: unknown[]) {
+    return swiperConstructorMock(...args) as SwiperInstanceMock;
+  },
+}));
+vi.mock('swiper/modules', () => ({
+  Pagination: {},
+  Zoom: {},
+}));
 vi.mock('../features/game-detail/game-detail-content.component', () => ({
   GameDetailContentComponent: () => null,
 }));
+
+type ResizeObserverMockInstance = {
+  observe: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  callback: ResizeObserverCallback;
+};
+
+type SwiperInstanceMock = {
+  allowTouchMove: boolean;
+  update: ReturnType<typeof vi.fn>;
+  pagination: {
+    render: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  destroy: ReturnType<typeof vi.fn>;
+};
+
+type DetailTextMeasurementState = {
+  clientHeight: number;
+  scrollHeight: number;
+};
 
 const mockLaneItem = {
   rank: 1,
@@ -172,6 +207,187 @@ function createLaneResponse(
   };
 }
 
+function createSwiperInstance(): SwiperInstanceMock {
+  return {
+    allowTouchMove: false,
+    update: vi.fn(),
+    pagination: {
+      render: vi.fn(),
+      update: vi.fn(),
+    },
+    destroy: vi.fn(),
+  };
+}
+
+function createCatalogResult(
+  igdbGameId: string,
+  platformIgdbId: number,
+  overrides: Partial<GameCatalogResult> = {}
+): GameCatalogResult {
+  return {
+    igdbGameId,
+    title: `Game ${igdbGameId}`,
+    coverUrl: null,
+    coverSource: 'igdb',
+    summary: null,
+    storyline: null,
+    gameType: null,
+    hltbMainHours: null,
+    hltbMainExtraHours: null,
+    hltbCompletionistHours: null,
+    reviewScore: null,
+    reviewUrl: null,
+    reviewSource: null,
+    mobyScore: null,
+    mobygamesGameId: null,
+    metacriticScore: null,
+    metacriticUrl: null,
+    similarGameIgdbIds: [],
+    collections: [],
+    developers: [],
+    franchises: [],
+    genres: [],
+    themes: [],
+    themeIds: [],
+    keywords: [],
+    keywordIds: [],
+    websites: [],
+    screenshots: [],
+    videos: [],
+    publishers: [],
+    platforms: ['PC (Microsoft Windows)'],
+    platformOptions: [{ id: platformIgdbId, name: 'PC (Microsoft Windows)' }],
+    platform: 'PC (Microsoft Windows)',
+    platformIgdbId,
+    releaseDate: '2025-01-01T00:00:00.000Z',
+    releaseYear: 2025,
+    ...overrides,
+  };
+}
+
+function triggerResizeObserver(resizeObservers: ResizeObserverMockInstance[]): void {
+  const observer = resizeObservers[0];
+
+  expect(observer).toBeDefined();
+  observer.callback([], {} as ResizeObserver);
+}
+
+function createDetailTextMeasurementElement(
+  expandedState: DetailTextMeasurementState,
+  collapsedState: DetailTextMeasurementState,
+  initiallyCollapsed = false
+): HTMLElement {
+  const collapsedClass = 'detail-long-text-collapsed';
+  let isCollapsed = initiallyCollapsed;
+
+  return {
+    classList: {
+      contains: (value: string) => value === collapsedClass && isCollapsed,
+      add: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = true;
+        }
+      },
+      remove: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = false;
+        }
+      },
+    },
+    get clientHeight() {
+      return isCollapsed ? collapsedState.clientHeight : expandedState.clientHeight;
+    },
+    get scrollHeight() {
+      return isCollapsed ? collapsedState.scrollHeight : expandedState.scrollHeight;
+    },
+  } as HTMLElement;
+}
+
+function makeSimpleGameChange(currentValue: GameCatalogResult) {
+  return {
+    game: {
+      currentValue,
+      previousValue: undefined,
+      firstChange: true,
+      isFirstChange: () => true,
+    },
+  };
+}
+
+async function createExploreDetailComponentHarness(page: ExplorePage): Promise<{
+  component: import('../features/game-detail/game-detail-content.component').GameDetailContentComponent;
+  resizeObservers: ResizeObserverMockInstance[];
+  summaryCollapsedState: DetailTextMeasurementState;
+  storylineCollapsedState: DetailTextMeasurementState;
+}> {
+  const { GameDetailContentComponent: ActualGameDetailContentComponent } = await vi.importActual<
+    typeof import('../features/game-detail/game-detail-content.component')
+  >('../features/game-detail/game-detail-content.component');
+
+  const resizeObservers: ResizeObserverMockInstance[] = [];
+  vi.stubGlobal(
+    'ResizeObserver',
+    class ResizeObserverMock {
+      observe = vi.fn();
+      disconnect = vi.fn();
+
+      constructor(callback: ResizeObserverCallback) {
+        resizeObservers.push({
+          observe: this.observe,
+          disconnect: this.disconnect,
+          callback,
+        });
+      }
+    }
+  );
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn((callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    })
+  );
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+  const component = TestBed.runInInjectionContext(() => new ActualGameDetailContentComponent());
+  const summaryCollapsedState = { clientHeight: 90, scrollHeight: 90 };
+  const storylineCollapsedState = { clientHeight: 90, scrollHeight: 90 };
+  const summaryExpandedState = { clientHeight: 120, scrollHeight: 120 };
+  const storylineExpandedState = { clientHeight: 120, scrollHeight: 120 };
+
+  component.context = page.detailContext;
+  component.game = page.selectedGameDetail as GameCatalogResult;
+  (
+    component as unknown as {
+      summaryTextRef: { nativeElement: HTMLElement };
+      storylineTextRef: { nativeElement: HTMLElement };
+    }
+  ).summaryTextRef = {
+    nativeElement: createDetailTextMeasurementElement(summaryExpandedState, summaryCollapsedState),
+  };
+  (
+    component as unknown as {
+      summaryTextRef: { nativeElement: HTMLElement };
+      storylineTextRef: { nativeElement: HTMLElement };
+    }
+  ).storylineTextRef = {
+    nativeElement: createDetailTextMeasurementElement(
+      storylineExpandedState,
+      storylineCollapsedState
+    ),
+  };
+
+  component.ngOnChanges(makeSimpleGameChange(component.game) as never);
+  component.ngAfterViewInit();
+
+  return {
+    component,
+    resizeObservers,
+    summaryCollapsedState,
+    storylineCollapsedState,
+  };
+}
+
 describe('ExplorePage explore modes UX', () => {
   const igdbProxyServiceMock = {
     getRecommendationLanes: vi.fn(),
@@ -249,6 +465,8 @@ describe('ExplorePage explore modes UX', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    swiperConstructorMock.mockReset();
+    swiperConstructorMock.mockImplementation(() => createSwiperInstance());
     recommendationIgnoreServiceMock.ignoredIds$ = of(new Set<string>());
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(of(mockLanesResponse));
     igdbProxyServiceMock.getPopularityFeed.mockReturnValue(of(mockPopularityFeedResponse));
@@ -283,6 +501,10 @@ describe('ExplorePage explore modes UX', () => {
         { provide: Router, useValue: routerMock },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   function createPage(): ExplorePage {
@@ -2521,6 +2743,130 @@ describe('ExplorePage explore modes UX', () => {
     });
     expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
+  });
+
+  it('keeps summary expansion available for recommendation detail opened from cached catalog data', async () => {
+    const page = createPage() as unknown as {
+      catalogCache: Map<string, GameCatalogResult>;
+      openGameDetail: (item: MockLaneItem) => Promise<void>;
+    };
+    const row = {
+      ...mockLaneItem,
+      igdbGameId: '701',
+      platformIgdbId: 48,
+    };
+    page.catalogCache.set(
+      '701',
+      createCatalogResult('701', 48, {
+        summary:
+          'This queued discover summary is long enough to overflow once the modal width settles.',
+      })
+    );
+
+    await page.openGameDetail(row);
+
+    const harness = await createExploreDetailComponentHarness(page);
+
+    expect(harness.component.canToggleDetailText('summary')).toBe(false);
+    harness.summaryCollapsedState.scrollHeight = 170;
+    triggerResizeObserver(harness.resizeObservers);
+
+    expect(harness.component.canToggleDetailText('summary')).toBe(true);
+    expect(harness.component.canToggleDetailText('storyline')).toBe(false);
+    harness.component.ngOnDestroy();
+  });
+
+  it('keeps summary expansion available for recommendation detail loaded from IGDB after open', async () => {
+    const page = createPage();
+    const row = {
+      ...mockLaneItem,
+      igdbGameId: '702',
+      platformIgdbId: 6,
+    };
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(
+      of(
+        createCatalogResult('702', 6, {
+          summary:
+            'This fetched discover summary becomes expandable after the modal content resizes.',
+        })
+      )
+    );
+
+    await page.openGameDetail(row);
+
+    const harness = await createExploreDetailComponentHarness(page);
+
+    expect(harness.component.canToggleDetailText('summary')).toBe(false);
+    harness.summaryCollapsedState.scrollHeight = 168;
+    triggerResizeObserver(harness.resizeObservers);
+
+    expect(harness.component.canToggleDetailText('summary')).toBe(true);
+    expect(harness.component.canToggleDetailText('storyline')).toBe(false);
+    harness.component.ngOnDestroy();
+  });
+
+  it('keeps storyline expansion available for popularity detail opened from cached catalog data', async () => {
+    const page = createPage() as unknown as {
+      catalogCache: Map<string, GameCatalogResult>;
+      openPopularityGameDetail: (item: typeof mockPopularityFeedItem) => Promise<void>;
+    };
+    page.catalogCache.set(
+      '801',
+      createCatalogResult('801', 6, {
+        storyline:
+          'This popularity storyline should still expose the toggle after the modal reflows.',
+      })
+    );
+
+    await page.openPopularityGameDetail({
+      ...mockPopularityFeedItem,
+      id: '801',
+      platformIgdbId: 6,
+      name: 'Popularity Cached',
+    });
+
+    const harness = await createExploreDetailComponentHarness(page);
+
+    expect(harness.component.canToggleDetailText('storyline')).toBe(false);
+    harness.storylineCollapsedState.scrollHeight = 166;
+    triggerResizeObserver(harness.resizeObservers);
+
+    expect(harness.component.canToggleDetailText('storyline')).toBe(true);
+    expect(harness.component.canToggleDetailText('summary')).toBe(false);
+    harness.component.ngOnDestroy();
+  });
+
+  it('keeps storyline expansion available for popularity detail loaded from IGDB after open', async () => {
+    const page = createPage();
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(
+      of(
+        createCatalogResult('802', 167, {
+          platform: 'PlayStation 5',
+          platforms: ['PlayStation 5'],
+          platformOptions: [{ id: 167, name: 'PlayStation 5' }],
+          storyline:
+            'This fetched popularity storyline becomes expandable once the modal width is final.',
+        })
+      )
+    );
+
+    await page.openPopularityGameDetail({
+      ...mockPopularityFeedItem,
+      id: '802',
+      platformIgdbId: 167,
+      name: 'Popularity Fetched',
+      platforms: [{ id: 167, name: 'PlayStation 5' }],
+    });
+
+    const harness = await createExploreDetailComponentHarness(page);
+
+    expect(harness.component.canToggleDetailText('storyline')).toBe(false);
+    harness.storylineCollapsedState.scrollHeight = 172;
+    triggerResizeObserver(harness.resizeObservers);
+
+    expect(harness.component.canToggleDetailText('storyline')).toBe(true);
+    expect(harness.component.canToggleDetailText('summary')).toBe(false);
+    harness.component.ngOnDestroy();
   });
 
   it('ignores similar responses after the detail modal closes', async () => {

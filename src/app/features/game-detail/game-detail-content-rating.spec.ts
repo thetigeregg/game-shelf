@@ -70,6 +70,11 @@ type SwiperInstanceMock = {
   destroy: ReturnType<typeof vi.fn>;
 };
 
+type DetailTextMeasurementState = {
+  clientHeight: number;
+  scrollHeight: number;
+};
+
 function createSwiperInstance(): SwiperInstanceMock {
   return {
     allowTouchMove: false,
@@ -97,6 +102,37 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
+}
+
+function createDetailTextMeasurementElement(
+  expandedState: DetailTextMeasurementState,
+  collapsedState: DetailTextMeasurementState,
+  initiallyCollapsed = false
+): HTMLElement {
+  const collapsedClass = 'detail-long-text-collapsed';
+  let isCollapsed = initiallyCollapsed;
+
+  return {
+    classList: {
+      contains: (value: string) => value === collapsedClass && isCollapsed,
+      add: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = true;
+        }
+      },
+      remove: (value: string) => {
+        if (value === collapsedClass) {
+          isCollapsed = false;
+        }
+      },
+    },
+    get clientHeight() {
+      return isCollapsed ? collapsedState.clientHeight : expandedState.clientHeight;
+    },
+    get scrollHeight() {
+      return isCollapsed ? collapsedState.scrollHeight : expandedState.scrollHeight;
+    },
+  } as HTMLElement;
 }
 
 describe('GameDetailContentComponent rating display', () => {
@@ -307,9 +343,14 @@ describe('GameDetailContentComponent rating display', () => {
       }
     ).summaryTextRef = {
       nativeElement: {
+        classList: {
+          contains: () => true,
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
         clientHeight: 100,
         scrollHeight: 100,
-      } as HTMLElement,
+      } as unknown as HTMLElement,
     };
     (
       component as unknown as {
@@ -319,9 +360,14 @@ describe('GameDetailContentComponent rating display', () => {
       }
     ).storylineTextRef = {
       nativeElement: {
+        classList: {
+          contains: () => true,
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
         clientHeight: 120,
         scrollHeight: 120,
-      } as HTMLElement,
+      } as unknown as HTMLElement,
     };
 
     (
@@ -332,6 +378,38 @@ describe('GameDetailContentComponent rating display', () => {
 
     expect(component.canToggleDetailText('summary')).toBe(false);
     expect(component.canToggleDetailText('storyline')).toBe(false);
+  });
+
+  it('measures overflow in collapsed mode so expanded text remains expandable', () => {
+    const component = createComponent();
+    component.detailTextExpandable.summary = true;
+    component.detailTextExpanded.summary = true;
+    (
+      component as unknown as {
+        summaryTextRef: { nativeElement: HTMLElement };
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).summaryTextRef = {
+      nativeElement: createDetailTextMeasurementElement(
+        {
+          clientHeight: 180,
+          scrollHeight: 180,
+        },
+        {
+          clientHeight: 90,
+          scrollHeight: 150,
+        }
+      ),
+    };
+
+    (
+      component as unknown as {
+        refreshDetailTextExpandableState: () => void;
+      }
+    ).refreshDetailTextExpandableState();
+
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.isDetailTextExpanded('summary')).toBe(true);
   });
 
   it('resets expanded detail text when the selected game changes', () => {

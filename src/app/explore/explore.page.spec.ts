@@ -6,7 +6,9 @@ import { Observable, Subject, of, throwError } from 'rxjs';
 import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
+import type { GameCatalogResult } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
@@ -185,6 +187,10 @@ describe('ExplorePage explore modes UX', () => {
     getDisplayNameWithoutAlias: vi.fn((name: string) => name),
   };
 
+  const debugLogServiceMock = {
+    trace: vi.fn(),
+  };
+
   const addToLibraryWorkflowMock = {
     addToLibrary: vi.fn(),
   };
@@ -261,11 +267,13 @@ describe('ExplorePage explore modes UX', () => {
     igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
     popoverControllerMock.dismiss.mockResolvedValue(true);
     routerMock.navigateByUrl.mockResolvedValue(true);
+    debugLogServiceMock.trace.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
         { provide: IgdbProxyService, useValue: igdbProxyServiceMock },
         { provide: PlatformCustomizationService, useValue: platformCustomizationMock },
+        { provide: DebugLogService, useValue: debugLogServiceMock },
         { provide: AddToLibraryWorkflowService, useValue: addToLibraryWorkflowMock },
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
@@ -356,6 +364,116 @@ describe('ExplorePage explore modes UX', () => {
       offset: 0,
       limit: 10,
     });
+  });
+
+  it('reuses empty and derived detail modal collections while the selected detail stays the same', () => {
+    const page = createPage();
+
+    expect(page.detailVideos).toBe(page.detailVideos);
+    expect(page.detailWebsites).toBe(page.detailWebsites);
+    expect(page.detailWebsiteItems).toBe(page.detailWebsiteItems);
+
+    page.selectedGameDetail = {
+      igdbGameId: '501',
+      title: 'Trace Test',
+      coverUrl: null,
+      coverSource: 'none',
+      storyline: null,
+      summary: null,
+      gameType: null,
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      reviewScore: null,
+      reviewUrl: null,
+      reviewSource: null,
+      mobyScore: null,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null,
+      similarGameIgdbIds: [],
+      collections: [],
+      developers: [],
+      franchises: [],
+      genres: [],
+      themes: [],
+      themeIds: [],
+      keywords: [],
+      keywordIds: [],
+      publishers: [],
+      platforms: [],
+      platformOptions: [],
+      platform: null,
+      platformIgdbId: 6,
+      releaseDate: null,
+      releaseYear: null,
+      websites: [{ category: 'official', trusted: true, url: 'https://example.com' }],
+      videos: [{ name: 'Trailer', videoId: 'abc123xyz09' }],
+    } as GameCatalogResult;
+
+    expect(page.detailVideos).toBe(page.detailVideos);
+    expect(page.detailWebsites).toBe(page.detailWebsites);
+    expect(page.detailWebsiteItems).toBe(page.detailWebsiteItems);
+  });
+
+  it('emits trace logs around discover detail open and similar loading', async () => {
+    const page = createPage();
+
+    await page.openGameDetail(mockLaneItem);
+    await flushAsync();
+
+    expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
+      'explore.detail.open',
+      expect.objectContaining({
+        igdbGameId: mockLaneItem.igdbGameId,
+        platformIgdbId: mockLaneItem.platformIgdbId,
+        pushedToStack: false,
+      })
+    );
+    expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
+      'explore.detail.similar.load_start',
+      expect.objectContaining({
+        igdbGameId: mockLaneItem.igdbGameId,
+        platformIgdbId: mockLaneItem.platformIgdbId,
+      })
+    );
+    expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
+      'explore.detail.similar.load_complete',
+      expect.objectContaining({
+        igdbGameId: mockLaneItem.igdbGameId,
+        platformIgdbId: mockLaneItem.platformIgdbId,
+      })
+    );
+  });
+
+  it('logs when a detail navigation stack push actually occurs', async () => {
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: MockLaneItem | null;
+      openGameDetail: (
+        item: MockLaneItem,
+        options?: { pushCurrentToStack?: boolean }
+      ) => Promise<void>;
+    };
+    const nextItem = {
+      ...mockLaneItem,
+      igdbGameId: '101',
+      platformIgdbId: 48,
+    };
+
+    page.activeDetailRecommendation = mockLaneItem;
+
+    await page.openGameDetail(nextItem, { pushCurrentToStack: true });
+    await flushAsync();
+
+    expect(debugLogServiceMock.trace).toHaveBeenCalledWith(
+      'explore.detail.open',
+      expect.objectContaining({
+        igdbGameId: nextItem.igdbGameId,
+        platformIgdbId: nextItem.platformIgdbId,
+        pushedToStack: true,
+        activeStackDepth: 1,
+      })
+    );
   });
 
   it('does not block popularity mode load while catalog hydration runs', async () => {

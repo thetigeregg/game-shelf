@@ -568,6 +568,74 @@ void test('sync push preserves newer custom cover against stale replay clear', a
   await app.close();
 });
 
+void test('sync push preserves existing cover metadata when newer payload omits cover fields', async () => {
+  class OmittedCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '2000',
+        platformIgdbId: 48,
+        title: 'Cover Preserve Game',
+        platform: 'PlayStation 4',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:00:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/77777-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: 'data:image/png;base64,YmFy',
+      });
+    }
+  }
+
+  class OmittedCoverPool extends FakePool {
+    override connect(): Promise<OmittedCoverSyncClient> {
+      return Promise.resolve(new OmittedCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new OmittedCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-omit-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '2000',
+            platformIgdbId: 48,
+            title: 'Cover Preserve Game',
+            platform: 'PlayStation 4',
+            listType: 'collection',
+            updatedAt: '2026-03-22T12:05:00.000Z',
+            notes: 'Updated without cover fields',
+          },
+          clientTimestamp: '2026-03-22T12:06:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['coverUrl'],
+    'https://cdn.thegamesdb.net/images/original/boxart/front/77777-1.jpg'
+  );
+  assert.equal(body.results[0]?.normalizedPayload?.['coverSource'], 'thegamesdb');
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['customCoverUrl'],
+    'data:image/png;base64,YmFy'
+  );
+
+  await app.close();
+});
+
 void test('sync game upsert SQL preserves unified pricing fields on conflict', async () => {
   let capturedInsertSql = '';
 

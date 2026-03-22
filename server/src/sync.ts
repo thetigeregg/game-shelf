@@ -806,10 +806,24 @@ function reconcileGameCoverFields(
     incomingUpdatedAt !== null &&
     existingUpdatedAt !== null &&
     incomingUpdatedAt <= existingUpdatedAt;
+  const reconciledCoverUrl = hasIncomingCoverUrl ? incomingCoverUrl : existingCoverUrl;
+  const reconciledCustomCoverUrl = hasIncomingCustomCoverUrl
+    ? incomingCustomCoverUrl
+    : existingCustomCoverUrl;
+  const reconciledCoverSource =
+    reconciledCoverUrl === null
+      ? 'none'
+      : (inferCoverSourceFromUrl(reconciledCoverUrl) ??
+        (hasIncomingCoverSource
+          ? incomingCoverSource
+          : hasIncomingCoverUrl
+            ? normalizedIncomingCoverSource
+            : normalizedExistingCoverSource) ??
+        'none');
   const incomingChangesCoverFields =
-    incomingCoverUrl !== existingCoverUrl ||
-    normalizedIncomingCoverSource !== normalizedExistingCoverSource ||
-    incomingCustomCoverUrl !== existingCustomCoverUrl;
+    reconciledCoverUrl !== existingCoverUrl ||
+    reconciledCoverSource !== normalizedExistingCoverSource ||
+    reconciledCustomCoverUrl !== existingCustomCoverUrl;
   const incomingHasInvalidMixedState =
     incomingCoverUrl !== null &&
     inferredIncomingCoverSource !== null &&
@@ -830,9 +844,9 @@ function reconcileGameCoverFields(
 
   return {
     ...payload,
-    coverUrl: incomingCoverUrl ?? existingCoverUrl,
-    coverSource: normalizedIncomingCoverSource,
-    customCoverUrl: incomingCustomCoverUrl,
+    coverUrl: reconciledCoverUrl,
+    coverSource: reconciledCoverSource,
+    customCoverUrl: reconciledCustomCoverUrl,
   };
 }
 
@@ -884,6 +898,7 @@ function normalizeGamePayload(
   const hasPriceUrl = Object.prototype.hasOwnProperty.call(payload, 'priceUrl');
   const hasCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'coverUrl');
   const hasCoverSource = Object.prototype.hasOwnProperty.call(payload, 'coverSource');
+  const hasCustomCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'customCoverUrl');
   const priceSource = normalizePriceSource(payload.priceSource);
   const priceFetchedAt = normalizePriceFetchedAt(payload.priceFetchedAt);
   const priceAmount = normalizePriceAmount(payload.priceAmount);
@@ -931,7 +946,7 @@ function normalizeGamePayload(
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     ...(hasCoverUrl ? { coverUrl } : {}),
     ...(hasCoverSource ? { coverSource } : {}),
-    customCoverUrl,
+    ...(hasCustomCoverUrl ? { customCoverUrl } : {}),
     notes,
     mobyScore,
     mobygamesGameId,

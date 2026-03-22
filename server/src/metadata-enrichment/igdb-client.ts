@@ -132,7 +132,7 @@ export class MetadataEnrichmentIgdbClient {
         keywordIds: normalizeIdList((row as { keywords?: unknown }).keywords),
         screenshots: normalizeIgdbScreenshotList((row as { screenshots?: unknown }).screenshots, {
           limit: 20,
-          size: 't_screenshot_huge',
+          size: 't_720p',
         }),
         videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
           limit: 5,

@@ -9,6 +9,7 @@ test('normalizeIgdbScreenshotList handles defaults, dedupe, ids, and cap', () =>
   const normalized = normalizeIgdbScreenshotList(
     [
       null,
+      { imageId: '   ' },
       { id: '5', image_id: '  abc  ', width: '1280', height: '720' },
       { id: 5, image_id: 'abc', width: 2000, height: 1000 },
       { imageId: 'def', width: 0, height: 'x' },
@@ -21,14 +22,14 @@ test('normalizeIgdbScreenshotList handles defaults, dedupe, ids, and cap', () =>
     {
       id: 5,
       imageId: 'abc',
-      url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc.jpg',
+      url: 'https://images.igdb.com/igdb/image/upload/t_720p/abc.jpg',
       width: 1280,
       height: 720,
     },
     {
       id: null,
       imageId: 'def',
-      url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/def.jpg',
+      url: 'https://images.igdb.com/igdb/image/upload/t_720p/def.jpg',
       width: null,
       height: null,
     },
@@ -46,10 +47,7 @@ test('normalizeIgdbScreenshotList supports custom size and ignores invalid input
   );
 
   const withBlankSize = normalizeIgdbScreenshotList([{ image_id: 'xyz' }], { size: '   ' });
-  assert.equal(
-    withBlankSize[0]?.url,
-    'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/xyz.jpg'
-  );
+  assert.equal(withBlankSize[0]?.url, 'https://images.igdb.com/igdb/image/upload/t_720p/xyz.jpg');
 
   assert.deepEqual(normalizeIgdbScreenshotList(undefined), []);
   assert.deepEqual(normalizeIgdbScreenshotList('bad'), []);
@@ -59,6 +57,7 @@ test('normalizeIgdbVideoList handles trimming, dedupe, ids, and URL encoding', (
   const normalized = normalizeIgdbVideoList(
     [
       null,
+      { videoId: '   ' },
       { id: '9', name: '  Trailer  ', video_id: 'PIF_fqFZEuk' },
       { id: 9, name: 'duplicate', video_id: 'DUPLICATE11' },
       { id: -1, name: '', videoId: 'a b c' },

@@ -670,7 +670,7 @@ export function normalizeIgdbGame(game, options = {}) {
   const keywordIds = normalizeIgdbNestedIds(game?.keywords);
   const screenshots = normalizeIgdbScreenshotList(game?.screenshots, {
     limit: 20,
-    size: 't_screenshot_huge',
+    size: 't_720p',
   });
   const videos = normalizeIgdbVideoList(game?.videos, { limit: 5 });
   const websites = normalizeIgdbWebsites(

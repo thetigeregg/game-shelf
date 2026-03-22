@@ -344,7 +344,7 @@ describe('IgdbProxyService', () => {
         {
           id: 10,
           imageId: 'abc',
-          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc.jpg',
+          url: 'https://images.igdb.com/igdb/image/upload/t_720p/abc.jpg',
           width: 1280,
           height: 720,
         },

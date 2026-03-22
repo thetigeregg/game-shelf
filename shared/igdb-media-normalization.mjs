@@ -19,7 +19,7 @@ export function normalizeIgdbScreenshotList(value, options = {}) {
   const limit =
     Number.isInteger(options.limit) && options.limit > 0 ? options.limit : DEFAULT_SCREENSHOT_LIMIT;
   const sizeRaw = typeof options.size === 'string' ? options.size.trim() : '';
-  const size = sizeRaw.length > 0 ? sizeRaw : 't_screenshot_huge';
+  const size = sizeRaw.length > 0 ? sizeRaw : 't_720p';
   const seen = new Set();
   const normalized = [];
 

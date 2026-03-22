@@ -2888,3 +2888,8 @@
 - 5db84705 fix(ui): align detail trace push logging and harden cache tests
 - c287057e feat(explore): implement debug logging and optimize detail data caching
 
+## v1.23.0 - 2026-03-22
+- 6178d395 Merge pull request #273 from thetigeregg/feat/expand
+- c39219d6 feat(explore): enhance explore page tests with swiper mock
+- 1a1bb9da feat(game-detail): add resize observer for detail text elements and refresh logic
+

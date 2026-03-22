@@ -91,6 +91,7 @@ type DetailTextField = 'summary' | 'storyline';
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
+  private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -631,13 +632,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       storyline: storylineExpandable,
     };
 
-    if (!summaryExpandable) {
-      this.detailTextExpanded.summary = false;
-    }
-
-    if (!storylineExpandable) {
-      this.detailTextExpanded.storyline = false;
-    }
+    this.detailTextExpanded = {
+      ...this.detailTextExpanded,
+      summary: summaryExpandable ? this.detailTextExpanded.summary : false,
+      storyline: storylineExpandable ? this.detailTextExpanded.storyline : false,
+    };
   }
 
   private isDetailTextOverflowing(element: HTMLElement | undefined): boolean {
@@ -645,7 +644,20 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       return false;
     }
 
-    return element.scrollHeight - element.clientHeight > 1;
+    const collapsedClass = GameDetailContentComponent.DETAIL_TEXT_COLLAPSED_CLASS;
+    const wasCollapsed = element.classList.contains(collapsedClass);
+
+    if (!wasCollapsed) {
+      element.classList.add(collapsedClass);
+    }
+
+    try {
+      return element.scrollHeight - element.clientHeight > 1;
+    } finally {
+      if (!wasCollapsed) {
+        element.classList.remove(collapsedClass);
+      }
+    }
   }
 
   formatDate(releaseDate: string | null | undefined): string {

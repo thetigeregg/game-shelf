@@ -503,3 +503,186 @@ void test('metadata enrichment client converts upstream 429 responses into provi
       error.message === 'IGDB metadata enrichment request throttled'
   );
 });
+
+void test('returns an empty map without fetching when all requested ids are invalid', async () => {
+  let fetchCalls = 0;
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    },
+  });
+
+  const map = await client.fetchGameMetadataByIds(['', '0', '-1', 'abc']);
+
+  assert.equal(map.size, 0);
+  assert.equal(fetchCalls, 0);
+});
+
+void test('normalizes 720p screenshots and skips invalid metadata rows', async () => {
+  const calls: FetchCall[] = [];
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const method = init?.method ?? 'GET';
+      const body = typeof init?.body === 'string' ? init.body : '';
+      calls.push({ url, method, body });
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/website_types')) {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: 'bad',
+                screenshots: [{ image_id: 'ignore-me' }],
+                videos: [{ video_id: 'bad' }],
+              },
+              {
+                id: 24,
+                themes: [
+                  { id: '8', name: 'Adventure' },
+                  { id: 8, name: 'Adventure' },
+                ],
+                keywords: [
+                  { id: '9', name: 'Platformer' },
+                  { id: 9, name: 'Platformer' },
+                ],
+                screenshots: [
+                  { id: '5', image_id: '  shot24  ', width: '1280', height: '720' },
+                  { image_id: '   ' },
+                ],
+                videos: [{ id: '11', name: '  Trailer  ', video_id: 'vid24' }, { video_id: '   ' }],
+                websites: [],
+              },
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    },
+  });
+
+  const map = await client.fetchGameMetadataByIds([' 24 ', '24', 'bad']);
+
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.url.includes('/v4/games') &&
+        call.body.includes('where id = (24);') &&
+        call.body.includes('limit 1;')
+    ),
+    true
+  );
+  assert.deepEqual(map.get('24'), {
+    themes: ['Adventure'],
+    themeIds: [8],
+    keywords: ['Platformer'],
+    keywordIds: [9],
+    screenshots: [
+      {
+        id: 5,
+        imageId: 'shot24',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot24.jpg',
+        width: 1280,
+        height: 720,
+      },
+    ],
+    videos: [
+      {
+        id: 11,
+        name: 'Trailer',
+        videoId: 'vid24',
+        url: 'https://www.youtube.com/watch?v=vid24',
+      },
+    ],
+    websites: [],
+    steamAppId: null,
+  });
+});
+
+void test('throws for non-throttling IGDB metadata failures', async () => {
+  const client = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
+      if (url.includes('id.twitch.tv/oauth2/token')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+
+      if (url.includes('/v4/games')) {
+        return Promise.resolve(new Response('{}', { status: 500 }));
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    },
+  });
+
+  await assert.rejects(
+    () => client.fetchGameMetadataByIds(['24']),
+    /IGDB metadata fetch failed with status 500/
+  );
+});
+
+void test('throws when Twitch token fetch fails or omits the access token', async () => {
+  const failingClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: () => Promise.resolve(new Response('{}', { status: 500 })),
+  });
+
+  await assert.rejects(
+    () => failingClient.fetchGameMetadataByIds(['24']),
+    /Twitch token fetch failed with status 500/
+  );
+
+  const missingTokenClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: 'cid',
+    twitchClientSecret: 'secret',
+    requestTimeoutMs: 5_000,
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+  });
+
+  await assert.rejects(
+    () => missingTokenClient.fetchGameMetadataByIds(['24']),
+    /Twitch token response did not include access_token/
+  );
+});

@@ -137,8 +137,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   private swiperInstance: SwiperClass | null = null;
   private swiperUpdateQueued = false;
+  private detailTextRefreshQueued = false;
   private swiperRefreshRafId: number | null = null;
   private swiperRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private detailTextResizeObserver: ResizeObserver | null = null;
   private swiperDestroyed = false;
   private cachedDisplayTitleGame: DetailGame | null = null;
   private cachedDisplayTitle = 'Unknown title';
@@ -181,6 +183,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     this.ensureSwiperInitialized();
+    this.setupDetailTextResizeObserver();
     this.queueSwiperRefresh();
   }
 
@@ -215,6 +218,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   ngOnDestroy(): void {
     this.swiperDestroyed = true;
+    this.disconnectDetailTextResizeObserver();
     this.cancelQueuedSwiperRefresh();
     this.destroySwiper();
   }
@@ -262,6 +266,22 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       }
 
       this.refreshSwiper();
+      this.refreshDetailTextExpandableState();
+    });
+  }
+
+  private queueDetailTextRefresh(): void {
+    if (this.swiperDestroyed || this.detailTextRefreshQueued) {
+      return;
+    }
+
+    this.detailTextRefreshQueued = true;
+    this.runAfterRender(() => {
+      this.detailTextRefreshQueued = false;
+      if (this.swiperDestroyed) {
+        return;
+      }
+
       this.refreshDetailTextExpandableState();
     });
   }
@@ -317,6 +337,38 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
     this.swiperInstance.destroy(true, true);
     this.swiperInstance = null;
+  }
+
+  private setupDetailTextResizeObserver(): void {
+    if (this.detailTextResizeObserver || typeof ResizeObserver !== 'function') {
+      return;
+    }
+
+    const elements = [
+      this.summaryTextRef?.nativeElement,
+      this.storylineTextRef?.nativeElement,
+    ].filter((element): element is HTMLElement => Boolean(element));
+
+    if (elements.length === 0) {
+      return;
+    }
+
+    this.detailTextResizeObserver = new ResizeObserver(() => {
+      this.queueDetailTextRefresh();
+    });
+
+    for (const element of elements) {
+      this.detailTextResizeObserver.observe(element);
+    }
+  }
+
+  private disconnectDetailTextResizeObserver(): void {
+    if (!this.detailTextResizeObserver) {
+      return;
+    }
+
+    this.detailTextResizeObserver.disconnect();
+    this.detailTextResizeObserver = null;
   }
 
   get showLibrarySections(): boolean {

@@ -75,6 +75,12 @@ type DetailTextMeasurementState = {
   scrollHeight: number;
 };
 
+type ResizeObserverMockInstance = {
+  observe: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  callback: ResizeObserverCallback;
+};
+
 function createSwiperInstance(): SwiperInstanceMock {
   return {
     allowTouchMove: false,
@@ -133,6 +139,29 @@ function createDetailTextMeasurementElement(
       return isCollapsed ? collapsedState.scrollHeight : expandedState.scrollHeight;
     },
   } as HTMLElement;
+}
+
+function attachDetailTextElements(
+  component: GameDetailContentComponent,
+  summaryElement: HTMLElement,
+  storylineElement: HTMLElement
+): void {
+  (
+    component as unknown as {
+      summaryTextRef: { nativeElement: HTMLElement };
+      storylineTextRef: { nativeElement: HTMLElement };
+    }
+  ).summaryTextRef = {
+    nativeElement: summaryElement,
+  };
+  (
+    component as unknown as {
+      summaryTextRef: { nativeElement: HTMLElement };
+      storylineTextRef: { nativeElement: HTMLElement };
+    }
+  ).storylineTextRef = {
+    nativeElement: storylineElement,
+  };
 }
 
 describe('GameDetailContentComponent rating display', () => {
@@ -550,6 +579,69 @@ describe('GameDetailContentComponent rating display', () => {
     expect(swiper.pagination.update).toHaveBeenCalledTimes(2);
   });
 
+  it('re-measures detail text overflow after resize observer notifications', () => {
+    const component = createComponent();
+    component.context = 'explore';
+
+    const resizeObservers: ResizeObserverMockInstance[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class ResizeObserverMock {
+        observe = vi.fn();
+        disconnect = vi.fn();
+
+        constructor(callback: ResizeObserverCallback) {
+          resizeObservers.push({
+            observe: this.observe,
+            disconnect: this.disconnect,
+            callback,
+          });
+        }
+      }
+    );
+
+    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrameSpy);
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    const summaryExpandedState = { clientHeight: 100, scrollHeight: 100 };
+    const summaryCollapsedState = { clientHeight: 90, scrollHeight: 90 };
+    const storylineExpandedState = { clientHeight: 80, scrollHeight: 80 };
+    const storylineCollapsedState = { clientHeight: 80, scrollHeight: 80 };
+
+    attachDetailTextElements(
+      component,
+      createDetailTextMeasurementElement(summaryExpandedState, summaryCollapsedState),
+      createDetailTextMeasurementElement(storylineExpandedState, storylineCollapsedState)
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        summary:
+          'A moderately long summary that needs layout measurement instead of length checks.',
+        storyline: 'Short storyline',
+      }),
+      undefined,
+      true
+    );
+
+    component.ngAfterViewInit();
+
+    expect(component.canToggleDetailText('summary')).toBe(false);
+    expect(resizeObservers).toHaveLength(1);
+
+    summaryCollapsedState.scrollHeight = 160;
+    resizeObservers[0]?.callback([], {} as ResizeObserver);
+
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.canToggleDetailText('storyline')).toBe(false);
+    expect(requestAnimationFrameSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('builds media slides without separate backdrop metadata', () => {
     const component = createComponent();
     component.context = 'library';
@@ -640,6 +732,34 @@ describe('GameDetailContentComponent rating display', () => {
     });
     attachSwiperContainer(component);
 
+    const resizeObservers: ResizeObserverMockInstance[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class ResizeObserverMock {
+        observe = vi.fn();
+        disconnect = vi.fn();
+
+        constructor(callback: ResizeObserverCallback) {
+          resizeObservers.push({
+            observe: this.observe,
+            disconnect: this.disconnect,
+            callback,
+          });
+        }
+      }
+    );
+    attachDetailTextElements(
+      component,
+      createDetailTextMeasurementElement(
+        { clientHeight: 100, scrollHeight: 100 },
+        { clientHeight: 90, scrollHeight: 90 }
+      ),
+      createDetailTextMeasurementElement(
+        { clientHeight: 100, scrollHeight: 100 },
+        { clientHeight: 90, scrollHeight: 90 }
+      )
+    );
+
     const requestAnimationFrameSpy = vi.fn((_callback: FrameRequestCallback): number => {
       return 42;
     });
@@ -654,6 +774,7 @@ describe('GameDetailContentComponent rating display', () => {
 
     expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(42);
     expect(swiper.destroy).toHaveBeenCalledWith(true, true);
+    expect(resizeObservers[0]?.disconnect).toHaveBeenCalledOnce();
 
     const queuedCallback = requestAnimationFrameSpy.mock.calls[0]?.[0] as
       | FrameRequestCallback

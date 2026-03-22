@@ -916,10 +916,14 @@ export class ExplorePage implements OnInit {
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
+    const previousActiveDetailRecommendation = this.activeDetailRecommendation;
 
-    if (options?.pushCurrentToStack && this.activeDetailRecommendation) {
-      this.detailNavigationStack.push(this.activeDetailRecommendation);
+    if (options?.pushCurrentToStack === true && previousActiveDetailRecommendation) {
+      this.detailNavigationStack.push(previousActiveDetailRecommendation);
     }
+
+    const pushedToStack =
+      options?.pushCurrentToStack === true && previousActiveDetailRecommendation !== null;
 
     this.isGameDetailModalOpen = true;
     this.isVideosModalOpen = false;
@@ -953,7 +957,7 @@ export class ExplorePage implements OnInit {
       lane: this.selectedLaneKey,
       hasLocal: Boolean(local),
       hasCachedCatalog: Boolean(initialCatalog),
-      pushedToStack: options?.pushCurrentToStack === true,
+      pushedToStack,
       activeStackDepth: this.detailNavigationStack.length,
     });
 

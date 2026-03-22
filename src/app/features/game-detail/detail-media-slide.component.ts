@@ -21,7 +21,7 @@ export class DetailMediaSlideComponent {
     return value.length > 0 ? value : DetailMediaSlideComponent.PLACEHOLDER_SRC;
   }
 
-  get displayBackdropSrc(): string | null {
+  get displayBackdropSrc(): string {
     return this.buildBackdropSrc(this.displaySrc);
   }
 

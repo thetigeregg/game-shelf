@@ -2859,3 +2859,12 @@
 - 8c16f8b7 feat: implement pagination for similar recommendations with offset and limit
 - bed077a0 feat: enhance similar recommendations metadata hydration and loading behavior
 
+## v1.20.0 - 2026-03-22
+- b55b210d Merge pull request #270 from thetigeregg/feat/show-more
+- ee457127 fix(game-detail): preserve detail text toggle expandability
+- e0159831 feat: improve detail text expandability logic in GameDetailContentComponent
+- c2802c6d Merge branch 'main' into feat/show-more
+- 630ea33b feat: preserve expanded detail text on game refresh and improve toggle functionality
+- 158632b7 feat: enhance detail text toggle functionality for summary and storyline
+- 5d7be486 feat: add detail text toggle functionality and reset on game change
+

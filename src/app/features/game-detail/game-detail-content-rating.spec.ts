@@ -579,6 +579,32 @@ describe('GameDetailContentComponent rating display', () => {
     ]);
   });
 
+  it('reuses cached media slides, tag items, display title, and formatted dates while the selected game is unchanged', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      customTitle: 'Custom title',
+      releaseDate: '2024-02-03T00:00:00.000Z',
+      coverUrl: 'https://img.example/cover.jpg',
+      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }],
+      tags: [{ id: 1, name: 'RPG', color: '#123456' }],
+    });
+
+    const firstDisplayTitle = component.displayTitle;
+    const secondDisplayTitle = component.displayTitle;
+    const firstMediaSlides = component.mediaSlides;
+    const secondMediaSlides = component.mediaSlides;
+    const firstTagItems = component.tagItems;
+    const secondTagItems = component.tagItems;
+    const firstFormattedDate = component.formatDate(component.game.releaseDate);
+    const secondFormattedDate = component.formatDate(component.game.releaseDate);
+
+    expect(secondDisplayTitle).toBe(firstDisplayTitle);
+    expect(secondMediaSlides).toBe(firstMediaSlides);
+    expect(secondTagItems).toBe(firstTagItems);
+    expect(secondFormattedDate).toBe(firstFormattedDate);
+  });
+
   it('only eager-loads the first slide', () => {
     const component = createComponent();
     component.context = 'library';

@@ -58,6 +58,7 @@ vi.mock('swiper/modules', () => ({
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import type { GameEntry } from '../../core/models/game.models';
+import type { SimpleChanges } from '@angular/core';
 
 type SwiperInstanceMock = {
   allowTouchMove: boolean;
@@ -134,6 +135,23 @@ describe('GameDetailContentComponent rating display', () => {
 
   function getCreatedSwiper(): SwiperInstanceMock {
     return swiperConstructorMock.mock.results[0]?.value as SwiperInstanceMock;
+  }
+
+  function updateGame(
+    component: GameDetailContentComponent,
+    currentValue: GameEntry,
+    previousValue?: GameEntry,
+    firstChange = false
+  ): void {
+    component.game = currentValue;
+    component.ngOnChanges({
+      game: {
+        currentValue,
+        previousValue,
+        firstChange,
+        isFirstChange: () => firstChange,
+      },
+    } as SimpleChanges);
   }
 
   it('shows rating label without trailing zeros and edit action when rated', () => {
@@ -228,14 +246,22 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.currentPriceLabel).toBe('Free');
   });
 
-  it('shows detail text toggles only for long summary and storyline values', () => {
+  it('derives detail text toggle availability from summary and storyline length before render', () => {
     const component = createComponent();
+    component.context = 'library';
 
-    component.detailTextExpandable.summary = false;
-    component.detailTextExpandable.storyline = true;
+    updateGame(
+      component,
+      makeLibraryGame({
+        summary: 'x'.repeat(261),
+        storyline: 'short storyline',
+      }),
+      undefined,
+      true
+    );
 
-    expect(component.canToggleDetailText('summary')).toBe(false);
-    expect(component.canToggleDetailText('storyline')).toBe(true);
+    expect(component.canToggleDetailText('summary')).toBe(true);
+    expect(component.canToggleDetailText('storyline')).toBe(false);
   });
 
   it('toggles summary and storyline expansion independently when expandable', () => {
@@ -269,7 +295,7 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.isDetailTextExpanded('storyline')).toBe(false);
   });
 
-  it('keeps an existing detail text toggle enabled when overflow measurement reports no clipping', () => {
+  it('clears an existing detail text toggle when overflow measurement reports no clipping', () => {
     const component = createComponent();
     component.detailTextExpandable.summary = true;
     component.detailTextExpandable.storyline = true;
@@ -304,39 +330,34 @@ describe('GameDetailContentComponent rating display', () => {
       }
     ).refreshDetailTextExpandableState();
 
-    expect(component.canToggleDetailText('summary')).toBe(true);
-    expect(component.canToggleDetailText('storyline')).toBe(true);
+    expect(component.canToggleDetailText('summary')).toBe(false);
+    expect(component.canToggleDetailText('storyline')).toBe(false);
   });
 
   it('resets expanded detail text when the selected game changes', () => {
     const component = createComponent();
     component.context = 'library';
-    component.game = makeLibraryGame({
+
+    const previousGame = makeLibraryGame({
       summary: 'x'.repeat(261),
       storyline: 'y'.repeat(261),
     });
 
+    updateGame(component, previousGame, undefined, true);
+
     component.toggleDetailText('summary');
     component.toggleDetailText('storyline');
 
-    component.game = makeLibraryGame({
-      igdbGameId: '456',
-      title: 'Secret of Mana',
-      summary: 'a'.repeat(261),
-      storyline: 'b'.repeat(261),
-    });
-
-    component.ngOnChanges({
-      game: {
-        currentValue: component.game,
-        previousValue: makeLibraryGame({
-          summary: 'x'.repeat(261),
-          storyline: 'y'.repeat(261),
-        }),
-        firstChange: false,
-        isFirstChange: () => false,
-      },
-    });
+    updateGame(
+      component,
+      makeLibraryGame({
+        igdbGameId: '456',
+        title: 'Secret of Mana',
+        summary: 'a'.repeat(261),
+        storyline: 'b'.repeat(261),
+      }),
+      previousGame
+    );
 
     expect(component.isDetailTextExpanded('summary')).toBe(false);
     expect(component.isDetailTextExpanded('storyline')).toBe(false);
@@ -345,31 +366,26 @@ describe('GameDetailContentComponent rating display', () => {
   it('preserves expanded detail text when the same game is refreshed with a new object', () => {
     const component = createComponent();
     component.context = 'library';
-    component.game = makeLibraryGame({
+
+    const previousGame = makeLibraryGame({
       summary: 'x'.repeat(261),
       storyline: 'y'.repeat(261),
     });
 
-    component.detailTextExpandable.summary = true;
-    component.detailTextExpandable.storyline = true;
+    updateGame(component, previousGame, undefined, true);
+
     component.toggleDetailText('summary');
 
-    const previousGame = component.game;
-    component.game = makeLibraryGame({
-      igdbGameId: previousGame.igdbGameId,
-      platformIgdbId: previousGame.platformIgdbId,
-      summary: 'updated '.repeat(40),
-      storyline: 'y'.repeat(261),
-    });
-
-    component.ngOnChanges({
-      game: {
-        currentValue: component.game,
-        previousValue: previousGame,
-        firstChange: false,
-        isFirstChange: () => false,
-      },
-    });
+    updateGame(
+      component,
+      makeLibraryGame({
+        igdbGameId: previousGame.igdbGameId,
+        platformIgdbId: previousGame.platformIgdbId,
+        summary: 'updated '.repeat(40),
+        storyline: 'y'.repeat(261),
+      }),
+      previousGame
+    );
 
     expect(component.isDetailTextExpanded('summary')).toBe(true);
     expect(component.isDetailTextExpanded('storyline')).toBe(false);
@@ -430,7 +446,15 @@ describe('GameDetailContentComponent rating display', () => {
 
     component.game = makeLibraryGame({
       coverUrl: 'https://img.example/cover.jpg',
-      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }],
+      screenshots: [
+        {
+          id: 2,
+          imageId: 'shot-2',
+          url: 'https://img.example/shot-2.jpg',
+          width: 1280,
+          height: 720,
+        },
+      ],
     });
     component.ngOnChanges({
       game: {
@@ -455,9 +479,7 @@ describe('GameDetailContentComponent rating display', () => {
     });
     attachSwiperContainer(component);
 
-    let queuedFrameCallback: FrameRequestCallback | null = null;
-    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback): number => {
-      queuedFrameCallback = callback;
+    const requestAnimationFrameSpy = vi.fn((_callback: FrameRequestCallback): number => {
       return 42;
     });
     const cancelAnimationFrameSpy = vi.fn();
@@ -472,7 +494,10 @@ describe('GameDetailContentComponent rating display', () => {
     expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(42);
     expect(swiper.destroy).toHaveBeenCalledWith(true, true);
 
-    queuedFrameCallback?.(0);
+    const queuedCallback = requestAnimationFrameSpy.mock.calls[0]?.[0] as
+      | FrameRequestCallback
+      | undefined;
+    queuedCallback?.(0);
     expect(swiper.update).not.toHaveBeenCalled();
     expect(swiperConstructorMock).toHaveBeenCalledTimes(1);
   });

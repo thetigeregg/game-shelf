@@ -96,6 +96,9 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 1;
   private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
+  private static readonly PLACEHOLDER_MEDIA_SLIDES: DetailMediaSlide[] = [
+    { key: 'placeholder', src: '', kind: 'placeholder' },
+  ];
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -137,6 +140,16 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private swiperRefreshRafId: number | null = null;
   private swiperRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private swiperDestroyed = false;
+  private cachedDisplayTitleGame: DetailGame | null = null;
+  private cachedDisplayTitle = 'Unknown title';
+  private cachedTagItemsGame: DetailGame | null = null;
+  private cachedTagItemsContext: DetailContext = 'library';
+  private cachedTagItems: { name: string; color: string }[] = [];
+  private cachedMediaSlidesGame: DetailGame | null = null;
+  private cachedMediaSlides: DetailMediaSlide[] =
+    GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
+  private cachedFormattedReleaseDateValue: string | null = null;
+  private cachedFormattedReleaseDate = 'Unknown';
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
 
   constructor() {
@@ -176,6 +189,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       const gameChange = changes['game'];
       const currentIdentity = this.buildDetailGameIdentity(gameChange.currentValue as DetailGame);
       const previousIdentity = this.buildDetailGameIdentity(gameChange.previousValue as DetailGame);
+
+      this.cachedDisplayTitleGame = null;
+      this.cachedTagItemsGame = null;
+      this.cachedMediaSlidesGame = null;
+      this.cachedFormattedReleaseDateValue = null;
 
       if (gameChange.firstChange || currentIdentity !== previousIdentity) {
         this.detailTextExpanded = {
@@ -432,17 +450,26 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   get tagItems(): { name: string; color: string }[] {
+    if (this.cachedTagItemsGame === this.game && this.cachedTagItemsContext === this.context) {
+      return this.cachedTagItems;
+    }
+
+    this.cachedTagItemsGame = this.game;
+    this.cachedTagItemsContext = this.context;
+
     if (!this.showLibrarySections) {
-      return [];
+      this.cachedTagItems = [];
+      return this.cachedTagItems;
     }
 
     const tags = (this.game as Partial<GameEntry>).tags;
 
     if (!Array.isArray(tags)) {
-      return [];
+      this.cachedTagItems = [];
+      return this.cachedTagItems;
     }
 
-    return tags
+    this.cachedTagItems = tags
       .map((tag) => ({
         name: typeof tag.name === 'string' ? tag.name.trim() : '',
         color:
@@ -451,6 +478,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
             : '#808080',
       }))
       .filter((tag) => tag.name.length > 0);
+
+    return this.cachedTagItems;
   }
 
   get hltbMainLabel(): string {
@@ -665,21 +694,31 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   formatDate(releaseDate: string | null | undefined): string {
+    if (releaseDate === this.cachedFormattedReleaseDateValue) {
+      return this.cachedFormattedReleaseDate;
+    }
+
+    this.cachedFormattedReleaseDateValue = releaseDate ?? null;
+
     if (typeof releaseDate !== 'string' || releaseDate.trim().length === 0) {
-      return 'Unknown';
+      this.cachedFormattedReleaseDate = 'Unknown';
+      return this.cachedFormattedReleaseDate;
     }
 
     const timestamp = Date.parse(releaseDate);
 
     if (Number.isNaN(timestamp)) {
-      return 'Unknown';
+      this.cachedFormattedReleaseDate = 'Unknown';
+      return this.cachedFormattedReleaseDate;
     }
 
-    return new Date(timestamp).toLocaleDateString(undefined, {
+    this.cachedFormattedReleaseDate = new Date(timestamp).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
+
+    return this.cachedFormattedReleaseDate;
   }
 
   formatMetadataList(values: string[] | null | undefined): string {
@@ -903,19 +942,32 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   get displayTitle(): string {
+    if (this.cachedDisplayTitleGame === this.game) {
+      return this.cachedDisplayTitle;
+    }
+
+    this.cachedDisplayTitleGame = this.game;
+
     const gameEntryLike = this.game as Partial<GameEntry>;
     const customTitle =
       typeof gameEntryLike.customTitle === 'string' ? gameEntryLike.customTitle.trim() : '';
 
     if (customTitle.length > 0) {
-      return customTitle;
+      this.cachedDisplayTitle = customTitle;
+      return this.cachedDisplayTitle;
     }
 
     const title = typeof this.game.title === 'string' ? this.game.title.trim() : '';
-    return title.length > 0 ? title : 'Unknown title';
+    this.cachedDisplayTitle = title.length > 0 ? title : 'Unknown title';
+    return this.cachedDisplayTitle;
   }
 
   get mediaSlides(): DetailMediaSlide[] {
+    if (this.cachedMediaSlidesGame === this.game) {
+      return this.cachedMediaSlides;
+    }
+
+    this.cachedMediaSlidesGame = this.game;
     const slides: DetailMediaSlide[] = [];
     const seen = new Set<string>();
 
@@ -946,7 +998,9 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       seen.add(screenshot.url);
     }
 
-    return slides.length > 0 ? slides : [{ key: 'placeholder', src: '', kind: 'placeholder' }];
+    this.cachedMediaSlides =
+      slides.length > 0 ? slides : GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
+    return this.cachedMediaSlides;
   }
 
   private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{

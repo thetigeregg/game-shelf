@@ -143,7 +143,7 @@ describe('DexieGameRepository', () => {
           {
             id: 5673,
             imageId: 'hjnzngnrtwr82jzmmkef',
-            url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/hjnzngnrtwr82jzmmkef.jpg',
             width: 1280,
             height: 720,
           },
@@ -208,7 +208,7 @@ describe('DexieGameRepository', () => {
       {
         id: 2,
         imageId: 'next-image',
-        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/next-image.jpg',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/next-image.jpg',
         width: 1280,
         height: 720,
       },

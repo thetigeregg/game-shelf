@@ -41,7 +41,7 @@ export function normalizeGameScreenshots(
     normalized.push({
       id,
       imageId,
-      url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
+      url: `https://images.igdb.com/igdb/image/upload/t_720p/${imageId}.jpg`,
       width: parsePositiveInteger((value as { width?: unknown }).width),
       height: parsePositiveInteger((value as { height?: unknown }).height),
     });

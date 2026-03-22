@@ -9,6 +9,8 @@ import { Component, Input } from '@angular/core';
 export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
+  private static readonly IGDB_SCREENSHOT_SIZE_PATTERN =
+    /(\/igdb\/image\/upload\/)t_(?:screenshot_(?:med|big|huge)|720p|1080p)(?:_2x)?\//;
   @Input() src: string | null | undefined;
   @Input() alt = '';
   @Input() loading: 'eager' | 'lazy' = 'eager';
@@ -17,6 +19,10 @@ export class DetailMediaSlideComponent {
   get displaySrc(): string {
     const value = typeof this.src === 'string' ? this.src.trim() : '';
     return value.length > 0 ? value : DetailMediaSlideComponent.PLACEHOLDER_SRC;
+  }
+
+  get displayBackdropSrc(): string {
+    return this.buildBackdropSrc(this.displaySrc);
   }
 
   onImageLoad(event: Event): void {
@@ -71,5 +77,22 @@ export class DetailMediaSlideComponent {
     } catch {
       return normalized;
     }
+  }
+
+  private buildBackdropSrc(source: string): string {
+    const normalized = source.trim();
+
+    if (normalized.length === 0) {
+      return DetailMediaSlideComponent.PLACEHOLDER_SRC;
+    }
+
+    if (DetailMediaSlideComponent.IGDB_SCREENSHOT_SIZE_PATTERN.test(normalized)) {
+      return normalized.replace(
+        DetailMediaSlideComponent.IGDB_SCREENSHOT_SIZE_PATTERN,
+        '$1t_screenshot_med/'
+      );
+    }
+
+    return normalized;
   }
 }

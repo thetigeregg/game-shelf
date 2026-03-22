@@ -553,7 +553,7 @@ describe('GameSyncService', () => {
         {
           id: 5673,
           imageId: 'hjnzngnrtwr82jzmmkef',
-          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+          url: 'https://images.igdb.com/igdb/image/upload/t_720p/hjnzngnrtwr82jzmmkef.jpg',
           width: 1280,
           height: 720,
         },
@@ -810,7 +810,7 @@ describe('GameSyncService', () => {
       {
         id: 2,
         imageId: 'new-image',
-        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/new-image.jpg',
+        url: 'https://images.igdb.com/igdb/image/upload/t_720p/new-image.jpg',
         width: 1280,
         height: 720,
       },

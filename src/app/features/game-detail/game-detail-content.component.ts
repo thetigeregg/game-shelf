@@ -616,12 +616,15 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private refreshDetailTextExpandableState(): void {
-    const summaryExpandable =
-      this.detailTextExpandable.summary ||
-      this.isDetailTextOverflowing(this.summaryTextRef?.nativeElement);
-    const storylineExpandable =
-      this.detailTextExpandable.storyline ||
-      this.isDetailTextOverflowing(this.storylineTextRef?.nativeElement);
+    const summaryElement = this.summaryTextRef?.nativeElement;
+    const storylineElement = this.storylineTextRef?.nativeElement;
+
+    const summaryExpandable = summaryElement
+      ? this.isDetailTextOverflowing(summaryElement)
+      : this.detailTextExpandable.summary;
+    const storylineExpandable = storylineElement
+      ? this.isDetailTextOverflowing(storylineElement)
+      : this.detailTextExpandable.storyline;
 
     this.detailTextExpandable = {
       summary: summaryExpandable,

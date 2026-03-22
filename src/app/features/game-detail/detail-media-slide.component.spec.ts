@@ -17,7 +17,17 @@ describe('DetailMediaSlideComponent', () => {
 
   it('derives a lower-resolution backdrop for IGDB screenshots and keeps other sources', () => {
     const component = createComponent();
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
+    expect(component.displayBackdropSrc).toBe(
+      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    );
+
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hash.jpg';
+    expect(component.displayBackdropSrc).toBe(
+      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    );
+
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_1080p/hash.jpg';
     expect(component.displayBackdropSrc).toBe(
       'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
     );

@@ -10,7 +10,7 @@ export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   private static readonly IGDB_SCREENSHOT_SIZE_PATTERN =
-    /(\/igdb\/image\/upload\/)t_screenshot_(?:med|big|huge)(?:_2x)?\//;
+    /(\/igdb\/image\/upload\/)t_(?:screenshot_(?:med|big|huge)|720p|1080p)(?:_2x)?\//;
   @Input() src: string | null | undefined;
   @Input() alt = '';
   @Input() loading: 'eager' | 'lazy' = 'eager';

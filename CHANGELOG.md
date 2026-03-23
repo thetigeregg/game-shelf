@@ -2910,3 +2910,11 @@
 - 022682b0 Merge pull request #278 from thetigeregg/feat/rates
 - 4b5a431a feat: add CodeQL configuration to exclude false positives for rate limiting
 
+## v1.27.0 - 2026-03-23
+- 1e03f7f7 Merge pull request #279 from thetigeregg/feat/fixagain
+- aa4093ef fix(sync): guard syncNow against reset promise failures
+- dd9de4a0 fix(sync): make local sync reset non-blocking
+- 48292d30 fix(sync): serialize local sync state reset
+- a6a0e0f2 feat(sync): enhance logging for pullChanges with cursor details
+- cbbb8ace feat(settings): add reset local sync state functionality
+

@@ -38,6 +38,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonReorder: {},
     IonInput: {},
     IonToggle: {},
+    IonSpinner: {},
   };
 });
 
@@ -664,6 +665,8 @@ describe('SettingsPage CSV review fields', () => {
     );
 
     expect(template).toContain('Reset Local Sync State');
+    expect(template).toContain('[disabled]="isResettingLocalSyncState"');
+    expect(template).toContain('<ion-spinner slot="end" name="crescent"></ion-spinner>');
   });
 
   it('resets local sync state after confirmation', async () => {
@@ -682,6 +685,7 @@ describe('SettingsPage CSV review fields', () => {
     expect(alertCreateSpy).toHaveBeenCalled();
     expect(gameSyncServiceMock.resetLocalSyncState).toHaveBeenCalledTimes(1);
     expect(presentToastSpy).toHaveBeenCalledWith('Local sync state reset. Fresh sync started.');
+    expect(page.isResettingLocalSyncState).toBe(false);
   });
 
   it('shows a deferred sync message when a fresh sync cannot start immediately', async () => {
@@ -700,6 +704,7 @@ describe('SettingsPage CSV review fields', () => {
     expect(presentToastSpy).toHaveBeenCalledWith(
       'Local sync state reset. Fresh sync will run when available.'
     );
+    expect(page.isResettingLocalSyncState).toBe(false);
   });
 
   it('does not reset local sync state when confirmation is canceled', async () => {
@@ -713,6 +718,36 @@ describe('SettingsPage CSV review fields', () => {
     await page.resetLocalSyncState();
 
     expect(gameSyncServiceMock.resetLocalSyncState).not.toHaveBeenCalled();
+    expect(page.isResettingLocalSyncState).toBe(false);
+  });
+
+  it('tracks loading state while resetting local sync state', async () => {
+    let resolveReset: (() => void) | null = null;
+    const resetPromise = new Promise<boolean>((resolve) => {
+      resolveReset = () => {
+        resolve(true);
+      };
+    });
+    gameSyncServiceMock.resetLocalSyncState.mockReturnValueOnce(resetPromise);
+
+    const page = createPage();
+    vi.spyOn(page, 'presentToast').mockResolvedValue(undefined);
+    const alert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    };
+    vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue(alert as never);
+
+    const pageResetPromise = page.resetLocalSyncState();
+
+    await vi.waitFor(() => {
+      expect(page.isResettingLocalSyncState).toBe(true);
+    });
+
+    resolveReset?.();
+    await pageResetPromise;
+
+    expect(page.isResettingLocalSyncState).toBe(false);
   });
 
   it('normalizes invalid wishlist release date display changes before persisting', () => {

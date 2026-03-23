@@ -227,6 +227,18 @@
         <ion-icon slot="start" color="danger" name="trash"></ion-icon>
         <ion-label>Clear Debug Logs</ion-label>
       </ion-item>
+      <ion-item
+        button
+        detail="true"
+        [disabled]="isResettingLocalSyncState"
+        (click)="resetLocalSyncState()"
+      >
+        <ion-icon slot="start" color="warning" name="refresh"></ion-icon>
+        <ion-label>Reset Local Sync State</ion-label>
+        @if (isResettingLocalSyncState) {
+          <ion-spinner slot="end" name="crescent"></ion-spinner>
+        }
+      </ion-item>
     </ion-list>
 
     <ion-list lines="full">

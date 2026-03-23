@@ -44,6 +44,8 @@ type GameSyncServicePrivate = {
   ): number | null;
   isOnline(): boolean;
   generateOperationId(): string;
+  syncNow(): Promise<void>;
+  syncNowIfPossible(): Promise<boolean>;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
@@ -1384,15 +1386,58 @@ describe('GameSyncService', () => {
       },
     ]);
 
-    const syncNowSpy = vi.spyOn(servicePrivate, 'syncNow').mockResolvedValue(undefined);
+    const syncNowSpy = vi.spyOn(servicePrivate, 'syncNowIfPossible').mockResolvedValue(true);
 
-    await service.resetLocalSyncState();
+    const syncStarted = await service.resetLocalSyncState();
 
     expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
     expect(await db.syncMeta.get('lastSyncAt')).toBeUndefined();
     expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
     expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
+    expect(syncStarted).toBe(true);
     expect(syncNowSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetLocalSyncState waits for an active sync before resetting metadata', async () => {
+    await db.syncMeta.bulkPut([
+      {
+        key: 'cursor',
+        value: '9876',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'lastSyncAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    let resolveFirstPush: (() => void) | null = null;
+    const firstPush = new Promise<void>((resolve) => {
+      resolveFirstPush = resolve;
+    });
+
+    vi.spyOn(servicePrivate, 'pushOutbox')
+      .mockImplementationOnce(() => firstPush)
+      .mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'replayRecentChangesIfDue').mockResolvedValue(undefined);
+
+    const initialSyncPromise = service.syncNow();
+    await Promise.resolve();
+
+    const resetPromise = service.resetLocalSyncState();
+    await Promise.resolve();
+
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('9876');
+
+    resolveFirstPush?.();
+
+    await initialSyncPromise;
+    const syncStarted = await resetPromise;
+
+    expect(syncStarted).toBe(true);
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
   });
 
   it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {

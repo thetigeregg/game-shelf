@@ -2893,3 +2893,9 @@
 - c39219d6 feat(explore): enhance explore page tests with swiper mock
 - 1a1bb9da feat(game-detail): add resize observer for detail text elements and refresh logic
 
+## v1.24.0 - 2026-03-23
+- bc14599f Merge pull request #274 from thetigeregg/feat/finda
+- 7782a5bf test(sync): assert cover field preservation in upsert SQL
+- 960264bc feat(sync): add test for preserving cover metadata when payload omits cover fields
+- d6b1cabf feat(sync): enhance game payload handling with cover field reconciliation
+

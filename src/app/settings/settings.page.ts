@@ -50,6 +50,7 @@ import {
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
+import { GameSyncService } from '../core/services/game-sync.service';
 import {
   PlatformOrderService,
   PLATFORM_ORDER_STORAGE_KEY,
@@ -448,6 +449,7 @@ export class SettingsPage {
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly imageCacheService = inject(ImageCacheService);
+  private readonly gameSyncService = inject(GameSyncService);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
@@ -966,6 +968,34 @@ export class SettingsPage {
 
     this.debugLogService.clear();
     await this.presentToast('Debug logs cleared.');
+  }
+
+  async resetLocalSyncState(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Reset Local Sync State',
+      message:
+        "Reset this device's sync cursor and replay metadata, then force a fresh sync? Local library data stays on this device.",
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Reset', role: 'confirm', cssClass: 'alert-button-danger' },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    try {
+      this.debugLogService.info('settings.reset_local_sync_state_requested');
+      await this.gameSyncService.resetLocalSyncState();
+      await this.presentToast('Local sync state reset. Fresh sync started.');
+    } catch (error: unknown) {
+      this.debugLogService.error('settings.reset_local_sync_state_failed', error);
+      await this.presentToast('Unable to reset local sync state.', 'danger');
+    }
   }
 
   triggerImport(fileInput: HTMLInputElement): void {

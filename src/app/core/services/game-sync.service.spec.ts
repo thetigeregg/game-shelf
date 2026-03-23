@@ -1359,6 +1359,41 @@ describe('GameSyncService', () => {
     expect(unchangedCursor?.value).toBe('123');
   });
 
+  it('resets local sync metadata and starts a fresh sync', async () => {
+    await db.syncMeta.bulkPut([
+      {
+        key: 'cursor',
+        value: '9876',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'lastSyncAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'recentReplayLastAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'recentReplayLastAttemptAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    const syncNowSpy = vi.spyOn(servicePrivate, 'syncNow').mockResolvedValue(undefined);
+
+    await service.resetLocalSyncState();
+
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
+    expect(await db.syncMeta.get('lastSyncAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
+    expect(syncNowSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {
     const now = '2026-01-01T00:00:00.000Z';
     await db.outbox.bulkPut([

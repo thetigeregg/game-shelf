@@ -74,6 +74,7 @@ import { ImageCacheService } from '../core/services/image-cache.service';
 import { PlatformOrderService } from '../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { GameSyncService } from '../core/services/game-sync.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
   RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
@@ -168,6 +169,9 @@ describe('SettingsPage CSV review fields', () => {
   let outboxWriterMock: {
     enqueueOperation: ReturnType<typeof vi.fn>;
   };
+  let gameSyncServiceMock: {
+    resetLocalSyncState: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     localStorage.clear();
@@ -255,6 +259,9 @@ describe('SettingsPage CSV review fields', () => {
     outboxWriterMock = {
       enqueueOperation: vi.fn().mockResolvedValue(undefined),
     };
+    gameSyncServiceMock = {
+      resetLocalSyncState: vi.fn().mockResolvedValue(undefined),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -280,6 +287,10 @@ describe('SettingsPage CSV review fields', () => {
             setLimitMb: vi.fn().mockImplementation((value: number) => value),
             getUsageBytes: vi.fn().mockResolvedValue(0),
           },
+        },
+        {
+          provide: GameSyncService,
+          useValue: gameSyncServiceMock,
         },
         {
           provide: PlatformOrderService,
@@ -312,6 +323,8 @@ describe('SettingsPage CSV review fields', () => {
           useValue: {
             isVerboseTracingEnabled: vi.fn().mockReturnValue(false),
             setVerboseTracingEnabled: vi.fn(),
+            info: vi.fn(),
+            error: vi.fn(),
           },
         },
         {
@@ -642,6 +655,44 @@ describe('SettingsPage CSV review fields', () => {
     expect(template).toContain('label="Collection Display"');
     expect(template).toContain('label="Wishlist Display"');
     expect(template).not.toContain('label="Release Date Display"');
+  });
+
+  it('includes a reset local sync state action in the settings template', () => {
+    const template = readFileSync(
+      resolve(process.cwd(), 'src/app/settings/settings.page.html'),
+      'utf8'
+    );
+
+    expect(template).toContain('Reset Local Sync State');
+  });
+
+  it('resets local sync state after confirmation', async () => {
+    const page = createPage();
+    const alert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    };
+    const alertCreateSpy = vi
+      .spyOn(TestBed.inject(AlertController), 'create')
+      .mockResolvedValue(alert as never);
+
+    await page.resetLocalSyncState();
+
+    expect(alertCreateSpy).toHaveBeenCalled();
+    expect(gameSyncServiceMock.resetLocalSyncState).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reset local sync state when confirmation is canceled', async () => {
+    const page = createPage();
+    const alert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
+    };
+    vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue(alert as never);
+
+    await page.resetLocalSyncState();
+
+    expect(gameSyncServiceMock.resetLocalSyncState).not.toHaveBeenCalled();
   });
 
   it('normalizes invalid wishlist release date display changes before persisting', () => {

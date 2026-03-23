@@ -46,6 +46,7 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   syncNow(): Promise<void>;
   startSyncNowIfPossible(): Promise<boolean>;
+  resetLocalSyncStatePromise: Promise<boolean> | null;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
@@ -1464,6 +1465,29 @@ describe('GameSyncService', () => {
 
     expect(syncStarted).toBe(true);
     expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
+  });
+
+  it('startSyncNowIfPossible aborts safely when local sync state reset fails', async () => {
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    let rejectReset: ((reason?: unknown) => void) | null = null;
+
+    servicePrivate.resetLocalSyncStatePromise = new Promise<boolean>((_, reject) => {
+      rejectReset = reject;
+    });
+
+    const startPromise = servicePrivate.startSyncNowIfPossible();
+    rejectReset?.(new Error('reset failed'));
+
+    await expect(startPromise).resolves.toBe(false);
+    expect(debugSpy).toHaveBeenCalledWith('sync.reset_local_state.failed');
+  });
+
+  it('syncNow swallows unexpected startup failures for fire-and-forget callers', async () => {
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockRejectedValue(new Error('boom'));
+
+    await expect(service.syncNow()).resolves.toBeUndefined();
+    expect(debugSpy).toHaveBeenCalledWith('sync.sync_now.failed');
   });
 
   it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {

@@ -171,18 +171,27 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async syncNow(): Promise<void> {
-    const syncStarted = await this.startSyncNowIfPossible();
+    try {
+      const syncStarted = await this.startSyncNowIfPossible();
 
-    if (!syncStarted || !this.activeSyncPromise) {
-      return;
+      if (!syncStarted || !this.activeSyncPromise) {
+        return;
+      }
+
+      await this.activeSyncPromise;
+    } catch {
+      this.debugLogService.debug('sync.sync_now.failed');
     }
-
-    await this.activeSyncPromise;
   }
 
   private async startSyncNowIfPossible(waitForReset = true): Promise<boolean> {
     while (waitForReset && this.resetLocalSyncStatePromise) {
-      await this.resetLocalSyncStatePromise;
+      try {
+        await this.resetLocalSyncStatePromise;
+      } catch {
+        this.debugLogService.debug('sync.reset_local_state.failed');
+        return false;
+      }
     }
 
     if (this.syncInFlight) {

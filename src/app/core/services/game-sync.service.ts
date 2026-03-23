@@ -298,7 +298,11 @@ export class GameSyncService implements SyncOutboxWriter {
     let totalAppliedChanges = 0;
 
     while (pagesPulled < GameSyncService.SYNC_PULL_MAX_PAGES_PER_RUN) {
-      this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor), pagesPulled });
+      this.debugLogService.debug('sync.pull.request', {
+        hasCursor: Boolean(cursor),
+        cursor,
+        pagesPulled,
+      });
       const response = await firstValueFrom(
         this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
           cursor: cursor ?? null,
@@ -313,6 +317,8 @@ export class GameSyncService implements SyncOutboxWriter {
       this.debugLogService.debug('sync.pull.response', {
         changes: changes.length,
         hasCursor: responseCursor !== null,
+        requestedCursor: cursor,
+        responseCursor,
       });
 
       if (changes.length === 0) {

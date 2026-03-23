@@ -5,6 +5,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
 import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
+import { DebugLogService } from './debug-log.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
 import {
@@ -1451,6 +1452,36 @@ describe('GameSyncService', () => {
 
     const cursor = await db.syncMeta.get('cursor');
     expect(cursor?.value).toBe('next-cursor');
+  });
+
+  it('pullChanges logs requested and response cursor values', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'stored-cursor',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: 'next-cursor',
+        changes: [],
+      })
+    );
+
+    await servicePrivate.pullChanges();
+
+    expect(debugSpy).toHaveBeenCalledWith('sync.pull.request', {
+      hasCursor: true,
+      cursor: 'stored-cursor',
+      pagesPulled: 0,
+    });
+    expect(debugSpy).toHaveBeenCalledWith('sync.pull.response', {
+      changes: 0,
+      hasCursor: true,
+      requestedCursor: 'stored-cursor',
+      responseCursor: 'next-cursor',
+    });
   });
 
   it('pullChanges applies changes, emits event, and falls back cursor to last event id', async () => {

@@ -24,6 +24,12 @@ interface UpsertedGamePayloadRow {
   payload: Record<string, unknown>;
 }
 
+type CoverSource = 'thegamesdb' | 'igdb' | 'none';
+
+interface ExistingGamePayloadRow {
+  payload: Record<string, unknown>;
+}
+
 interface PushBody {
   operations?: unknown;
 }
@@ -218,6 +224,14 @@ async function applyGameOperation(
 
   const payload = normalizeGamePayload(operation.payload);
   const gameKey = `${payload.igdbGameId}::${String(payload.platformIgdbId)}`;
+  const existingPayloadResult = await client.query<ExistingGamePayloadRow>(
+    'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
+    [payload.igdbGameId, payload.platformIgdbId]
+  );
+  const reconciledPayload = reconcileGameCoverFields(
+    payload,
+    existingPayloadResult.rows[0]?.payload
+  );
 
   const upsertResult = await client.query<UpsertedGamePayloadRow>(
     `
@@ -243,6 +257,9 @@ async function applyGameOperation(
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
+        'coverUrl', COALESCE(EXCLUDED.payload -> 'coverUrl', games.payload -> 'coverUrl'),
+        'coverSource', COALESCE(EXCLUDED.payload -> 'coverSource', games.payload -> 'coverSource'),
+        'customCoverUrl', COALESCE(EXCLUDED.payload -> 'customCoverUrl', games.payload -> 'customCoverUrl'),
         'websites', COALESCE(EXCLUDED.payload -> 'websites', games.payload -> 'websites'),
         'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
         'priceSource', COALESCE(EXCLUDED.payload -> 'priceSource', games.payload -> 'priceSource'),
@@ -284,9 +301,13 @@ async function applyGameOperation(
     ), updated_at = NOW()
     RETURNING payload
     `,
-    [payload.igdbGameId, payload.platformIgdbId, JSON.stringify(payload)]
+    [
+      reconciledPayload.igdbGameId,
+      reconciledPayload.platformIgdbId,
+      JSON.stringify(reconciledPayload),
+    ]
   );
-  const normalizedPayload = upsertResult.rows[0]?.payload ?? payload;
+  const normalizedPayload = upsertResult.rows[0]?.payload ?? reconciledPayload;
   await appendSyncEvent(client, 'game', gameKey, 'upsert', normalizedPayload);
 
   return {
@@ -695,6 +716,140 @@ function normalizePriceUrl(value: unknown): string | null {
   return null;
 }
 
+function normalizeCoverSource(value: unknown): CoverSource {
+  return value === 'thegamesdb' || value === 'igdb' || value === 'none' ? value : 'none';
+}
+
+function isTheGamesDbCoverUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && parsed.hostname === 'cdn.thegamesdb.net';
+  } catch {
+    return false;
+  }
+}
+
+function isIgdbCoverUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && parsed.hostname === 'images.igdb.com';
+  } catch {
+    return false;
+  }
+}
+
+function inferCoverSourceFromUrl(value: string | null): CoverSource | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (isTheGamesDbCoverUrl(value)) {
+    return 'thegamesdb';
+  }
+
+  if (isIgdbCoverUrl(value)) {
+    return 'igdb';
+  }
+
+  return null;
+}
+
+function parseTimestamp(value: unknown): number | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isDataImageUrl(value: unknown): value is string {
+  return typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+}
+
+function reconcileGameCoverFields(
+  payload: Record<string, unknown> & { igdbGameId: string; platformIgdbId: number },
+  existingPayload?: Record<string, unknown>
+): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
+  const hasIncomingCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'coverUrl');
+  const hasIncomingCoverSource = Object.prototype.hasOwnProperty.call(payload, 'coverSource');
+  const hasIncomingCustomCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'customCoverUrl');
+  const incomingCoverUrl = hasIncomingCoverUrl ? normalizeExternalUrl(payload.coverUrl) : null;
+  const incomingCoverSource = hasIncomingCoverSource
+    ? normalizeCoverSource(payload.coverSource)
+    : null;
+  const incomingCustomCoverUrl =
+    hasIncomingCustomCoverUrl && isDataImageUrl(payload.customCoverUrl)
+      ? payload.customCoverUrl
+      : null;
+  const existingCoverUrl = normalizeExternalUrl(existingPayload?.coverUrl) ?? null;
+  const existingCoverSource =
+    existingPayload && Object.prototype.hasOwnProperty.call(existingPayload, 'coverSource')
+      ? normalizeCoverSource(existingPayload.coverSource)
+      : 'none';
+  const existingCustomCoverUrl = isDataImageUrl(existingPayload?.customCoverUrl)
+    ? existingPayload.customCoverUrl
+    : null;
+  const inferredIncomingCoverSource = inferCoverSourceFromUrl(incomingCoverUrl);
+  const inferredExistingCoverSource = inferCoverSourceFromUrl(existingCoverUrl);
+  const normalizedIncomingCoverSource =
+    incomingCoverUrl === null
+      ? 'none'
+      : (inferredIncomingCoverSource ?? incomingCoverSource ?? 'none');
+  const normalizedExistingCoverSource =
+    existingCoverUrl === null ? 'none' : (inferredExistingCoverSource ?? existingCoverSource);
+  const hasExistingPayload = existingPayload !== undefined;
+  const incomingUpdatedAt = parseTimestamp(payload.updatedAt);
+  const existingUpdatedAt = parseTimestamp(existingPayload?.updatedAt);
+  const incomingIsStale =
+    hasExistingPayload &&
+    incomingUpdatedAt !== null &&
+    existingUpdatedAt !== null &&
+    incomingUpdatedAt <= existingUpdatedAt;
+  const reconciledCoverUrl = hasIncomingCoverUrl ? incomingCoverUrl : existingCoverUrl;
+  const reconciledCustomCoverUrl = hasIncomingCustomCoverUrl
+    ? incomingCustomCoverUrl
+    : existingCustomCoverUrl;
+  const reconciledCoverSource =
+    reconciledCoverUrl === null
+      ? 'none'
+      : (inferCoverSourceFromUrl(reconciledCoverUrl) ??
+        (hasIncomingCoverSource
+          ? incomingCoverSource
+          : hasIncomingCoverUrl
+            ? normalizedIncomingCoverSource
+            : normalizedExistingCoverSource) ??
+        'none');
+  const incomingChangesCoverFields =
+    reconciledCoverUrl !== existingCoverUrl ||
+    reconciledCoverSource !== normalizedExistingCoverSource ||
+    reconciledCustomCoverUrl !== existingCustomCoverUrl;
+  const incomingHasInvalidMixedState =
+    incomingCoverUrl !== null &&
+    inferredIncomingCoverSource !== null &&
+    incomingCoverSource !== null &&
+    incomingCoverSource !== inferredIncomingCoverSource;
+
+  if (
+    hasExistingPayload &&
+    (incomingHasInvalidMixedState || (incomingIsStale && incomingChangesCoverFields))
+  ) {
+    return {
+      ...payload,
+      coverUrl: existingCoverUrl,
+      coverSource: normalizedExistingCoverSource,
+      customCoverUrl: existingCustomCoverUrl,
+    };
+  }
+
+  return {
+    ...payload,
+    coverUrl: reconciledCoverUrl,
+    coverSource: reconciledCoverSource,
+    customCoverUrl: reconciledCustomCoverUrl,
+  };
+}
+
 function normalizeGamePayload(
   value: unknown
 ): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
@@ -741,6 +896,9 @@ function normalizeGamePayload(
   );
   const hasPriceIsFree = Object.prototype.hasOwnProperty.call(payload, 'priceIsFree');
   const hasPriceUrl = Object.prototype.hasOwnProperty.call(payload, 'priceUrl');
+  const hasCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'coverUrl');
+  const hasCoverSource = Object.prototype.hasOwnProperty.call(payload, 'coverSource');
+  const hasCustomCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'customCoverUrl');
   const priceSource = normalizePriceSource(payload.priceSource);
   const priceFetchedAt = normalizePriceFetchedAt(payload.priceFetchedAt);
   const priceAmount = normalizePriceAmount(payload.priceAmount);
@@ -749,6 +907,8 @@ function normalizeGamePayload(
   const priceDiscountPercent = normalizePriceDiscountPercent(payload.priceDiscountPercent);
   const priceIsFree = normalizePriceIsFree(payload.priceIsFree);
   const priceUrl = normalizePriceUrl(payload.priceUrl);
+  const coverUrl = normalizeExternalUrl(payload.coverUrl);
+  const coverSource = normalizeCoverSource(payload.coverSource);
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -784,7 +944,9 @@ function normalizeGamePayload(
     customTitle,
     customPlatform,
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
-    customCoverUrl,
+    ...(hasCoverUrl ? { coverUrl } : {}),
+    ...(hasCoverSource ? { coverSource } : {}),
+    ...(hasCustomCoverUrl ? { customCoverUrl } : {}),
     notes,
     mobyScore,
     mobygamesGameId,

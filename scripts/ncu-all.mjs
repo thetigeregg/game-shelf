@@ -62,7 +62,7 @@ for (const project of projects) {
   console.log(`==============================`);
 
   try {
-    run(ncuCommand, ['-i', '--packageFile', packageFile], repoRoot);
+    run(ncuCommand, ['-i', '--packageFile', packageFile, '--format', 'group,repo'], repoRoot);
     run(npmCommand, ['--prefix', projectDir, 'install'], repoRoot);
   } catch (error) {
     const commandString =

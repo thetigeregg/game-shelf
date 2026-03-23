@@ -112,6 +112,26 @@ export class GameSyncService implements SyncOutboxWriter {
       });
   }
 
+  async resetLocalSyncState(): Promise<void> {
+    const now = new Date().toISOString();
+
+    await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
+      const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
+
+      await syncMetaTable.put({
+        key: GameSyncService.META_CURSOR_KEY,
+        value: '0',
+        updatedAt: now,
+      });
+      await syncMetaTable.delete(GameSyncService.META_LAST_SYNC_KEY);
+      await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
+      await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
+    });
+
+    this.debugLogService.info('sync.local_state_reset');
+    await this.syncNow();
+  }
+
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 

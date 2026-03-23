@@ -2906,3 +2906,7 @@
 - ba64b2b7 fix(deps): update @types/pg to version 8.20.0
 - 245b4c0b fix(deps): update jsdom and undici to latest versions
 
+## v1.26.0 - 2026-03-23
+- 022682b0 Merge pull request #278 from thetigeregg/feat/rates
+- 4b5a431a feat: add CodeQL configuration to exclude false positives for rate limiting
+

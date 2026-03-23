@@ -705,6 +705,9 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
   assert.equal(capturedInsertSql.includes("'reviewMatchQueryPlatform'"), true);
   assert.equal(capturedInsertSql.includes("'reviewMatchPlatformIgdbId'"), true);
   assert.equal(capturedInsertSql.includes("'reviewMatchMobygamesGameId'"), true);
+  assert.equal(capturedInsertSql.includes("'coverUrl'"), true);
+  assert.equal(capturedInsertSql.includes("'coverSource'"), true);
+  assert.equal(capturedInsertSql.includes("'customCoverUrl'"), true);
 
   await app.close();
 });

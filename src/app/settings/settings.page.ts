@@ -25,6 +25,7 @@ import {
   IonReorder,
   IonInput,
   IonToggle,
+  IonSpinner,
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -372,6 +373,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
     IonReorder,
     IonInput,
     IonToggle,
+    IonSpinner,
   ],
 })
 export class SettingsPage {
@@ -417,6 +419,7 @@ export class SettingsPage {
   platformOrderItems: PlatformCustomizationItem[] = [];
   isImportPreviewOpen = false;
   isApplyingImport = false;
+  isResettingLocalSyncState = false;
   importPreviewRows: ImportPreviewRow[] = [];
   isMgcImportOpen = false;
   isResolvingMgcPage = false;
@@ -989,6 +992,7 @@ export class SettingsPage {
     }
 
     try {
+      this.isResettingLocalSyncState = true;
       this.debugLogService.info('settings.reset_local_sync_state_requested');
       const syncStarted = await this.gameSyncService.resetLocalSyncState();
       await this.presentToast(
@@ -999,6 +1003,8 @@ export class SettingsPage {
     } catch (error: unknown) {
       this.debugLogService.error('settings.reset_local_sync_state_failed', error);
       await this.presentToast('Unable to reset local sync state.', 'danger');
+    } finally {
+      this.isResettingLocalSyncState = false;
     }
   }
 

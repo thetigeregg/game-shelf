@@ -45,11 +45,12 @@ type GameSyncServicePrivate = {
   isOnline(): boolean;
   generateOperationId(): string;
   syncNow(): Promise<void>;
-  syncNowIfPossible(): Promise<boolean>;
+  startSyncNowIfPossible(): Promise<boolean>;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
   runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
+  activeSyncPromise: Promise<void> | null;
   syncInFlight: boolean;
   initialized: boolean;
   baseUrl: string;
@@ -105,6 +106,9 @@ describe('GameSyncService', () => {
   });
 
   afterEach(async () => {
+    if (servicePrivate.activeSyncPromise) {
+      await servicePrivate.activeSyncPromise;
+    }
     await db.delete();
   });
 
@@ -1386,7 +1390,7 @@ describe('GameSyncService', () => {
       },
     ]);
 
-    const syncNowSpy = vi.spyOn(servicePrivate, 'syncNowIfPossible').mockResolvedValue(true);
+    const syncNowSpy = vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockResolvedValue(true);
 
     const syncStarted = await service.resetLocalSyncState();
 
@@ -1396,6 +1400,28 @@ describe('GameSyncService', () => {
     expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
     expect(syncStarted).toBe(true);
     expect(syncNowSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetLocalSyncState shares the in-flight reset result with concurrent callers', async () => {
+    let resolveSyncStart: ((value: boolean) => void) | null = null;
+    const startSyncSpy = vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSyncStart = resolve;
+        })
+    );
+
+    const firstResetPromise = service.resetLocalSyncState();
+    const secondResetPromise = service.resetLocalSyncState();
+
+    await vi.waitFor(() => {
+      expect(startSyncSpy).toHaveBeenCalledTimes(1);
+    });
+
+    resolveSyncStart?.(true);
+
+    await expect(firstResetPromise).resolves.toBe(true);
+    await expect(secondResetPromise).resolves.toBe(true);
   });
 
   it('resetLocalSyncState waits for an active sync before resetting metadata', async () => {

@@ -2899,3 +2899,10 @@
 - 960264bc feat(sync): add test for preserving cover metadata when payload omits cover fields
 - d6b1cabf feat(sync): enhance game payload handling with cover field reconciliation
 
+## v1.25.0 - 2026-03-23
+- 6f356902 Merge pull request #277 from thetigeregg/feat/bumpa
+- ef18291d Merge branch 'main' into feat/bumpa
+- 632701b2 feat(ncu-all): add format option to ncu command for better output
+- ba64b2b7 fix(deps): update @types/pg to version 8.20.0
+- 245b4c0b fix(deps): update jsdom and undici to latest versions
+

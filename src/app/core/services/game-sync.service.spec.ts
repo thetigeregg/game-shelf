@@ -5,6 +5,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
 import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
+import { DebugLogService } from './debug-log.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
 import {
@@ -43,10 +44,14 @@ type GameSyncServicePrivate = {
   ): number | null;
   isOnline(): boolean;
   generateOperationId(): string;
+  syncNow(): Promise<void>;
+  startSyncNowIfPossible(): Promise<boolean>;
+  resetLocalSyncStatePromise: Promise<boolean> | null;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
   runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
+  activeSyncPromise: Promise<void> | null;
   syncInFlight: boolean;
   initialized: boolean;
   baseUrl: string;
@@ -102,6 +107,9 @@ describe('GameSyncService', () => {
   });
 
   afterEach(async () => {
+    if (servicePrivate.activeSyncPromise) {
+      await servicePrivate.activeSyncPromise;
+    }
     await db.delete();
   });
 
@@ -1359,6 +1367,129 @@ describe('GameSyncService', () => {
     expect(unchangedCursor?.value).toBe('123');
   });
 
+  it('resets local sync metadata and starts a fresh sync', async () => {
+    await db.syncMeta.bulkPut([
+      {
+        key: 'cursor',
+        value: '9876',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'lastSyncAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'recentReplayLastAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'recentReplayLastAttemptAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    const syncNowSpy = vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockResolvedValue(true);
+
+    const syncStarted = await service.resetLocalSyncState();
+
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
+    expect(await db.syncMeta.get('lastSyncAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
+    expect(syncStarted).toBe(true);
+    expect(syncNowSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetLocalSyncState shares the in-flight reset result with concurrent callers', async () => {
+    let resolveSyncStart: ((value: boolean) => void) | null = null;
+    const startSyncSpy = vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSyncStart = resolve;
+        })
+    );
+
+    const firstResetPromise = service.resetLocalSyncState();
+    const secondResetPromise = service.resetLocalSyncState();
+
+    await vi.waitFor(() => {
+      expect(startSyncSpy).toHaveBeenCalledTimes(1);
+    });
+
+    resolveSyncStart?.(true);
+
+    await expect(firstResetPromise).resolves.toBe(true);
+    await expect(secondResetPromise).resolves.toBe(true);
+  });
+
+  it('resetLocalSyncState waits for an active sync before resetting metadata', async () => {
+    await db.syncMeta.bulkPut([
+      {
+        key: 'cursor',
+        value: '9876',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        key: 'lastSyncAt',
+        value: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    let resolveFirstPush: (() => void) | null = null;
+    const firstPush = new Promise<void>((resolve) => {
+      resolveFirstPush = resolve;
+    });
+
+    vi.spyOn(servicePrivate, 'pushOutbox')
+      .mockImplementationOnce(() => firstPush)
+      .mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'replayRecentChangesIfDue').mockResolvedValue(undefined);
+
+    const initialSyncPromise = service.syncNow();
+    await Promise.resolve();
+
+    const resetPromise = service.resetLocalSyncState();
+    await Promise.resolve();
+
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('9876');
+
+    resolveFirstPush?.();
+
+    await initialSyncPromise;
+    const syncStarted = await resetPromise;
+
+    expect(syncStarted).toBe(true);
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('0');
+  });
+
+  it('startSyncNowIfPossible aborts safely when local sync state reset fails', async () => {
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    let rejectReset: ((reason?: unknown) => void) | null = null;
+
+    servicePrivate.resetLocalSyncStatePromise = new Promise<boolean>((_, reject) => {
+      rejectReset = reject;
+    });
+
+    const startPromise = servicePrivate.startSyncNowIfPossible();
+    rejectReset?.(new Error('reset failed'));
+
+    await expect(startPromise).resolves.toBe(false);
+    expect(debugSpy).toHaveBeenCalledWith('sync.reset_local_state.failed');
+  });
+
+  it('syncNow swallows unexpected startup failures for fire-and-forget callers', async () => {
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    vi.spyOn(servicePrivate, 'startSyncNowIfPossible').mockRejectedValue(new Error('boom'));
+
+    await expect(service.syncNow()).resolves.toBeUndefined();
+    expect(debugSpy).toHaveBeenCalledWith('sync.sync_now.failed');
+  });
+
   it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {
     const now = '2026-01-01T00:00:00.000Z';
     await db.outbox.bulkPut([
@@ -1416,6 +1547,36 @@ describe('GameSyncService', () => {
 
     const cursor = await db.syncMeta.get('cursor');
     expect(cursor?.value).toBe('next-cursor');
+  });
+
+  it('pullChanges logs requested and response cursor values', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'stored-cursor',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const debugSpy = vi.spyOn(TestBed.inject(DebugLogService), 'debug');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: 'next-cursor',
+        changes: [],
+      })
+    );
+
+    await servicePrivate.pullChanges();
+
+    expect(debugSpy).toHaveBeenCalledWith('sync.pull.request', {
+      hasCursor: true,
+      cursor: 'stored-cursor',
+      pagesPulled: 0,
+    });
+    expect(debugSpy).toHaveBeenCalledWith('sync.pull.response', {
+      changes: 0,
+      hasCursor: true,
+      requestedCursor: 'stored-cursor',
+      responseCursor: 'next-cursor',
+    });
   });
 
   it('pullChanges applies changes, emits event, and falls back cursor to last event id', async () => {

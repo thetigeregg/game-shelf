@@ -25,6 +25,7 @@ import {
   IonReorder,
   IonInput,
   IonToggle,
+  IonSpinner,
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -50,6 +51,7 @@ import {
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
+import { GameSyncService } from '../core/services/game-sync.service';
 import {
   PlatformOrderService,
   PLATFORM_ORDER_STORAGE_KEY,
@@ -371,6 +373,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
     IonReorder,
     IonInput,
     IonToggle,
+    IonSpinner,
   ],
 })
 export class SettingsPage {
@@ -416,6 +419,7 @@ export class SettingsPage {
   platformOrderItems: PlatformCustomizationItem[] = [];
   isImportPreviewOpen = false;
   isApplyingImport = false;
+  isResettingLocalSyncState = false;
   importPreviewRows: ImportPreviewRow[] = [];
   isMgcImportOpen = false;
   isResolvingMgcPage = false;
@@ -448,6 +452,7 @@ export class SettingsPage {
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly imageCacheService = inject(ImageCacheService);
+  private readonly gameSyncService = inject(GameSyncService);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
@@ -966,6 +971,41 @@ export class SettingsPage {
 
     this.debugLogService.clear();
     await this.presentToast('Debug logs cleared.');
+  }
+
+  async resetLocalSyncState(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Reset Local Sync State',
+      message:
+        "Reset this device's sync cursor and replay metadata, then force a fresh sync? Local library data stays on this device.",
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Reset', role: 'confirm', cssClass: 'alert-button-danger' },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    try {
+      this.isResettingLocalSyncState = true;
+      this.debugLogService.info('settings.reset_local_sync_state_requested');
+      const syncStarted = await this.gameSyncService.resetLocalSyncState();
+      await this.presentToast(
+        syncStarted
+          ? 'Local sync state reset. Fresh sync started.'
+          : 'Local sync state reset. Fresh sync will run when available.'
+      );
+    } catch (error: unknown) {
+      this.debugLogService.error('settings.reset_local_sync_state_failed', error);
+      await this.presentToast('Unable to reset local sync state.', 'danger');
+    } finally {
+      this.isResettingLocalSyncState = false;
+    }
   }
 
   triggerImport(fileInput: HTMLInputElement): void {

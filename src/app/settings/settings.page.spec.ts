@@ -260,7 +260,7 @@ describe('SettingsPage CSV review fields', () => {
       enqueueOperation: vi.fn().mockResolvedValue(undefined),
     };
     gameSyncServiceMock = {
-      resetLocalSyncState: vi.fn().mockResolvedValue(undefined),
+      resetLocalSyncState: vi.fn().mockResolvedValue(true),
     };
 
     TestBed.configureTestingModule({
@@ -668,6 +668,7 @@ describe('SettingsPage CSV review fields', () => {
 
   it('resets local sync state after confirmation', async () => {
     const page = createPage();
+    const presentToastSpy = vi.spyOn(page, 'presentToast').mockResolvedValue(undefined);
     const alert = {
       present: vi.fn().mockResolvedValue(undefined),
       onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
@@ -680,6 +681,25 @@ describe('SettingsPage CSV review fields', () => {
 
     expect(alertCreateSpy).toHaveBeenCalled();
     expect(gameSyncServiceMock.resetLocalSyncState).toHaveBeenCalledTimes(1);
+    expect(presentToastSpy).toHaveBeenCalledWith('Local sync state reset. Fresh sync started.');
+  });
+
+  it('shows a deferred sync message when a fresh sync cannot start immediately', async () => {
+    gameSyncServiceMock.resetLocalSyncState.mockResolvedValueOnce(false);
+
+    const page = createPage();
+    const presentToastSpy = vi.spyOn(page, 'presentToast').mockResolvedValue(undefined);
+    const alert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    };
+    vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue(alert as never);
+
+    await page.resetLocalSyncState();
+
+    expect(presentToastSpy).toHaveBeenCalledWith(
+      'Local sync state reset. Fresh sync will run when available.'
+    );
   });
 
   it('does not reset local sync state when confirmation is canceled', async () => {

@@ -67,6 +67,8 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
+  private activeSyncPromise: Promise<void> | null = null;
+  private resetLocalSyncStatePromise: Promise<void> | null = null;
   private intervalId: number | null = null;
   private readonly onlineHandler = () => {
     void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
@@ -112,24 +114,44 @@ export class GameSyncService implements SyncOutboxWriter {
       });
   }
 
-  async resetLocalSyncState(): Promise<void> {
-    const now = new Date().toISOString();
+  async resetLocalSyncState(): Promise<boolean> {
+    if (this.resetLocalSyncStatePromise) {
+      await this.resetLocalSyncStatePromise;
+      return false;
+    }
 
-    await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
-      const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
-
-      await syncMetaTable.put({
-        key: GameSyncService.META_CURSOR_KEY,
-        value: '0',
-        updatedAt: now,
-      });
-      await syncMetaTable.delete(GameSyncService.META_LAST_SYNC_KEY);
-      await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
-      await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
+    let resolveResetLocalSyncStatePromise = (): void => {};
+    this.resetLocalSyncStatePromise = new Promise<void>((resolve) => {
+      resolveResetLocalSyncStatePromise = resolve;
     });
 
-    this.debugLogService.info('sync.local_state_reset');
-    await this.syncNow();
+    const now = new Date().toISOString();
+
+    try {
+      if (this.activeSyncPromise) {
+        await this.activeSyncPromise;
+      }
+
+      await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
+        const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
+
+        await syncMetaTable.put({
+          key: GameSyncService.META_CURSOR_KEY,
+          value: '0',
+          updatedAt: now,
+        });
+        await syncMetaTable.delete(GameSyncService.META_LAST_SYNC_KEY);
+        await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
+        await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
+      });
+
+      this.debugLogService.info('sync.local_state_reset');
+    } finally {
+      this.resetLocalSyncStatePromise = null;
+      resolveResetLocalSyncStatePromise();
+    }
+
+    return this.syncNowIfPossible();
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
@@ -153,19 +175,33 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async syncNow(): Promise<void> {
+    await this.syncNowIfPossible();
+  }
+
+  private async syncNowIfPossible(): Promise<boolean> {
+    while (this.resetLocalSyncStatePromise) {
+      await this.resetLocalSyncStatePromise;
+    }
+
     if (this.syncInFlight) {
       this.debugLogService.debug('sync.sync_now.skipped_in_flight');
-      return;
+      return false;
     }
 
     if (!this.isOnline()) {
       this.debugLogService.debug('sync.sync_now.skipped_offline');
-      return;
+      return false;
     }
 
     this.debugLogService.debug('sync.sync_now.start');
     this.syncInFlight = true;
 
+    this.activeSyncPromise = this.runSyncNow();
+    await this.activeSyncPromise;
+    return true;
+  }
+
+  private async runSyncNow(): Promise<void> {
     try {
       await this.pushOutbox();
       await this.pullChanges();
@@ -184,6 +220,7 @@ export class GameSyncService implements SyncOutboxWriter {
       });
     } finally {
       this.syncInFlight = false;
+      this.activeSyncPromise = null;
     }
   }
 

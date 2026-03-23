@@ -990,8 +990,12 @@ export class SettingsPage {
 
     try {
       this.debugLogService.info('settings.reset_local_sync_state_requested');
-      await this.gameSyncService.resetLocalSyncState();
-      await this.presentToast('Local sync state reset. Fresh sync started.');
+      const syncStarted = await this.gameSyncService.resetLocalSyncState();
+      await this.presentToast(
+        syncStarted
+          ? 'Local sync state reset. Fresh sync started.'
+          : 'Local sync state reset. Fresh sync will run when available.'
+      );
     } catch (error: unknown) {
       this.debugLogService.error('settings.reset_local_sync_state_failed', error);
       await this.presentToast('Unable to reset local sync state.', 'danger');

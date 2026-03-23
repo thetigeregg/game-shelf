@@ -67,6 +67,8 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
+  private activeSyncPromise: Promise<void> | null = null;
+  private resetLocalSyncStatePromise: Promise<boolean> | null = null;
   private intervalId: number | null = null;
   private readonly onlineHandler = () => {
     void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
@@ -112,6 +114,42 @@ export class GameSyncService implements SyncOutboxWriter {
       });
   }
 
+  async resetLocalSyncState(): Promise<boolean> {
+    if (this.resetLocalSyncStatePromise) {
+      return this.resetLocalSyncStatePromise;
+    }
+
+    const now = new Date().toISOString();
+
+    this.resetLocalSyncStatePromise = (async (): Promise<boolean> => {
+      try {
+        if (this.activeSyncPromise) {
+          await this.activeSyncPromise;
+        }
+
+        await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
+          const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
+
+          await syncMetaTable.put({
+            key: GameSyncService.META_CURSOR_KEY,
+            value: '0',
+            updatedAt: now,
+          });
+          await syncMetaTable.delete(GameSyncService.META_LAST_SYNC_KEY);
+          await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
+          await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
+        });
+
+        this.debugLogService.info('sync.local_state_reset');
+        return await this.startSyncNowIfPossible(false);
+      } finally {
+        this.resetLocalSyncStatePromise = null;
+      }
+    })();
+
+    return this.resetLocalSyncStatePromise;
+  }
+
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
@@ -133,19 +171,47 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async syncNow(): Promise<void> {
+    try {
+      const syncStarted = await this.startSyncNowIfPossible();
+
+      if (!syncStarted || !this.activeSyncPromise) {
+        return;
+      }
+
+      await this.activeSyncPromise;
+    } catch {
+      this.debugLogService.debug('sync.sync_now.failed');
+    }
+  }
+
+  private async startSyncNowIfPossible(waitForReset = true): Promise<boolean> {
+    while (waitForReset && this.resetLocalSyncStatePromise) {
+      try {
+        await this.resetLocalSyncStatePromise;
+      } catch {
+        this.debugLogService.debug('sync.reset_local_state.failed');
+        return false;
+      }
+    }
+
     if (this.syncInFlight) {
       this.debugLogService.debug('sync.sync_now.skipped_in_flight');
-      return;
+      return false;
     }
 
     if (!this.isOnline()) {
       this.debugLogService.debug('sync.sync_now.skipped_offline');
-      return;
+      return false;
     }
 
     this.debugLogService.debug('sync.sync_now.start');
     this.syncInFlight = true;
 
+    this.activeSyncPromise = this.runSyncNow();
+    return true;
+  }
+
+  private async runSyncNow(): Promise<void> {
     try {
       await this.pushOutbox();
       await this.pullChanges();
@@ -164,6 +230,7 @@ export class GameSyncService implements SyncOutboxWriter {
       });
     } finally {
       this.syncInFlight = false;
+      this.activeSyncPromise = null;
     }
   }
 
@@ -278,7 +345,11 @@ export class GameSyncService implements SyncOutboxWriter {
     let totalAppliedChanges = 0;
 
     while (pagesPulled < GameSyncService.SYNC_PULL_MAX_PAGES_PER_RUN) {
-      this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor), pagesPulled });
+      this.debugLogService.debug('sync.pull.request', {
+        hasCursor: Boolean(cursor),
+        cursor,
+        pagesPulled,
+      });
       const response = await firstValueFrom(
         this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
           cursor: cursor ?? null,
@@ -293,6 +364,8 @@ export class GameSyncService implements SyncOutboxWriter {
       this.debugLogService.debug('sync.pull.response', {
         changes: changes.length,
         hasCursor: responseCursor !== null,
+        requestedCursor: cursor,
+        responseCursor,
       });
 
       if (changes.length === 0) {

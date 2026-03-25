@@ -763,8 +763,11 @@ function parseTimestamp(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function isDataImageUrl(value: unknown): value is string {
-  return typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+function isValidCustomCoverUrl(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value) || /^https?:\/\//i.test(value))
+  );
 }
 
 function reconcileGameCoverFields(
@@ -779,7 +782,7 @@ function reconcileGameCoverFields(
     ? normalizeCoverSource(payload.coverSource)
     : null;
   const incomingCustomCoverUrl =
-    hasIncomingCustomCoverUrl && isDataImageUrl(payload.customCoverUrl)
+    hasIncomingCustomCoverUrl && isValidCustomCoverUrl(payload.customCoverUrl)
       ? payload.customCoverUrl
       : null;
   const existingCoverUrl = normalizeExternalUrl(existingPayload?.coverUrl) ?? null;
@@ -787,7 +790,7 @@ function reconcileGameCoverFields(
     existingPayload && Object.prototype.hasOwnProperty.call(existingPayload, 'coverSource')
       ? normalizeCoverSource(existingPayload.coverSource)
       : 'none';
-  const existingCustomCoverUrl = isDataImageUrl(existingPayload?.customCoverUrl)
+  const existingCustomCoverUrl = isValidCustomCoverUrl(existingPayload?.customCoverUrl)
     ? existingPayload.customCoverUrl
     : null;
   const inferredIncomingCoverSource = inferCoverSourceFromUrl(incomingCoverUrl);
@@ -918,9 +921,11 @@ function normalizeGamePayload(
     customPlatformRaw.length > 0 && customPlatformIgdbId !== null && customPlatformRaw !== platform
       ? customPlatformRaw
       : null;
-  const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw)
-    ? customCoverUrlRaw
-    : null;
+  const customCoverUrl =
+    /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw) ||
+    /^https?:\/\//i.test(customCoverUrlRaw)
+      ? customCoverUrlRaw
+      : null;
   const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
   const normalizedNotesTrimmed = normalizedNotes.trim();
   const emptyHtmlBlockPattern = /<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi;

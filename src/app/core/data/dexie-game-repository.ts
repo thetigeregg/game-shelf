@@ -1531,7 +1531,15 @@ export class DexieGameRepository implements GameRepository {
       return null;
     }
 
-    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+      return normalized;
+    }
+
+    if (/^https?:\/\//i.test(normalized)) {
+      return normalized;
+    }
+
+    return null;
   }
 
   private normalizeNotes(value: string | null | undefined): string | null {

@@ -11,6 +11,7 @@ import {
   normalizeStatus,
   parseFilters,
   parseGameIdArray,
+  parseOptionalCustomCoverUrl,
   parseOptionalDataImage,
   parseOptionalDecimal,
   parseOptionalGameType,
@@ -40,6 +41,11 @@ describe('settings-import-export.utils', () => {
 
     expect(parseOptionalDataImage('data:image/png;base64,abc')).toBe('data:image/png;base64,abc');
     expect(parseOptionalDataImage('https://x')).toBeNull();
+    expect(parseOptionalCustomCoverUrl('data:image/png;base64,abc')).toBe(
+      'data:image/png;base64,abc'
+    );
+    expect(parseOptionalCustomCoverUrl(' https://x ')).toBe('https://x');
+    expect(parseOptionalCustomCoverUrl('ftp://x')).toBeNull();
 
     expect(parseOptionalGameType(' remake ')).toBe('remake');
     expect(parseOptionalGameType('invalid')).toBeNull();

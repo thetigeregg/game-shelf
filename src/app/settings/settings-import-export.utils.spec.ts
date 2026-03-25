@@ -36,6 +36,7 @@ describe('settings-import-export.utils', () => {
     expect(parseGameIdArray('   ')).toEqual([]);
     expect(parseGameIdArray('[1,"2"," x ",2]')).toEqual(['1', '2']);
     expect(parseGameIdArray('{"a":1}')).toEqual([]);
+    expect(parseGameIdArray('not-json')).toEqual([]);
   });
 
   it('parses optional field primitives', () => {

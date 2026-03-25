@@ -3275,10 +3275,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private isSafeCustomCoverUrl(value: string): boolean {
-    return (
-      /^data:image\/[a-z0-9.+-]+;base64,/i.test(value) ||
-      sanitizeExternalHttpUrlString(value) !== null
-    );
+    if (!value) {
+      return false;
+    }
+
+    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value)) {
+      return true;
+    }
+
+    if (!/^(https?:\/\/|\/\/)/i.test(value)) {
+      return false;
+    }
+
+    return sanitizeExternalHttpUrlString(value) !== null;
   }
 
   private async loadRowCoverUrl(game: GameEntry): Promise<void> {

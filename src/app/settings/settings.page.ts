@@ -3093,7 +3093,7 @@ export class SettingsPage {
       return this.errorRow(
         type,
         rowNumber,
-        'Custom cover image must be a data URL or http/https URL.'
+        'Custom cover image must be a data URL or http/https URL without embedded credentials.'
       );
     }
 

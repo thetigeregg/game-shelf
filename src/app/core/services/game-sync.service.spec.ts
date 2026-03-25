@@ -1051,6 +1051,45 @@ describe('GameSyncService', () => {
     expect(stored?.coverSource).toBe('thegamesdb');
   });
 
+  it('preserves intentional local cover clears when a pending outbox write exists', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      customCoverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange(
+      {
+        eventId: '6c-null-clear',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          title: 'Server Title',
+          coverUrl: 'https://server.example.com/cover.jpg',
+          customCoverUrl: 'https://server.example.com/custom-cover.jpg',
+          coverSource: 'igdb',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      } as SyncChangeEvent,
+      new Set(['123::130'])
+    );
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Server Title');
+    expect(stored?.coverUrl).toBeNull();
+    expect(stored?.customCoverUrl).toBeNull();
+    expect(stored?.coverSource).toBe('none');
+  });
+
   it('normalizes mobyScore, mobygamesGameId, and review source fields in game upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '7-mobygames',

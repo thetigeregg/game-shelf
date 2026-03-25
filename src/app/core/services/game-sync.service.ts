@@ -729,13 +729,19 @@ export class GameSyncService implements SyncOutboxWriter {
         ? payload.coverSource
         : 'none';
     const coverUrl = hasPendingLocalWrite
-      ? (existingByIdentity?.coverUrl ?? incomingCoverUrl)
+      ? existingByIdentity
+        ? existingByIdentity.coverUrl
+        : incomingCoverUrl
       : incomingCoverUrl;
     const customCoverUrl = hasPendingLocalWrite
-      ? (existingByIdentity?.customCoverUrl ?? incomingCustomCoverUrl)
+      ? existingByIdentity
+        ? existingByIdentity.customCoverUrl
+        : incomingCustomCoverUrl
       : incomingCustomCoverUrl;
     const coverSource = hasPendingLocalWrite
-      ? (existingByIdentity?.coverSource ?? incomingCoverSource)
+      ? existingByIdentity
+        ? existingByIdentity.coverSource
+        : incomingCoverSource
       : incomingCoverSource;
 
     const normalized: GameEntry = {

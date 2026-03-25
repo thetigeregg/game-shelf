@@ -2922,3 +2922,7 @@
 - 283e95da Merge pull request #280 from thetigeregg/feat/crapper
 - 6a58a6cc fix(caddy): add headers for runtime configuration caching
 
+## v1.27.2 - 2026-03-25
+- ab2cebb3 Merge pull request #282 from thetigeregg/dependabot/npm_and_yarn/server/fastify-5.8.3
+- 4fcb22fa chore(deps): bump fastify from 5.8.2 to 5.8.3 in /server
+

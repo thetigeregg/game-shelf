@@ -638,6 +638,76 @@ void test('sync push preserves newer custom cover against stale replay clear', a
   await app.close();
 });
 
+void test('sync push preserves newer custom cover during stale mixed-state replay', async () => {
+  class StaleMixedCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '1001',
+        platformIgdbId: 130,
+        title: 'Stale Mixed Cover Game',
+        platform: 'Switch',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:00:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/99998-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: 'https://images.example.com/current-custom-cover.jpg',
+      });
+    }
+  }
+
+  class StaleMixedCoverPool extends FakePool {
+    override connect(): Promise<StaleMixedCoverSyncClient> {
+      return Promise.resolve(new StaleMixedCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new StaleMixedCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-custom-stale-mixed-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '1001',
+            platformIgdbId: 130,
+            title: 'Stale Mixed Cover Game',
+            platform: 'Switch',
+            listType: 'collection',
+            updatedAt: '2026-03-20T12:00:00.000Z',
+            coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1mixed.jpg',
+            coverSource: 'thegamesdb',
+            customCoverUrl: null,
+          },
+          clientTimestamp: '2026-03-22T12:05:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['coverUrl'],
+    'https://cdn.thegamesdb.net/images/original/boxart/front/99998-1.jpg'
+  );
+  assert.equal(body.results[0]?.normalizedPayload?.['coverSource'], 'thegamesdb');
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['customCoverUrl'],
+    'https://images.example.com/current-custom-cover.jpg'
+  );
+
+  await app.close();
+});
+
 void test('sync push preserves existing cover metadata when newer payload omits cover fields', async () => {
   class OmittedCoverSyncClient extends FakeSyncClient {
     constructor() {

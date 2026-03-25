@@ -44,7 +44,8 @@ describe('settings-import-export.utils', () => {
     expect(parseOptionalCustomCoverUrl('data:image/png;base64,abc')).toBe(
       'data:image/png;base64,abc'
     );
-    expect(parseOptionalCustomCoverUrl(' https://x ')).toBe('https://x');
+    expect(parseOptionalCustomCoverUrl(' https://x ')).toBe('https://x/');
+    expect(parseOptionalCustomCoverUrl('https://user:pass@x')).toBeNull();
     expect(parseOptionalCustomCoverUrl('ftp://x')).toBeNull();
 
     expect(parseOptionalGameType(' remake ')).toBe('remake');

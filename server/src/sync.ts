@@ -764,10 +764,20 @@ function parseTimestamp(value: unknown): number | null {
 }
 
 function isValidCustomCoverUrl(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value) || /^https?:\/\//i.test(value))
-  );
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+    return true;
+  }
+
+  return normalizeExternalUrl(normalized) !== null;
 }
 
 function reconcileGameCoverFields(
@@ -833,10 +843,16 @@ function reconcileGameCoverFields(
     incomingCoverSource !== null &&
     incomingCoverSource !== inferredIncomingCoverSource;
 
-  if (
-    hasExistingPayload &&
-    (incomingHasInvalidMixedState || (incomingIsStale && incomingChangesCoverFields))
-  ) {
+  if (hasExistingPayload && incomingHasInvalidMixedState) {
+    return {
+      ...payload,
+      coverUrl: existingCoverUrl,
+      coverSource: normalizedExistingCoverSource,
+      customCoverUrl: reconciledCustomCoverUrl,
+    };
+  }
+
+  if (hasExistingPayload && incomingIsStale && incomingChangesCoverFields) {
     return {
       ...payload,
       coverUrl: existingCoverUrl,
@@ -921,11 +937,10 @@ function normalizeGamePayload(
     customPlatformRaw.length > 0 && customPlatformIgdbId !== null && customPlatformRaw !== platform
       ? customPlatformRaw
       : null;
-  const customCoverUrl =
-    /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw) ||
-    /^https?:\/\//i.test(customCoverUrlRaw)
-      ? customCoverUrlRaw
-      : null;
+  const normalizedCustomCoverHttpUrl = normalizeExternalUrl(customCoverUrlRaw);
+  const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw)
+    ? customCoverUrlRaw
+    : normalizedCustomCoverHttpUrl;
   const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
   const normalizedNotesTrimmed = normalizedNotes.trim();
   const emptyHtmlBlockPattern = /<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi;

@@ -996,6 +996,21 @@ describe('GameSyncService', () => {
     expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
   });
 
+  it('rejects credentialed http custom cover urls in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '6b-credentials',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.customCoverUrl).toBeNull();
+  });
+
   it('preserves local cover fields for collection games when a pending outbox write exists', async () => {
     await db.games.put({
       igdbGameId: '123',

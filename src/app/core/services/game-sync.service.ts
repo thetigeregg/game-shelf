@@ -720,6 +720,23 @@ export class GameSyncService implements SyncOutboxWriter {
       (existingByServerId === undefined ||
         (existingByServerId.igdbGameId === igdbGameId &&
           existingByServerId.platformIgdbId === platformIgdbId));
+    const incomingCoverUrl = this.normalizeExternalUrl(payload.coverUrl);
+    const incomingCustomCoverUrl = this.normalizeCustomCoverUrl(payload.customCoverUrl);
+    const incomingCoverSource =
+      payload.coverSource === 'thegamesdb' ||
+      payload.coverSource === 'igdb' ||
+      payload.coverSource === 'none'
+        ? payload.coverSource
+        : 'none';
+    const coverUrl = hasPendingLocalWrite
+      ? (existingByIdentity?.coverUrl ?? incomingCoverUrl)
+      : incomingCoverUrl;
+    const customCoverUrl = hasPendingLocalWrite
+      ? (existingByIdentity?.customCoverUrl ?? incomingCustomCoverUrl)
+      : incomingCustomCoverUrl;
+    const coverSource = hasPendingLocalWrite
+      ? (existingByIdentity?.coverSource ?? incomingCoverSource)
+      : incomingCoverSource;
 
     const normalized: GameEntry = {
       id: existingByIdentity?.id ?? (serverIdCanBeReused ? serverId : undefined),
@@ -727,25 +744,9 @@ export class GameSyncService implements SyncOutboxWriter {
       platformIgdbId,
       title,
       customTitle: this.normalizeCustomTitle(payload.customTitle, title),
-      coverUrl: hasPendingLocalWrite
-        ? (existingByIdentity?.coverUrl ?? this.normalizeExternalUrl(payload.coverUrl))
-        : this.normalizeExternalUrl(payload.coverUrl),
-      customCoverUrl: hasPendingLocalWrite
-        ? (existingByIdentity?.customCoverUrl ??
-          this.normalizeCustomCoverUrl(payload.customCoverUrl))
-        : this.normalizeCustomCoverUrl(payload.customCoverUrl),
-      coverSource: hasPendingLocalWrite
-        ? (existingByIdentity?.coverSource ??
-          (payload.coverSource === 'thegamesdb' ||
-          payload.coverSource === 'igdb' ||
-          payload.coverSource === 'none'
-            ? payload.coverSource
-            : 'none'))
-        : payload.coverSource === 'thegamesdb' ||
-            payload.coverSource === 'igdb' ||
-            payload.coverSource === 'none'
-          ? payload.coverSource
-          : 'none',
+      coverUrl,
+      customCoverUrl,
+      coverSource,
       storyline: this.normalizeOptionalText(payload.storyline),
       summary: this.normalizeOptionalText(payload.summary),
       gameType: this.normalizeGameType(payload.gameType),
@@ -1000,7 +1001,7 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     if (/^https?:\/\//i.test(normalized)) {
-      return normalized;
+      return sanitizeExternalHttpUrlString(normalized);
     }
 
     return null;

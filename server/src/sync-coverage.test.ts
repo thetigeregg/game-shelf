@@ -313,6 +313,38 @@ void test('sync push accepts http custom cover urls in normalized payloads', asy
   await app.close();
 });
 
+void test('sync push rejects credentialed http custom cover urls', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'cover-url-credentials-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '6',
+            platformIgdbId: 130,
+            title: 'Credentialed Cover Game',
+            platform: 'Switch',
+            customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.store.games.get('6::130').customCoverUrl, null);
+
+  await app.close();
+});
+
 void test('sync push covers tag/view/setting upsert and delete branches', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);

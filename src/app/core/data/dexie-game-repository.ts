@@ -1536,7 +1536,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     if (/^https?:\/\//i.test(normalized)) {
-      return normalized;
+      return sanitizeExternalHttpUrlString(normalized);
     }
 
     return null;

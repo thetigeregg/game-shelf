@@ -941,6 +941,13 @@ describe('GameShelfService', () => {
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
+    expect(repository.updateCover).toHaveBeenCalledTimes(1);
+    expect(repository.updateCover).toHaveBeenCalledWith(
+      '4512',
+      167,
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      'thegamesdb'
+    );
     expect(repository.setGameCustomCover).toHaveBeenCalledTimes(1);
     expect(repository.setGameCustomCover).toHaveBeenCalledWith(
       '4512',
@@ -994,6 +1001,7 @@ describe('GameShelfService', () => {
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
+    expect(repository.updateCover).toHaveBeenCalledTimes(2);
     expect(repository.setGameCustomCover).toHaveBeenCalledTimes(2);
     expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
   });

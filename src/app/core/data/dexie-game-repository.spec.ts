@@ -391,6 +391,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(mario, 'collection');
     const customCoverUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
     const remoteCustomCoverUrl = 'https://images.example.com/custom-cover.jpg';
+    const credentialedCustomCoverUrl = 'https://user:pass@images.example.com/custom-cover.jpg';
 
     await repository.setGameCustomCover('101', 18, customCoverUrl);
     const customized = await repository.exists('101', 18);
@@ -399,6 +400,10 @@ describe('DexieGameRepository', () => {
     await repository.setGameCustomCover('101', 18, remoteCustomCoverUrl);
     const remoteCustomized = await repository.exists('101', 18);
     expect(remoteCustomized?.customCoverUrl).toBe(remoteCustomCoverUrl);
+
+    await repository.setGameCustomCover('101', 18, credentialedCustomCoverUrl);
+    const rejectedCredentialed = await repository.exists('101', 18);
+    expect(rejectedCredentialed?.customCoverUrl).toBeNull();
 
     await repository.setGameCustomCover('101', 18, null);
     const reset = await repository.exists('101', 18);

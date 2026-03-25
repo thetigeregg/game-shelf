@@ -42,9 +42,7 @@ export class AppComponent {
     this.debugLogService.initialize();
     this.themeService.initialize();
     this.gameSyncService.initialize();
-    void this.gameShelfService
-      .migratePreferredPlatformCoversToIgdb()
-      .then(() => this.gameShelfService.migrateLegacyPickerCoversToCustomCovers());
+    void this.runStartupCoverMigrations();
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
       console.error('[app] version_alert_failed', error);
     });
@@ -84,6 +82,11 @@ export class AppComponent {
     });
 
     await alert.present();
+  }
+
+  private async runStartupCoverMigrations(): Promise<void> {
+    await this.gameShelfService.migratePreferredPlatformCoversToIgdb().catch(() => undefined);
+    await this.gameShelfService.migrateLegacyPickerCoversToCustomCovers().catch(() => undefined);
   }
 
   private async presentVersionAlertIfNeeded(): Promise<void> {

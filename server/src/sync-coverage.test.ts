@@ -268,6 +268,47 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
   assert.equal(body.results[2]?.status, 'failed');
   assert.equal(body.cursor, '1');
   assert.equal(pool.store.idempotency.has('bad-1'), true);
+  const storedGame = pool.store.games.get('2::130');
+  assert.equal(storedGame.igdbGameId, '2');
+  assert.equal(storedGame.platformIgdbId, 130);
+  assert.equal(storedGame.title, 'Game');
+  assert.equal(storedGame.platform, 'Switch');
+  assert.equal(storedGame.notes, 'Line 1\nLine 2');
+
+  await app.close();
+});
+
+void test('sync push accepts http custom cover urls in normalized payloads', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'cover-url-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '5',
+            platformIgdbId: 130,
+            title: 'Cover Game',
+            platform: 'Switch',
+            customCoverUrl: ' https://images.example.com/custom-cover.jpg ',
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(
+    pool.store.games.get('5::130').customCoverUrl,
+    'https://images.example.com/custom-cover.jpg'
+  );
 
   await app.close();
 });

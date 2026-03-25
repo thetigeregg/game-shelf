@@ -78,7 +78,7 @@ import {
   normalizeStatus,
   parseFilters,
   parseGameIdArray,
-  parseOptionalDataImage,
+  parseOptionalCustomCoverUrl,
   parseOptionalDecimal,
   parseOptionalGameType,
   parseOptionalNumber,
@@ -3077,7 +3077,7 @@ export class SettingsPage {
     const customTitle = parseOptionalText(record.customTitle);
     const customPlatformName = parseOptionalText(record.customPlatform);
     const customPlatformIgdbId = parsePositiveInteger(record.customPlatformIgdbId);
-    const customCoverUrl = parseOptionalDataImage(record.customCoverUrl);
+    const customCoverUrl = parseOptionalCustomCoverUrl(record.customCoverUrl);
     const hasCustomPlatformName = customPlatformName !== null;
     const hasCustomPlatformId = customPlatformIgdbId !== null;
 
@@ -3090,7 +3090,11 @@ export class SettingsPage {
     }
 
     if (record.customCoverUrl.trim().length > 0 && customCoverUrl === null) {
-      return this.errorRow(type, rowNumber, 'Custom cover image must be a data URL.');
+      return this.errorRow(
+        type,
+        rowNumber,
+        'Custom cover image must be a data URL or http/https URL.'
+      );
     }
 
     const customPlatform =

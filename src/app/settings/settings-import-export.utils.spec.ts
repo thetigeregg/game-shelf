@@ -178,4 +178,23 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.sortField).toBe('price');
     expect(parsed?.sortDirection).toBe('desc');
   });
+
+  it('parses optional filter arrays and drops invalid excluded game types', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        genres: ['Action', 1],
+        tags: ['tag-a', 2],
+        excludedPlatform: ['SNES', false],
+        excludedGenres: ['Puzzle', null],
+        excludedGameTypes: ['expansion', 'invalid'],
+      }),
+      DEFAULT_GAME_LIST_FILTERS
+    );
+
+    expect(parsed?.genres).toEqual(['Action']);
+    expect(parsed?.tags).toEqual(['tag-a']);
+    expect(parsed?.excludedPlatform).toEqual(['SNES']);
+    expect(parsed?.excludedGenres).toEqual(['Puzzle']);
+    expect(parsed?.excludedGameTypes).toEqual(['expansion']);
+  });
 });

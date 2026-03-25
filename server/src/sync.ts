@@ -842,13 +842,17 @@ function reconcileGameCoverFields(
     inferredIncomingCoverSource !== null &&
     incomingCoverSource !== null &&
     incomingCoverSource !== inferredIncomingCoverSource;
+  const customCoverUrlForInvalidMixedState =
+    incomingIsStale && hasIncomingCustomCoverUrl
+      ? existingCustomCoverUrl
+      : reconciledCustomCoverUrl;
 
   if (hasExistingPayload && incomingHasInvalidMixedState) {
     return {
       ...payload,
       coverUrl: existingCoverUrl,
       coverSource: normalizedExistingCoverSource,
-      customCoverUrl: reconciledCustomCoverUrl,
+      customCoverUrl: customCoverUrlForInvalidMixedState,
     };
   }
 

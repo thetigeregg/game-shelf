@@ -450,6 +450,16 @@ describe('DexieGameRepository', () => {
     expect(cleared?.notes).toBeNull();
   });
 
+  it('covers private normalizers for custom cover urls and group by fallbacks', () => {
+    const repositoryPrivate = repository as unknown as {
+      normalizeCustomCoverUrl: (value: string | null | undefined) => string | null;
+      normalizeGroupBy: (value: string | null | undefined) => string;
+    };
+
+    expect(repositoryPrivate.normalizeCustomCoverUrl('file:///tmp/cover.png')).toBeNull();
+    expect(repositoryPrivate.normalizeGroupBy('invalid')).toBe('none');
+  });
+
   it('stores structure-only rich-text notes', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

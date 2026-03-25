@@ -42,7 +42,9 @@ export class AppComponent {
     this.debugLogService.initialize();
     this.themeService.initialize();
     this.gameSyncService.initialize();
-    void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
+    void this.gameShelfService
+      .migratePreferredPlatformCoversToIgdb()
+      .then(() => this.gameShelfService.migrateLegacyPickerCoversToCustomCovers());
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
       console.error('[app] version_alert_failed', error);
     });

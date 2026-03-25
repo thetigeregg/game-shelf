@@ -27,9 +27,11 @@ describe('GameShelfService', () => {
   };
   let service: GameShelfService;
   const migrationStorageKey = 'game-shelf:igdb-cover-migration:v2';
+  const legacyCustomCoverMigrationStorageKey = 'game-shelf:legacy-custom-cover-migration:v1';
 
   beforeEach(() => {
     localStorage.removeItem(migrationStorageKey);
+    localStorage.removeItem(legacyCustomCoverMigrationStorageKey);
     repository = {
       listByType: vi.fn(),
       listAll: vi.fn(),
@@ -98,6 +100,7 @@ describe('GameShelfService', () => {
 
   afterEach(() => {
     localStorage.removeItem(migrationStorageKey);
+    localStorage.removeItem(legacyCustomCoverMigrationStorageKey);
     vi.restoreAllMocks();
   });
 
@@ -864,6 +867,135 @@ describe('GameShelfService', () => {
     expect(capturedHeaders).toBeDefined();
     const headersRecord = capturedHeaders as Record<string, string>;
     expect(headersRecord['X-Game-Shelf-Client-Token']).toBe('test-write-token');
+  });
+
+  it('skips legacy custom cover migration when already completed', async () => {
+    localStorage.setItem(legacyCustomCoverMigrationStorageKey, '1');
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.listAll).not.toHaveBeenCalled();
+  });
+
+  it('marks legacy custom cover migration complete when no identifiable candidates exist', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '1',
+        title: 'Normal IGDB Cover',
+        platformIgdbId: 130,
+        platform: 'Nintendo Switch',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/normal.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
+  });
+
+  it('promotes identifiable legacy picker cover urls to custom covers', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Example',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+      {
+        igdbGameId: '9999',
+        title: 'Skip Existing Custom',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/skip.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: 'https://images.example.com/custom.jpg',
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    repository.setGameCustomCover.mockResolvedValue({
+      igdbGameId: '4512',
+      title: 'Example',
+      platformIgdbId: 167,
+      platform: 'PlayStation 5',
+      coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      coverSource: 'igdb',
+      customCoverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x',
+    } as GameEntry);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.setGameCustomCover).toHaveBeenCalledTimes(1);
+    expect(repository.setGameCustomCover).toHaveBeenCalledWith(
+      '4512',
+      167,
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
+  });
+
+  it('continues legacy custom cover migration when one row fails', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Broken',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/broken.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+      {
+        igdbGameId: '4513',
+        title: 'Healthy',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    repository.setGameCustomCover
+      .mockRejectedValueOnce(new Error('write failed'))
+      .mockResolvedValueOnce({
+        igdbGameId: '4513',
+        title: 'Healthy',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.setGameCustomCover).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
   });
 
   it('delegates search platform list retrieval', async () => {

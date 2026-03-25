@@ -2446,19 +2446,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     try {
-      const coverSource = this.isIgdbCoverUrl(url)
-        ? 'igdb'
-        : this.gameShelfService.shouldUseIgdbCoverForPlatform(
-              this.selectedGame.platform,
-              this.selectedGame.platformIgdbId
-            )
-          ? 'igdb'
-          : 'thegamesdb';
-      const updated = await this.gameShelfService.updateGameCover(
+      const updated = await this.gameShelfService.setGameCustomCover(
         this.selectedGame.igdbGameId,
         this.selectedGame.platformIgdbId,
-        url,
-        coverSource
+        url
       );
       this.applyUpdatedGame(updated, { refreshCover: true });
       this.closeImagePickerModal();
@@ -3275,7 +3266,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const customCoverUrl =
       typeof game.customCoverUrl === 'string' ? game.customCoverUrl.trim() : '';
 
-    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrl)) {
+    if (customCoverUrl.length > 0) {
       return customCoverUrl;
     }
 

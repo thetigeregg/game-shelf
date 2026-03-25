@@ -88,6 +88,24 @@ export function parseOptionalDataImage(raw: string): string | null {
   return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
 }
 
+export function parseOptionalCustomCoverUrl(raw: string): string | null {
+  const normalized = raw.trim();
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+    return normalized;
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  return null;
+}
+
 export function parseOptionalGameType(raw: string): GameCatalogResult['gameType'] {
   const normalized = raw.trim().toLowerCase();
 

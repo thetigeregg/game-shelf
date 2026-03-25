@@ -752,6 +752,53 @@ describe('game-list review actions', () => {
     expect(presentToast).toHaveBeenCalledWith('Review data updated.');
   });
 
+  it('applies selected image via custom cover path', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+    };
+    const target = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      listType: 'wishlist',
+    });
+    const updated = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      customCoverUrl: 'https://images.example.com/custom-cover.jpg',
+      listType: 'wishlist',
+    });
+    const setGameCustomCover = vi.fn(() => Promise.resolve(updated));
+    const updateGameCover = vi.fn();
+    const applyUpdatedGame = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const closeImagePickerModal = vi.fn();
+
+    Object.assign(page, {
+      selectedGame: target,
+      gameShelfService: {
+        setGameCustomCover,
+        updateGameCover,
+      },
+      applyUpdatedGame,
+      presentToast,
+      closeImagePickerModal,
+    });
+
+    await page.applySelectedImage('https://images.example.com/custom-cover.jpg');
+
+    expect(setGameCustomCover).toHaveBeenCalledWith(
+      '10148',
+      167,
+      'https://images.example.com/custom-cover.jpg'
+    );
+    expect(updateGameCover).not.toHaveBeenCalled();
+    expect(applyUpdatedGame).toHaveBeenCalledWith(updated, { refreshCover: true });
+    expect(closeImagePickerModal).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Game image updated.');
+  });
+
   it('single pricing refresh is blocked for non-wishlist games', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

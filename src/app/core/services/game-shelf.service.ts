@@ -1565,6 +1565,17 @@ export class GameShelfService {
 
     for (const game of candidates) {
       try {
+        const normalizedCoverSource = this.inferCoverSourceFromUrl(game.coverUrl ?? '');
+
+        if (normalizedCoverSource !== null) {
+          await this.repository.updateCover(
+            game.igdbGameId,
+            game.platformIgdbId,
+            game.coverUrl ?? null,
+            normalizedCoverSource
+          );
+        }
+
         const updated = await this.repository.setGameCustomCover(
           game.igdbGameId,
           game.platformIgdbId,

@@ -8,6 +8,7 @@ import type {
   ListType,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
+import { sanitizeExternalHttpUrlString } from '../core/utils/url-host.util';
 
 const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'main_game',
@@ -100,7 +101,7 @@ export function parseOptionalCustomCoverUrl(raw: string): string | null {
   }
 
   if (/^https?:\/\//i.test(normalized)) {
-    return normalized;
+    return sanitizeExternalHttpUrlString(normalized);
   }
 
   return null;

@@ -135,6 +135,7 @@ import {
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
+import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
@@ -3274,7 +3275,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private isSafeCustomCoverUrl(value: string): boolean {
-    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(value) || /^https:\/\//i.test(value);
+    return (
+      /^data:image\/[a-z0-9.+-]+;base64,/i.test(value) ||
+      sanitizeExternalHttpUrlString(value) !== null
+    );
   }
 
   private async loadRowCoverUrl(game: GameEntry): Promise<void> {

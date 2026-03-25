@@ -237,7 +237,7 @@ describe('game-list review actions', () => {
     );
   });
 
-  it('uses custom covers only when they are safe for an https-served pwa', () => {
+  it('uses custom covers only when they pass shared custom cover sanitization', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent;
     const getDisplayCoverUrl = (
       page as unknown as { getDisplayCoverUrl: (game: GameEntry) => string | null }
@@ -265,6 +265,15 @@ describe('game-list review actions', () => {
       getDisplayCoverUrl(
         createGame({
           customCoverUrl: 'http://images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('http://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
           coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
         })
       )

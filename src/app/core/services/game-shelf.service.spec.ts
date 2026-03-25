@@ -45,6 +45,7 @@ describe('GameShelfService', () => {
       setGameTags: vi.fn(),
       setGameNotes: vi.fn(),
       setGameCustomCover: vi.fn(),
+      promoteLegacyCoverToCustomCover: vi.fn(),
       setGameCustomMetadata: vi.fn(),
       listTags: vi.fn(),
       upsertTag: vi.fn(),
@@ -926,7 +927,7 @@ describe('GameShelfService', () => {
         updatedAt: 'x',
       } as GameEntry,
     ]);
-    repository.setGameCustomCover.mockResolvedValue({
+    repository.promoteLegacyCoverToCustomCover.mockResolvedValue({
       igdbGameId: '4512',
       title: 'Example',
       platformIgdbId: 167,
@@ -941,19 +942,15 @@ describe('GameShelfService', () => {
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
-    expect(repository.updateCover).toHaveBeenCalledTimes(1);
-    expect(repository.updateCover).toHaveBeenCalledWith(
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledTimes(1);
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledWith(
       '4512',
       167,
       'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
       'thegamesdb'
     );
-    expect(repository.setGameCustomCover).toHaveBeenCalledTimes(1);
-    expect(repository.setGameCustomCover).toHaveBeenCalledWith(
-      '4512',
-      167,
-      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
-    );
+    expect(repository.updateCover).not.toHaveBeenCalled();
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
     expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
   });
 
@@ -984,7 +981,7 @@ describe('GameShelfService', () => {
         updatedAt: 'x',
       } as GameEntry,
     ]);
-    repository.setGameCustomCover
+    repository.promoteLegacyCoverToCustomCover
       .mockRejectedValueOnce(new Error('write failed'))
       .mockResolvedValueOnce({
         igdbGameId: '4513',
@@ -1001,8 +998,9 @@ describe('GameShelfService', () => {
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
-    expect(repository.updateCover).toHaveBeenCalledTimes(2);
-    expect(repository.setGameCustomCover).toHaveBeenCalledTimes(2);
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledTimes(2);
+    expect(repository.updateCover).not.toHaveBeenCalled();
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
     expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
   });
 

@@ -410,6 +410,34 @@ describe('DexieGameRepository', () => {
     expect(reset?.customCoverUrl).toBeNull();
   });
 
+  it('promotes a legacy cover to the custom cover field in one write', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    const updated = await repository.promoteLegacyCoverToCustomCover(
+      '101',
+      18,
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      'thegamesdb'
+    );
+
+    expect(updated?.coverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+    expect(updated?.coverSource).toBe('thegamesdb');
+    expect(updated?.customCoverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.coverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+    expect(stored?.coverSource).toBe('thegamesdb');
+    expect(stored?.customCoverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+  });
+
   it('stores notes, normalizes line endings, and clears empty notes', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

@@ -1564,22 +1564,19 @@ export class GameShelfService {
     let updatedCount = 0;
 
     for (const game of candidates) {
+      const coverUrl = typeof game.coverUrl === 'string' ? game.coverUrl.trim() : '';
+      const normalizedCoverSource = this.inferCoverSourceFromUrl(coverUrl);
+
+      if (coverUrl.length === 0 || normalizedCoverSource === null) {
+        continue;
+      }
+
       try {
-        const normalizedCoverSource = this.inferCoverSourceFromUrl(game.coverUrl ?? '');
-
-        if (normalizedCoverSource !== null) {
-          await this.repository.updateCover(
-            game.igdbGameId,
-            game.platformIgdbId,
-            game.coverUrl ?? null,
-            normalizedCoverSource
-          );
-        }
-
-        const updated = await this.repository.setGameCustomCover(
+        const updated = await this.repository.promoteLegacyCoverToCustomCover(
           game.igdbGameId,
           game.platformIgdbId,
-          game.coverUrl ?? null
+          coverUrl,
+          normalizedCoverSource
         );
 
         if (updated) {

@@ -50,6 +50,12 @@ export interface GameRepository {
     platformIgdbId: number,
     customCoverUrl: string | null
   ): Promise<GameEntry | undefined>;
+  promoteLegacyCoverToCustomCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    coverUrl: string,
+    coverSource: CoverSource
+  ): Promise<GameEntry | undefined>;
   setGameCustomMetadata(
     igdbGameId: string,
     platformIgdbId: number,

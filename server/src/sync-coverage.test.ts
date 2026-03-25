@@ -278,7 +278,7 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
   await app.close();
 });
 
-void test('sync push accepts http custom cover urls in normalized payloads', async () => {
+void test('sync push accepts http/https custom cover urls in normalized payloads', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);
 
@@ -313,7 +313,7 @@ void test('sync push accepts http custom cover urls in normalized payloads', asy
   await app.close();
 });
 
-void test('sync push rejects credentialed http custom cover urls', async () => {
+void test('sync push rejects credentialed http/https custom cover urls', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);
 

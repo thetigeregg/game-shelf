@@ -982,7 +982,7 @@ describe('GameSyncService', () => {
     expect(stored?.customCoverUrl).toBeNull();
   });
 
-  it('accepts http custom cover urls in pulled game payloads', async () => {
+  it('accepts http/https custom cover urls in pulled game payloads', async () => {
     await servicePrivate.applyGameChange({
       eventId: '6b',
       entityType: 'game',
@@ -997,7 +997,7 @@ describe('GameSyncService', () => {
     expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
   });
 
-  it('rejects credentialed http custom cover urls in pulled game payloads', async () => {
+  it('rejects credentialed http/https custom cover urls in pulled game payloads', async () => {
     await servicePrivate.applyGameChange({
       eventId: '6b-credentials',
       entityType: 'game',

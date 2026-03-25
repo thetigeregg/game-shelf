@@ -2918,3 +2918,7 @@
 - a6a0e0f2 feat(sync): enhance logging for pullChanges with cursor details
 - cbbb8ace feat(settings): add reset local sync state functionality
 
+## v1.27.1 - 2026-03-25
+- 283e95da Merge pull request #280 from thetigeregg/feat/crapper
+- 6a58a6cc fix(caddy): add headers for runtime configuration caching
+

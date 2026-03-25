@@ -179,6 +179,27 @@ describe('AppComponent', () => {
     expect(alertControllerMock.create).not.toHaveBeenCalled();
   });
 
+  it('skips the version alert when window is unavailable', async () => {
+    const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+    Object.defineProperty(globalThis, 'window', {
+      value: undefined,
+      configurable: true,
+    });
+
+    try {
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(alertControllerMock.create).not.toHaveBeenCalled();
+      expect(notificationServiceMock.initialize).toHaveBeenCalledOnce();
+    } finally {
+      if (windowDescriptor) {
+        Object.defineProperty(globalThis, 'window', windowDescriptor);
+      }
+    }
+  });
+
   it('prompts for release notifications and enables them from the prompt', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     notificationServiceMock.shouldPromptForReleaseNotifications.mockResolvedValue(true);

@@ -526,6 +526,32 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
+  async promoteLegacyCoverToCustomCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    coverUrl: string,
+    coverSource: CoverSource
+  ): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      coverUrl,
+      coverSource,
+      customCoverUrl: this.normalizeCustomCoverUrl(coverUrl),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.withOutboxTransaction([this.db.games], () =>
+      this.db.games.put(updated).then(() => this.queueGameUpsert(updated))
+    );
+    return updated;
+  }
+
   async setGameCustomMetadata(
     igdbGameId: string,
     platformIgdbId: number,

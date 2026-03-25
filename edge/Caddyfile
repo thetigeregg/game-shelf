@@ -1,6 +1,13 @@
 :8080 {
   encode gzip zstd
 
+  @runtime_config path /assets/runtime-config.js
+  header @runtime_config {
+    Cache-Control "no-store, no-cache, must-revalidate"
+    Pragma "no-cache"
+    Expires "0"
+  }
+
   @api path /api/*
   handle @api {
     uri strip_prefix /api

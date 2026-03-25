@@ -1004,6 +1004,50 @@ describe('GameShelfService', () => {
     expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
   });
 
+  it('uses the direct Metacritic fallback helper when review lookup is unavailable', async () => {
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    searchApi.lookupMetacriticScore.mockReturnValue(
+      of({
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/example/',
+      })
+    );
+
+    const result = await (
+      service as unknown as {
+        lookupReviewScoreForCatalog: (
+          title: string,
+          releaseYear: number | null,
+          platform: string | null,
+          platformIgdbId: number | null
+        ) => Promise<Record<string, unknown> | null>;
+      }
+    ).lookupReviewScoreForCatalog('Example', 2001, 'GameCube', 21);
+
+    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Example', 2001, 'GameCube', 21);
+    expect(result).toEqual({
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.metacritic.com/game/example/',
+      reviewScore: 91,
+      reviewUrl: 'https://www.metacritic.com/game/example/',
+      reviewSource: 'metacritic',
+      mobyScore: null,
+      mobygamesGameId: null,
+    });
+  });
+
+  it('continues legacy cover migration when localStorage reads fail', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    repository.listAll.mockResolvedValue([]);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.listAll).toHaveBeenCalledOnce();
+    getItemSpy.mockRestore();
+  });
+
   it('delegates search platform list retrieval', async () => {
     const platformOrderService = TestBed.inject(PlatformOrderService);
     platformOrderService.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);

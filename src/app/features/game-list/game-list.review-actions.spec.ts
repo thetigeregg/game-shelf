@@ -105,6 +105,7 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     title: partial.title ?? 'Test Game',
     coverUrl: partial.coverUrl ?? null,
     coverSource: partial.coverSource ?? 'none',
+    customCoverUrl: partial.customCoverUrl ?? null,
     platform: partial.platform ?? 'Unknown',
     platformIgdbId: partial.platformIgdbId ?? 999999,
     releaseDate: partial.releaseDate ?? null,
@@ -234,6 +235,40 @@ describe('game-list review actions', () => {
     expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
       page.getGameReleaseDateLabel(dateOnlyGame)
     );
+  });
+
+  it('uses custom covers only when they are safe for an https-served pwa', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    const getDisplayCoverUrl = (
+      page as unknown as { getDisplayCoverUrl: (game: GameEntry) => string | null }
+    ).getDisplayCoverUrl.bind(page);
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'data:image/png;base64,abc',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('data:image/png;base64,abc');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'https://images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'http://images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg');
   });
 
   it('paginates similar library games in pages of 5', async () => {

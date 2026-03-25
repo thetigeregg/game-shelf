@@ -51,6 +51,7 @@ type GameSyncServicePrivate = {
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
   runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
+  requestPersistentStorage(): Promise<void>;
   activeSyncPromise: Promise<void> | null;
   syncInFlight: boolean;
   initialized: boolean;
@@ -1415,6 +1416,27 @@ describe('GameSyncService', () => {
 
     navigatorSpy.mockRestore();
     cryptoSpy.mockRestore();
+  });
+
+  it('treats missing navigator as online and ignores persistent storage failures', async () => {
+    const missingNavigatorSpy = vi
+      .spyOn(globalThis, 'navigator', 'get')
+      .mockReturnValue(undefined as never);
+
+    expect(servicePrivate.isOnline()).toBe(true);
+
+    missingNavigatorSpy.mockRestore();
+
+    const persist = vi.fn().mockRejectedValue(new Error('persist failed'));
+    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
+      storage: { persist },
+      onLine: true,
+    } as Navigator);
+
+    await expect(servicePrivate.requestPersistentStorage()).resolves.toBeUndefined();
+    expect(persist).toHaveBeenCalledOnce();
+
+    navigatorSpy.mockRestore();
   });
 
   it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {

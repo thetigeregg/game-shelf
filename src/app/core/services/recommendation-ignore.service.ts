@@ -25,9 +25,7 @@ export class RecommendationIgnoreService {
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true,
   });
-  private readonly entriesSubject = new BehaviorSubject<RecommendationIgnoredEntry[]>(
-    this.readEntriesFromStorage()
-  );
+  private readonly entriesSubject = new BehaviorSubject(this.readEntriesFromStorage());
   private ignoredIdSet = new Set(this.entriesSubject.value.map((entry) => entry.igdbGameId));
 
   readonly ignoredEntries$ = this.entriesSubject.asObservable();

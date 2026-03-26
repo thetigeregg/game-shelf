@@ -611,11 +611,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.filters$,
         this.searchQuery$,
         this.timePreferenceService.timePreference$,
-        this.pricePreferenceService.pricePreference$,
       ]).pipe(
-        map(([games, filters, searchQuery, timePreference, pricePreference]) =>
-          this.applyFiltersAndSort(games, filters, searchQuery, timePreference, pricePreference)
-        ),
+        switchMap(([games, filters, searchQuery, timePreference]) => {
+          const pricePreference$ =
+            this.listType === 'wishlist' && filters.sortField === 'ptas'
+              ? this.pricePreferenceService.pricePreference$
+              : of(this.pricePreferenceService.getPricePreference());
+
+          return pricePreference$.pipe(
+            map((pricePreference) =>
+              this.applyFiltersAndSort(games, filters, searchQuery, timePreference, pricePreference)
+            )
+          );
+        }),
         tap((games) => {
           this.displayedGames = games;
           this.syncSelectionWithDisplayedGames();

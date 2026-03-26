@@ -2926,3 +2926,18 @@
 - ab2cebb3 Merge pull request #282 from thetigeregg/dependabot/npm_and_yarn/server/fastify-5.8.3
 - 4fcb22fa chore(deps): bump fastify from 5.8.2 to 5.8.3 in /server
 
+## v1.28.0 - 2026-03-26
+- 93ef176b Merge pull request #281 from thetigeregg/feat/persa2
+- b911534c fix: support protocol-relative URLs for custom cover images
+- 8c5bde72 Merge branch 'main' into feat/persa2
+- 25f9e3d5 fix(sync): preserve cleared cover fields during pending writes
+- e46105ab fix(covers): short-circuit custom cover URL sanitization
+- f5e648d5 fix(covers): align custom cover validation and review tests
+- 78ed0632 fix(covers): preserve stale custom covers and block unsafe custom cover display
+- de2ece93 fix(covers): consolidate legacy cover migration writes
+- e8616e4e fix(covers): sanitize custom cover urls and preserve legacy cover migrations
+- e57f6fde feat: refactor cover migration logic in AppComponent to improve error handling
+- b5e30897 feat: implement legacy custom cover migration logic in GameShelfService
+- b03ca6da feat: add test for applying selected image via custom cover path in game-list
+- 1c977cce feat: support custom cover URLs in sync operations and repository handling
+

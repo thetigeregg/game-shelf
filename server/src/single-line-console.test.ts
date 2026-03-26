@@ -45,6 +45,15 @@ void test('formatSingleLineLogMessage handles circular references and nullish va
   assert.equal(payload['self'], '[Circular]');
 });
 
+void test('formatSingleLineLogMessage renders circular error causes safely', () => {
+  const error = new Error('boom') as Error & { cause?: unknown };
+  error.cause = error;
+
+  const payload = parseLog('error', ['[service] failed', error]);
+  assert.equal(payload['message'], 'boom');
+  assert.equal(payload['cause'], '[Circular]');
+});
+
 void test('formatSingleLineLogMessage only marks true cycles and keeps own prototype-named keys', () => {
   const repeated = { value: 'shared' };
   const payload = parseLog('info', [
@@ -62,6 +71,21 @@ void test('formatSingleLineLogMessage only marks true cycles and keeps own proto
   assert.equal(payload['constructor'], 'allowed');
   assert.equal(payload['toString'], 'also-allowed');
   assert.equal(payload['args'], undefined);
+});
+
+void test('formatSingleLineLogMessage preserves __proto__ as data without polluting payloads', () => {
+  const payload = parseLog('info', [
+    '[service] proto_key',
+    {
+      ['__proto__']: { safe: true },
+      nested: { ['__proto__']: 'still-data' },
+    },
+  ]);
+
+  assert.equal(Object.getPrototypeOf(payload), Object.prototype);
+  assert.deepEqual(payload['__proto__'], { safe: true });
+  assert.deepEqual(payload['nested'], { ['__proto__']: 'still-data' });
+  assert.equal((payload as Record<string, unknown> & { safe?: unknown }).safe, undefined);
 });
 
 void test('formatSingleLineLogMessage preserves non-finite numbers as strings', () => {

@@ -59,6 +59,16 @@ test('shared single-line console handles truncation, circular values, and fallba
   assert.equal(fallback.event, 'log');
 });
 
+test('shared single-line console renders circular error causes safely', () => {
+  const error = new Error('boom');
+  error.cause = error;
+
+  const payload = parseLog('error', ['[worker] failed', error]);
+
+  assert.equal(payload.message, 'boom');
+  assert.equal(payload.cause, '[Circular]');
+});
+
 test('shared single-line console only marks true cycles and keeps own prototype-named keys', () => {
   const repeated = { value: 'shared' };
   const payload = parseLog('info', [
@@ -76,6 +86,21 @@ test('shared single-line console only marks true cycles and keeps own prototype-
   assert.equal(payload.constructor, 'allowed');
   assert.equal(payload.toString, 'also-allowed');
   assert.equal(payload.args, undefined);
+});
+
+test('shared single-line console preserves __proto__ as data without polluting payloads', () => {
+  const payload = parseLog('info', [
+    '[worker] proto_key',
+    {
+      ['__proto__']: { safe: true },
+      nested: { ['__proto__']: 'still-data' },
+    },
+  ]);
+
+  assert.equal(Object.getPrototypeOf(payload), Object.prototype);
+  assert.deepEqual(payload.__proto__, { safe: true });
+  assert.deepEqual(payload.nested, { ['__proto__']: 'still-data' });
+  assert.equal(payload.safe, undefined);
 });
 
 test('shared single-line console preserves non-finite numbers as strings', () => {

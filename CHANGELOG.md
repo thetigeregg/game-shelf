@@ -2980,3 +2980,11 @@
 - a6665cbc test(image-proxy): add test for handling unreadable cached assets
 - ed2e1ca2 fix(image-cache): enhance image proxy to handle truncated files and improve cache metrics
 
+## v1.30.4 - 2026-03-26
+- 8f6caa56 Merge pull request #289 from thetigeregg/feat/img
+- 916e7d7d fix(ui): ignore stale detail media load events
+- bb933e10 fix(ui): preserve relative backdrop retry urls
+- 66e19a68 fix(ui): sync detail media backdrop when slide src changes
+- a6e4527a Merge branch 'main' into feat/img
+- 78f702aa fix(detail-media): enhance image loading with retry parameters and placeholder handling
+

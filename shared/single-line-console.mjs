@@ -36,8 +36,22 @@ function createSafeRecord() {
   return Object.create(null);
 }
 
+function isErrorObject(value) {
+  try {
+    return value instanceof Error;
+  } catch {
+    return false;
+  }
+}
+
 function stringifyNonPlainObject(value) {
-  const prototype = Object.getPrototypeOf(value);
+  let prototype;
+
+  try {
+    prototype = Object.getPrototypeOf(value);
+  } catch {
+    prototype = null;
+  }
 
   if (prototype?.toString !== undefined && prototype.toString !== Object.prototype.toString) {
     try {
@@ -75,7 +89,7 @@ function normalizeUnknown(value, seen, depth = 0) {
     return sanitizeString(String(value));
   }
 
-  if (value instanceof Error) {
+  if (isErrorObject(value)) {
     if (seen.has(value)) {
       return '[Circular]';
     }
@@ -132,13 +146,22 @@ function normalizeUnknown(value, seen, depth = 0) {
     }
 
     const normalized = createSafeRecord();
-    const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
+    let retainedKeyCount = 0;
+    let omittedKeyCount = 0;
 
-    for (const [key, entryValue] of entries) {
-      normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
+    for (const key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) {
+        continue;
+      }
+
+      if (retainedKeyCount < MAX_OBJECT_KEYS) {
+        normalized[key] = normalizeUnknown(value[key], seen, depth + 1);
+        retainedKeyCount += 1;
+      } else {
+        omittedKeyCount += 1;
+      }
     }
 
-    const omittedKeyCount = Object.keys(value).length - entries.length;
     if (omittedKeyCount > 0) {
       normalized.__truncatedKeys = omittedKeyCount;
     }

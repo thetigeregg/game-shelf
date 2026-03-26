@@ -142,6 +142,28 @@ test('shared single-line console treats hostile proxies as non-plain objects', (
   assert.equal(payload.throwingTag, '[object toString threw]');
 });
 
+test('shared single-line console survives proxy getPrototypeOf traps', () => {
+  const hostileProxy = new Proxy(
+    {},
+    {
+      getPrototypeOf() {
+        throw new Error('prototype access denied');
+      },
+      get(_target, property) {
+        if (property === Symbol.toStringTag) {
+          return 'ProxyLike';
+        }
+
+        return undefined;
+      },
+    }
+  );
+
+  const payload = parseLog('warn', ['[worker] hostile_proxy', { hostileProxy }]);
+
+  assert.equal(payload.hostileProxy, '[object ProxyLike]');
+});
+
 test('shared single-line console installation wraps supported methods once', () => {
   const calls = [];
   const stubConsole = {

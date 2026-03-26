@@ -432,6 +432,54 @@ void test('Image proxy refetches cached assets when the stored file is truncated
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
+void test('Image proxy refetches cached assets when the stored file cannot be read', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-unreadable-file-test-'));
+  const sourceUrl = 'https://cdn.thegamesdb.net/images/large/boxart/front/18866-1.jpg';
+  const encoded = encodeURIComponent(sourceUrl);
+  const pool = new ImagePoolMock();
+  let fetchCalls = 0;
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  const cachedRows = Array.from(
+    (pool as unknown as { rowsByKey: Map<string, ImageRow> }).rowsByKey.values()
+  );
+  assert.equal(cachedRows.length, 1);
+  const unreadablePath = path.join(tempDir, 'unreadable-cache-entry');
+  await fs.mkdir(unreadablePath);
+  cachedRows[0].file_path = unreadablePath;
+
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.deepEqual(second.rawPayload, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
 void test('Image proxy logs non-Error database failures and still responds', async () => {
   resetCacheMetrics();
   const app = Fastify();

@@ -116,15 +116,16 @@ interface GameIdentity {
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
-  private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
-    'game-shelf:igdb-cover-migration:v2';
   private static readonly LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY =
     'game-shelf:legacy-custom-cover-migration:v1';
   private static readonly IGDB_ID_QUERY_PATTERN = /^igdb:\s*(\d+)$/i;
   private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([
-    6, 34, 39, 82, 163, 167, 472, 508,
+    6, 34, 39, 47, 48, 49, 82, 130, 163, 165, 167, 169, 390, 472, 508,
   ]);
-  private static readonly IGDB_COVER_MIGRATION_PLATFORM_IGDB_IDS = new Set<number>([167, 508]);
+  private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
+    'game-shelf:igdb-cover-migration:v3';
+  private static readonly IGDB_COVER_MIGRATION_PLATFORM_IGDB_IDS =
+    GameShelfService.IGDB_COVER_PLATFORM_IGDB_IDS;
   private static readonly IGDB_COVER_PLATFORM_NAMES = new Set<string>([
     'pc',
     'windows',
@@ -132,10 +133,17 @@ export class GameShelfService {
     'pc (microsoft windows)',
     'android',
     'ios',
+    'virtual console',
+    'playstation 4',
+    'xbox one',
     'web browser',
+    'nintendo switch',
     'steamvr',
+    'playstation vr',
     'visionos',
     'playstation 5',
+    'xbox series x|s',
+    'playstation vr2',
     'nintendo switch 2',
   ]);
   private static readonly PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([

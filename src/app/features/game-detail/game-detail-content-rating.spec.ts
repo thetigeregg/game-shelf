@@ -744,7 +744,71 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.getMediaSlideSrc(placeholderSlide)).toBe('');
   });
 
-  it('prefetches only the next slide outside the loadable window', () => {
+  it('prefetches only the next same-origin proxied slide outside the loadable window', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+    const imageInstances: Array<{
+      crossOrigin: string | null;
+      decoding: string;
+      referrerPolicy: string;
+    }> = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        crossOrigin: string | null = null;
+        decoding = '';
+        referrerPolicy = '';
+
+        constructor() {
+          imageInstances.push(this);
+        }
+
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          {
+            id: 2,
+            imageId: 'shot-2',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-2.jpg',
+          },
+          {
+            id: 3,
+            imageId: 'shot-3',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-3.jpg',
+          },
+          {
+            id: 4,
+            imageId: 'shot-4',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-4.jpg',
+          },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual([
+      `${window.location.origin}/v1/images/proxy?url=${encodeURIComponent(
+        'https://images.igdb.com/igdb/image/upload/t_720p_2x/shot-3.jpg'
+      )}`,
+    ]);
+    expect(imageInstances).toHaveLength(1);
+    expect(imageInstances[0]?.referrerPolicy).toBe('no-referrer');
+    expect(imageInstances[0]?.crossOrigin).toBe('anonymous');
+    expect(imageInstances[0]?.decoding).toBe('async');
+  });
+
+  it('skips prefetch for non-same-origin slide urls', () => {
     const component = createComponent();
     component.context = 'library';
     const prefetchedUrls: string[] = [];
@@ -752,8 +816,6 @@ describe('GameDetailContentComponent rating display', () => {
     vi.stubGlobal(
       'Image',
       class ImageMock {
-        decoding = '';
-
         set src(value: string) {
           prefetchedUrls.push(value);
         }
@@ -774,7 +836,7 @@ describe('GameDetailContentComponent rating display', () => {
       true
     );
 
-    expect(prefetchedUrls).toEqual(['https://img.example/shot-3.jpg']);
+    expect(prefetchedUrls).toEqual([]);
   });
 
   it('skips prefetch for data and blob slide urls', () => {

@@ -500,6 +500,7 @@ export type GameSortField =
   | 'createdAt'
   | 'hltb'
   | 'tas'
+  | 'ptas'
   | 'price'
   | 'review'
   | 'metacritic'

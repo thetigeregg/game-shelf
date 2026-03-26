@@ -86,7 +86,12 @@ describe('DetailMediaSlideComponent', () => {
   it('resets retry marker on successful image load', () => {
     const component = createComponent();
     const image = document.createElement('img');
+    component.src = 'https://images.example.com/cover.jpg';
     image.dataset.detailRetryAttempted = '1';
+    Object.defineProperty(image, 'currentSrc', {
+      value: String(component.displaySrc),
+      configurable: true,
+    });
 
     component.onImageLoad({ target: image } as unknown as Event);
 
@@ -119,6 +124,41 @@ describe('DetailMediaSlideComponent', () => {
     currentSrc = nextSrc;
     component.onImageLoad({ target: image } as unknown as Event);
     expect(component.shouldShowPreloader).toBe(false);
+  });
+
+  it('ignores stale load events after the requested image changes', () => {
+    const component = createComponent();
+    const image = document.createElement('img');
+    const firstSrc = 'https://images.igdb.com/igdb/image/upload/t_720p/first.jpg';
+    const secondSrc = 'https://images.igdb.com/igdb/image/upload/t_720p/second.jpg';
+    let currentSrc = '';
+
+    component.showPreloader = true;
+    component.src = firstSrc;
+    const firstBackdropSrc = component.displayBackdropSrc;
+
+    component.src = secondSrc;
+    const secondDisplaySrc = component.displaySrc;
+    const secondBackdropSrc = component.displayBackdropSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    currentSrc = String(component.displaySrc?.replace('second.jpg', 'first.jpg'));
+    component.onImageLoad({ target: image } as unknown as Event);
+
+    expect(component.shouldShowPreloader).toBe(true);
+    expect(component.displaySrc).toBe(secondDisplaySrc);
+    expect(component.displayBackdropSrc).toBe(secondBackdropSrc);
+    expect(component.displayBackdropSrc).not.toBe(firstBackdropSrc);
+
+    currentSrc = String(secondDisplaySrc);
+    component.onImageLoad({ target: image } as unknown as Event);
+
+    expect(component.shouldShowPreloader).toBe(false);
+    expect(component.displayBackdropSrc).toBe(secondBackdropSrc);
   });
 
   it('retries once with cache-busted URL, then falls back to placeholder', () => {

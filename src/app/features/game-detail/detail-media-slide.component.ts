@@ -69,9 +69,19 @@ export class DetailMediaSlideComponent {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
+      const loadedSrc = this.normalizeComparableSrc(target.currentSrc || target.src);
+      const expectedDisplaySrc = this.normalizeComparableSrc(this.displaySrc);
+      const expectedRequestSrc = this.normalizeComparableSrc(
+        this.currentImageRequestSrc ?? this.displaySrc
+      );
+
+      if (!loadedSrc || (loadedSrc !== expectedRequestSrc && loadedSrc !== expectedDisplaySrc)) {
+        return;
+      }
+
       target.dataset[DetailMediaSlideComponent.RETRY_DATASET_KEY] = '';
-      this.currentImageRequestSrc = target.currentSrc || target.src || this.displaySrc;
-      this.markImageSettled(target.currentSrc || target.src || this.displaySrc);
+      this.currentImageRequestSrc = loadedSrc;
+      this.markImageSettled(loadedSrc);
     }
   }
 

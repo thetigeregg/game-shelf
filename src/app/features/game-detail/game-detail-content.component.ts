@@ -1147,19 +1147,34 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
     const renderUrl = toDetailMediaRenderUrl(slide.src);
 
-    if (
-      !renderUrl ||
-      slide.kind === 'placeholder' ||
-      isDataOrBlobUrl(renderUrl) ||
-      this.prefetchedMediaSlideUrls.has(renderUrl)
-    ) {
+    if (!renderUrl || slide.kind === 'placeholder' || isDataOrBlobUrl(renderUrl)) {
       return;
     }
 
-    this.prefetchedMediaSlideUrls.add(renderUrl);
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(renderUrl, window.location.href);
+    } catch {
+      return;
+    }
+
+    if (parsedUrl.origin !== window.location.origin) {
+      return;
+    }
+
+    const normalizedUrl = parsedUrl.href;
+
+    if (this.prefetchedMediaSlideUrls.has(normalizedUrl)) {
+      return;
+    }
+
+    this.prefetchedMediaSlideUrls.add(normalizedUrl);
     const image = new Image();
+    image.referrerPolicy = 'no-referrer';
+    image.crossOrigin = 'anonymous';
     image.decoding = 'async';
-    image.src = renderUrl;
+    image.src = normalizedUrl;
   }
 
   private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{

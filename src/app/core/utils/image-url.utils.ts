@@ -16,8 +16,16 @@ export function normalizeImageSourceUrl(source: string | null | undefined): stri
     return null;
   }
 
+  if (isDataOrBlobUrl(normalized)) {
+    return normalized;
+  }
+
   if (normalized.startsWith('//') || /^https?:\/\//i.test(normalized)) {
     return sanitizeExternalHttpUrlString(normalized);
+  }
+
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized)) {
+    return null;
   }
 
   return normalized;

@@ -1,13 +1,9 @@
 <div class="detail-media-slide">
-  <div
-    class="detail-media-slide-backdrop"
-    [style.background-image]="'url(' + displayBackdropSrc + ')'"
-  ></div>
+  <div class="detail-media-slide-backdrop" [style.background-image]="displayBackdropStyle"></div>
   <div class="swiper-zoom-container">
     <img
-      [src]="displaySrc"
+      [attr.src]="displaySrc"
       [alt]="alt"
-      [loading]="loading"
       (load)="onImageLoad($event)"
       (error)="onImageError($event)"
     />

@@ -15,31 +15,50 @@ describe('DetailMediaSlideComponent', () => {
     expect(component.displaySrc).toBe('https://images.example.com/cover.jpg');
   });
 
+  it('does not assign image urls until the slide is marked loadable', () => {
+    const component = createComponent();
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
+    component.shouldLoad = false;
+
+    expect(component.displaySrc).toBeNull();
+    expect(component.displayBackdropSrc).toBeNull();
+    expect(component.displayBackdropStyle).toBeNull();
+  });
+
+  it('routes IGDB screenshots through the proxy with retina detail assets', () => {
+    const component = createComponent();
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
+
+    expect(component.displaySrc).toContain('/v1/images/proxy?url=');
+    expect(component.displaySrc).toContain(encodeURIComponent('t_720p_2x/hash.jpg'));
+  });
+
   it('derives a lower-resolution backdrop for IGDB screenshots and keeps other sources', () => {
     const component = createComponent();
     component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain('/v1/images/proxy?url=');
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_big/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = ' https://images.igdb.com/igdb/image/upload/t_screenshot_med_2x/hash.jpg ';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_1080p/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.example.com/backdrop.jpg';

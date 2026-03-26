@@ -1,9 +1,11 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   Output,
@@ -94,7 +96,7 @@ type DetailTextField = 'summary' | 'storyline';
 })
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
-  private static readonly EAGER_MEDIA_SLIDE_COUNT = 1;
+  private static readonly PRELOAD_MEDIA_SLIDE_COUNT = 2;
   private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
   private static readonly PLACEHOLDER_MEDIA_SLIDES: DetailMediaSlide[] = [
     { key: 'placeholder', src: '', kind: 'placeholder' },
@@ -152,7 +154,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
   private cachedFormattedReleaseDateValue: string | null = null;
   private cachedFormattedReleaseDate = 'Unknown';
+  private loadedMediaSlideKeys = new Set<string>();
+  private prefetchedMediaSlideUrls = new Set<string>();
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly ngZone = inject(NgZone);
 
   constructor() {
     addIcons({
@@ -197,6 +203,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       this.cachedTagItemsGame = null;
       this.cachedMediaSlidesGame = null;
       this.cachedFormattedReleaseDateValue = null;
+      this.resetMediaSlideLoadingState();
 
       if (gameChange.firstChange || currentIdentity !== previousIdentity) {
         this.detailTextExpanded = {
@@ -249,6 +256,14 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         dynamicBullets: true,
         dynamicMainBullets: 3,
         clickable: false,
+      },
+      on: {
+        afterInit: (swiper) => {
+          this.handleSwiperSlideChange(swiper);
+        },
+        slideChange: (swiper) => {
+          this.handleSwiperSlideChange(swiper);
+        },
       },
     });
   }
@@ -471,8 +486,12 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       .join(' ');
   }
 
-  shouldEagerLoadMediaSlide(index: number): boolean {
-    return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
+  shouldLoadMediaSlide(slide: DetailMediaSlide): boolean {
+    return this.loadedMediaSlideKeys.has(slide.key);
+  }
+
+  getMediaSlideSrc(slide: DetailMediaSlide): string | null {
+    return this.shouldLoadMediaSlide(slide) ? slide.src : null;
   }
 
   get statusValue(): GameStatus | undefined {
@@ -1053,6 +1072,66 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     this.cachedMediaSlides =
       slides.length > 0 ? slides : GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
     return this.cachedMediaSlides;
+  }
+
+  private resetMediaSlideLoadingState(): void {
+    this.loadedMediaSlideKeys = new Set<string>();
+    this.prefetchedMediaSlideUrls = new Set<string>();
+    this.markMediaSlidesAroundIndex(0);
+  }
+
+  private handleSwiperSlideChange(swiper: SwiperClass): void {
+    const activeIndex = Number.isInteger(swiper.activeIndex) ? swiper.activeIndex : 0;
+
+    this.ngZone.run(() => {
+      const hasChanges = this.markMediaSlidesAroundIndex(activeIndex);
+
+      if (hasChanges) {
+        this.changeDetectorRef.markForCheck();
+      }
+    });
+  }
+
+  private markMediaSlidesAroundIndex(index: number): boolean {
+    const slides = this.mediaSlides;
+    let hasChanges = false;
+    const normalizedIndex = Math.max(0, index);
+    const upperBound = Math.min(
+      slides.length - 1,
+      normalizedIndex + GameDetailContentComponent.PRELOAD_MEDIA_SLIDE_COUNT - 1
+    );
+
+    for (let currentIndex = normalizedIndex; currentIndex <= upperBound; currentIndex += 1) {
+      const slide = slides[currentIndex];
+
+      if (slide.kind === 'placeholder') {
+        continue;
+      }
+
+      if (!this.loadedMediaSlideKeys.has(slide.key)) {
+        this.loadedMediaSlideKeys.add(slide.key);
+        hasChanges = true;
+      }
+
+      this.prefetchMediaSlide(slide);
+    }
+
+    return hasChanges;
+  }
+
+  private prefetchMediaSlide(slide: DetailMediaSlide): void {
+    if (typeof window === 'undefined' || typeof Image === 'undefined') {
+      return;
+    }
+
+    if (slide.kind === 'placeholder' || this.prefetchedMediaSlideUrls.has(slide.src)) {
+      return;
+    }
+
+    this.prefetchedMediaSlideUrls.add(slide.src);
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = slide.src;
   }
 
   private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{

@@ -26,7 +26,7 @@ describe('GameShelfService', () => {
     };
   };
   let service: GameShelfService;
-  const migrationStorageKey = 'game-shelf:igdb-cover-migration:v2';
+  const migrationStorageKey = 'game-shelf:igdb-cover-migration:v3';
   const legacyCustomCoverMigrationStorageKey = 'game-shelf:legacy-custom-cover-migration:v1';
 
   beforeEach(() => {
@@ -686,7 +686,7 @@ describe('GameShelfService', () => {
     expect(repository.updateCover).not.toHaveBeenCalled();
   });
 
-  it('migrates PS5/Switch2 TheGamesDB covers to IGDB and purges caches', async () => {
+  it('migrates preferred-platform TheGamesDB covers to IGDB and purges caches', async () => {
     repository.listAll.mockResolvedValue([
       {
         igdbGameId: '4512',
@@ -2829,7 +2829,7 @@ describe('GameShelfService', () => {
     expect(results).toEqual([]);
   });
 
-  it('uses IGDB cover lookup for Android, iOS, Web browser, SteamVR, visionOS, PS5, and Switch 2 platform ids', async () => {
+  it('uses IGDB cover lookup for the configured preferred platform ids', async () => {
     searchApi.getGameById.mockReturnValue(
       of({
         igdbGameId: '123',
@@ -2844,7 +2844,7 @@ describe('GameShelfService', () => {
       } as GameCatalogResult)
     );
 
-    const platformIds = [34, 39, 82, 163, 167, 472, 508];
+    const platformIds = [6, 34, 39, 47, 48, 49, 82, 130, 163, 165, 167, 169, 390, 472, 508];
 
     for (const platformId of platformIds) {
       const results = await firstValueFrom(
@@ -2857,7 +2857,7 @@ describe('GameShelfService', () => {
     expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
   });
 
-  it('uses IGDB cover lookup for mobile/web/vr and PS5/Switch 2 platform names when id is unavailable', async () => {
+  it('uses IGDB cover lookup for preferred platform names when id is unavailable', async () => {
     searchApi.getGameById.mockReturnValue(
       of({
         igdbGameId: '123',
@@ -2873,12 +2873,20 @@ describe('GameShelfService', () => {
     );
 
     const platformNames = [
+      'PC (Microsoft Windows)',
       'Android',
       'iOS',
+      'Virtual Console',
+      'PlayStation 4',
+      'Xbox One',
       'Web browser',
+      'Nintendo Switch',
       'SteamVR',
+      'PlayStation VR',
       'visionOS',
       'PlayStation 5',
+      'Xbox Series X|S',
+      'PlayStation VR2',
       'Nintendo Switch 2',
     ];
 

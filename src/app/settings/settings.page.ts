@@ -135,6 +135,10 @@ import {
   TIME_PREFERENCE_STORAGE_KEY,
 } from '../core/services/time-preference.service';
 import {
+  PricePreferenceService,
+  PRICE_PREFERENCE_STORAGE_KEY,
+} from '../core/services/price-preference.service';
+import {
   COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY,
   GameRowReleaseDateDisplayService,
   WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
@@ -379,7 +383,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
 export class SettingsPage {
   private static readonly IMAGE_CACHE_MIN_MB = 20;
   private static readonly IMAGE_CACHE_MAX_MB = 2048;
-  private static readonly TIME_PREFERENCE_SYNC_DEBOUNCE_MS = 400;
+  private static readonly PREFERENCE_SYNC_DEBOUNCE_MS = 400;
 
   readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
     { label: 'System', value: 'system' },
@@ -412,6 +416,7 @@ export class SettingsPage {
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
   timePreference = 15;
+  pricePreference = 10;
   collectionReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   wishlistReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isPlatformOrderModalOpen = false;
@@ -447,6 +452,7 @@ export class SettingsPage {
   private mgcExistingGameKeys = new Set<string>();
   private mgcRateLimitCooldownUntilMs = 0;
   private timePreferenceSyncHandle: number | null = null;
+  private pricePreferenceSyncHandle: number | null = null;
 
   private readonly themeService = inject(ThemeService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -466,6 +472,7 @@ export class SettingsPage {
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly notificationService = inject(NotificationService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly pricePreferenceService = inject(PricePreferenceService);
   private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
 
   constructor() {
@@ -476,6 +483,7 @@ export class SettingsPage {
     this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
     this.timePreference = this.timePreferenceService.getTimePreference();
+    this.pricePreference = this.pricePreferenceService.getPricePreference();
     this.collectionReleaseDateDisplay =
       this.gameRowReleaseDateDisplayService.getPreference('collection');
     this.wishlistReleaseDateDisplay =
@@ -549,6 +557,28 @@ export class SettingsPage {
 
     if (this.timePreference !== previous) {
       this.scheduleTimePreferenceSync(this.timePreference);
+    }
+  }
+
+  onPricePreferenceChange(value: number | string | null | undefined): void {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim().length > 0
+          ? Number(value.trim())
+          : Number.NaN;
+
+    if (!Number.isFinite(parsed)) {
+      this.pricePreference = this.pricePreferenceService.getPricePreference();
+      return;
+    }
+
+    const previous = this.pricePreferenceService.getPricePreference();
+    this.pricePreferenceService.setPricePreference(parsed);
+    this.pricePreference = this.pricePreferenceService.getPricePreference();
+
+    if (this.pricePreference !== previous) {
+      this.schedulePricePreferenceSync(this.pricePreference);
     }
   }
 
@@ -3567,6 +3597,21 @@ export class SettingsPage {
         this.queueSettingUpsert(row.key, normalizedValue);
       }
 
+      if (row.key === PRICE_PREFERENCE_STORAGE_KEY) {
+        this.pricePreferenceService.refreshFromStorage();
+        const normalizedPricePreference = this.pricePreferenceService.getPricePreference();
+        this.pricePreference = normalizedPricePreference;
+        const normalizedValue = String(normalizedPricePreference);
+
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
+        this.queueSettingUpsert(row.key, normalizedValue);
+      }
+
       if (row.key === COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY) {
         const normalizedValue = this.gameRowReleaseDateDisplayService.normalize(row.value);
         this.gameRowReleaseDateDisplayService.setPreference('collection', normalizedValue);
@@ -3690,7 +3735,19 @@ export class SettingsPage {
     this.timePreferenceSyncHandle = window.setTimeout(() => {
       this.timePreferenceSyncHandle = null;
       this.queueSettingUpsert(TIME_PREFERENCE_STORAGE_KEY, String(value));
-    }, SettingsPage.TIME_PREFERENCE_SYNC_DEBOUNCE_MS);
+    }, SettingsPage.PREFERENCE_SYNC_DEBOUNCE_MS);
+  }
+
+  private schedulePricePreferenceSync(value: number): void {
+    if (this.pricePreferenceSyncHandle !== null) {
+      window.clearTimeout(this.pricePreferenceSyncHandle);
+      this.pricePreferenceSyncHandle = null;
+    }
+
+    this.pricePreferenceSyncHandle = window.setTimeout(() => {
+      this.pricePreferenceSyncHandle = null;
+      this.queueSettingUpsert(PRICE_PREFERENCE_STORAGE_KEY, String(value));
+    }, SettingsPage.PREFERENCE_SYNC_DEBOUNCE_MS);
   }
 
   private async buildTagNameToIdMap(): Promise<Map<string, number>> {

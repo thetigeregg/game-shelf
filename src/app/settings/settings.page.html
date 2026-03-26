@@ -265,6 +265,24 @@
             Lower T favors shorter games. Higher T is more tolerant of longer games.
           </ion-label>
         </ion-item>
+        <ion-item>
+          <ion-input
+            label="Price Preference (P)"
+            class="ion-text-end"
+            type="number"
+            min="5"
+            max="100"
+            step="1"
+            [ngModel]="pricePreference"
+            (ngModelChange)="onPricePreferenceChange($event)"
+            inputmode="numeric"
+          ></ion-input>
+        </ion-item>
+        <ion-item lines="full" class="time-preference-help-item">
+          <ion-label color="medium" class="time-preference-help-text">
+            Lower P favors cheaper games. Higher P is more tolerant of higher prices.
+          </ion-label>
+        </ion-item>
       }
 
       <ion-item>

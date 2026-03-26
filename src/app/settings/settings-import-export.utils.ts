@@ -263,6 +263,7 @@ export function parseFilters(
   try {
     const parsed = JSON.parse(raw) as Partial<GameListFilters>;
     const allowPriceSort = options?.listType === 'wishlist';
+    const allowPtasSort = allowPriceSort && isTasFeatureEnabled();
     const parsedHltbMainHoursMin =
       typeof parsed.hltbMainHoursMin === 'number' &&
       Number.isFinite(parsed.hltbMainHoursMin) &&
@@ -353,6 +354,7 @@ export function parseFilters(
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
         (parsed.sortField === 'tas' && isTasFeatureEnabled()) ||
+        (parsed.sortField === 'ptas' && allowPtasSort) ||
         (parsed.sortField === 'price' && allowPriceSort) ||
         parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||

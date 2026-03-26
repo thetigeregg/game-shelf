@@ -100,6 +100,7 @@ import { PlatformOrderService } from '../../core/services/platform-order.service
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { DebugLogService } from '../../core/services/debug-log.service';
 import { LayoutModeService } from '../../core/services/layout-mode.service';
+import { PricePreferenceService } from '../../core/services/price-preference.service';
 import { TimePreferenceService } from '../../core/services/time-preference.service';
 import { GameRowReleaseDateDisplayService } from '../../core/services/game-row-release-date-display.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
@@ -484,6 +485,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly pricePreferenceService = inject(PricePreferenceService);
   private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
@@ -610,9 +612,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.searchQuery$,
         this.timePreferenceService.timePreference$,
       ]).pipe(
-        map(([games, filters, searchQuery, timePreference]) =>
-          this.applyFiltersAndSort(games, filters, searchQuery, timePreference)
-        ),
+        switchMap(([games, filters, searchQuery, timePreference]) => {
+          const pricePreference$ =
+            this.listType === 'wishlist' && filters.sortField === 'ptas'
+              ? this.pricePreferenceService.pricePreference$
+              : of(this.pricePreferenceService.getPricePreference());
+
+          return pricePreference$.pipe(
+            map((pricePreference) =>
+              this.applyFiltersAndSort(games, filters, searchQuery, timePreference, pricePreference)
+            )
+          );
+        }),
         tap((games) => {
           this.displayedGames = games;
           this.syncSelectionWithDisplayedGames();
@@ -3533,10 +3544,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
     games: GameEntry[],
     filters: GameListFilters,
     searchQuery: string,
-    timePreference: number
+    timePreference: number,
+    pricePreference: number
   ): GameEntry[] {
     this.configureFilteringEngine();
-    return this.filteringEngine.applyFiltersAndSort(games, filters, searchQuery, timePreference);
+    return this.filteringEngine.applyFiltersAndSort(
+      games,
+      filters,
+      searchQuery,
+      timePreference,
+      pricePreference
+    );
   }
 
   private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {

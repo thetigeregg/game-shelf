@@ -285,6 +285,10 @@ export class ViewsPage implements OnInit {
       return `TAS ${direction}`;
     }
 
+    if (sortField === 'ptas' && isTasFeatureEnabled() && this.listType === 'wishlist') {
+      return `PTAS ${direction}`;
+    }
+
     if (sortField === 'metacritic' || sortField === 'review') {
       return `Review ${direction}`;
     }

@@ -19,6 +19,7 @@ import {
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
+  resolvePriceAdjustedTimeAdjustedScoreForGame,
   resolveNormalizedCriticScoreForGame,
   resolveTimeAdjustedScoreForGame,
 } from '../../core/utils/time-adjusted-score.util';
@@ -70,6 +71,7 @@ export class GameListFilteringEngine {
     sortField: GameListFilters['sortField'];
     sortDirection: GameListFilters['sortDirection'];
     timePreference: number;
+    pricePreference: number;
     sortedGames: GameEntry[];
   } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
@@ -331,7 +333,8 @@ export class GameListFilteringEngine {
     games: GameEntry[],
     filters: GameListFilters,
     searchQuery: string,
-    timePreference = 15
+    timePreference = 15,
+    pricePreference = 10
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
     const normalizedSearchQuery = this.normalizeForSearch(searchQuery);
@@ -341,7 +344,8 @@ export class GameListFilteringEngine {
       games,
       filters.sortField,
       filters.sortDirection,
-      timePreference
+      timePreference,
+      pricePreference
     );
 
     if (
@@ -773,16 +777,20 @@ export class GameListFilteringEngine {
     games: GameEntry[],
     sortField: GameListFilters['sortField'],
     sortDirection: GameListFilters['sortDirection'],
-    timePreference: number
+    timePreference: number,
+    pricePreference: number
   ): GameEntry[] {
     const existingCache = this.sortedGamesCache;
+    const cachePricePreference =
+      sortField === 'ptas' && isTasFeatureEnabled() ? pricePreference : 0;
 
     if (
       existingCache &&
       existingCache.sourceGames === games &&
       existingCache.sortField === sortField &&
       existingCache.sortDirection === sortDirection &&
-      existingCache.timePreference === timePreference
+      existingCache.timePreference === timePreference &&
+      existingCache.pricePreference === cachePricePreference
     ) {
       return existingCache.sortedGames;
     }
@@ -794,19 +802,30 @@ export class GameListFilteringEngine {
           )
         : sortField === 'price'
           ? [...games].sort((left, right) => this.compareGamesByPrice(left, right, sortDirection))
-          : sortField === 'tas' && isTasFeatureEnabled()
+          : sortField === 'ptas' && isTasFeatureEnabled()
             ? [...games].sort((left, right) =>
-                this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+                this.compareGamesByPriceAdjustedTimeAdjustedScore(
+                  left,
+                  right,
+                  sortDirection,
+                  timePreference,
+                  pricePreference
+                )
               )
-            : this.applySortDirection(
-                [...games].sort((left, right) => this.compareGames(left, right, sortField)),
-                sortDirection
-              );
+            : sortField === 'tas' && isTasFeatureEnabled()
+              ? [...games].sort((left, right) =>
+                  this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+                )
+              : this.applySortDirection(
+                  [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+                  sortDirection
+                );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
       sortDirection,
       timePreference,
+      pricePreference: cachePricePreference,
       sortedGames,
     };
     return sortedGames;
@@ -1094,6 +1113,22 @@ export class GameListFilteringEngine {
     return this.compareNumericSortValues(
       resolveTimeAdjustedScoreForGame(left, timePreference),
       resolveTimeAdjustedScoreForGame(right, timePreference),
+      sortDirection,
+      left,
+      right
+    );
+  }
+
+  private compareGamesByPriceAdjustedTimeAdjustedScore(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection'],
+    timePreference: number,
+    pricePreference: number
+  ): number {
+    return this.compareNumericSortValues(
+      resolvePriceAdjustedTimeAdjustedScoreForGame(left, timePreference, pricePreference),
+      resolvePriceAdjustedTimeAdjustedScoreForGame(right, timePreference, pricePreference),
       sortDirection,
       left,
       right

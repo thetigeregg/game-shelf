@@ -52,6 +52,8 @@ type SortOption =
   | 'hltb:desc'
   | 'tas:asc'
   | 'tas:desc'
+  | 'ptas:asc'
+  | 'ptas:desc'
   | 'price:asc'
   | 'price:desc'
   | 'review:asc'
@@ -140,13 +142,15 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalizedSortField =
       this.filters.sortField === 'tas' && !this.tasEnabled
         ? DEFAULT_GAME_LIST_FILTERS.sortField
-        : this.filters.sortField === 'platform'
+        : this.filters.sortField === 'ptas' && !this.showPtasSort
           ? DEFAULT_GAME_LIST_FILTERS.sortField
-          : this.filters.sortField === 'metacritic'
-            ? 'review'
-            : this.filters.sortField === 'price' && !this.showPriceSort
-              ? DEFAULT_GAME_LIST_FILTERS.sortField
-              : this.filters.sortField;
+          : this.filters.sortField === 'platform'
+            ? DEFAULT_GAME_LIST_FILTERS.sortField
+            : this.filters.sortField === 'metacritic'
+              ? 'review'
+              : this.filters.sortField === 'price' && !this.showPriceSort
+                ? DEFAULT_GAME_LIST_FILTERS.sortField
+                : this.filters.sortField;
     const normalizedFilters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
@@ -182,6 +186,9 @@ export class GameFiltersMenuComponent implements OnChanges {
     ];
     const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
     if (sortField === 'price' && !this.showPriceSort) {
+      return;
+    }
+    if (sortField === 'ptas' && !this.showPtasSort) {
       return;
     }
     this.sortOption = value;
@@ -502,12 +509,17 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
       (this.tasEnabled && (value === 'tas:asc' || value === 'tas:desc')) ||
+      (this.showPtasSort && (value === 'ptas:asc' || value === 'ptas:desc')) ||
       (this.showPriceSort && (value === 'price:asc' || value === 'price:desc')) ||
       value === 'review:asc' ||
       value === 'review:desc' ||
       value === 'metacritic:asc' ||
       value === 'metacritic:desc'
     );
+  }
+
+  get showPtasSort(): boolean {
+    return this.listType === 'wishlist' && this.tasEnabled;
   }
 
   get showPriceSort(): boolean {

@@ -2,6 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { AppDb, ImageCacheEntry } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
 import { environment } from '../../../environments/environment';
+import {
+  buildProxyImageUrl,
+  normalizeImageSourceUrl,
+  withIgdbRetinaVariant,
+} from '../utils/image-url.utils';
 
 export type ImageCacheVariant = 'thumb' | 'detail';
 
@@ -11,8 +16,6 @@ export class ImageCacheService {
   private static readonly MIN_LIMIT_MB = 20;
   private static readonly MAX_LIMIT_MB = 2048;
   private static readonly LIMIT_STORAGE_KEY = 'game-shelf:image-cache-limit-mb';
-  private static readonly THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
-  private static readonly IGDB_HOST = 'images.igdb.com';
   private static readonly IMAGE_DIAGNOSTIC_LIMIT = 120;
 
   private readonly db = inject(AppDb);
@@ -271,7 +274,7 @@ export class ImageCacheService {
     sourceUrl: string | null | undefined,
     variant: ImageCacheVariant
   ): string | null {
-    const normalized = typeof sourceUrl === 'string' ? sourceUrl.trim() : '';
+    const normalized = normalizeImageSourceUrl(sourceUrl);
 
     if (!normalized) {
       return null;
@@ -281,57 +284,11 @@ export class ImageCacheService {
       return normalized.replace(/\/images\/(?:original|large|medium)\//, '/images/small/');
     }
 
-    return this.withIgdbRetinaVariant(normalized);
-  }
-
-  private withIgdbRetinaVariant(url: string): string {
-    return url.replace(
-      /(\/igdb\/image\/upload\/)(t_[^/]+)(\/)/,
-      (_match, prefix: string, sizeToken: string, suffix: string) => {
-        if (sizeToken.endsWith('_2x')) {
-          return `${prefix}${sizeToken}${suffix}`;
-        }
-
-        return `${prefix}${sizeToken}_2x${suffix}`;
-      }
-    );
+    return withIgdbRetinaVariant(normalized);
   }
 
   private buildFetchUrl(sourceUrl: string): string {
-    const proxyEligibleUrl = this.toProxyEligibleImageUrl(sourceUrl);
-
-    if (proxyEligibleUrl) {
-      return `${environment.gameApiBaseUrl}/v1/images/proxy?url=${encodeURIComponent(proxyEligibleUrl)}`;
-    }
-
-    return sourceUrl;
-  }
-
-  private toProxyEligibleImageUrl(sourceUrl: string): string | null {
-    const normalizedSourceUrl = sourceUrl.startsWith('//') ? `https:${sourceUrl}` : sourceUrl;
-
-    try {
-      const parsed = new URL(normalizedSourceUrl);
-
-      if (parsed.protocol !== 'https:') {
-        return null;
-      }
-
-      const hostname = parsed.hostname.toLowerCase();
-      const isTheGamesDb =
-        hostname === ImageCacheService.THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
-      const isIgdb =
-        hostname === ImageCacheService.IGDB_HOST &&
-        parsed.pathname.startsWith('/igdb/image/upload/');
-
-      if (!isTheGamesDb && !isIgdb) {
-        return null;
-      }
-
-      return parsed.toString();
-    } catch {
-      return null;
-    }
+    return buildProxyImageUrl(sourceUrl, environment.gameApiBaseUrl);
   }
 
   private buildCacheKey(gameKey: string, variant: ImageCacheVariant, sourceUrl: string): string {

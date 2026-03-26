@@ -2988,3 +2988,23 @@
 - a6e4527a Merge branch 'main' into feat/img
 - 78f702aa fix(detail-media): enhance image loading with retry parameters and placeholder handling
 
+## v1.31.0 - 2026-03-26
+- f83c9df6 Merge pull request #290 from thetigeregg/feat/log
+- eb111594 test(logging): add tests for handling enumerable getters that throw in single-line console
+- bd9c9e66 fix(logging): reuse shared single-line console in server
+- 4d5f79cc fix(scrapers): use explicit shared copy path in Dockerfiles
+- 95e93b45 test(logging): add tests for handling proxy traps and large object truncation in single-line console
+- d19e8e11 fix(logging): harden shared single-line console proxy handling
+- b6b8d249 fix(logging): harden single-line console stringification
+- 838ec9c1 fix(logging): harden single-line console normalization
+- b437f9ad feat(logging): add tests for handling true cycles and prototype-named keys in single-line console
+- c66fdb0b feat(logging): enhance single-line console to preserve non-finite numbers as strings
+- d347dfea feat(logging): enhance single-line console to preserve string representations
+- 9a17c426 fix(logging): narrow unknown values before object normalization
+- 1d0d50aa feat(logging): update Dockerfiles and single-line console implementation
+- cc0bb08d feat(logging): add tests for shared single-line console functionality and installation
+- 183e757c feat(logging): refactor single line console logging implementation across multiple scrapers
+- 6db0af52 feat(logging): enhance log structure with service and event attributes
+- b30881cb fix(dependencies): remove unused packages from package.json and package-lock.json
+- b15e4a38 feat(logging): implement single line console logging across multiple modules
+

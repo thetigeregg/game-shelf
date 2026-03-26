@@ -2946,3 +2946,15 @@
 - afc5530c fix(game-list): avoid non-PTAS price preference recomputes
 - e13cc77e feat: add price preference service and integrate into game filtering
 
+## v1.30.0 - 2026-03-26
+- 40c01e27 Merge pull request #284 from thetigeregg/feat/screenshots
+- 1817be10 fix(media): reject unsafe image urls and prune detail payload cache
+- 2cba6529 fix(game-detail): clear media slide preloader after image settles
+- db67df17 Merge branch 'main' into feat/screenshots
+- 2ee3d144 fix(game-detail): restrict media prefetch to same-origin urls
+- b5ec4fac feat(image-url): add normalization for API base URL in proxy image URL builder
+- e2b438ef fix(game-detail): share media URL policy and narrow slide prefetch
+- f3d38a41 fix(game-detail): handle placeholder and credentialed media URLs
+- e6f20b24 feat: enhance media slide loading logic and improve URL handling
+- bba0dea9 feat: implement detail media loading and proxy handling for images
+

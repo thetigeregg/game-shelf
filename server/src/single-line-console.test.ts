@@ -45,6 +45,13 @@ void test('formatSingleLineLogMessage handles circular references and nullish va
   assert.equal(payload['self'], '[Circular]');
 });
 
+void test('formatSingleLineLogMessage preserves non-finite numbers as strings', () => {
+  const payload = parseLog('warn', ['[service] numeric_edge_cases', { nan: Number.NaN }, Infinity]);
+
+  assert.equal(payload['nan'], 'NaN');
+  assert.deepEqual(payload['args'], ['Infinity']);
+});
+
 void test('formatSingleLineLogMessage truncates long strings and large arrays', () => {
   const payload = parseLog('debug', [
     '[service] payload',

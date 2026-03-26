@@ -47,13 +47,12 @@ function normalizeUnknown(
     return sanitizeString(value);
   }
 
-  if (
-    value === null ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    typeof value === 'undefined'
-  ) {
+  if (value === null || typeof value === 'boolean' || typeof value === 'undefined') {
     return value ?? null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : sanitizeString(String(value));
   }
 
   if (typeof value === 'bigint') {

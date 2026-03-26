@@ -44,7 +44,9 @@ const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const POPULARITY_PRIMITIVE_LIMIT = 500;
 
-installSingleLineConsole();
+if (process.env.NODE_ENV !== 'test') {
+  installSingleLineConsole();
+}
 
 interface PricingRefreshCandidateRow extends QueryResultRow {
   igdb_game_id: string;

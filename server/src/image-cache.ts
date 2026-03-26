@@ -142,12 +142,33 @@ export async function registerImageProxyRoute(
       }
 
       if (existing && (await fileExists(existing.file_path))) {
-        incrementImageMetric('hits');
-        reply.header('X-GameShelf-Image-Cache', 'HIT');
-        reply.header('Content-Type', existing.content_type);
-        reply.header('Cache-Control', 'public, max-age=86400');
-        reply.send(fs.createReadStream(existing.file_path));
-        return;
+        const cachedBytes = await readCachedImageBytes(existing.file_path, existing.size_bytes);
+
+        if (cachedBytes) {
+          incrementImageMetric('hits');
+          reply.header('X-GameShelf-Image-Cache', 'HIT');
+          reply.header('Content-Type', existing.content_type);
+          reply.header('Cache-Control', 'public, max-age=86400');
+          reply.header('Content-Length', String(cachedBytes.length));
+          reply.send(cachedBytes);
+          return;
+        }
+
+        try {
+          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+        } catch (error) {
+          incrementImageMetric('writeErrors');
+          request.log.warn({
+            msg: 'image_cache_delete_corrupt_file_failed',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        try {
+          await fsPromises.unlink(existing.file_path);
+        } catch {
+          // Ignore filesystem cleanup failures. The stale cache entry was already evicted.
+        }
       }
 
       if (existing && !(await fileExists(existing.file_path))) {
@@ -365,6 +386,31 @@ async function fileExists(filePath: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readCachedImageBytes(
+  filePath: string,
+  expectedSizeBytes: number | null | undefined
+): Promise<Buffer | null> {
+  try {
+    const bytes = await fsPromises.readFile(filePath);
+
+    if (bytes.length === 0) {
+      return null;
+    }
+
+    if (
+      Number.isInteger(expectedSizeBytes) &&
+      expectedSizeBytes > 0 &&
+      bytes.length !== expectedSizeBytes
+    ) {
+      return null;
+    }
+
+    return bytes;
+  } catch {
+    return null;
   }
 }
 

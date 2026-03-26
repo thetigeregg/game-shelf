@@ -126,6 +126,8 @@ void test('Image cache stores on miss and serves on hit', async () => {
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'HIT');
+  assert.equal(second.headers['content-length'], '4');
+  assert.deepEqual(second.rawPayload, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
   assert.equal(fetchCalls, 1);
 
   const metrics = getCacheMetrics();
@@ -378,6 +380,53 @@ void test('Image proxy handles stale DB record with missing file and fallback ex
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-image-cache'], 'MISS');
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+void test('Image proxy refetches cached assets when the stored file is truncated', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-truncated-file-test-'));
+  const sourceUrl = 'https://cdn.thegamesdb.net/images/large/boxart/front/18866-1.jpg';
+  const encoded = encodeURIComponent(sourceUrl);
+  const pool = new ImagePoolMock();
+  let fetchCalls = 0;
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  const cacheSubdirs = await fs.readdir(tempDir);
+  assert.equal(cacheSubdirs.length, 1);
+  const cacheFiles = await fs.readdir(path.join(tempDir, cacheSubdirs[0]));
+  assert.equal(cacheFiles.length, 1);
+  const cacheFilePath = path.join(tempDir, cacheSubdirs[0], cacheFiles[0]);
+  await fs.writeFile(cacheFilePath, Buffer.from([0xff, 0xd8]));
+
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.deepEqual(second.rawPayload, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });

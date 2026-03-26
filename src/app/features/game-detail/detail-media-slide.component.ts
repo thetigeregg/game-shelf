@@ -14,10 +14,20 @@ import {
 export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = getDetailMediaPlaceholderSrc();
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
+  private rawSrc: string | null | undefined;
   private requestedImageSrc: string | null = null;
   private currentImageRequestSrc: string | null = null;
   private imageLoadSettled = false;
-  @Input() src: string | null | undefined;
+  @Input()
+  set src(value: string | null | undefined) {
+    this.rawSrc = value;
+    this.syncRequestedImageSource();
+  }
+
+  get src(): string | null | undefined {
+    return this.rawSrc;
+  }
+
   @Input() alt = '';
   @Input() shouldLoad = true;
   @Input() showPreloader = false;
@@ -50,13 +60,7 @@ export class DetailMediaSlideComponent {
       return false;
     }
 
-    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
-
-    if (this.requestedImageSrc !== normalizedDisplaySrc) {
-      this.requestedImageSrc = normalizedDisplaySrc;
-      this.currentImageRequestSrc = displaySrc;
-      this.imageLoadSettled = false;
-    }
+    this.syncRequestedImageSource(displaySrc);
 
     return !this.imageLoadSettled;
   }
@@ -140,6 +144,18 @@ export class DetailMediaSlideComponent {
     }
 
     this.imageLoadSettled = true;
+  }
+
+  private syncRequestedImageSource(displaySrc = this.displaySrc): void {
+    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
+
+    if (this.requestedImageSrc === normalizedDisplaySrc) {
+      return;
+    }
+
+    this.requestedImageSrc = normalizedDisplaySrc;
+    this.currentImageRequestSrc = displaySrc;
+    this.imageLoadSettled = false;
   }
 
   private normalizeComparableSrc(source: string | null | undefined): string | null {

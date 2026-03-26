@@ -68,6 +68,21 @@ describe('DetailMediaSlideComponent', () => {
     expect(component.displayBackdropSrc).toBe('assets/icon/placeholder.png');
   });
 
+  it('updates the backdrop request when src changes without using the preloader flow', () => {
+    const component = createComponent();
+
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/first.jpg';
+    const firstBackdropSrc = component.displayBackdropSrc;
+
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/second.jpg';
+
+    expect(component.showPreloader).toBe(false);
+    expect(component.displayBackdropSrc).not.toBe(firstBackdropSrc);
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/second.jpg')
+    );
+  });
+
   it('resets retry marker on successful image load', () => {
     const component = createComponent();
     const image = document.createElement('img');

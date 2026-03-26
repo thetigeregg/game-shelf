@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import fs, { promises as fsPromises } from 'node:fs';
+import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
@@ -94,7 +94,7 @@ export async function registerImageProxyRoute(
 
           deleted += 1;
 
-          const safeExistingFilePath = resolveManagedCacheCleanupPath(
+          const safeExistingFilePath = await resolveManagedCacheExistingPath(
             imageCacheDir,
             existing.file_path
           );
@@ -145,10 +145,10 @@ export async function registerImageProxyRoute(
       }
 
       const safeExistingFilePath = existing
-        ? resolveManagedCacheFilePath(imageCacheDir, existing.file_path)
+        ? await resolveManagedCacheExistingPath(imageCacheDir, existing.file_path)
         : null;
 
-      if (existing && safeExistingFilePath && (await fileExists(safeExistingFilePath))) {
+      if (existing && safeExistingFilePath) {
         const cachedBytes = await readCachedImageBytes(
           safeExistingFilePath,
           existing.size_bytes,
@@ -185,18 +185,6 @@ export async function registerImageProxyRoute(
           incrementImageMetric('writeErrors');
           request.log.warn({
             msg: 'image_cache_delete_invalid_path_failed',
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-
-      if (existing && safeExistingFilePath && !(await fileExists(safeExistingFilePath))) {
-        try {
-          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
-        } catch (error) {
-          incrementImageMetric('writeErrors');
-          request.log.warn({
-            msg: 'image_cache_delete_missing_file_failed',
             error: error instanceof Error ? error.message : String(error),
           });
         }
@@ -246,19 +234,16 @@ export async function registerImageProxyRoute(
 
       const extension = resolveFileExtension(contentType, sourceUrl);
       const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
-      const safeStoragePath = resolveManagedCacheCleanupPath(imageCacheDir, storagePath);
-
-      if (!safeStoragePath) {
-        incrementImageMetric('writeErrors');
-        reply.header('X-GameShelf-Image-Cache', 'MISS');
-        reply.header('Content-Type', contentType);
-        reply.header('Cache-Control', 'public, max-age=86400');
-        reply.send(bytes);
-        return;
-      }
+      let safeStoragePath: string | null = null;
 
       try {
-        await fsPromises.mkdir(path.dirname(safeStoragePath), { recursive: true });
+        await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
+        safeStoragePath = await resolveManagedCacheWritePath(imageCacheDir, storagePath);
+
+        if (!safeStoragePath) {
+          throw new Error('invalid_cache_storage_path');
+        }
+
         await removeCachePathBestEffort(safeStoragePath);
         await fsPromises.writeFile(safeStoragePath, bytes);
       } catch (error) {
@@ -424,15 +409,6 @@ function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await fsPromises.access(filePath, fs.constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function readCachedImageBytes(
   filePath: string,
   expectedSizeBytes: number | null | undefined,
@@ -477,22 +453,26 @@ async function removeCachePathBestEffort(filePath: string): Promise<void> {
   }
 }
 
-function resolveManagedCacheFilePath(imageCacheDir: string, filePath: string): string | null {
+async function resolveManagedCacheExistingPath(
+  imageCacheDir: string,
+  filePath: string
+): Promise<string | null> {
   const resolvedCacheDir = path.resolve(imageCacheDir);
   const resolvedFilePath = path.resolve(filePath);
   let realCacheDirPath = resolvedCacheDir;
-  let realFilePath = resolvedFilePath;
 
   try {
-    realCacheDirPath = fs.realpathSync.native(resolvedCacheDir);
+    realCacheDirPath = await fsPromises.realpath(resolvedCacheDir);
   } catch {
     // Fall back to the intended cache dir when it has not been created yet.
   }
 
+  let realFilePath: string;
+
   try {
-    realFilePath = fs.realpathSync.native(resolvedFilePath);
+    realFilePath = await fsPromises.realpath(resolvedFilePath);
   } catch {
-    // Fall back to the intended file path when the file does not exist yet.
+    return null;
   }
 
   const relativePath = path.relative(realCacheDirPath, realFilePath);
@@ -501,10 +481,13 @@ function resolveManagedCacheFilePath(imageCacheDir: string, filePath: string): s
     return null;
   }
 
-  return resolvedFilePath;
+  return realFilePath;
 }
 
-function resolveManagedCacheCleanupPath(imageCacheDir: string, filePath: string): string | null {
+async function resolveManagedCacheWritePath(
+  imageCacheDir: string,
+  filePath: string
+): Promise<string | null> {
   const resolvedCacheDir = path.resolve(imageCacheDir);
   const resolvedFilePath = path.resolve(filePath);
   const relativePath = path.relative(resolvedCacheDir, resolvedFilePath);
@@ -513,7 +496,34 @@ function resolveManagedCacheCleanupPath(imageCacheDir: string, filePath: string)
     return null;
   }
 
-  return resolvedFilePath;
+  let realCacheDirPath = resolvedCacheDir;
+
+  try {
+    realCacheDirPath = await fsPromises.realpath(resolvedCacheDir);
+  } catch {
+    // Fall back to the intended cache dir when it has not been created yet.
+  }
+
+  let realParentPath: string;
+
+  try {
+    realParentPath = await fsPromises.realpath(path.dirname(resolvedFilePath));
+  } catch {
+    return null;
+  }
+
+  const candidateRealFilePath = path.join(realParentPath, path.basename(resolvedFilePath));
+  const realRelativePath = path.relative(realCacheDirPath, candidateRealFilePath);
+
+  if (
+    realRelativePath.startsWith('..') ||
+    path.isAbsolute(realRelativePath) ||
+    realRelativePath.length === 0
+  ) {
+    return null;
+  }
+
+  return candidateRealFilePath;
 }
 
 async function readResponseBytesWithLimit(

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -548,6 +549,55 @@ void test('Image proxy rejects symlink escapes from the managed cache directory'
   await fs.rm(externalDir, { recursive: true, force: true });
 });
 
+void test('Image proxy does not write through symlinked cache subdirectories', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-write-symlink-test-'));
+  const externalDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'gs-image-cache-write-symlink-external-test-')
+  );
+  const sourceUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/write-symlink.jpg';
+  const encoded = encodeURIComponent(sourceUrl);
+  const cacheKey = crypto.createHash('sha256').update(sourceUrl).digest('hex');
+  const cacheSubdir = path.join(tempDir, cacheKey.slice(0, 2));
+  const pool = new ImagePoolMock();
+  let fetchCalls = 0;
+
+  await fs.symlink(externalDir, cacheSubdir);
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(await fs.readdir(externalDir), []);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.deepEqual(await fs.readdir(externalDir), []);
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+  await fs.rm(externalDir, { recursive: true, force: true });
+});
+
 void test('Image proxy refetches cached assets when the stored file cannot be read', async () => {
   resetCacheMetrics();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-unreadable-file-test-'));
@@ -618,6 +668,51 @@ void test('Image purge only removes files contained in the managed cache directo
   const externalFilePath = path.join(externalDir, 'keep-me.jpg');
   await fs.writeFile(externalFilePath, Buffer.from([9, 8, 7, 6]));
   pool.setSingleCachedFilePath(externalFilePath);
+
+  const purge = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [sourceUrl] },
+  });
+  assert.equal(purge.statusCode, 200);
+  assert.deepEqual(purge.json(), { deleted: 1 });
+  assert.deepEqual(await fs.readFile(externalFilePath), Buffer.from([9, 8, 7, 6]));
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+  await fs.rm(externalDir, { recursive: true, force: true });
+});
+
+void test('Image purge does not remove files through symlinked cache subdirectories', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-symlink-test-'));
+  const externalDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'gs-image-cache-purge-symlink-external-test-')
+  );
+  const sourceUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/purge-symlink.jpg';
+  const cacheKey = crypto.createHash('sha256').update(sourceUrl).digest('hex');
+  const cacheSubdirName = cacheKey.slice(0, 2);
+  const externalFilePath = path.join(externalDir, `${cacheKey}.jpg`);
+  const pool = new ImagePoolMock();
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () =>
+      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      }),
+  });
+
+  await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encodeURIComponent(sourceUrl)}`,
+  });
+
+  await fs.writeFile(externalFilePath, Buffer.from([9, 8, 7, 6]));
+  await fs.rm(path.join(tempDir, cacheSubdirName), { recursive: true, force: true });
+  await fs.symlink(externalDir, path.join(tempDir, cacheSubdirName));
+  pool.setSingleCachedFilePath(path.join(tempDir, cacheSubdirName, `${cacheKey}.jpg`));
 
   const purge = await app.inject({
     method: 'POST',

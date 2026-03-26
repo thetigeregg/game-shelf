@@ -135,6 +135,7 @@ import {
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
+import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
@@ -2446,19 +2447,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     try {
-      const coverSource = this.isIgdbCoverUrl(url)
-        ? 'igdb'
-        : this.gameShelfService.shouldUseIgdbCoverForPlatform(
-              this.selectedGame.platform,
-              this.selectedGame.platformIgdbId
-            )
-          ? 'igdb'
-          : 'thegamesdb';
-      const updated = await this.gameShelfService.updateGameCover(
+      const updated = await this.gameShelfService.setGameCustomCover(
         this.selectedGame.igdbGameId,
         this.selectedGame.platformIgdbId,
-        url,
-        coverSource
+        url
       );
       this.applyUpdatedGame(updated, { refreshCover: true });
       this.closeImagePickerModal();
@@ -3274,12 +3266,29 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private getDisplayCoverUrl(game: GameEntry): string | null {
     const customCoverUrl =
       typeof game.customCoverUrl === 'string' ? game.customCoverUrl.trim() : '';
+    const safeCustomCoverUrl = this.resolveSafeCustomCoverUrl(customCoverUrl);
 
-    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrl)) {
-      return customCoverUrl;
+    if (safeCustomCoverUrl !== null) {
+      return safeCustomCoverUrl;
     }
 
     return game.coverUrl;
+  }
+
+  private resolveSafeCustomCoverUrl(value: string): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value)) {
+      return value;
+    }
+
+    if (!/^(https?:\/\/|\/\/)/i.test(value)) {
+      return null;
+    }
+
+    return sanitizeExternalHttpUrlString(value);
   }
 
   private async loadRowCoverUrl(game: GameEntry): Promise<void> {

@@ -503,6 +503,76 @@ void test('sync push preserves existing thegamesdb cover when stale replay sends
   await app.close();
 });
 
+void test('sync push preserves existing cover pair but accepts valid custom cover during mixed-state migration', async () => {
+  class MixedCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '987',
+        platformIgdbId: 11,
+        title: 'Halo 3',
+        platform: 'Xbox 360',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:50:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/55556-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+      });
+    }
+  }
+
+  class MixedCoverPool extends FakePool {
+    override connect(): Promise<MixedCoverSyncClient> {
+      return Promise.resolve(new MixedCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new MixedCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-mixed-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '987',
+            platformIgdbId: 11,
+            title: 'Halo 3',
+            platform: 'Xbox 360',
+            listType: 'collection',
+            updatedAt: '2026-03-22T12:55:00.000Z',
+            coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg',
+            coverSource: 'thegamesdb',
+            customCoverUrl: ' https://images.example.com/custom-cover.jpg ',
+          },
+          clientTimestamp: '2026-03-22T12:56:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['coverUrl'],
+    'https://cdn.thegamesdb.net/images/original/boxart/front/55556-1.jpg'
+  );
+  assert.equal(body.results[0]?.normalizedPayload?.['coverSource'], 'thegamesdb');
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['customCoverUrl'],
+    'https://images.example.com/custom-cover.jpg'
+  );
+
+  await app.close();
+});
+
 void test('sync push preserves newer custom cover against stale replay clear', async () => {
   class CustomCoverSyncClient extends FakeSyncClient {
     constructor() {
@@ -563,6 +633,76 @@ void test('sync push preserves newer custom cover against stale replay clear', a
   assert.equal(
     body.results[0]?.normalizedPayload?.['customCoverUrl'],
     'data:image/png;base64,Zm9v'
+  );
+
+  await app.close();
+});
+
+void test('sync push preserves newer custom cover during stale mixed-state replay', async () => {
+  class StaleMixedCoverSyncClient extends FakeSyncClient {
+    constructor() {
+      super();
+      this.seedGame({
+        igdbGameId: '1001',
+        platformIgdbId: 130,
+        title: 'Stale Mixed Cover Game',
+        platform: 'Switch',
+        listType: 'collection',
+        updatedAt: '2026-03-22T12:00:00.000Z',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/boxart/front/99998-1.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: 'https://images.example.com/current-custom-cover.jpg',
+      });
+    }
+  }
+
+  class StaleMixedCoverPool extends FakePool {
+    override connect(): Promise<StaleMixedCoverSyncClient> {
+      return Promise.resolve(new StaleMixedCoverSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new StaleMixedCoverPool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-cover-custom-stale-mixed-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '1001',
+            platformIgdbId: 130,
+            title: 'Stale Mixed Cover Game',
+            platform: 'Switch',
+            listType: 'collection',
+            updatedAt: '2026-03-20T12:00:00.000Z',
+            coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1mixed.jpg',
+            coverSource: 'thegamesdb',
+            customCoverUrl: null,
+          },
+          clientTimestamp: '2026-03-22T12:05:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['coverUrl'],
+    'https://cdn.thegamesdb.net/images/original/boxart/front/99998-1.jpg'
+  );
+  assert.equal(body.results[0]?.normalizedPayload?.['coverSource'], 'thegamesdb');
+  assert.equal(
+    body.results[0]?.normalizedPayload?.['customCoverUrl'],
+    'https://images.example.com/current-custom-cover.jpg'
   );
 
   await app.close();

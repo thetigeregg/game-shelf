@@ -508,6 +508,28 @@ describe('SettingsPage CSV review fields', () => {
     expect(preview.error).toBe('Moby score must be greater than 0 and at most 10.');
   });
 
+  it('rejects credentialed custom cover urls with a sanitizer-aligned import error', () => {
+    const page = createPage();
+    const record = makeGameRow({
+      customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
+    });
+
+    const preview = page['validateImportRecord'](
+      record,
+      2,
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>()
+    ) as { error: string | null };
+
+    expect(preview.error).toBe(
+      'Custom cover image must be a data URL or http/https URL without embedded credentials.'
+    );
+  });
+
   it('maps reviewSource/mobyScore/mobygamesGameId columns from CSV records', () => {
     const page = createPage();
     const headers = Object.keys(

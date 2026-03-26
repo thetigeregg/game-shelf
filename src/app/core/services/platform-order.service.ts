@@ -7,7 +7,7 @@ export const PLATFORM_ORDER_STORAGE_KEY = 'game-shelf:platform-display-order-v1'
 
 @Injectable({ providedIn: 'root' })
 export class PlatformOrderService {
-  private readonly orderSubject = new BehaviorSubject<string[]>(this.loadOrderFromStorage());
+  private readonly orderSubject = new BehaviorSubject(this.loadOrderFromStorage());
   private readonly defaultOrder = [...PLATFORM_CATALOG]
     .sort((left, right) => {
       if (left.sort_order !== right.sort_order) {

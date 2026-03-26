@@ -25,7 +25,11 @@ function sanitizeString(value: string): string {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Object.prototype.toString.call(value) === '[object Object]';
+  try {
+    return Object.prototype.toString.call(value) === '[object Object]';
+  } catch {
+    return false;
+  }
 }
 
 function createSafeRecord(): Record<string, unknown> {
@@ -36,10 +40,18 @@ function stringifyNonPlainObject(value: object): string {
   const prototype = Object.getPrototypeOf(value) as { toString?: () => string } | null;
 
   if (prototype?.toString !== undefined && prototype.toString !== Object.prototype.toString) {
-    return prototype.toString.call(value);
+    try {
+      return prototype.toString.call(value);
+    } catch {
+      // Fall through to Object.prototype.toString or the final safe placeholder.
+    }
   }
 
-  return Object.prototype.toString.call(value);
+  try {
+    return Object.prototype.toString.call(value);
+  } catch {
+    return '[object toString threw]';
+  }
 }
 
 function normalizeUnknown(

@@ -164,6 +164,26 @@ test('shared single-line console survives proxy getPrototypeOf traps', () => {
   assert.equal(payload.hostileProxy, '[object ProxyLike]');
 });
 
+test('shared single-line console keeps logging non-throwing for enumerable getters that throw', () => {
+  const hostileObject = Object.create(null, {
+    safe: {
+      enumerable: true,
+      value: 'ok',
+    },
+    broken: {
+      enumerable: true,
+      get() {
+        throw new Error('getter exploded');
+      },
+    },
+  });
+
+  const payload = parseLog('warn', ['[worker] hostile_getter', hostileObject]);
+
+  assert.equal(payload.safe, 'ok');
+  assert.equal(payload.broken, '[Unserializable property: getter exploded]');
+});
+
 test('shared single-line console installation wraps supported methods once', () => {
   const calls = [];
   const stubConsole = {

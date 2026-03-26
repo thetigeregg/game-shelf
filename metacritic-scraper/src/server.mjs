@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { installSingleLineConsole } from '../../shared/single-line-console.mjs';
+import { installSingleLineConsole } from './single-line-console.mjs';
 import { rankCandidate } from './metacritic-candidate-ranking.mjs';
 import { parsePositiveEnvInt } from './env-utils.mjs';
 import {

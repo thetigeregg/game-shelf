@@ -68,10 +68,30 @@ describe('DetailMediaSlideComponent', () => {
     expect(component.displayBackdropSrc).toBe('assets/icon/placeholder.png');
   });
 
+  it('updates the backdrop request when src changes without using the preloader flow', () => {
+    const component = createComponent();
+
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/first.jpg';
+    const firstBackdropSrc = component.displayBackdropSrc;
+
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/second.jpg';
+
+    expect(component.showPreloader).toBe(false);
+    expect(component.displayBackdropSrc).not.toBe(firstBackdropSrc);
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/second.jpg')
+    );
+  });
+
   it('resets retry marker on successful image load', () => {
     const component = createComponent();
     const image = document.createElement('img');
+    component.src = 'https://images.example.com/cover.jpg';
     image.dataset.detailRetryAttempted = '1';
+    Object.defineProperty(image, 'currentSrc', {
+      value: String(component.displaySrc),
+      configurable: true,
+    });
 
     component.onImageLoad({ target: image } as unknown as Event);
 
@@ -106,9 +126,45 @@ describe('DetailMediaSlideComponent', () => {
     expect(component.shouldShowPreloader).toBe(false);
   });
 
+  it('ignores stale load events after the requested image changes', () => {
+    const component = createComponent();
+    const image = document.createElement('img');
+    const firstSrc = 'https://images.igdb.com/igdb/image/upload/t_720p/first.jpg';
+    const secondSrc = 'https://images.igdb.com/igdb/image/upload/t_720p/second.jpg';
+    let currentSrc = '';
+
+    component.showPreloader = true;
+    component.src = firstSrc;
+    const firstBackdropSrc = component.displayBackdropSrc;
+
+    component.src = secondSrc;
+    const secondDisplaySrc = component.displaySrc;
+    const secondBackdropSrc = component.displayBackdropSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    currentSrc = String(component.displaySrc?.replace('second.jpg', 'first.jpg'));
+    component.onImageLoad({ target: image } as unknown as Event);
+
+    expect(component.shouldShowPreloader).toBe(true);
+    expect(component.displaySrc).toBe(secondDisplaySrc);
+    expect(component.displayBackdropSrc).toBe(secondBackdropSrc);
+    expect(component.displayBackdropSrc).not.toBe(firstBackdropSrc);
+
+    currentSrc = String(secondDisplaySrc);
+    component.onImageLoad({ target: image } as unknown as Event);
+
+    expect(component.shouldShowPreloader).toBe(false);
+    expect(component.displayBackdropSrc).toBe(secondBackdropSrc);
+  });
+
   it('retries once with cache-busted URL, then falls back to placeholder', () => {
     const component = createComponent();
     const image = document.createElement('img');
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
     Object.defineProperty(image, 'currentSrc', {
       value: 'https://example.com/cover.jpg',
       configurable: true,
@@ -118,6 +174,7 @@ describe('DetailMediaSlideComponent', () => {
     expect(image.dataset.detailRetryAttempted).toBe('1');
     expect(image.src).toContain('https://example.com/cover.jpg');
     expect(image.src).toContain('_img_retry=');
+    expect(component.displayBackdropSrc).toContain('_img_retry=');
 
     component.onImageError({ target: image } as unknown as Event);
     expect(image.src).toContain('assets/icon/placeholder.png');

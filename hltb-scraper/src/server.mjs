@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { installSingleLineConsole } from './single-line-console.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -31,6 +32,8 @@ let browserIdleTimer = null;
 const entrypointPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
 const modulePath = path.resolve(fileURLToPath(import.meta.url));
 const isMainModule = entrypointPath === modulePath;
+
+installSingleLineConsole();
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();

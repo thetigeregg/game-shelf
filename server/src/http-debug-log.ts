@@ -89,7 +89,8 @@ export function logUpstreamRequest(
   }
 
   request.log.info({
-    msg: 'upstream_http_request',
+    service: 'api',
+    event: 'upstream_http_request',
     method: options.method,
     url: sanitizeUrlForDebugLogs(options.url),
     headers: sanitizeHeadersForDebugLogs(options.headers),
@@ -109,7 +110,8 @@ export async function logUpstreamResponse(
   }
 
   request.log.info({
-    msg: 'upstream_http_response',
+    service: 'api',
+    event: 'upstream_http_response',
     method: options.method,
     url: sanitizeUrlForDebugLogs(options.url),
     status: options.response.status,

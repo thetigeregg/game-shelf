@@ -1,48 +1,36 @@
 const SINGLE_LINE_CONSOLE_INSTALLED = Symbol.for('game-shelf.singleLineConsole.installed');
+const EVENT_PREFIX_PATTERN = /^\[([^[\]]+)\]\s+(.+)$/;
+const MAX_STRING_LENGTH = 2_000;
+const MAX_ARRAY_ITEMS = 20;
+const MAX_OBJECT_KEYS = 50;
+const MAX_DEPTH = 5;
+const TRUNCATED_SUFFIX = '...[truncated]';
 
 function sanitizeLineBreaks(value: unknown): string {
   return String(value).replace(/\r/g, '\\r').replace(/\n/g, '\\n');
 }
 
-function normalizeError(error: Error): Record<string, unknown> {
-  return {
-    name: error.name,
-    message: error.message,
-    stack: error.stack,
-    cause: error.cause,
-  };
+function truncateString(value: string): string {
+  return value.length <= MAX_STRING_LENGTH
+    ? value
+    : `${value.slice(0, MAX_STRING_LENGTH)}${TRUNCATED_SUFFIX}`;
 }
 
-function createReplacer(): (key: string, value: unknown) => unknown {
-  const seen = new WeakSet();
-
-  return (_key, value) => {
-    if (typeof value === 'bigint') {
-      return value.toString();
-    }
-
-    if (value instanceof Error) {
-      return normalizeError(value);
-    }
-
-    if (typeof value === 'object' && value !== null) {
-      if (seen.has(value)) {
-        return '[Circular]';
-      }
-      seen.add(value);
-    }
-
-    return value;
-  };
+function sanitizeString(value: string): string {
+  return truncateString(sanitizeLineBreaks(value));
 }
 
-function formatLogArgument(value: unknown): string {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function normalizeUnknown(
+  value: unknown,
+  seen: WeakSet<object>,
+  depth = 0
+): string | number | boolean | null | unknown[] | Record<string, unknown> {
   if (typeof value === 'string') {
-    return sanitizeLineBreaks(value);
-  }
-
-  if (value instanceof Error) {
-    return JSON.stringify(normalizeError(value), createReplacer());
+    return sanitizeString(value);
   }
 
   if (
@@ -51,29 +39,137 @@ function formatLogArgument(value: unknown): string {
     typeof value === 'boolean' ||
     typeof value === 'undefined'
   ) {
-    return String(value);
+    return value ?? null;
   }
 
-  if (typeof value === 'bigint' || typeof value === 'symbol' || typeof value === 'function') {
-    return sanitizeLineBreaks(value);
+  if (typeof value === 'bigint') {
+    return value.toString();
   }
 
-  try {
-    return JSON.stringify(value, createReplacer());
-  } catch {
-    return sanitizeLineBreaks(value);
+  if (typeof value === 'symbol' || typeof value === 'function') {
+    return sanitizeString(String(value));
   }
+
+  if (value instanceof Error) {
+    return normalizeUnknown(
+      {
+        name: value.name,
+        message: value.message,
+        stack: value.stack,
+        cause: value.cause,
+      },
+      seen,
+      depth
+    );
+  }
+
+  if (seen.has(value)) {
+    return '[Circular]';
+  }
+
+  if (depth >= MAX_DEPTH) {
+    if (Array.isArray(value)) {
+      return `[Array(${String(value.length)})]`;
+    }
+
+    return '[Object]';
+  }
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const normalizedItems = value
+      .slice(0, MAX_ARRAY_ITEMS)
+      .map((item) => normalizeUnknown(item, seen, depth + 1));
+
+    if (value.length > MAX_ARRAY_ITEMS) {
+      normalizedItems.push(`[+${String(value.length - MAX_ARRAY_ITEMS)} more]`);
+    }
+
+    return normalizedItems;
+  }
+
+  const normalized: Record<string, unknown> = {};
+  const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
+
+  for (const [key, entryValue] of entries) {
+    normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
+  }
+
+  const omittedKeyCount = Object.keys(value).length - entries.length;
+  if (omittedKeyCount > 0) {
+    normalized['__truncatedKeys'] = omittedKeyCount;
+  }
+
+  return normalized;
 }
 
-export function formatSingleLineLogMessage(args: unknown[]): string {
+function buildEnvelope(level: string, args: unknown[]): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    ts: new Date().toISOString(),
+    level,
+  };
+  const normalizedArgs = args.map((value) => normalizeUnknown(value, new WeakSet()));
+  const first = normalizedArgs[0];
+  let argsStartIndex = 0;
+
+  if (typeof first === 'string') {
+    const eventMatch = first.match(EVENT_PREFIX_PATTERN);
+
+    if (eventMatch) {
+      payload['service'] = eventMatch[1];
+      payload['event'] = eventMatch[2];
+      argsStartIndex = 1;
+    } else {
+      payload['message'] = first;
+      argsStartIndex = 1;
+    }
+  }
+
+  const remainingArgs = normalizedArgs.slice(argsStartIndex);
+  const [firstContext, ...otherArgs] = remainingArgs;
+
+  if (isPlainObject(firstContext)) {
+    for (const [key, value] of Object.entries(firstContext)) {
+      if (!(key in payload)) {
+        payload[key] = value;
+      } else {
+        otherArgs.unshift({ [key]: value });
+      }
+    }
+  } else if (typeof firstContext !== 'undefined') {
+    otherArgs.unshift(firstContext);
+  }
+
+  if (otherArgs.length > 0) {
+    payload['args'] = otherArgs;
+  }
+
+  if (!('service' in payload)) {
+    payload['service'] = 'app';
+  }
+
+  if (!('event' in payload) && !('message' in payload)) {
+    payload['event'] = 'log';
+  }
+
+  return payload;
+}
+
+export function formatSingleLineLogMessage(level: string, args: unknown[]): string {
   if (args.length === 0) {
-    return '';
+    return JSON.stringify({
+      ts: new Date().toISOString(),
+      level,
+      service: 'app',
+      event: 'log',
+    });
   }
 
-  return args.map((value) => formatLogArgument(value)).join(' ');
+  return JSON.stringify(buildEnvelope(level, args));
 }
 
-type ConsoleMethodName = 'debug' | 'info' | 'log' | 'warn' | 'error';
+type ConsoleMethodName = 'debug' | 'info' | 'log' | 'warn' | 'error' | 'trace' | 'dir' | 'table';
 type SingleLineConsole = Console & {
   [SINGLE_LINE_CONSOLE_INSTALLED]?: boolean;
 };
@@ -85,13 +181,28 @@ export function installSingleLineConsole(consoleObject: Console = console): Cons
     return consoleObject;
   }
 
-  const levels: ConsoleMethodName[] = ['debug', 'info', 'log', 'warn', 'error'];
+  const levels: ConsoleMethodName[] = [
+    'debug',
+    'info',
+    'log',
+    'warn',
+    'error',
+    'trace',
+    'dir',
+    'table',
+  ];
 
   for (const level of levels) {
-    const original = consoleObject[level].bind(consoleObject);
+    const originalMethod = consoleObject[level];
+
+    if (typeof originalMethod !== 'function') {
+      continue;
+    }
+
+    const original = originalMethod.bind(consoleObject);
 
     consoleObject[level] = (...args: unknown[]) => {
-      original(formatSingleLineLogMessage(args));
+      original(formatSingleLineLogMessage(level, args));
     };
   }
 

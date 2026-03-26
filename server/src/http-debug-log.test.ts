@@ -141,7 +141,8 @@ void test('logUpstreamRequest logs when debug is enabled', async () => {
 
     assert.equal(loggedMessages.length, 1);
     const msg = loggedMessages[0] as Record<string, unknown>;
-    assert.equal(msg['msg'], 'upstream_http_request');
+    assert.equal(msg['service'], 'api');
+    assert.equal(msg['event'], 'upstream_http_request');
     assert.equal(msg['method'], 'GET');
     assert.doesNotMatch(String(msg['url']), /secret/);
     const headers = msg['headers'] as Record<string, string>;
@@ -195,7 +196,8 @@ void test('logUpstreamResponse logs JSON response body preview when debug is ena
 
     assert.equal(loggedMessages.length, 1);
     const msg = loggedMessages[0] as Record<string, unknown>;
-    assert.equal(msg['msg'], 'upstream_http_response');
+    assert.equal(msg['service'], 'api');
+    assert.equal(msg['event'], 'upstream_http_response');
     assert.equal(msg['status'], 200);
     assert.doesNotMatch(String(msg['url']), /s3cr3t/);
     assert.equal(typeof msg['bodyPreview'], 'string');

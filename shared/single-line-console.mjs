@@ -25,11 +25,33 @@ function sanitizeString(value) {
 }
 
 function isPlainObject(value) {
-  return Object.prototype.toString.call(value) === '[object Object]';
+  try {
+    return Object.prototype.toString.call(value) === '[object Object]';
+  } catch {
+    return false;
+  }
 }
 
 function createSafeRecord() {
   return Object.create(null);
+}
+
+function stringifyNonPlainObject(value) {
+  const prototype = Object.getPrototypeOf(value);
+
+  if (prototype?.toString !== undefined && prototype.toString !== Object.prototype.toString) {
+    try {
+      return prototype.toString.call(value);
+    } catch {
+      // Fall through to Object.prototype.toString or the final safe placeholder.
+    }
+  }
+
+  try {
+    return Object.prototype.toString.call(value);
+  } catch {
+    return '[object toString threw]';
+  }
 }
 
 function normalizeUnknown(value, seen, depth = 0) {
@@ -106,7 +128,7 @@ function normalizeUnknown(value, seen, depth = 0) {
     }
 
     if (!isPlainObject(value)) {
-      return sanitizeString(String(value));
+      return sanitizeString(stringifyNonPlainObject(value));
     }
 
     const normalized = createSafeRecord();

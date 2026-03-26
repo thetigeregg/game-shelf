@@ -21,6 +21,10 @@
           <ion-select-option value="tas:asc">TAS ↑</ion-select-option>
           <ion-select-option value="tas:desc">TAS ↓</ion-select-option>
         }
+        @if (showPtasSort) {
+          <ion-select-option value="ptas:asc">PTAS ↑</ion-select-option>
+          <ion-select-option value="ptas:desc">PTAS ↓</ion-select-option>
+        }
         @if (showPriceSort) {
           <ion-select-option value="price:asc">Price ↑</ion-select-option>
           <ion-select-option value="price:desc">Price ↓</ion-select-option>

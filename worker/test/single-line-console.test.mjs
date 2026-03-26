@@ -123,6 +123,25 @@ test('shared single-line console preserves string representations for non-plain 
   assert.equal(payload.set, String(set));
 });
 
+test('shared single-line console treats hostile proxies as non-plain objects', () => {
+  const throwingTag = new Proxy(
+    {},
+    {
+      get(_target, property) {
+        if (property === Symbol.toStringTag) {
+          throw new Error('no tag for you');
+        }
+
+        return undefined;
+      },
+    }
+  );
+
+  const payload = parseLog('warn', ['[worker] hostile_object', { throwingTag }]);
+
+  assert.equal(payload.throwingTag, '[object toString threw]');
+});
+
 test('shared single-line console installation wraps supported methods once', () => {
   const calls = [];
   const stubConsole = {

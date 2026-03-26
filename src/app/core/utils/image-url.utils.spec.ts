@@ -17,6 +17,18 @@ describe('image-url utils', () => {
     ).toBeNull();
   });
 
+  it('allows only safe non-http URL forms', () => {
+    expect(normalizeImageSourceUrl('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA');
+    expect(normalizeImageSourceUrl('blob:https://example.com/id')).toBe(
+      'blob:https://example.com/id'
+    );
+    expect(normalizeImageSourceUrl('/assets/cover.jpg')).toBe('/assets/cover.jpg');
+    expect(normalizeImageSourceUrl('./assets/cover.jpg')).toBe('./assets/cover.jpg');
+    expect(normalizeImageSourceUrl('file:///tmp/cover.jpg')).toBeNull();
+    expect(normalizeImageSourceUrl('ftp://example.com/cover.jpg')).toBeNull();
+    expect(normalizeImageSourceUrl('javascript:alert(1)')).toBeNull();
+  });
+
   it('applies retina variants and proxy routing with shared eligibility rules', () => {
     const retinaUrl = withIgdbRetinaVariant(
       'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg'

@@ -27,9 +27,11 @@ describe('GameShelfService', () => {
   };
   let service: GameShelfService;
   const migrationStorageKey = 'game-shelf:igdb-cover-migration:v2';
+  const legacyCustomCoverMigrationStorageKey = 'game-shelf:legacy-custom-cover-migration:v1';
 
   beforeEach(() => {
     localStorage.removeItem(migrationStorageKey);
+    localStorage.removeItem(legacyCustomCoverMigrationStorageKey);
     repository = {
       listByType: vi.fn(),
       listAll: vi.fn(),
@@ -43,6 +45,7 @@ describe('GameShelfService', () => {
       setGameTags: vi.fn(),
       setGameNotes: vi.fn(),
       setGameCustomCover: vi.fn(),
+      promoteLegacyCoverToCustomCover: vi.fn(),
       setGameCustomMetadata: vi.fn(),
       listTags: vi.fn(),
       upsertTag: vi.fn(),
@@ -98,6 +101,7 @@ describe('GameShelfService', () => {
 
   afterEach(() => {
     localStorage.removeItem(migrationStorageKey);
+    localStorage.removeItem(legacyCustomCoverMigrationStorageKey);
     vi.restoreAllMocks();
   });
 
@@ -864,6 +868,184 @@ describe('GameShelfService', () => {
     expect(capturedHeaders).toBeDefined();
     const headersRecord = capturedHeaders as Record<string, string>;
     expect(headersRecord['X-Game-Shelf-Client-Token']).toBe('test-write-token');
+  });
+
+  it('skips legacy custom cover migration when already completed', async () => {
+    localStorage.setItem(legacyCustomCoverMigrationStorageKey, '1');
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.listAll).not.toHaveBeenCalled();
+  });
+
+  it('marks legacy custom cover migration complete when no identifiable candidates exist', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '1',
+        title: 'Normal IGDB Cover',
+        platformIgdbId: 130,
+        platform: 'Nintendo Switch',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/normal.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
+  });
+
+  it('promotes identifiable legacy picker cover urls to custom covers', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Example',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+      {
+        igdbGameId: '9999',
+        title: 'Skip Existing Custom',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/skip.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: 'https://images.example.com/custom.jpg',
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    repository.promoteLegacyCoverToCustomCover.mockResolvedValue({
+      igdbGameId: '4512',
+      title: 'Example',
+      platformIgdbId: 167,
+      platform: 'PlayStation 5',
+      coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      coverSource: 'igdb',
+      customCoverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x',
+    } as GameEntry);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledTimes(1);
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledWith(
+      '4512',
+      167,
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      'thegamesdb'
+    );
+    expect(repository.updateCover).not.toHaveBeenCalled();
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
+  });
+
+  it('continues legacy custom cover migration when one row fails', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Broken',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/broken.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+      {
+        igdbGameId: '4513',
+        title: 'Healthy',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    repository.promoteLegacyCoverToCustomCover
+      .mockRejectedValueOnce(new Error('write failed'))
+      .mockResolvedValueOnce({
+        igdbGameId: '4513',
+        title: 'Healthy',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        coverSource: 'igdb',
+        customCoverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/healthy.jpg',
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.promoteLegacyCoverToCustomCover).toHaveBeenCalledTimes(2);
+    expect(repository.updateCover).not.toHaveBeenCalled();
+    expect(repository.setGameCustomCover).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyCustomCoverMigrationStorageKey)).toBe('1');
+  });
+
+  it('uses the direct Metacritic fallback helper when review lookup is unavailable', async () => {
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    searchApi.lookupMetacriticScore.mockReturnValue(
+      of({
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/example/',
+      })
+    );
+
+    const result = await (
+      service as unknown as {
+        lookupReviewScoreForCatalog: (
+          title: string,
+          releaseYear: number | null,
+          platform: string | null,
+          platformIgdbId: number | null
+        ) => Promise<Record<string, unknown> | null>;
+      }
+    ).lookupReviewScoreForCatalog('Example', 2001, 'GameCube', 21);
+
+    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Example', 2001, 'GameCube', 21);
+    expect(result).toEqual({
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.metacritic.com/game/example/',
+      reviewScore: 91,
+      reviewUrl: 'https://www.metacritic.com/game/example/',
+      reviewSource: 'metacritic',
+      mobyScore: null,
+      mobygamesGameId: null,
+    });
+  });
+
+  it('continues legacy cover migration when localStorage reads fail', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    repository.listAll.mockResolvedValue([]);
+
+    await service.migrateLegacyPickerCoversToCustomCovers();
+
+    expect(repository.listAll).toHaveBeenCalledOnce();
+    getItemSpy.mockRestore();
   });
 
   it('delegates search platform list retrieval', async () => {

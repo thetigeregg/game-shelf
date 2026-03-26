@@ -118,6 +118,8 @@ interface GameIdentity {
 export class GameShelfService {
   private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
     'game-shelf:igdb-cover-migration:v2';
+  private static readonly LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY =
+    'game-shelf:legacy-custom-cover-migration:v1';
   private static readonly IGDB_ID_QUERY_PATTERN = /^igdb:\s*(\d+)$/i;
   private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([
     6, 34, 39, 82, 163, 167, 472, 508,
@@ -1546,6 +1548,88 @@ export class GameShelfService {
     this.markIgdbCoverMigrationComplete();
   }
 
+  async migrateLegacyPickerCoversToCustomCovers(): Promise<void> {
+    if (this.isLegacyCustomCoverMigrationComplete()) {
+      return;
+    }
+
+    const allGames = await this.repository.listAll();
+    const candidates = allGames.filter((game) => this.shouldPromoteLegacyCoverUrlToCustom(game));
+
+    if (candidates.length === 0) {
+      this.markLegacyCustomCoverMigrationComplete();
+      return;
+    }
+
+    let updatedCount = 0;
+
+    for (const game of candidates) {
+      const coverUrl = typeof game.coverUrl === 'string' ? game.coverUrl.trim() : '';
+      const normalizedCoverSource = this.inferCoverSourceFromUrl(coverUrl);
+
+      if (coverUrl.length === 0 || normalizedCoverSource === null) {
+        continue;
+      }
+
+      try {
+        const updated = await this.repository.promoteLegacyCoverToCustomCover(
+          game.igdbGameId,
+          game.platformIgdbId,
+          coverUrl,
+          normalizedCoverSource
+        );
+
+        if (updated) {
+          updatedCount += 1;
+        }
+      } catch {
+        // Keep migration best-effort. A failed row should not block startup.
+      }
+    }
+
+    if (updatedCount > 0) {
+      this.listRefresh$.next();
+    }
+
+    this.markLegacyCustomCoverMigrationComplete();
+  }
+
+  private shouldPromoteLegacyCoverUrlToCustom(game: GameEntry): boolean {
+    const customCoverUrl =
+      typeof game.customCoverUrl === 'string' ? game.customCoverUrl.trim() : '';
+
+    if (customCoverUrl.length > 0) {
+      return false;
+    }
+
+    const coverUrl = typeof game.coverUrl === 'string' ? game.coverUrl.trim() : '';
+
+    if (!/^https?:\/\//i.test(coverUrl)) {
+      return false;
+    }
+
+    if (game.coverSource !== 'igdb' && game.coverSource !== 'thegamesdb') {
+      return false;
+    }
+
+    const inferredCoverSource = this.inferCoverSourceFromUrl(coverUrl);
+    return inferredCoverSource !== null && inferredCoverSource !== game.coverSource;
+  }
+
+  private inferCoverSourceFromUrl(url: string): 'igdb' | 'thegamesdb' | null {
+    const normalized = url.trim().toLowerCase();
+
+    if (normalized.includes('images.igdb.com/igdb/image/upload/')) {
+      return 'igdb';
+    }
+
+    if (normalized.includes('cdn.thegamesdb.net/images/')) {
+      return 'thegamesdb';
+    }
+
+    return null;
+  }
+
   private resolvePlatformSelection(
     currentPlatform: string,
     currentPlatformIgdbId: number,
@@ -2100,6 +2184,25 @@ export class GameShelfService {
   private markIgdbCoverMigrationComplete(): void {
     try {
       localStorage.setItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  private isLegacyCustomCoverMigrationComplete(): boolean {
+    try {
+      return (
+        localStorage.getItem(GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY) ===
+        '1'
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private markLegacyCustomCoverMigrationComplete(): void {
+    try {
+      localStorage.setItem(GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
     } catch {
       // Ignore storage failures.
     }

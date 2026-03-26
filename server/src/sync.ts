@@ -763,8 +763,21 @@ function parseTimestamp(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function isDataImageUrl(value: unknown): value is string {
-  return typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+function isValidCustomCoverUrl(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+    return true;
+  }
+
+  return normalizeExternalUrl(normalized) !== null;
 }
 
 function reconcileGameCoverFields(
@@ -779,7 +792,7 @@ function reconcileGameCoverFields(
     ? normalizeCoverSource(payload.coverSource)
     : null;
   const incomingCustomCoverUrl =
-    hasIncomingCustomCoverUrl && isDataImageUrl(payload.customCoverUrl)
+    hasIncomingCustomCoverUrl && isValidCustomCoverUrl(payload.customCoverUrl)
       ? payload.customCoverUrl
       : null;
   const existingCoverUrl = normalizeExternalUrl(existingPayload?.coverUrl) ?? null;
@@ -787,7 +800,7 @@ function reconcileGameCoverFields(
     existingPayload && Object.prototype.hasOwnProperty.call(existingPayload, 'coverSource')
       ? normalizeCoverSource(existingPayload.coverSource)
       : 'none';
-  const existingCustomCoverUrl = isDataImageUrl(existingPayload?.customCoverUrl)
+  const existingCustomCoverUrl = isValidCustomCoverUrl(existingPayload?.customCoverUrl)
     ? existingPayload.customCoverUrl
     : null;
   const inferredIncomingCoverSource = inferCoverSourceFromUrl(incomingCoverUrl);
@@ -829,11 +842,21 @@ function reconcileGameCoverFields(
     inferredIncomingCoverSource !== null &&
     incomingCoverSource !== null &&
     incomingCoverSource !== inferredIncomingCoverSource;
+  const customCoverUrlForInvalidMixedState =
+    incomingIsStale && hasIncomingCustomCoverUrl
+      ? existingCustomCoverUrl
+      : reconciledCustomCoverUrl;
 
-  if (
-    hasExistingPayload &&
-    (incomingHasInvalidMixedState || (incomingIsStale && incomingChangesCoverFields))
-  ) {
+  if (hasExistingPayload && incomingHasInvalidMixedState) {
+    return {
+      ...payload,
+      coverUrl: existingCoverUrl,
+      coverSource: normalizedExistingCoverSource,
+      customCoverUrl: customCoverUrlForInvalidMixedState,
+    };
+  }
+
+  if (hasExistingPayload && incomingIsStale && incomingChangesCoverFields) {
     return {
       ...payload,
       coverUrl: existingCoverUrl,
@@ -918,9 +941,10 @@ function normalizeGamePayload(
     customPlatformRaw.length > 0 && customPlatformIgdbId !== null && customPlatformRaw !== platform
       ? customPlatformRaw
       : null;
+  const normalizedCustomCoverHttpUrl = normalizeExternalUrl(customCoverUrlRaw);
   const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw)
     ? customCoverUrlRaw
-    : null;
+    : normalizedCustomCoverHttpUrl;
   const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
   const normalizedNotesTrimmed = normalizedNotes.trim();
   const emptyHtmlBlockPattern = /<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi;

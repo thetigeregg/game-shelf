@@ -11,6 +11,7 @@ import {
   normalizeStatus,
   parseFilters,
   parseGameIdArray,
+  parseOptionalCustomCoverUrl,
   parseOptionalDataImage,
   parseOptionalDecimal,
   parseOptionalGameType,
@@ -27,30 +28,52 @@ describe('settings-import-export.utils', () => {
   });
 
   it('parses string and game id arrays safely', () => {
+    expect(parseStringArray('   ')).toEqual([]);
+    expect(parseStringArray('{"items":[]}')).toEqual([]);
     expect(parseStringArray('[" Action ", "", "Action", 1]')).toEqual(['Action']);
     expect(parseStringArray('not-json')).toEqual([]);
 
+    expect(parseGameIdArray('   ')).toEqual([]);
     expect(parseGameIdArray('[1,"2"," x ",2]')).toEqual(['1', '2']);
     expect(parseGameIdArray('{"a":1}')).toEqual([]);
+    expect(parseGameIdArray('not-json')).toEqual([]);
   });
 
   it('parses optional field primitives', () => {
     expect(parseOptionalText('  test  ')).toBe('test');
     expect(parseOptionalText('  ')).toBeNull();
 
+    expect(parseOptionalDataImage('   ')).toBeNull();
     expect(parseOptionalDataImage('data:image/png;base64,abc')).toBe('data:image/png;base64,abc');
     expect(parseOptionalDataImage('https://x')).toBeNull();
+    expect(parseOptionalCustomCoverUrl('   ')).toBeNull();
+    expect(parseOptionalCustomCoverUrl('data:image/png;base64,abc')).toBe(
+      'data:image/png;base64,abc'
+    );
+    expect(parseOptionalCustomCoverUrl(' https://x ')).toBe('https://x/');
+    expect(parseOptionalCustomCoverUrl(' //images.example.com/custom-cover.jpg ')).toBe(
+      'https://images.example.com/custom-cover.jpg'
+    );
+    expect(parseOptionalCustomCoverUrl('https://user:pass@x')).toBeNull();
+    expect(parseOptionalCustomCoverUrl('ftp://x')).toBeNull();
 
+    expect(parseOptionalGameType('   ')).toBeNull();
     expect(parseOptionalGameType(' remake ')).toBe('remake');
     expect(parseOptionalGameType('invalid')).toBeNull();
 
     expect(parseOptionalNumber(' 42 ')).toBe(42);
     expect(parseOptionalNumber('')).toBeNull();
+    expect(parseOptionalNumber('4.7')).toBe(4);
     expect(parseOptionalDecimal('8.6')).toBe(8.6);
     expect(parseOptionalDecimal('0')).toBeNull();
+    expect(parseOptionalDecimal('')).toBeNull();
 
     expect(parsePositiveInteger('7')).toBe(7);
     expect(parsePositiveInteger('-1')).toBeNull();
+    expect(parsePositiveInteger('')).toBeNull();
+    expect(parsePositiveIntegerArray('   ')).toEqual([]);
+    expect(parsePositiveIntegerArray('{"items":[]}')).toEqual([]);
+    expect(parsePositiveIntegerArray('not-json')).toEqual([]);
     expect(parsePositiveIntegerArray('[1,2,2,0,-1,\"3\"]')).toEqual([1, 2, 3]);
   });
 
@@ -64,6 +87,7 @@ describe('settings-import-export.utils', () => {
     expect(normalizeStatus('replay')).toBe('replay');
     expect(normalizeStatus('x')).toBeNull();
 
+    expect(normalizeRating('')).toBeNull();
     expect(normalizeRating('5')).toBe(5);
     expect(normalizeRating('4.5')).toBe(4.5);
     expect(normalizeRating('4.7')).toBeNull();
@@ -170,5 +194,32 @@ describe('settings-import-export.utils', () => {
 
     expect(parsed?.sortField).toBe('price');
     expect(parsed?.sortDirection).toBe('desc');
+  });
+
+  it('parses optional filter arrays and drops invalid excluded game types', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        collections: ['Collection A', 1],
+        developers: ['Nintendo', 2],
+        franchises: ['Mario', null],
+        publishers: ['Nintendo', false],
+        genres: ['Action', 1],
+        tags: ['tag-a', 2],
+        excludedPlatform: ['SNES', false],
+        excludedGenres: ['Puzzle', null],
+        excludedGameTypes: ['expansion', 'invalid'],
+      }),
+      DEFAULT_GAME_LIST_FILTERS
+    );
+
+    expect(parsed?.genres).toEqual(['Action']);
+    expect(parsed?.tags).toEqual(['tag-a']);
+    expect(parsed?.collections).toEqual(['Collection A']);
+    expect(parsed?.developers).toEqual(['Nintendo']);
+    expect(parsed?.franchises).toEqual(['Mario']);
+    expect(parsed?.publishers).toEqual(['Nintendo']);
+    expect(parsed?.excludedPlatform).toEqual(['SNES']);
+    expect(parsed?.excludedGenres).toEqual(['Puzzle']);
+    expect(parsed?.excludedGameTypes).toEqual(['expansion']);
   });
 });

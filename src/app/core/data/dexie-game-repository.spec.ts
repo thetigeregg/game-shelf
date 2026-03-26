@@ -390,14 +390,59 @@ describe('DexieGameRepository', () => {
   it('stores and resets custom cover image', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
     const customCoverUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+    const remoteCustomCoverUrl = 'https://images.example.com/custom-cover.jpg';
+    const protocolRelativeCustomCoverUrl = '//images.example.com/custom-cover.jpg';
+    const credentialedCustomCoverUrl = 'https://user:pass@images.example.com/custom-cover.jpg';
 
     await repository.setGameCustomCover('101', 18, customCoverUrl);
     const customized = await repository.exists('101', 18);
     expect(customized?.customCoverUrl).toBe(customCoverUrl);
 
+    await repository.setGameCustomCover('101', 18, remoteCustomCoverUrl);
+    const remoteCustomized = await repository.exists('101', 18);
+    expect(remoteCustomized?.customCoverUrl).toBe(remoteCustomCoverUrl);
+
+    await repository.setGameCustomCover('101', 18, protocolRelativeCustomCoverUrl);
+    const protocolRelativeCustomized = await repository.exists('101', 18);
+    expect(protocolRelativeCustomized?.customCoverUrl).toBe(
+      'https://images.example.com/custom-cover.jpg'
+    );
+
+    await repository.setGameCustomCover('101', 18, credentialedCustomCoverUrl);
+    const rejectedCredentialed = await repository.exists('101', 18);
+    expect(rejectedCredentialed?.customCoverUrl).toBeNull();
+
     await repository.setGameCustomCover('101', 18, null);
     const reset = await repository.exists('101', 18);
     expect(reset?.customCoverUrl).toBeNull();
+  });
+
+  it('promotes a legacy cover to the custom cover field in one write', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    const updated = await repository.promoteLegacyCoverToCustomCover(
+      '101',
+      18,
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+      'thegamesdb'
+    );
+
+    expect(updated?.coverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+    expect(updated?.coverSource).toBe('thegamesdb');
+    expect(updated?.customCoverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.coverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
+    expect(stored?.coverSource).toBe('thegamesdb');
+    expect(stored?.customCoverUrl).toBe(
+      'https://cdn.thegamesdb.net/images/original/box/front/example.jpg'
+    );
   });
 
   it('stores notes, normalizes line endings, and clears empty notes', async () => {
@@ -410,6 +455,19 @@ describe('DexieGameRepository', () => {
     await repository.setGameNotes('101', 18, '');
     const cleared = await repository.exists('101', 18);
     expect(cleared?.notes).toBeNull();
+  });
+
+  it('covers private normalizers for custom cover urls and group by fallbacks', () => {
+    const repositoryPrivate = repository as unknown as {
+      normalizeCustomCoverUrl: (value: string | null | undefined) => string | null;
+      normalizeGroupBy: (value: string | null | undefined) => string;
+    };
+
+    expect(repositoryPrivate.normalizeCustomCoverUrl('file:///tmp/cover.png')).toBeNull();
+    expect(repositoryPrivate.normalizeCustomCoverUrl('//images.example.com/custom-cover.jpg')).toBe(
+      'https://images.example.com/custom-cover.jpg'
+    );
+    expect(repositoryPrivate.normalizeGroupBy('invalid')).toBe('none');
   });
 
   it('stores structure-only rich-text notes', async () => {

@@ -105,6 +105,7 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     title: partial.title ?? 'Test Game',
     coverUrl: partial.coverUrl ?? null,
     coverSource: partial.coverSource ?? 'none',
+    customCoverUrl: partial.customCoverUrl ?? null,
     platform: partial.platform ?? 'Unknown',
     platformIgdbId: partial.platformIgdbId ?? 999999,
     releaseDate: partial.releaseDate ?? null,
@@ -234,6 +235,58 @@ describe('game-list review actions', () => {
     expect(page.getGameReleaseDateLabel(utcMidnightGame)).toBe(
       page.getGameReleaseDateLabel(dateOnlyGame)
     );
+  });
+
+  it('uses custom covers only when they pass shared custom cover sanitization', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    const getDisplayCoverUrl = (
+      page as unknown as { getDisplayCoverUrl: (game: GameEntry) => string | null }
+    ).getDisplayCoverUrl.bind(page);
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'data:image/png;base64,abc',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('data:image/png;base64,abc');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'https://images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'http://images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('http://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: '//images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
+          customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg');
   });
 
   it('paginates similar library games in pages of 5', async () => {
@@ -750,6 +803,53 @@ describe('game-list review actions', () => {
     expect(applyUpdatedGame).toHaveBeenCalledWith(updated);
     expect(closeReviewPickerModal).toHaveBeenCalledOnce();
     expect(presentToast).toHaveBeenCalledWith('Review data updated.');
+  });
+
+  it('applies selected image via custom cover path', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+    };
+    const target = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      listType: 'wishlist',
+    });
+    const updated = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      customCoverUrl: 'https://images.example.com/custom-cover.jpg',
+      listType: 'wishlist',
+    });
+    const setGameCustomCover = vi.fn(() => Promise.resolve(updated));
+    const updateGameCover = vi.fn();
+    const applyUpdatedGame = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const closeImagePickerModal = vi.fn();
+
+    Object.assign(page, {
+      selectedGame: target,
+      gameShelfService: {
+        setGameCustomCover,
+        updateGameCover,
+      },
+      applyUpdatedGame,
+      presentToast,
+      closeImagePickerModal,
+    });
+
+    await page.applySelectedImage('https://images.example.com/custom-cover.jpg');
+
+    expect(setGameCustomCover).toHaveBeenCalledWith(
+      '10148',
+      167,
+      'https://images.example.com/custom-cover.jpg'
+    );
+    expect(updateGameCover).not.toHaveBeenCalled();
+    expect(applyUpdatedGame).toHaveBeenCalledWith(updated, { refreshCover: true });
+    expect(closeImagePickerModal).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Game image updated.');
   });
 
   it('single pricing refresh is blocked for non-wishlist games', async () => {

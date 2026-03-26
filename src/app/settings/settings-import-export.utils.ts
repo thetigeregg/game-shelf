@@ -8,6 +8,7 @@ import type {
   ListType,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
+import { sanitizeExternalHttpUrlString } from '../core/utils/url-host.util';
 
 const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'main_game',
@@ -86,6 +87,24 @@ export function parseOptionalDataImage(raw: string): string | null {
   }
 
   return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+}
+
+export function parseOptionalCustomCoverUrl(raw: string): string | null {
+  const normalized = raw.trim();
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized)) {
+    return normalized;
+  }
+
+  if (/^(https?:\/\/|\/\/)/i.test(normalized)) {
+    return sanitizeExternalHttpUrlString(normalized);
+  }
+
+  return null;
 }
 
 export function parseOptionalGameType(raw: string): GameCatalogResult['gameType'] {

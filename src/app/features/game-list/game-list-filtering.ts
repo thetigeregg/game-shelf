@@ -781,6 +781,8 @@ export class GameListFilteringEngine {
     pricePreference: number
   ): GameEntry[] {
     const existingCache = this.sortedGamesCache;
+    const cachePricePreference =
+      sortField === 'ptas' && isTasFeatureEnabled() ? pricePreference : 0;
 
     if (
       existingCache &&
@@ -788,7 +790,7 @@ export class GameListFilteringEngine {
       existingCache.sortField === sortField &&
       existingCache.sortDirection === sortDirection &&
       existingCache.timePreference === timePreference &&
-      existingCache.pricePreference === pricePreference
+      existingCache.pricePreference === cachePricePreference
     ) {
       return existingCache.sortedGames;
     }
@@ -823,7 +825,7 @@ export class GameListFilteringEngine {
       sortField,
       sortDirection,
       timePreference,
-      pricePreference,
+      pricePreference: cachePricePreference,
       sortedGames,
     };
     return sortedGames;

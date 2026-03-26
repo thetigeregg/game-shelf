@@ -1279,6 +1279,51 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('reuses cached non-PTAS sorts when only price preference changes', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Bravo',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Alpha',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+      }),
+    ];
+
+    const firstResult = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'review',
+        sortDirection: 'desc',
+      },
+      '',
+      20,
+      10
+    );
+
+    const secondResult = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'review',
+        sortDirection: 'desc',
+      },
+      '',
+      20,
+      30
+    );
+
+    expect(secondResult).toBe(firstResult);
+  });
+
   it('uses title fallback when TAS values are equal', () => {
     enableTasFeature();
     const result = engine.applyFiltersAndSort(

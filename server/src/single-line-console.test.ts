@@ -142,6 +142,43 @@ void test('formatSingleLineLogMessage falls back safely when non-plain-object st
   assert.equal(payload['throwingTag'], '[object toString threw]');
 });
 
+void test('formatSingleLineLogMessage survives proxy getPrototypeOf traps', () => {
+  const hostileProxy = new Proxy(
+    {},
+    {
+      getPrototypeOf() {
+        throw new Error('prototype access denied');
+      },
+      get(_target, property) {
+        if (property === Symbol.toStringTag) {
+          return 'ProxyLike';
+        }
+
+        return undefined;
+      },
+    }
+  );
+
+  const payload = parseLog('warn', ['[service] hostile_proxy', { hostileProxy }]);
+
+  assert.equal(payload['hostileProxy'], '[object ProxyLike]');
+});
+
+void test('formatSingleLineLogMessage truncates large objects without dropping retained keys', () => {
+  const objectWithManyKeys = Object.fromEntries(
+    Array.from({ length: 55 }, (_, index) => [`key${String(index)}`, index])
+  );
+
+  const payload = parseLog('info', ['[service] large_object', objectWithManyKeys]);
+
+  for (let index = 0; index < 50; index += 1) {
+    assert.equal(payload[`key${String(index)}`], index);
+  }
+
+  assert.equal(payload['key50'], undefined);
+  assert.equal(payload['__truncatedKeys'], 5);
+});
+
 void test('formatSingleLineLogMessage falls back to app/log for empty args', () => {
   const payload = parseLog('info', []);
   assert.equal(payload['service'], 'app');

@@ -15,6 +15,7 @@ export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = getDetailMediaPlaceholderSrc();
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   private requestedImageSrc: string | null = null;
+  private currentImageRequestSrc: string | null = null;
   private imageLoadSettled = false;
   @Input() src: string | null | undefined;
   @Input() alt = '';
@@ -34,7 +35,8 @@ export class DetailMediaSlideComponent {
       return null;
     }
 
-    return toDetailMediaBackdropUrl(this.src) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
+    const backdropSource = this.currentImageRequestSrc ?? this.displaySrc ?? this.src;
+    return toDetailMediaBackdropUrl(backdropSource) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
   }
 
   get displayBackdropStyle(): string | null {
@@ -52,6 +54,7 @@ export class DetailMediaSlideComponent {
 
     if (this.requestedImageSrc !== normalizedDisplaySrc) {
       this.requestedImageSrc = normalizedDisplaySrc;
+      this.currentImageRequestSrc = displaySrc;
       this.imageLoadSettled = false;
     }
 
@@ -63,6 +66,7 @@ export class DetailMediaSlideComponent {
 
     if (target instanceof HTMLImageElement) {
       target.dataset[DetailMediaSlideComponent.RETRY_DATASET_KEY] = '';
+      this.currentImageRequestSrc = target.currentSrc || target.src || this.displaySrc;
       this.markImageSettled(target.currentSrc || target.src || this.displaySrc);
     }
   }
@@ -85,12 +89,14 @@ export class DetailMediaSlideComponent {
         const retrySrc = this.buildRetryImageSrc(currentSrc);
 
         if (retrySrc) {
+          this.currentImageRequestSrc = retrySrc;
           this.markImagePending(retrySrc);
           target.src = retrySrc;
           return;
         }
       }
 
+      this.currentImageRequestSrc = DetailMediaSlideComponent.PLACEHOLDER_SRC;
       target.src = DetailMediaSlideComponent.PLACEHOLDER_SRC;
       this.markImageSettled(DetailMediaSlideComponent.PLACEHOLDER_SRC);
     }

@@ -27,9 +27,7 @@ export class PlatformCustomizationService {
 
     return map;
   }, new Map<number, string>());
-  private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(
-    this.loadFromStorage()
-  );
+  private readonly displayNamesSubject = new BehaviorSubject(this.loadFromStorage());
   readonly displayNames$ = this.displayNamesSubject.asObservable();
 
   getDisplayNames(): PlatformDisplayNameMap {

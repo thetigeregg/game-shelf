@@ -2958,3 +2958,7 @@
 - e6f20b24 feat: enhance media slide loading logic and improve URL handling
 - bba0dea9 feat: implement detail media loading and proxy handling for images
 
+## v1.30.1 - 2026-03-26
+- fffe6797 Merge pull request #286 from thetigeregg/feat/gameart
+- 00fb0448 fix(service): update IGDB cover migration keys and platform IDs
+

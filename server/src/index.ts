@@ -37,9 +37,12 @@ import {
   shouldRequireAuth,
 } from './request-security.js';
 import { applyRouteRateLimit, formatTimeWindow } from './rate-limit.js';
+import { installSingleLineConsole } from './single-line-console.js';
 import { registerSyncRoutes } from './sync.js';
 
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+installSingleLineConsole();
 
 async function main(): Promise<void> {
   console.info('[api] starting', {

@@ -11,9 +11,13 @@ function sanitizeLineBreaks(value: unknown): string {
 }
 
 function truncateString(value: string): string {
-  return value.length <= MAX_STRING_LENGTH
-    ? value
-    : `${value.slice(0, MAX_STRING_LENGTH)}${TRUNCATED_SUFFIX}`;
+  if (value.length <= MAX_STRING_LENGTH) {
+    return value;
+  }
+
+  const availableForContent = Math.max(0, MAX_STRING_LENGTH - TRUNCATED_SUFFIX.length);
+
+  return `${value.slice(0, availableForContent)}${TRUNCATED_SUFFIX}`;
 }
 
 function sanitizeString(value: string): string {
@@ -22,6 +26,16 @@ function sanitizeString(value: string): string {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function stringifyNonPlainObject(value: object): string {
+  const prototype = Object.getPrototypeOf(value) as { toString?: () => string } | null;
+
+  if (prototype?.toString !== undefined && prototype.toString !== Object.prototype.toString) {
+    return prototype.toString.call(value);
+  }
+
+  return Object.prototype.toString.call(value);
 }
 
 function normalizeUnknown(
@@ -91,6 +105,10 @@ function normalizeUnknown(
     }
 
     return normalizedItems;
+  }
+
+  if (!isPlainObject(value)) {
+    return sanitizeString(stringifyNonPlainObject(value));
   }
 
   const objectValue: Record<string, unknown> = value;

@@ -55,9 +55,23 @@ void test('formatSingleLineLogMessage truncates long strings and large arrays', 
   ]);
 
   assert.match(String(payload['huge']), /\.\.\.\[truncated\]$/);
+  assert.equal(String(payload['huge']).length, 2_000);
   const items = payload['items'] as unknown[];
   assert.equal(items.length, 21);
   assert.equal(items[20], '[+5 more]');
+});
+
+void test('formatSingleLineLogMessage preserves string representations for non-plain objects', () => {
+  const when = new Date('2026-03-26T12:34:56.000Z');
+  const url = new URL('https://example.com/path?q=1');
+  const map = new Map([['key', 'value']]);
+  const set = new Set(['alpha', 'beta']);
+  const payload = parseLog('info', ['[service] objects', { when, url, map, set }]);
+
+  assert.equal(payload['when'], when.toString());
+  assert.equal(payload['url'], url.toString());
+  assert.equal(payload['map'], Object.prototype.toString.call(map));
+  assert.equal(payload['set'], Object.prototype.toString.call(set));
 });
 
 void test('formatSingleLineLogMessage falls back to app/log for empty args', () => {

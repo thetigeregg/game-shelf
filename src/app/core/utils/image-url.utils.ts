@@ -5,6 +5,10 @@ const THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
 const IGDB_PATH_PREFIX = '/igdb/image/upload/';
 const THE_GAMES_DB_PATH_PREFIX = '/images/';
 
+function normalizeApiBaseUrl(apiBaseUrl: string): string {
+  return apiBaseUrl.trim().replace(/\/+$/, '');
+}
+
 export function normalizeImageSourceUrl(source: string | null | undefined): string | null {
   const normalized = typeof source === 'string' ? source.trim() : '';
 
@@ -39,7 +43,9 @@ export function buildProxyImageUrl(sourceUrl: string, apiBaseUrl: string): strin
     return sourceUrl;
   }
 
-  return `${apiBaseUrl}/v1/images/proxy?url=${encodeURIComponent(proxyEligibleUrl)}`;
+  const normalizedBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
+
+  return `${normalizedBaseUrl}/v1/images/proxy?url=${encodeURIComponent(proxyEligibleUrl)}`;
 }
 
 export function toProxyEligibleImageUrl(sourceUrl: string): string | null {

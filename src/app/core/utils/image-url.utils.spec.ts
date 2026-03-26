@@ -27,6 +27,9 @@ describe('image-url utils', () => {
     expect(buildProxyImageUrl(retinaUrl, 'https://api.example.com')).toContain(
       encodeURIComponent(retinaUrl)
     );
+    expect(buildProxyImageUrl(retinaUrl, ' https://api.example.com/ ')).toBe(
+      `https://api.example.com/v1/images/proxy?url=${encodeURIComponent(retinaUrl)}`
+    );
   });
 
   it('does not treat data or blob urls as proxy-eligible but flags them for prefetch skips', () => {

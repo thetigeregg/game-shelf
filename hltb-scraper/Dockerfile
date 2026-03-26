@@ -9,7 +9,7 @@ COPY hltb-scraper/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY hltb-scraper/src ./src
-COPY shared ../../app/shared
+COPY shared /app/shared
 
 EXPOSE 8788
 

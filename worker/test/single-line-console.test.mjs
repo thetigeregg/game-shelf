@@ -89,3 +89,48 @@ test('shared single-line console installation wraps supported methods once', () 
   assert.equal(second.event, 'log');
   assert.equal(second.okay, true);
 });
+
+test('shared single-line console routes trace, dir, and table without native multiline renderers', () => {
+  const logCalls = [];
+  const errorCalls = [];
+  const stubConsole = {
+    log: (...args) => {
+      logCalls.push(args);
+    },
+    error: (...args) => {
+      errorCalls.push(args);
+    },
+    trace: () => {
+      throw new Error('native trace should not be called');
+    },
+    dir: () => {
+      throw new Error('native dir should not be called');
+    },
+    table: () => {
+      throw new Error('native table should not be called');
+    },
+  };
+
+  installSingleLineConsole(stubConsole);
+
+  stubConsole.trace('[worker] trace_event', { stage: 'fetch' });
+  stubConsole.dir({ okay: true });
+  stubConsole.table([{ id: 1 }]);
+
+  assert.equal(errorCalls.length, 1);
+  const tracePayload = JSON.parse(String(errorCalls[0][0]));
+  assert.equal(tracePayload.level, 'trace');
+  assert.equal(tracePayload.service, 'worker');
+  assert.equal(tracePayload.event, 'trace_event');
+  assert.equal(tracePayload.stage, 'fetch');
+  assert.match(String(tracePayload.args[0].stack), /Error/);
+
+  assert.equal(logCalls.length, 2);
+  const dirPayload = JSON.parse(String(logCalls[0][0]));
+  assert.equal(dirPayload.level, 'dir');
+  assert.equal(dirPayload.okay, true);
+
+  const tablePayload = JSON.parse(String(logCalls[1][0]));
+  assert.equal(tablePayload.level, 'table');
+  assert.deepEqual(tablePayload.args, [[{ id: 1 }]]);
+});

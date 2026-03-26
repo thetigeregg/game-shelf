@@ -87,3 +87,51 @@ void test('installSingleLineConsole is idempotent and preserves conflicting fiel
   assert.equal(payload['event'], 'started');
   assert.deepEqual(payload['args'], [{ event: 'nested' }, { service: 'shadow' }, 'ok']);
 });
+
+void test('installSingleLineConsole routes trace, dir, and table through single-line safe methods', () => {
+  const logCalls: string[] = [];
+  const errorCalls: string[] = [];
+  const stubConsole = {
+    log: (...args: unknown[]) => {
+      logCalls.push(String(args[0]));
+    },
+    error: (...args: unknown[]) => {
+      errorCalls.push(String(args[0]));
+    },
+    trace: () => {
+      throw new Error('native trace should not be called');
+    },
+    dir: () => {
+      throw new Error('native dir should not be called');
+    },
+    table: () => {
+      throw new Error('native table should not be called');
+    },
+  } as unknown as Console;
+
+  installSingleLineConsole(stubConsole);
+
+  stubConsole.trace('[api] trace_event', { step: 'before' });
+  stubConsole.dir({ okay: true });
+  stubConsole.table([{ id: 1 }]);
+
+  assert.equal(errorCalls.length, 1);
+  const tracePayload = JSON.parse(errorCalls[0] ?? '{}') as Record<string, unknown>;
+  assert.equal(tracePayload['level'], 'trace');
+  assert.equal(tracePayload['service'], 'api');
+  assert.equal(tracePayload['event'], 'trace_event');
+  assert.equal(tracePayload['step'], 'before');
+  const traceArgs = tracePayload['args'] as Array<Record<string, unknown>>;
+  const traceStack = traceArgs[0]?.['stack'];
+  assert.equal(typeof traceStack, 'string');
+  assert.match(traceStack, /Error/);
+
+  assert.equal(logCalls.length, 2);
+  const dirPayload = JSON.parse(logCalls[0] ?? '{}') as Record<string, unknown>;
+  assert.equal(dirPayload['level'], 'dir');
+  assert.equal(dirPayload['okay'], true);
+
+  const tablePayload = JSON.parse(logCalls[1] ?? '{}') as Record<string, unknown>;
+  assert.equal(tablePayload['level'], 'table');
+  assert.deepEqual(tablePayload['args'], [[{ id: 1 }]]);
+});

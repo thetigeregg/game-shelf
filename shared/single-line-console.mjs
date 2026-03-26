@@ -175,16 +175,30 @@ export function installSingleLineConsole(consoleObject = console) {
   }
 
   const levels = ['debug', 'info', 'log', 'warn', 'error', 'trace', 'dir', 'table'];
+  const originalMethods = {
+    debug:
+      typeof consoleObject.debug === 'function' ? consoleObject.debug.bind(consoleObject) : null,
+    info: typeof consoleObject.info === 'function' ? consoleObject.info.bind(consoleObject) : null,
+    log: typeof consoleObject.log === 'function' ? consoleObject.log.bind(consoleObject) : null,
+    warn: typeof consoleObject.warn === 'function' ? consoleObject.warn.bind(consoleObject) : null,
+    error:
+      typeof consoleObject.error === 'function' ? consoleObject.error.bind(consoleObject) : null,
+  };
 
   for (const level of levels) {
-    const original = consoleObject[level];
+    const targetMethod =
+      level === 'trace' ? 'error' : level === 'dir' || level === 'table' ? 'log' : level;
+    const original = originalMethods[targetMethod];
 
-    if (typeof original !== 'function') {
+    if (original === null) {
       continue;
     }
 
-    consoleObject[level] = (...args) =>
-      original.call(consoleObject, formatSingleLineLogMessage(level, args));
+    consoleObject[level] = (...args) => {
+      const normalizedArgs = level === 'trace' ? [...args, { stack: new Error().stack }] : args;
+
+      original(formatSingleLineLogMessage(level, normalizedArgs));
+    };
   }
 
   Object.defineProperty(consoleObject, SINGLE_LINE_CONSOLE_INSTALLED, {

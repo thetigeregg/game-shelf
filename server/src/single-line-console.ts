@@ -170,6 +170,7 @@ export function formatSingleLineLogMessage(level: string, args: unknown[]): stri
 }
 
 type ConsoleMethodName = 'debug' | 'info' | 'log' | 'warn' | 'error' | 'trace' | 'dir' | 'table';
+type ConsoleOutputMethodName = 'debug' | 'info' | 'log' | 'warn' | 'error';
 type SingleLineConsole = Console & {
   [SINGLE_LINE_CONSOLE_INSTALLED]?: boolean;
 };
@@ -191,18 +192,32 @@ export function installSingleLineConsole(consoleObject: Console = console): Cons
     'dir',
     'table',
   ];
+  const originalMethods: Record<
+    ConsoleOutputMethodName,
+    ((message?: unknown, ...optionalParams: unknown[]) => void) | null
+  > = {
+    debug:
+      typeof consoleObject.debug === 'function' ? consoleObject.debug.bind(consoleObject) : null,
+    info: typeof consoleObject.info === 'function' ? consoleObject.info.bind(consoleObject) : null,
+    log: typeof consoleObject.log === 'function' ? consoleObject.log.bind(consoleObject) : null,
+    warn: typeof consoleObject.warn === 'function' ? consoleObject.warn.bind(consoleObject) : null,
+    error:
+      typeof consoleObject.error === 'function' ? consoleObject.error.bind(consoleObject) : null,
+  };
 
   for (const level of levels) {
-    const originalMethod = consoleObject[level];
+    const targetMethod: ConsoleOutputMethodName =
+      level === 'trace' ? 'error' : level === 'dir' || level === 'table' ? 'log' : level;
+    const originalMethod = originalMethods[targetMethod];
 
-    if (typeof originalMethod !== 'function') {
+    if (originalMethod === null) {
       continue;
     }
 
-    const original = originalMethod.bind(consoleObject);
-
     consoleObject[level] = (...args: unknown[]) => {
-      original(formatSingleLineLogMessage(level, args));
+      const normalizedArgs = level === 'trace' ? [...args, { stack: new Error().stack }] : args;
+
+      originalMethod(formatSingleLineLogMessage(level, normalizedArgs));
     };
   }
 

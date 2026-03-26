@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import { installSingleLineConsole } from '../../shared/single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
 
@@ -37,6 +38,8 @@ let sharedBrowser = null;
 let sharedBrowserPromise = null;
 let browserIdleTimer = null;
 let activeBrowserLeases = 0;
+
+installSingleLineConsole();
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();

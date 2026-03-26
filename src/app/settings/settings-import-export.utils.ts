@@ -100,7 +100,7 @@ export function parseOptionalCustomCoverUrl(raw: string): string | null {
     return normalized;
   }
 
-  if (/^https?:\/\//i.test(normalized)) {
+  if (/^(https?:\/\/|\/\/)/i.test(normalized)) {
     return sanitizeExternalHttpUrlString(normalized);
   }
 

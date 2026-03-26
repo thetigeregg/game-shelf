@@ -3266,28 +3266,29 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private getDisplayCoverUrl(game: GameEntry): string | null {
     const customCoverUrl =
       typeof game.customCoverUrl === 'string' ? game.customCoverUrl.trim() : '';
+    const safeCustomCoverUrl = this.resolveSafeCustomCoverUrl(customCoverUrl);
 
-    if (this.isSafeCustomCoverUrl(customCoverUrl)) {
-      return customCoverUrl;
+    if (safeCustomCoverUrl !== null) {
+      return safeCustomCoverUrl;
     }
 
     return game.coverUrl;
   }
 
-  private isSafeCustomCoverUrl(value: string): boolean {
+  private resolveSafeCustomCoverUrl(value: string): string | null {
     if (!value) {
-      return false;
+      return null;
     }
 
     if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value)) {
-      return true;
+      return value;
     }
 
     if (!/^(https?:\/\/|\/\/)/i.test(value)) {
-      return false;
+      return null;
     }
 
-    return sanitizeExternalHttpUrlString(value) !== null;
+    return sanitizeExternalHttpUrlString(value);
   }
 
   private async loadRowCoverUrl(game: GameEntry): Promise<void> {

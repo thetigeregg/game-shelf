@@ -51,6 +51,9 @@ describe('settings-import-export.utils', () => {
       'data:image/png;base64,abc'
     );
     expect(parseOptionalCustomCoverUrl(' https://x ')).toBe('https://x/');
+    expect(parseOptionalCustomCoverUrl(' //images.example.com/custom-cover.jpg ')).toBe(
+      'https://images.example.com/custom-cover.jpg'
+    );
     expect(parseOptionalCustomCoverUrl('https://user:pass@x')).toBeNull();
     expect(parseOptionalCustomCoverUrl('ftp://x')).toBeNull();
 

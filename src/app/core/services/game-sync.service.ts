@@ -1006,7 +1006,7 @@ export class GameSyncService implements SyncOutboxWriter {
       return normalized;
     }
 
-    if (/^https?:\/\//i.test(normalized)) {
+    if (/^(https?:\/\/|\/\/)/i.test(normalized)) {
       return sanitizeExternalHttpUrlString(normalized);
     }
 

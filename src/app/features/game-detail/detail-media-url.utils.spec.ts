@@ -35,4 +35,10 @@ describe('detail-media-url utils', () => {
       encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
   });
+
+  it('does not proxy credential-bearing image urls', () => {
+    expect(
+      toDetailMediaRenderUrl('https://user:pass@images.igdb.com/igdb/image/upload/t_720p/hash.jpg')
+    ).toBe('https://user:pass@images.igdb.com/igdb/image/upload/t_720p_2x/hash.jpg');
+  });
 });

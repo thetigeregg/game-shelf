@@ -168,6 +168,31 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.sortDirection).toBe('asc');
   });
 
+  it('accepts ptas sort field only for wishlist views when tas feature is enabled', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+
+    const wishlistParsed = parseFilters(
+      JSON.stringify({
+        sortField: 'ptas',
+        sortDirection: 'desc',
+      }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'wishlist' }
+    );
+
+    const collectionParsed = parseFilters(
+      JSON.stringify({
+        sortField: 'ptas',
+        sortDirection: 'desc',
+      }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'collection' }
+    );
+
+    expect(wishlistParsed?.sortField).toBe('ptas');
+    expect(collectionParsed?.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('falls back from price sort field for collection views during import parsing', () => {
     const parsed = parseFilters(
       JSON.stringify({

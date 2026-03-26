@@ -30,6 +30,10 @@ export interface ListPagePreferences {
   groupBy: GameGroupByField;
 }
 
+interface ListPageSortOptions {
+  listType?: 'collection' | 'wishlist';
+}
+
 export function normalizeListPageGroupBy(value: unknown): GameGroupByField {
   if (typeof value === 'string' && VALID_GROUP_BY_VALUES.includes(value as GameGroupByField)) {
     return value as GameGroupByField;
@@ -40,14 +44,15 @@ export function normalizeListPageGroupBy(value: unknown): GameGroupByField {
 
 export function normalizeListPageStoredFilters(
   value: unknown,
-  noneTagFilterValue: string
+  noneTagFilterValue: string,
+  options: ListPageSortOptions = {}
 ): GameListFilters {
   const parsed = isRecord(value) ? value : {};
   const hltbMainHoursMin = normalizeNonNegativeNumber(parsed['hltbMainHoursMin']);
   const hltbMainHoursMax = normalizeNonNegativeNumber(parsed['hltbMainHoursMax']);
 
   return {
-    sortField: normalizeSortField(parsed['sortField']),
+    sortField: normalizeSortField(parsed['sortField'], options),
     sortDirection: parsed['sortDirection'] === 'desc' ? 'desc' : 'asc',
     platform: normalizeStringList(parsed['platform']),
     collections: normalizeStringList(parsed['collections']),
@@ -83,7 +88,8 @@ export function normalizeListPageStoredFilters(
 
 export function parseListPagePreferences(
   rawValue: string | null,
-  noneTagFilterValue: string
+  noneTagFilterValue: string,
+  options: ListPageSortOptions = {}
 ): ListPagePreferences | null {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
     return null;
@@ -98,7 +104,7 @@ export function parseListPagePreferences(
 
     const filterSource = isRecord(parsed['filters']) ? parsed['filters'] : parsed;
     return {
-      filters: normalizeListPageStoredFilters(filterSource, noneTagFilterValue),
+      filters: normalizeListPageStoredFilters(filterSource, noneTagFilterValue, options),
       groupBy: normalizeListPageGroupBy(parsed['groupBy']),
     };
   } catch {
@@ -120,22 +126,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isValidSortField(value: unknown): value is GameListFilters['sortField'] {
+function isValidSortField(
+  value: unknown,
+  options: ListPageSortOptions
+): value is GameListFilters['sortField'] {
+  const allowWishlistOnlySorts = options.listType === 'wishlist';
+
   return (
     value === 'title' ||
     value === 'releaseDate' ||
     value === 'createdAt' ||
     value === 'hltb' ||
     (value === 'tas' && isTasFeatureEnabled()) ||
-    value === 'price' ||
+    (value === 'ptas' && isTasFeatureEnabled() && allowWishlistOnlySorts) ||
+    (value === 'price' && allowWishlistOnlySorts) ||
     value === 'review' ||
     value === 'metacritic' ||
     value === 'platform'
   );
 }
 
-function normalizeSortField(value: unknown): GameListFilters['sortField'] {
-  if (!isValidSortField(value)) {
+function normalizeSortField(
+  value: unknown,
+  options: ListPageSortOptions
+): GameListFilters['sortField'] {
+  if (!isValidSortField(value, options)) {
     return DEFAULT_GAME_LIST_FILTERS.sortField;
   }
 

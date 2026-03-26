@@ -154,6 +154,31 @@ describe('list-page-preferences', () => {
     expect(normalized.sortDirection).toBe('desc');
   });
 
+  it('accepts ptas only for wishlist stored preferences when tas feature is enabled', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+
+    const wishlistNormalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'ptas',
+        sortDirection: 'desc',
+      },
+      '__none__',
+      { listType: 'wishlist' }
+    );
+
+    const collectionNormalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'ptas',
+        sortDirection: 'desc',
+      },
+      '__none__',
+      { listType: 'collection' }
+    );
+
+    expect(wishlistNormalized.sortField).toBe('ptas');
+    expect(collectionNormalized.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('migrates metacritic sort field from stored preferences to review', () => {
     const normalized = normalizeListPageStoredFilters(
       {

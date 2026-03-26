@@ -82,6 +82,10 @@ import {
   RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
 } from '../core/services/notification.service';
 import {
+  PricePreferenceService,
+  PRICE_PREFERENCE_STORAGE_KEY,
+} from '../core/services/price-preference.service';
+import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY,
 } from '../core/services/time-preference.service';
@@ -154,9 +158,15 @@ describe('SettingsPage CSV review fields', () => {
     listViews: ReturnType<typeof vi.fn>;
   };
   let timePreference = 15;
+  let pricePreference = 10;
   let timePreferenceServiceMock: {
     getTimePreference: ReturnType<typeof vi.fn>;
     setTimePreference: ReturnType<typeof vi.fn>;
+    refreshFromStorage: ReturnType<typeof vi.fn>;
+  };
+  let pricePreferenceServiceMock: {
+    getPricePreference: ReturnType<typeof vi.fn>;
+    setPricePreference: ReturnType<typeof vi.fn>;
     refreshFromStorage: ReturnType<typeof vi.fn>;
   };
   let collectionReleaseDateDisplay = 'year';
@@ -177,6 +187,7 @@ describe('SettingsPage CSV review fields', () => {
   beforeEach(() => {
     localStorage.clear();
     timePreference = 15;
+    pricePreference = 10;
     collectionReleaseDateDisplay = 'year';
     wishlistReleaseDateDisplay = 'year';
 
@@ -196,6 +207,20 @@ describe('SettingsPage CSV review fields', () => {
 
         if (Number.isFinite(parsed)) {
           timePreference = Math.max(5, Math.min(Math.round(parsed), 100));
+        }
+      }),
+    };
+    pricePreferenceServiceMock = {
+      getPricePreference: vi.fn().mockImplementation(() => pricePreference),
+      setPricePreference: vi.fn().mockImplementation((value: number) => {
+        pricePreference = Math.max(5, Math.min(Math.round(value), 100));
+      }),
+      refreshFromStorage: vi.fn().mockImplementation(() => {
+        const raw = localStorage.getItem(PRICE_PREFERENCE_STORAGE_KEY);
+        const parsed = Number.parseInt(raw ?? '', 10);
+
+        if (Number.isFinite(parsed)) {
+          pricePreference = Math.max(5, Math.min(Math.round(parsed), 100));
         }
       }),
     };
@@ -333,6 +358,10 @@ describe('SettingsPage CSV review fields', () => {
           useValue: {
             hasToken: vi.fn().mockReturnValue(false),
           },
+        },
+        {
+          provide: PricePreferenceService,
+          useValue: pricePreferenceServiceMock,
         },
         {
           provide: TimePreferenceService,
@@ -633,6 +662,29 @@ describe('SettingsPage CSV review fields', () => {
     expect(page.timePreference).toBe(42);
   });
 
+  it('loads price preference from service and persists updates', () => {
+    vi.useFakeTimers();
+    const page = createPage();
+    expect(page.pricePreference).toBe(10);
+
+    page.onPricePreferenceChange('24');
+    expect(pricePreferenceServiceMock.setPricePreference).toHaveBeenCalledWith(24);
+    expect(page.pricePreference).toBe(24);
+    expect(outboxWriterMock.enqueueOperation).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(450);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: PRICE_PREFERENCE_STORAGE_KEY,
+        value: '24',
+      },
+    });
+
+    page.onPricePreferenceChange('bad');
+    expect(page.pricePreference).toBe(24);
+  });
+
   it('accepts decimal and scientific numeric input for time preference', () => {
     vi.useFakeTimers();
     const page = createPage();
@@ -810,6 +862,27 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
+  it('debounces outbox writes while typing price preference', () => {
+    vi.useFakeTimers();
+    const page = createPage();
+
+    page.onPricePreferenceChange('6');
+    page.onPricePreferenceChange('12');
+    page.onPricePreferenceChange('30');
+
+    expect(outboxWriterMock.enqueueOperation).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(450);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledTimes(1);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenLastCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: PRICE_PREFERENCE_STORAGE_KEY,
+        value: '30',
+      },
+    });
+  });
+
   it('refreshes and queues time preference when imported as a setting row', async () => {
     const page = createPage();
     localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
@@ -831,6 +904,31 @@ describe('SettingsPage CSV review fields', () => {
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
         value: '27',
+      },
+    });
+  });
+
+  it('refreshes and queues price preference when imported as a setting row', async () => {
+    const page = createPage();
+    localStorage.removeItem(PRICE_PREFERENCE_STORAGE_KEY);
+    expect(page.pricePreference).toBe(10);
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: PRICE_PREFERENCE_STORAGE_KEY,
+        value: '31',
+      },
+    ]);
+
+    expect(pricePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
+    expect(page.pricePreference).toBe(31);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: PRICE_PREFERENCE_STORAGE_KEY,
+        value: '31',
       },
     });
   });

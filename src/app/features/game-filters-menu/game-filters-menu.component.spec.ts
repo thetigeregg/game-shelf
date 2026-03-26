@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_GAME_LIST_FILTERS, type GameListFilters } from '../../core/models/game.models';
 import { GameFiltersMenuComponent } from './game-filters-menu.component';
 
 describe('GameFiltersMenuComponent', () => {
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+  });
+
   function createComponent(): GameFiltersMenuComponent {
     const component = new GameFiltersMenuComponent();
     component.menuId = 'filters';
@@ -45,6 +49,21 @@ describe('GameFiltersMenuComponent', () => {
     );
   });
 
+  it('normalizes hidden ptas sort outside wishlist and emits corrected filters', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.filters = createFilters('ptas');
+    component.listType = 'collection';
+    component.ngOnChanges();
+
+    expect(component.draftFilters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ sortField: DEFAULT_GAME_LIST_FILTERS.sortField })
+    );
+  });
+
   it('normalizes legacy metacritic sort to review and emits corrected filters', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');
@@ -70,7 +89,8 @@ describe('GameFiltersMenuComponent', () => {
     expect(emitSpy).not.toHaveBeenCalled();
   });
 
-  it('handles sort option guards, metacritic mapping, and wishlist price sort', () => {
+  it('handles sort option guards, metacritic mapping, wishlist price sort, and wishlist ptas sort', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');
 
@@ -85,6 +105,11 @@ describe('GameFiltersMenuComponent', () => {
     expect(component.draftFilters.sortDirection).toBe('desc');
 
     component.listType = 'wishlist';
+    component.onSortOptionChange('ptas:desc');
+    expect(component.sortOption).toBe('ptas:desc');
+    expect(component.draftFilters.sortField).toBe('ptas');
+    expect(component.draftFilters.sortDirection).toBe('desc');
+
     component.onSortOptionChange('price:asc');
     expect(component.sortOption).toBe('price:asc');
     expect(component.draftFilters.sortField).toBe('price');

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { GameEntry } from '../models/game.models';
 import {
+  calculatePriceAdjustedTimeAdjustedScore,
   calculateTimeAdjustedScore,
   normalizeCriticScore,
   resolveEffectiveHltbHours,
+  resolveEffectivePriceForGame,
   resolveNormalizedCriticScoreForGame,
+  resolvePriceAdjustedTimeAdjustedScoreForGame,
   resolveTimeAdjustedScoreForGame,
 } from './time-adjusted-score.util';
 
@@ -28,6 +31,8 @@ function makeGame(partial: Partial<GameEntry>): GameEntry {
     reviewSource: partial.reviewSource ?? null,
     metacriticScore: partial.metacriticScore ?? null,
     mobyScore: partial.mobyScore ?? null,
+    priceAmount: partial.priceAmount ?? null,
+    priceIsFree: partial.priceIsFree ?? null,
   };
 }
 
@@ -42,6 +47,12 @@ describe('time-adjusted-score.util', () => {
     expect(calculateTimeAdjustedScore(120, 0, 20)).toBe(100);
     expect(calculateTimeAdjustedScore(90, 10, 0)).toBe(20.18);
     expect(calculateTimeAdjustedScore(Number.NaN, 10, 20)).toBeNull();
+  });
+
+  it('calculates PTAS with price penalty and finite guards', () => {
+    expect(calculatePriceAdjustedTimeAdjustedScore(90, 10, 20, 20, 10)).toBe(53.31);
+    expect(calculatePriceAdjustedTimeAdjustedScore(90, 10, 20, 0, 10)).toBe(76.73);
+    expect(calculatePriceAdjustedTimeAdjustedScore(90, 10, 20, Number.NaN, 10)).toBeNull();
   });
 
   it('resolves effective HLTB hours using main -> main+extra -> completionist fallback', () => {
@@ -104,6 +115,16 @@ describe('time-adjusted-score.util', () => {
     ).toBe(10);
   });
 
+  it('resolves effective price from current price and free flag', () => {
+    expect(resolveEffectivePriceForGame(makeGame({ priceAmount: 19.99 }))).toBe(19.99);
+    expect(resolveEffectivePriceForGame(makeGame({ priceAmount: null, priceIsFree: true }))).toBe(
+      0
+    );
+    expect(
+      resolveEffectivePriceForGame(makeGame({ priceAmount: null, priceIsFree: false }))
+    ).toBeNull();
+  });
+
   it('returns null TAS when score or fallback hours are missing', () => {
     expect(
       resolveTimeAdjustedScoreForGame(
@@ -127,5 +148,33 @@ describe('time-adjusted-score.util', () => {
         20
       )
     ).toBeNull();
+  });
+
+  it('returns null PTAS when score, hours, or price are missing', () => {
+    expect(
+      resolvePriceAdjustedTimeAdjustedScoreForGame(
+        makeGame({
+          reviewScore: 85,
+          reviewSource: 'metacritic',
+          hltbMainHours: 8,
+          priceAmount: null,
+        }),
+        20,
+        10
+      )
+    ).toBeNull();
+
+    expect(
+      resolvePriceAdjustedTimeAdjustedScoreForGame(
+        makeGame({
+          reviewScore: 85,
+          reviewSource: 'metacritic',
+          hltbMainHours: 8,
+          priceAmount: 20,
+        }),
+        20,
+        10
+      )
+    ).toBe(50.98);
   });
 });

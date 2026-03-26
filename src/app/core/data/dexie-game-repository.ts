@@ -718,7 +718,7 @@ export class DexieGameRepository implements GameRepository {
     const created: GameListView = {
       name: this.normalizeViewName(view.name),
       listType: view.listType,
-      filters: this.normalizeViewFilters(view.filters),
+      filters: this.normalizeViewFilters(view.filters, view.listType),
       groupBy: this.normalizeGroupBy(view.groupBy),
       createdAt: now,
       updatedAt: now,
@@ -746,8 +746,8 @@ export class DexieGameRepository implements GameRepository {
       name: updates.name !== undefined ? this.normalizeViewName(updates.name) : existing.name,
       filters:
         updates.filters !== undefined
-          ? this.normalizeViewFilters(updates.filters)
-          : this.normalizeViewFilters(existing.filters),
+          ? this.normalizeViewFilters(updates.filters, existing.listType)
+          : this.normalizeViewFilters(existing.filters, existing.listType),
       groupBy:
         updates.groupBy !== undefined
           ? this.normalizeGroupBy(updates.groupBy)
@@ -1694,9 +1694,12 @@ export class DexieGameRepository implements GameRepository {
     return 'none';
   }
 
-  private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
+  private normalizeViewFilters(
+    value: GameListFilters | null | undefined,
+    listType: ListType
+  ): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField = this.normalizeViewSortField(source.sortField);
+    const sortField = this.normalizeViewSortField(source.sortField, listType);
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);
@@ -1764,7 +1767,8 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeViewSortField(
-    value: GameListFilters['sortField'] | null | undefined
+    value: GameListFilters['sortField'] | null | undefined,
+    listType: ListType | null | undefined
   ): GameListFilters['sortField'] {
     if (
       value === 'title' ||
@@ -1772,7 +1776,8 @@ export class DexieGameRepository implements GameRepository {
       value === 'createdAt' ||
       value === 'hltb' ||
       (value === 'tas' && isTasFeatureEnabled()) ||
-      value === 'price' ||
+      (value === 'ptas' && isTasFeatureEnabled() && listType === 'wishlist') ||
+      (value === 'price' && listType === 'wishlist') ||
       value === 'metacritic' ||
       value === 'platform'
     ) {

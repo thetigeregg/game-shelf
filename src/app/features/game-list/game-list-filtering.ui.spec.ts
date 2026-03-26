@@ -1214,6 +1214,116 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('sorts by PTAS using price penalty and keeps missing PTAS values last', () => {
+    enableTasFeature();
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Short Premium',
+        listType: 'wishlist',
+        reviewScore: 85,
+        reviewSource: 'metacritic',
+        hltbMainHours: 5,
+        priceAmount: 59.99,
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Long Cheap',
+        listType: 'wishlist',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+        hltbMainHours: 20,
+        priceAmount: 9.99,
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Balanced',
+        listType: 'wishlist',
+        reviewScore: 88,
+        reviewSource: 'metacritic',
+        hltbMainHours: 8,
+        priceAmount: 19.99,
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'No Price',
+        listType: 'wishlist',
+        reviewScore: 95,
+        reviewSource: 'metacritic',
+        hltbMainHours: 3,
+        priceAmount: null,
+      }),
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'ptas',
+        sortDirection: 'desc',
+      },
+      '',
+      20,
+      10
+    );
+
+    expect(desc.map((game) => game.title)).toEqual([
+      'Long Cheap',
+      'Balanced',
+      'Short Premium',
+      'No Price',
+    ]);
+  });
+
+  it('reuses cached non-PTAS sorts when only price preference changes', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Bravo',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Alpha',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+      }),
+    ];
+
+    const firstResult = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'review',
+        sortDirection: 'desc',
+      },
+      '',
+      20,
+      10
+    );
+
+    const secondResult = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'review',
+        sortDirection: 'desc',
+      },
+      '',
+      20,
+      30
+    );
+
+    expect(secondResult).toBe(firstResult);
+  });
+
   it('uses title fallback when TAS values are equal', () => {
     enableTasFeature();
     const result = engine.applyFiltersAndSort(

@@ -51,6 +51,7 @@ type GameSyncServicePrivate = {
   pullChanges(): Promise<void>;
   replayRecentChangesIfDue(): Promise<void>;
   runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
+  requestPersistentStorage(): Promise<void>;
   activeSyncPromise: Promise<void> | null;
   syncInFlight: boolean;
   initialized: boolean;
@@ -969,7 +970,7 @@ describe('GameSyncService', () => {
         customTitle: 'Game',
         customPlatform: 'Switch',
         customPlatformIgdbId: 130,
-        customCoverUrl: 'https://not-allowed.example',
+        customCoverUrl: 'ftp://not-allowed.example',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
     } as SyncChangeEvent);
@@ -979,6 +980,129 @@ describe('GameSyncService', () => {
     expect(stored?.customPlatform).toBeNull();
     expect(stored?.customPlatformIgdbId).toBeNull();
     expect(stored?.customCoverUrl).toBeNull();
+  });
+
+  it('accepts http/https custom cover urls in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '6b',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        customCoverUrl: ' https://images.example.com/custom-cover.jpg ',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
+  });
+
+  it('accepts protocol-relative custom cover urls in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '6b-protocol-relative',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        customCoverUrl: ' //images.example.com/custom-cover.jpg ',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
+  });
+
+  it('rejects credentialed http/https custom cover urls in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '6b-credentials',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.customCoverUrl).toBeNull();
+  });
+
+  it('preserves local cover fields for collection games when a pending outbox write exists', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: 'https://local.example.com/cover.jpg',
+      customCoverUrl: 'https://local.example.com/custom-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange(
+      {
+        eventId: '6c',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          title: 'Server Title',
+          coverUrl: 'https://server.example.com/cover.jpg',
+          customCoverUrl: 'https://server.example.com/custom-cover.jpg',
+          coverSource: 'igdb',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      } as SyncChangeEvent,
+      new Set(['123::130'])
+    );
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Server Title');
+    expect(stored?.coverUrl).toBe('https://local.example.com/cover.jpg');
+    expect(stored?.customCoverUrl).toBe('https://local.example.com/custom-cover.jpg');
+    expect(stored?.coverSource).toBe('thegamesdb');
+  });
+
+  it('preserves intentional local cover clears when a pending outbox write exists', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      customCoverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange(
+      {
+        eventId: '6c-null-clear',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          title: 'Server Title',
+          coverUrl: 'https://server.example.com/cover.jpg',
+          customCoverUrl: 'https://server.example.com/custom-cover.jpg',
+          coverSource: 'igdb',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      } as SyncChangeEvent,
+      new Set(['123::130'])
+    );
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Server Title');
+    expect(stored?.coverUrl).toBeNull();
+    expect(stored?.customCoverUrl).toBeNull();
+    expect(stored?.coverSource).toBe('none');
   });
 
   it('normalizes mobyScore, mobygamesGameId, and review source fields in game upserts', async () => {
@@ -1346,6 +1470,27 @@ describe('GameSyncService', () => {
 
     navigatorSpy.mockRestore();
     cryptoSpy.mockRestore();
+  });
+
+  it('treats missing navigator as online and ignores persistent storage failures', async () => {
+    const missingNavigatorSpy = vi
+      .spyOn(globalThis, 'navigator', 'get')
+      .mockReturnValue(undefined as never);
+
+    expect(servicePrivate.isOnline()).toBe(true);
+
+    missingNavigatorSpy.mockRestore();
+
+    const persist = vi.fn().mockRejectedValue(new Error('persist failed'));
+    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
+      storage: { persist },
+      onLine: true,
+    } as Navigator);
+
+    await expect(servicePrivate.requestPersistentStorage()).resolves.toBeUndefined();
+    expect(persist).toHaveBeenCalledOnce();
+
+    navigatorSpy.mockRestore();
   });
 
   it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {

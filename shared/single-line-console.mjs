@@ -79,36 +79,39 @@ function normalizeUnknown(value, seen, depth = 0) {
   }
 
   seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const normalizedItems = value
+        .slice(0, MAX_ARRAY_ITEMS)
+        .map((item) => normalizeUnknown(item, seen, depth + 1));
 
-  if (Array.isArray(value)) {
-    const normalizedItems = value
-      .slice(0, MAX_ARRAY_ITEMS)
-      .map((item) => normalizeUnknown(item, seen, depth + 1));
+      if (value.length > MAX_ARRAY_ITEMS) {
+        normalizedItems.push(`[+${value.length - MAX_ARRAY_ITEMS} more]`);
+      }
 
-    if (value.length > MAX_ARRAY_ITEMS) {
-      normalizedItems.push(`[+${value.length - MAX_ARRAY_ITEMS} more]`);
+      return normalizedItems;
     }
 
-    return normalizedItems;
+    if (!isPlainObject(value)) {
+      return sanitizeString(String(value));
+    }
+
+    const normalized = {};
+    const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
+
+    for (const [key, entryValue] of entries) {
+      normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
+    }
+
+    const omittedKeyCount = Object.keys(value).length - entries.length;
+    if (omittedKeyCount > 0) {
+      normalized.__truncatedKeys = omittedKeyCount;
+    }
+
+    return normalized;
+  } finally {
+    seen.delete(value);
   }
-
-  if (!isPlainObject(value)) {
-    return sanitizeString(String(value));
-  }
-
-  const normalized = {};
-  const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
-
-  for (const [key, entryValue] of entries) {
-    normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
-  }
-
-  const omittedKeyCount = Object.keys(value).length - entries.length;
-  if (omittedKeyCount > 0) {
-    normalized.__truncatedKeys = omittedKeyCount;
-  }
-
-  return normalized;
 }
 
 function buildEnvelope(level, args) {
@@ -138,7 +141,7 @@ function buildEnvelope(level, args) {
 
   if (isPlainObject(firstContext)) {
     for (const [key, value] of Object.entries(firstContext)) {
-      if (!(key in payload)) {
+      if (!Object.hasOwn(payload, key)) {
         payload[key] = value;
       } else {
         otherArgs.unshift({ [key]: value });

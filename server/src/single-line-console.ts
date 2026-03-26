@@ -93,37 +93,40 @@ function normalizeUnknown(
   }
 
   seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const normalizedItems = value
+        .slice(0, MAX_ARRAY_ITEMS)
+        .map((item) => normalizeUnknown(item, seen, depth + 1));
 
-  if (Array.isArray(value)) {
-    const normalizedItems = value
-      .slice(0, MAX_ARRAY_ITEMS)
-      .map((item) => normalizeUnknown(item, seen, depth + 1));
+      if (value.length > MAX_ARRAY_ITEMS) {
+        normalizedItems.push(`[+${String(value.length - MAX_ARRAY_ITEMS)} more]`);
+      }
 
-    if (value.length > MAX_ARRAY_ITEMS) {
-      normalizedItems.push(`[+${String(value.length - MAX_ARRAY_ITEMS)} more]`);
+      return normalizedItems;
     }
 
-    return normalizedItems;
+    if (!isPlainObject(value)) {
+      return sanitizeString(stringifyNonPlainObject(value));
+    }
+
+    const objectValue: Record<string, unknown> = value;
+    const normalized: Record<string, unknown> = {};
+    const entries = Object.entries(objectValue).slice(0, MAX_OBJECT_KEYS);
+
+    for (const [key, entryValue] of entries) {
+      normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
+    }
+
+    const omittedKeyCount = Object.keys(objectValue).length - entries.length;
+    if (omittedKeyCount > 0) {
+      normalized['__truncatedKeys'] = omittedKeyCount;
+    }
+
+    return normalized;
+  } finally {
+    seen.delete(value);
   }
-
-  if (!isPlainObject(value)) {
-    return sanitizeString(stringifyNonPlainObject(value));
-  }
-
-  const objectValue: Record<string, unknown> = value;
-  const normalized: Record<string, unknown> = {};
-  const entries = Object.entries(objectValue).slice(0, MAX_OBJECT_KEYS);
-
-  for (const [key, entryValue] of entries) {
-    normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
-  }
-
-  const omittedKeyCount = Object.keys(objectValue).length - entries.length;
-  if (omittedKeyCount > 0) {
-    normalized['__truncatedKeys'] = omittedKeyCount;
-  }
-
-  return normalized;
 }
 
 function buildEnvelope(level: string, args: unknown[]): Record<string, unknown> {
@@ -153,7 +156,7 @@ function buildEnvelope(level: string, args: unknown[]): Record<string, unknown> 
 
   if (isPlainObject(firstContext)) {
     for (const [key, value] of Object.entries(firstContext)) {
-      if (!(key in payload)) {
+      if (!Object.hasOwn(payload, key)) {
         payload[key] = value;
       } else {
         otherArgs.unshift({ [key]: value });

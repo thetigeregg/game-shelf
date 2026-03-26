@@ -2962,3 +2962,12 @@
 - fffe6797 Merge pull request #286 from thetigeregg/feat/gameart
 - 00fb0448 fix(service): update IGDB cover migration keys and platform IDs
 
+## v1.30.2 - 2026-03-26
+- 7c8f6848 Merge pull request #287 from thetigeregg/feat/bump
+- 055d34d2 fix(services): update BehaviorSubject initialization to remove generic type annotations
+- ea9df84d fix(dependencies): update @typescript-eslint packages to version 8.57.2
+- f4105bf9 fix(dependencies): update eslint-plugin-jsdoc to version 62.8.1
+- f9591a10 chore(deps): update dependencies for Angular, Capacitor, Tiptap, Swiper, and Vitest
+- cd41153d fix(dependencies): update @angular/cdk to version 21.2.4
+- c6a0c1b1 fix(dependencies): update Angular packages to version 21.2.6
+

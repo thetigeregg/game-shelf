@@ -1057,7 +1057,8 @@ export class ListPageComponent {
     try {
       const preferences = parseListPagePreferences(
         localStorage.getItem(this.preferenceStorageKey),
-        this.noneTagFilterValue
+        this.noneTagFilterValue,
+        { listType: this.listType }
       );
 
       if (!preferences) {
@@ -1092,6 +1093,7 @@ export class ListPageComponent {
       value === 'createdAt' ||
       value === 'hltb' ||
       (value === 'tas' && isTasFeatureEnabled()) ||
+      (value === 'ptas' && isTasFeatureEnabled() && this.listType === 'wishlist') ||
       (value === 'price' && this.listType === 'wishlist') ||
       value === 'review' ||
       value === 'metacritic' ||
@@ -1113,7 +1115,9 @@ export class ListPageComponent {
         return;
       }
 
-      this.filters = normalizeListPageStoredFilters(view.filters, this.noneTagFilterValue);
+      this.filters = normalizeListPageStoredFilters(view.filters, this.noneTagFilterValue, {
+        listType: this.listType,
+      });
       this.groupBy = normalizeListPageGroupBy(view.groupBy);
       this.listSearchQueryInput = '';
       this.listSearchQuery = '';

@@ -14,9 +14,20 @@ import {
 export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = getDetailMediaPlaceholderSrc();
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
+  private rawSrc: string | null | undefined;
   private requestedImageSrc: string | null = null;
+  private currentImageRequestSrc: string | null = null;
   private imageLoadSettled = false;
-  @Input() src: string | null | undefined;
+  @Input()
+  set src(value: string | null | undefined) {
+    this.rawSrc = value;
+    this.syncRequestedImageSource();
+  }
+
+  get src(): string | null | undefined {
+    return this.rawSrc;
+  }
+
   @Input() alt = '';
   @Input() shouldLoad = true;
   @Input() showPreloader = false;
@@ -34,7 +45,8 @@ export class DetailMediaSlideComponent {
       return null;
     }
 
-    return toDetailMediaBackdropUrl(this.src) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
+    const backdropSource = this.currentImageRequestSrc ?? this.displaySrc ?? this.src;
+    return toDetailMediaBackdropUrl(backdropSource) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
   }
 
   get displayBackdropStyle(): string | null {
@@ -48,12 +60,7 @@ export class DetailMediaSlideComponent {
       return false;
     }
 
-    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
-
-    if (this.requestedImageSrc !== normalizedDisplaySrc) {
-      this.requestedImageSrc = normalizedDisplaySrc;
-      this.imageLoadSettled = false;
-    }
+    this.syncRequestedImageSource(displaySrc);
 
     return !this.imageLoadSettled;
   }
@@ -62,8 +69,19 @@ export class DetailMediaSlideComponent {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
+      const loadedSrc = this.normalizeComparableSrc(target.currentSrc || target.src);
+      const expectedDisplaySrc = this.normalizeComparableSrc(this.displaySrc);
+      const expectedRequestSrc = this.normalizeComparableSrc(
+        this.currentImageRequestSrc ?? this.displaySrc
+      );
+
+      if (!loadedSrc || (loadedSrc !== expectedRequestSrc && loadedSrc !== expectedDisplaySrc)) {
+        return;
+      }
+
       target.dataset[DetailMediaSlideComponent.RETRY_DATASET_KEY] = '';
-      this.markImageSettled(target.currentSrc || target.src || this.displaySrc);
+      this.currentImageRequestSrc = loadedSrc;
+      this.markImageSettled(loadedSrc);
     }
   }
 
@@ -85,12 +103,14 @@ export class DetailMediaSlideComponent {
         const retrySrc = this.buildRetryImageSrc(currentSrc);
 
         if (retrySrc) {
+          this.currentImageRequestSrc = retrySrc;
           this.markImagePending(retrySrc);
           target.src = retrySrc;
           return;
         }
       }
 
+      this.currentImageRequestSrc = DetailMediaSlideComponent.PLACEHOLDER_SRC;
       target.src = DetailMediaSlideComponent.PLACEHOLDER_SRC;
       this.markImageSettled(DetailMediaSlideComponent.PLACEHOLDER_SRC);
     }
@@ -134,6 +154,18 @@ export class DetailMediaSlideComponent {
     }
 
     this.imageLoadSettled = true;
+  }
+
+  private syncRequestedImageSource(displaySrc = this.displaySrc): void {
+    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
+
+    if (this.requestedImageSrc === normalizedDisplaySrc) {
+      return;
+    }
+
+    this.requestedImageSrc = normalizedDisplaySrc;
+    this.currentImageRequestSrc = displaySrc;
+    this.imageLoadSettled = false;
   }
 
   private normalizeComparableSrc(source: string | null | undefined): string | null {

@@ -63,6 +63,10 @@ function normalizeUnknown(
     );
   }
 
+  if (typeof value !== 'object') {
+    return sanitizeString(Object.prototype.toString.call(value));
+  }
+
   if (seen.has(value)) {
     return '[Circular]';
   }
@@ -89,14 +93,15 @@ function normalizeUnknown(
     return normalizedItems;
   }
 
+  const objectValue: Record<string, unknown> = value;
   const normalized: Record<string, unknown> = {};
-  const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
+  const entries = Object.entries(objectValue).slice(0, MAX_OBJECT_KEYS);
 
   for (const [key, entryValue] of entries) {
     normalized[key] = normalizeUnknown(entryValue, seen, depth + 1);
   }
 
-  const omittedKeyCount = Object.keys(value).length - entries.length;
+  const omittedKeyCount = Object.keys(objectValue).length - entries.length;
   if (omittedKeyCount > 0) {
     normalized['__truncatedKeys'] = omittedKeyCount;
   }

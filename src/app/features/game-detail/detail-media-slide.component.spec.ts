@@ -78,6 +78,34 @@ describe('DetailMediaSlideComponent', () => {
     expect(image.dataset.detailRetryAttempted).toBe('');
   });
 
+  it('shows the preloader only until the current image source settles', () => {
+    const component = createComponent();
+    const firstSrc = 'https://images.example.com/cover.jpg';
+    const nextSrc = 'https://images.example.com/cover-2.jpg';
+    const image = document.createElement('img');
+    let currentSrc = firstSrc;
+
+    component.showPreloader = true;
+    component.src = firstSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    expect(component.shouldShowPreloader).toBe(true);
+
+    component.onImageLoad({ target: image } as unknown as Event);
+    expect(component.shouldShowPreloader).toBe(false);
+
+    component.src = nextSrc;
+    expect(component.shouldShowPreloader).toBe(true);
+
+    currentSrc = nextSrc;
+    component.onImageLoad({ target: image } as unknown as Event);
+    expect(component.shouldShowPreloader).toBe(false);
+  });
+
   it('retries once with cache-busted URL, then falls back to placeholder', () => {
     const component = createComponent();
     const image = document.createElement('img');
@@ -93,6 +121,31 @@ describe('DetailMediaSlideComponent', () => {
 
     component.onImageError({ target: image } as unknown as Event);
     expect(image.src).toContain('assets/icon/placeholder.png');
+  });
+
+  it('keeps the preloader active through retry and clears it after terminal fallback', () => {
+    const component = createComponent();
+    const image = document.createElement('img');
+    let currentSrc = 'https://example.com/cover.jpg';
+
+    component.showPreloader = true;
+    component.src = currentSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    expect(component.shouldShowPreloader).toBe(true);
+
+    component.onImageError({ target: image } as unknown as Event);
+    expect(image.dataset.detailRetryAttempted).toBe('1');
+    expect(component.shouldShowPreloader).toBe(true);
+
+    currentSrc = image.src;
+    component.onImageError({ target: image } as unknown as Event);
+    expect(image.src).toContain('assets/icon/placeholder.png');
+    expect(component.shouldShowPreloader).toBe(false);
   });
 
   it('does not retry placeholder images and handles blob/data image paths', () => {

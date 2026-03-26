@@ -14,6 +14,8 @@ import {
 export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = getDetailMediaPlaceholderSrc();
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
+  private requestedImageSrc: string | null = null;
+  private imageLoadSettled = false;
   @Input() src: string | null | undefined;
   @Input() alt = '';
   @Input() shouldLoad = true;
@@ -39,11 +41,29 @@ export class DetailMediaSlideComponent {
     return this.displayBackdropSrc ? `url(${this.displayBackdropSrc})` : null;
   }
 
+  get shouldShowPreloader(): boolean {
+    const displaySrc = this.displaySrc;
+
+    if (!this.showPreloader || !this.shouldLoad || !displaySrc) {
+      return false;
+    }
+
+    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
+
+    if (this.requestedImageSrc !== normalizedDisplaySrc) {
+      this.requestedImageSrc = normalizedDisplaySrc;
+      this.imageLoadSettled = false;
+    }
+
+    return !this.imageLoadSettled;
+  }
+
   onImageLoad(event: Event): void {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
       target.dataset[DetailMediaSlideComponent.RETRY_DATASET_KEY] = '';
+      this.markImageSettled(target.currentSrc || target.src || this.displaySrc);
     }
   }
 
@@ -54,6 +74,7 @@ export class DetailMediaSlideComponent {
       const currentSrc = (target.currentSrc || target.src || '').trim();
 
       if (currentSrc.includes(DetailMediaSlideComponent.PLACEHOLDER_SRC)) {
+        this.markImageSettled(currentSrc);
         return;
       }
 
@@ -64,12 +85,14 @@ export class DetailMediaSlideComponent {
         const retrySrc = this.buildRetryImageSrc(currentSrc);
 
         if (retrySrc) {
+          this.markImagePending(retrySrc);
           target.src = retrySrc;
           return;
         }
       }
 
       target.src = DetailMediaSlideComponent.PLACEHOLDER_SRC;
+      this.markImageSettled(DetailMediaSlideComponent.PLACEHOLDER_SRC);
     }
   }
 
@@ -88,6 +111,40 @@ export class DetailMediaSlideComponent {
       const parsed = new URL(normalized, window.location.origin);
       parsed.searchParams.set('_img_retry', Date.now().toString());
       return parsed.toString();
+    } catch {
+      return normalized;
+    }
+  }
+
+  private markImagePending(source: string | null | undefined): void {
+    const normalized = this.normalizeComparableSrc(source);
+
+    if (!normalized) {
+      return;
+    }
+
+    this.imageLoadSettled = false;
+  }
+
+  private markImageSettled(source: string | null | undefined): void {
+    const normalized = this.normalizeComparableSrc(source);
+
+    if (!normalized) {
+      return;
+    }
+
+    this.imageLoadSettled = true;
+  }
+
+  private normalizeComparableSrc(source: string | null | undefined): string | null {
+    const normalized = typeof source === 'string' ? source.trim() : '';
+
+    if (!normalized) {
+      return null;
+    }
+
+    try {
+      return new URL(normalized, window.location.origin).toString();
     } catch {
       return normalized;
     }

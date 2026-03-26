@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import fs, { promises as fsPromises } from 'node:fs';
+import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
@@ -94,10 +94,13 @@ export async function registerImageProxyRoute(
 
           deleted += 1;
 
-          try {
-            await fsPromises.unlink(existing.file_path);
-          } catch {
-            // Ignore filesystem cleanup failures. DB metadata is already removed.
+          const safeExistingFilePath = await resolveManagedCacheExistingPath(
+            imageCacheDir,
+            existing.file_path
+          );
+
+          if (safeExistingFilePath) {
+            await removeCachePathBestEffort(safeExistingFilePath);
           }
         } catch {
           continue;
@@ -141,22 +144,47 @@ export async function registerImageProxyRoute(
         });
       }
 
-      if (existing && (await fileExists(existing.file_path))) {
-        incrementImageMetric('hits');
-        reply.header('X-GameShelf-Image-Cache', 'HIT');
-        reply.header('Content-Type', existing.content_type);
-        reply.header('Cache-Control', 'public, max-age=86400');
-        reply.send(fs.createReadStream(existing.file_path));
-        return;
-      }
+      const safeExistingFilePath = existing
+        ? await resolveManagedCacheExistingPath(imageCacheDir, existing.file_path)
+        : null;
 
-      if (existing && !(await fileExists(existing.file_path))) {
+      if (existing && safeExistingFilePath) {
+        const cachedBytes = await readCachedImageBytes(
+          safeExistingFilePath,
+          existing.size_bytes,
+          maxBytes
+        );
+
+        if (cachedBytes) {
+          incrementImageMetric('hits');
+          reply.header('X-GameShelf-Image-Cache', 'HIT');
+          reply.header('Content-Type', existing.content_type);
+          reply.header('Cache-Control', 'public, max-age=86400');
+          reply.header('Content-Length', String(cachedBytes.length));
+          reply.send(cachedBytes);
+          return;
+        }
+
         try {
           await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
         } catch (error) {
           incrementImageMetric('writeErrors');
           request.log.warn({
-            msg: 'image_cache_delete_missing_file_failed',
+            msg: 'image_cache_delete_corrupt_file_failed',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        await removeCachePathBestEffort(safeExistingFilePath);
+      }
+
+      if (existing && !safeExistingFilePath) {
+        try {
+          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+        } catch (error) {
+          incrementImageMetric('writeErrors');
+          request.log.warn({
+            msg: 'image_cache_delete_invalid_path_failed',
             error: error instanceof Error ? error.message : String(error),
           });
         }
@@ -206,9 +234,31 @@ export async function registerImageProxyRoute(
 
       const extension = resolveFileExtension(contentType, sourceUrl);
       const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
+      let safeStoragePath: string | null = null;
 
-      await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
-      await fsPromises.writeFile(storagePath, bytes);
+      try {
+        await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
+        safeStoragePath = await resolveManagedCacheWritePath(imageCacheDir, storagePath);
+
+        if (!safeStoragePath) {
+          throw new Error('invalid_cache_storage_path');
+        }
+
+        await removeCachePathBestEffort(safeStoragePath);
+        await fsPromises.writeFile(safeStoragePath, bytes);
+      } catch (error) {
+        incrementImageMetric('writeErrors');
+        request.log.warn({
+          msg: 'image_cache_store_file_failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        reply.header('X-GameShelf-Image-Cache', 'MISS');
+        reply.header('Content-Type', contentType);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        reply.send(bytes);
+        return;
+      }
 
       try {
         await pool.query(
@@ -223,7 +273,7 @@ export async function registerImageProxyRoute(
             size_bytes = EXCLUDED.size_bytes,
             updated_at = NOW()
           `,
-          [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
+          [cacheKey, sourceUrl, contentType, safeStoragePath, bytes.length]
         );
         incrementImageMetric('writes');
       } catch (error) {
@@ -359,13 +409,121 @@ function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-async function fileExists(filePath: string): Promise<boolean> {
+async function readCachedImageBytes(
+  filePath: string,
+  expectedSizeBytes: number | null | undefined,
+  maxBytes: number
+): Promise<Buffer | null> {
   try {
-    await fsPromises.access(filePath, fs.constants.R_OK);
-    return true;
+    const fileStat = await fsPromises.stat(filePath);
+
+    if (!fileStat.isFile()) {
+      return null;
+    }
+
+    if (fileStat.size === 0 || fileStat.size > maxBytes) {
+      return null;
+    }
+
+    if (
+      Number.isInteger(expectedSizeBytes) &&
+      expectedSizeBytes > 0 &&
+      fileStat.size !== expectedSizeBytes
+    ) {
+      return null;
+    }
+
+    const bytes = await fsPromises.readFile(filePath);
+
+    if (bytes.length !== fileStat.size) {
+      return null;
+    }
+
+    return bytes;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function removeCachePathBestEffort(filePath: string): Promise<void> {
+  try {
+    await fsPromises.rm(filePath, { recursive: true, force: true });
+  } catch {
+    // Ignore filesystem cleanup failures. DB metadata was already handled.
+  }
+}
+
+async function resolveManagedCacheExistingPath(
+  imageCacheDir: string,
+  filePath: string
+): Promise<string | null> {
+  const resolvedCacheDir = path.resolve(imageCacheDir);
+  const resolvedFilePath = path.resolve(filePath);
+  let realCacheDirPath = resolvedCacheDir;
+
+  try {
+    realCacheDirPath = await fsPromises.realpath(resolvedCacheDir);
+  } catch {
+    // Fall back to the intended cache dir when it has not been created yet.
+  }
+
+  let realFilePath: string;
+
+  try {
+    realFilePath = await fsPromises.realpath(resolvedFilePath);
+  } catch {
+    return null;
+  }
+
+  const relativePath = path.relative(realCacheDirPath, realFilePath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || relativePath.length === 0) {
+    return null;
+  }
+
+  return realFilePath;
+}
+
+async function resolveManagedCacheWritePath(
+  imageCacheDir: string,
+  filePath: string
+): Promise<string | null> {
+  const resolvedCacheDir = path.resolve(imageCacheDir);
+  const resolvedFilePath = path.resolve(filePath);
+  const relativePath = path.relative(resolvedCacheDir, resolvedFilePath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || relativePath.length === 0) {
+    return null;
+  }
+
+  let realCacheDirPath = resolvedCacheDir;
+
+  try {
+    realCacheDirPath = await fsPromises.realpath(resolvedCacheDir);
+  } catch {
+    // Fall back to the intended cache dir when it has not been created yet.
+  }
+
+  let realParentPath: string;
+
+  try {
+    realParentPath = await fsPromises.realpath(path.dirname(resolvedFilePath));
+  } catch {
+    return null;
+  }
+
+  const candidateRealFilePath = path.join(realParentPath, path.basename(resolvedFilePath));
+  const realRelativePath = path.relative(realCacheDirPath, candidateRealFilePath);
+
+  if (
+    realRelativePath.startsWith('..') ||
+    path.isAbsolute(realRelativePath) ||
+    realRelativePath.length === 0
+  ) {
+    return null;
+  }
+
+  return candidateRealFilePath;
 }
 
 async function readResponseBytesWithLimit(

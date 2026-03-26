@@ -126,6 +126,16 @@ describe('ImageCacheService', () => {
       );
     });
 
+    it('returns placeholder for credential-bearing source URLs', async () => {
+      expect(
+        await service.resolveImageUrl(
+          'game-1',
+          'https://user:pass@images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg',
+          'detail'
+        )
+      ).toBe('assets/icon/placeholder.png');
+    });
+
     it('returns a string for a valid thumb URL (direct, no blob cache)', async () => {
       const src = 'https://images.igdb.com/igdb/image/upload/t_thumb/abc.jpg';
       const url = await service.resolveImageUrl('game-1', src, 'thumb');

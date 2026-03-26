@@ -15,31 +15,50 @@ describe('DetailMediaSlideComponent', () => {
     expect(component.displaySrc).toBe('https://images.example.com/cover.jpg');
   });
 
+  it('does not assign image urls until the slide is marked loadable', () => {
+    const component = createComponent();
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
+    component.shouldLoad = false;
+
+    expect(component.displaySrc).toBeNull();
+    expect(component.displayBackdropSrc).toBeNull();
+    expect(component.displayBackdropStyle).toBeNull();
+  });
+
+  it('routes IGDB screenshots through the proxy with retina detail assets', () => {
+    const component = createComponent();
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
+
+    expect(component.displaySrc).toContain('/v1/images/proxy?url=');
+    expect(component.displaySrc).toContain(encodeURIComponent('t_720p_2x/hash.jpg'));
+  });
+
   it('derives a lower-resolution backdrop for IGDB screenshots and keeps other sources', () => {
     const component = createComponent();
     component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain('/v1/images/proxy?url=');
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_big/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = ' https://images.igdb.com/igdb/image/upload/t_screenshot_med_2x/hash.jpg ';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.igdb.com/igdb/image/upload/t_1080p/hash.jpg';
-    expect(component.displayBackdropSrc).toBe(
-      'https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg'
+    expect(component.displayBackdropSrc).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
     );
 
     component.src = 'https://images.example.com/backdrop.jpg';
@@ -59,6 +78,34 @@ describe('DetailMediaSlideComponent', () => {
     expect(image.dataset.detailRetryAttempted).toBe('');
   });
 
+  it('shows the preloader only until the current image source settles', () => {
+    const component = createComponent();
+    const firstSrc = 'https://images.example.com/cover.jpg';
+    const nextSrc = 'https://images.example.com/cover-2.jpg';
+    const image = document.createElement('img');
+    let currentSrc = firstSrc;
+
+    component.showPreloader = true;
+    component.src = firstSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    expect(component.shouldShowPreloader).toBe(true);
+
+    component.onImageLoad({ target: image } as unknown as Event);
+    expect(component.shouldShowPreloader).toBe(false);
+
+    component.src = nextSrc;
+    expect(component.shouldShowPreloader).toBe(true);
+
+    currentSrc = nextSrc;
+    component.onImageLoad({ target: image } as unknown as Event);
+    expect(component.shouldShowPreloader).toBe(false);
+  });
+
   it('retries once with cache-busted URL, then falls back to placeholder', () => {
     const component = createComponent();
     const image = document.createElement('img');
@@ -74,6 +121,31 @@ describe('DetailMediaSlideComponent', () => {
 
     component.onImageError({ target: image } as unknown as Event);
     expect(image.src).toContain('assets/icon/placeholder.png');
+  });
+
+  it('keeps the preloader active through retry and clears it after terminal fallback', () => {
+    const component = createComponent();
+    const image = document.createElement('img');
+    let currentSrc = 'https://example.com/cover.jpg';
+
+    component.showPreloader = true;
+    component.src = currentSrc;
+
+    Object.defineProperty(image, 'currentSrc', {
+      get: () => currentSrc,
+      configurable: true,
+    });
+
+    expect(component.shouldShowPreloader).toBe(true);
+
+    component.onImageError({ target: image } as unknown as Event);
+    expect(image.dataset.detailRetryAttempted).toBe('1');
+    expect(component.shouldShowPreloader).toBe(true);
+
+    currentSrc = image.src;
+    component.onImageError({ target: image } as unknown as Event);
+    expect(image.src).toContain('assets/icon/placeholder.png');
+    expect(component.shouldShowPreloader).toBe(false);
   });
 
   it('does not retry placeholder images and handles blob/data image paths', () => {

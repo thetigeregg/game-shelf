@@ -220,6 +220,15 @@ interface RecommendationDisplayMetadata {
   releaseYear: number | null;
 }
 
+interface DetailGamePayloadCacheEntry {
+  game: GameEntry;
+  coverUrl: string;
+  displayTitle: string;
+  platformName: string;
+  platformIgdbId: number | null;
+  payload: GameCatalogResult;
+}
+
 type NotesToolbarAction =
   | 'bold'
   | 'italic'
@@ -463,9 +472,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   selectedGameKeys = new Set<string>();
   private readonly rowCoverUrlByGameKey = new Map<string, string>();
   private readonly detailCoverUrlByGameKey = new Map<string, string>();
+  private readonly detailGamePayloadByGameKey = new Map<string, DetailGamePayloadCacheEntry>();
   private readonly rowCoverLoadingGameKeys = new Set<string>();
   private readonly detailCoverLoadingGameKeys = new Set<string>();
-  private displayedGames: GameEntry[] = [];
+  private _displayedGames: GameEntry[] = [];
   private readonly filteringEngine = new GameListFilteringEngine(this.noneTagFilterValue);
   private imagePickerSearchRequestId = 0;
   private similarLibraryLoadRequestId = 0;
@@ -530,6 +540,15 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.isReviewUpdateLoading;
   }
 
+  get displayedGames(): GameEntry[] {
+    return this._displayedGames;
+  }
+
+  set displayedGames(value: GameEntry[]) {
+    this._displayedGames = value;
+    this.pruneDetailGamePayloadCache(value);
+  }
+
   set isMetacriticUpdateLoading(value: boolean) {
     this.isReviewUpdateLoading = value;
   }
@@ -592,6 +611,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('listType' in changes && changes['listType'].currentValue) {
+      this.clearDetailGamePayloadCache();
       this.listType$.next(this.listType);
       this.rowReleaseDateDisplay = this.gameRowReleaseDateDisplayService.getPreference(
         this.listType
@@ -1616,16 +1636,42 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getDetailGamePayload(game: GameEntry): GameCatalogResult {
+    const gameKey = this.getGameKey(game);
+    const cached = this.detailGamePayloadByGameKey.get(gameKey);
     const displayPlatform = this.getGameDisplayPlatform(game);
+    const displayTitle = this.getGameDisplayTitle(game);
+    const coverUrl = this.getDetailCoverUrl(game);
 
-    return {
+    if (
+      cached &&
+      cached.game === game &&
+      cached.coverUrl === coverUrl &&
+      cached.displayTitle === displayTitle &&
+      cached.platformName === displayPlatform.name &&
+      cached.platformIgdbId === displayPlatform.igdbId
+    ) {
+      return cached.payload;
+    }
+
+    const payload: GameCatalogResult = {
       ...game,
-      title: this.getGameDisplayTitle(game),
-      coverUrl: this.getDetailCoverUrl(game),
+      title: displayTitle,
+      coverUrl,
       platforms: [displayPlatform.name],
       platform: displayPlatform.name,
       platformOptions: [{ id: displayPlatform.igdbId, name: displayPlatform.name }],
     };
+
+    this.detailGamePayloadByGameKey.set(gameKey, {
+      game,
+      coverUrl,
+      displayTitle,
+      platformName: displayPlatform.name,
+      platformIgdbId: displayPlatform.igdbId,
+      payload,
+    });
+
+    return payload;
   }
 
   closeRatingModal(): void {
@@ -3398,6 +3444,28 @@ export class GameListComponent implements OnChanges, OnDestroy {
     if (this.selectedGameKeys.size === 0) {
       this.selectionModeActive = false;
     }
+  }
+
+  private pruneDetailGamePayloadCache(games: readonly GameEntry[]): void {
+    if (!(this.detailGamePayloadByGameKey instanceof Map)) {
+      return;
+    }
+
+    const activeGameKeys = new Set(games.map((game) => this.getGameKey(game)));
+
+    for (const key of this.detailGamePayloadByGameKey.keys()) {
+      if (!activeGameKeys.has(key)) {
+        this.detailGamePayloadByGameKey.delete(key);
+      }
+    }
+  }
+
+  private clearDetailGamePayloadCache(): void {
+    if (!(this.detailGamePayloadByGameKey instanceof Map)) {
+      return;
+    }
+
+    this.detailGamePayloadByGameKey.clear();
   }
 
   private emitSelectionState(): void {

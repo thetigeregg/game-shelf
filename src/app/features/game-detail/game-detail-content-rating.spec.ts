@@ -706,10 +706,10 @@ describe('GameDetailContentComponent rating display', () => {
     expect(toLocaleDateStringSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('only eager-loads the first slide', () => {
+  it('preloads the active and next slides while gating later slides', () => {
     const component = createComponent();
     component.context = 'library';
-    component.game = makeLibraryGame({
+    const game = makeLibraryGame({
       coverUrl: 'https://img.example/cover.jpg',
       screenshots: [
         { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
@@ -717,11 +717,158 @@ describe('GameDetailContentComponent rating display', () => {
         { id: 4, imageId: 'shot-4', url: 'https://img.example/shot-4.jpg' },
       ],
     });
+    updateGame(component, game, undefined, true);
 
-    expect(component.shouldEagerLoadMediaSlide(0)).toBe(true);
-    expect(component.shouldEagerLoadMediaSlide(1)).toBe(false);
-    expect(component.shouldEagerLoadMediaSlide(2)).toBe(false);
-    expect(component.shouldEagerLoadMediaSlide(3)).toBe(false);
+    const slides = component.mediaSlides;
+    const [coverSlide, firstScreenshotSlide, secondScreenshotSlide, thirdScreenshotSlide] = slides;
+    expect(slides).toHaveLength(4);
+
+    expect(component.shouldLoadMediaSlide(coverSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(coverSlide)).toBe('https://img.example/cover.jpg');
+    expect(component.shouldLoadMediaSlide(firstScreenshotSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(firstScreenshotSlide)).toBe('https://img.example/shot-2.jpg');
+    expect(component.shouldLoadMediaSlide(secondScreenshotSlide)).toBe(false);
+    expect(component.getMediaSlideSrc(secondScreenshotSlide)).toBeNull();
+    expect(component.shouldLoadMediaSlide(thirdScreenshotSlide)).toBe(false);
+    expect(component.getMediaSlideSrc(thirdScreenshotSlide)).toBeNull();
+  });
+
+  it('keeps placeholder slides loadable when no media exists', () => {
+    const component = createComponent();
+    component.context = 'library';
+    updateGame(component, makeLibraryGame(), undefined, true);
+
+    const [placeholderSlide] = component.mediaSlides;
+
+    expect(component.shouldLoadMediaSlide(placeholderSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(placeholderSlide)).toBe('');
+  });
+
+  it('prefetches only the next same-origin proxied slide outside the loadable window', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+    const imageInstances: Array<{
+      crossOrigin: string | null;
+      decoding: string;
+      referrerPolicy: string;
+    }> = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        crossOrigin: string | null = null;
+        decoding = '';
+        referrerPolicy = '';
+
+        constructor() {
+          imageInstances.push(this);
+        }
+
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          {
+            id: 2,
+            imageId: 'shot-2',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-2.jpg',
+          },
+          {
+            id: 3,
+            imageId: 'shot-3',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-3.jpg',
+          },
+          {
+            id: 4,
+            imageId: 'shot-4',
+            url: 'https://images.igdb.com/igdb/image/upload/t_720p/shot-4.jpg',
+          },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual([
+      `${window.location.origin}/v1/images/proxy?url=${encodeURIComponent(
+        'https://images.igdb.com/igdb/image/upload/t_720p_2x/shot-3.jpg'
+      )}`,
+    ]);
+    expect(imageInstances).toHaveLength(1);
+    expect(imageInstances[0]?.referrerPolicy).toBe('no-referrer');
+    expect(imageInstances[0]?.crossOrigin).toBe('anonymous');
+    expect(imageInstances[0]?.decoding).toBe('async');
+  });
+
+  it('skips prefetch for non-same-origin slide urls', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
+          { id: 3, imageId: 'shot-3', url: 'https://img.example/shot-3.jpg' },
+          { id: 4, imageId: 'shot-4', url: 'https://img.example/shot-4.jpg' },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual([]);
+  });
+
+  it('skips prefetch for data and blob slide urls', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        decoding = '';
+
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          { id: 2, imageId: 'shot-2', url: 'data:image/png;base64,AAA' },
+          { id: 3, imageId: 'shot-3', url: 'blob:https://example.com/shot-3' },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual([]);
   });
 
   it('destroys swiper and cancels queued refresh on destroy', () => {

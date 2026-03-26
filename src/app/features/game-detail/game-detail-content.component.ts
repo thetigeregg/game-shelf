@@ -1,9 +1,11 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   Output,
@@ -60,6 +62,8 @@ import { PlatformCustomizationService } from '../../core/services/platform-custo
 import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 import { DetailMediaSlideComponent } from './detail-media-slide.component';
+import { toDetailMediaRenderUrl } from './detail-media-url.utils';
+import { isDataOrBlobUrl } from '../../core/utils/image-url.utils';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
@@ -94,7 +98,7 @@ type DetailTextField = 'summary' | 'storyline';
 })
 export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
-  private static readonly EAGER_MEDIA_SLIDE_COUNT = 1;
+  private static readonly PRELOAD_MEDIA_SLIDE_COUNT = 2;
   private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
   private static readonly PLACEHOLDER_MEDIA_SLIDES: DetailMediaSlide[] = [
     { key: 'placeholder', src: '', kind: 'placeholder' },
@@ -152,7 +156,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
   private cachedFormattedReleaseDateValue: string | null = null;
   private cachedFormattedReleaseDate = 'Unknown';
+  private loadedMediaSlideKeys = new Set<string>();
+  private prefetchedMediaSlideUrls = new Set<string>();
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef, { optional: true });
+  private readonly ngZone = inject(NgZone, { optional: true });
 
   constructor() {
     addIcons({
@@ -197,6 +205,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       this.cachedTagItemsGame = null;
       this.cachedMediaSlidesGame = null;
       this.cachedFormattedReleaseDateValue = null;
+      this.resetMediaSlideLoadingState();
 
       if (gameChange.firstChange || currentIdentity !== previousIdentity) {
         this.detailTextExpanded = {
@@ -249,6 +258,14 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         dynamicBullets: true,
         dynamicMainBullets: 3,
         clickable: false,
+      },
+      on: {
+        afterInit: (swiper) => {
+          this.handleSwiperSlideChange(swiper);
+        },
+        slideChange: (swiper) => {
+          this.handleSwiperSlideChange(swiper);
+        },
       },
     });
   }
@@ -471,8 +488,20 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       .join(' ');
   }
 
-  shouldEagerLoadMediaSlide(index: number): boolean {
-    return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
+  shouldLoadMediaSlide(slide: DetailMediaSlide): boolean {
+    if (slide.kind === 'placeholder') {
+      return true;
+    }
+
+    return this.loadedMediaSlideKeys.has(slide.key);
+  }
+
+  getMediaSlideSrc(slide: DetailMediaSlide): string | null {
+    if (slide.kind === 'placeholder') {
+      return slide.src;
+    }
+
+    return this.shouldLoadMediaSlide(slide) ? slide.src : null;
   }
 
   get statusValue(): GameStatus | undefined {
@@ -1053,6 +1082,99 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     this.cachedMediaSlides =
       slides.length > 0 ? slides : GameDetailContentComponent.PLACEHOLDER_MEDIA_SLIDES;
     return this.cachedMediaSlides;
+  }
+
+  private resetMediaSlideLoadingState(): void {
+    this.loadedMediaSlideKeys = new Set<string>();
+    this.prefetchedMediaSlideUrls = new Set<string>();
+    this.markMediaSlidesAroundIndex(0);
+  }
+
+  private handleSwiperSlideChange(swiper: SwiperClass): void {
+    const activeIndex = Number.isInteger(swiper.activeIndex) ? swiper.activeIndex : 0;
+
+    const runChange = () => {
+      const hasChanges = this.markMediaSlidesAroundIndex(activeIndex);
+
+      if (hasChanges) {
+        this.changeDetectorRef?.markForCheck();
+      }
+    };
+
+    if (this.ngZone) {
+      this.ngZone.run(runChange);
+      return;
+    }
+
+    runChange();
+  }
+
+  private markMediaSlidesAroundIndex(index: number): boolean {
+    const slides = this.mediaSlides;
+    let hasChanges = false;
+    const normalizedIndex = Math.max(0, index);
+    const upperBound = Math.min(
+      slides.length - 1,
+      normalizedIndex + GameDetailContentComponent.PRELOAD_MEDIA_SLIDE_COUNT - 1
+    );
+
+    for (let currentIndex = normalizedIndex; currentIndex <= upperBound; currentIndex += 1) {
+      const slide = slides[currentIndex];
+
+      if (slide.kind === 'placeholder') {
+        continue;
+      }
+
+      if (!this.loadedMediaSlideKeys.has(slide.key)) {
+        this.loadedMediaSlideKeys.add(slide.key);
+        hasChanges = true;
+      }
+    }
+
+    const prefetchIndex = upperBound + 1;
+
+    if (prefetchIndex < slides.length) {
+      this.prefetchMediaSlide(slides[prefetchIndex]);
+    }
+
+    return hasChanges;
+  }
+
+  private prefetchMediaSlide(slide: DetailMediaSlide): void {
+    if (typeof window === 'undefined' || typeof Image === 'undefined') {
+      return;
+    }
+
+    const renderUrl = toDetailMediaRenderUrl(slide.src);
+
+    if (!renderUrl || slide.kind === 'placeholder' || isDataOrBlobUrl(renderUrl)) {
+      return;
+    }
+
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(renderUrl, window.location.href);
+    } catch {
+      return;
+    }
+
+    if (parsedUrl.origin !== window.location.origin) {
+      return;
+    }
+
+    const normalizedUrl = parsedUrl.href;
+
+    if (this.prefetchedMediaSlideUrls.has(normalizedUrl)) {
+      return;
+    }
+
+    this.prefetchedMediaSlideUrls.add(normalizedUrl);
+    const image = new Image();
+    image.referrerPolicy = 'no-referrer';
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+    image.src = normalizedUrl;
   }
 
   private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{

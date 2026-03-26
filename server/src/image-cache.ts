@@ -141,8 +141,16 @@ export async function registerImageProxyRoute(
         });
       }
 
-      if (existing && (await fileExists(existing.file_path))) {
-        const cachedBytes = await readCachedImageBytes(existing.file_path, existing.size_bytes);
+      const safeExistingFilePath = existing
+        ? resolveManagedCacheFilePath(imageCacheDir, existing.file_path)
+        : null;
+
+      if (existing && safeExistingFilePath && (await fileExists(safeExistingFilePath))) {
+        const cachedBytes = await readCachedImageBytes(
+          safeExistingFilePath,
+          existing.size_bytes,
+          maxBytes
+        );
 
         if (cachedBytes) {
           incrementImageMetric('hits');
@@ -165,13 +173,25 @@ export async function registerImageProxyRoute(
         }
 
         try {
-          await fsPromises.unlink(existing.file_path);
+          await fsPromises.unlink(safeExistingFilePath);
         } catch {
-          // Ignore filesystem cleanup failures. The stale cache entry was already evicted.
+          // Ignore filesystem cleanup failures. The stale cache entry was already handled at the DB layer.
         }
       }
 
-      if (existing && !(await fileExists(existing.file_path))) {
+      if (existing && !safeExistingFilePath) {
+        try {
+          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+        } catch (error) {
+          incrementImageMetric('writeErrors');
+          request.log.warn({
+            msg: 'image_cache_delete_invalid_path_failed',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (existing && safeExistingFilePath && !(await fileExists(safeExistingFilePath))) {
         try {
           await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
         } catch (error) {
@@ -391,20 +411,31 @@ async function fileExists(filePath: string): Promise<boolean> {
 
 async function readCachedImageBytes(
   filePath: string,
-  expectedSizeBytes: number | null | undefined
+  expectedSizeBytes: number | null | undefined,
+  maxBytes: number
 ): Promise<Buffer | null> {
   try {
-    const bytes = await fsPromises.readFile(filePath);
+    const fileStat = await fsPromises.stat(filePath);
 
-    if (bytes.length === 0) {
+    if (!fileStat.isFile()) {
+      return null;
+    }
+
+    if (fileStat.size === 0 || fileStat.size > maxBytes) {
       return null;
     }
 
     if (
       Number.isInteger(expectedSizeBytes) &&
       expectedSizeBytes > 0 &&
-      bytes.length !== expectedSizeBytes
+      fileStat.size !== expectedSizeBytes
     ) {
+      return null;
+    }
+
+    const bytes = await fsPromises.readFile(filePath);
+
+    if (bytes.length !== fileStat.size) {
       return null;
     }
 
@@ -412,6 +443,18 @@ async function readCachedImageBytes(
   } catch {
     return null;
   }
+}
+
+function resolveManagedCacheFilePath(imageCacheDir: string, filePath: string): string | null {
+  const resolvedCacheDir = path.resolve(imageCacheDir);
+  const resolvedFilePath = path.resolve(filePath);
+  const relativePath = path.relative(resolvedCacheDir, resolvedFilePath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || relativePath.length === 0) {
+    return null;
+  }
+
+  return resolvedFilePath;
 }
 
 async function readResponseBytesWithLimit(

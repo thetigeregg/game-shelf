@@ -172,11 +172,7 @@ export async function registerImageProxyRoute(
           });
         }
 
-        try {
-          await fsPromises.unlink(safeExistingFilePath);
-        } catch {
-          // Ignore filesystem cleanup failures. The stale cache entry was already handled at the DB layer.
-        }
+        await removeCachePathBestEffort(safeExistingFilePath);
       }
 
       if (existing && !safeExistingFilePath) {
@@ -248,8 +244,22 @@ export async function registerImageProxyRoute(
       const extension = resolveFileExtension(contentType, sourceUrl);
       const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
 
-      await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
-      await fsPromises.writeFile(storagePath, bytes);
+      try {
+        await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
+        await fsPromises.writeFile(storagePath, bytes);
+      } catch (error) {
+        incrementImageMetric('writeErrors');
+        request.log.warn({
+          msg: 'image_cache_store_file_failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        reply.header('X-GameShelf-Image-Cache', 'MISS');
+        reply.header('Content-Type', contentType);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        reply.send(bytes);
+        return;
+      }
 
       try {
         await pool.query(
@@ -442,6 +452,14 @@ async function readCachedImageBytes(
     return bytes;
   } catch {
     return null;
+  }
+}
+
+async function removeCachePathBestEffort(filePath: string): Promise<void> {
+  try {
+    await fsPromises.rm(filePath, { recursive: true, force: true });
+  } catch {
+    // Ignore filesystem cleanup failures. DB metadata was already handled.
   }
 }
 

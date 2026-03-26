@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatSingleLineLogMessage } from './single-line-console.js';
+import { formatSingleLineLogMessage, installSingleLineConsole } from './single-line-console.js';
 
 function parseLog(level: string, args: unknown[]): Record<string, unknown> {
   const formatted = formatSingleLineLogMessage(level, args);
@@ -58,4 +58,32 @@ void test('formatSingleLineLogMessage truncates long strings and large arrays', 
   const items = payload['items'] as unknown[];
   assert.equal(items.length, 21);
   assert.equal(items[20], '[+5 more]');
+});
+
+void test('formatSingleLineLogMessage falls back to app/log for empty args', () => {
+  const payload = parseLog('info', []);
+  assert.equal(payload['service'], 'app');
+  assert.equal(payload['event'], 'log');
+  assert.equal(payload['level'], 'info');
+});
+
+void test('installSingleLineConsole is idempotent and preserves conflicting fields in args', () => {
+  const calls: string[] = [];
+  const stubConsole = {
+    info: (...args: unknown[]) => {
+      calls.push(String(args[0]));
+    },
+  } as unknown as Console;
+
+  const installed = installSingleLineConsole(stubConsole);
+  assert.equal(installed, stubConsole);
+  assert.equal(installSingleLineConsole(stubConsole), stubConsole);
+
+  stubConsole.info('[api] started', { service: 'shadow', event: 'nested' }, 'ok');
+
+  assert.equal(calls.length, 1);
+  const payload = JSON.parse(calls[0] ?? '{}') as Record<string, unknown>;
+  assert.equal(payload['service'], 'api');
+  assert.equal(payload['event'], 'started');
+  assert.deepEqual(payload['args'], [{ event: 'nested' }, { service: 'shadow' }, 'ok']);
 });

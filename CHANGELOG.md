@@ -2971,3 +2971,12 @@
 - cd41153d fix(dependencies): update @angular/cdk to version 21.2.4
 - c6a0c1b1 fix(dependencies): update Angular packages to version 21.2.6
 
+## v1.30.3 - 2026-03-26
+- 8d7eafd3 Merge pull request #288 from thetigeregg/feat/img
+- 05fd9a5b fix(image-cache): enhance symlink handling in image proxy and cache management
+- 459eda6d fix(api): harden managed image cache path handling
+- 51728685 fix(api): recover from corrupt image cache paths
+- b54205b9 fix(image-cache): improve file path handling and validation in image proxy
+- a6665cbc test(image-proxy): add test for handling unreadable cached assets
+- ed2e1ca2 fix(image-cache): enhance image proxy to handle truncated files and improve cache metrics
+

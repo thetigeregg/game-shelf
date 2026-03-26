@@ -706,10 +706,10 @@ describe('GameDetailContentComponent rating display', () => {
     expect(toLocaleDateStringSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('only eager-loads the first slide', () => {
+  it('preloads the active and next slides while gating later slides', () => {
     const component = createComponent();
     component.context = 'library';
-    component.game = makeLibraryGame({
+    const game = makeLibraryGame({
       coverUrl: 'https://img.example/cover.jpg',
       screenshots: [
         { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
@@ -717,11 +717,20 @@ describe('GameDetailContentComponent rating display', () => {
         { id: 4, imageId: 'shot-4', url: 'https://img.example/shot-4.jpg' },
       ],
     });
+    updateGame(component, game, undefined, true);
 
-    expect(component.shouldEagerLoadMediaSlide(0)).toBe(true);
-    expect(component.shouldEagerLoadMediaSlide(1)).toBe(false);
-    expect(component.shouldEagerLoadMediaSlide(2)).toBe(false);
-    expect(component.shouldEagerLoadMediaSlide(3)).toBe(false);
+    const slides = component.mediaSlides;
+    const [coverSlide, firstScreenshotSlide, secondScreenshotSlide, thirdScreenshotSlide] = slides;
+    expect(slides).toHaveLength(4);
+
+    expect(component.shouldLoadMediaSlide(coverSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(coverSlide)).toBe('https://img.example/cover.jpg');
+    expect(component.shouldLoadMediaSlide(firstScreenshotSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(firstScreenshotSlide)).toBe('https://img.example/shot-2.jpg');
+    expect(component.shouldLoadMediaSlide(secondScreenshotSlide)).toBe(false);
+    expect(component.getMediaSlideSrc(secondScreenshotSlide)).toBeNull();
+    expect(component.shouldLoadMediaSlide(thirdScreenshotSlide)).toBe(false);
+    expect(component.getMediaSlideSrc(thirdScreenshotSlide)).toBeNull();
   });
 
   it('destroys swiper and cancels queued refresh on destroy', () => {

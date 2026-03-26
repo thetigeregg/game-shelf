@@ -63,6 +63,7 @@ import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 import { DetailMediaSlideComponent } from './detail-media-slide.component';
 import { toDetailMediaRenderUrl } from './detail-media-url.utils';
+import { isDataOrBlobUrl } from '../../core/utils/image-url.utils';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
@@ -1128,8 +1129,12 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
         this.loadedMediaSlideKeys.add(slide.key);
         hasChanges = true;
       }
+    }
 
-      this.prefetchMediaSlide(slide);
+    const prefetchIndex = upperBound + 1;
+
+    if (prefetchIndex < slides.length) {
+      this.prefetchMediaSlide(slides[prefetchIndex]);
     }
 
     return hasChanges;
@@ -1145,6 +1150,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     if (
       !renderUrl ||
       slide.kind === 'placeholder' ||
+      isDataOrBlobUrl(renderUrl) ||
       this.prefetchedMediaSlideUrls.has(renderUrl)
     ) {
       return;

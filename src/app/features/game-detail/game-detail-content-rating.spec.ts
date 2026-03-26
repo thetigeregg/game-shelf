@@ -744,6 +744,71 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.getMediaSlideSrc(placeholderSlide)).toBe('');
   });
 
+  it('prefetches only the next slide outside the loadable window', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        decoding = '';
+
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          { id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' },
+          { id: 3, imageId: 'shot-3', url: 'https://img.example/shot-3.jpg' },
+          { id: 4, imageId: 'shot-4', url: 'https://img.example/shot-4.jpg' },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual(['https://img.example/shot-3.jpg']);
+  });
+
+  it('skips prefetch for data and blob slide urls', () => {
+    const component = createComponent();
+    component.context = 'library';
+    const prefetchedUrls: string[] = [];
+
+    vi.stubGlobal(
+      'Image',
+      class ImageMock {
+        decoding = '';
+
+        set src(value: string) {
+          prefetchedUrls.push(value);
+        }
+      }
+    );
+
+    updateGame(
+      component,
+      makeLibraryGame({
+        coverUrl: 'https://img.example/cover.jpg',
+        screenshots: [
+          { id: 2, imageId: 'shot-2', url: 'data:image/png;base64,AAA' },
+          { id: 3, imageId: 'shot-3', url: 'blob:https://example.com/shot-3' },
+        ],
+      }),
+      undefined,
+      true
+    );
+
+    expect(prefetchedUrls).toEqual([]);
+  });
+
   it('destroys swiper and cancels queued refresh on destroy', () => {
     const component = createComponent();
     component.context = 'library';

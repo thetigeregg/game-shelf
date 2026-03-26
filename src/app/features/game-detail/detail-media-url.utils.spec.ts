@@ -39,6 +39,6 @@ describe('detail-media-url utils', () => {
   it('does not proxy credential-bearing image urls', () => {
     expect(
       toDetailMediaRenderUrl('https://user:pass@images.igdb.com/igdb/image/upload/t_720p/hash.jpg')
-    ).toBe('https://user:pass@images.igdb.com/igdb/image/upload/t_720p_2x/hash.jpg');
+    ).toBeNull();
   });
 });

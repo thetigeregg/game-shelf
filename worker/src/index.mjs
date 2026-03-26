@@ -48,7 +48,9 @@ const websiteTypeCache = {
 let localRequestLimiter = null;
 let igdbOutboundLimiter = null;
 
-installSingleLineConsole();
+if (process.env.NODE_ENV !== 'test') {
+  installSingleLineConsole();
+}
 
 export function resetCaches() {
   tokenCache.accessToken = null;

@@ -164,6 +164,28 @@ void test('formatSingleLineLogMessage survives proxy getPrototypeOf traps', () =
   assert.equal(payload['hostileProxy'], '[object ProxyLike]');
 });
 
+void test('formatSingleLineLogMessage keeps logging non-throwing for enumerable getters that throw', () => {
+  const hostileObject: Record<string, unknown> = {};
+
+  Object.defineProperties(hostileObject, {
+    safe: {
+      enumerable: true,
+      value: 'ok',
+    },
+    broken: {
+      enumerable: true,
+      get() {
+        throw new Error('getter exploded');
+      },
+    },
+  });
+
+  const payload = parseLog('warn', ['[service] hostile_getter', hostileObject]);
+
+  assert.equal(payload['safe'], 'ok');
+  assert.equal(payload['broken'], '[Unserializable property: getter exploded]');
+});
+
 void test('formatSingleLineLogMessage truncates large objects without dropping retained keys', () => {
   const objectWithManyKeys = Object.fromEntries(
     Array.from({ length: 55 }, (_, index) => [`key${String(index)}`, index])

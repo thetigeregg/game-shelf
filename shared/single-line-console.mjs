@@ -155,7 +155,15 @@ function normalizeUnknown(value, seen, depth = 0) {
       }
 
       if (retainedKeyCount < MAX_OBJECT_KEYS) {
-        normalized[key] = normalizeUnknown(value[key], seen, depth + 1);
+        try {
+          normalized[key] = normalizeUnknown(value[key], seen, depth + 1);
+        } catch (error) {
+          const errorDescription =
+            error && typeof error === 'object' && 'message' in error
+              ? String(error.message)
+              : String(error);
+          normalized[key] = `[Unserializable property: ${sanitizeString(errorDescription)}]`;
+        }
         retainedKeyCount += 1;
       } else {
         omittedKeyCount += 1;

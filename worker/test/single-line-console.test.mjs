@@ -59,6 +59,13 @@ test('shared single-line console handles truncation, circular values, and fallba
   assert.equal(fallback.event, 'log');
 });
 
+test('shared single-line console preserves non-finite numbers as strings', () => {
+  const payload = parseLog('warn', ['[worker] numeric_edge_cases', { nan: Number.NaN }, Infinity]);
+
+  assert.equal(payload.nan, 'NaN');
+  assert.deepEqual(payload.args, ['Infinity']);
+});
+
 test('shared single-line console preserves string representations for non-plain objects', () => {
   const when = new Date('2026-03-26T12:34:56.000Z');
   const url = new URL('https://example.com/path?q=1');

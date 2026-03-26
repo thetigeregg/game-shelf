@@ -36,6 +36,21 @@ describe('detail-media-url utils', () => {
     );
   });
 
+  it('preserves retry parameters when deriving backdrop urls from proxied media urls', () => {
+    const proxiedRenderUrl = toDetailMediaRenderUrl(
+      'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg'
+    );
+
+    expect(proxiedRenderUrl).not.toBeNull();
+
+    const renderUrl = `${String(proxiedRenderUrl)}&_img_retry=12345`;
+
+    expect(toDetailMediaBackdropUrl(renderUrl)).toContain('_img_retry=12345');
+    expect(toDetailMediaBackdropUrl(renderUrl)).toContain(
+      encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_screenshot_med/hash.jpg')
+    );
+  });
+
   it('does not proxy credential-bearing image urls', () => {
     expect(
       toDetailMediaRenderUrl('https://user:pass@images.igdb.com/igdb/image/upload/t_720p/hash.jpg')

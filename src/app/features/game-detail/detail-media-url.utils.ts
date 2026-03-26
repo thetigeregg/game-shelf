@@ -32,7 +32,20 @@ export function toDetailMediaBackdropUrl(source: string | null | undefined): str
 
   const sourceUrl = extractProxiedSourceUrl(renderUrl);
   const optimizedSourceUrl = sourceUrl.replace(IGDB_SCREENSHOT_SIZE_PATTERN, '$1t_screenshot_med/');
-  return buildProxyImageUrl(optimizedSourceUrl, environment.gameApiBaseUrl);
+  const backdropUrl = buildProxyImageUrl(optimizedSourceUrl, environment.gameApiBaseUrl);
+  const retryParam = extractRetryParam(renderUrl);
+
+  if (!retryParam) {
+    return backdropUrl;
+  }
+
+  try {
+    const parsedBackdropUrl = new URL(backdropUrl, window.location.origin);
+    parsedBackdropUrl.searchParams.set('_img_retry', retryParam);
+    return parsedBackdropUrl.toString();
+  } catch {
+    return backdropUrl;
+  }
 }
 
 export function getDetailMediaPlaceholderSrc(): string {
@@ -47,5 +60,15 @@ function extractProxiedSourceUrl(url: string): string {
     return proxiedSourceUrl ? proxiedSourceUrl : url;
   } catch {
     return url;
+  }
+}
+
+function extractRetryParam(url: string): string | null {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const retryParam = parsed.searchParams.get('_img_retry');
+    return retryParam && retryParam.trim().length > 0 ? retryParam : null;
+  } catch {
+    return null;
   }
 }

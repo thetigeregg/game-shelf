@@ -28,6 +28,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === '[object Object]';
 }
 
+function createSafeRecord(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
 function stringifyNonPlainObject(value: object): string {
   const prototype = Object.getPrototypeOf(value) as { toString?: () => string } | null;
 
@@ -64,16 +68,25 @@ function normalizeUnknown(
   }
 
   if (value instanceof Error) {
-    return normalizeUnknown(
-      {
-        name: value.name,
-        message: value.message,
-        stack: value.stack,
-        cause: value.cause,
-      },
-      seen,
-      depth
-    );
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+
+    seen.add(value);
+    try {
+      return normalizeUnknown(
+        {
+          name: value.name,
+          message: value.message,
+          stack: value.stack,
+          cause: value.cause,
+        },
+        seen,
+        depth + 1
+      );
+    } finally {
+      seen.delete(value);
+    }
   }
 
   if (typeof value !== 'object') {
@@ -111,7 +124,7 @@ function normalizeUnknown(
     }
 
     const objectValue: Record<string, unknown> = value;
-    const normalized: Record<string, unknown> = {};
+    const normalized = createSafeRecord();
     const entries = Object.entries(objectValue).slice(0, MAX_OBJECT_KEYS);
 
     for (const [key, entryValue] of entries) {
@@ -130,10 +143,9 @@ function normalizeUnknown(
 }
 
 function buildEnvelope(level: string, args: unknown[]): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    ts: new Date().toISOString(),
-    level,
-  };
+  const payload = createSafeRecord();
+  payload['ts'] = new Date().toISOString();
+  payload['level'] = level;
   const normalizedArgs = args.map((value) => normalizeUnknown(value, new WeakSet()));
   const first = normalizedArgs[0];
   let argsStartIndex = 0;

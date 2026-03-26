@@ -28,6 +28,10 @@ function isPlainObject(value) {
   return Object.prototype.toString.call(value) === '[object Object]';
 }
 
+function createSafeRecord() {
+  return Object.create(null);
+}
+
 function normalizeUnknown(value, seen, depth = 0) {
   if (typeof value === 'string') {
     return sanitizeString(value);
@@ -50,16 +54,25 @@ function normalizeUnknown(value, seen, depth = 0) {
   }
 
   if (value instanceof Error) {
-    return normalizeUnknown(
-      {
-        name: value.name,
-        message: value.message,
-        stack: value.stack,
-        cause: value.cause,
-      },
-      seen,
-      depth
-    );
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+
+    seen.add(value);
+    try {
+      return normalizeUnknown(
+        {
+          name: value.name,
+          message: value.message,
+          stack: value.stack,
+          cause: value.cause,
+        },
+        seen,
+        depth + 1
+      );
+    } finally {
+      seen.delete(value);
+    }
   }
 
   if (typeof value !== 'object' || value === null) {
@@ -96,7 +109,7 @@ function normalizeUnknown(value, seen, depth = 0) {
       return sanitizeString(String(value));
     }
 
-    const normalized = {};
+    const normalized = createSafeRecord();
     const entries = Object.entries(value).slice(0, MAX_OBJECT_KEYS);
 
     for (const [key, entryValue] of entries) {
@@ -115,10 +128,9 @@ function normalizeUnknown(value, seen, depth = 0) {
 }
 
 function buildEnvelope(level, args) {
-  const payload = {
-    ts: new Date().toISOString(),
-    level,
-  };
+  const payload = createSafeRecord();
+  payload.ts = new Date().toISOString();
+  payload.level = level;
   const normalizedArgs = args.map((value) => normalizeUnknown(value, new WeakSet()));
   const first = normalizedArgs[0];
   let argsStartIndex = 0;

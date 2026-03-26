@@ -273,6 +273,15 @@ describe('game-list review actions', () => {
     expect(
       getDisplayCoverUrl(
         createGame({
+          customCoverUrl: '//images.example.com/custom-cover.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
+        })
+      )
+    ).toBe('https://images.example.com/custom-cover.jpg');
+
+    expect(
+      getDisplayCoverUrl(
+        createGame({
           customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
           coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg',
         })

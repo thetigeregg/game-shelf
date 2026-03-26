@@ -40,8 +40,14 @@ export function toDetailMediaBackdropUrl(source: string | null | undefined): str
   }
 
   try {
+    const isRelativeBackdropUrl = !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(backdropUrl);
     const parsedBackdropUrl = new URL(backdropUrl, window.location.origin);
     parsedBackdropUrl.searchParams.set('_img_retry', retryParam);
+
+    if (isRelativeBackdropUrl) {
+      return `${parsedBackdropUrl.pathname}${parsedBackdropUrl.search}${parsedBackdropUrl.hash}`;
+    }
+
     return parsedBackdropUrl.toString();
   } catch {
     return backdropUrl;
@@ -67,7 +73,13 @@ function extractRetryParam(url: string): string | null {
   try {
     const parsed = new URL(url, window.location.origin);
     const retryParam = parsed.searchParams.get('_img_retry');
-    return retryParam && retryParam.trim().length > 0 ? retryParam : null;
+
+    if (!retryParam) {
+      return null;
+    }
+
+    const trimmedRetryParam = retryParam.trim();
+    return trimmedRetryParam.length > 0 ? trimmedRetryParam : null;
   } catch {
     return null;
   }

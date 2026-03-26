@@ -59,6 +59,25 @@ test('shared single-line console handles truncation, circular values, and fallba
   assert.equal(fallback.event, 'log');
 });
 
+test('shared single-line console only marks true cycles and keeps own prototype-named keys', () => {
+  const repeated = { value: 'shared' };
+  const payload = parseLog('info', [
+    '[worker] repeated_refs',
+    {
+      first: repeated,
+      second: repeated,
+      constructor: 'allowed',
+      toString: 'also-allowed',
+    },
+  ]);
+
+  assert.deepEqual(payload.first, { value: 'shared' });
+  assert.deepEqual(payload.second, { value: 'shared' });
+  assert.equal(payload.constructor, 'allowed');
+  assert.equal(payload.toString, 'also-allowed');
+  assert.equal(payload.args, undefined);
+});
+
 test('shared single-line console preserves non-finite numbers as strings', () => {
   const payload = parseLog('warn', ['[worker] numeric_edge_cases', { nan: Number.NaN }, Infinity]);
 

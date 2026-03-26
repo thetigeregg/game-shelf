@@ -45,6 +45,25 @@ void test('formatSingleLineLogMessage handles circular references and nullish va
   assert.equal(payload['self'], '[Circular]');
 });
 
+void test('formatSingleLineLogMessage only marks true cycles and keeps own prototype-named keys', () => {
+  const repeated = { value: 'shared' };
+  const payload = parseLog('info', [
+    '[service] repeated_refs',
+    {
+      first: repeated,
+      second: repeated,
+      constructor: 'allowed',
+      toString: 'also-allowed',
+    },
+  ]);
+
+  assert.deepEqual(payload['first'], { value: 'shared' });
+  assert.deepEqual(payload['second'], { value: 'shared' });
+  assert.equal(payload['constructor'], 'allowed');
+  assert.equal(payload['toString'], 'also-allowed');
+  assert.equal(payload['args'], undefined);
+});
+
 void test('formatSingleLineLogMessage preserves non-finite numbers as strings', () => {
   const payload = parseLog('warn', ['[service] numeric_edge_cases', { nan: Number.NaN }, Infinity]);
 

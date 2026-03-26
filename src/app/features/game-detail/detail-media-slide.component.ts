@@ -1,4 +1,9 @@
 import { Component, Input } from '@angular/core';
+import {
+  getDetailMediaPlaceholderSrc,
+  toDetailMediaBackdropUrl,
+  toDetailMediaRenderUrl,
+} from './detail-media-url.utils';
 
 @Component({
   selector: 'app-detail-media-slide',
@@ -7,22 +12,50 @@ import { Component, Input } from '@angular/core';
   standalone: true,
 })
 export class DetailMediaSlideComponent {
-  private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
+  private static readonly PLACEHOLDER_SRC = getDetailMediaPlaceholderSrc();
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
-  private static readonly IGDB_SCREENSHOT_SIZE_PATTERN =
-    /(\/igdb\/image\/upload\/)t_(?:screenshot_(?:med|big|huge)|720p|1080p)(?:_2x)?\//;
+  private requestedImageSrc: string | null = null;
+  private imageLoadSettled = false;
   @Input() src: string | null | undefined;
   @Input() alt = '';
-  @Input() loading: 'eager' | 'lazy' = 'eager';
+  @Input() shouldLoad = true;
   @Input() showPreloader = false;
 
-  get displaySrc(): string {
-    const value = typeof this.src === 'string' ? this.src.trim() : '';
-    return value.length > 0 ? value : DetailMediaSlideComponent.PLACEHOLDER_SRC;
+  get displaySrc(): string | null {
+    if (!this.shouldLoad) {
+      return null;
+    }
+
+    return toDetailMediaRenderUrl(this.src) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
   }
 
-  get displayBackdropSrc(): string {
-    return this.buildBackdropSrc(this.displaySrc);
+  get displayBackdropSrc(): string | null {
+    if (!this.shouldLoad) {
+      return null;
+    }
+
+    return toDetailMediaBackdropUrl(this.src) ?? DetailMediaSlideComponent.PLACEHOLDER_SRC;
+  }
+
+  get displayBackdropStyle(): string | null {
+    return this.displayBackdropSrc ? `url(${this.displayBackdropSrc})` : null;
+  }
+
+  get shouldShowPreloader(): boolean {
+    const displaySrc = this.displaySrc;
+
+    if (!this.showPreloader || !this.shouldLoad || !displaySrc) {
+      return false;
+    }
+
+    const normalizedDisplaySrc = this.normalizeComparableSrc(displaySrc);
+
+    if (this.requestedImageSrc !== normalizedDisplaySrc) {
+      this.requestedImageSrc = normalizedDisplaySrc;
+      this.imageLoadSettled = false;
+    }
+
+    return !this.imageLoadSettled;
   }
 
   onImageLoad(event: Event): void {
@@ -30,6 +63,7 @@ export class DetailMediaSlideComponent {
 
     if (target instanceof HTMLImageElement) {
       target.dataset[DetailMediaSlideComponent.RETRY_DATASET_KEY] = '';
+      this.markImageSettled(target.currentSrc || target.src || this.displaySrc);
     }
   }
 
@@ -40,6 +74,7 @@ export class DetailMediaSlideComponent {
       const currentSrc = (target.currentSrc || target.src || '').trim();
 
       if (currentSrc.includes(DetailMediaSlideComponent.PLACEHOLDER_SRC)) {
+        this.markImageSettled(currentSrc);
         return;
       }
 
@@ -50,12 +85,14 @@ export class DetailMediaSlideComponent {
         const retrySrc = this.buildRetryImageSrc(currentSrc);
 
         if (retrySrc) {
+          this.markImagePending(retrySrc);
           target.src = retrySrc;
           return;
         }
       }
 
       target.src = DetailMediaSlideComponent.PLACEHOLDER_SRC;
+      this.markImageSettled(DetailMediaSlideComponent.PLACEHOLDER_SRC);
     }
   }
 
@@ -79,20 +116,37 @@ export class DetailMediaSlideComponent {
     }
   }
 
-  private buildBackdropSrc(source: string): string {
-    const normalized = source.trim();
+  private markImagePending(source: string | null | undefined): void {
+    const normalized = this.normalizeComparableSrc(source);
 
-    if (normalized.length === 0) {
-      return DetailMediaSlideComponent.PLACEHOLDER_SRC;
+    if (!normalized) {
+      return;
     }
 
-    if (DetailMediaSlideComponent.IGDB_SCREENSHOT_SIZE_PATTERN.test(normalized)) {
-      return normalized.replace(
-        DetailMediaSlideComponent.IGDB_SCREENSHOT_SIZE_PATTERN,
-        '$1t_screenshot_med/'
-      );
+    this.imageLoadSettled = false;
+  }
+
+  private markImageSettled(source: string | null | undefined): void {
+    const normalized = this.normalizeComparableSrc(source);
+
+    if (!normalized) {
+      return;
     }
 
-    return normalized;
+    this.imageLoadSettled = true;
+  }
+
+  private normalizeComparableSrc(source: string | null | undefined): string | null {
+    const normalized = typeof source === 'string' ? source.trim() : '';
+
+    if (!normalized) {
+      return null;
+    }
+
+    try {
+      return new URL(normalized, window.location.origin).toString();
+    } catch {
+      return normalized;
+    }
   }
 }

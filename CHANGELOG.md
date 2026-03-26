@@ -2941,3 +2941,8 @@
 - b03ca6da feat: add test for applying selected image via custom cover path in game-list
 - 1c977cce feat: support custom cover URLs in sync operations and repository handling
 
+## v1.29.0 - 2026-03-26
+- 82e8755d Merge pull request #285 from thetigeregg/feat/rtas
+- afc5530c fix(game-list): avoid non-PTAS price preference recomputes
+- e13cc77e feat: add price preference service and integrate into game filtering
+

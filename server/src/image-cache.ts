@@ -94,10 +94,13 @@ export async function registerImageProxyRoute(
 
           deleted += 1;
 
-          try {
-            await fsPromises.unlink(existing.file_path);
-          } catch {
-            // Ignore filesystem cleanup failures. DB metadata is already removed.
+          const safeExistingFilePath = resolveManagedCacheCleanupPath(
+            imageCacheDir,
+            existing.file_path
+          );
+
+          if (safeExistingFilePath) {
+            await removeCachePathBestEffort(safeExistingFilePath);
           }
         } catch {
           continue;
@@ -243,10 +246,21 @@ export async function registerImageProxyRoute(
 
       const extension = resolveFileExtension(contentType, sourceUrl);
       const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
+      const safeStoragePath = resolveManagedCacheCleanupPath(imageCacheDir, storagePath);
+
+      if (!safeStoragePath) {
+        incrementImageMetric('writeErrors');
+        reply.header('X-GameShelf-Image-Cache', 'MISS');
+        reply.header('Content-Type', contentType);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        reply.send(bytes);
+        return;
+      }
 
       try {
-        await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
-        await fsPromises.writeFile(storagePath, bytes);
+        await fsPromises.mkdir(path.dirname(safeStoragePath), { recursive: true });
+        await removeCachePathBestEffort(safeStoragePath);
+        await fsPromises.writeFile(safeStoragePath, bytes);
       } catch (error) {
         incrementImageMetric('writeErrors');
         request.log.warn({
@@ -274,7 +288,7 @@ export async function registerImageProxyRoute(
             size_bytes = EXCLUDED.size_bytes,
             updated_at = NOW()
           `,
-          [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
+          [cacheKey, sourceUrl, contentType, safeStoragePath, bytes.length]
         );
         incrementImageMetric('writes');
       } catch (error) {
@@ -464,6 +478,33 @@ async function removeCachePathBestEffort(filePath: string): Promise<void> {
 }
 
 function resolveManagedCacheFilePath(imageCacheDir: string, filePath: string): string | null {
+  const resolvedCacheDir = path.resolve(imageCacheDir);
+  const resolvedFilePath = path.resolve(filePath);
+  let realCacheDirPath = resolvedCacheDir;
+  let realFilePath = resolvedFilePath;
+
+  try {
+    realCacheDirPath = fs.realpathSync.native(resolvedCacheDir);
+  } catch {
+    // Fall back to the intended cache dir when it has not been created yet.
+  }
+
+  try {
+    realFilePath = fs.realpathSync.native(resolvedFilePath);
+  } catch {
+    // Fall back to the intended file path when the file does not exist yet.
+  }
+
+  const relativePath = path.relative(realCacheDirPath, realFilePath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || relativePath.length === 0) {
+    return null;
+  }
+
+  return resolvedFilePath;
+}
+
+function resolveManagedCacheCleanupPath(imageCacheDir: string, filePath: string): string | null {
   const resolvedCacheDir = path.resolve(imageCacheDir);
   const resolvedFilePath = path.resolve(filePath);
   const relativePath = path.relative(resolvedCacheDir, resolvedFilePath);

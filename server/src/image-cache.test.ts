@@ -496,6 +496,58 @@ void test('Image proxy removes corrupt cache directories before refetching and r
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
+void test('Image proxy rejects symlink escapes from the managed cache directory', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-symlink-test-'));
+  const externalDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-external-test-'));
+  const sourceUrl = 'https://cdn.thegamesdb.net/images/large/boxart/front/18866-1.jpg';
+  const encoded = encodeURIComponent(sourceUrl);
+  const pool = new ImagePoolMock();
+  let fetchCalls = 0;
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(fetchCalls, 1);
+
+  const cacheSubdirs = await fs.readdir(tempDir);
+  assert.equal(cacheSubdirs.length, 1);
+  const cacheFiles = await fs.readdir(path.join(tempDir, cacheSubdirs[0]));
+  assert.equal(cacheFiles.length, 1);
+  const cacheFilePath = path.join(tempDir, cacheSubdirs[0], cacheFiles[0]);
+  const externalFilePath = path.join(externalDir, 'escaped.jpg');
+
+  await fs.writeFile(externalFilePath, Buffer.from([1, 2, 3, 4, 5]));
+  await fs.rm(cacheFilePath, { force: true });
+  await fs.symlink(externalFilePath, cacheFilePath);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encoded}`,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.deepEqual(await fs.readFile(externalFilePath), Buffer.from([1, 2, 3, 4, 5]));
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+  await fs.rm(externalDir, { recursive: true, force: true });
+});
+
 void test('Image proxy refetches cached assets when the stored file cannot be read', async () => {
   resetCacheMetrics();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-unreadable-file-test-'));
@@ -538,6 +590,47 @@ void test('Image proxy refetches cached assets when the stored file cannot be re
 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+void test('Image purge only removes files contained in the managed cache directory', async () => {
+  resetCacheMetrics();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-safe-test-'));
+  const externalDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'gs-image-cache-purge-external-test-')
+  );
+  const sourceUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/purge-safe.jpg';
+  const pool = new ImagePoolMock();
+
+  const app = Fastify();
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: () =>
+      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      }),
+  });
+
+  await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encodeURIComponent(sourceUrl)}`,
+  });
+
+  const externalFilePath = path.join(externalDir, 'keep-me.jpg');
+  await fs.writeFile(externalFilePath, Buffer.from([9, 8, 7, 6]));
+  pool.setSingleCachedFilePath(externalFilePath);
+
+  const purge = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [sourceUrl] },
+  });
+  assert.equal(purge.statusCode, 200);
+  assert.deepEqual(purge.json(), { deleted: 1 });
+  assert.deepEqual(await fs.readFile(externalFilePath), Buffer.from([9, 8, 7, 6]));
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+  await fs.rm(externalDir, { recursive: true, force: true });
 });
 
 void test('Image proxy ignores cached file metadata outside the managed cache directory', async () => {

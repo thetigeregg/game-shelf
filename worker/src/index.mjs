@@ -12,6 +12,7 @@ import {
   parseRetryAfterSeconds as parseSharedRetryAfterSeconds,
   ProviderThrottleError,
 } from '../../shared/provider-rate-limit.mjs';
+import { installSingleLineConsole } from '../../shared/single-line-console.mjs';
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS = 20;
@@ -46,6 +47,8 @@ const websiteTypeCache = {
 };
 let localRequestLimiter = null;
 let igdbOutboundLimiter = null;
+
+installSingleLineConsole();
 
 export function resetCaches() {
   tokenCache.accessToken = null;

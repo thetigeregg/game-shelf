@@ -34,6 +34,7 @@ import {
   RecommendationTarget,
 } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
+import { installSingleLineConsole } from './single-line-console.js';
 import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
@@ -42,6 +43,8 @@ const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT'
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const POPULARITY_PRIMITIVE_LIMIT = 500;
+
+installSingleLineConsole();
 
 interface PricingRefreshCandidateRow extends QueryResultRow {
   igdb_game_id: string;

@@ -49,6 +49,7 @@ test('shared single-line console handles truncation, circular values, and fallba
   assert.equal(payload.event, 'event');
   assert.equal(payload.circular.self, '[Circular]');
   assert.match(String(payload.huge), /\.\.\.\[truncated\]$/);
+  assert.equal(String(payload.huge).length, 2000);
   assert.equal(payload.items.length, 21);
   assert.equal(payload.items[20], '[+5 more]');
   assert.equal(payload.manyKeys.__truncatedKeys, 5);
@@ -56,6 +57,19 @@ test('shared single-line console handles truncation, circular values, and fallba
   const fallback = parseLog('info', null);
   assert.equal(fallback.service, 'app');
   assert.equal(fallback.event, 'log');
+});
+
+test('shared single-line console preserves string representations for non-plain objects', () => {
+  const when = new Date('2026-03-26T12:34:56.000Z');
+  const url = new URL('https://example.com/path?q=1');
+  const map = new Map([['key', 'value']]);
+  const set = new Set(['alpha', 'beta']);
+  const payload = parseLog('info', ['[worker] objects', { when, url, map, set }]);
+
+  assert.equal(payload.when, String(when));
+  assert.equal(payload.url, String(url));
+  assert.equal(payload.map, String(map));
+  assert.equal(payload.set, String(set));
 });
 
 test('shared single-line console installation wraps supported methods once', () => {

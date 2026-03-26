@@ -11,9 +11,13 @@ function sanitizeLineBreaks(value) {
 }
 
 function truncateString(value) {
-  return value.length <= MAX_STRING_LENGTH
-    ? value
-    : `${value.slice(0, MAX_STRING_LENGTH)}${TRUNCATED_SUFFIX}`;
+  if (value.length <= MAX_STRING_LENGTH) {
+    return value;
+  }
+
+  const availableForContent = Math.max(0, MAX_STRING_LENGTH - TRUNCATED_SUFFIX.length);
+
+  return `${value.slice(0, availableForContent)}${TRUNCATED_SUFFIX}`;
 }
 
 function sanitizeString(value) {
@@ -87,6 +91,10 @@ function normalizeUnknown(value, seen, depth = 0) {
     }
 
     return normalizedItems;
+  }
+
+  if (!isPlainObject(value)) {
+    return sanitizeString(String(value));
   }
 
   const normalized = {};

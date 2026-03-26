@@ -162,6 +162,16 @@ declare module '../../../shared/provider-rate-limit.mjs' {
   ): ProviderLimiter;
 }
 
+declare module '../../shared/single-line-console.mjs' {
+  export function formatSingleLineLogMessage(level: string, args: unknown[] | null): string;
+  export function installSingleLineConsole(consoleObject?: Console): Console;
+}
+
+declare module '../../../shared/single-line-console.mjs' {
+  export function formatSingleLineLogMessage(level: string, args: unknown[] | null): string;
+  export function installSingleLineConsole(consoleObject?: Console): Console;
+}
+
 declare module '*.mjs' {
   export function handleRequest(
     request: Request,

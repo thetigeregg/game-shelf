@@ -109,6 +109,7 @@ describe('DetailMediaSlideComponent', () => {
   it('retries once with cache-busted URL, then falls back to placeholder', () => {
     const component = createComponent();
     const image = document.createElement('img');
+    component.src = 'https://images.igdb.com/igdb/image/upload/t_720p/hash.jpg';
     Object.defineProperty(image, 'currentSrc', {
       value: 'https://example.com/cover.jpg',
       configurable: true,
@@ -118,6 +119,7 @@ describe('DetailMediaSlideComponent', () => {
     expect(image.dataset.detailRetryAttempted).toBe('1');
     expect(image.src).toContain('https://example.com/cover.jpg');
     expect(image.src).toContain('_img_retry=');
+    expect(component.displayBackdropSrc).toContain('_img_retry=');
 
     component.onImageError({ target: image } as unknown as Event);
     expect(image.src).toContain('assets/icon/placeholder.png');

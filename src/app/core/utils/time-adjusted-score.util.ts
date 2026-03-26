@@ -34,6 +34,35 @@ export function calculateTimeAdjustedScore(
   return Math.round(value * 100) / 100;
 }
 
+export function calculatePriceAdjustedTimeAdjustedScore(
+  normalizedScore: number,
+  hours: number,
+  timePreference: number,
+  price: number,
+  pricePreference: number
+): number | null {
+  if (!Number.isFinite(price) || !Number.isFinite(pricePreference)) {
+    return null;
+  }
+
+  const tas = calculateTimeAdjustedScore(normalizedScore, hours, timePreference);
+
+  if (tas === null) {
+    return null;
+  }
+
+  const safePrice = Math.max(0, price);
+  const safePricePreference = Math.max(1, pricePreference);
+  const pricePenalty = 1 + Math.log2(safePrice + 1) / safePricePreference;
+  const value = tas / pricePenalty;
+
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.round(value * 100) / 100;
+}
+
 export function resolveTimeAdjustedScoreForGame(
   game: GameEntry,
   timePreference: number
@@ -51,6 +80,38 @@ export function resolveTimeAdjustedScoreForGame(
   }
 
   return calculateTimeAdjustedScore(normalizedCriticScore, effectiveHltbHours, timePreference);
+}
+
+export function resolvePriceAdjustedTimeAdjustedScoreForGame(
+  game: GameEntry,
+  timePreference: number,
+  pricePreference: number
+): number | null {
+  const normalizedCriticScore = resolveNormalizedCriticScoreForGame(game);
+
+  if (normalizedCriticScore === null) {
+    return null;
+  }
+
+  const effectiveHltbHours = resolveEffectiveHltbHours(game);
+
+  if (effectiveHltbHours === null) {
+    return null;
+  }
+
+  const effectivePrice = resolveEffectivePriceForGame(game);
+
+  if (effectivePrice === null) {
+    return null;
+  }
+
+  return calculatePriceAdjustedTimeAdjustedScore(
+    normalizedCriticScore,
+    effectiveHltbHours,
+    timePreference,
+    effectivePrice,
+    pricePreference
+  );
 }
 
 export function resolveEffectiveHltbHours(game: GameEntry): number | null {
@@ -92,10 +153,26 @@ export function resolveNormalizedCriticScoreForGame(game: GameEntry): number | n
   return Math.round(normalizedScore * 10) / 10;
 }
 
+export function resolveEffectivePriceForGame(game: GameEntry): number | null {
+  if (game.priceIsFree === true) {
+    return 0;
+  }
+
+  return normalizePriceCandidate(game.priceAmount);
+}
+
 function normalizeHoursCandidate(value: number | null | undefined): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return null;
   }
 
   return Math.round(value * 10) / 10;
+}
+
+function normalizePriceCandidate(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return Math.round(value * 100) / 100;
 }

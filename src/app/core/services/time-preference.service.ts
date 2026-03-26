@@ -8,7 +8,7 @@ export class TimePreferenceService {
   private static readonly DEFAULT_TIME_PREFERENCE = 15;
   private static readonly MIN_TIME_PREFERENCE = 5;
   private static readonly MAX_TIME_PREFERENCE = 100;
-  private readonly preferenceSubject = new BehaviorSubject<number>(this.loadFromStorage());
+  private readonly preferenceSubject = new BehaviorSubject(this.loadFromStorage());
   readonly timePreference$ = this.preferenceSubject.asObservable();
 
   getTimePreference(): number {

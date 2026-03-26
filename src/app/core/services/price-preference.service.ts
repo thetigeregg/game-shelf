@@ -8,7 +8,7 @@ export class PricePreferenceService {
   private static readonly DEFAULT_PRICE_PREFERENCE = 10;
   private static readonly MIN_PRICE_PREFERENCE = 5;
   private static readonly MAX_PRICE_PREFERENCE = 100;
-  private readonly preferenceSubject = new BehaviorSubject<number>(this.loadFromStorage());
+  private readonly preferenceSubject = new BehaviorSubject(this.loadFromStorage());
   readonly pricePreference$ = this.preferenceSubject.asObservable();
 
   getPricePreference(): number {

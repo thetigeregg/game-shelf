@@ -502,11 +502,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
-  private readonly filters$ = new BehaviorSubject<GameListFilters>({
+  private readonly filters$ = new BehaviorSubject({
     ...DEFAULT_GAME_LIST_FILTERS,
   });
   private readonly listType$ = new BehaviorSubject<ListType | null>(null);
-  private readonly searchQuery$ = new BehaviorSubject<string>('');
+  private readonly searchQuery$ = new BehaviorSubject('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
   @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;

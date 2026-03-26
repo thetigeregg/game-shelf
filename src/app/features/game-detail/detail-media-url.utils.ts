@@ -77,6 +77,10 @@ function toProxyEligibleImageUrl(sourceUrl: string): string | null {
       return null;
     }
 
+    if (parsed.username.length > 0 || parsed.password.length > 0) {
+      return null;
+    }
+
     const hostname = parsed.hostname.toLowerCase();
     const isTheGamesDb =
       hostname === THE_GAMES_DB_HOST && parsed.pathname.startsWith(THE_GAMES_DB_PATH_PREFIX);

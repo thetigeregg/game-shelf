@@ -488,10 +488,18 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   shouldLoadMediaSlide(slide: DetailMediaSlide): boolean {
+    if (slide.kind === 'placeholder') {
+      return true;
+    }
+
     return this.loadedMediaSlideKeys.has(slide.key);
   }
 
   getMediaSlideSrc(slide: DetailMediaSlide): string | null {
+    if (slide.kind === 'placeholder') {
+      return slide.src;
+    }
+
     return this.shouldLoadMediaSlide(slide) ? slide.src : null;
   }
 

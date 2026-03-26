@@ -733,6 +733,17 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.getMediaSlideSrc(thirdScreenshotSlide)).toBeNull();
   });
 
+  it('keeps placeholder slides loadable when no media exists', () => {
+    const component = createComponent();
+    component.context = 'library';
+    updateGame(component, makeLibraryGame(), undefined, true);
+
+    const [placeholderSlide] = component.mediaSlides;
+
+    expect(component.shouldLoadMediaSlide(placeholderSlide)).toBe(true);
+    expect(component.getMediaSlideSrc(placeholderSlide)).toBe('');
+  });
+
   it('destroys swiper and cancels queued refresh on destroy', () => {
     const component = createComponent();
     component.context = 'library';

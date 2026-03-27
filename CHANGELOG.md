@@ -3008,3 +3008,7 @@
 - b30881cb fix(dependencies): remove unused packages from package.json and package-lock.json
 - b15e4a38 feat(logging): implement single line console logging across multiple modules
 
+## v1.31.1 - 2026-03-27
+- e7b4f8c8 Merge pull request #291 from thetigeregg/dependabot/npm_and_yarn/server/multi-3e7317fefa
+- 02713b93 chore(deps): bump brace-expansion and google-auth-library in /server
+

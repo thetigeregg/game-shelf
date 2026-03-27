@@ -3012,3 +3012,7 @@
 - e7b4f8c8 Merge pull request #291 from thetigeregg/dependabot/npm_and_yarn/server/multi-3e7317fefa
 - 02713b93 chore(deps): bump brace-expansion and google-auth-library in /server
 
+## v1.31.2 - 2026-03-27
+- dadcfabf Merge pull request #292 from thetigeregg/dependabot/npm_and_yarn/server/node-forge-1.4.0
+- 9c51f304 chore(deps): bump node-forge from 1.3.3 to 1.4.0 in /server
+

@@ -3020,3 +3020,10 @@
 - bd1cc60f Merge pull request #301 from thetigeregg/dependabot/github_actions/codecov/codecov-action-6
 - 03e143b6 chore(ci): bump codecov/codecov-action from 5 to 6
 
+## v1.31.4 - 2026-03-30
+- b1fca4ef Merge pull request #302 from thetigeregg/feat/bump
+- 1cb91635 Merge branch 'main' into feat/bump
+- 0245965b chore(deps): update path-to-regexp to version 8.4.0 in server package-lock.json
+- 56a33cb0 chore(deps): update dependencies to latest versions
+- 235ecc86 chore(deps): bump @angular dependencies to version 21.2.5
+

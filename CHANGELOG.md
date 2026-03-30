@@ -3035,3 +3035,8 @@
 - 1f0f9dab feat: remove runtime status banner and implement tailnet alert handling
 - 4a47bae1 feat: add runtime availability service and banner message for network status
 
+## v1.32.1 - 2026-03-30
+- 4a66f817 Merge pull request #295 from thetigeregg/dependabot/npm_and_yarn/server/typescript-6.0.2
+- adb1f0e1 Merge branch 'main' into dependabot/npm_and_yarn/server/typescript-6.0.2
+- 42895689 chore(deps): bump typescript from 5.9.3 to 6.0.2 in /server
+

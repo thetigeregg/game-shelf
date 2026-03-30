@@ -305,4 +305,113 @@ describe('AppDb', () => {
 
     db.close();
   });
+
+  it('backfills and normalizes enteredCollectionAt on v11 upgrade', async () => {
+    const legacy = new Dexie(dbName);
+    legacy.version(10).stores({
+      games:
+        '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt',
+    });
+    await legacy.open();
+    await legacy.table('games').bulkAdd([
+      {
+        igdbGameId: '401',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Collection Legacy',
+        platform: 'Nintendo Switch',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '402',
+        platformIgdbId: 130,
+        listType: 'wishlist',
+        title: 'Wishlist Legacy',
+        platform: 'Nintendo Switch',
+        createdAt: '2024-02-01T00:00:00.000Z',
+        updatedAt: '2024-02-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '403',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Trim Existing Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: ' 2024-03-01T00:00:00.000Z ',
+        createdAt: '2024-03-02T00:00:00.000Z',
+        updatedAt: '2024-03-02T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '404',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Blank Existing Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: '   ',
+        createdAt: '2024-04-01T00:00:00.000Z',
+        updatedAt: '2024-04-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '405',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Invalid Existing Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: ' definitely-not-a-date ',
+        createdAt: '2024-05-01T00:00:00.000Z',
+        updatedAt: '2024-05-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '406',
+        platformIgdbId: 130,
+        listType: 'wishlist',
+        title: 'Explicit Null Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: null,
+        createdAt: '2024-06-01T00:00:00.000Z',
+        updatedAt: '2024-06-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '407',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Missing Created Timestamp',
+        platform: 'Nintendo Switch',
+        createdAt: '   ',
+        updatedAt: '2024-07-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '408',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Invalid Created Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: 'not-a-date',
+        createdAt: 'still-not-a-date',
+        updatedAt: '2024-08-01T00:00:00.000Z',
+      },
+    ]);
+    legacy.close();
+
+    const db = new AppDb();
+    await db.open();
+    const games = await db.games.orderBy('igdbGameId').toArray();
+
+    expect(games[0].enteredCollectionAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(games[1].enteredCollectionAt).toBeNull();
+    expect(games[2].enteredCollectionAt).toBe('2024-03-01T00:00:00.000Z');
+    expect(games[3].enteredCollectionAt).toBe('2024-04-01T00:00:00.000Z');
+    expect(games[4].enteredCollectionAt).toBe('2024-05-01T00:00:00.000Z');
+    expect(games[5].enteredCollectionAt).toBeNull();
+    expect(games[6].enteredCollectionAt).toBeNull();
+    expect(games[7].enteredCollectionAt).toBeNull();
+
+    db.close();
+  });
 });

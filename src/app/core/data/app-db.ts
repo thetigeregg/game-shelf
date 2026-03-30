@@ -244,6 +244,49 @@ export class AppDb extends Dexie {
               normalized > 0 && normalized <= 10 ? Math.round(normalized * 10) / 10 : null;
           });
       });
+
+    this.version(11)
+      .stores({
+        games:
+          '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt,enteredCollectionAt',
+        tags: '++id,&name,createdAt,updatedAt',
+        views: '++id,listType,name,updatedAt,createdAt',
+        imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+        outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+        syncMeta: '&key,updatedAt',
+      })
+      .upgrade((tx) => {
+        return tx
+          .table('games')
+          .toCollection()
+          .modify((game: Record<string, unknown>) => {
+            const existingEnteredCollectionAt = game['enteredCollectionAt'];
+
+            if (typeof existingEnteredCollectionAt === 'string') {
+              const normalized = existingEnteredCollectionAt.trim();
+              if (normalized.length > 0 && !Number.isNaN(Date.parse(normalized))) {
+                game['enteredCollectionAt'] = normalized;
+                return;
+              }
+
+              game['enteredCollectionAt'] = null;
+            }
+
+            if (existingEnteredCollectionAt === null) {
+              return;
+            }
+
+            const createdAt =
+              typeof game['createdAt'] === 'string' &&
+              game['createdAt'].trim().length > 0 &&
+              !Number.isNaN(Date.parse(game['createdAt'].trim()))
+                ? game['createdAt'].trim()
+                : null;
+            const listType = game['listType'] === 'wishlist' ? 'wishlist' : 'collection';
+
+            game['enteredCollectionAt'] = listType === 'collection' ? createdAt : null;
+          });
+      });
   }
 }
 

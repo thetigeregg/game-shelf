@@ -292,6 +292,9 @@
         <ng-template>
           <ion-content>
             <ion-list lines="none">
+              <ion-item button detail="false" (click)="moveSelectedGameFromPopover()">
+                Move to {{ getOtherListLabel() }}
+              </ion-item>
               <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
                 Customize
               </ion-item>

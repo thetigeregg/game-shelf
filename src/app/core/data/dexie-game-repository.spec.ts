@@ -403,6 +403,23 @@ describe('DexieGameRepository', () => {
     expect(movedToCollectionAgain.enteredCollectionAt).not.toBe(firstCollectionTimestamp);
   });
 
+  it('preserves enteredCollectionAt when moving to the same list', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const originalEnteredCollectionAt = created.enteredCollectionAt;
+
+    await repository.moveToList('101', 18, 'collection');
+    const stillInCollection = requireValue(await repository.exists('101', 18));
+    expect(stillInCollection.enteredCollectionAt).toBe(originalEnteredCollectionAt);
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const movedToWishlist = requireValue(await repository.exists('101', 18));
+    expect(movedToWishlist.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const stillInWishlist = requireValue(await repository.exists('101', 18));
+    expect(stillInWishlist.enteredCollectionAt).toBeNull();
+  });
+
   it('preserves enteredCollectionAt on catalog refreshes and supports imported timestamp overrides', async () => {
     const created = await repository.upsertFromCatalog(mario, 'collection');
     const originalEnteredCollectionAt = created.enteredCollectionAt;

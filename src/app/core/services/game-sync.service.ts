@@ -679,15 +679,18 @@ export class GameSyncService implements SyncOutboxWriter {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : 'Unknown platform';
+    const normalizedListType = payload.listType === 'wishlist' ? 'wishlist' : 'collection';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
     let enteredCollectionAt: string | null = null;
 
     if (payload.enteredCollectionAt !== undefined) {
       enteredCollectionAt = this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
+    } else if (normalizedListType === 'wishlist') {
+      enteredCollectionAt = null;
     } else if (existingByIdentity?.enteredCollectionAt != null) {
       enteredCollectionAt = existingByIdentity.enteredCollectionAt;
-    } else if ((payload.listType === 'wishlist' ? 'wishlist' : 'collection') === 'collection') {
+    } else {
       enteredCollectionAt = existingByIdentity?.createdAt ?? createdAt;
     }
     const normalizedReviewScore = this.normalizeReviewScore(
@@ -914,7 +917,7 @@ export class GameSyncService implements SyncOutboxWriter {
       releaseYear: this.normalizeReleaseYear(payload.releaseYear),
       status: this.normalizeStatus(payload.status),
       rating: this.normalizeRating(payload.rating),
-      listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
+      listType: normalizedListType,
       enteredCollectionAt,
       notes: this.normalizeNotes(payload.notes),
       createdAt,

@@ -67,11 +67,6 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
         margin: 0;
       }
 
-      :host-context(.ion-palette-dark) .detail-shortcuts-fab ion-fab-list ion-fab-button {
-        --ion-color-contrast: #111111;
-        --ion-color-contrast-rgb: 17, 17, 17;
-      }
-
       .detail-shortcuts-fab .shortcut-text {
         font-size: 0.9rem;
         font-weight: 700;

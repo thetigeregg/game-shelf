@@ -3027,3 +3027,11 @@
 - 56a33cb0 chore(deps): update dependencies to latest versions
 - 235ecc86 chore(deps): bump @angular dependencies to version 21.2.5
 
+## v1.32.0 - 2026-03-30
+- f52e24be Merge pull request #303 from thetigeregg/feat/vpn
+- 96fd0560 feat: enhance runtime availability service tests and add new runtime config checks
+- e5a2af9a feat: enhance connection alert handling and add firebase config parsing
+- d920bf88 feat: update tailnet references to service-unreachable for improved clarity
+- 1f0f9dab feat: remove runtime status banner and implement tailnet alert handling
+- 4a47bae1 feat: add runtime availability service and banner message for network status
+

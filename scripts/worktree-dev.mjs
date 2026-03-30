@@ -159,6 +159,13 @@ export function createPwaStackEnv(baseEnv = createSharedEnv()) {
   };
 }
 
+export function ensureParentDirectories(filePaths, { mkdir = mkdirSync } = {}) {
+  const uniqueDirectories = new Set(filePaths.map((filePath) => path.dirname(filePath)));
+  for (const directoryPath of uniqueDirectories) {
+    mkdir(directoryPath, { recursive: true });
+  }
+}
+
 const sharedEnv = createSharedEnv();
 
 function defaultSeedPath() {
@@ -633,7 +640,7 @@ function setupPwaCertificates() {
     process.exit(1);
   }
 
-  mkdirSync(simulatorCertDir, { recursive: true });
+  ensureParentDirectories([simulatorCertFile, simulatorKeyFile]);
   run('mkcert', ['-install'], sharedEnv);
   run(
     'mkcert',

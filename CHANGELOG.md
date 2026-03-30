@@ -3027,3 +3027,16 @@
 - 56a33cb0 chore(deps): update dependencies to latest versions
 - 235ecc86 chore(deps): bump @angular dependencies to version 21.2.5
 
+## v1.32.0 - 2026-03-30
+- f52e24be Merge pull request #303 from thetigeregg/feat/vpn
+- 96fd0560 feat: enhance runtime availability service tests and add new runtime config checks
+- e5a2af9a feat: enhance connection alert handling and add firebase config parsing
+- d920bf88 feat: update tailnet references to service-unreachable for improved clarity
+- 1f0f9dab feat: remove runtime status banner and implement tailnet alert handling
+- 4a47bae1 feat: add runtime availability service and banner message for network status
+
+## v1.32.1 - 2026-03-30
+- 4a66f817 Merge pull request #295 from thetigeregg/dependabot/npm_and_yarn/server/typescript-6.0.2
+- adb1f0e1 Merge branch 'main' into dependabot/npm_and_yarn/server/typescript-6.0.2
+- 42895689 chore(deps): bump typescript from 5.9.3 to 6.0.2 in /server
+

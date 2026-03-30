@@ -213,6 +213,36 @@ describe('AppComponent', () => {
     expect(present).toHaveBeenCalledOnce();
   });
 
+  it('does not stack duplicate connection alerts while one is already active', async () => {
+    let resolveDismiss: (() => void) | undefined;
+    const present = vi.fn().mockResolvedValue(undefined);
+    const onDidDismiss = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDismiss = resolve;
+        })
+    );
+    alertControllerMock.create.mockResolvedValue({
+      present,
+      onDidDismiss,
+    });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
+    await flushAsync();
+    runtimeAvailabilityServiceMock.status.set('offline');
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(1);
+
+    resolveDismiss?.();
+    await flushAsync();
+  });
+
   it('dismisses only the tracked connection alert when availability recovers', async () => {
     const dismissConnectionAlert = vi.fn().mockResolvedValue(true);
     const connectionAlert = {
@@ -243,6 +273,31 @@ describe('AppComponent', () => {
 
     expect(dismissConnectionAlert).toHaveBeenCalledOnce();
     expect(unrelatedTopAlert.dismiss).not.toHaveBeenCalled();
+  });
+
+  it('skips dismissing the tracked connection alert when no dismiss function is available', async () => {
+    const connectionAlert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 5);
+          })
+      ),
+    };
+
+    alertControllerMock.create.mockResolvedValue(connectionAlert);
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
+    await flushAsync();
+    runtimeAvailabilityServiceMock.status.set('online');
+    await flushAsync();
+
+    expect(connectionAlert.present).toHaveBeenCalledOnce();
   });
 
   it('skips the version alert when the current version was already seen', async () => {

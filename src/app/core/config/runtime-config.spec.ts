@@ -1,12 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getAppVersion,
   getAppVersionInfo,
   getRuntimeConfigSource,
   getFirebaseVapidKey,
   getFirebaseWebConfig,
+  hasLiveRuntimeConfig,
   isE2eFixturesEnabled,
   isMgcImportFeatureEnabled,
+  isRecommendationsExploreEnabled,
   isTasFeatureEnabled,
   persistRuntimeConfig,
   setLiveRuntimeConfig,
@@ -173,6 +175,46 @@ describe('runtime-config', () => {
         isFallback: true,
       });
     });
+
+    it('returns the persisted source when local storage contains a valid config', () => {
+      persistRuntimeConfig({ appVersion: '3.4.5' });
+
+      expect(getAppVersionInfo()).toEqual({
+        value: '3.4.5',
+        source: 'persisted',
+        isFallback: false,
+      });
+    });
+
+    it('falls back cleanly when persisted runtime config is invalid JSON', () => {
+      localStorage.setItem('game-shelf:runtime-config:v1', '{invalid json');
+
+      expect(getAppVersionInfo()).toEqual({
+        value: '0.0.0',
+        source: 'default',
+        isFallback: true,
+      });
+    });
+  });
+
+  describe('hasLiveRuntimeConfig()', () => {
+    it('returns true only when live runtime config is present', () => {
+      expect(hasLiveRuntimeConfig()).toBe(false);
+
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { appVersion: '1.2.3' };
+
+      expect(hasLiveRuntimeConfig()).toBe(true);
+    });
+  });
+
+  describe('isRecommendationsExploreEnabled()', () => {
+    it('returns the runtime flag when it is provided', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = {
+        featureFlags: { recommendationsExploreEnabled: true },
+      };
+
+      expect(isRecommendationsExploreEnabled()).toBe(true);
+    });
   });
 
   describe('getFirebaseWebConfig()', () => {
@@ -227,6 +269,52 @@ describe('runtime-config', () => {
       delete window.__GAME_SHELF_RUNTIME_CONFIG__;
       expect(getAppVersion()).toBe('1.4.0');
       expect(isTasFeatureEnabled()).toBe(true);
+    });
+
+    it('returns null for invalid runtime config input', () => {
+      expect(setLiveRuntimeConfig(null)).toBeNull();
+      expect(window.__GAME_SHELF_RUNTIME_CONFIG__).toBeUndefined();
+    });
+
+    it('still normalizes successfully when window is unavailable', () => {
+      const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+      Object.defineProperty(globalThis, 'window', {
+        value: undefined,
+        configurable: true,
+      });
+
+      try {
+        expect(
+          setLiveRuntimeConfig({
+            appVersion: ' 2.0.0 ',
+          })
+        ).toEqual({
+          appVersion: '2.0.0',
+        });
+      } finally {
+        if (windowDescriptor) {
+          Object.defineProperty(globalThis, 'window', windowDescriptor);
+        }
+      }
+    });
+  });
+
+  describe('persistRuntimeConfig()', () => {
+    it('returns null for invalid runtime config input', () => {
+      expect(persistRuntimeConfig(null)).toBeNull();
+      expect(localStorage.getItem('game-shelf:runtime-config:v1')).toBeNull();
+    });
+
+    it('ignores storage write failures', () => {
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('storage blocked');
+      });
+
+      expect(persistRuntimeConfig({ appVersion: '4.5.6' })).toEqual({
+        appVersion: '4.5.6',
+      });
+      expect(setItemSpy).toHaveBeenCalled();
     });
   });
 });

@@ -49,6 +49,17 @@ describe('DexieGameRepository', () => {
     expect(stored?.title).toBe(mario.title);
   });
 
+  it('sets enteredCollectionAt for new collection games and leaves wishlist rows empty', async () => {
+    const collectionGame = await repository.upsertFromCatalog(mario, 'collection');
+    const wishlistGame = await repository.upsertFromCatalog(
+      { ...mario, igdbGameId: '102' },
+      'wishlist'
+    );
+
+    expect(collectionGame.enteredCollectionAt).toBe(collectionGame.createdAt);
+    expect(wishlistGame.enteredCollectionAt).toBeNull();
+  });
+
   it('persists optional HLTB completion times and keeps existing values when absent in updates', async () => {
     await repository.upsertFromCatalog(
       {
@@ -338,6 +349,44 @@ describe('DexieGameRepository', () => {
     expect(updatedStatus).toBeUndefined();
     expect(updatedRating).toBeUndefined();
     expect(updatedTags).toBeUndefined();
+  });
+
+  it('refreshes enteredCollectionAt on collection moves and clears it when leaving collection', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'wishlist');
+    expect(created.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'collection');
+    const movedToCollection = requireValue(await repository.exists('101', 18));
+    expect(movedToCollection.enteredCollectionAt).not.toBeNull();
+    const firstCollectionTimestamp = movedToCollection.enteredCollectionAt;
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const movedBackToWishlist = requireValue(await repository.exists('101', 18));
+    expect(movedBackToWishlist.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'collection');
+    const movedToCollectionAgain = requireValue(await repository.exists('101', 18));
+    expect(movedToCollectionAgain.enteredCollectionAt).not.toBeNull();
+    expect(movedToCollectionAgain.enteredCollectionAt).not.toBe(firstCollectionTimestamp);
+  });
+
+  it('preserves enteredCollectionAt on catalog refreshes and supports imported timestamp overrides', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const originalEnteredCollectionAt = created.enteredCollectionAt;
+
+    await repository.upsertFromCatalog({ ...mario, title: 'Updated Mario' }, 'collection');
+    const refreshed = requireValue(await repository.exists('101', 18));
+    expect(refreshed.enteredCollectionAt).toBe(originalEnteredCollectionAt);
+
+    await repository.setGameTimestamps('101', 18, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+    });
+    const imported = requireValue(await repository.exists('101', 18));
+    expect(imported.createdAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(imported.updatedAt).toBe('2024-01-02T00:00:00.000Z');
+    expect(imported.enteredCollectionAt).toBe('2025-08-05T00:00:00.000Z');
   });
 
   it('returns undefined for malformed identity keys instead of throwing from IndexedDB', async () => {

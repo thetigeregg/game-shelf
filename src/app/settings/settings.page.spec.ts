@@ -145,6 +145,7 @@ function makeGameRow(overrides: Record<string, string> = {}): Record<string, str
     filters: '',
     key: '',
     value: '',
+    enteredCollectionAt: '2024-01-01T00:00:00.000Z',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -609,6 +610,7 @@ describe('SettingsPage CSV review fields', () => {
         releaseDate: '1995-03-11',
         releaseYear: 1995,
         listType: 'collection',
+        enteredCollectionAt: '2025-08-05T00:00:00.000Z',
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
         reviewScore: 86,
@@ -627,7 +629,9 @@ describe('SettingsPage CSV review fields', () => {
     expect(headerLine).toContain('reviewSource');
     expect(headerLine).toContain('mobyScore');
     expect(headerLine).toContain('mobygamesGameId');
+    expect(headerLine).toContain('enteredCollectionAt');
     expect(gameLine).toContain(',mobygames,8.6,4501,');
+    expect(gameLine).toContain('2025-08-05T00:00:00.000Z');
   });
 
   it('includes release date display settings in exported settings even when defaults are not stored', () => {

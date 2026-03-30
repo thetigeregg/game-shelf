@@ -244,6 +244,43 @@ export class AppDb extends Dexie {
               normalized > 0 && normalized <= 10 ? Math.round(normalized * 10) / 10 : null;
           });
       });
+
+    this.version(11)
+      .stores({
+        games:
+          '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt,enteredCollectionAt',
+        tags: '++id,&name,createdAt,updatedAt',
+        views: '++id,listType,name,updatedAt,createdAt',
+        imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+        outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+        syncMeta: '&key,updatedAt',
+      })
+      .upgrade((tx) => {
+        return tx
+          .table('games')
+          .toCollection()
+          .modify((game: Record<string, unknown>) => {
+            const existingEnteredCollectionAt = game['enteredCollectionAt'];
+
+            if (typeof existingEnteredCollectionAt === 'string') {
+              const normalized = existingEnteredCollectionAt.trim();
+              game['enteredCollectionAt'] = normalized.length > 0 ? normalized : null;
+              return;
+            }
+
+            if (existingEnteredCollectionAt === null) {
+              return;
+            }
+
+            const createdAt =
+              typeof game['createdAt'] === 'string' && game['createdAt'].trim().length > 0
+                ? game['createdAt'].trim()
+                : new Date().toISOString();
+            const listType = game['listType'] === 'wishlist' ? 'wishlist' : 'collection';
+
+            game['enteredCollectionAt'] = listType === 'collection' ? createdAt : null;
+          });
+      });
   }
 }
 

@@ -681,6 +681,10 @@ export class GameSyncService implements SyncOutboxWriter {
         : 'Unknown platform';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
+    const enteredCollectionAt =
+      payload.enteredCollectionAt === undefined
+        ? (existingByIdentity?.enteredCollectionAt ?? null)
+        : this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
     const normalizedReviewScore = this.normalizeReviewScore(
       payload.reviewScore ?? payload.metacriticScore
     );
@@ -906,6 +910,7 @@ export class GameSyncService implements SyncOutboxWriter {
       status: this.normalizeStatus(payload.status),
       rating: this.normalizeRating(payload.rating),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
+      enteredCollectionAt,
       notes: this.normalizeNotes(payload.notes),
       createdAt,
       updatedAt,
@@ -1020,6 +1025,18 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private normalizeOptionalBoolean(value: unknown): boolean | null {
     return typeof value === 'boolean' ? value : null;
+  }
+
+  private normalizeNullableIsoTimestamp(value: unknown): string | null {
+    if (value === null) {
+      return null;
+    }
+
+    if (typeof value === 'string' && value.trim().length === 0) {
+      return null;
+    }
+
+    return this.normalizeIsoTimestamp(value);
   }
 
   private normalizeExternalUrl(value: unknown): string | null {

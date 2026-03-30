@@ -211,6 +211,7 @@ interface ExportCsvRow {
   filters: string;
   key: string;
   value: string;
+  enteredCollectionAt: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -227,6 +228,9 @@ interface ParsedGameImportRow {
   customCoverUrl: string | null;
   tagNames: string[];
   tagIds: number[];
+  enteredCollectionAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 interface ParsedTagImportRow {
@@ -316,6 +320,7 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'filters',
   'key',
   'value',
+  'enteredCollectionAt',
   'createdAt',
   'updatedAt',
 ];
@@ -342,6 +347,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'filters',
   'key',
   'value',
+  'enteredCollectionAt',
   'createdAt',
   'updatedAt',
 ];
@@ -1603,6 +1609,18 @@ export class SettingsPage {
           await this.gameShelfService.addGame(gameRow.catalog, gameRow.listType);
           gamesApplied += 1;
 
+          await this.gameShelfService.setGameTimestamps(
+            gameRow.catalog.igdbGameId,
+            platformIgdbId,
+            {
+              ...(gameRow.createdAt !== null ? { createdAt: gameRow.createdAt } : {}),
+              ...(gameRow.updatedAt !== null ? { updatedAt: gameRow.updatedAt } : {}),
+              ...(gameRow.enteredCollectionAt !== null || gameRow.listType === 'wishlist'
+                ? { enteredCollectionAt: gameRow.enteredCollectionAt }
+                : {}),
+            }
+          );
+
           if (gameRow.customTitle !== null || gameRow.customPlatform !== null) {
             await this.gameShelfService.setGameCustomMetadata(
               gameRow.catalog.igdbGameId,
@@ -2718,6 +2736,7 @@ export class SettingsPage {
         filters: '',
         key: '',
         value: '',
+        enteredCollectionAt: game.enteredCollectionAt ?? '',
         createdAt: game.createdAt,
         updatedAt: game.updatedAt,
       });
@@ -2770,6 +2789,7 @@ export class SettingsPage {
         filters: '',
         key: '',
         value: '',
+        enteredCollectionAt: '',
         createdAt: tag.createdAt,
         updatedAt: tag.updatedAt,
       });
@@ -2822,6 +2842,7 @@ export class SettingsPage {
         filters: JSON.stringify(view.filters),
         key: '',
         value: '',
+        enteredCollectionAt: '',
         createdAt: view.createdAt,
         updatedAt: view.updatedAt,
       });
@@ -2874,6 +2895,7 @@ export class SettingsPage {
         filters: '',
         key,
         value,
+        enteredCollectionAt: '',
         createdAt: '',
         updatedAt: '',
       });
@@ -3278,6 +3300,12 @@ export class SettingsPage {
     const tagNames = parseStringArray(record.tags);
     const tagIds = parsePositiveIntegerArray(record.gameTagIds);
     const notes = this.normalizeImportedNotes(record.notes);
+    const createdAt = this.parseImportTimestamp(record.createdAt);
+    const updatedAt = this.parseImportTimestamp(record.updatedAt);
+    const enteredCollectionAt =
+      listType === 'collection'
+        ? (this.parseImportTimestamp(record.enteredCollectionAt) ?? createdAt)
+        : null;
 
     return {
       id: rowNumber,
@@ -3298,6 +3326,9 @@ export class SettingsPage {
         customCoverUrl,
         tagNames,
         tagIds,
+        enteredCollectionAt,
+        createdAt,
+        updatedAt,
       },
     };
   }
@@ -3439,9 +3470,21 @@ export class SettingsPage {
       filters: getValue('filters'),
       key: getValue('key'),
       value: getValue('value'),
+      enteredCollectionAt: getValue('enteredCollectionAt'),
       createdAt: getValue('createdAt'),
       updatedAt: getValue('updatedAt'),
     };
+  }
+
+  private parseImportTimestamp(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    const parsed = Date.parse(normalized);
+    return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
   }
 
   private normalizeImportedNotes(value: string): string | null {

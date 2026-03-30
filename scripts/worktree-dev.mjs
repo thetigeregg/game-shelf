@@ -88,6 +88,7 @@ const projectName = sanitize(`gameshelf-${worktreeHint}-${projectHash}`) || 'gam
 const ports = {
   FRONTEND_PORT: 8100 + portOffset,
   PWA_HOST_PORT: 8200 + portOffset,
+  PWA_ROOT_CA_PORT: 8300 + portOffset,
   EDGE_HOST_PORT: 8080 + portOffset,
   API_HOST_PORT: 3000 + portOffset,
   POSTGRES_HOST_PORT: 5432 + portOffset,
@@ -207,6 +208,23 @@ function runShellCapture(command, env = sharedEnv) {
   return runCapture('sh', ['-lc', command], env);
 }
 
+function hasCommand(command) {
+  const result = spawnSync(command, ['--help'], {
+    cwd,
+    env: sharedEnv,
+    stdio: 'ignore',
+  });
+  return !result.error;
+}
+
+function getMkcertCaroot() {
+  if (!hasCommand('mkcert')) {
+    return '';
+  }
+
+  return runCapture('mkcert', ['-CAROOT'], sharedEnv).trim();
+}
+
 function listExternalIpv4Addresses() {
   const interfaces = os.networkInterfaces();
   const hosts = [];
@@ -227,7 +245,14 @@ function listExternalIpv4Addresses() {
 }
 
 function getSimulatorCertificateStatus() {
+  const mkcertCaroot = getMkcertCaroot();
+  const rootCaPath = mkcertCaroot ? path.join(mkcertCaroot, 'rootCA.pem') : '';
+
   return {
+    mkcertAvailable: hasCommand('mkcert'),
+    mkcertCaroot,
+    rootCaPath,
+    hasRootCa: Boolean(rootCaPath && existsSync(rootCaPath)),
     certPath: simulatorCertFile,
     keyPath: simulatorKeyFile,
     isConfigured: existsSync(simulatorCertFile) && existsSync(simulatorKeyFile),
@@ -251,11 +276,21 @@ function printInfo() {
   console.log('Simulator URLs:');
   console.log(`  quick browser: http://localhost:${ports.FRONTEND_PORT}`);
   console.log(`  installed PWA: https://localhost:${ports.PWA_HOST_PORT}`);
+  console.log(`  root ca file:  http://localhost:${ports.PWA_ROOT_CA_PORT}/rootCA.pem`);
   for (const host of listExternalIpv4Addresses()) {
     console.log(`  network host:  https://${host}:${ports.PWA_HOST_PORT}`);
   }
   console.log(
     `PWA certs: ${certStatus.isConfigured ? '[configured]' : '[missing]'} (${simulatorCertFile}, ${simulatorKeyFile})`
+  );
+  console.log(
+    `mkcert root CA: ${
+      certStatus.hasRootCa
+        ? '[configured]'
+        : certStatus.mkcertAvailable
+          ? '[missing]'
+          : '[mkcert unavailable]'
+    }${certStatus.rootCaPath ? ` (${certStatus.rootCaPath})` : ''}`
   );
   if (secretsHostDir) {
     console.log(`Secrets dir: ${configState(secretsHostDir)}`);
@@ -530,18 +565,84 @@ async function isPortReachable(port, host = '127.0.0.1') {
 }
 
 function printMissingCertificateInstructions() {
+  const certStatus = getSimulatorCertificateStatus();
+
+  if (!certStatus.mkcertAvailable) {
+    console.error('PWA install path requires mkcert, but `mkcert` was not found in PATH.');
+    console.error('Install mkcert first, then run `npm run dev:pwa:certs:setup`.');
+    return;
+  }
+
   console.error('PWA install path unavailable because HTTPS certificates are missing.');
   console.error(`Expected cert: ${simulatorCertFile}`);
   console.error(`Expected key:  ${simulatorKeyFile}`);
-  console.error('Use a trusted local certificate, for example with mkcert:');
-  console.error('  mkcert -install');
-  console.error(`  mkdir -p ${simulatorCertDir}`);
+  console.error('Run `npm run dev:pwa:certs:setup` to create the required trusted localhost cert.');
   console.error(
-    `  mkcert -cert-file ${simulatorCertFile} -key-file ${simulatorKeyFile} localhost 127.0.0.1 ::1`
+    'If Safari in iPhone Simulator still warns that the site is not secure, run `npm run dev:pwa:certs:serve-root` and install/trust the mkcert root CA in the simulator.'
   );
-  console.error(
-    'If Safari in iPhone Simulator still warns that the site is not secure, trust the mkcert root CA in the simulator too.'
+}
+
+function setupPwaCertificates() {
+  const certStatus = getSimulatorCertificateStatus();
+  if (!certStatus.mkcertAvailable) {
+    console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
+    process.exit(1);
+  }
+
+  mkdirSync(simulatorCertDir, { recursive: true });
+  run('mkcert', ['-install'], sharedEnv);
+  run(
+    'mkcert',
+    [
+      '-cert-file',
+      simulatorCertFile,
+      '-key-file',
+      simulatorKeyFile,
+      'localhost',
+      '127.0.0.1',
+      '::1',
+    ],
+    sharedEnv
   );
+
+  const updatedStatus = getSimulatorCertificateStatus();
+  console.log('Simulator PWA certificates are ready.');
+  console.log(`Cert: ${updatedStatus.certPath}`);
+  console.log(`Key:  ${updatedStatus.keyPath}`);
+  if (updatedStatus.rootCaPath) {
+    console.log(`mkcert root CA: ${updatedStatus.rootCaPath}`);
+  }
+  console.log(
+    `If you need to install the mkcert root CA in iPhone Simulator, run: npm run dev:pwa:certs:serve-root`
+  );
+}
+
+function servePwaRootCertificate() {
+  const certStatus = getSimulatorCertificateStatus();
+  if (!certStatus.mkcertAvailable || !certStatus.hasRootCa || !certStatus.rootCaPath) {
+    console.error('mkcert root CA is not available.');
+    console.error('Run `npm run dev:pwa:certs:setup` first.');
+    process.exit(1);
+  }
+
+  console.log(
+    `Open http://localhost:${String(ports.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
+  );
+  console.log(
+    'Then install the profile and enable full trust in Settings > General > About > Certificate Trust Settings.'
+  );
+
+  run('node', [
+    path.resolve(cwd, 'scripts', 'pwa-root-ca-server.mjs'),
+    '--host',
+    '0.0.0.0',
+    '--port',
+    String(ports.PWA_ROOT_CA_PORT),
+    '--file',
+    certStatus.rootCaPath,
+    '--route',
+    '/rootCA.pem',
+  ]);
 }
 
 function runPwaServe() {
@@ -621,8 +722,24 @@ async function runPwa(command) {
     return;
   }
 
+  if (command === 'certs-setup') {
+    setupPwaCertificates();
+    return;
+  }
+
   if (command === 'certs-check') {
     const certStatus = getSimulatorCertificateStatus();
+    if (!certStatus.mkcertAvailable) {
+      console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
+      process.exit(1);
+    }
+
+    if (!certStatus.hasRootCa) {
+      console.error('mkcert root CA was not found.');
+      console.error('Run `npm run dev:pwa:certs:setup` first.');
+      process.exit(1);
+    }
+
     if (!certStatus.isConfigured) {
       printMissingCertificateInstructions();
       process.exit(1);
@@ -631,13 +748,24 @@ async function runPwa(command) {
     console.log('PWA HTTPS certificates are configured.');
     console.log(`Cert: ${certStatus.certPath}`);
     console.log(`Key:  ${certStatus.keyPath}`);
+    console.log(`mkcert root CA: ${certStatus.rootCaPath}`);
     console.log(
-      'For the cleanest Simulator PWA flow, use a trusted cert such as mkcert and ensure Safari does not show a security warning for this origin.'
+      'For the cleanest Simulator PWA flow, ensure Safari does not show a security warning for this origin.'
+    );
+    console.log(
+      `If needed, run \`npm run dev:pwa:certs:serve-root\` and open http://localhost:${String(ports.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
     );
     return;
   }
 
-  console.error('Unknown pwa command. Use: build | serve | simulator | certs-check');
+  if (command === 'certs-serve-root') {
+    servePwaRootCertificate();
+    return;
+  }
+
+  console.error(
+    'Unknown pwa command. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
+  );
   process.exit(1);
 }
 
@@ -817,7 +945,13 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   );
   console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
   console.log(
+    '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
+  );
+  console.log(
     '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
+  );
+  console.log(
+    '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
   );
   console.log('  stack up                  Start worktree-isolated docker stack');
   console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -908,7 +1042,9 @@ if (args[0] === 'db') {
 
 if (args[0] === 'pwa') {
   if (!args[1]) {
-    console.error('Missing pwa action. Use: build | serve | simulator | certs-check');
+    console.error(
+      'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
+    );
     process.exit(1);
   }
   ensureLocalEnvFromSharedTemplate();

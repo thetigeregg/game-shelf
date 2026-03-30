@@ -108,6 +108,7 @@ npm run dev:pwa:serve
 ```
 
 The installed-PWA path proxies `/api` and `/manuals` through the local HTTPS origin so the simulator exercises the production web configuration.
+`npm run dev:pwa:serve` and `npm run dev:pwa:simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
 When using `dev:*` commands, ports are derived from the current worktree path and shown by:
 
 ```bash

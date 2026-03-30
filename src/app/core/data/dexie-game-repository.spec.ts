@@ -49,6 +49,27 @@ describe('DexieGameRepository', () => {
     expect(stored?.title).toBe(mario.title);
   });
 
+  it('lists every stored game across lists', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    await repository.upsertFromCatalog({ ...mario, igdbGameId: '102' }, 'wishlist');
+
+    const all = await repository.listAll();
+
+    expect(all).toHaveLength(2);
+    expect(all.map((game) => game.igdbGameId).sort()).toEqual(['101', '102']);
+  });
+
+  it('sets enteredCollectionAt for new collection games and leaves wishlist rows empty', async () => {
+    const collectionGame = await repository.upsertFromCatalog(mario, 'collection');
+    const wishlistGame = await repository.upsertFromCatalog(
+      { ...mario, igdbGameId: '102' },
+      'wishlist'
+    );
+
+    expect(collectionGame.enteredCollectionAt).toBe(collectionGame.createdAt);
+    expect(wishlistGame.enteredCollectionAt).toBeNull();
+  });
+
   it('persists optional HLTB completion times and keeps existing values when absent in updates', async () => {
     await repository.upsertFromCatalog(
       {
@@ -316,6 +337,7 @@ describe('DexieGameRepository', () => {
 
   it('removes deleted tags from all games', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
+    await repository.upsertFromCatalog({ ...mario, igdbGameId: '102' }, 'collection');
     const coop = await repository.upsertTag({ name: 'Co-op', color: '#123456' });
     const rpg = await repository.upsertTag({ name: 'RPG', color: '#654321' });
 
@@ -323,21 +345,132 @@ describe('DexieGameRepository', () => {
     await repository.deleteTag(requireValue(coop.id));
 
     const stored = await repository.exists('101', 18);
+    const untouched = await repository.exists('102', 18);
     expect(stored?.tagIds).toEqual([requireValue(rpg.id)]);
+    expect(untouched?.tagIds).toEqual([]);
   });
 
   it('no-ops when move/remove/update operations target missing entries', async () => {
     await repository.moveToList('999', 999, 'wishlist');
+    const updatedTimestamps = await repository.setGameTimestamps('999', 999, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+    });
     await repository.remove('999', 999);
     const updatedCover = await repository.updateCover('999', 999, null, 'igdb');
     const updatedStatus = await repository.setGameStatus('999', 999, 'completed');
     const updatedRating = await repository.setGameRating('999', 999, 5);
     const updatedTags = await repository.setGameTags('999', 999, [1, 2]);
+    const updatedNotes = await repository.setGameNotes('999', 999, 'missing');
+    const updatedCustomCover = await repository.setGameCustomCover('999', 999, null);
+    const promotedCover = await repository.promoteLegacyCoverToCustomCover(
+      '999',
+      999,
+      'https://example.com/cover.jpg',
+      'thegamesdb'
+    );
+    const updatedCustomMetadata = await repository.setGameCustomMetadata('999', 999, {
+      title: 'Missing',
+      platform: { name: 'Switch', igdbId: 130 },
+    });
 
+    expect(updatedTimestamps).toBeUndefined();
     expect(updatedCover).toBeUndefined();
     expect(updatedStatus).toBeUndefined();
     expect(updatedRating).toBeUndefined();
     expect(updatedTags).toBeUndefined();
+    expect(updatedNotes).toBeUndefined();
+    expect(updatedCustomCover).toBeUndefined();
+    expect(promotedCover).toBeUndefined();
+    expect(updatedCustomMetadata).toBeUndefined();
+  });
+
+  it('refreshes enteredCollectionAt on collection moves and clears it when leaving collection', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'wishlist');
+    expect(created.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'collection');
+    const movedToCollection = requireValue(await repository.exists('101', 18));
+    expect(movedToCollection.enteredCollectionAt).not.toBeNull();
+    const firstCollectionTimestamp = movedToCollection.enteredCollectionAt;
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const movedBackToWishlist = requireValue(await repository.exists('101', 18));
+    expect(movedBackToWishlist.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'collection');
+    const movedToCollectionAgain = requireValue(await repository.exists('101', 18));
+    expect(movedToCollectionAgain.enteredCollectionAt).not.toBeNull();
+    expect(movedToCollectionAgain.enteredCollectionAt).not.toBe(firstCollectionTimestamp);
+  });
+
+  it('preserves enteredCollectionAt when moving to the same list', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const originalEnteredCollectionAt = created.enteredCollectionAt;
+
+    await repository.moveToList('101', 18, 'collection');
+    const stillInCollection = requireValue(await repository.exists('101', 18));
+    expect(stillInCollection.enteredCollectionAt).toBe(originalEnteredCollectionAt);
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const movedToWishlist = requireValue(await repository.exists('101', 18));
+    expect(movedToWishlist.enteredCollectionAt).toBeNull();
+
+    await repository.moveToList('101', 18, 'wishlist');
+    const stillInWishlist = requireValue(await repository.exists('101', 18));
+    expect(stillInWishlist.enteredCollectionAt).toBeNull();
+  });
+
+  it('preserves enteredCollectionAt on catalog refreshes and supports imported timestamp overrides', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const originalEnteredCollectionAt = created.enteredCollectionAt;
+
+    await repository.upsertFromCatalog({ ...mario, title: 'Updated Mario' }, 'collection');
+    const refreshed = requireValue(await repository.exists('101', 18));
+    expect(refreshed.enteredCollectionAt).toBe(originalEnteredCollectionAt);
+
+    await repository.setGameTimestamps('101', 18, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+    });
+    const imported = requireValue(await repository.exists('101', 18));
+    expect(imported.createdAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(imported.updatedAt).toBe('2024-01-02T00:00:00.000Z');
+    expect(imported.enteredCollectionAt).toBe('2025-08-05T00:00:00.000Z');
+  });
+
+  it('refreshes enteredCollectionAt when catalog upserts move a game into collection', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'wishlist');
+    expect(created.enteredCollectionAt).toBeNull();
+
+    await repository.setGameTimestamps('101', 18, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      enteredCollectionAt: null,
+    });
+
+    const moved = await repository.upsertFromCatalog(
+      { ...mario, title: 'Moved Mario' },
+      'collection'
+    );
+    expect(moved.enteredCollectionAt).not.toBeNull();
+    expect(moved.enteredCollectionAt).not.toBe('2024-01-01T00:00:00.000Z');
+  });
+
+  it('skips timestamp writes when import timestamps are empty or unchanged', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const updateSpy = vi.spyOn(db.games, 'update');
+
+    const unchanged = await repository.setGameTimestamps('101', 18, {
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+      enteredCollectionAt: created.enteredCollectionAt,
+    });
+    const empty = await repository.setGameTimestamps('101', 18, {});
+
+    expect(unchanged).toBeUndefined();
+    expect(empty).toBeUndefined();
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it('returns undefined for malformed identity keys instead of throwing from IndexedDB', async () => {
@@ -857,6 +990,13 @@ describe('DexieGameRepository', () => {
     await expect(
       queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' })
     ).resolves.toBeDefined();
+    const queuedView = await queuedRepository.createView({
+      name: ' Queue View ',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+    });
+    await expect(queuedRepository.deleteView(requireValue(queuedView.id))).resolves.toBeUndefined();
 
     const outbox = await queuedDb.outbox.toArray();
     expect(
@@ -868,7 +1008,13 @@ describe('DexieGameRepository', () => {
     expect(outbox.some((entry) => entry.entityType === 'tag' && entry.operation === 'upsert')).toBe(
       true
     );
-    expect(syncNow).toHaveBeenCalledTimes(3);
+    expect(
+      outbox.some((entry) => entry.entityType === 'view' && entry.operation === 'upsert')
+    ).toBe(true);
+    expect(
+      outbox.some((entry) => entry.entityType === 'view' && entry.operation === 'delete')
+    ).toBe(true);
+    expect(syncNow).toHaveBeenCalledTimes(5);
 
     await queuedDb.delete();
 
@@ -1008,5 +1154,170 @@ describe('DexieGameRepository', () => {
 
     const stored = await repository.exists('101', 18);
     expect(stored?.customPlatformIgdbId).toBeNull();
+  });
+
+  it('covers private normalizers and resolvers for repository edge cases', () => {
+    const repositoryPrivate = repository as unknown as {
+      normalizeTagIds: (value: unknown) => number[];
+      normalizeMobyScore: (value: number | null | undefined) => number | null;
+      normalizeWebsiteProviderLabel: (value: string | null | undefined, provider: string) => string;
+      normalizePriceAmount: (value: number | null | undefined) => number | null;
+      normalizePriceDiscountPercent: (value: number | null | undefined) => number | null;
+      normalizeGameType: (value: unknown) => string | null;
+      resolveGameType: (incoming: unknown, existing: unknown) => string | null;
+      resolveCompletionHours: (
+        incoming: number | null | undefined,
+        existing: number | null | undefined
+      ) => number | null;
+      resolvePriceSource: (incoming: unknown, existing: unknown) => string | null;
+      resolvePriceFetchedAt: (
+        incoming: string | null | undefined,
+        existing: string | null | undefined
+      ) => string | null;
+      resolvePriceAmount: (
+        incoming: number | null | undefined,
+        existing: number | null | undefined
+      ) => number | null;
+      resolvePriceCurrency: (
+        incoming: string | null | undefined,
+        existing: string | null | undefined
+      ) => string | null;
+      resolvePriceDiscountPercent: (
+        incoming: number | null | undefined,
+        existing: number | null | undefined
+      ) => number | null;
+      resolvePriceIsFree: (
+        incoming: boolean | null | undefined,
+        existing: boolean | null | undefined
+      ) => boolean | null;
+      resolvePriceUrl: (
+        incoming: string | null | undefined,
+        existing: string | null | undefined
+      ) => string | null;
+      resolveMobyScore: (
+        incoming: number | null | undefined,
+        existing: number | null | undefined
+      ) => number | null;
+    };
+
+    expect(repositoryPrivate.normalizeTagIds(undefined)).toEqual([]);
+    expect(repositoryPrivate.normalizeMobyScore(8.84)).toBe(8.8);
+    expect(repositoryPrivate.normalizePriceAmount(19.995)).toBe(20);
+    expect(repositoryPrivate.normalizePriceDiscountPercent(12.345)).toBe(12.35);
+    expect(repositoryPrivate.normalizeGameType('port')).toBe('port');
+    expect(repositoryPrivate.resolveGameType('update', null)).toBe('update');
+    expect(repositoryPrivate.resolveCompletionHours(18.44, null)).toBe(18.4);
+    expect(repositoryPrivate.resolvePriceSource('steam_store', null)).toBe('steam_store');
+    expect(repositoryPrivate.resolvePriceFetchedAt(' 2024-01-02T00:00:00.000Z ', null)).toBe(
+      '2024-01-02T00:00:00.000Z'
+    );
+    expect(repositoryPrivate.resolvePriceAmount(29.999, null)).toBe(30);
+    expect(repositoryPrivate.resolvePriceCurrency(' usd ', null)).toBe('USD');
+    expect(repositoryPrivate.resolvePriceDiscountPercent(33.335, null)).toBe(33.34);
+    expect(repositoryPrivate.resolvePriceIsFree(true, null)).toBe(true);
+    expect(repositoryPrivate.resolvePriceUrl('//store.example.com/game', null)).toBe(
+      'https://store.example.com/game'
+    );
+    expect(repositoryPrivate.resolveMobyScore(7.76, null)).toBe(7.8);
+
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'steam')).toBe('Steam');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'playstation')).toBe('PlayStation');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'xbox')).toBe('Xbox');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'nintendo')).toBe('Nintendo');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'epic')).toBe('Epic Games Store');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'gog')).toBe('GOG');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'itch')).toBe('itch.io');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'apple')).toBe('Apple App Store');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'android')).toBe('Google Play');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'amazon')).toBe('Amazon');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'oculus')).toBe('Meta Quest');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'gamejolt')).toBe('Game Jolt');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'kartridge')).toBe('Kartridge');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'utomik')).toBe('Utomik');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel('', 'unknown')).toBe('Unknown Store');
+    expect(repositoryPrivate.normalizeWebsiteProviderLabel(' Custom Label ', 'steam')).toBe(
+      'Custom Label'
+    );
+  });
+
+  it('covers private outbox helpers and best-effort sync hooks', async () => {
+    const syncNow = vi.fn().mockResolvedValue(undefined);
+    const onOutboxEntryEnqueued = vi.fn(() => {
+      throw new Error('ignore hook failure');
+    });
+    const writer: SyncOutboxWriter = {
+      enqueueOperation: async () => Promise.resolve(),
+      syncNow,
+      onOutboxEntryEnqueued,
+    };
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+    });
+
+    const queuedRepository = TestBed.inject(DexieGameRepository) as unknown as {
+      queueTagDelete: (id: number) => Promise<void>;
+      queueViewUpsert: (view: {
+        id: number;
+        name: string;
+        listType: 'collection';
+        filters: typeof DEFAULT_GAME_LIST_FILTERS;
+        groupBy: 'none';
+        createdAt: string;
+        updatedAt: string;
+      }) => Promise<void>;
+      queueViewDelete: (id: number) => Promise<void>;
+      requestSyncNow: () => void;
+    };
+    const queuedDb = TestBed.inject(AppDb);
+
+    await queuedRepository.queueTagDelete(12);
+    await queuedRepository.queueViewUpsert({
+      id: 7,
+      name: 'Queued View',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+    await queuedRepository.queueViewDelete(7);
+    queuedRepository.requestSyncNow();
+
+    expect(onOutboxEntryEnqueued).toHaveBeenCalledTimes(3);
+    expect(syncNow).toHaveBeenCalledTimes(1);
+
+    const outbox = await queuedDb.outbox.toArray();
+    expect(outbox.some((entry) => entry.entityType === 'tag' && entry.operation === 'delete')).toBe(
+      true
+    );
+    expect(
+      outbox.some((entry) => entry.entityType === 'view' && entry.operation === 'upsert')
+    ).toBe(true);
+    expect(
+      outbox.some((entry) => entry.entityType === 'view' && entry.operation === 'delete')
+    ).toBe(true);
+
+    await queuedDb.delete();
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: {} }],
+    });
+
+    const noSyncRepository = TestBed.inject(DexieGameRepository) as unknown as {
+      requestSyncNow: () => void;
+    };
+    expect(() => {
+      noSyncRepository.requestSyncNow();
+    }).not.toThrow();
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository],
+    });
+    db = TestBed.inject(AppDb);
+    repository = TestBed.inject(DexieGameRepository);
   });
 });

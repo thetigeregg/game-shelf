@@ -978,6 +978,54 @@ describe('ExplorePage explore modes UX', () => {
     await metadataPromise;
   });
 
+  it('does not block fresh recommendation loads while discovery pricing hydration runs', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      ensureActiveRecommendationPageFilled: () => Promise<void>;
+      ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      isLoadingRecommendations: boolean;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    const pageFillSpy = vi
+      .spyOn(page, 'ensureActiveRecommendationPageFilled')
+      .mockResolvedValue(undefined);
+    const metadataSpy = vi
+      .spyOn(page, 'ensureVisibleRecommendationDisplayMetadata')
+      .mockResolvedValue(undefined);
+    let resolvePricing: () => void = () => undefined;
+    const pricingPromise = new Promise<void>((resolve) => {
+      resolvePricing = resolve;
+    });
+    const pricingSpy = vi
+      .spyOn(page, 'ensureVisibleDiscoveryPricingHydrated')
+      .mockReturnValue(pricingPromise);
+
+    const loadPromise = page.loadRecommendationLanes(false);
+
+    let loadSettled = false;
+    void loadPromise.then(() => {
+      loadSettled = true;
+    });
+
+    await flushAsync();
+    await loadPromise;
+    await flushAsync();
+
+    expect(pageFillSpy).toHaveBeenCalledTimes(1);
+    expect(metadataSpy).toHaveBeenCalledTimes(1);
+    expect(pricingSpy).toHaveBeenCalledTimes(1);
+    expect(loadSettled).toBe(true);
+    expect(page.isLoadingRecommendations).toBe(false);
+
+    resolvePricing();
+    await pricingPromise;
+  });
+
   it('paginates recommendations in pages of 10', async () => {
     const page = createPage();
     const manyItems = Array.from({ length: 25 }, (_, index) => ({
@@ -3153,6 +3201,7 @@ describe('ExplorePage explore modes UX', () => {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
       loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
       getRecommendationRowPriceLabel: (item: {
         igdbGameId: string;
         platformIgdbId: number;
@@ -3218,6 +3267,7 @@ describe('ExplorePage explore modes UX', () => {
     );
 
     await page.loadRecommendationLanes(true);
+    await page.ensureVisibleDiscoveryPricingHydrated();
 
     expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, {
       title: null,
@@ -3232,6 +3282,7 @@ describe('ExplorePage explore modes UX', () => {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
       loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
       getRecommendationRowPriceLabel: (item: {
         igdbGameId: string;
         platformIgdbId: number;
@@ -3303,6 +3354,7 @@ describe('ExplorePage explore modes UX', () => {
     );
 
     await page.loadRecommendationLanes(true);
+    await page.ensureVisibleDiscoveryPricingHydrated();
 
     expect(igdbProxyServiceMock.lookupSteamPrice).toHaveBeenCalledWith('800', 6);
     expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalled();

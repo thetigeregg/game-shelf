@@ -114,6 +114,11 @@ interface GameIdentity {
   platformIgdbId: number;
 }
 
+interface AddGameOptions {
+  enrichInBackground?: boolean;
+  refreshPricingInBackground?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
   private static readonly LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY =
@@ -291,10 +296,15 @@ export class GameShelfService {
       );
   }
 
-  async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
+  async addGame(
+    result: GameCatalogResult,
+    listType: ListType,
+    options: AddGameOptions = {}
+  ): Promise<GameEntry> {
     const normalizedGameId = normalizeGameId(result.igdbGameId);
     const normalizedPlatformIgdbId = normalizePlatformIgdbId(result.platformIgdbId);
     const normalizedPlatform = normalizePlatform(result.platform);
+    const { enrichInBackground = true, refreshPricingInBackground = true } = options;
     const normalizedCatalog: GameCatalogResult = {
       ...result,
       igdbGameId: normalizedGameId,
@@ -308,8 +318,10 @@ export class GameShelfService {
       listType
     );
     this.listRefresh$.next();
-    void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
-    if (listType === 'wishlist') {
+    if (enrichInBackground) {
+      void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
+    }
+    if (listType === 'wishlist' && refreshPricingInBackground) {
       void this.refreshGamePricingInBackground(normalizedGameId, normalizedPlatformIgdbId);
     }
     return entry;
@@ -327,6 +339,24 @@ export class GameShelfService {
   async moveGame(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void> {
     await this.repository.moveToList(igdbGameId, platformIgdbId, targetList);
     this.listRefresh$.next();
+  }
+
+  async setGameTimestamps(
+    igdbGameId: string,
+    platformIgdbId: number,
+    timestamps: {
+      createdAt?: string;
+      updatedAt?: string;
+      enteredCollectionAt?: string | null;
+    }
+  ): Promise<GameEntry | undefined> {
+    const updated = await this.repository.setGameTimestamps(igdbGameId, platformIgdbId, timestamps);
+
+    if (updated) {
+      this.listRefresh$.next();
+    }
+
+    return updated;
   }
 
   async moveGamesToList(games: readonly GameIdentity[], targetList: ListType): Promise<void> {

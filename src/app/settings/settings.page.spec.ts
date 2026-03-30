@@ -145,6 +145,7 @@ function makeGameRow(overrides: Record<string, string> = {}): Record<string, str
     filters: '',
     key: '',
     value: '',
+    enteredCollectionAt: '2024-01-01T00:00:00.000Z',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -609,6 +610,7 @@ describe('SettingsPage CSV review fields', () => {
         releaseDate: '1995-03-11',
         releaseYear: 1995,
         listType: 'collection',
+        enteredCollectionAt: '2025-08-05T00:00:00.000Z',
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
         reviewScore: 86,
@@ -627,7 +629,133 @@ describe('SettingsPage CSV review fields', () => {
     expect(headerLine).toContain('reviewSource');
     expect(headerLine).toContain('mobyScore');
     expect(headerLine).toContain('mobygamesGameId');
+    expect(headerLine).toContain('enteredCollectionAt');
     expect(gameLine).toContain(',mobygames,8.6,4501,');
+    expect(gameLine).toContain('2025-08-05T00:00:00.000Z');
+  });
+
+  it('accepts legacy CSV imports without enteredCollectionAt and backfills it from createdAt', async () => {
+    const page = createPage();
+    const legacyRow = makeGameRow();
+    const headers = Object.keys(legacyRow).filter((header) => header !== 'enteredCollectionAt');
+    const values = headers.map((header) => legacyRow[header] ?? '');
+    const csv = [headers.join(','), values.join(',')].join('\n');
+
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: { kind: string; enteredCollectionAt: string | null; createdAt: string | null } | null;
+    }>;
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+    expect(preview[0]?.parsed).toMatchObject({
+      kind: 'game',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      enteredCollectionAt: '2024-01-01T00:00:00.000Z',
+    });
+  });
+
+  it('skips timestamp updates during import when a game row yields no timestamp fields', async () => {
+    const page = createPage();
+    const importRow = makeGameRow({
+      createdAt: '',
+      updatedAt: '',
+      enteredCollectionAt: '',
+    });
+    const csv = [Object.keys(importRow).join(','), Object.values(importRow).join(',')].join('\n');
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: Record<string, unknown> | null;
+    }>;
+
+    const addGame = vi.fn().mockResolvedValue(undefined);
+    const setGameTimestamps = vi.fn().mockResolvedValue(undefined);
+    page['gameShelfService'] = {
+      addGame,
+      setGameTimestamps,
+      setGameCustomMetadata: vi.fn().mockResolvedValue(undefined),
+      setGameCustomCover: vi.fn().mockResolvedValue(undefined),
+      setGameStatus: vi.fn().mockResolvedValue(undefined),
+      setGameRating: vi.fn().mockResolvedValue(undefined),
+      setGameNotes: vi.fn().mockResolvedValue(undefined),
+      setGameTags: vi.fn().mockResolvedValue(undefined),
+      createView: vi.fn().mockResolvedValue(undefined),
+    };
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+
+    page.importPreviewRows = preview as never;
+
+    await page.applyImport();
+
+    expect(addGame).toHaveBeenCalledOnce();
+    expect(addGame).toHaveBeenCalledWith(expect.any(Object), 'collection', {
+      enrichInBackground: false,
+      refreshPricingInBackground: false,
+    });
+    expect(setGameTimestamps).not.toHaveBeenCalled();
+  });
+
+  it('applies imported timestamps after other per-row updates', async () => {
+    const page = createPage();
+    const importRow = makeGameRow({
+      customTitle: 'Imported Title',
+      notes: 'Imported notes',
+      status: 'playing',
+      rating: '4.5',
+      tags: '["Favorites"]',
+      updatedAt: '2024-01-03T00:00:00.000Z',
+    });
+    const csv = [Object.keys(importRow).join(','), Object.values(importRow).join(',')].join('\n');
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: Record<string, unknown> | null;
+    }>;
+
+    const addGame = vi.fn().mockResolvedValue(undefined);
+    const setGameTimestamps = vi.fn().mockResolvedValue(undefined);
+    const setGameCustomMetadata = vi.fn().mockResolvedValue(undefined);
+    const setGameStatus = vi.fn().mockResolvedValue(undefined);
+    const setGameRating = vi.fn().mockResolvedValue(undefined);
+    const setGameNotes = vi.fn().mockResolvedValue(undefined);
+    const setGameTags = vi.fn().mockResolvedValue(undefined);
+    page['gameShelfService'] = {
+      addGame,
+      setGameTimestamps,
+      setGameCustomMetadata,
+      setGameCustomCover: vi.fn().mockResolvedValue(undefined),
+      setGameStatus,
+      setGameRating,
+      setGameNotes,
+      setGameTags,
+      createView: vi.fn().mockResolvedValue(undefined),
+    };
+    page['repository'] = {
+      ...page['repository'],
+      listTags: vi.fn().mockResolvedValue([{ id: 7, name: 'Favorites', color: '#fff' }]),
+      listViews: vi.fn().mockResolvedValue([]),
+    };
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+
+    page.importPreviewRows = preview as never;
+
+    await page.applyImport();
+
+    expect(setGameTimestamps).toHaveBeenCalledOnce();
+    expect(setGameTimestamps).toHaveBeenCalledWith('1234', 19, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-03T00:00:00.000Z',
+      enteredCollectionAt: '2024-01-01T00:00:00.000Z',
+    });
+    const timestampCallOrder = setGameTimestamps.mock.invocationCallOrder[0];
+
+    expect(setGameCustomMetadata.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameStatus.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameRating.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameNotes.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
   });
 
   it('includes release date display settings in exported settings even when defaults are not stored', () => {

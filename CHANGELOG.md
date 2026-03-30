@@ -3067,3 +3067,8 @@
 - 10a2f14d feat: implement filled action surface colors and integrate with FAB components
 - e116911d feat: add dark-palette contrast overrides and corresponding unit tests
 
+## v1.36.0 - 2026-03-30
+- 3c03bffe Merge pull request #308 from thetigeregg/feat/preload
+- 46a9f3d2 feat: enhance explore page tests to include discovery pricing hydration checks
+- 19a62c9b feat: improve recommendation loading by scheduling pricing hydration
+

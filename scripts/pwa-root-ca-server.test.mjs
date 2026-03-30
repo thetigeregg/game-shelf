@@ -88,6 +88,23 @@ test('createHandler returns instructions at the root path', async () => {
   assert.match(response.body, /http:\/\/127\.0\.0\.1:9000\/rootCA\.pem/);
 });
 
+test('createHandler returns bad request for malformed request targets instead of throwing', async () => {
+  const response = new MockResponse();
+  const handler = createHandler({
+    host: '127.0.0.1',
+    port: 9000,
+    route: '/rootCA.pem',
+    fileBuffer: Buffer.from('pem'),
+    fileSize: 3,
+  });
+
+  handler({ url: 'http://%zz', method: 'GET' }, response);
+  await waitForStreamEnd(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body, /Bad request/);
+});
+
 test('createHandler serves the pem file at the configured route', async () => {
   const response = new MockResponse();
   const handler = createHandler({

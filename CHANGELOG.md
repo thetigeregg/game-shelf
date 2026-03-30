@@ -3046,3 +3046,14 @@
 - 70855e66 feat: add unit tests for game detail metadata interactions and mock dependencies
 - 0d70a1ae feat: enhance metadata filter functionality with new input and logic
 
+## v1.34.0 - 2026-03-30
+- de6b347b Merge pull request #305 from thetigeregg/feat/bump2
+- 2d8fa511 fix(audit): pluralize success and error messages in runAudits
+- d1710cd0 test(scripts): make audit command log assertion cross-platform
+- 161b5634 Merge branch 'main' into feat/bump2
+- a6b35a48 feat: replace audit-fix-all script with audit-all for improved functionality and add tests
+- 9d7fb61a Merge branch 'main' into feat/bump2
+- 17e26449 feat: streamline audit commands in package.json and improve audit script functionality
+- 192f71f4 feat: update path-to-regexp to version 8.4.0 in multiple scrapers
+- 5e51ddf4 feat: implement audit fix script for multiple projects
+

@@ -422,6 +422,22 @@ describe('DexieGameRepository', () => {
     expect(imported.enteredCollectionAt).toBe('2025-08-05T00:00:00.000Z');
   });
 
+  it('skips timestamp writes when import timestamps are empty or unchanged', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'collection');
+    const updateSpy = vi.spyOn(db.games, 'update');
+
+    const unchanged = await repository.setGameTimestamps('101', 18, {
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+      enteredCollectionAt: created.enteredCollectionAt,
+    });
+    const empty = await repository.setGameTimestamps('101', 18, {});
+
+    expect(unchanged).toEqual(created);
+    expect(empty).toEqual(created);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
   it('returns undefined for malformed identity keys instead of throwing from IndexedDB', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

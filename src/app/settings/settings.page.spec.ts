@@ -690,7 +690,72 @@ describe('SettingsPage CSV review fields', () => {
     await page.applyImport();
 
     expect(addGame).toHaveBeenCalledOnce();
+    expect(addGame).toHaveBeenCalledWith(expect.any(Object), 'collection', {
+      enrichInBackground: false,
+      refreshPricingInBackground: false,
+    });
     expect(setGameTimestamps).not.toHaveBeenCalled();
+  });
+
+  it('applies imported timestamps after other per-row updates', async () => {
+    const page = createPage();
+    const importRow = makeGameRow({
+      customTitle: 'Imported Title',
+      notes: 'Imported notes',
+      status: 'playing',
+      rating: '4.5',
+      tags: '["Favorites"]',
+      updatedAt: '2024-01-03T00:00:00.000Z',
+    });
+    const csv = [Object.keys(importRow).join(','), Object.values(importRow).join(',')].join('\n');
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: Record<string, unknown> | null;
+    }>;
+
+    const addGame = vi.fn().mockResolvedValue(undefined);
+    const setGameTimestamps = vi.fn().mockResolvedValue(undefined);
+    const setGameCustomMetadata = vi.fn().mockResolvedValue(undefined);
+    const setGameStatus = vi.fn().mockResolvedValue(undefined);
+    const setGameRating = vi.fn().mockResolvedValue(undefined);
+    const setGameNotes = vi.fn().mockResolvedValue(undefined);
+    const setGameTags = vi.fn().mockResolvedValue(undefined);
+    page['gameShelfService'] = {
+      addGame,
+      setGameTimestamps,
+      setGameCustomMetadata,
+      setGameCustomCover: vi.fn().mockResolvedValue(undefined),
+      setGameStatus,
+      setGameRating,
+      setGameNotes,
+      setGameTags,
+      createView: vi.fn().mockResolvedValue(undefined),
+    };
+    page['repository'] = {
+      ...page['repository'],
+      listTags: vi.fn().mockResolvedValue([{ id: 7, name: 'Favorites', color: '#fff' }]),
+      listViews: vi.fn().mockResolvedValue([]),
+    };
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+
+    page.importPreviewRows = preview as never;
+
+    await page.applyImport();
+
+    expect(setGameTimestamps).toHaveBeenCalledOnce();
+    expect(setGameTimestamps).toHaveBeenCalledWith('1234', 19, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-03T00:00:00.000Z',
+      enteredCollectionAt: '2024-01-01T00:00:00.000Z',
+    });
+    const timestampCallOrder = setGameTimestamps.mock.invocationCallOrder[0];
+
+    expect(setGameCustomMetadata.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameStatus.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameRating.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
+    expect(setGameNotes.mock.invocationCallOrder[0]).toBeLessThan(timestampCallOrder);
   });
 
   it('includes release date display settings in exported settings even when defaults are not stored', () => {

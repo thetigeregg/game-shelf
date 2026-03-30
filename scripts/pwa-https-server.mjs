@@ -339,8 +339,14 @@ export function createHandler(rootDir, proxyOrigin) {
   const spaIndexPath = path.join(rootDir, 'index.html');
 
   return (request, response) => {
-    const requestUrl = new URL(request.url ?? '/', 'https://gameshelf.local');
     const method = request.method ?? 'GET';
+    let requestUrl;
+    try {
+      requestUrl = new URL(request.url ?? '/', 'https://gameshelf.local');
+    } catch {
+      sendError(response, 400, 'Bad request');
+      return;
+    }
 
     if (requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/manuals/')) {
       proxyRequest(request, response, proxyOrigin);

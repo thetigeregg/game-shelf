@@ -50,7 +50,7 @@ test('parseArgs normalizes the configured download route', () => {
 });
 
 test('parseArgs rejects invalid tcp ports', () => {
-  for (const invalidPort of ['0', '-1', '65536', 'NaN']) {
+  for (const invalidPort of ['0', '-1', '65536', 'NaN', '9000xyz']) {
     assert.throws(
       () => parseArgs(['--port', invalidPort, '--file', '/tmp/rootCA.pem']),
       /Port must be an integer between 1 and 65535/

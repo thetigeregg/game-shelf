@@ -679,8 +679,20 @@ export class GameSyncService implements SyncOutboxWriter {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : 'Unknown platform';
+    const normalizedListType = pulledListType === 'wishlist' ? 'wishlist' : 'collection';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
+    let enteredCollectionAt: string | null = null;
+
+    if (payload.enteredCollectionAt !== undefined) {
+      enteredCollectionAt = this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
+    } else if (normalizedListType === 'wishlist') {
+      enteredCollectionAt = null;
+    } else if (existingByIdentity?.enteredCollectionAt != null) {
+      enteredCollectionAt = existingByIdentity.enteredCollectionAt;
+    } else {
+      enteredCollectionAt = existingByIdentity?.createdAt ?? createdAt;
+    }
     const normalizedReviewScore = this.normalizeReviewScore(
       payload.reviewScore ?? payload.metacriticScore
     );
@@ -905,7 +917,8 @@ export class GameSyncService implements SyncOutboxWriter {
       releaseYear: this.normalizeReleaseYear(payload.releaseYear),
       status: this.normalizeStatus(payload.status),
       rating: this.normalizeRating(payload.rating),
-      listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
+      listType: normalizedListType,
+      enteredCollectionAt,
       notes: this.normalizeNotes(payload.notes),
       createdAt,
       updatedAt,
@@ -1020,6 +1033,30 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private normalizeOptionalBoolean(value: unknown): boolean | null {
     return typeof value === 'boolean' ? value : null;
+  }
+
+  private normalizeNullableIsoTimestamp(value: unknown): string | null {
+    if (value === null) {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (trimmed.length === 0) {
+        return null;
+      }
+
+      const parsed = Date.parse(trimmed);
+
+      if (Number.isNaN(parsed)) {
+        return null;
+      }
+
+      return new Date(parsed).toISOString();
+    }
+
+    return null;
   }
 
   private normalizeExternalUrl(value: unknown): string | null {

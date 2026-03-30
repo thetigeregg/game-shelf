@@ -339,6 +339,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly SIMILAR_DISCOVERY_PAGE_SIZE = 5;
   private static readonly SIMILAR_DISCOVERY_FETCH_LIMIT = 50;
   private static readonly SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS = 10000;
+  private static readonly GAME_DETAIL_FAB_ENTRANCE_DELAY_MS = 32;
   private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120,
@@ -383,6 +384,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   rowReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isGameDetailModalOpen = false;
   isGameDetailFabVisible = false;
+  isGameDetailFabEntered = false;
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
@@ -532,6 +534,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private cachedSimilarDiscoveryDetailRelatedSource: SimilarDiscoveryGameRow[] | null = null;
   private cachedSimilarDiscoveryDetailRelatedIgnoredIds: Set<string> | null = null;
   private imageErrorLogCount = 0;
+  private gameDetailFabEntranceFrameId: number | null = null;
+  private gameDetailFabEntranceTimeoutId: number | null = null;
   private notesAutosaveTimeoutId: number | null = null;
   private notesAutosaveFailureCount = 0;
 
@@ -689,6 +693,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelGameDetailFabEntrance();
     if (this.notesAutosaveTimeoutId !== null) {
       window.clearTimeout(this.notesAutosaveTimeoutId);
       this.notesAutosaveTimeoutId = null;
@@ -1433,7 +1438,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.cancelGameDetailFabEntrance();
     this.isGameDetailFabVisible = false;
+    this.isGameDetailFabEntered = false;
     this.isVideosModalOpen = false;
     this.isWebsitesModalOpen = false;
     this.resetNoteEditorState();
@@ -1504,8 +1511,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private closeGameDetailModalInternal(): void {
+    this.cancelGameDetailFabEntrance();
     this.isGameDetailModalOpen = false;
     this.isGameDetailFabVisible = false;
+    this.isGameDetailFabEntered = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
     this.isPricingPickerModalOpen = false;
@@ -1553,12 +1562,45 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   onGameDetailModalDidPresent(): void {
+    this.cancelGameDetailFabEntrance();
     this.isGameDetailFabVisible = true;
+    this.isGameDetailFabEntered = false;
     this.changeDetectorRef.markForCheck();
+
+    if (this.shouldReduceMotion()) {
+      this.isGameDetailFabEntered = true;
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.gameDetailFabEntranceFrameId = window.requestAnimationFrame(() => {
+      this.gameDetailFabEntranceFrameId = null;
+      this.gameDetailFabEntranceTimeoutId = window.setTimeout(() => {
+        this.gameDetailFabEntranceTimeoutId = null;
+        this.isGameDetailFabEntered = true;
+        this.changeDetectorRef.markForCheck();
+      }, GameListComponent.GAME_DETAIL_FAB_ENTRANCE_DELAY_MS);
+    });
   }
 
   onGameDetailModalDidDismiss(): void {
     this.closeGameDetailModalInternal();
+  }
+
+  private cancelGameDetailFabEntrance(): void {
+    if (this.gameDetailFabEntranceFrameId !== null) {
+      window.cancelAnimationFrame(this.gameDetailFabEntranceFrameId);
+      this.gameDetailFabEntranceFrameId = null;
+    }
+
+    if (this.gameDetailFabEntranceTimeoutId !== null) {
+      window.clearTimeout(this.gameDetailFabEntranceTimeoutId);
+      this.gameDetailFabEntranceTimeoutId = null;
+    }
+  }
+
+  private shouldReduceMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {

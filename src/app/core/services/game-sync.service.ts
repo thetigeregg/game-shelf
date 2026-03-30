@@ -679,7 +679,7 @@ export class GameSyncService implements SyncOutboxWriter {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : 'Unknown platform';
-    const normalizedListType = payload.listType === 'wishlist' ? 'wishlist' : 'collection';
+    const normalizedListType = pulledListType === 'wishlist' ? 'wishlist' : 'collection';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
     let enteredCollectionAt: string | null = null;

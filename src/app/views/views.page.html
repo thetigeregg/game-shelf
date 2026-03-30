@@ -60,6 +60,7 @@
   <ion-fab slot="fixed" vertical="bottom" horizontal="end">
     <ion-fab-button
       size="small"
+      [color]="createFabColor"
       aria-label="Save current as view"
       [disabled]="!hasCurrentConfiguration"
       (click)="openCreateViewModal()"

@@ -78,6 +78,7 @@ import {
   PopoverController,
   ToastController,
 } from '@ionic/angular/standalone';
+import { LIST_PAGE_FAB_COLORS } from '../core/theme/filled-action-surface-colors';
 import { serializeListPagePreferences } from './list-page-preferences';
 
 describe('ListPageComponent', () => {
@@ -840,5 +841,11 @@ describe('ListPageComponent', () => {
     await component.pickRandomGameFromPopover();
 
     expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(component.displayedGames[0]);
+  });
+
+  it('uses the approved bright fab color family for quick actions', () => {
+    const component = createComponent();
+
+    expect(component.fabColors).toEqual(LIST_PAGE_FAB_COLORS);
   });
 });

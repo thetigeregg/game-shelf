@@ -243,15 +243,6 @@ function runShellCapture(command, env = sharedEnv) {
   return runCapture('sh', ['-lc', command], env);
 }
 
-function hasCommand(command) {
-  const result = spawnSync(command, ['--help'], {
-    cwd,
-    env: sharedEnv,
-    stdio: 'ignore',
-  });
-  return !result.error && result.status === 0;
-}
-
 function getMkcertStatus() {
   const result = spawnSync('mkcert', ['-CAROOT'], {
     cwd,

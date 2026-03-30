@@ -238,6 +238,31 @@ test('sendFile returns 404 when the file disappears before it can be read', asyn
   assert.match(response.body, /Not found/);
 });
 
+test('sendFile returns 404 when the file disappears before the stream opens', async () => {
+  const response = new MockResponse();
+  const fileStream = new PassThrough();
+  fileStream.destroy = () => fileStream;
+
+  sendFile('/tmp/transient-file.txt', response, 'GET', {
+    statSyncFn() {
+      return { size: 42 };
+    },
+    createReadStreamFn() {
+      process.nextTick(() => {
+        const error = new Error('missing file');
+        error.code = 'ENOENT';
+        fileStream.emit('error', error);
+      });
+      return fileStream;
+    },
+  });
+
+  await waitForStreamEnd(response);
+
+  assert.equal(response.statusCode, 404);
+  assert.match(response.body, /Not found/);
+});
+
 test('proxyRequest rejects absolute-form request targets instead of proxying them', () => {
   let transportCalled = false;
   const request = new PassThrough();

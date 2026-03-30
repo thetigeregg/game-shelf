@@ -51,6 +51,12 @@ export function parseArgs(argv) {
     }
 
     if (argument === '--port' && nextValue) {
+      if (!/^\d+$/.test(nextValue)) {
+        throw new Error(
+          `Invalid port "${nextValue}". Port must be an integer between 1 and 65535.`
+        );
+      }
+
       options.port = Number.parseInt(nextValue, 10);
       index += 1;
       continue;

@@ -146,7 +146,7 @@ test('parseArgs defaults to localhost and rejects invalid tcp ports', () => {
     }
   );
 
-  for (const invalidPort of ['0', '-1', '65536', 'NaN']) {
+  for (const invalidPort of ['0', '-1', '65536', 'NaN', '9443abc']) {
     assert.throws(
       () =>
         parseArgs([

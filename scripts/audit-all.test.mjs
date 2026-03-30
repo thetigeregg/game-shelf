@@ -23,11 +23,14 @@ test('buildAuditArgs uses the repo root prefix for nested projects', () => {
 test('runAudit reports spawn errors as failures', () => {
   const logs = [];
   const errors = [];
+  const repoRoot = '/repo';
+  const projectPath = 'server';
+  const expectedPrefix = path.resolve(repoRoot, projectPath);
 
   const result = runAudit(
-    { name: 'server', path: 'server' },
+    { name: 'server', path: projectPath },
     {
-      repoRoot: '/repo',
+      repoRoot,
       npmCommand: 'npm',
       spawn: () => ({ error: new Error('spawn failed') }),
       log: (message) => logs.push(message),
@@ -37,7 +40,7 @@ test('runAudit reports spawn errors as failures', () => {
 
   assert.equal(result.name, 'server');
   assert.equal(result.exitCode, 1);
-  assert.match(logs.at(-1), /Running: npm --prefix \/repo\/server audit$/);
+  assert.equal(logs.at(-1), `Running: npm --prefix ${expectedPrefix} audit`);
   assert.deepEqual(errors, ['❌ server failed to run', 'spawn failed']);
 });
 

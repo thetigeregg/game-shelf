@@ -5,6 +5,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+function validateTcpPort(port) {
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
 export function parseArgs(argv) {
   const options = {
     host: '127.0.0.1',
@@ -42,9 +46,15 @@ export function parseArgs(argv) {
     throw new Error(`Unknown or incomplete argument: ${argument}`);
   }
 
-  if (!options.port || !options.file) {
+  if (typeof options.port === 'undefined' || !options.file) {
     throw new Error(
       'Usage: node scripts/pwa-root-ca-server.mjs --port <port> --file <path> [--host <host>] [--route <route>]'
+    );
+  }
+
+  if (!validateTcpPort(options.port)) {
+    throw new Error(
+      `Invalid port "${String(options.port)}". Port must be an integer between 1 and 65535.`
     );
   }
 

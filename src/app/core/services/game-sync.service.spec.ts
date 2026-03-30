@@ -176,6 +176,52 @@ describe('GameSyncService', () => {
     expect(stored?.notes).toBeNull();
   });
 
+  it('preserves missing enteredCollectionAt on sync pulls and accepts explicit null', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '1',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ updatedAt: '2026-02-01T00:00:00.000Z' }),
+      serverTimestamp: '2026-02-01T00:00:00.000Z',
+    });
+
+    expect(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.enteredCollectionAt
+    ).toBe('2025-08-05T00:00:00.000Z');
+
+    await servicePrivate.applyGameChange({
+      eventId: '2',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        updatedAt: '2026-03-01T00:00:00.000Z',
+        enteredCollectionAt: null,
+      }),
+      serverTimestamp: '2026-03-01T00:00:00.000Z',
+    });
+
+    expect(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.enteredCollectionAt
+    ).toBeNull();
+  });
+
   it('normalizes pulled repeated empty paragraph placeholders to null', async () => {
     const change: SyncChangeEvent = {
       eventId: '1',

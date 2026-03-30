@@ -329,6 +329,24 @@ export class GameShelfService {
     this.listRefresh$.next();
   }
 
+  async setGameTimestamps(
+    igdbGameId: string,
+    platformIgdbId: number,
+    timestamps: {
+      createdAt?: string;
+      updatedAt?: string;
+      enteredCollectionAt?: string | null;
+    }
+  ): Promise<GameEntry | undefined> {
+    const updated = await this.repository.setGameTimestamps(igdbGameId, platformIgdbId, timestamps);
+
+    if (updated) {
+      this.listRefresh$.next();
+    }
+
+    return updated;
+  }
+
   async moveGamesToList(games: readonly GameIdentity[], targetList: ListType): Promise<void> {
     let mutatedAny = false;
 

@@ -108,6 +108,47 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['A', 'B']);
   });
 
+  it('sorts collection date added by enteredCollectionAt and wishlist by createdAt', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Older Collection Entry',
+        listType: 'collection',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Newer Wishlist Add',
+        listType: 'wishlist',
+        createdAt: '2026-01-02T00:00:00.000Z',
+        enteredCollectionAt: null,
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Newest Collection Entry',
+        listType: 'collection',
+        createdAt: '2024-02-01T00:00:00.000Z',
+        enteredCollectionAt: '2025-09-01T00:00:00.000Z',
+      }),
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'createdAt', sortDirection: 'desc' },
+      ''
+    );
+
+    expect(result.map((game) => game.title)).toEqual([
+      'Newer Wishlist Add',
+      'Newest Collection Entry',
+      'Older Collection Entry',
+    ]);
+  });
+
   it('applies hltb range filtering using main -> main+extra -> completionist fallback order', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Main', hltbMainHours: 9 }),

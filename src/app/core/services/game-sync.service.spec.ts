@@ -222,7 +222,7 @@ describe('GameSyncService', () => {
     ).toBeNull();
   });
 
-  it('ignores invalid enteredCollectionAt values on sync pulls instead of coercing them to now', async () => {
+  it('treats invalid enteredCollectionAt values on sync pulls as null instead of coercing them to now', async () => {
     await db.games.put({
       igdbGameId: '123',
       platformIgdbId: 130,
@@ -255,7 +255,7 @@ describe('GameSyncService', () => {
     ).toBeNull();
   });
 
-  it('ignores non-string enteredCollectionAt values on sync pulls instead of coercing them to now', async () => {
+  it('treats non-string enteredCollectionAt values on sync pulls as null instead of coercing them to now', async () => {
     await db.games.put({
       igdbGameId: '123',
       platformIgdbId: 130,

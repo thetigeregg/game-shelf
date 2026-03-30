@@ -40,13 +40,13 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.bannerMessage()).toContain('Offline');
   });
 
-  it('marks the app as tailnet-unreachable when the runtime config probe fails', async () => {
+  it('marks the app as service-unreachable when the runtime config probe fails', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('network failed'));
 
     await service.refresh();
 
-    expect(service.status()).toBe('tailnet-unreachable');
-    expect(service.bannerMessage()).toContain('Tailnet unreachable');
+    expect(service.status()).toBe('service-unreachable');
+    expect(service.bannerMessage()).toContain('Connection unavailable');
   });
 
   it('stores live runtime config after a successful probe', async () => {

@@ -43,6 +43,15 @@ test('parseArgs normalizes the configured download route', () => {
   );
 });
 
+test('parseArgs rejects invalid tcp ports', () => {
+  for (const invalidPort of ['0', '-1', '65536', 'NaN']) {
+    assert.throws(
+      () => parseArgs(['--port', invalidPort, '--file', '/tmp/rootCA.pem']),
+      /Port must be an integer between 1 and 65535/
+    );
+  }
+});
+
 test('createServer rejects missing root CA files', () => {
   assert.throws(
     () =>

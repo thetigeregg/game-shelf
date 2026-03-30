@@ -27,9 +27,13 @@ const MIME_TYPES = new Map([
   ['.xml', 'application/xml; charset=utf-8'],
 ]);
 
+function validateTcpPort(port) {
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
 export function parseArgs(argv) {
   const options = {
-    host: '0.0.0.0',
+    host: '127.0.0.1',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -75,9 +79,21 @@ export function parseArgs(argv) {
     throw new Error(`Unknown or incomplete argument: ${argument}`);
   }
 
-  if (!options.port || !options.cert || !options.key || !options.root || !options.proxyOrigin) {
+  if (
+    typeof options.port === 'undefined' ||
+    !options.cert ||
+    !options.key ||
+    !options.root ||
+    !options.proxyOrigin
+  ) {
     throw new Error(
       'Usage: node scripts/pwa-https-server.mjs --port <port> --cert <cert> --key <key> --root <dir> --proxy-origin <origin> [--host <host>]'
+    );
+  }
+
+  if (!validateTcpPort(options.port)) {
+    throw new Error(
+      `Invalid port "${String(options.port)}". Port must be an integer between 1 and 65535.`
     );
   }
 
@@ -130,9 +146,18 @@ export function sendError(response, statusCode, message) {
 }
 
 export function sendFile(filePath, response, method) {
+  let fileStat;
+  try {
+    fileStat = statSync(filePath);
+  } catch (error) {
+    const statusCode =
+      error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT' ? 404 : 500;
+    sendError(response, statusCode, statusCode === 404 ? 'Not found' : 'Unable to read file');
+    return;
+  }
+
   const extension = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES.get(extension) ?? 'application/octet-stream';
-  const fileStat = statSync(filePath);
 
   response.writeHead(200, {
     'Content-Type': contentType,
@@ -145,7 +170,18 @@ export function sendFile(filePath, response, method) {
     return;
   }
 
-  createReadStream(filePath).pipe(response);
+  const fileStream = createReadStream(filePath);
+  fileStream.on('error', (error) => {
+    if (response.headersSent) {
+      response.destroy(error);
+      return;
+    }
+
+    const statusCode =
+      error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT' ? 404 : 500;
+    sendError(response, statusCode, statusCode === 404 ? 'Not found' : 'Unable to read file');
+  });
+  fileStream.pipe(response);
 }
 
 export function proxyRequest(
@@ -233,9 +269,16 @@ export function createHandler(rootDir, proxyOrigin) {
       return;
     }
 
-    if (existsSync(resolvedPath.path) && statSync(resolvedPath.path).isFile()) {
-      sendFile(resolvedPath.path, response, method);
-      return;
+    if (existsSync(resolvedPath.path)) {
+      try {
+        if (statSync(resolvedPath.path).isFile()) {
+          sendFile(resolvedPath.path, response, method);
+          return;
+        }
+      } catch {
+        sendError(response, 404, 'Not found');
+        return;
+      }
     }
 
     const hasExtension = path.extname(requestUrl.pathname) !== '';

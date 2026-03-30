@@ -11,6 +11,7 @@ import {
   parseArgs,
   proxyRequest,
   resolveSafePath,
+  sendFile,
 } from './pwa-https-server.mjs';
 
 class MockResponse extends Writable {
@@ -97,6 +98,50 @@ test('parseArgs rejects invalid proxy origins before the server starts', () => {
   );
 });
 
+test('parseArgs defaults to localhost and rejects invalid tcp ports', () => {
+  assert.deepEqual(
+    parseArgs([
+      '--port',
+      '9443',
+      '--cert',
+      'cert.pem',
+      '--key',
+      'key.pem',
+      '--root',
+      'dist/app',
+      '--proxy-origin',
+      'https://proxy.example',
+    ]),
+    {
+      host: '127.0.0.1',
+      port: 9443,
+      cert: 'cert.pem',
+      key: 'key.pem',
+      root: 'dist/app',
+      proxyOrigin: 'https://proxy.example',
+    }
+  );
+
+  for (const invalidPort of ['0', '-1', '65536', 'NaN']) {
+    assert.throws(
+      () =>
+        parseArgs([
+          '--port',
+          invalidPort,
+          '--cert',
+          'cert.pem',
+          '--key',
+          'key.pem',
+          '--root',
+          'dist/app',
+          '--proxy-origin',
+          'https://proxy.example',
+        ]),
+      /Port must be an integer between 1 and 65535/
+    );
+  }
+});
+
 test('createHandler falls back to index.html for unknown SPA routes', async () => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
   writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');
@@ -150,6 +195,16 @@ test('createHandler returns 404 for missing asset paths instead of the SPA shell
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }
+});
+
+test('sendFile returns 404 when the file disappears before it can be read', async () => {
+  const response = new MockResponse();
+
+  sendFile('/tmp/definitely-missing-file.txt', response, 'GET');
+  await waitForStreamEnd(response);
+
+  assert.equal(response.statusCode, 404);
+  assert.match(response.body, /Not found/);
 });
 
 test('proxyRequest rejects absolute-form request targets instead of proxying them', () => {

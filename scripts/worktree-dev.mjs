@@ -214,7 +214,7 @@ function hasCommand(command) {
     env: sharedEnv,
     stdio: 'ignore',
   });
-  return !result.error;
+  return !result.error && result.status === 0;
 }
 
 function getMkcertCaroot() {
@@ -222,7 +222,18 @@ function getMkcertCaroot() {
     return '';
   }
 
-  return runCapture('mkcert', ['-CAROOT'], sharedEnv).trim();
+  const result = spawnSync('mkcert', ['-CAROOT'], {
+    cwd,
+    env: sharedEnv,
+    stdio: ['ignore', 'pipe', 'ignore'],
+    encoding: 'utf8',
+  });
+
+  if (result.error || result.status !== 0) {
+    return '';
+  }
+
+  return (result.stdout ?? '').trim();
 }
 
 function listExternalIpv4Addresses() {
@@ -640,7 +651,7 @@ function servePwaRootCertificate() {
   run('node', [
     path.resolve(cwd, 'scripts', 'pwa-root-ca-server.mjs'),
     '--host',
-    '0.0.0.0',
+    '127.0.0.1',
     '--port',
     String(ports.PWA_ROOT_CA_PORT),
     '--file',
@@ -675,7 +686,7 @@ function runPwaServe() {
   run('node', [
     path.resolve(cwd, 'scripts', 'pwa-https-server.mjs'),
     '--host',
-    '0.0.0.0',
+    '127.0.0.1',
     '--port',
     String(ports.PWA_HOST_PORT),
     '--cert',

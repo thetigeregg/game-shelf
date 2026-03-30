@@ -25,6 +25,7 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { TagSummary } from '../core/models/game.models';
+import { GLOBAL_CREATE_FAB_COLOR } from '../core/theme/filled-action-surface-colors';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
 
@@ -55,6 +56,7 @@ import { ellipsisVertical, add } from 'ionicons/icons';
   ],
 })
 export class TagsPage implements OnInit {
+  readonly createFabColor = GLOBAL_CREATE_FAB_COLOR;
   tags$!: Observable<TagSummary[]>;
   isTagModalOpen = false;
   editingTagId: number | null = null;

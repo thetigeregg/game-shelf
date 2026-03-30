@@ -33,6 +33,7 @@ import {
   ListType,
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { GLOBAL_CREATE_FAB_COLOR } from '../core/theme/filled-action-surface-colors';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
@@ -65,6 +66,7 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
   ],
 })
 export class ViewsPage implements OnInit {
+  readonly createFabColor = GLOBAL_CREATE_FAB_COLOR;
   views$!: Observable<GameListView[]>;
   listType: ListType = 'collection';
   hasCurrentConfiguration = false;

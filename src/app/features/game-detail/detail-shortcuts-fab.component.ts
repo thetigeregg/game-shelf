@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
+import { DETAIL_SHORTCUT_FAB_COLORS } from '../../core/theme/filled-action-surface-colors';
 import { addIcons } from 'ionicons';
 import { book, documentText, film, globe, link } from 'ionicons/icons';
 
@@ -9,14 +10,14 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
   imports: [IonFab, IonFabButton, IonFabList, IonIcon],
   template: `
     <ion-fab #fab vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
-      <ion-fab-button size="small" aria-label="Open web shortcuts">
+      <ion-fab-button size="small" [color]="fabColors.trigger" aria-label="Open web shortcuts">
         <ion-icon name="globe" aria-hidden="true"></ion-icon>
       </ion-fab-button>
       <ion-fab-list side="top" (click)="onListClick()">
         @if (showNotesShortcut) {
           <ion-fab-button
             class="shortcut-notes"
-            color="deep-ocean"
+            [color]="fabColors.notes"
             aria-label="Open notes editor"
             (click)="onNotesClick()"
           >
@@ -26,7 +27,7 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
         @if (showOpenManualButton) {
           <ion-fab-button
             class="shortcut-manual"
-            color="ocean"
+            [color]="fabColors.manual"
             aria-label="Open game manual PDF"
             (click)="onOpenManualClick()"
           >
@@ -35,7 +36,7 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
         }
         <ion-fab-button
           class="shortcut-websites"
-          color="royal"
+          [color]="fabColors.websites"
           aria-label="Open websites"
           (click)="onWebsitesClick()"
         >
@@ -44,7 +45,7 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
         @if (showVideosShortcut) {
           <ion-fab-button
             class="shortcut-videos"
-            color="ocean"
+            [color]="fabColors.videos"
             aria-label="Open game videos"
             (click)="onVideosClick()"
           >
@@ -76,6 +77,7 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
   ],
 })
 export class DetailShortcutsFabComponent {
+  readonly fabColors = DETAIL_SHORTCUT_FAB_COLORS;
   @ViewChild('fab') private fab?: IonFab;
 
   @Input() showVideosShortcut = false;

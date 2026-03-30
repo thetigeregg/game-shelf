@@ -230,7 +230,11 @@ export class DexieGameRepository implements GameRepository {
         rating: this.normalizeRating(existing.rating),
         listType: targetList,
         enteredCollectionAt:
-          targetList === 'collection' ? (existing.enteredCollectionAt ?? existing.createdAt) : null,
+          existing.listType === targetList
+            ? (existing.enteredCollectionAt ?? null)
+            : targetList === 'collection'
+              ? now
+              : null,
         updatedAt: now,
       };
 

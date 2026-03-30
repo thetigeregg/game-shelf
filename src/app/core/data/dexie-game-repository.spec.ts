@@ -439,6 +439,24 @@ describe('DexieGameRepository', () => {
     expect(imported.enteredCollectionAt).toBe('2025-08-05T00:00:00.000Z');
   });
 
+  it('refreshes enteredCollectionAt when catalog upserts move a game into collection', async () => {
+    const created = await repository.upsertFromCatalog(mario, 'wishlist');
+    expect(created.enteredCollectionAt).toBeNull();
+
+    await repository.setGameTimestamps('101', 18, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      enteredCollectionAt: null,
+    });
+
+    const moved = await repository.upsertFromCatalog(
+      { ...mario, title: 'Moved Mario' },
+      'collection'
+    );
+    expect(moved.enteredCollectionAt).not.toBeNull();
+    expect(moved.enteredCollectionAt).not.toBe('2024-01-01T00:00:00.000Z');
+  });
+
   it('skips timestamp writes when import timestamps are empty or unchanged', async () => {
     const created = await repository.upsertFromCatalog(mario, 'collection');
     const updateSpy = vi.spyOn(db.games, 'update');

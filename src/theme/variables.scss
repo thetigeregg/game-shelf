@@ -95,6 +95,7 @@
 }
 
 .ion-palette-dark {
+  /* Ionic buttons and FAB icons inherit their foreground from the active color contrast token. */
   --ion-color-dark: #f4f5f8;
   --ion-color-dark-rgb: 244, 245, 248;
   --ion-color-dark-contrast: #111111;
@@ -115,6 +116,8 @@
   --ion-color-mc-bad-contrast-rgb: 17, 17, 17;
   --ion-color-orange-contrast: #111111;
   --ion-color-orange-contrast-rgb: 17, 17, 17;
+  --ion-color-firetruck-contrast: #111111;
+  --ion-color-firetruck-contrast-rgb: 17, 17, 17;
 }
 
 .ion-color-mc-good {

@@ -3057,3 +3057,13 @@
 - 192f71f4 feat: update path-to-regexp to version 8.4.0 in multiple scrapers
 - 5e51ddf4 feat: implement audit fix script for multiple projects
 
+## v1.35.0 - 2026-03-30
+- afe8a465 Merge pull request #306 from thetigeregg/feat/gflink
+- b42cb434 fix(theme): harden dark palette token spec
+- 4dbb9147 feat: update website item icons to use dark theme styles
+- 8c485b0a feat: update theme variables with new color definitions and improve tests for dark palette
+- 6fb13ee0 refactor: remove filled action surface colors and related tests
+- 17626ab1 Merge branch 'main' into feat/gflink
+- 10a2f14d feat: implement filled action surface colors and integrate with FAB components
+- e116911d feat: add dark-palette contrast overrides and corresponding unit tests
+

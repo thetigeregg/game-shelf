@@ -1056,7 +1056,7 @@ export class GameSyncService implements SyncOutboxWriter {
       return new Date(parsed).toISOString();
     }
 
-    return this.normalizeIsoTimestamp(value);
+    return null;
   }
 
   private normalizeExternalUrl(value: unknown): string | null {

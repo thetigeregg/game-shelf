@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { setLiveRuntimeConfig } from '../config/runtime-config';
 
-export type RuntimeAvailabilityStatus = 'checking' | 'online' | 'offline' | 'tailnet-unreachable';
+export type RuntimeAvailabilityStatus = 'checking' | 'online' | 'offline' | 'service-unreachable';
 
 @Injectable({ providedIn: 'root' })
 export class RuntimeAvailabilityService {
@@ -45,8 +45,8 @@ export class RuntimeAvailabilityService {
     switch (this.status()) {
       case 'offline':
         return 'Offline. Cached library data is still available, but sync and live lookups are paused.';
-      case 'tailnet-unreachable':
-        return 'Tailnet unreachable. Cached data is available, but reconnect to Tailnet for sync, search, manuals, and live metadata.';
+      case 'service-unreachable':
+        return 'Connection unavailable. Cached data is available, but sync, search, manuals, and live metadata are currently unavailable.';
       default:
         return null;
     }
@@ -63,7 +63,7 @@ export class RuntimeAvailabilityService {
     }
 
     const probeSucceeded = await this.probeRuntimeConfig();
-    this.status.set(probeSucceeded ? 'online' : 'tailnet-unreachable');
+    this.status.set(probeSucceeded ? 'online' : 'service-unreachable');
   }
 
   private readonly handleOnline = () => {

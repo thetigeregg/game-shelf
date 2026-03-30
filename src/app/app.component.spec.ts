@@ -82,7 +82,7 @@ describe('AppComponent', () => {
   };
   const runtimeAvailabilityServiceMock = {
     initialize: vi.fn(),
-    status: signal<'checking' | 'online' | 'offline' | 'tailnet-unreachable'>('online'),
+    status: signal<'checking' | 'online' | 'offline' | 'service-unreachable'>('online'),
   };
 
   beforeEach(() => {
@@ -190,7 +190,7 @@ describe('AppComponent', () => {
     expect(localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY)).toBe('1.27.1');
   });
 
-  it('presents a tailnet alert when reachability changes to tailnet-unreachable', async () => {
+  it('presents a connection alert when reachability changes to service-unreachable', async () => {
     const present = vi.fn().mockResolvedValue(undefined);
     const onDidDismiss = vi.fn().mockResolvedValue(undefined);
     alertControllerMock.create.mockResolvedValue({
@@ -202,12 +202,12 @@ describe('AppComponent', () => {
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
 
-    runtimeAvailabilityServiceMock.status.set('tailnet-unreachable');
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
     await flushAsync();
 
     expect(alertControllerMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        header: 'Tailnet Connection Lost',
+        header: 'Connection Unavailable',
       })
     );
     expect(present).toHaveBeenCalledOnce();

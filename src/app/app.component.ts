@@ -35,11 +35,11 @@ export class AppComponent {
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
-  private tailnetAlertVisible = false;
+  private connectionAlertVisible = false;
 
   constructor() {
     effect(() => {
-      void this.syncTailnetAlert(this.runtimeAvailabilityService.status());
+      void this.syncConnectionAlert(this.runtimeAvailabilityService.status());
     });
 
     void this.initializeApp();
@@ -149,19 +149,19 @@ export class AppComponent {
     await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
   }
 
-  private async syncTailnetAlert(status: RuntimeAvailabilityStatus): Promise<void> {
-    if (status === 'tailnet-unreachable') {
-      if (this.tailnetAlertVisible) {
+  private async syncConnectionAlert(status: RuntimeAvailabilityStatus): Promise<void> {
+    if (status === 'service-unreachable') {
+      if (this.connectionAlertVisible) {
         return;
       }
 
-      this.tailnetAlertVisible = true;
+      this.connectionAlertVisible = true;
 
       try {
         const alert = await this.alertController.create({
-          header: 'Tailnet Connection Lost',
+          header: 'Connection Unavailable',
           message:
-            'Game Shelf cannot reach your home-server origin right now. Cached data is still available, but sync, search, manuals, and live metadata need Tailnet.',
+            'Game Shelf cannot connect right now. Cached data is still available, but sync, search, manuals, and live metadata are currently unavailable.',
           backdropDismiss: false,
           buttons: ['OK'],
         });
@@ -169,25 +169,25 @@ export class AppComponent {
         await alert.present();
         await alert.onDidDismiss();
       } finally {
-        this.tailnetAlertVisible = false;
+        this.connectionAlertVisible = false;
       }
 
       return;
     }
 
-    if (!this.tailnetAlertVisible) {
+    if (!this.connectionAlertVisible) {
       return;
     }
 
     const topAlert = await this.alertController.getTop();
     if (!topAlert) {
-      this.tailnetAlertVisible = false;
+      this.connectionAlertVisible = false;
       return;
     }
 
     if (typeof topAlert.dismiss === 'function') {
       await topAlert.dismiss();
     }
-    this.tailnetAlertVisible = false;
+    this.connectionAlertVisible = false;
   }
 }

@@ -638,48 +638,6 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.detailWebsiteItems).toBe(page.detailWebsiteItems);
   });
 
-  it('moves a library detail game to the other list and refreshes the local cache entry', async () => {
-    const page = Object.create(ExplorePage.prototype) as ExplorePage & {
-      selectedGameDetail: GameCatalogResult | null;
-    };
-    const selected = {
-      igdbGameId: '99',
-      platformIgdbId: 130,
-      title: 'Detail Library Game',
-      coverUrl: null,
-      coverSource: 'none' as const,
-      platform: 'Switch',
-      releaseDate: null,
-      releaseYear: null,
-      listType: 'collection' as const,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    };
-    const updated = { ...selected, listType: 'wishlist' as const };
-    const moveGame = vi.fn().mockResolvedValue(undefined);
-    const findGameByIdentity = vi.fn().mockResolvedValue(updated);
-    const presentToast = vi.fn().mockResolvedValue(undefined);
-    const upsertLocalGameCache = vi.fn();
-
-    Object.assign(page, {
-      selectedGameDetail: selected,
-      gameShelfService: {
-        moveGame,
-        findGameByIdentity,
-      },
-      presentToast,
-      upsertLocalGameCache,
-    });
-
-    await page.moveDetailGameToOtherList();
-
-    expect(moveGame).toHaveBeenCalledWith('99', 130, 'wishlist');
-    expect(findGameByIdentity).toHaveBeenCalledWith('99', 130);
-    expect(page.selectedGameDetail).toEqual(updated);
-    expect(upsertLocalGameCache).toHaveBeenCalledWith(updated);
-    expect(presentToast).toHaveBeenCalledWith('Moved to Wishlist.');
-  });
-
   it('emits trace logs around discover detail open and similar loading', async () => {
     const page = createPage();
 

@@ -89,6 +89,11 @@ import { DetailWebsiteModalIcon, DetailWebsiteModalItem } from './detail-website
         fill: var(--ion-color-dark-gray);
       }
 
+      .website-item-icon--dark {
+        color: var(--ion-color-dark);
+        fill: var(--ion-color-dark);
+      }
+
       .website-item-icon--royal {
         color: var(--ion-color-royal);
         fill: var(--ion-color-royal);

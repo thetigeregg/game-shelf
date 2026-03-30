@@ -1605,7 +1605,10 @@ export class SettingsPage {
         const platformIgdbId = platformIgdbIdRaw;
 
         try {
-          await this.gameShelfService.addGame(gameRow.catalog, gameRow.listType);
+          await this.gameShelfService.addGame(gameRow.catalog, gameRow.listType, {
+            enrichInBackground: false,
+            refreshPricingInBackground: false,
+          });
           gamesApplied += 1;
 
           const timestamps = {
@@ -1615,14 +1618,6 @@ export class SettingsPage {
               ? { enteredCollectionAt: gameRow.enteredCollectionAt }
               : {}),
           };
-
-          if (Object.keys(timestamps).length > 0) {
-            await this.gameShelfService.setGameTimestamps(
-              gameRow.catalog.igdbGameId,
-              platformIgdbId,
-              timestamps
-            );
-          }
 
           if (gameRow.customTitle !== null || gameRow.customPlatform !== null) {
             await this.gameShelfService.setGameCustomMetadata(
@@ -1697,6 +1692,14 @@ export class SettingsPage {
               uniqueTagIds
             );
             gameTagAssignmentsApplied += 1;
+          }
+
+          if (Object.keys(timestamps).length > 0) {
+            await this.gameShelfService.setGameTimestamps(
+              gameRow.catalog.igdbGameId,
+              platformIgdbId,
+              timestamps
+            );
           }
         } catch {
           failedRows += 1;

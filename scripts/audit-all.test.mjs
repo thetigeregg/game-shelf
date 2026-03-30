@@ -86,9 +86,37 @@ test('runAudits aggregates non-zero exits and returns a failing exit code', () =
   ]);
   assert.equal(logs.at(-1)?.includes('completed successfully'), false);
   assert.deepEqual(errors.slice(-2), [
-    '\n⚠️ Audit fix completed with remaining failures:',
+    '\n⚠️ Audit fixes completed with remaining failures:',
     '- worker (exit code 3)',
   ]);
+});
+
+test('runAudits logs pluralized success summaries', () => {
+  const logs = [];
+
+  const auditResult = runAudits({
+    projects: [{ name: 'root', path: '.' }],
+    repoRoot: '/repo',
+    npmCommand: 'npm',
+    spawn: () => ({ status: 0 }),
+    log: (message) => logs.push(message),
+    errorLog: () => undefined,
+  });
+
+  const fixResult = runAudits({
+    projects: [{ name: 'root', path: '.' }],
+    repoRoot: '/repo',
+    npmCommand: 'npm',
+    shouldFix: true,
+    spawn: () => ({ status: 0 }),
+    log: (message) => logs.push(message),
+    errorLog: () => undefined,
+  });
+
+  assert.equal(auditResult.exitCode, 0);
+  assert.equal(fixResult.exitCode, 0);
+  assert.equal(logs.includes('\n✅ All audits completed successfully'), true);
+  assert.equal(logs.includes('\n✅ All audit fixes completed successfully'), true);
 });
 
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {

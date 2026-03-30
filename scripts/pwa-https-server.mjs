@@ -235,6 +235,11 @@ export function proxyRequest(
   );
 
   proxyStream.on('error', (error) => {
+    if (response.headersSent) {
+      response.destroy(error);
+      return;
+    }
+
     sendError(response, 502, `Upstream proxy request failed: ${error.message}`);
   });
 

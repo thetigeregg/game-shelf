@@ -251,6 +251,43 @@ test('proxyRequest rejects scheme-relative request targets instead of proxying t
   assert.match(response.body, /Scheme-relative URLs are not supported by this proxy/);
 });
 
+test('proxyRequest destroys the response when the upstream fails after headers were sent', async () => {
+  const request = new PassThrough();
+  request.method = 'GET';
+  request.url = '/api/games';
+  request.headers = {};
+
+  const proxyStream = new PassThrough();
+  let destroyedWithError;
+  const response = {
+    headersSent: true,
+    destroy(error) {
+      destroyedWithError = error;
+    },
+    writeHead() {
+      throw new Error('writeHead should not be called after headers are sent');
+    },
+    end() {
+      throw new Error('end should not be called after headers are sent');
+    },
+  };
+
+  proxyRequest(request, response, 'https://proxy.example', {
+    httpsTransport: {
+      request() {
+        return proxyStream;
+      },
+    },
+  });
+
+  const upstreamError = new Error('socket hang up');
+  proxyStream.emit('error', upstreamError);
+  request.end();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(destroyedWithError, upstreamError);
+});
+
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {
   assert.equal(
     isEntrypoint({

@@ -83,6 +83,7 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
 import { openExternalUrl } from '../core/utils/open-external-url';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
+import { LIST_PAGE_FAB_COLORS } from '../core/theme/filled-action-surface-colors';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -167,6 +168,7 @@ function buildConfig(listType: ListType): ListPageConfig {
 })
 export class ListPageComponent {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
+  readonly fabColors = LIST_PAGE_FAB_COLORS;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },

@@ -978,6 +978,48 @@ describe('ExplorePage explore modes UX', () => {
     await metadataPromise;
   });
 
+  it('does not block fresh recommendation loads while discovery pricing hydration runs', async () => {
+    const page = createPage() as unknown as {
+      ensureActiveRecommendationPageFilled: () => Promise<void>;
+      ensureVisibleRecommendationDisplayMetadata: () => Promise<void>;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      isLoadingRecommendations: boolean;
+    };
+
+    const pageFillSpy = vi
+      .spyOn(page, 'ensureActiveRecommendationPageFilled')
+      .mockResolvedValue(undefined);
+    const metadataSpy = vi
+      .spyOn(page, 'ensureVisibleRecommendationDisplayMetadata')
+      .mockResolvedValue(undefined);
+    let resolvePricing: () => void = () => undefined;
+    const pricingPromise = new Promise<void>((resolve) => {
+      resolvePricing = resolve;
+    });
+    const pricingSpy = vi
+      .spyOn(page, 'ensureVisibleDiscoveryPricingHydrated')
+      .mockReturnValue(pricingPromise);
+
+    const loadPromise = page.loadRecommendationLanes(false);
+
+    let loadSettled = false;
+    void loadPromise.then(() => {
+      loadSettled = true;
+    });
+
+    await flushAsync();
+
+    expect(pageFillSpy).toHaveBeenCalledTimes(1);
+    expect(metadataSpy).toHaveBeenCalledTimes(1);
+    expect(pricingSpy).toHaveBeenCalledTimes(1);
+    expect(loadSettled).toBe(true);
+    expect(page.isLoadingRecommendations).toBe(false);
+
+    resolvePricing();
+    await pricingPromise;
+  });
+
   it('paginates recommendations in pages of 10', async () => {
     const page = createPage();
     const manyItems = Array.from({ length: 25 }, (_, index) => ({

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createPwaStackEnv, createSharedEnv, isEntrypoint } from './worktree-dev.mjs';
+import {
+  createPwaStackEnv,
+  createSharedEnv,
+  ensureParentDirectories,
+  isEntrypoint,
+} from './worktree-dev.mjs';
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });
@@ -29,6 +34,34 @@ test('createPwaStackEnv overrides manuals links to the local HTTPS proxy path', 
 
   assert.equal(env.MANUALS_PUBLIC_BASE_URL, '/manuals');
   assert.equal(env.NODE_ENV, 'development');
+});
+
+test('ensureParentDirectories creates parent directories for each configured certificate output', () => {
+  const createdDirectories = [];
+
+  ensureParentDirectories(
+    [
+      '/tmp/custom-certs/nested/localhost.pem',
+      '/tmp/custom-keys/other/localhost-key.pem',
+      '/tmp/custom-certs/nested/localhost-copy.pem',
+    ],
+    {
+      mkdir(directoryPath, options) {
+        createdDirectories.push({ directoryPath, options });
+      },
+    }
+  );
+
+  assert.deepEqual(createdDirectories, [
+    {
+      directoryPath: '/tmp/custom-certs/nested',
+      options: { recursive: true },
+    },
+    {
+      directoryPath: '/tmp/custom-keys/other',
+      options: { recursive: true },
+    },
+  ]);
 });
 
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {

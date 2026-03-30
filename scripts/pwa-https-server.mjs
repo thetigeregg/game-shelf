@@ -84,15 +84,21 @@ function parseArgs(argv) {
 }
 
 function resolveSafePath(rootDir, requestPathname) {
-  const normalizedPath = decodeURIComponent(requestPathname).replace(/^\/+/, '');
+  let normalizedPath;
+  try {
+    normalizedPath = decodeURIComponent(requestPathname).replace(/^\/+/, '');
+  } catch {
+    return { kind: 'bad-request' };
+  }
+
   const resolvedPath = path.resolve(rootDir, normalizedPath || 'index.html');
   const relativePath = path.relative(rootDir, resolvedPath);
 
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    return null;
+    return { kind: 'forbidden' };
   }
 
-  return resolvedPath;
+  return { kind: 'ok', path: resolvedPath };
 }
 
 function sendError(response, statusCode, message) {
@@ -167,13 +173,18 @@ function createHandler(rootDir, proxyOrigin) {
     }
 
     const resolvedPath = resolveSafePath(rootDir, requestUrl.pathname);
-    if (!resolvedPath) {
+    if (resolvedPath.kind === 'bad-request') {
+      sendError(response, 400, 'Bad request');
+      return;
+    }
+
+    if (resolvedPath.kind === 'forbidden') {
       sendError(response, 403, 'Forbidden');
       return;
     }
 
-    if (existsSync(resolvedPath) && statSync(resolvedPath).isFile()) {
-      sendFile(resolvedPath, response, method);
+    if (existsSync(resolvedPath.path) && statSync(resolvedPath.path).isFile()) {
+      sendFile(resolvedPath.path, response, method);
       return;
     }
 

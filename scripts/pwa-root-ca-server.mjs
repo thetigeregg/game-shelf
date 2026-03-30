@@ -6,7 +6,7 @@ import path from 'node:path';
 
 function parseArgs(argv) {
   const options = {
-    host: '0.0.0.0',
+    host: '127.0.0.1',
     route: '/rootCA.pem',
   };
 

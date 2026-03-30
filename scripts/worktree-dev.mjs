@@ -277,8 +277,11 @@ function printInfo() {
   console.log(`  quick browser: http://localhost:${ports.FRONTEND_PORT}`);
   console.log(`  installed PWA: https://localhost:${ports.PWA_HOST_PORT}`);
   console.log(`  root ca file:  http://localhost:${ports.PWA_ROOT_CA_PORT}/rootCA.pem`);
-  for (const host of listExternalIpv4Addresses()) {
-    console.log(`  network host:  https://${host}:${ports.PWA_HOST_PORT}`);
+  const externalHosts = listExternalIpv4Addresses();
+  if (externalHosts.length > 0) {
+    console.log(
+      '  network hosts: (external HTTPS URLs are not printed by default; mkcert SANs only cover localhost)'
+    );
   }
   console.log(
     `PWA certs: ${certStatus.isConfigured ? '[configured]' : '[missing]'} (${simulatorCertFile}, ${simulatorKeyFile})`
@@ -547,6 +550,7 @@ function listBuildOutputEntries(buildRoot) {
 async function isPortReachable(port, host = '127.0.0.1') {
   return await new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
+    socket.unref();
 
     socket.once('connect', () => {
       socket.destroy();
@@ -554,6 +558,7 @@ async function isPortReachable(port, host = '127.0.0.1') {
     });
 
     socket.once('error', () => {
+      socket.destroy();
       resolve(false);
     });
 

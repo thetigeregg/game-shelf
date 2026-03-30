@@ -607,15 +607,53 @@
         </app-game-detail-content>
       }
     </div>
-    <app-detail-shortcuts-fab
-      [showVideosShortcut]="hasDetailVideosShortcut"
-      [showNotesShortcut]="shouldShowNotesShortcut"
-      [showOpenManualButton]="shouldShowOpenManualButton"
-      (websitesClick)="openWebsitesModal()"
-      (videosClick)="openVideosModal()"
-      (notesClick)="openNotesEditor()"
-      (openManualClick)="openManualPdf()"
-    ></app-detail-shortcuts-fab>
+    <ion-fab
+      slot="fixed"
+      vertical="bottom"
+      horizontal="end"
+      class="detail-shortcuts-fab"
+      #detailShortcutsFab
+    >
+      <ion-fab-button size="small" aria-label="Open web shortcuts">
+        <ion-icon name="globe" aria-hidden="true"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-list side="top">
+        @if (shouldShowNotesShortcut) {
+          <ion-fab-button
+            color="deep-ocean"
+            aria-label="Open notes editor"
+            (click)="openNotesEditor(); detailShortcutsFab.close()"
+          >
+            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        @if (shouldShowOpenManualButton) {
+          <ion-fab-button
+            color="ocean"
+            aria-label="Open game manual PDF"
+            (click)="openManualPdf(); detailShortcutsFab.close()"
+          >
+            <ion-icon name="book" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        <ion-fab-button
+          color="royal"
+          aria-label="Open websites"
+          (click)="openWebsitesModal(); detailShortcutsFab.close()"
+        >
+          <ion-icon name="link" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        @if (hasDetailVideosShortcut) {
+          <ion-fab-button
+            color="ocean"
+            aria-label="Open game videos"
+            (click)="openVideosModal(); detailShortcutsFab.close()"
+          >
+            <ion-icon name="film" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+      </ion-fab-list>
+    </ion-fab>
   </ion-content>
 </ng-template>
 

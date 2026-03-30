@@ -44,6 +44,9 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
+  IonFab,
+  IonFabButton,
+  IonFabList,
   IonSegment,
   IonSegmentButton,
   IonSelect,
@@ -139,7 +142,6 @@ import { RecommendationIgnoreService } from '../../core/services/recommendation-
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
-import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
 import { DetailWebsitesModalComponent } from '../game-detail/detail-websites-modal.component';
 import {
@@ -185,6 +187,8 @@ import {
   chevronBack,
   documentText,
   book,
+  film,
+  link,
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -270,6 +274,9 @@ type NotesToolbarAction =
     IonTitle,
     IonButtons,
     IonButton,
+    IonFab,
+    IonFabButton,
+    IonFabList,
     IonSegment,
     IonSegmentButton,
     IonSelect,
@@ -291,7 +298,6 @@ type NotesToolbarAction =
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     SimilarGameRowComponent,
@@ -5486,6 +5492,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
       pause,
       refresh,
       globe,
+      link,
+      film,
       search,
       logoGoogle,
       logoYoutube,

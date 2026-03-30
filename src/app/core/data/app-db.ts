@@ -264,8 +264,12 @@ export class AppDb extends Dexie {
 
             if (typeof existingEnteredCollectionAt === 'string') {
               const normalized = existingEnteredCollectionAt.trim();
-              game['enteredCollectionAt'] = normalized.length > 0 ? normalized : null;
-              return;
+              if (normalized.length > 0 && !Number.isNaN(Date.parse(normalized))) {
+                game['enteredCollectionAt'] = normalized;
+                return;
+              }
+
+              game['enteredCollectionAt'] = null;
             }
 
             if (existingEnteredCollectionAt === null) {
@@ -273,7 +277,9 @@ export class AppDb extends Dexie {
             }
 
             const createdAt =
-              typeof game['createdAt'] === 'string' && game['createdAt'].trim().length > 0
+              typeof game['createdAt'] === 'string' &&
+              game['createdAt'].trim().length > 0 &&
+              !Number.isNaN(Date.parse(game['createdAt'].trim()))
                 ? game['createdAt'].trim()
                 : null;
             const listType = game['listType'] === 'wishlist' ? 'wishlist' : 'collection';

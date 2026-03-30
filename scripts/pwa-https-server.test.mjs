@@ -199,6 +199,32 @@ test('createHandler falls back to index.html for unknown SPA routes', async () =
   }
 });
 
+test('createHandler returns 400 for malformed request urls instead of throwing', async () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
+  writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');
+
+  try {
+    const handler = createHandler(rootDir, 'https://proxy.example');
+    const response = new MockResponse();
+
+    handler(
+      {
+        method: 'GET',
+        url: '/bad%E0%A4%A',
+      },
+      response
+    );
+
+    await waitForStreamEnd(response);
+
+    assert.equal(response.statusCode, 400);
+    assert.match(response.body, /Bad request/);
+    assert.equal(response.headers?.['Content-Type'], 'text/plain; charset=utf-8');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
 test('createHandler returns 404 for missing asset paths instead of the SPA shell', async () => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
   writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');

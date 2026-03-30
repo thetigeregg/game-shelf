@@ -81,8 +81,14 @@ export function sendText(response, statusCode, body) {
 
 export function createHandler({ host, port, route, fileBuffer, fileSize }) {
   return (request, response) => {
-    const requestUrl = new URL(request.url ?? '/', 'http://gameshelf.local');
     const method = request.method ?? 'GET';
+    let requestUrl;
+    try {
+      requestUrl = new URL(request.url ?? '/', 'http://gameshelf.local');
+    } catch {
+      sendText(response, 400, 'Bad request\n');
+      return;
+    }
 
     if (!['GET', 'HEAD'].includes(method)) {
       sendText(response, 405, 'Method not allowed\n');

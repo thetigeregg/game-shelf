@@ -289,6 +289,7 @@ test('proxyRequest strips hop-by-hop headers before forwarding upstream', () => 
   request.headers = {
     accept: 'application/json',
     connection: 'keep-alive',
+    host: 'attacker.example',
     'keep-alive': 'timeout=5',
     'proxy-authorization': 'Basic abc123',
     te: 'trailers',

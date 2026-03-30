@@ -266,7 +266,12 @@ export function proxyRequest(
   ]);
   const proxyHeaders = { host: targetUrl.host };
   for (const [headerName, headerValue] of Object.entries(request.headers)) {
-    if (typeof headerValue === 'undefined' || hopByHopHeaders.has(headerName.toLowerCase())) {
+    const normalizedHeaderName = headerName.toLowerCase();
+    if (
+      typeof headerValue === 'undefined' ||
+      normalizedHeaderName === 'host' ||
+      hopByHopHeaders.has(normalizedHeaderName)
+    ) {
       continue;
     }
 

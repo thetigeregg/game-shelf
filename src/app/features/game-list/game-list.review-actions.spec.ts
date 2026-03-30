@@ -616,6 +616,31 @@ describe('game-list review actions', () => {
     expect((page as { isMetacriticUpdateLoading: boolean }).isMetacriticUpdateLoading).toBe(false);
   });
 
+  it('moves the selected game from detail and closes the modal', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+    };
+    const target = createGame({
+      igdbGameId: '55',
+      platformIgdbId: 130,
+      listType: 'collection',
+      title: 'Detail Move Game',
+    });
+    const moveGame = vi.fn().mockResolvedValue(undefined);
+    const closeGameDetailModalInternal = vi.fn();
+
+    Object.assign(page, {
+      selectedGame: target,
+      moveGame,
+      closeGameDetailModalInternal,
+    });
+
+    await page.moveSelectedGameFromDetail();
+
+    expect(moveGame).toHaveBeenCalledWith(target);
+    expect(closeGameDetailModalInternal).toHaveBeenCalledOnce();
+  });
+
   it('single pricing refresh opens picker for PSPrices platforms', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

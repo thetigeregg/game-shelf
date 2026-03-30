@@ -83,6 +83,16 @@
             </ion-label>
           </ion-item>
           @if (showLibrarySections) {
+            <ion-item button detail="false" (click)="moveToOtherList.emit()">
+              <ion-icon slot="start" name="swap-horizontal" aria-hidden="true"></ion-icon>
+              <ion-label>
+                <h2>{{ moveToOtherListLabel }}</h2>
+                <p>Move this game to your other list.</p>
+              </ion-label>
+            </ion-item>
+          }
+
+          @if (showLibrarySections) {
             <ion-item>
               <ion-icon slot="start" name="trophy" aria-hidden="true"></ion-icon>
               <ion-select

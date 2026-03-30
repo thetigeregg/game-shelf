@@ -27,6 +27,7 @@ vi.mock('@ionic/angular/standalone', () => ({
 
 vi.mock('ionicons/icons', () => ({
   add: {},
+  swapHorizontal: {},
   ban: {},
   cash: {},
   build: {},
@@ -112,6 +113,28 @@ describe('game detail metadata interactions', () => {
     component.context = 'explore';
     component.allowMetadataFilterLinks = true;
     expect(component.shouldEnableMetadataFilterLinks).toBe(false);
+  });
+
+  it('builds the move label from the current library list type', () => {
+    const component = createComponent();
+
+    component.context = 'library';
+    component.game = makeLibraryGame({ listType: 'collection' });
+    expect(component.moveToOtherListLabel).toBe('Move to Wishlist');
+
+    component.game = makeLibraryGame({ listType: 'wishlist' });
+    expect(component.moveToOtherListLabel).toBe('Move to Collection');
+  });
+
+  it('emits move-to-other-list from library detail actions', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.moveToOtherList, 'emit');
+
+    component.context = 'library';
+    component.game = makeLibraryGame();
+    component.moveToOtherList.emit();
+
+    expect(emitSpy).toHaveBeenCalledOnce();
   });
 
   it('does not emit metadata click events when links are disabled', () => {

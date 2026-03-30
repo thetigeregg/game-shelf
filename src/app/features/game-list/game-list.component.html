@@ -487,6 +487,7 @@
           [game]="getDetailGamePayload(game)"
           context="library"
           [statusOptions]="statusOptions"
+          (moveToOtherList)="moveSelectedGameFromDetail()"
           (statusChange)="onSelectedGameStatusChange($event)"
           (clearStatus)="clearSelectedGameStatus()"
           (editRating)="openSelectedGameRatingFromDetail()"

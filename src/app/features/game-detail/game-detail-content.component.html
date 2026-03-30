@@ -217,8 +217,8 @@
           </ion-item>
 
           <ion-item
-            [button]="showLibrarySections && hasMetadataValue(game.developers)"
-            [detail]="showLibrarySections && hasMetadataValue(game.developers)"
+            [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.developers)"
+            [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.developers)"
             (click)="onDeveloperClick()"
           >
             <ion-icon slot="start" name="build" aria-hidden="true"></ion-icon>
@@ -229,8 +229,8 @@
           </ion-item>
 
           <ion-item
-            [button]="showLibrarySections && hasMetadataValue(game.collections)"
-            [detail]="showLibrarySections && hasMetadataValue(game.collections)"
+            [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.collections)"
+            [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.collections)"
             (click)="onSeriesClick()"
           >
             <ion-icon slot="start" name="library" aria-hidden="true"></ion-icon>
@@ -241,8 +241,8 @@
           </ion-item>
 
           <ion-item
-            [button]="showLibrarySections && hasMetadataValue(game.franchises)"
-            [detail]="showLibrarySections && hasMetadataValue(game.franchises)"
+            [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.franchises)"
+            [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.franchises)"
             (click)="onFranchiseClick()"
           >
             <ion-icon slot="start" name="git-branch" aria-hidden="true"></ion-icon>
@@ -253,8 +253,8 @@
           </ion-item>
 
           <ion-item
-            [button]="showLibrarySections && hasMetadataValue(game.genres)"
-            [detail]="showLibrarySections && hasMetadataValue(game.genres)"
+            [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.genres)"
+            [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.genres)"
             (click)="onGenreClick()"
           >
             <ion-icon slot="start" name="grid" aria-hidden="true"></ion-icon>
@@ -265,8 +265,8 @@
           </ion-item>
 
           <ion-item
-            [button]="showLibrarySections && hasMetadataValue(game.publishers)"
-            [detail]="showLibrarySections && hasMetadataValue(game.publishers)"
+            [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.publishers)"
+            [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.publishers)"
             (click)="onPublisherClick()"
           >
             <ion-icon slot="start" name="business" aria-hidden="true"></ion-icon>

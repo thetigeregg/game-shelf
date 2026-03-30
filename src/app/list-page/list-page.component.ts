@@ -52,7 +52,6 @@ import { GameSearchComponent } from '../features/game-search/game-search.compone
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
-import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
 import { DetailWebsitesModalComponent } from '../features/game-detail/detail-websites-modal.component';
 import {
@@ -94,6 +93,9 @@ import {
   search,
   chevronUp,
   arrowUp,
+  globe,
+  link,
+  film,
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -140,7 +142,6 @@ function buildConfig(listType: ListType): ListPageConfig {
     GameListComponent,
     GameSearchComponent,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     GameFiltersMenuComponent,
@@ -271,6 +272,9 @@ export class ListPageComponent {
       search,
       chevronUp,
       arrowUp,
+      globe,
+      link,
+      film,
     });
   }
 

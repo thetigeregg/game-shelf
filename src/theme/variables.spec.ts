@@ -15,24 +15,42 @@ function getDarkPaletteBlock(): string {
 }
 
 describe('theme variables', () => {
-  it('defines dark-palette contrast overrides for bright custom action colors', () => {
+  it('defines complete dark-palette token sets for every registered custom color', () => {
     const darkPaletteBlock = getDarkPaletteBlock();
 
-    expect(darkPaletteBlock).toContain('--ion-color-white-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-forest-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-forest-dark-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-mc-good-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-mc-okay-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-mc-bad-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-orange-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-firetruck-contrast: #111111;');
+    for (const color of [
+      'mc-good',
+      'mc-okay',
+      'mc-bad',
+      'orange',
+      'ocean',
+      'deep-ocean',
+      'dark-gray',
+      'firetruck',
+      'white',
+      'royal',
+      'forest',
+      'forest-dark',
+    ]) {
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}:`);
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}-rgb:`);
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}-contrast:`);
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}-contrast-rgb:`);
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}-shade:`);
+      expect(darkPaletteBlock).toContain(`--ion-color-${color}-tint:`);
+    }
   });
 
-  it('keeps rgb companions in sync for dark-palette custom contrast overrides', () => {
+  it('keeps filled action custom colors on explicit dark-mode bases with dark contrast', () => {
     const darkPaletteBlock = getDarkPaletteBlock();
 
-    expect(darkPaletteBlock).toContain('--ion-color-firetruck-contrast-rgb: 17, 17, 17;');
-    expect(darkPaletteBlock).toContain('--ion-color-forest-contrast-rgb: 17, 17, 17;');
-    expect(darkPaletteBlock).toContain('--ion-color-orange-contrast-rgb: 17, 17, 17;');
+    expect(darkPaletteBlock).toContain('--ion-color-forest: #69d96b;');
+    expect(darkPaletteBlock).toContain('--ion-color-forest-contrast: #111111;');
+    expect(darkPaletteBlock).toContain('--ion-color-ocean: #6eb5ff;');
+    expect(darkPaletteBlock).toContain('--ion-color-ocean-contrast: #111111;');
+    expect(darkPaletteBlock).toContain('--ion-color-deep-ocean: #8b9cff;');
+    expect(darkPaletteBlock).toContain('--ion-color-deep-ocean-contrast: #111111;');
+    expect(darkPaletteBlock).toContain('--ion-color-royal: #b48cff;');
+    expect(darkPaletteBlock).toContain('--ion-color-royal-contrast: #111111;');
   });
 });

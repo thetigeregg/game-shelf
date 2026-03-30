@@ -347,7 +347,6 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'filters',
   'key',
   'value',
-  'enteredCollectionAt',
   'createdAt',
   'updatedAt',
 ];

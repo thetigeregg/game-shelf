@@ -634,6 +634,27 @@ describe('SettingsPage CSV review fields', () => {
     expect(gameLine).toContain('2025-08-05T00:00:00.000Z');
   });
 
+  it('accepts legacy CSV imports without enteredCollectionAt and backfills it from createdAt', async () => {
+    const page = createPage();
+    const legacyRow = makeGameRow();
+    const headers = Object.keys(legacyRow).filter((header) => header !== 'enteredCollectionAt');
+    const values = headers.map((header) => legacyRow[header] ?? '');
+    const csv = [headers.join(','), values.join(',')].join('\n');
+
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: { kind: string; enteredCollectionAt: string | null; createdAt: string | null } | null;
+    }>;
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+    expect(preview[0]?.parsed).toMatchObject({
+      kind: 'game',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      enteredCollectionAt: '2024-01-01T00:00:00.000Z',
+    });
+  });
+
   it('includes release date display settings in exported settings even when defaults are not stored', () => {
     const page = createPage();
 

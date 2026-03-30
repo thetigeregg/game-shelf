@@ -83,9 +83,12 @@ For installed-PWA simulator testing, create local HTTPS certs first:
 
 ```bash
 mkdir -p .tmp/pwa-certs
+mkcert -install
 mkcert -cert-file .tmp/pwa-certs/localhost.pem -key-file .tmp/pwa-certs/localhost-key.pem localhost 127.0.0.1 ::1
 npm run dev:pwa:certs:check
 ```
+
+Use a trusted local certificate for this flow. If Safari in iPhone Simulator still shows "This website is not secure", trust the `mkcert` root CA in the simulator as well before treating the PWA test results as reliable.
 
 Then build and serve the production PWA over HTTPS:
 

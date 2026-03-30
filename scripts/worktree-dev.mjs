@@ -533,10 +533,14 @@ function printMissingCertificateInstructions() {
   console.error('PWA install path unavailable because HTTPS certificates are missing.');
   console.error(`Expected cert: ${simulatorCertFile}`);
   console.error(`Expected key:  ${simulatorKeyFile}`);
-  console.error('Create local simulator certs, for example with mkcert:');
+  console.error('Use a trusted local certificate, for example with mkcert:');
+  console.error('  mkcert -install');
   console.error(`  mkdir -p ${simulatorCertDir}`);
   console.error(
     `  mkcert -cert-file ${simulatorCertFile} -key-file ${simulatorKeyFile} localhost 127.0.0.1 ::1`
+  );
+  console.error(
+    'If Safari in iPhone Simulator still warns that the site is not secure, trust the mkcert root CA in the simulator too.'
   );
 }
 
@@ -627,6 +631,9 @@ async function runPwa(command) {
     console.log('PWA HTTPS certificates are configured.');
     console.log(`Cert: ${certStatus.certPath}`);
     console.log(`Key:  ${certStatus.keyPath}`);
+    console.log(
+      'For the cleanest Simulator PWA flow, use a trusted cert such as mkcert and ensure Safari does not show a security warning for this origin.'
+    );
     return;
   }
 

@@ -9,7 +9,7 @@ const variablesScss = readFileSync(
 );
 
 function getDarkPaletteBlock(): string {
-  const match = variablesScss.match(/\.ion-palette-dark\s*\{([\s\S]*?)\n\}/);
+  const match = variablesScss.match(/\.ion-palette-dark\s*\{([\s\S]*?)\s*\}/);
   expect(match).not.toBeNull();
   return match?.[1] ?? '';
 }
@@ -44,13 +44,13 @@ describe('theme variables', () => {
   it('keeps filled action custom colors on explicit dark-mode bases with dark contrast', () => {
     const darkPaletteBlock = getDarkPaletteBlock();
 
-    expect(darkPaletteBlock).toContain('--ion-color-forest: #69d96b;');
-    expect(darkPaletteBlock).toContain('--ion-color-forest-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-ocean: #6eb5ff;');
-    expect(darkPaletteBlock).toContain('--ion-color-ocean-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-deep-ocean: #8b9cff;');
-    expect(darkPaletteBlock).toContain('--ion-color-deep-ocean-contrast: #111111;');
-    expect(darkPaletteBlock).toContain('--ion-color-royal: #b48cff;');
-    expect(darkPaletteBlock).toContain('--ion-color-royal-contrast: #111111;');
+    expect(darkPaletteBlock).toMatch(/--ion-color-forest:\s*#69d96b;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-forest-contrast:\s*#111111;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-ocean:\s*#6eb5ff;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-ocean-contrast:\s*#111111;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-deep-ocean:\s*#8b9cff;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-deep-ocean-contrast:\s*#111111;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-royal:\s*#b48cff;/);
+    expect(darkPaletteBlock).toMatch(/--ion-color-royal-contrast:\s*#111111;/);
   });
 });

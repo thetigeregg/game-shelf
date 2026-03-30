@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import {
   AlertController,
   IonApp,
@@ -11,7 +11,11 @@ import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
-import { getAppVersion, isE2eFixturesEnabled } from './core/config/runtime-config';
+import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
+import {
+  RuntimeAvailabilityService,
+  RuntimeAvailabilityStatus,
+} from './core/services/runtime-availability.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 @Component({
@@ -30,12 +34,24 @@ export class AppComponent {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
+  readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
+  private connectionAlert:
+    | (Awaited<ReturnType<AlertController['create']>> & {
+        dismiss?: () => Promise<boolean>;
+        onDidDismiss?: () => Promise<unknown>;
+      })
+    | null = null;
 
   constructor() {
+    effect(() => {
+      void this.syncConnectionAlert(this.runtimeAvailabilityService.status());
+    });
+
     void this.initializeApp();
   }
 
   private async initializeApp(): Promise<void> {
+    this.runtimeAvailabilityService.initialize();
     if (isE2eFixturesEnabled()) {
       await this.e2eFixtureService.applyFixtureFromStorage();
     }
@@ -94,16 +110,20 @@ export class AppComponent {
       return;
     }
 
-    const currentVersion = getAppVersion();
+    const currentVersion = getAppVersionInfo();
     const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
 
-    if (previousVersion === currentVersion) {
+    if (currentVersion.source !== 'live' || currentVersion.isFallback) {
+      return;
+    }
+
+    if (previousVersion === currentVersion.value) {
       return;
     }
 
     const message = previousVersion
-      ? `Updated from v${previousVersion} to v${currentVersion}.`
-      : `Welcome to Game Shelf v${currentVersion}.`;
+      ? `Updated from v${previousVersion} to v${currentVersion.value}.`
+      : `Welcome to Game Shelf v${currentVersion.value}.`;
 
     const alert = await this.alertController.create({
       header: 'App Updated',
@@ -112,7 +132,7 @@ export class AppComponent {
     });
 
     await alert.present();
-    window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion);
+    window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
 
   private async presentNotificationToast(
@@ -132,5 +152,41 @@ export class AppComponent {
   private async enableReleaseNotificationsFromPrompt(): Promise<void> {
     const result = await this.notificationService.enableReleaseNotifications();
     await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
+  }
+
+  private async syncConnectionAlert(status: RuntimeAvailabilityStatus): Promise<void> {
+    if (status === 'service-unreachable') {
+      if (this.connectionAlert !== null) {
+        return;
+      }
+
+      try {
+        const alert = await this.alertController.create({
+          header: 'Connection Unavailable',
+          message:
+            'Game Shelf cannot connect right now. Cached data is still available, but sync, search, manuals, and live metadata are currently unavailable.',
+          backdropDismiss: false,
+          buttons: ['OK'],
+        });
+
+        this.connectionAlert = alert;
+        await alert.present();
+        await alert.onDidDismiss();
+      } finally {
+        this.connectionAlert = null;
+      }
+
+      return;
+    }
+
+    if (this.connectionAlert === null) {
+      return;
+    }
+
+    const activeConnectionAlert = this.connectionAlert;
+    this.connectionAlert = null;
+    if (typeof activeConnectionAlert.dismiss === 'function') {
+      await activeConnectionAlert.dismiss();
+    }
   }
 }

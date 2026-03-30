@@ -344,11 +344,17 @@ export class DexieGameRepository implements GameRepository {
     const existingId = existing.id;
 
     const now = new Date().toISOString();
+    const enteredCollectionAt =
+      existing.listType === targetList
+        ? existing.enteredCollectionAt
+        : targetList === 'collection'
+          ? now
+          : null;
     await this.withOutboxTransaction([this.db.games], () =>
       this.db.games
         .update(existingId, {
           listType: targetList,
-          enteredCollectionAt: targetList === 'collection' ? now : null,
+          enteredCollectionAt,
           updatedAt: now,
         })
         .then(() => this.exists(igdbGameId, platformIgdbId))

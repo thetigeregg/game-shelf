@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import path from 'node:path';
@@ -138,6 +138,39 @@ export function resolveSafePath(rootDir, requestPathname) {
     return { kind: 'forbidden' };
   }
 
+  let resolvedRootDir;
+  try {
+    resolvedRootDir = realpathSync(rootDir);
+  } catch {
+    return { kind: 'forbidden' };
+  }
+
+  let scopePath = resolvedPath;
+  while (!existsSync(scopePath)) {
+    const parentPath = path.dirname(scopePath);
+    if (parentPath === scopePath) {
+      return { kind: 'forbidden' };
+    }
+
+    scopePath = parentPath;
+  }
+
+  let resolvedScopePath;
+  try {
+    resolvedScopePath = realpathSync(scopePath);
+  } catch {
+    return { kind: 'forbidden' };
+  }
+
+  const scopeRelativePath = path.relative(resolvedRootDir, resolvedScopePath);
+  if (
+    scopeRelativePath === '..' ||
+    scopeRelativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(scopeRelativePath)
+  ) {
+    return { kind: 'forbidden' };
+  }
+
   return { kind: 'ok', path: resolvedPath };
 }
 
@@ -220,7 +253,25 @@ export function proxyRequest(
     return;
   }
 
-  const proxyHeaders = { ...request.headers, host: targetUrl.host };
+  const hopByHopHeaders = new Set([
+    'connection',
+    'keep-alive',
+    'proxy-authenticate',
+    'proxy-authorization',
+    'proxy-connection',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+  ]);
+  const proxyHeaders = { host: targetUrl.host };
+  for (const [headerName, headerValue] of Object.entries(request.headers)) {
+    if (typeof headerValue === 'undefined' || hopByHopHeaders.has(headerName.toLowerCase())) {
+      continue;
+    }
+
+    proxyHeaders[headerName] = headerValue;
+  }
   const transport = targetUrl.protocol === 'https:' ? httpsTransport : httpTransport;
 
   const proxyStream = transport.request(

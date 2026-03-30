@@ -187,8 +187,16 @@ export class RuntimeAvailabilityService {
     };
   }
 
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   private matchLastString(script: string, key: string): string | null {
-    const pattern = new RegExp(`${key}\\s*:\\s*(["'])((?:\\\\.|(?!\\1).)*)\\1`, 'g');
+    const escapedKey = this.escapeRegExp(key);
+    const pattern = new RegExp(
+      `["']?${escapedKey}["']?\\s*:\\s*(["'])((?:\\\\.|(?!\\1).)*)\\1`,
+      'g'
+    );
     let lastValue: string | null = null;
     let match: RegExpExecArray | null;
 
@@ -204,7 +212,8 @@ export class RuntimeAvailabilityService {
   }
 
   private matchLastBoolean(script: string, key: string): boolean | null {
-    const pattern = new RegExp(`${key}\\s*:\\s*(true|false)`, 'g');
+    const escapedKey = this.escapeRegExp(key);
+    const pattern = new RegExp(`["']?${escapedKey}["']?\\s*:\\s*(true|false)`, 'g');
     let lastValue: boolean | null = null;
     let match: RegExpExecArray | null;
 

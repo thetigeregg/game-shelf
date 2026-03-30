@@ -213,6 +213,38 @@ describe('AppComponent', () => {
     expect(present).toHaveBeenCalledOnce();
   });
 
+  it('dismisses only the tracked connection alert when availability recovers', async () => {
+    const dismissConnectionAlert = vi.fn().mockResolvedValue(true);
+    const connectionAlert = {
+      present: vi.fn().mockResolvedValue(undefined),
+      dismiss: dismissConnectionAlert,
+      onDidDismiss: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 5);
+          })
+      ),
+    };
+    const unrelatedTopAlert = {
+      dismiss: vi.fn().mockResolvedValue(true),
+    };
+
+    alertControllerMock.create.mockResolvedValue(connectionAlert);
+    alertControllerMock.getTop.mockResolvedValue(unrelatedTopAlert);
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
+    await flushAsync();
+    runtimeAvailabilityServiceMock.status.set('online');
+    await flushAsync();
+
+    expect(dismissConnectionAlert).toHaveBeenCalledOnce();
+    expect(unrelatedTopAlert.dismiss).not.toHaveBeenCalled();
+  });
+
   it('skips the version alert when the current version was already seen', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const shouldFix = process.argv.includes('--fix');
 
 const projects = [
   { name: 'root', path: '.' },
@@ -27,9 +28,10 @@ function getExitCode(result) {
   return 1;
 }
 
-function runAuditFix(project) {
+function runAudit(project) {
   const projectDir = resolve(repoRoot, project.path);
-  const args = project.path === '.' ? ['audit', 'fix'] : ['--prefix', projectDir, 'audit', 'fix'];
+  const auditArgs = shouldFix ? ['audit', 'fix'] : ['audit'];
+  const args = project.path === '.' ? auditArgs : ['--prefix', projectDir, ...auditArgs];
 
   console.log(`\n==============================`);
   console.log(`🔎 Auditing ${project.name}`);
@@ -54,9 +56,11 @@ function runAuditFix(project) {
   const exitCode = getExitCode(result);
 
   if (exitCode === 0) {
-    console.log(`✅ ${project.name} audit fix completed`);
+    console.log(`✅ ${project.name} audit${shouldFix ? ' fix' : ''} completed`);
   } else {
-    console.error(`⚠️ ${project.name} audit fix exited with code ${exitCode}`);
+    console.error(
+      `⚠️ ${project.name} audit${shouldFix ? ' fix' : ''} exited with code ${exitCode}`
+    );
   }
 
   return {
@@ -68,7 +72,7 @@ function runAuditFix(project) {
 const failures = [];
 
 for (const project of projects) {
-  const result = runAuditFix(project);
+  const result = runAudit(project);
 
   if (result.exitCode !== 0) {
     failures.push(result);
@@ -76,11 +80,11 @@ for (const project of projects) {
 }
 
 if (failures.length === 0) {
-  console.log('\n✅ All audit fixes completed successfully');
+  console.log(`\n✅ All audit${shouldFix ? ' fixes' : ''} completed successfully`);
   process.exit(0);
 }
 
-console.error('\n⚠️ Audit fix completed with remaining failures:');
+console.error(`\n⚠️ Audit${shouldFix ? ' fix' : ''} completed with remaining failures:`);
 
 for (const failure of failures) {
   console.error(`- ${failure.name} (exit code ${failure.exitCode})`);

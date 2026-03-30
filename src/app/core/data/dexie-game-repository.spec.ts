@@ -468,8 +468,8 @@ describe('DexieGameRepository', () => {
     });
     const empty = await repository.setGameTimestamps('101', 18, {});
 
-    expect(unchanged).toEqual(created);
-    expect(empty).toEqual(created);
+    expect(unchanged).toBeUndefined();
+    expect(empty).toBeUndefined();
     expect(updateSpy).not.toHaveBeenCalled();
   });
 

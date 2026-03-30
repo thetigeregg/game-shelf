@@ -367,6 +367,15 @@ describe('AppDb', () => {
         createdAt: '2024-05-01T00:00:00.000Z',
         updatedAt: '2024-05-01T00:00:00.000Z',
       },
+      {
+        igdbGameId: '406',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Missing Created Timestamp',
+        platform: 'Nintendo Switch',
+        createdAt: '   ',
+        updatedAt: '2024-06-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 
@@ -379,6 +388,7 @@ describe('AppDb', () => {
     expect(games[2].enteredCollectionAt).toBe('2024-03-01T00:00:00.000Z');
     expect(games[3].enteredCollectionAt).toBeNull();
     expect(games[4].enteredCollectionAt).toBeNull();
+    expect(games[5].enteredCollectionAt).toBeNull();
 
     db.close();
   });

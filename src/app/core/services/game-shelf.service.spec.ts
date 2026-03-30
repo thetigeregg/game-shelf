@@ -37,6 +37,7 @@ describe('GameShelfService', () => {
       listAll: vi.fn(),
       upsertFromCatalog: vi.fn(),
       moveToList: vi.fn(),
+      setGameTimestamps: vi.fn(),
       remove: vi.fn(),
       exists: vi.fn(),
       updateCover: vi.fn(),
@@ -151,6 +152,47 @@ describe('GameShelfService', () => {
     );
     expect(repository.moveToList).toHaveBeenCalledWith('123', 130, 'wishlist');
     expect(repository.remove).toHaveBeenCalledWith('123', 130);
+  });
+
+  it('refreshes watched lists only when timestamp updates mutate a game', async () => {
+    repository.listByType.mockResolvedValue([]);
+    repository.listTags.mockResolvedValue([]);
+    const subscription = service.watchList('collection').subscribe();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    repository.listByType.mockClear();
+    repository.setGameTimestamps.mockResolvedValue(undefined);
+
+    await service.setGameTimestamps('123', 130, {
+      createdAt: '2024-01-01T00:00:00.000Z',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(repository.listByType).not.toHaveBeenCalled();
+
+    repository.setGameTimestamps.mockResolvedValue({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      enteredCollectionAt: '2024-01-01T00:00:00.000Z',
+    } as GameEntry);
+
+    await service.setGameTimestamps('123', 130, {
+      updatedAt: '2024-01-02T00:00:00.000Z',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(repository.listByType).toHaveBeenCalledTimes(1);
+
+    subscription.unsubscribe();
   });
 
   it('does not trigger pricing refresh in background for collection add', async () => {

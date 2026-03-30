@@ -275,7 +275,7 @@ export class AppDb extends Dexie {
             const createdAt =
               typeof game['createdAt'] === 'string' && game['createdAt'].trim().length > 0
                 ? game['createdAt'].trim()
-                : new Date().toISOString();
+                : null;
             const listType = game['listType'] === 'wishlist' ? 'wishlist' : 'collection';
 
             game['enteredCollectionAt'] = listType === 'collection' ? createdAt : null;

@@ -400,7 +400,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     if (Object.keys(changes).length === 0) {
-      return existing;
+      return undefined;
     }
 
     const updated: GameEntry = {

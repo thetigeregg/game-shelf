@@ -306,7 +306,7 @@ describe('AppDb', () => {
     db.close();
   });
 
-  it('backfills enteredCollectionAt on v11 upgrade for collection rows only', async () => {
+  it('backfills and normalizes enteredCollectionAt on v11 upgrade', async () => {
     const legacy = new Dexie(dbName);
     legacy.version(10).stores({
       games:
@@ -337,6 +337,36 @@ describe('AppDb', () => {
         createdAt: '2024-02-01T00:00:00.000Z',
         updatedAt: '2024-02-01T00:00:00.000Z',
       },
+      {
+        igdbGameId: '403',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Trim Existing Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: ' 2024-03-01T00:00:00.000Z ',
+        createdAt: '2024-03-02T00:00:00.000Z',
+        updatedAt: '2024-03-02T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '404',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Blank Existing Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: '   ',
+        createdAt: '2024-04-01T00:00:00.000Z',
+        updatedAt: '2024-04-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '405',
+        platformIgdbId: 130,
+        listType: 'wishlist',
+        title: 'Explicit Null Timestamp',
+        platform: 'Nintendo Switch',
+        enteredCollectionAt: null,
+        createdAt: '2024-05-01T00:00:00.000Z',
+        updatedAt: '2024-05-01T00:00:00.000Z',
+      },
     ]);
     legacy.close();
 
@@ -346,6 +376,9 @@ describe('AppDb', () => {
 
     expect(games[0].enteredCollectionAt).toBe('2024-01-01T00:00:00.000Z');
     expect(games[1].enteredCollectionAt).toBeNull();
+    expect(games[2].enteredCollectionAt).toBe('2024-03-01T00:00:00.000Z');
+    expect(games[3].enteredCollectionAt).toBeNull();
+    expect(games[4].enteredCollectionAt).toBeNull();
 
     db.close();
   });

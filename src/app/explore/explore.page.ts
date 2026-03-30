@@ -1423,7 +1423,7 @@ export class ExplorePage implements OnInit {
       }
       await this.ensureActiveRecommendationPageFilled();
       await this.ensureVisibleRecommendationDisplayMetadata();
-      await this.ensureVisibleDiscoveryPricingHydrated();
+      this.scheduleVisibleDiscoveryPricingHydration();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;

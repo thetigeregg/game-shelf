@@ -75,14 +75,6 @@ ion-fab-list {
   -webkit-backdrop-filter: saturate(160%) blur(14px);
 }
 
-ion-fab.detail-shortcuts-fab {
-  margin-right: max(8px, var(--ion-safe-area-right, env(safe-area-inset-right)));
-  margin-bottom: max(
-    8px,
-    calc(var(--offset-bottom, 0px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom)))
-  );
-}
-
 .attributions-alert .alert-message {
   white-space: pre-line;
 }

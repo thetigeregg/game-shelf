@@ -3,8 +3,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     host: '127.0.0.1',
     route: '/rootCA.pem',
@@ -50,7 +51,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function sendText(response, statusCode, body) {
+export function sendText(response, statusCode, body) {
   response.writeHead(statusCode, {
     'Content-Type': 'text/plain; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -58,52 +59,86 @@ function sendText(response, statusCode, body) {
   response.end(body);
 }
 
-let options;
-try {
-  options = parseArgs(process.argv.slice(2));
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+export function createHandler({ port, route, fileBuffer, fileSize }) {
+  return (request, response) => {
+    const requestUrl = new URL(request.url ?? '/', 'http://gameshelf.local');
+
+    if (requestUrl.pathname === '/') {
+      sendText(
+        response,
+        200,
+        `Open http://localhost:${String(port)}${route} in iPhone Simulator Safari to download the mkcert root CA.\n`
+      );
+      return;
+    }
+
+    if (requestUrl.pathname !== route) {
+      sendText(response, 404, 'Not found\n');
+      return;
+    }
+
+    response.writeHead(200, {
+      'Content-Type': 'application/x-pem-file',
+      'Content-Length': String(fileSize),
+      'Cache-Control': 'no-store',
+      'Content-Disposition': 'inline; filename="rootCA.pem"',
+    });
+    response.end(fileBuffer);
+  };
 }
 
-const filePath = path.resolve(options.file);
-if (!existsSync(filePath)) {
-  console.error(`Root CA file not found: ${filePath}`);
-  process.exit(1);
+export function createServer(options, serverFactory = http.createServer) {
+  const filePath = path.resolve(options.file);
+
+  if (!existsSync(filePath)) {
+    throw new Error(`Root CA file not found: ${filePath}`);
+  }
+
+  const fileBuffer = readFileSync(filePath);
+  const fileSize = statSync(filePath).size;
+
+  return {
+    filePath,
+    server: serverFactory(
+      createHandler({
+        port: options.port,
+        route: options.route,
+        fileBuffer,
+        fileSize,
+      })
+    ),
+  };
 }
 
-const fileBuffer = readFileSync(filePath);
-const fileSize = statSync(filePath).size;
+export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.url } = {}) {
+  if (!argv1) {
+    return false;
+  }
 
-const server = http.createServer((request, response) => {
-  const requestUrl = new URL(request.url ?? '/', 'http://gameshelf.local');
+  return pathToFileURL(path.resolve(argv1)).href === moduleUrl;
+}
 
-  if (requestUrl.pathname === '/') {
-    sendText(
-      response,
-      200,
-      `Open http://localhost:${String(options.port)}${options.route} in iPhone Simulator Safari to download the mkcert root CA.\n`
+if (isEntrypoint()) {
+  let options;
+  try {
+    options = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
+  let serverInfo;
+  try {
+    serverInfo = createServer(options);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
+  serverInfo.server.listen(options.port, options.host, () => {
+    console.log(
+      `mkcert root CA server running at http://localhost:${String(options.port)}${options.route}`
     );
-    return;
-  }
-
-  if (requestUrl.pathname !== options.route) {
-    sendText(response, 404, 'Not found\n');
-    return;
-  }
-
-  response.writeHead(200, {
-    'Content-Type': 'application/x-pem-file',
-    'Content-Length': String(fileSize),
-    'Cache-Control': 'no-store',
-    'Content-Disposition': 'inline; filename="rootCA.pem"',
+    console.log(`Serving file: ${serverInfo.filePath}`);
   });
-  response.end(fileBuffer);
-});
-
-server.listen(options.port, options.host, () => {
-  console.log(
-    `mkcert root CA server running at http://localhost:${String(options.port)}${options.route}`
-  );
-  console.log(`Serving file: ${filePath}`);
-});
+}

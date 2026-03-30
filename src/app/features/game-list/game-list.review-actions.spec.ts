@@ -616,7 +616,7 @@ describe('game-list review actions', () => {
     expect((page as { isMetacriticUpdateLoading: boolean }).isMetacriticUpdateLoading).toBe(false);
   });
 
-  it('moves the selected game from detail and closes the modal', async () => {
+  it('moves the selected game from the detail popover and closes the modal', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;
     };
@@ -626,17 +626,20 @@ describe('game-list review actions', () => {
       listType: 'collection',
       title: 'Detail Move Game',
     });
+    const dismissDetailActionsPopover = vi.fn().mockResolvedValue(undefined);
     const moveGame = vi.fn().mockResolvedValue(undefined);
     const closeGameDetailModalInternal = vi.fn();
 
     Object.assign(page, {
       selectedGame: target,
+      dismissDetailActionsPopover,
       moveGame,
       closeGameDetailModalInternal,
     });
 
-    await page.moveSelectedGameFromDetail();
+    await page.moveSelectedGameFromPopover();
 
+    expect(dismissDetailActionsPopover).toHaveBeenCalledOnce();
     expect(moveGame).toHaveBeenCalledWith(target);
     expect(closeGameDetailModalInternal).toHaveBeenCalledOnce();
   });

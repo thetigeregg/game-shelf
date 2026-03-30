@@ -305,4 +305,48 @@ describe('AppDb', () => {
 
     db.close();
   });
+
+  it('backfills enteredCollectionAt on v11 upgrade for collection rows only', async () => {
+    const legacy = new Dexie(dbName);
+    legacy.version(10).stores({
+      games:
+        '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt',
+    });
+    await legacy.open();
+    await legacy.table('games').bulkAdd([
+      {
+        igdbGameId: '401',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Collection Legacy',
+        platform: 'Nintendo Switch',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      },
+      {
+        igdbGameId: '402',
+        platformIgdbId: 130,
+        listType: 'wishlist',
+        title: 'Wishlist Legacy',
+        platform: 'Nintendo Switch',
+        createdAt: '2024-02-01T00:00:00.000Z',
+        updatedAt: '2024-02-01T00:00:00.000Z',
+      },
+    ]);
+    legacy.close();
+
+    const db = new AppDb();
+    await db.open();
+    const games = await db.games.orderBy('igdbGameId').toArray();
+
+    expect(games[0].enteredCollectionAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(games[1].enteredCollectionAt).toBeNull();
+
+    db.close();
+  });
 });

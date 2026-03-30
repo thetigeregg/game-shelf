@@ -14,6 +14,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -124,14 +125,31 @@ const corsOrigin = [
   `http://localhost:${ports.EDGE_HOST_PORT}`,
 ].join(',');
 
-const sharedEnv = {
-  ...process.env,
-  ...(secretsHostDir ? { SECRETS_HOST_DIR: secretsHostDir } : {}),
-  COMPOSE_PROJECT_NAME: projectName,
-  ...ports,
-  CORS_ORIGIN: corsOrigin,
-  MANUALS_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`,
-};
+const defaultManualsPublicBaseUrl = `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`;
+const pwaManualsPublicBaseUrl = '/manuals';
+
+export function createSharedEnv({
+  processEnv = process.env,
+  manualsPublicBaseUrl = defaultManualsPublicBaseUrl,
+} = {}) {
+  return {
+    ...processEnv,
+    ...(secretsHostDir ? { SECRETS_HOST_DIR: secretsHostDir } : {}),
+    COMPOSE_PROJECT_NAME: projectName,
+    ...ports,
+    CORS_ORIGIN: corsOrigin,
+    MANUALS_PUBLIC_BASE_URL: manualsPublicBaseUrl,
+  };
+}
+
+export function createPwaStackEnv(baseEnv = createSharedEnv()) {
+  return {
+    ...baseEnv,
+    MANUALS_PUBLIC_BASE_URL: pwaManualsPublicBaseUrl,
+  };
+}
+
+const sharedEnv = createSharedEnv();
 
 function defaultSeedPath() {
   const base =
@@ -700,6 +718,14 @@ function runPwaServe() {
   ]);
 }
 
+function reconcilePwaStackManualsBaseUrl() {
+  console.log('Ensuring installed-PWA manual links stay on the local HTTPS origin.');
+  console.log(
+    'Recreating api and edge services if needed so MANUALS_PUBLIC_BASE_URL=/manuals is applied.'
+  );
+  run('docker', [...composeArgs, 'up', '-d', 'api', 'edge'], createPwaStackEnv(sharedEnv));
+}
+
 async function runPwa(command) {
   if (command === 'build') {
     buildPwa();
@@ -719,6 +745,7 @@ async function runPwa(command) {
       process.exit(1);
     }
 
+    reconcilePwaStackManualsBaseUrl();
     runPwaServe();
     return;
   }
@@ -733,6 +760,7 @@ async function runPwa(command) {
       process.exit(1);
     }
 
+    reconcilePwaStackManualsBaseUrl();
     buildPwa();
     runPwaServe();
     return;
@@ -939,136 +967,150 @@ function parseOptions(values) {
   return options;
 }
 
-if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
-  console.log(
-    'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|pwa|stack|db> [action]'
-  );
-  console.log('');
-  console.log('Commands:');
-  console.log('  info                      Show derived project name, ports, and seed path');
-  console.log(
-    '  bootstrap [--force]       Bootstrap .env (overwrite existing with --force) and install deps if missing'
-  );
-  console.log('  frontend                  Run Angular dev server for this worktree');
-  console.log(
-    '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
-  );
-  console.log(
-    '  pwa build                 Build production frontend for installed-PWA simulator testing'
-  );
-  console.log(
-    '  pwa serve                 Serve built frontend over HTTPS with /api and /manuals proxying'
-  );
-  console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
-  console.log(
-    '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
-  );
-  console.log(
-    '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
-  );
-  console.log(
-    '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
-  );
-  console.log('  stack up                  Start worktree-isolated docker stack');
-  console.log('  stack up-seed             Start stack and seed DB only when empty');
-  console.log('  stack down                Stop/remove worktree-isolated docker stack');
-  console.log('  stack restart             Restart worktree-isolated services');
-  console.log('  stack logs                Follow stack logs');
-  console.log('  stack ps                  Show stack status');
-  console.log(
-    '  db seed-refresh           Create/update shared seed dump from current worktree DB'
-  );
-  console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
-  console.log('  db sync-rebuild           Rebuild game sync events from current games table');
-  console.log('');
-  console.log('Optional env vars:');
-  console.log(
-    `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET - 1)})`
-  );
-  console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
-  console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
-  console.log(
-    '  WORKTREE_PWA_CERT_FILE    Override local HTTPS cert path for simulator PWA serving'
-  );
-  console.log(
-    '  WORKTREE_PWA_KEY_FILE     Override local HTTPS key path for simulator PWA serving'
-  );
-  process.exit(0);
+export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.url } = {}) {
+  if (!argv1) {
+    return false;
+  }
+
+  return pathToFileURL(path.resolve(argv1)).href === moduleUrl;
 }
 
-if (args[0] === 'info') {
-  printInfo();
-  process.exit(0);
-}
-
-if (args[0] === 'bootstrap') {
-  const bootstrapArgs = args.slice(1);
-  if (bootstrapArgs.includes('--help') || bootstrapArgs.includes('help')) {
-    console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
+async function main(argv) {
+  if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
+    console.log(
+      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|pwa|stack|db> [action]'
+    );
     console.log('');
-    console.log('Options:');
-    console.log('  --force   Overwrite existing .env from shared template');
+    console.log('Commands:');
+    console.log('  info                      Show derived project name, ports, and seed path');
+    console.log(
+      '  bootstrap [--force]       Bootstrap .env (overwrite existing with --force) and install deps if missing'
+    );
+    console.log('  frontend                  Run Angular dev server for this worktree');
+    console.log(
+      '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
+    );
+    console.log(
+      '  pwa build                 Build production frontend for installed-PWA simulator testing'
+    );
+    console.log(
+      '  pwa serve                 Serve built frontend over HTTPS with /api and /manuals proxying'
+    );
+    console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
+    console.log(
+      '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
+    );
+    console.log(
+      '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
+    );
+    console.log(
+      '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
+    );
+    console.log('  stack up                  Start worktree-isolated docker stack');
+    console.log('  stack up-seed             Start stack and seed DB only when empty');
+    console.log('  stack down                Stop/remove worktree-isolated docker stack');
+    console.log('  stack restart             Restart worktree-isolated services');
+    console.log('  stack logs                Follow stack logs');
+    console.log('  stack ps                  Show stack status');
+    console.log(
+      '  db seed-refresh           Create/update shared seed dump from current worktree DB'
+    );
+    console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
+    console.log('  db sync-rebuild           Rebuild game sync events from current games table');
+    console.log('');
+    console.log('Optional env vars:');
+    console.log(
+      `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET - 1)})`
+    );
+    console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
+    console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
+    console.log(
+      '  WORKTREE_PWA_CERT_FILE    Override local HTTPS cert path for simulator PWA serving'
+    );
+    console.log(
+      '  WORKTREE_PWA_KEY_FILE     Override local HTTPS key path for simulator PWA serving'
+    );
     process.exit(0);
   }
 
-  const options = parseOptions(bootstrapArgs);
-  ensureLocalEnvFromSharedTemplate(options.force);
-  printInfo();
-  ensureDependenciesInstalled(false);
-  process.exit(0);
-}
-
-if (args[0] === 'frontend') {
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  ensureDependenciesInstalled(false);
-  runFrontend();
-  process.exit(0);
-}
-
-if (args[0] === 'simulator') {
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  ensureDependenciesInstalled(false);
-  runFrontend({ external: true, host: '0.0.0.0' });
-  process.exit(0);
-}
-
-if (args[0] === 'stack') {
-  if (!args[1]) {
-    console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
-    process.exit(1);
+  if (argv[0] === 'info') {
+    printInfo();
+    process.exit(0);
   }
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  runStack(args[1]);
-  process.exit(0);
-}
 
-if (args[0] === 'db') {
-  if (!args[1]) {
-    console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
-    process.exit(1);
+  if (argv[0] === 'bootstrap') {
+    const bootstrapArgs = argv.slice(1);
+    if (bootstrapArgs.includes('--help') || bootstrapArgs.includes('help')) {
+      console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
+      console.log('');
+      console.log('Options:');
+      console.log('  --force   Overwrite existing .env from shared template');
+      process.exit(0);
+    }
+
+    const options = parseOptions(bootstrapArgs);
+    ensureLocalEnvFromSharedTemplate(options.force);
+    printInfo();
+    ensureDependenciesInstalled(false);
+    process.exit(0);
   }
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  runDb(args[1], parseOptions(args.slice(2)));
-  process.exit(0);
-}
 
-if (args[0] === 'pwa') {
-  if (!args[1]) {
-    console.error(
-      'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
-    );
-    process.exit(1);
+  if (argv[0] === 'frontend') {
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    runFrontend();
+    process.exit(0);
   }
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  ensureDependenciesInstalled(false);
-  await runPwa(args[1]);
-  process.exit(0);
+
+  if (argv[0] === 'simulator') {
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    runFrontend({ external: true, host: '0.0.0.0' });
+    process.exit(0);
+  }
+
+  if (argv[0] === 'stack') {
+    if (!argv[1]) {
+      console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    runStack(argv[1]);
+    process.exit(0);
+  }
+
+  if (argv[0] === 'db') {
+    if (!argv[1]) {
+      console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    runDb(argv[1], parseOptions(argv.slice(2)));
+    process.exit(0);
+  }
+
+  if (argv[0] === 'pwa') {
+    if (!argv[1]) {
+      console.error(
+        'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
+      );
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    await runPwa(argv[1]);
+    process.exit(0);
+  }
+
+  console.error('Unknown command. Use --help for usage.');
+  process.exit(1);
 }
 
-console.error('Unknown command. Use --help for usage.');
-process.exit(1);
+if (isEntrypoint()) {
+  await main(args);
+}

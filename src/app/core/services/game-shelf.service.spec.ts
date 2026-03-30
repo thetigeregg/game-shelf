@@ -240,6 +240,44 @@ describe('GameShelfService', () => {
     expect(lookupSteamPrice).not.toHaveBeenCalled();
   });
 
+  it('can skip background enrichment and pricing refresh for imports', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '456',
+      title: 'Pokemon Violet',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Nintendo Switch'],
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: '2022-11-18T00:00:00.000Z',
+      releaseYear: 2022,
+    };
+
+    const lookupPsPrices = vi.fn(() => of({ status: 'ok' }));
+    (
+      searchApi as unknown as {
+        lookupPsPrices: ReturnType<typeof vi.fn>;
+      }
+    ).lookupPsPrices = lookupPsPrices;
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as GameEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    await service.addGame(game, 'wishlist', {
+      enrichInBackground: false,
+      refreshPricingInBackground: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupCompletionTimes).not.toHaveBeenCalled();
+    expect(lookupPsPrices).not.toHaveBeenCalled();
+  });
+
   it('triggers Steam pricing refresh in background after wishlist add', async () => {
     const mario: GameCatalogResult = {
       igdbGameId: '123',

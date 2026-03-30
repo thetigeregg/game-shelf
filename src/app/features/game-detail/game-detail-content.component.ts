@@ -113,6 +113,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @Input() showIgnoreAction = false;
   @Input() isIgnored = false;
   @Input() showPriceForNonWishlist = false;
+  @Input() allowMetadataFilterLinks = true;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
@@ -390,6 +391,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   get showLibrarySections(): boolean {
     return this.context === 'library';
+  }
+
+  get shouldEnableMetadataFilterLinks(): boolean {
+    return this.showLibrarySections && this.allowMetadataFilterLinks;
   }
 
   get platformLabel(): string {
@@ -906,31 +911,61 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   onDeveloperClick(): void {
-    if (canOpenMetadataFilter(this.showLibrarySections, this.game.developers)) {
+    if (
+      canOpenMetadataFilter(
+        this.showLibrarySections,
+        this.allowMetadataFilterLinks,
+        this.game.developers
+      )
+    ) {
       this.developerClick.emit();
     }
   }
 
   onSeriesClick(): void {
-    if (canOpenMetadataFilter(this.showLibrarySections, this.game.collections)) {
+    if (
+      canOpenMetadataFilter(
+        this.showLibrarySections,
+        this.allowMetadataFilterLinks,
+        this.game.collections
+      )
+    ) {
       this.seriesClick.emit();
     }
   }
 
   onFranchiseClick(): void {
-    if (canOpenMetadataFilter(this.showLibrarySections, this.game.franchises)) {
+    if (
+      canOpenMetadataFilter(
+        this.showLibrarySections,
+        this.allowMetadataFilterLinks,
+        this.game.franchises
+      )
+    ) {
       this.franchiseClick.emit();
     }
   }
 
   onPublisherClick(): void {
-    if (canOpenMetadataFilter(this.showLibrarySections, this.game.publishers)) {
+    if (
+      canOpenMetadataFilter(
+        this.showLibrarySections,
+        this.allowMetadataFilterLinks,
+        this.game.publishers
+      )
+    ) {
       this.publisherClick.emit();
     }
   }
 
   onGenreClick(): void {
-    if (canOpenMetadataFilter(this.showLibrarySections, this.game.genres)) {
+    if (
+      canOpenMetadataFilter(
+        this.showLibrarySections,
+        this.allowMetadataFilterLinks,
+        this.game.genres
+      )
+    ) {
       this.genreClick.emit();
     }
   }

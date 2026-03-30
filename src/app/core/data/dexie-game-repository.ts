@@ -229,6 +229,12 @@ export class DexieGameRepository implements GameRepository {
         status: this.normalizeStatus(existing.status),
         rating: this.normalizeRating(existing.rating),
         listType: targetList,
+        enteredCollectionAt:
+          existing.listType === targetList
+            ? (existing.enteredCollectionAt ?? null)
+            : targetList === 'collection'
+              ? now
+              : null,
         updatedAt: now,
       };
 
@@ -315,6 +321,7 @@ export class DexieGameRepository implements GameRepository {
       status: null,
       rating: null,
       listType: targetList,
+      enteredCollectionAt: targetList === 'collection' ? now : null,
       createdAt: now,
       updatedAt: now,
     };
@@ -340,15 +347,71 @@ export class DexieGameRepository implements GameRepository {
 
     const existingId = existing.id;
 
+    const now = new Date().toISOString();
+    const enteredCollectionAt =
+      existing.listType === targetList
+        ? existing.enteredCollectionAt
+        : targetList === 'collection'
+          ? now
+          : null;
     await this.withOutboxTransaction([this.db.games], () =>
       this.db.games
         .update(existingId, {
           listType: targetList,
-          updatedAt: new Date().toISOString(),
+          enteredCollectionAt,
+          updatedAt: now,
         })
         .then(() => this.exists(igdbGameId, platformIgdbId))
         .then((updated) => (updated ? this.queueGameUpsert(updated) : Promise.resolve()))
     );
+  }
+
+  async setGameTimestamps(
+    igdbGameId: string,
+    platformIgdbId: number,
+    timestamps: {
+      createdAt?: string;
+      updatedAt?: string;
+      enteredCollectionAt?: string | null;
+    }
+  ): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+    const existingId = existing.id;
+
+    const changes: Partial<GameEntry> = {};
+
+    if (timestamps.createdAt !== undefined && timestamps.createdAt !== existing.createdAt) {
+      changes.createdAt = timestamps.createdAt;
+    }
+
+    if (timestamps.updatedAt !== undefined && timestamps.updatedAt !== existing.updatedAt) {
+      changes.updatedAt = timestamps.updatedAt;
+    }
+
+    if (
+      timestamps.enteredCollectionAt !== undefined &&
+      timestamps.enteredCollectionAt !== existing.enteredCollectionAt
+    ) {
+      changes.enteredCollectionAt = timestamps.enteredCollectionAt;
+    }
+
+    if (Object.keys(changes).length === 0) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      ...changes,
+    };
+
+    await this.withOutboxTransaction([this.db.games], () =>
+      this.db.games.update(existingId, changes).then(() => this.queueGameUpsert(updated))
+    );
+    return updated;
   }
 
   async remove(igdbGameId: string, platformIgdbId: number): Promise<void> {

@@ -35,7 +35,12 @@ export class AppComponent {
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
-  private connectionAlertVisible = false;
+  private connectionAlert:
+    | (Awaited<ReturnType<AlertController['create']>> & {
+        dismiss?: () => Promise<boolean>;
+        onDidDismiss?: () => Promise<unknown>;
+      })
+    | null = null;
 
   constructor() {
     effect(() => {
@@ -151,11 +156,9 @@ export class AppComponent {
 
   private async syncConnectionAlert(status: RuntimeAvailabilityStatus): Promise<void> {
     if (status === 'service-unreachable') {
-      if (this.connectionAlertVisible) {
+      if (this.connectionAlert !== null) {
         return;
       }
-
-      this.connectionAlertVisible = true;
 
       try {
         const alert = await this.alertController.create({
@@ -166,28 +169,24 @@ export class AppComponent {
           buttons: ['OK'],
         });
 
+        this.connectionAlert = alert;
         await alert.present();
         await alert.onDidDismiss();
       } finally {
-        this.connectionAlertVisible = false;
+        this.connectionAlert = null;
       }
 
       return;
     }
 
-    if (!this.connectionAlertVisible) {
+    if (this.connectionAlert === null) {
       return;
     }
 
-    const topAlert = await this.alertController.getTop();
-    if (!topAlert) {
-      this.connectionAlertVisible = false;
-      return;
+    const activeConnectionAlert = this.connectionAlert;
+    this.connectionAlert = null;
+    if (typeof activeConnectionAlert.dismiss === 'function') {
+      await activeConnectionAlert.dismiss();
     }
-
-    if (typeof topAlert.dismiss === 'function') {
-      await topAlert.dismiss();
-    }
-    this.connectionAlertVisible = false;
   }
 }

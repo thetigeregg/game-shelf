@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAppVersion, getRuntimeConfigSource } from '../config/runtime-config';
+import {
+  getAppVersion,
+  getFirebaseWebConfig,
+  getRuntimeConfigSource,
+} from '../config/runtime-config';
 import { RuntimeAvailabilityService } from './runtime-availability.service';
 
 describe('RuntimeAvailabilityService', () => {
@@ -67,5 +71,38 @@ describe('RuntimeAvailabilityService', () => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     expect(getRuntimeConfigSource()).toBe('persisted');
     expect(getAppVersion()).toBe('2.3.4');
+  });
+
+  it('parses quoted firebase keys from the generated runtime config asset', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue(`globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
+  {},
+  globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
+  {
+    appVersion: "2.3.4",
+    firebase: {
+      "apiKey": "runtime-api-key",
+      "projectId": "runtime-project",
+      "messagingSenderId": "runtime-sender",
+      "appId": "runtime-app"
+    },
+    featureFlags: {
+      tasEnabled: true,
+    },
+  },
+);`),
+    });
+
+    await service.refresh();
+
+    expect(getFirebaseWebConfig()).toEqual(
+      expect.objectContaining({
+        apiKey: 'runtime-api-key',
+        projectId: 'runtime-project',
+        messagingSenderId: 'runtime-sender',
+        appId: 'runtime-app',
+      })
+    );
   });
 });

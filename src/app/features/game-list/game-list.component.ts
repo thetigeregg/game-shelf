@@ -2203,7 +2203,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     await this.moveGame(this.selectedGame);
-    this.closeGameDetailModalInternal();
+    await this.closeGameDetailModal();
   }
 
   openSelectedGameRatingFromDetail(): void {

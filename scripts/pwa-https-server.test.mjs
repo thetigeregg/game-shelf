@@ -356,6 +356,119 @@ test('proxyRequest destroys the response when the upstream fails after headers w
   assert.equal(destroyedWithError, upstreamError);
 });
 
+test('proxyRequest destroys the response when the upstream response errors after headers are sent', async () => {
+  const request = new PassThrough();
+  request.method = 'GET';
+  request.url = '/api/games';
+  request.headers = {};
+
+  const proxyResponse = new PassThrough();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = { 'content-type': 'application/json' };
+
+  let destroyedWithError;
+  const response = {
+    writableEnded: false,
+    destroy(error) {
+      destroyedWithError = error;
+      this.writableEnded = true;
+    },
+    writeHead(statusCode, headers) {
+      this.statusCode = statusCode;
+      this.headers = headers;
+      return this;
+    },
+    on() {
+      return this;
+    },
+    once() {
+      return this;
+    },
+    emit() {
+      return false;
+    },
+    write() {
+      return true;
+    },
+    end() {
+      this.writableEnded = true;
+    },
+  };
+
+  proxyRequest(request, response, 'https://proxy.example', {
+    httpsTransport: {
+      request(_options, callback) {
+        setImmediate(() => callback(proxyResponse));
+        return new PassThrough();
+      },
+    },
+  });
+
+  request.end();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const upstreamError = new Error('upstream response failed');
+  proxyResponse.emit('error', upstreamError);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.headers, { 'content-type': 'application/json' });
+  assert.equal(destroyedWithError, upstreamError);
+});
+
+test('proxyRequest destroys the response when the upstream response aborts after headers are sent', async () => {
+  const request = new PassThrough();
+  request.method = 'GET';
+  request.url = '/api/games';
+  request.headers = {};
+
+  const proxyResponse = new PassThrough();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = { 'content-type': 'application/json' };
+
+  let destroyCalls = 0;
+  const response = {
+    writableEnded: false,
+    destroy() {
+      destroyCalls += 1;
+      this.writableEnded = true;
+    },
+    writeHead() {
+      return this;
+    },
+    on() {
+      return this;
+    },
+    once() {
+      return this;
+    },
+    emit() {
+      return false;
+    },
+    write() {
+      return true;
+    },
+    end() {
+      this.writableEnded = true;
+    },
+  };
+
+  proxyRequest(request, response, 'https://proxy.example', {
+    httpsTransport: {
+      request(_options, callback) {
+        setImmediate(() => callback(proxyResponse));
+        return new PassThrough();
+      },
+    },
+  });
+
+  request.end();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  proxyResponse.emit('aborted');
+
+  assert.equal(destroyCalls, 1);
+});
+
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {
   assert.equal(
     isEntrypoint({

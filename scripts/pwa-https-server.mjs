@@ -290,6 +290,19 @@ export function proxyRequest(
     },
     (proxyResponse) => {
       response.writeHead(proxyResponse.statusCode ?? 502, proxyResponse.headers);
+
+      proxyResponse.on('error', (error) => {
+        if (!response.writableEnded) {
+          response.destroy(error);
+        }
+      });
+
+      proxyResponse.on('aborted', () => {
+        if (!response.writableEnded) {
+          response.destroy();
+        }
+      });
+
       proxyResponse.pipe(response);
     }
   );

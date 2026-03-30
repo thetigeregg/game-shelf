@@ -382,6 +382,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
   rowReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isGameDetailModalOpen = false;
+  isGameDetailFabVisible = false;
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
@@ -1432,6 +1433,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.isGameDetailFabVisible = false;
     this.isVideosModalOpen = false;
     this.isWebsitesModalOpen = false;
     this.resetNoteEditorState();
@@ -1503,6 +1505,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private closeGameDetailModalInternal(): void {
     this.isGameDetailModalOpen = false;
+    this.isGameDetailFabVisible = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
     this.isPricingPickerModalOpen = false;
@@ -1546,6 +1549,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.editMetadataTitle = '';
     this.editMetadataPlatformIgdbId = null;
     this.editMetadataPlatformOptions = [];
+    this.changeDetectorRef.markForCheck();
+  }
+
+  onGameDetailModalDidPresent(): void {
+    this.isGameDetailFabVisible = true;
     this.changeDetectorRef.markForCheck();
   }
 

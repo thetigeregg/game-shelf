@@ -4,6 +4,7 @@ import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const MIME_TYPES = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -26,7 +27,7 @@ const MIME_TYPES = new Map([
   ['.xml', 'application/xml; charset=utf-8'],
 ]);
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     host: '0.0.0.0',
   };
@@ -83,12 +84,16 @@ function parseArgs(argv) {
   return options;
 }
 
-function resolveSafePath(rootDir, requestPathname) {
+export function resolveSafePath(rootDir, requestPathname) {
   let normalizedPath;
   try {
     normalizedPath = decodeURIComponent(requestPathname).replace(/^\/+/, '');
-  } catch {
-    return { kind: 'bad-request' };
+  } catch (error) {
+    if (error instanceof URIError) {
+      return { kind: 'bad-request' };
+    }
+
+    throw error;
   }
 
   const resolvedPath = path.resolve(rootDir, normalizedPath || 'index.html');
@@ -101,7 +106,7 @@ function resolveSafePath(rootDir, requestPathname) {
   return { kind: 'ok', path: resolvedPath };
 }
 
-function sendError(response, statusCode, message) {
+export function sendError(response, statusCode, message) {
   response.writeHead(statusCode, {
     'Content-Type': 'text/plain; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -109,7 +114,7 @@ function sendError(response, statusCode, message) {
   response.end(`${message}\n`);
 }
 
-function sendFile(filePath, response, method) {
+export function sendFile(filePath, response, method) {
   const extension = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES.get(extension) ?? 'application/octet-stream';
   const fileStat = statSync(filePath);
@@ -128,10 +133,22 @@ function sendFile(filePath, response, method) {
   createReadStream(filePath).pipe(response);
 }
 
-function proxyRequest(request, response, proxyOrigin) {
-  const targetUrl = new URL(request.url ?? '/', proxyOrigin);
+export function proxyRequest(
+  request,
+  response,
+  proxyOrigin,
+  { httpTransport = http, httpsTransport = https } = {}
+) {
+  const requestUrl = request.url ?? '/';
+
+  if (!requestUrl.startsWith('/')) {
+    sendError(response, 400, 'Only origin-form URLs are supported by this proxy');
+    return;
+  }
+
+  const targetUrl = new URL(requestUrl, proxyOrigin);
   const proxyHeaders = { ...request.headers, host: targetUrl.host };
-  const transport = targetUrl.protocol === 'https:' ? https : http;
+  const transport = targetUrl.protocol === 'https:' ? httpsTransport : httpTransport;
 
   const proxyStream = transport.request(
     {
@@ -155,7 +172,7 @@ function proxyRequest(request, response, proxyOrigin) {
   request.pipe(proxyStream);
 }
 
-function createHandler(rootDir, proxyOrigin) {
+export function createHandler(rootDir, proxyOrigin) {
   const spaIndexPath = path.join(rootDir, 'index.html');
 
   return (request, response) => {
@@ -197,38 +214,48 @@ function createHandler(rootDir, proxyOrigin) {
   };
 }
 
-let options;
-try {
-  options = parseArgs(process.argv.slice(2));
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.url } = {}) {
+  if (!argv1) {
+    return false;
+  }
+
+  return pathToFileURL(path.resolve(argv1)).href === moduleUrl;
 }
 
-const rootDir = path.resolve(options.root);
-const certPath = path.resolve(options.cert);
-const keyPath = path.resolve(options.key);
+if (isEntrypoint()) {
+  let options;
+  try {
+    options = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 
-if (!existsSync(rootDir)) {
-  console.error(`Static root not found: ${rootDir}`);
-  process.exit(1);
+  const rootDir = path.resolve(options.root);
+  const certPath = path.resolve(options.cert);
+  const keyPath = path.resolve(options.key);
+
+  if (!existsSync(rootDir)) {
+    console.error(`Static root not found: ${rootDir}`);
+    process.exit(1);
+  }
+
+  if (!existsSync(certPath) || !existsSync(keyPath)) {
+    console.error('HTTPS certificate files are missing.');
+    process.exit(1);
+  }
+
+  const server = https.createServer(
+    {
+      cert: readFileSync(certPath),
+      key: readFileSync(keyPath),
+    },
+    createHandler(rootDir, options.proxyOrigin)
+  );
+
+  server.listen(options.port, options.host, () => {
+    console.log(`PWA HTTPS server running at https://localhost:${String(options.port)}`);
+    console.log(`Static root: ${rootDir}`);
+    console.log(`Proxy origin: ${options.proxyOrigin}`);
+  });
 }
-
-if (!existsSync(certPath) || !existsSync(keyPath)) {
-  console.error('HTTPS certificate files are missing.');
-  process.exit(1);
-}
-
-const server = https.createServer(
-  {
-    cert: readFileSync(certPath),
-    key: readFileSync(keyPath),
-  },
-  createHandler(rootDir, options.proxyOrigin)
-);
-
-server.listen(options.port, options.host, () => {
-  console.log(`PWA HTTPS server running at https://localhost:${String(options.port)}`);
-  console.log(`Static root: ${rootDir}`);
-  console.log(`Proxy origin: ${options.proxyOrigin}`);
-});

@@ -38,6 +38,13 @@ interface SyncPullResponse {
   changes: SyncChangeEvent[];
 }
 
+export interface SyncReloadSummary {
+  connectivity: string | null;
+  isSyncInFlight: boolean;
+  pendingOutboxCount: number;
+  lastSyncAt: string | null;
+}
+
 export const DISCOVERY_POLLUTION_REMEDIATION_META_KEY = 'discoveryPollutionRemediationV1';
 
 @Injectable({ providedIn: 'root' })
@@ -182,6 +189,45 @@ export class GameSyncService implements SyncOutboxWriter {
     } catch {
       this.debugLogService.debug('sync.sync_now.failed');
     }
+  }
+
+  async hasPendingSyncWork(): Promise<boolean> {
+    if (this.resetLocalSyncStatePromise || this.syncInFlight || this.activeSyncPromise) {
+      return true;
+    }
+
+    return (await this.db.outbox.count()) > 0;
+  }
+
+  async flushPendingSyncForReload(): Promise<boolean> {
+    while (this.resetLocalSyncStatePromise) {
+      try {
+        await this.resetLocalSyncStatePromise;
+      } catch {
+        return false;
+      }
+    }
+
+    await this.syncNow();
+    return !(await this.hasPendingSyncWork());
+  }
+
+  async getReloadSummary(): Promise<SyncReloadSummary> {
+    const [pendingOutboxCount, connectivity, lastSyncAt] = await Promise.all([
+      this.db.outbox.count(),
+      this.getMeta(GameSyncService.META_CONNECTIVITY_KEY),
+      this.getMeta(GameSyncService.META_LAST_SYNC_KEY),
+    ]);
+
+    return {
+      connectivity,
+      isSyncInFlight:
+        this.resetLocalSyncStatePromise !== null ||
+        this.syncInFlight ||
+        this.activeSyncPromise !== null,
+      pendingOutboxCount,
+      lastSyncAt,
+    };
   }
 
   private async startSyncNowIfPossible(waitForReset = true): Promise<boolean> {

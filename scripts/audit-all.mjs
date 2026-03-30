@@ -112,14 +112,14 @@ export function runAudits({
   }
 
   if (failures.length === 0) {
-    log(`\n✅ All audit${shouldFix ? ' fixes' : ''} completed successfully`);
+    log(`\n✅ All audit${shouldFix ? ' fixes' : 's'} completed successfully`);
     return {
       failures,
       exitCode: 0,
     };
   }
 
-  errorLog(`\n⚠️ Audit${shouldFix ? ' fix' : ''} completed with remaining failures:`);
+  errorLog(`\n⚠️ Audit${shouldFix ? ' fixes' : 's'} completed with remaining failures:`);
 
   for (const failure of failures) {
     errorLog(`- ${failure.name} (exit code ${failure.exitCode})`);

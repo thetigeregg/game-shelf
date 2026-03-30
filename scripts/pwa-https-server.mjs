@@ -182,10 +182,15 @@ export function sendError(response, statusCode, message) {
   response.end(`${message}\n`);
 }
 
-export function sendFile(filePath, response, method) {
+export function sendFile(
+  filePath,
+  response,
+  method,
+  { createReadStreamFn = createReadStream, statSyncFn = statSync } = {}
+) {
   let fileStat;
   try {
-    fileStat = statSync(filePath);
+    fileStat = statSyncFn(filePath);
   } catch (error) {
     const statusCode =
       error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT' ? 404 : 500;
@@ -195,21 +200,27 @@ export function sendFile(filePath, response, method) {
 
   const extension = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES.get(extension) ?? 'application/octet-stream';
-
-  response.writeHead(200, {
+  const headers = {
     'Content-Type': contentType,
     'Content-Length': String(fileStat.size),
     'Cache-Control': extension === '.html' ? 'no-store' : 'public, max-age=300',
-  });
+  };
 
   if (method === 'HEAD') {
+    response.writeHead(200, headers);
     response.end();
     return;
   }
 
-  const fileStream = createReadStream(filePath);
+  let streamOpened = false;
+  const fileStream = createReadStreamFn(filePath);
+  fileStream.on('open', () => {
+    streamOpened = true;
+    response.writeHead(200, headers);
+    fileStream.pipe(response);
+  });
   fileStream.on('error', (error) => {
-    if (response.headersSent) {
+    if (streamOpened || response.headersSent) {
       response.destroy(error);
       return;
     }
@@ -218,7 +229,6 @@ export function sendFile(filePath, response, method) {
       error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT' ? 404 : 500;
     sendError(response, statusCode, statusCode === 404 ? 'Not found' : 'Unable to read file');
   });
-  fileStream.pipe(response);
 }
 
 export function proxyRequest(

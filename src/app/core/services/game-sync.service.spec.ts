@@ -222,6 +222,39 @@ describe('GameSyncService', () => {
     ).toBeNull();
   });
 
+  it('ignores invalid enteredCollectionAt values on sync pulls instead of coercing them to now', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '3',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        updatedAt: '2026-04-01T00:00:00.000Z',
+        enteredCollectionAt: 'not-a-real-timestamp',
+      }),
+      serverTimestamp: '2026-04-01T00:00:00.000Z',
+    });
+
+    expect(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.enteredCollectionAt
+    ).toBeNull();
+  });
+
   it('clears enteredCollectionAt on wishlist sync pulls when the payload omits it', async () => {
     await db.games.put({
       igdbGameId: '123',

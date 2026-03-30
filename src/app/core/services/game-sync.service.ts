@@ -1040,8 +1040,20 @@ export class GameSyncService implements SyncOutboxWriter {
       return null;
     }
 
-    if (typeof value === 'string' && value.trim().length === 0) {
-      return null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (trimmed.length === 0) {
+        return null;
+      }
+
+      const parsed = Date.parse(trimmed);
+
+      if (Number.isNaN(parsed)) {
+        return null;
+      }
+
+      return new Date(parsed).toISOString();
     }
 
     return this.normalizeIsoTimestamp(value);

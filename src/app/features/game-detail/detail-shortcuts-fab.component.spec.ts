@@ -34,6 +34,15 @@ describe('DetailShortcutsFabComponent', () => {
     expect(addIconsMock).toHaveBeenCalledOnce();
   });
 
+  it('renders as fixed-slot content inside ion-content containers', () => {
+    const hostAttrs = (
+      DetailShortcutsFabComponent as unknown as { ɵcmp?: { hostAttrs?: unknown[] } }
+    ).ɵcmp?.hostAttrs;
+
+    expect(hostAttrs).toContain('slot');
+    expect(hostAttrs).toContain('fixed');
+  });
+
   it('emits websites and action events', () => {
     const component = new DetailShortcutsFabComponent();
     const websitesSpy = vi.fn();

@@ -6,6 +6,9 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
 @Component({
   selector: 'app-detail-shortcuts-fab',
   standalone: true,
+  host: {
+    slot: 'fixed',
+  },
   imports: [IonFab, IonFabButton, IonFabList, IonIcon],
   template: `
     <ion-fab #fab vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
@@ -57,14 +60,16 @@ import { book, documentText, film, globe, link } from 'ionicons/icons';
   styles: [
     `
       :host {
-        position: fixed;
-        right: max(8px, var(--ion-safe-area-right, env(safe-area-inset-right)));
-        bottom: max(8px, var(--ion-safe-area-bottom, env(safe-area-inset-bottom)));
         z-index: 20;
       }
 
       .detail-shortcuts-fab {
         margin: 0;
+        margin-right: max(8px, var(--ion-safe-area-right, env(safe-area-inset-right)));
+        margin-bottom: max(
+          8px,
+          calc(var(--offset-bottom, 0px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom)))
+        );
       }
 
       .detail-shortcuts-fab .shortcut-text {

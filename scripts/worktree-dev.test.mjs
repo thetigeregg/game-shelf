@@ -10,6 +10,17 @@ test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   assert.equal(env.PATH, '/usr/bin');
 });
 
+test('createSharedEnv preserves an explicit secrets host dir from the provided env', () => {
+  const env = createSharedEnv({
+    processEnv: {
+      PATH: '/usr/bin',
+      SECRETS_HOST_DIR: '/tmp/custom-secrets',
+    },
+  });
+
+  assert.equal(env.SECRETS_HOST_DIR, '/tmp/custom-secrets');
+});
+
 test('createPwaStackEnv overrides manuals links to the local HTTPS proxy path', () => {
   const env = createPwaStackEnv({
     MANUALS_PUBLIC_BASE_URL: 'http://127.0.0.1:9999/manuals',

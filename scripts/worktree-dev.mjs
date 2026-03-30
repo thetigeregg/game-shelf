@@ -118,6 +118,14 @@ const explicitSecretsHostDir = expandUserPath(
 const secretsHostDir =
   explicitSecretsHostDir || (existsSync(defaultSharedSecretsDir) ? defaultSharedSecretsDir : '');
 
+function resolveSecretsHostDir(processEnv) {
+  const configuredSecretsHostDir = expandUserPath(
+    processEnv.SECRETS_HOST_DIR && processEnv.SECRETS_HOST_DIR.trim()
+  );
+
+  return configuredSecretsHostDir || secretsHostDir;
+}
+
 const corsOrigin = [
   `http://127.0.0.1:${ports.FRONTEND_PORT}`,
   `http://localhost:${ports.FRONTEND_PORT}`,
@@ -132,9 +140,11 @@ export function createSharedEnv({
   processEnv = process.env,
   manualsPublicBaseUrl = defaultManualsPublicBaseUrl,
 } = {}) {
+  const resolvedSecretsHostDir = resolveSecretsHostDir(processEnv);
+
   return {
     ...processEnv,
-    ...(secretsHostDir ? { SECRETS_HOST_DIR: secretsHostDir } : {}),
+    ...(resolvedSecretsHostDir ? { SECRETS_HOST_DIR: resolvedSecretsHostDir } : {}),
     COMPOSE_PROJECT_NAME: projectName,
     ...ports,
     CORS_ORIGIN: corsOrigin,

@@ -3040,3 +3040,9 @@
 - adb1f0e1 Merge branch 'main' into dependabot/npm_and_yarn/server/typescript-6.0.2
 - 42895689 chore(deps): bump typescript from 5.9.3 to 6.0.2 in /server
 
+## v1.33.0 - 2026-03-30
+- f8fa98a8 Merge pull request #304 from thetigeregg/feat/detalink
+- e90140bf Merge branch 'main' into feat/detalink
+- 70855e66 feat: add unit tests for game detail metadata interactions and mock dependencies
+- 0d70a1ae feat: enhance metadata filter functionality with new input and logic
+

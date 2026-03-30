@@ -110,7 +110,11 @@ export function resolveSafePath(rootDir, requestPathname) {
   const resolvedPath = path.resolve(rootDir, normalizedPath || 'index.html');
   const relativePath = path.relative(rootDir, resolvedPath);
 
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+  if (
+    relativePath === '..' ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
     return { kind: 'forbidden' };
   }
 
@@ -157,7 +161,25 @@ export function proxyRequest(
     return;
   }
 
-  const targetUrl = new URL(requestUrl, proxyOrigin);
+  if (requestUrl.startsWith('//')) {
+    sendError(response, 400, 'Scheme-relative URLs are not supported by this proxy');
+    return;
+  }
+
+  const baseUrl = new URL(proxyOrigin);
+  let targetUrl;
+  try {
+    targetUrl = new URL(requestUrl, baseUrl);
+  } catch {
+    sendError(response, 400, 'Invalid request URL');
+    return;
+  }
+
+  if (targetUrl.origin !== baseUrl.origin) {
+    sendError(response, 400, 'Proxy target origin mismatch');
+    return;
+  }
+
   const proxyHeaders = { ...request.headers, host: targetUrl.host };
   const transport = targetUrl.protocol === 'https:' ? httpsTransport : httpTransport;
 

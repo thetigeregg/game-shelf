@@ -46,6 +46,15 @@ test('resolveSafePath rejects parent-directory traversal attempts', () => {
   assert.deepEqual(result, { kind: 'forbidden' });
 });
 
+test('resolveSafePath allows dot-prefixed files that stay inside the static root', () => {
+  const result = resolveSafePath('/tmp/game-shelf-root', '/..well-known/assetlinks.json');
+
+  assert.deepEqual(result, {
+    kind: 'ok',
+    path: path.resolve('/tmp/game-shelf-root', '..well-known/assetlinks.json'),
+  });
+});
+
 test('resolveSafePath returns bad-request for malformed encoded paths', () => {
   const result = resolveSafePath('/tmp/game-shelf-root', '/bad%E0%A4%A');
 
@@ -163,6 +172,28 @@ test('proxyRequest rejects absolute-form request targets instead of proxying the
   assert.equal(transportCalled, false);
   assert.equal(response.statusCode, 400);
   assert.match(response.body, /Only origin-form URLs are supported by this proxy/);
+});
+
+test('proxyRequest rejects scheme-relative request targets instead of proxying them', () => {
+  let transportCalled = false;
+  const request = new PassThrough();
+  request.method = 'GET';
+  request.url = '//evil.example/api/games';
+  request.headers = {};
+  const response = new MockResponse();
+
+  proxyRequest(request, response, 'https://proxy.example', {
+    httpsTransport: {
+      request() {
+        transportCalled = true;
+        throw new Error('transport should not be called');
+      },
+    },
+  });
+
+  assert.equal(transportCalled, false);
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body, /Scheme-relative URLs are not supported by this proxy/);
 });
 
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {

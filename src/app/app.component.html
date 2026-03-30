@@ -1,3 +1,14 @@
 <ion-app>
+  @if (runtimeAvailabilityService.bannerMessage(); as bannerMessage) {
+    <div
+      class="runtime-status-banner"
+      [class.runtime-status-banner-offline]="runtimeAvailabilityService.status() === 'offline'"
+      [class.runtime-status-banner-tailnet]="
+        runtimeAvailabilityService.status() === 'tailnet-unreachable'
+      "
+    >
+      {{ bannerMessage }}
+    </div>
+  }
   <ion-router-outlet></ion-router-outlet>
 </ion-app>

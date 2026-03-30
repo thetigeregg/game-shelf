@@ -1,0 +1,19 @@
+.runtime-status-banner {
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  text-align: center;
+  border-bottom: 1px solid transparent;
+}
+
+.runtime-status-banner-offline {
+  color: var(--ion-color-medium-contrast);
+  background: rgba(var(--ion-color-medium-rgb), 0.18);
+  border-bottom-color: rgba(var(--ion-color-medium-rgb), 0.35);
+}
+
+.runtime-status-banner-tailnet {
+  color: var(--ion-color-warning-contrast);
+  background: rgba(var(--ion-color-warning-rgb), 0.94);
+  border-bottom-color: rgba(var(--ion-color-warning-rgb), 0.6);
+}

@@ -11,7 +11,8 @@ import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
-import { getAppVersion, isE2eFixturesEnabled } from './core/config/runtime-config';
+import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
+import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 @Component({
@@ -30,12 +31,14 @@ export class AppComponent {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
+  readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
 
   constructor() {
     void this.initializeApp();
   }
 
   private async initializeApp(): Promise<void> {
+    this.runtimeAvailabilityService.initialize();
     if (isE2eFixturesEnabled()) {
       await this.e2eFixtureService.applyFixtureFromStorage();
     }
@@ -94,16 +97,20 @@ export class AppComponent {
       return;
     }
 
-    const currentVersion = getAppVersion();
+    const currentVersion = getAppVersionInfo();
     const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
 
-    if (previousVersion === currentVersion) {
+    if (currentVersion.source !== 'live' || currentVersion.isFallback) {
+      return;
+    }
+
+    if (previousVersion === currentVersion.value) {
       return;
     }
 
     const message = previousVersion
-      ? `Updated from v${previousVersion} to v${currentVersion}.`
-      : `Welcome to Game Shelf v${currentVersion}.`;
+      ? `Updated from v${previousVersion} to v${currentVersion.value}.`
+      : `Welcome to Game Shelf v${currentVersion.value}.`;
 
     const alert = await this.alertController.create({
       header: 'App Updated',
@@ -112,7 +119,7 @@ export class AppComponent {
     });
 
     await alert.present();
-    window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion);
+    window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
 
   private async presentNotificationToast(

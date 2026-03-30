@@ -1,20 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   getAppVersion,
+  getAppVersionInfo,
+  getRuntimeConfigSource,
   getFirebaseVapidKey,
   getFirebaseWebConfig,
   isE2eFixturesEnabled,
   isMgcImportFeatureEnabled,
   isTasFeatureEnabled,
+  persistRuntimeConfig,
+  setLiveRuntimeConfig,
 } from './runtime-config';
 
 describe('runtime-config', () => {
   beforeEach(() => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+    localStorage.clear();
   });
 
   afterEach(() => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+    localStorage.clear();
   });
 
   describe('isMgcImportFeatureEnabled()', () => {
@@ -140,6 +146,33 @@ describe('runtime-config', () => {
       window.__GAME_SHELF_RUNTIME_CONFIG__ = {};
       expect(getAppVersion()).toBe('0.0.0');
     });
+
+    it('falls back to the persisted runtime config version when live config is unavailable', () => {
+      persistRuntimeConfig({ appVersion: '9.9.9' });
+
+      expect(getAppVersion()).toBe('9.9.9');
+      expect(getRuntimeConfigSource()).toBe('persisted');
+    });
+  });
+
+  describe('getAppVersionInfo()', () => {
+    it('reports a live source when runtime config is present on window', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { appVersion: '1.2.3' };
+
+      expect(getAppVersionInfo()).toEqual({
+        value: '1.2.3',
+        source: 'live',
+        isFallback: false,
+      });
+    });
+
+    it('reports fallback metadata when no runtime config is available anywhere', () => {
+      expect(getAppVersionInfo()).toEqual({
+        value: '0.0.0',
+        source: 'default',
+        isFallback: true,
+      });
+    });
   });
 
   describe('getFirebaseWebConfig()', () => {
@@ -177,6 +210,23 @@ describe('runtime-config', () => {
       };
 
       expect(getFirebaseVapidKey()).toBe('runtime-vapid');
+    });
+  });
+
+  describe('setLiveRuntimeConfig()', () => {
+    it('writes normalized runtime config to window and persisted storage', () => {
+      setLiveRuntimeConfig({
+        appVersion: ' 1.4.0 ',
+        featureFlags: { tasEnabled: 'true' as unknown as boolean },
+      });
+
+      expect(window.__GAME_SHELF_RUNTIME_CONFIG__).toEqual({
+        appVersion: '1.4.0',
+        featureFlags: { tasEnabled: true },
+      });
+      delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+      expect(getAppVersion()).toBe('1.4.0');
+      expect(isTasFeatureEnabled()).toBe(true);
     });
   });
 });

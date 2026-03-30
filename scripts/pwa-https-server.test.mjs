@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -49,18 +49,41 @@ test('resolveSafePath rejects parent-directory traversal attempts', () => {
 });
 
 test('resolveSafePath allows dot-prefixed files that stay inside the static root', () => {
-  const result = resolveSafePath('/tmp/game-shelf-root', '/..well-known/assetlinks.json');
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-root-'));
 
-  assert.deepEqual(result, {
-    kind: 'ok',
-    path: path.resolve('/tmp/game-shelf-root', '..well-known/assetlinks.json'),
-  });
+  try {
+    const result = resolveSafePath(rootDir, '/..well-known/assetlinks.json');
+
+    assert.deepEqual(result, {
+      kind: 'ok',
+      path: path.resolve(rootDir, '..well-known/assetlinks.json'),
+    });
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
 });
 
 test('resolveSafePath returns bad-request for malformed encoded paths', () => {
   const result = resolveSafePath('/tmp/game-shelf-root', '/bad%E0%A4%A');
 
   assert.deepEqual(result, { kind: 'bad-request' });
+});
+
+test('resolveSafePath rejects symlink escapes that leave the static root', () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-root-'));
+  const outsideDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-outside-'));
+
+  try {
+    writeFileSync(path.join(outsideDir, 'secret.txt'), 'top secret');
+    symlinkSync(outsideDir, path.join(rootDir, 'assets'));
+
+    const result = resolveSafePath(rootDir, '/assets/secret.txt');
+
+    assert.deepEqual(result, { kind: 'forbidden' });
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+    rmSync(outsideDir, { recursive: true, force: true });
+  }
 });
 
 test('parseArgs rejects invalid proxy origins before the server starts', () => {
@@ -257,6 +280,42 @@ test('proxyRequest rejects scheme-relative request targets instead of proxying t
   assert.equal(transportCalled, false);
   assert.equal(response.statusCode, 400);
   assert.match(response.body, /Scheme-relative URLs are not supported by this proxy/);
+});
+
+test('proxyRequest strips hop-by-hop headers before forwarding upstream', () => {
+  const request = new PassThrough();
+  request.method = 'GET';
+  request.url = '/api/games?filter=recent';
+  request.headers = {
+    accept: 'application/json',
+    connection: 'keep-alive',
+    'keep-alive': 'timeout=5',
+    'proxy-authorization': 'Basic abc123',
+    te: 'trailers',
+    trailer: 'x-debug',
+    'transfer-encoding': 'chunked',
+    upgrade: 'websocket',
+    'x-forwarded-test': 'preserved',
+  };
+  const response = new MockResponse();
+  let forwardedOptions;
+
+  proxyRequest(request, response, 'https://proxy.example', {
+    httpsTransport: {
+      request(options) {
+        forwardedOptions = options;
+        return new PassThrough();
+      },
+    },
+  });
+
+  request.end();
+
+  assert.deepEqual(forwardedOptions?.headers, {
+    host: 'proxy.example',
+    accept: 'application/json',
+    'x-forwarded-test': 'preserved',
+  });
 });
 
 test('proxyRequest destroys the response when the upstream fails after headers were sent', async () => {

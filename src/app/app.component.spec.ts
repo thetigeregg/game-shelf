@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -74,14 +75,14 @@ describe('AppComponent', () => {
   };
   const alertControllerMock = {
     create: vi.fn(),
+    getTop: vi.fn(),
   };
   const toastControllerMock = {
     create: vi.fn(),
   };
   const runtimeAvailabilityServiceMock = {
     initialize: vi.fn(),
-    bannerMessage: vi.fn(() => null),
-    status: vi.fn(() => 'online'),
+    status: signal<'checking' | 'online' | 'offline' | 'tailnet-unreachable'>('online'),
   };
 
   beforeEach(() => {
@@ -106,11 +107,14 @@ describe('AppComponent', () => {
     });
     alertControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
     });
+    alertControllerMock.getTop.mockResolvedValue(null);
     toastControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
     });
     runtimeAvailabilityServiceMock.initialize.mockReturnValue(undefined);
+    runtimeAvailabilityServiceMock.status.set('online');
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -167,7 +171,10 @@ describe('AppComponent', () => {
 
   it('presents a version alert and stores the current app version on first load', async () => {
     const present = vi.fn().mockResolvedValue(undefined);
-    alertControllerMock.create.mockResolvedValueOnce({ present });
+    alertControllerMock.create.mockResolvedValueOnce({
+      present,
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
@@ -181,6 +188,29 @@ describe('AppComponent', () => {
     );
     expect(present).toHaveBeenCalledOnce();
     expect(localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY)).toBe('1.27.1');
+  });
+
+  it('presents a tailnet alert when reachability changes to tailnet-unreachable', async () => {
+    const present = vi.fn().mockResolvedValue(undefined);
+    const onDidDismiss = vi.fn().mockResolvedValue(undefined);
+    alertControllerMock.create.mockResolvedValue({
+      present,
+      onDidDismiss,
+    });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    runtimeAvailabilityServiceMock.status.set('tailnet-unreachable');
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        header: 'Tailnet Connection Lost',
+      })
+    );
+    expect(present).toHaveBeenCalledOnce();
   });
 
   it('skips the version alert when the current version was already seen', async () => {

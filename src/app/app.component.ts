@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import {
   AlertController,
   IonApp,
@@ -12,7 +12,10 @@ import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
-import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
+import {
+  RuntimeAvailabilityService,
+  RuntimeAvailabilityStatus,
+} from './core/services/runtime-availability.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 @Component({
@@ -32,8 +35,13 @@ export class AppComponent {
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
+  private tailnetAlertVisible = false;
 
   constructor() {
+    effect(() => {
+      void this.syncTailnetAlert(this.runtimeAvailabilityService.status());
+    });
+
     void this.initializeApp();
   }
 
@@ -139,5 +147,47 @@ export class AppComponent {
   private async enableReleaseNotificationsFromPrompt(): Promise<void> {
     const result = await this.notificationService.enableReleaseNotifications();
     await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
+  }
+
+  private async syncTailnetAlert(status: RuntimeAvailabilityStatus): Promise<void> {
+    if (status === 'tailnet-unreachable') {
+      if (this.tailnetAlertVisible) {
+        return;
+      }
+
+      this.tailnetAlertVisible = true;
+
+      try {
+        const alert = await this.alertController.create({
+          header: 'Tailnet Connection Lost',
+          message:
+            'Game Shelf cannot reach your home-server origin right now. Cached data is still available, but sync, search, manuals, and live metadata need Tailnet.',
+          backdropDismiss: false,
+          buttons: ['OK'],
+        });
+
+        await alert.present();
+        await alert.onDidDismiss();
+      } finally {
+        this.tailnetAlertVisible = false;
+      }
+
+      return;
+    }
+
+    if (!this.tailnetAlertVisible) {
+      return;
+    }
+
+    const topAlert = await this.alertController.getTop();
+    if (!topAlert) {
+      this.tailnetAlertVisible = false;
+      return;
+    }
+
+    if (typeof topAlert.dismiss === 'function') {
+      await topAlert.dismiss();
+    }
+    this.tailnetAlertVisible = false;
   }
 }

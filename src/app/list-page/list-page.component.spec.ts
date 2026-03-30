@@ -56,9 +56,6 @@ vi.mock('../features/game-filters-menu/game-filters-menu.component', () => ({
 vi.mock('../features/game-detail/game-detail-content.component', () => ({
   GameDetailContentComponent: () => null,
 }));
-vi.mock('../features/game-detail/detail-shortcuts-fab.component', () => ({
-  DetailShortcutsFabComponent: () => null,
-}));
 vi.mock('../features/game-detail/detail-videos-modal.component', () => ({
   DetailVideosModalComponent: () => null,
 }));

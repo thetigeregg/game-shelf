@@ -252,11 +252,35 @@
       }
 
       @if (selectedAddGameDetail) {
-        <app-detail-shortcuts-fab
-          [showVideosShortcut]="hasAddGameDetailVideosShortcut"
-          (videosClick)="openAddGameVideosModal()"
-          (websitesClick)="openAddGameWebsitesModal()"
-        ></app-detail-shortcuts-fab>
+        <ion-fab
+          slot="fixed"
+          vertical="bottom"
+          horizontal="end"
+          class="detail-shortcuts-fab"
+          #detailShortcutsFab
+        >
+          <ion-fab-button size="small" aria-label="Open web shortcuts">
+            <ion-icon name="globe" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+          <ion-fab-list side="top">
+            <ion-fab-button
+              color="royal"
+              aria-label="Open websites"
+              (click)="openAddGameWebsitesModal(); detailShortcutsFab.close()"
+            >
+              <ion-icon name="link" aria-hidden="true"></ion-icon>
+            </ion-fab-button>
+            @if (hasAddGameDetailVideosShortcut) {
+              <ion-fab-button
+                color="ocean"
+                aria-label="Open game videos"
+                (click)="openAddGameVideosModal(); detailShortcutsFab.close()"
+              >
+                <ion-icon name="film" aria-hidden="true"></ion-icon>
+              </ion-fab-button>
+            }
+          </ion-fab-list>
+        </ion-fab>
       }
     </ion-content>
   </ng-template>

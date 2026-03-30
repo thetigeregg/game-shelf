@@ -35,6 +35,9 @@ import {
   IonPopover,
   IonSegment,
   IonSegmentButton,
+  IonFab,
+  IonFabButton,
+  IonFabList,
 } from '@ionic/angular/standalone';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -61,7 +64,6 @@ import {
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
-import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
 import { DetailWebsitesModalComponent } from '../features/game-detail/detail-websites-modal.component';
 import {
@@ -98,6 +100,9 @@ import {
   star,
   starOutline,
   time,
+  globe,
+  link,
+  film,
 } from 'ionicons/icons';
 
 interface RecommendationApiError extends Error {
@@ -156,9 +161,11 @@ interface RecommendationDisplayMetadata {
     IonPopover,
     IonSegment,
     IonSegmentButton,
+    IonFab,
+    IonFabButton,
+    IonFabList,
     NgTemplateOutlet,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     SimilarGameRowComponent,
@@ -316,6 +323,9 @@ export class ExplorePage implements OnInit {
       time,
       compass,
       sparkles,
+      globe,
+      link,
+      film,
     });
 
     this.recommendationIgnoreService.ignoredIds$

@@ -222,6 +222,49 @@ describe('GameSyncService', () => {
     ).toBeNull();
   });
 
+  it('backfills missing enteredCollectionAt from createdAt on pulled collection games', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '1',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-02T00:00:00.000Z',
+      }),
+      serverTimestamp: '2026-02-01T00:00:00.000Z',
+    });
+
+    expect(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.enteredCollectionAt
+    ).toBe('2024-01-01T00:00:00.000Z');
+
+    await db.games.update(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.id as number,
+      {
+        enteredCollectionAt: null,
+        createdAt: '2023-12-15T00:00:00.000Z',
+      }
+    );
+
+    await servicePrivate.applyGameChange({
+      eventId: '2',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        createdAt: '2024-06-01T00:00:00.000Z',
+        updatedAt: '2024-06-02T00:00:00.000Z',
+      }),
+      serverTimestamp: '2026-03-01T00:00:00.000Z',
+    });
+
+    expect(
+      (await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first())
+        ?.enteredCollectionAt
+    ).toBe('2023-12-15T00:00:00.000Z');
+  });
+
   it('normalizes pulled repeated empty paragraph placeholders to null', async () => {
     const change: SyncChangeEvent = {
       eventId: '1',

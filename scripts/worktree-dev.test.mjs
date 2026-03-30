@@ -6,6 +6,7 @@ import {
   createSharedEnv,
   ensureParentDirectories,
   isEntrypoint,
+  runPwa,
 } from './worktree-dev.mjs';
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
@@ -72,4 +73,139 @@ test('isEntrypoint resolves relative script paths before comparing module urls',
     }),
     true
   );
+});
+
+test('runPwa serve exits with guidance when the edge service is unreachable', async () => {
+  const errors = [];
+  const exitCodes = [];
+  const operations = [];
+
+  await runPwa('serve', {
+    isPortReachableFn: async () => false,
+    reconcilePwaStackManualsBaseUrlFn() {
+      operations.push('reconcile');
+    },
+    runPwaServeFn() {
+      operations.push('serve');
+    },
+    portsConfig: {
+      EDGE_HOST_PORT: 9080,
+      PWA_ROOT_CA_PORT: 9300,
+    },
+    exitFn(code) {
+      exitCodes.push(code);
+    },
+    logger: {
+      log() {},
+      error(message) {
+        errors.push(message);
+      },
+    },
+  });
+
+  assert.deepEqual(exitCodes, [1]);
+  assert.deepEqual(operations, []);
+  assert.match(errors[0], /edge service is unavailable at http:\/\/127\.0\.0\.1:9080/);
+  assert.match(errors[1], /npm run dev:stack:up/);
+});
+
+test('runPwa simulator reconciles the stack before building and serving', async () => {
+  const operations = [];
+
+  await runPwa('simulator', {
+    isPortReachableFn: async () => true,
+    reconcilePwaStackManualsBaseUrlFn() {
+      operations.push('reconcile');
+    },
+    buildPwaFn() {
+      operations.push('build');
+    },
+    runPwaServeFn() {
+      operations.push('serve');
+    },
+    exitFn(code) {
+      throw new Error(`unexpected exit: ${String(code)}`);
+    },
+    logger: console,
+  });
+
+  assert.deepEqual(operations, ['reconcile', 'build', 'serve']);
+});
+
+test('runPwa certs-check prints setup guidance when cert files are not configured', async () => {
+  const exitCodes = [];
+  const errors = [];
+  const operations = [];
+
+  await runPwa('certs-check', {
+    getSimulatorCertificateStatusFn() {
+      return {
+        mkcertAvailable: true,
+        hasRootCa: true,
+        isConfigured: false,
+        certPath: '/tmp/localhost.pem',
+        keyPath: '/tmp/localhost-key.pem',
+        rootCaPath: '/tmp/rootCA.pem',
+      };
+    },
+    printMissingCertificateInstructionsFn() {
+      operations.push('print-missing-cert-instructions');
+    },
+    servePwaRootCertificateFn() {
+      operations.push('serve-root');
+    },
+    exitFn(code) {
+      exitCodes.push(code);
+    },
+    logger: {
+      log() {},
+      error(message) {
+        errors.push(message);
+      },
+    },
+  });
+
+  assert.deepEqual(exitCodes, [1]);
+  assert.deepEqual(operations, ['print-missing-cert-instructions']);
+  assert.deepEqual(errors, []);
+});
+
+test('runPwa certs-check reports configured certificate paths', async () => {
+  const logs = [];
+  const exitCodes = [];
+
+  await runPwa('certs-check', {
+    getSimulatorCertificateStatusFn() {
+      return {
+        mkcertAvailable: true,
+        hasRootCa: true,
+        isConfigured: true,
+        certPath: '/tmp/localhost.pem',
+        keyPath: '/tmp/localhost-key.pem',
+        rootCaPath: '/tmp/rootCA.pem',
+      };
+    },
+    portsConfig: {
+      EDGE_HOST_PORT: 9080,
+      PWA_ROOT_CA_PORT: 9300,
+    },
+    exitFn(code) {
+      exitCodes.push(code);
+    },
+    logger: {
+      log(message) {
+        logs.push(message);
+      },
+      error(message) {
+        throw new Error(`unexpected error log: ${message}`);
+      },
+    },
+  });
+
+  assert.deepEqual(exitCodes, []);
+  assert.match(logs[0], /PWA HTTPS certificates are configured/);
+  assert.match(logs[1], /\/tmp\/localhost\.pem/);
+  assert.match(logs[2], /\/tmp\/localhost-key\.pem/);
+  assert.match(logs[3], /\/tmp\/rootCA\.pem/);
+  assert.match(logs[5], /http:\/\/localhost:9300\/rootCA\.pem/);
 });

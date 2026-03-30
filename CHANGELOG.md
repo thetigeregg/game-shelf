@@ -3072,3 +3072,21 @@
 - 46a9f3d2 feat: enhance explore page tests to include discovery pricing hydration checks
 - 19a62c9b feat: improve recommendation loading by scheduling pricing hydration
 
+## v1.37.0 - 2026-03-30
+- 2361c36c Merge pull request #307 from thetigeregg/feat/xfer
+- 9f6dba27 fix(data): validate enteredCollectionAt during v11 migration
+- c17ba0a1 fix(settings): preserve imported timestamps during CSV import
+- a5d5e026 fix(sync): normalize pulled list type before applying collection fallback
+- dcc20082 fix(tests): clarify test descriptions and update modal close method
+- 3bedffd3 fix(data): handle missing timestamps and improve sync behavior
+- 9c97a829 fix(data): preserve collection timestamps on sync and catalog moves
+- 246e1f62 fix(data): preserve collection timestamps across moves and sync
+- 36abc2af Merge branch 'main' into feat/xfer
+- faeb737a feat: optimize timestamp handling during game import and updates
+- 0b7a0159 feat: enhance v11 upgrade tests to backfill and normalize enteredCollectionAt for collection rows
+- 539b85b9 feat: support legacy CSV imports by backfilling enteredCollectionAt from createdAt
+- d22f33fd Merge branch 'main' into feat/xfer
+- 41d4d868 feat: remove move game functionality and related tests from explore and game detail components
+- eac23295 feat: implement move game functionality between lists and add related tests
+- 347306f3 feat: add enteredCollectionAt handling for game entries and update related tests
+

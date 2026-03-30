@@ -2201,6 +2201,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.openTagsPicker(this.selectedGame);
   }
 
+  async moveSelectedGameFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+
+    if (!this.selectedGame) {
+      return;
+    }
+
+    await this.moveGame(this.selectedGame);
+    await this.closeGameDetailModal();
+  }
+
   openSelectedGameRatingFromDetail(): void {
     if (!this.selectedGame) {
       return;

@@ -966,8 +966,8 @@ export class GameListFilteringEngine {
     }
 
     if (sortField === 'createdAt') {
-      const leftCreatedAt = Date.parse(left.createdAt);
-      const rightCreatedAt = Date.parse(right.createdAt);
+      const leftCreatedAt = Date.parse(this.getSortCreatedAt(left));
+      const rightCreatedAt = Date.parse(this.getSortCreatedAt(right));
       const leftValid = Number.isNaN(leftCreatedAt) ? null : leftCreatedAt;
       const rightValid = Number.isNaN(rightCreatedAt) ? null : rightCreatedAt;
 
@@ -1224,6 +1224,14 @@ export class GameListFilteringEngine {
 
   private getGameKey(game: GameEntry): string {
     return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
+  }
+
+  private getSortCreatedAt(game: GameEntry): string {
+    if (game.listType === 'collection') {
+      return game.enteredCollectionAt ?? game.createdAt;
+    }
+
+    return game.createdAt;
   }
 
   private getDisplayTitle(game: GameEntry): string {

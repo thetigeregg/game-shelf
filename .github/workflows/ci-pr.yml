@@ -76,7 +76,7 @@ jobs:
         run: npm run test:backend:coverage
 
       - name: Upload frontend coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage/app/lcov.info
           flags: frontend
@@ -86,7 +86,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload server coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./server/coverage/lcov.info
           flags: server
@@ -96,7 +96,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload worker coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./worker/coverage/lcov.info
           flags: worker

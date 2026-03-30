@@ -17,6 +17,15 @@ export interface GameRepository {
   listAll(): Promise<GameEntry[]>;
   upsertFromCatalog(result: GameCatalogResult, targetList: ListType): Promise<GameEntry>;
   moveToList(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void>;
+  setGameTimestamps(
+    igdbGameId: string,
+    platformIgdbId: number,
+    timestamps: {
+      createdAt?: string;
+      updatedAt?: string;
+      enteredCollectionAt?: string | null;
+    }
+  ): Promise<GameEntry | undefined>;
   remove(igdbGameId: string, platformIgdbId: number): Promise<void>;
   exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined>;
   updateCover(

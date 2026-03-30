@@ -73,6 +73,42 @@ npm run dev:start
 
 Frontend dev server port is derived from worktree context (shown by `npm run dev:info`).
 Manual URLs resolve through the worktree-local `edge` service during dev.
+For iPhone Simulator Safari testing without full PWA fidelity, use:
+
+```bash
+npm run dev:simulator
+```
+
+For installed-PWA simulator testing, use the required `mkcert` setup flow:
+
+```bash
+npm run dev:pwa:certs:setup
+npm run dev:pwa:certs:check
+```
+
+If Safari in iPhone Simulator still shows "This website is not secure", serve the `mkcert` root CA to the simulator and install/trust it there too:
+
+```bash
+npm run dev:pwa:certs:serve-root
+```
+
+Then in iPhone Simulator Safari open the printed `http://localhost:<port>/rootCA.pem` URL, install the downloaded profile, and enable full trust in `Settings > General > About > Certificate Trust Settings`.
+
+Then build and serve the production PWA over HTTPS:
+
+```bash
+npm run dev:pwa:simulator
+```
+
+Or run the steps separately:
+
+```bash
+npm run dev:pwa:build
+npm run dev:pwa:serve
+```
+
+The installed-PWA path proxies requests under `/api/` and `/manuals/` through the local HTTPS origin so the simulator exercises the production web configuration.
+`npm run dev:pwa:serve` and `npm run dev:pwa:simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
 When using `dev:*` commands, ports are derived from the current worktree path and shown by:
 
 ```bash

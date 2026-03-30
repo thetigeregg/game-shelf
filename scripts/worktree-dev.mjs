@@ -5,13 +5,16 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -85,6 +88,8 @@ const projectName = sanitize(`gameshelf-${worktreeHint}-${projectHash}`) || 'gam
 
 const ports = {
   FRONTEND_PORT: 8100 + portOffset,
+  PWA_HOST_PORT: 8200 + portOffset,
+  PWA_ROOT_CA_PORT: 8300 + portOffset,
   EDGE_HOST_PORT: 8080 + portOffset,
   API_HOST_PORT: 3000 + portOffset,
   POSTGRES_HOST_PORT: 5432 + portOffset,
@@ -95,6 +100,13 @@ const ports = {
 
 const localEnvPath = path.resolve(cwd, '.env');
 const defaultSharedEnvFile = path.join(os.homedir(), '.config', 'game-shelf', 'worktree.env');
+const simulatorCertDir = path.resolve(cwd, '.tmp', 'pwa-certs');
+const simulatorCertFile =
+  expandUserPath(process.env.WORKTREE_PWA_CERT_FILE && process.env.WORKTREE_PWA_CERT_FILE.trim()) ||
+  path.join(simulatorCertDir, 'localhost.pem');
+const simulatorKeyFile =
+  expandUserPath(process.env.WORKTREE_PWA_KEY_FILE && process.env.WORKTREE_PWA_KEY_FILE.trim()) ||
+  path.join(simulatorCertDir, 'localhost-key.pem');
 const sharedEnvFilePath =
   expandUserPath(process.env.WORKTREE_ENV_FILE && process.env.WORKTREE_ENV_FILE.trim()) ||
   defaultSharedEnvFile;
@@ -106,6 +118,14 @@ const explicitSecretsHostDir = expandUserPath(
 const secretsHostDir =
   explicitSecretsHostDir || (existsSync(defaultSharedSecretsDir) ? defaultSharedSecretsDir : '');
 
+function resolveSecretsHostDir(processEnv) {
+  const configuredSecretsHostDir = expandUserPath(
+    processEnv.SECRETS_HOST_DIR && processEnv.SECRETS_HOST_DIR.trim()
+  );
+
+  return configuredSecretsHostDir || secretsHostDir;
+}
+
 const corsOrigin = [
   `http://127.0.0.1:${ports.FRONTEND_PORT}`,
   `http://localhost:${ports.FRONTEND_PORT}`,
@@ -113,14 +133,40 @@ const corsOrigin = [
   `http://localhost:${ports.EDGE_HOST_PORT}`,
 ].join(',');
 
-const sharedEnv = {
-  ...process.env,
-  ...(secretsHostDir ? { SECRETS_HOST_DIR: secretsHostDir } : {}),
-  COMPOSE_PROJECT_NAME: projectName,
-  ...ports,
-  CORS_ORIGIN: corsOrigin,
-  MANUALS_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`,
-};
+const defaultManualsPublicBaseUrl = `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`;
+const pwaManualsPublicBaseUrl = '/manuals';
+
+export function createSharedEnv({
+  processEnv = process.env,
+  manualsPublicBaseUrl = defaultManualsPublicBaseUrl,
+} = {}) {
+  const resolvedSecretsHostDir = resolveSecretsHostDir(processEnv);
+
+  return {
+    ...processEnv,
+    ...(resolvedSecretsHostDir ? { SECRETS_HOST_DIR: resolvedSecretsHostDir } : {}),
+    COMPOSE_PROJECT_NAME: projectName,
+    ...ports,
+    CORS_ORIGIN: corsOrigin,
+    MANUALS_PUBLIC_BASE_URL: manualsPublicBaseUrl,
+  };
+}
+
+export function createPwaStackEnv(baseEnv = createSharedEnv()) {
+  return {
+    ...baseEnv,
+    MANUALS_PUBLIC_BASE_URL: pwaManualsPublicBaseUrl,
+  };
+}
+
+export function ensureParentDirectories(filePaths, { mkdir = mkdirSync } = {}) {
+  const uniqueDirectories = new Set(filePaths.map((filePath) => path.dirname(filePath)));
+  for (const directoryPath of uniqueDirectories) {
+    mkdir(directoryPath, { recursive: true });
+  }
+}
+
+const sharedEnv = createSharedEnv();
 
 function defaultSeedPath() {
   const base =
@@ -197,18 +243,116 @@ function runShellCapture(command, env = sharedEnv) {
   return runCapture('sh', ['-lc', command], env);
 }
 
+function getMkcertStatus() {
+  const result = spawnSync('mkcert', ['-CAROOT'], {
+    cwd,
+    env: sharedEnv,
+    stdio: ['ignore', 'pipe', 'ignore'],
+    encoding: 'utf8',
+  });
+
+  if (result.error) {
+    return {
+      available: false,
+      caroot: '',
+    };
+  }
+
+  return {
+    available: result.status === 0,
+    caroot: result.status === 0 ? (result.stdout ?? '').trim() : '',
+  };
+}
+
+function isReadableFile(filePath) {
+  if (!filePath) {
+    return false;
+  }
+
+  try {
+    const fileStat = statSync(filePath);
+    if (!fileStat.isFile()) {
+      return false;
+    }
+
+    readFileSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function listExternalIpv4Addresses() {
+  const interfaces = os.networkInterfaces();
+  const hosts = [];
+
+  for (const entries of Object.values(interfaces)) {
+    if (!entries) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (entry.family === 'IPv4' && !entry.internal) {
+        hosts.push(entry.address);
+      }
+    }
+  }
+
+  return [...new Set(hosts)];
+}
+
+function getSimulatorCertificateStatus() {
+  const mkcertStatus = getMkcertStatus();
+  const mkcertCaroot = mkcertStatus.caroot;
+  const rootCaPath = mkcertCaroot ? path.join(mkcertCaroot, 'rootCA.pem') : '';
+
+  return {
+    mkcertAvailable: mkcertStatus.available,
+    mkcertCaroot,
+    rootCaPath,
+    hasRootCa: isReadableFile(rootCaPath),
+    certPath: simulatorCertFile,
+    keyPath: simulatorKeyFile,
+    isConfigured: isReadableFile(simulatorCertFile) && isReadableFile(simulatorKeyFile),
+  };
+}
+
 function printInfo() {
+  const certStatus = getSimulatorCertificateStatus();
   console.log(`Worktree path: ${cwd}`);
   console.log(`Compose project: ${projectName}`);
   console.log(`Port offset: ${portOffset}`);
   console.log('Ports:');
   console.log(`  frontend:   http://127.0.0.1:${ports.FRONTEND_PORT}`);
+  console.log(`  pwa https:  https://127.0.0.1:${ports.PWA_HOST_PORT}`);
   console.log(`  edge:       http://127.0.0.1:${ports.EDGE_HOST_PORT}`);
   console.log(`  api:        http://127.0.0.1:${ports.API_HOST_PORT}`);
   console.log(`  postgres:   127.0.0.1:${ports.POSTGRES_HOST_PORT}`);
   console.log(`  hltb:       http://127.0.0.1:${ports.HLTB_HOST_PORT}`);
   console.log(`  metacritic: http://127.0.0.1:${ports.METACRITIC_HOST_PORT}`);
   console.log(`  psprices:   http://127.0.0.1:${ports.PSPRICES_HOST_PORT}`);
+  console.log('Simulator URLs:');
+  console.log(`  quick browser: http://localhost:${ports.FRONTEND_PORT}`);
+  console.log(`  installed PWA: https://localhost:${ports.PWA_HOST_PORT}`);
+  console.log(`  root ca file:  http://localhost:${ports.PWA_ROOT_CA_PORT}/rootCA.pem`);
+  const externalHosts = listExternalIpv4Addresses();
+  if (externalHosts.length > 0) {
+    console.log(
+      '  network hosts: (external HTTPS URLs are not printed by default; mkcert SANs only cover localhost)'
+    );
+  }
+  console.log(
+    `PWA certs: ${certStatus.isConfigured ? '[configured]' : '[missing]'} (${simulatorCertFile}, ${simulatorKeyFile})`
+  );
+  console.log(
+    `mkcert root CA: ${
+      certStatus.hasRootCa
+        ? '[configured]'
+        : certStatus.mkcertAvailable
+          ? '[missing]'
+          : '[mkcert unavailable]'
+    }${certStatus.rootCaPath ? ` (${certStatus.rootCaPath})` : ''}`
+  );
   if (secretsHostDir) {
     console.log(`Secrets dir: ${configState(secretsHostDir)}`);
   } else {
@@ -387,7 +531,7 @@ function runStack(action) {
   process.exit(1);
 }
 
-function runFrontend() {
+function createFrontendProxyConfig() {
   const tempDir = path.resolve(cwd, '.tmp');
   mkdirSync(tempDir, { recursive: true });
 
@@ -408,26 +552,314 @@ function runFrontend() {
   };
 
   writeFileSync(proxyPath, `${JSON.stringify(proxyConfig, null, 2)}\n`, 'utf8');
+  return proxyPath;
+}
 
-  run('npm', ['run', 'prestart'], sharedEnv);
+function resolveAngularServeConfiguration() {
   const localEnvironmentPath = path.resolve(cwd, 'src', 'environments', 'environment.local.ts');
+
+  if (existsSync(localEnvironmentPath)) {
+    console.log('Using Angular local configuration (environment.local.ts)');
+    return 'local';
+  }
+
+  console.log('Using Angular development configuration (environment.ts)');
+  return 'development';
+}
+
+function runFrontend(options = {}) {
+  const proxyPath = createFrontendProxyConfig();
+  run('npm', ['run', 'prestart'], sharedEnv);
   const serveArgs = [
     'ng',
     'serve',
     '--port',
     String(ports.FRONTEND_PORT),
+    '--host',
+    options.host ?? '127.0.0.1',
     '--proxy-config',
     proxyPath,
   ];
+  serveArgs.push('--configuration', resolveAngularServeConfiguration());
 
-  if (existsSync(localEnvironmentPath)) {
-    serveArgs.push('--configuration', 'local');
-    console.log('Using Angular local configuration (environment.local.ts)');
-  } else {
-    console.log('Using Angular development configuration (environment.ts)');
+  if (options.external) {
+    console.log('Simulator browser mode: dev server is available on all interfaces.');
+    console.log(
+      `Open Safari in iPhone Simulator at http://localhost:${String(ports.FRONTEND_PORT)}`
+    );
   }
 
   run('npx', serveArgs, sharedEnv);
+}
+
+function buildPwa() {
+  run('npm', ['run', 'prebuild'], sharedEnv);
+  run('npx', ['ng', 'build', '--configuration', 'production'], sharedEnv);
+}
+
+function listBuildOutputEntries(buildRoot) {
+  if (!existsSync(buildRoot)) {
+    return [];
+  }
+
+  return readdirSync(buildRoot).sort();
+}
+
+async function isPortReachable(port, host = '127.0.0.1') {
+  return await new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    socket.unref();
+
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+
+    socket.setTimeout(750, () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function printMissingCertificateInstructions() {
+  const certStatus = getSimulatorCertificateStatus();
+
+  if (!certStatus.mkcertAvailable) {
+    console.error('PWA install path requires mkcert, but `mkcert` was not found in PATH.');
+    console.error('Install mkcert first, then run `npm run dev:pwa:certs:setup`.');
+    return;
+  }
+
+  console.error('PWA install path unavailable because HTTPS certificates are missing.');
+  console.error(`Expected cert: ${simulatorCertFile}`);
+  console.error(`Expected key:  ${simulatorKeyFile}`);
+  console.error('Run `npm run dev:pwa:certs:setup` to create the required trusted localhost cert.');
+  console.error(
+    'If Safari in iPhone Simulator still warns that the site is not secure, run `npm run dev:pwa:certs:serve-root` and install/trust the mkcert root CA in the simulator.'
+  );
+}
+
+function setupPwaCertificates() {
+  const certStatus = getSimulatorCertificateStatus();
+  if (!certStatus.mkcertAvailable) {
+    console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
+    process.exit(1);
+  }
+
+  ensureParentDirectories([simulatorCertFile, simulatorKeyFile]);
+  run('mkcert', ['-install'], sharedEnv);
+  run(
+    'mkcert',
+    [
+      '-cert-file',
+      simulatorCertFile,
+      '-key-file',
+      simulatorKeyFile,
+      'localhost',
+      '127.0.0.1',
+      '::1',
+    ],
+    sharedEnv
+  );
+
+  const updatedStatus = getSimulatorCertificateStatus();
+  console.log('Simulator PWA certificates are ready.');
+  console.log(`Cert: ${updatedStatus.certPath}`);
+  console.log(`Key:  ${updatedStatus.keyPath}`);
+  if (updatedStatus.rootCaPath) {
+    console.log(`mkcert root CA: ${updatedStatus.rootCaPath}`);
+  }
+  console.log(
+    `If you need to install the mkcert root CA in iPhone Simulator, run: npm run dev:pwa:certs:serve-root`
+  );
+}
+
+function servePwaRootCertificate() {
+  const certStatus = getSimulatorCertificateStatus();
+  if (!certStatus.mkcertAvailable || !certStatus.hasRootCa || !certStatus.rootCaPath) {
+    console.error('mkcert root CA is not available.');
+    console.error('Run `npm run dev:pwa:certs:setup` first.');
+    process.exit(1);
+  }
+
+  console.log(
+    `Open http://localhost:${String(ports.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
+  );
+  console.log(
+    'Then install the profile and enable full trust in Settings > General > About > Certificate Trust Settings.'
+  );
+
+  run('node', [
+    path.resolve(cwd, 'scripts', 'pwa-root-ca-server.mjs'),
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(ports.PWA_ROOT_CA_PORT),
+    '--file',
+    certStatus.rootCaPath,
+    '--route',
+    '/rootCA.pem',
+  ]);
+}
+
+function runPwaServe() {
+  const certStatus = getSimulatorCertificateStatus();
+  if (!certStatus.isConfigured) {
+    printMissingCertificateInstructions();
+    process.exit(1);
+  }
+
+  const buildRoot = path.resolve(cwd, 'www', 'browser');
+  const indexPath = path.join(buildRoot, 'index.html');
+
+  if (!existsSync(indexPath)) {
+    console.error(`Built frontend not found at ${indexPath}`);
+    console.error('Run `npm run dev:pwa:build` first or use `npm run dev:pwa:simulator`.');
+    process.exit(1);
+  }
+
+  console.log('Installed PWA mode: serving production build over HTTPS for simulator testing.');
+  console.log(
+    `Open Safari in iPhone Simulator at https://localhost:${String(ports.PWA_HOST_PORT)}`
+  );
+  console.log('Then use Share -> Add to Home Screen to launch the standalone PWA.');
+
+  run('node', [
+    path.resolve(cwd, 'scripts', 'pwa-https-server.mjs'),
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(ports.PWA_HOST_PORT),
+    '--cert',
+    certStatus.certPath,
+    '--key',
+    certStatus.keyPath,
+    '--root',
+    buildRoot,
+    '--proxy-origin',
+    `http://127.0.0.1:${ports.EDGE_HOST_PORT}`,
+  ]);
+}
+
+function reconcilePwaStackManualsBaseUrl() {
+  console.log('Ensuring installed-PWA manual links stay on the local HTTPS origin.');
+  console.log(
+    'Recreating api and edge services if needed so MANUALS_PUBLIC_BASE_URL=/manuals is applied.'
+  );
+  run('docker', [...composeArgs, 'up', '-d', 'api', 'edge'], createPwaStackEnv(sharedEnv));
+}
+
+export async function runPwa(
+  command,
+  {
+    isPortReachableFn = isPortReachable,
+    reconcilePwaStackManualsBaseUrlFn = reconcilePwaStackManualsBaseUrl,
+    buildPwaFn = buildPwa,
+    runPwaServeFn = runPwaServe,
+    setupPwaCertificatesFn = setupPwaCertificates,
+    getSimulatorCertificateStatusFn = getSimulatorCertificateStatus,
+    printMissingCertificateInstructionsFn = printMissingCertificateInstructions,
+    servePwaRootCertificateFn = servePwaRootCertificate,
+    portsConfig = ports,
+    exitFn = (code) => process.exit(code),
+    logger = console,
+  } = {}
+) {
+  if (command === 'build') {
+    buildPwaFn();
+    const buildRoot = path.resolve(cwd, 'www', 'browser');
+    logger.log(`PWA build complete: ${buildRoot}`);
+    logger.log(`Build output entries: ${listBuildOutputEntries(buildRoot).join(', ')}`);
+    return;
+  }
+
+  if (command === 'serve') {
+    const edgeReachable = await isPortReachableFn(portsConfig.EDGE_HOST_PORT);
+    if (!edgeReachable) {
+      logger.error(
+        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(portsConfig.EDGE_HOST_PORT)}`
+      );
+      logger.error('Start it with `npm run dev:stack:up` before serving the simulator PWA.');
+      exitFn(1);
+      return;
+    }
+
+    reconcilePwaStackManualsBaseUrlFn();
+    runPwaServeFn();
+    return;
+  }
+
+  if (command === 'simulator') {
+    const edgeReachable = await isPortReachableFn(portsConfig.EDGE_HOST_PORT);
+    if (!edgeReachable) {
+      logger.error(
+        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(portsConfig.EDGE_HOST_PORT)}`
+      );
+      logger.error('Start it with `npm run dev:stack:up` before running the simulator PWA flow.');
+      exitFn(1);
+      return;
+    }
+
+    reconcilePwaStackManualsBaseUrlFn();
+    buildPwaFn();
+    runPwaServeFn();
+    return;
+  }
+
+  if (command === 'certs-setup') {
+    setupPwaCertificatesFn();
+    return;
+  }
+
+  if (command === 'certs-check') {
+    const certStatus = getSimulatorCertificateStatusFn();
+    if (!certStatus.mkcertAvailable) {
+      logger.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
+      exitFn(1);
+      return;
+    }
+
+    if (!certStatus.hasRootCa) {
+      logger.error('mkcert root CA was not found.');
+      logger.error('Run `npm run dev:pwa:certs:setup` first.');
+      exitFn(1);
+      return;
+    }
+
+    if (!certStatus.isConfigured) {
+      printMissingCertificateInstructionsFn();
+      exitFn(1);
+      return;
+    }
+
+    logger.log('PWA HTTPS certificates are configured.');
+    logger.log(`Cert: ${certStatus.certPath}`);
+    logger.log(`Key:  ${certStatus.keyPath}`);
+    logger.log(`mkcert root CA: ${certStatus.rootCaPath}`);
+    logger.log(
+      'For the cleanest Simulator PWA flow, ensure Safari does not show a security warning for this origin.'
+    );
+    logger.log(
+      `If needed, run \`npm run dev:pwa:certs:serve-root\` and open http://localhost:${String(portsConfig.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
+    );
+    return;
+  }
+
+  if (command === 'certs-serve-root') {
+    servePwaRootCertificateFn();
+    return;
+  }
+
+  logger.error(
+    'Unknown pwa command. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
+  );
+  exitFn(1);
 }
 
 function ensurePostgresRunning() {
@@ -584,87 +1016,150 @@ function parseOptions(values) {
   return options;
 }
 
-if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
-  console.log('Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|stack|db> [action]');
-  console.log('');
-  console.log('Commands:');
-  console.log('  info                      Show derived project name, ports, and seed path');
-  console.log(
-    '  bootstrap [--force]       Bootstrap .env (overwrite existing with --force) and install deps if missing'
-  );
-  console.log('  frontend                  Run Angular dev server for this worktree');
-  console.log('  stack up                  Start worktree-isolated docker stack');
-  console.log('  stack up-seed             Start stack and seed DB only when empty');
-  console.log('  stack down                Stop/remove worktree-isolated docker stack');
-  console.log('  stack restart             Restart worktree-isolated services');
-  console.log('  stack logs                Follow stack logs');
-  console.log('  stack ps                  Show stack status');
-  console.log(
-    '  db seed-refresh           Create/update shared seed dump from current worktree DB'
-  );
-  console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
-  console.log('  db sync-rebuild           Rebuild game sync events from current games table');
-  console.log('');
-  console.log('Optional env vars:');
-  console.log(
-    `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET - 1)})`
-  );
-  console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
-  console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
-  process.exit(0);
+export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.url } = {}) {
+  if (!argv1) {
+    return false;
+  }
+
+  return pathToFileURL(path.resolve(argv1)).href === moduleUrl;
 }
 
-if (args[0] === 'info') {
-  printInfo();
-  process.exit(0);
-}
-
-if (args[0] === 'bootstrap') {
-  const bootstrapArgs = args.slice(1);
-  if (bootstrapArgs.includes('--help') || bootstrapArgs.includes('help')) {
-    console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
+async function main(argv) {
+  if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
+    console.log(
+      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|pwa|stack|db> [action]'
+    );
     console.log('');
-    console.log('Options:');
-    console.log('  --force   Overwrite existing .env from shared template');
+    console.log('Commands:');
+    console.log('  info                      Show derived project name, ports, and seed path');
+    console.log(
+      '  bootstrap [--force]       Bootstrap .env (overwrite existing with --force) and install deps if missing'
+    );
+    console.log('  frontend                  Run Angular dev server for this worktree');
+    console.log(
+      '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
+    );
+    console.log(
+      '  pwa build                 Build production frontend for installed-PWA simulator testing'
+    );
+    console.log(
+      '  pwa serve                 Serve built frontend over HTTPS with /api and /manuals proxying'
+    );
+    console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
+    console.log(
+      '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
+    );
+    console.log(
+      '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
+    );
+    console.log(
+      '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
+    );
+    console.log('  stack up                  Start worktree-isolated docker stack');
+    console.log('  stack up-seed             Start stack and seed DB only when empty');
+    console.log('  stack down                Stop/remove worktree-isolated docker stack');
+    console.log('  stack restart             Restart worktree-isolated services');
+    console.log('  stack logs                Follow stack logs');
+    console.log('  stack ps                  Show stack status');
+    console.log(
+      '  db seed-refresh           Create/update shared seed dump from current worktree DB'
+    );
+    console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
+    console.log('  db sync-rebuild           Rebuild game sync events from current games table');
+    console.log('');
+    console.log('Optional env vars:');
+    console.log(
+      `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET - 1)})`
+    );
+    console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
+    console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
+    console.log(
+      '  WORKTREE_PWA_CERT_FILE    Override local HTTPS cert path for simulator PWA serving'
+    );
+    console.log(
+      '  WORKTREE_PWA_KEY_FILE     Override local HTTPS key path for simulator PWA serving'
+    );
     process.exit(0);
   }
 
-  const options = parseOptions(bootstrapArgs);
-  ensureLocalEnvFromSharedTemplate(options.force);
-  printInfo();
-  ensureDependenciesInstalled(false);
-  process.exit(0);
-}
-
-if (args[0] === 'frontend') {
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  ensureDependenciesInstalled(false);
-  runFrontend();
-  process.exit(0);
-}
-
-if (args[0] === 'stack') {
-  if (!args[1]) {
-    console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
-    process.exit(1);
+  if (argv[0] === 'info') {
+    printInfo();
+    process.exit(0);
   }
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  runStack(args[1]);
-  process.exit(0);
-}
 
-if (args[0] === 'db') {
-  if (!args[1]) {
-    console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
-    process.exit(1);
+  if (argv[0] === 'bootstrap') {
+    const bootstrapArgs = argv.slice(1);
+    if (bootstrapArgs.includes('--help') || bootstrapArgs.includes('help')) {
+      console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
+      console.log('');
+      console.log('Options:');
+      console.log('  --force   Overwrite existing .env from shared template');
+      process.exit(0);
+    }
+
+    const options = parseOptions(bootstrapArgs);
+    ensureLocalEnvFromSharedTemplate(options.force);
+    printInfo();
+    ensureDependenciesInstalled(false);
+    process.exit(0);
   }
-  ensureLocalEnvFromSharedTemplate();
-  printInfo();
-  runDb(args[1], parseOptions(args.slice(2)));
-  process.exit(0);
+
+  if (argv[0] === 'frontend') {
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    runFrontend();
+    process.exit(0);
+  }
+
+  if (argv[0] === 'simulator') {
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    runFrontend({ external: true, host: '0.0.0.0' });
+    process.exit(0);
+  }
+
+  if (argv[0] === 'stack') {
+    if (!argv[1]) {
+      console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    runStack(argv[1]);
+    process.exit(0);
+  }
+
+  if (argv[0] === 'db') {
+    if (!argv[1]) {
+      console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    runDb(argv[1], parseOptions(argv.slice(2)));
+    process.exit(0);
+  }
+
+  if (argv[0] === 'pwa') {
+    if (!argv[1]) {
+      console.error(
+        'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
+      );
+      process.exit(1);
+    }
+    ensureLocalEnvFromSharedTemplate();
+    printInfo();
+    ensureDependenciesInstalled(false);
+    await runPwa(argv[1]);
+    process.exit(0);
+  }
+
+  console.error('Unknown command. Use --help for usage.');
+  process.exit(1);
 }
 
-console.error('Unknown command. Use --help for usage.');
-process.exit(1);
+if (isEntrypoint()) {
+  await main(args);
+}

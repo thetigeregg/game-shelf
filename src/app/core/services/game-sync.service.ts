@@ -681,10 +681,15 @@ export class GameSyncService implements SyncOutboxWriter {
         : 'Unknown platform';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
-    const enteredCollectionAt =
-      payload.enteredCollectionAt === undefined
-        ? (existingByIdentity?.enteredCollectionAt ?? null)
-        : this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
+    let enteredCollectionAt: string | null = null;
+
+    if (payload.enteredCollectionAt !== undefined) {
+      enteredCollectionAt = this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
+    } else if (existingByIdentity?.enteredCollectionAt != null) {
+      enteredCollectionAt = existingByIdentity.enteredCollectionAt;
+    } else if ((payload.listType === 'wishlist' ? 'wishlist' : 'collection') === 'collection') {
+      enteredCollectionAt = existingByIdentity?.createdAt ?? createdAt;
+    }
     const normalizedReviewScore = this.normalizeReviewScore(
       payload.reviewScore ?? payload.metacriticScore
     );

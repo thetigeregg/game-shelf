@@ -370,18 +370,36 @@ export class DexieGameRepository implements GameRepository {
     if (existing?.id === undefined) {
       return undefined;
     }
+    const existingId = existing.id;
+
+    const changes: Partial<GameEntry> = {};
+
+    if (timestamps.createdAt !== undefined && timestamps.createdAt !== existing.createdAt) {
+      changes.createdAt = timestamps.createdAt;
+    }
+
+    if (timestamps.updatedAt !== undefined && timestamps.updatedAt !== existing.updatedAt) {
+      changes.updatedAt = timestamps.updatedAt;
+    }
+
+    if (
+      timestamps.enteredCollectionAt !== undefined &&
+      timestamps.enteredCollectionAt !== existing.enteredCollectionAt
+    ) {
+      changes.enteredCollectionAt = timestamps.enteredCollectionAt;
+    }
+
+    if (Object.keys(changes).length === 0) {
+      return existing;
+    }
 
     const updated: GameEntry = {
       ...existing,
-      ...(timestamps.createdAt !== undefined ? { createdAt: timestamps.createdAt } : {}),
-      ...(timestamps.updatedAt !== undefined ? { updatedAt: timestamps.updatedAt } : {}),
-      ...(timestamps.enteredCollectionAt !== undefined
-        ? { enteredCollectionAt: timestamps.enteredCollectionAt }
-        : {}),
+      ...changes,
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
-      this.db.games.put(updated).then(() => this.queueGameUpsert(updated))
+      this.db.games.update(existingId, changes).then(() => this.queueGameUpsert(updated))
     );
     return updated;
   }

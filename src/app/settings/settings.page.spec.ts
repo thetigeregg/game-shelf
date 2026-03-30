@@ -655,6 +655,44 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
+  it('skips timestamp updates during import when a game row yields no timestamp fields', async () => {
+    const page = createPage();
+    const importRow = makeGameRow({
+      createdAt: '',
+      updatedAt: '',
+      enteredCollectionAt: '',
+    });
+    const csv = [Object.keys(importRow).join(','), Object.values(importRow).join(',')].join('\n');
+    const preview = (await page['parseImportCsv'](csv)) as Array<{
+      error: string | null;
+      parsed: Record<string, unknown> | null;
+    }>;
+
+    const addGame = vi.fn().mockResolvedValue(undefined);
+    const setGameTimestamps = vi.fn().mockResolvedValue(undefined);
+    page['gameShelfService'] = {
+      addGame,
+      setGameTimestamps,
+      setGameCustomMetadata: vi.fn().mockResolvedValue(undefined),
+      setGameCustomCover: vi.fn().mockResolvedValue(undefined),
+      setGameStatus: vi.fn().mockResolvedValue(undefined),
+      setGameRating: vi.fn().mockResolvedValue(undefined),
+      setGameNotes: vi.fn().mockResolvedValue(undefined),
+      setGameTags: vi.fn().mockResolvedValue(undefined),
+      createView: vi.fn().mockResolvedValue(undefined),
+    };
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.error).toBeNull();
+
+    page.importPreviewRows = preview as never;
+
+    await page.applyImport();
+
+    expect(addGame).toHaveBeenCalledOnce();
+    expect(setGameTimestamps).not.toHaveBeenCalled();
+  });
+
   it('includes release date display settings in exported settings even when defaults are not stored', () => {
     const page = createPage();
 

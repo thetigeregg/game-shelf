@@ -1608,17 +1608,21 @@ export class SettingsPage {
           await this.gameShelfService.addGame(gameRow.catalog, gameRow.listType);
           gamesApplied += 1;
 
-          await this.gameShelfService.setGameTimestamps(
-            gameRow.catalog.igdbGameId,
-            platformIgdbId,
-            {
-              ...(gameRow.createdAt !== null ? { createdAt: gameRow.createdAt } : {}),
-              ...(gameRow.updatedAt !== null ? { updatedAt: gameRow.updatedAt } : {}),
-              ...(gameRow.enteredCollectionAt !== null || gameRow.listType === 'wishlist'
-                ? { enteredCollectionAt: gameRow.enteredCollectionAt }
-                : {}),
-            }
-          );
+          const timestamps = {
+            ...(gameRow.createdAt !== null ? { createdAt: gameRow.createdAt } : {}),
+            ...(gameRow.updatedAt !== null ? { updatedAt: gameRow.updatedAt } : {}),
+            ...(gameRow.enteredCollectionAt !== null || gameRow.listType === 'wishlist'
+              ? { enteredCollectionAt: gameRow.enteredCollectionAt }
+              : {}),
+          };
+
+          if (Object.keys(timestamps).length > 0) {
+            await this.gameShelfService.setGameTimestamps(
+              gameRow.catalog.igdbGameId,
+              platformIgdbId,
+              timestamps
+            );
+          }
 
           if (gameRow.customTitle !== null || gameRow.customPlatform !== null) {
             await this.gameShelfService.setGameCustomMetadata(

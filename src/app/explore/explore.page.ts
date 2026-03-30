@@ -1169,39 +1169,6 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  async moveDetailGameToOtherList(): Promise<void> {
-    const selected = this.selectedGameDetail;
-
-    if (!this.isLibraryEntry(selected)) {
-      return;
-    }
-
-    const targetList = selected.listType === 'wishlist' ? 'collection' : 'wishlist';
-
-    try {
-      await this.gameShelfService.moveGame(
-        selected.igdbGameId,
-        selected.platformIgdbId,
-        targetList
-      );
-      const updated = await this.gameShelfService.findGameByIdentity(
-        selected.igdbGameId,
-        selected.platformIgdbId
-      );
-
-      if (updated) {
-        this.selectedGameDetail = updated;
-        this.upsertLocalGameCache(updated);
-      }
-
-      await this.presentToast(
-        `Moved to ${targetList === 'collection' ? 'Collection' : 'Wishlist'}.`
-      );
-    } catch {
-      await this.presentToast('Unable to move game.', 'danger');
-    }
-  }
-
   openDetailRatingModal(): void {
     const selected = this.selectedGameDetail;
 

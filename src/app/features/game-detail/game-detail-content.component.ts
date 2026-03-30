@@ -31,7 +31,6 @@ import {
 import { addIcons } from 'ionicons';
 import {
   add,
-  swapHorizontal,
   ban,
   cash,
   build,
@@ -118,7 +117,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
-  @Output() moveToOtherList = new EventEmitter<void>();
   @Output() editRating = new EventEmitter<void>();
   @Output() openTags = new EventEmitter<void>();
   @Output() developerClick = new EventEmitter<void>();
@@ -168,7 +166,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   constructor() {
     addIcons({
       add,
-      swapHorizontal,
       ban,
       cash,
       build,
@@ -394,11 +391,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   get showLibrarySections(): boolean {
     return this.context === 'library';
-  }
-
-  get moveToOtherListLabel(): string {
-    const listType = (this.game as Partial<GameEntry>).listType;
-    return listType === 'wishlist' ? 'Move to Collection' : 'Move to Wishlist';
   }
 
   get shouldEnableMetadataFilterLinks(): boolean {

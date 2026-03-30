@@ -81,6 +81,17 @@ export function parseArgs(argv) {
     );
   }
 
+  let proxyUrl;
+  try {
+    proxyUrl = new URL(options.proxyOrigin);
+  } catch {
+    throw new Error('--proxy-origin must be a valid absolute http(s) URL');
+  }
+
+  if (!['http:', 'https:'].includes(proxyUrl.protocol)) {
+    throw new Error('--proxy-origin must use the http or https scheme');
+  }
+
   return options;
 }
 
@@ -205,12 +216,26 @@ export function createHandler(rootDir, proxyOrigin) {
       return;
     }
 
-    if (existsSync(spaIndexPath)) {
+    const hasExtension = path.extname(requestUrl.pathname) !== '';
+    const acceptHeader =
+      request.headers && typeof request.headers.accept === 'string' ? request.headers.accept : '';
+    const acceptsHtml = acceptHeader
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .some((value) => value.startsWith('text/html'));
+    const shouldFallbackToSpa = !hasExtension || acceptsHtml;
+
+    if (shouldFallbackToSpa && existsSync(spaIndexPath)) {
       sendFile(spaIndexPath, response, method);
       return;
     }
 
-    sendError(response, 404, 'Built app not found');
+    if (shouldFallbackToSpa) {
+      sendError(response, 404, 'Built app not found');
+      return;
+    }
+
+    sendError(response, 404, 'Not found');
   };
 }
 

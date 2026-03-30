@@ -162,13 +162,13 @@
 
   @if (!isSelectionMode) {
     <ion-fab #quickActionsFab slot="fixed" vertical="bottom" horizontal="end">
-      <ion-fab-button size="small" [color]="fabColors.trigger" aria-label="Open quick actions">
+      <ion-fab-button size="small" color="primary" aria-label="Open quick actions">
         <ion-icon name="chevron-up"></ion-icon>
       </ion-fab-button>
       <ion-fab-list side="top" (click)="closeBottomFab()">
         <ion-fab-button
           size="small"
-          [color]="fabColors.search"
+          color="tertiary"
           aria-label="Search games"
           (click)="onBottomFabSearch()"
         >
@@ -176,7 +176,7 @@
         </ion-fab-button>
         <ion-fab-button
           size="small"
-          [color]="fabColors.add"
+          color="forest"
           aria-label="Add game"
           (click)="onBottomFabAddGame()"
         >
@@ -184,7 +184,7 @@
         </ion-fab-button>
         <ion-fab-button
           size="small"
-          [color]="fabColors.scrollTop"
+          color="medium"
           aria-label="Scroll to top"
           (click)="onBottomFabScrollTop()"
         >

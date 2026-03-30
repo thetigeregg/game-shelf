@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DETAIL_SHORTCUT_FAB_COLORS } from '../../core/theme/filled-action-surface-colors';
 import { DetailShortcutsFabComponent } from './detail-shortcuts-fab.component';
 
 const { addIconsMock } = vi.hoisted(() => ({ addIconsMock: vi.fn() }));
@@ -32,7 +31,6 @@ describe('DetailShortcutsFabComponent', () => {
     expect(component.showVideosShortcut).toBe(false);
     expect(component.showNotesShortcut).toBe(false);
     expect(component.showOpenManualButton).toBe(false);
-    expect(component.fabColors).toEqual(DETAIL_SHORTCUT_FAB_COLORS);
     expect(addIconsMock).toHaveBeenCalledOnce();
   });
 

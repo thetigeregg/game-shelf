@@ -3016,3 +3016,7 @@
 - dadcfabf Merge pull request #292 from thetigeregg/dependabot/npm_and_yarn/server/node-forge-1.4.0
 - 9c51f304 chore(deps): bump node-forge from 1.3.3 to 1.4.0 in /server
 
+## v1.31.3 - 2026-03-30
+- bd1cc60f Merge pull request #301 from thetigeregg/dependabot/github_actions/codecov/codecov-action-6
+- 03e143b6 chore(ci): bump codecov/codecov-action from 5 to 6
+

@@ -5,7 +5,13 @@ import path from 'node:path';
 import test from 'node:test';
 import { PassThrough, Writable } from 'node:stream';
 
-import { createHandler, isEntrypoint, proxyRequest, resolveSafePath } from './pwa-https-server.mjs';
+import {
+  createHandler,
+  isEntrypoint,
+  parseArgs,
+  proxyRequest,
+  resolveSafePath,
+} from './pwa-https-server.mjs';
 
 class MockResponse extends Writable {
   constructor() {
@@ -46,6 +52,42 @@ test('resolveSafePath returns bad-request for malformed encoded paths', () => {
   assert.deepEqual(result, { kind: 'bad-request' });
 });
 
+test('parseArgs rejects invalid proxy origins before the server starts', () => {
+  assert.throws(
+    () =>
+      parseArgs([
+        '--port',
+        '9443',
+        '--cert',
+        'cert.pem',
+        '--key',
+        'key.pem',
+        '--root',
+        'dist/app',
+        '--proxy-origin',
+        'proxy.example',
+      ]),
+    /valid absolute http\(s\) URL/
+  );
+
+  assert.throws(
+    () =>
+      parseArgs([
+        '--port',
+        '9443',
+        '--cert',
+        'cert.pem',
+        '--key',
+        'key.pem',
+        '--root',
+        'dist/app',
+        '--proxy-origin',
+        'ftp://proxy.example',
+      ]),
+    /must use the http or https scheme/
+  );
+});
+
 test('createHandler falls back to index.html for unknown SPA routes', async () => {
   const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
   writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');
@@ -67,6 +109,35 @@ test('createHandler falls back to index.html for unknown SPA routes', async () =
     assert.equal(response.statusCode, 200);
     assert.match(response.body, /Game Shelf/);
     assert.equal(response.headers?.['Content-Type'], 'text/html; charset=utf-8');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('createHandler returns 404 for missing asset paths instead of the SPA shell', async () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
+  writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');
+
+  try {
+    const handler = createHandler(rootDir, 'https://proxy.example');
+    const response = new MockResponse();
+
+    handler(
+      {
+        method: 'GET',
+        url: '/assets/missing.png',
+        headers: {
+          accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
+        },
+      },
+      response
+    );
+
+    await waitForStreamEnd(response);
+
+    assert.equal(response.statusCode, 404);
+    assert.match(response.body, /Not found/);
+    assert.equal(response.headers?.['Content-Type'], 'text/plain; charset=utf-8');
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }

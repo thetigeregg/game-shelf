@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Writable } from 'node:stream';
 
-import { createHandler, createServer, isEntrypoint, parseArgs } from './pwa-root-ca-server.mjs';
+import {
+  createHandler,
+  createServer,
+  getDisplayHost,
+  isEntrypoint,
+  parseArgs,
+} from './pwa-root-ca-server.mjs';
 
 class MockResponse extends Writable {
   constructor() {
@@ -68,6 +74,7 @@ test('createServer rejects missing root CA files', () => {
 test('createHandler returns instructions at the root path', async () => {
   const response = new MockResponse();
   const handler = createHandler({
+    host: '127.0.0.1',
     port: 9000,
     route: '/rootCA.pem',
     fileBuffer: Buffer.from('pem'),
@@ -78,12 +85,13 @@ test('createHandler returns instructions at the root path', async () => {
   await waitForStreamEnd(response);
 
   assert.equal(response.statusCode, 200);
-  assert.match(response.body, /http:\/\/localhost:9000\/rootCA\.pem/);
+  assert.match(response.body, /http:\/\/127\.0\.0\.1:9000\/rootCA\.pem/);
 });
 
 test('createHandler serves the pem file at the configured route', async () => {
   const response = new MockResponse();
   const handler = createHandler({
+    host: '127.0.0.1',
     port: 9000,
     route: '/rootCA.pem',
     fileBuffer: Buffer.from('pem-data'),
@@ -101,6 +109,7 @@ test('createHandler serves the pem file at the configured route', async () => {
 test('createHandler returns not found for unknown routes', async () => {
   const response = new MockResponse();
   const handler = createHandler({
+    host: '127.0.0.1',
     port: 9000,
     route: '/rootCA.pem',
     fileBuffer: Buffer.from('pem-data'),
@@ -112,6 +121,47 @@ test('createHandler returns not found for unknown routes', async () => {
 
   assert.equal(response.statusCode, 404);
   assert.match(response.body, /Not found/);
+});
+
+test('createHandler rejects non-GET and non-HEAD methods', async () => {
+  const response = new MockResponse();
+  const handler = createHandler({
+    host: '127.0.0.1',
+    port: 9000,
+    route: '/rootCA.pem',
+    fileBuffer: Buffer.from('pem-data'),
+    fileSize: 8,
+  });
+
+  handler({ url: '/rootCA.pem', method: 'POST' }, response);
+  await waitForStreamEnd(response);
+
+  assert.equal(response.statusCode, 405);
+  assert.match(response.body, /Method not allowed/);
+});
+
+test('createHandler omits the response body for HEAD requests', async () => {
+  const response = new MockResponse();
+  const handler = createHandler({
+    host: 'devbox.local',
+    port: 9000,
+    route: '/rootCA.pem',
+    fileBuffer: Buffer.from('pem-data'),
+    fileSize: 8,
+  });
+
+  handler({ url: '/', method: 'HEAD' }, response);
+  await waitForStreamEnd(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, '');
+});
+
+test('getDisplayHost prefers the configured host except for wildcard bindings', () => {
+  assert.equal(getDisplayHost('127.0.0.1'), '127.0.0.1');
+  assert.equal(getDisplayHost('devbox.local'), 'devbox.local');
+  assert.equal(getDisplayHost('0.0.0.0'), 'localhost');
+  assert.equal(getDisplayHost(undefined), 'localhost');
 });
 
 test('isEntrypoint resolves relative script paths before comparing module urls', () => {

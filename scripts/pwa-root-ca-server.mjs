@@ -9,6 +9,10 @@ function validateTcpPort(port) {
   return Number.isInteger(port) && port >= 1 && port <= 65535;
 }
 
+export function getDisplayHost(host) {
+  return host && host !== '0.0.0.0' ? host : 'localhost';
+}
+
 export function parseArgs(argv) {
   const options = {
     host: '127.0.0.1',
@@ -69,21 +73,24 @@ export function sendText(response, statusCode, body) {
   response.end(body);
 }
 
-export function createHandler({ port, route, fileBuffer, fileSize }) {
+export function createHandler({ host, port, route, fileBuffer, fileSize }) {
   return (request, response) => {
     const requestUrl = new URL(request.url ?? '/', 'http://gameshelf.local');
+    const method = request.method ?? 'GET';
+
+    if (!['GET', 'HEAD'].includes(method)) {
+      sendText(response, 405, 'Method not allowed\n');
+      return;
+    }
 
     if (requestUrl.pathname === '/') {
-      sendText(
-        response,
-        200,
-        `Open http://localhost:${String(port)}${route} in iPhone Simulator Safari to download the mkcert root CA.\n`
-      );
+      const instruction = `Open http://${getDisplayHost(host)}:${String(port)}${route} in iPhone Simulator Safari to download the mkcert root CA.\n`;
+      sendText(response, 200, method === 'HEAD' ? '' : instruction);
       return;
     }
 
     if (requestUrl.pathname !== route) {
-      sendText(response, 404, 'Not found\n');
+      sendText(response, 404, method === 'HEAD' ? '' : 'Not found\n');
       return;
     }
 
@@ -93,7 +100,7 @@ export function createHandler({ port, route, fileBuffer, fileSize }) {
       'Cache-Control': 'no-store',
       'Content-Disposition': 'inline; filename="rootCA.pem"',
     });
-    response.end(fileBuffer);
+    response.end(method === 'HEAD' ? undefined : fileBuffer);
   };
 }
 
@@ -111,6 +118,7 @@ export function createServer(options, serverFactory = http.createServer) {
     filePath,
     server: serverFactory(
       createHandler({
+        host: options.host,
         port: options.port,
         route: options.route,
         fileBuffer,
@@ -147,7 +155,7 @@ if (isEntrypoint()) {
 
   serverInfo.server.listen(options.port, options.host, () => {
     console.log(
-      `mkcert root CA server running at http://localhost:${String(options.port)}${options.route}`
+      `mkcert root CA server running at http://${getDisplayHost(options.host)}:${String(options.port)}${options.route}`
     );
     console.log(`Serving file: ${serverInfo.filePath}`);
   });

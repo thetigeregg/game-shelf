@@ -7,6 +7,7 @@ import { PassThrough, Writable } from 'node:stream';
 
 import {
   createHandler,
+  getDisplayHost,
   isEntrypoint,
   parseArgs,
   proxyRequest,
@@ -140,6 +141,13 @@ test('parseArgs defaults to localhost and rejects invalid tcp ports', () => {
       /Port must be an integer between 1 and 65535/
     );
   }
+});
+
+test('getDisplayHost prefers the configured host except for wildcard bindings', () => {
+  assert.equal(getDisplayHost('127.0.0.1'), '127.0.0.1');
+  assert.equal(getDisplayHost('devbox.local'), 'devbox.local');
+  assert.equal(getDisplayHost('0.0.0.0'), 'localhost');
+  assert.equal(getDisplayHost(undefined), 'localhost');
 });
 
 test('createHandler falls back to index.html for unknown SPA routes', async () => {

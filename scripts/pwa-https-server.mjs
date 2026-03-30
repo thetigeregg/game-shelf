@@ -31,6 +31,10 @@ function validateTcpPort(port) {
   return Number.isInteger(port) && port >= 1 && port <= 65535;
 }
 
+export function getDisplayHost(host) {
+  return host && host !== '0.0.0.0' ? host : 'localhost';
+}
+
 export function parseArgs(argv) {
   const options = {
     host: '127.0.0.1',
@@ -349,7 +353,9 @@ if (isEntrypoint()) {
   );
 
   server.listen(options.port, options.host, () => {
-    console.log(`PWA HTTPS server running at https://localhost:${String(options.port)}`);
+    console.log(
+      `PWA HTTPS server running at https://${getDisplayHost(options.host)}:${String(options.port)}`
+    );
     console.log(`Static root: ${rootDir}`);
     console.log(`Proxy origin: ${options.proxyOrigin}`);
   });

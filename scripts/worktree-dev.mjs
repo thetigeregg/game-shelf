@@ -252,11 +252,7 @@ function hasCommand(command) {
   return !result.error && result.status === 0;
 }
 
-function getMkcertCaroot() {
-  if (!hasCommand('mkcert')) {
-    return '';
-  }
-
+function getMkcertStatus() {
   const result = spawnSync('mkcert', ['-CAROOT'], {
     cwd,
     env: sharedEnv,
@@ -264,11 +260,35 @@ function getMkcertCaroot() {
     encoding: 'utf8',
   });
 
-  if (result.error || result.status !== 0) {
-    return '';
+  if (result.error) {
+    return {
+      available: false,
+      caroot: '',
+    };
   }
 
-  return (result.stdout ?? '').trim();
+  return {
+    available: result.status === 0,
+    caroot: result.status === 0 ? (result.stdout ?? '').trim() : '',
+  };
+}
+
+function isReadableFile(filePath) {
+  if (!filePath) {
+    return false;
+  }
+
+  try {
+    const fileStat = statSync(filePath);
+    if (!fileStat.isFile()) {
+      return false;
+    }
+
+    readFileSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function listExternalIpv4Addresses() {
@@ -291,17 +311,18 @@ function listExternalIpv4Addresses() {
 }
 
 function getSimulatorCertificateStatus() {
-  const mkcertCaroot = getMkcertCaroot();
+  const mkcertStatus = getMkcertStatus();
+  const mkcertCaroot = mkcertStatus.caroot;
   const rootCaPath = mkcertCaroot ? path.join(mkcertCaroot, 'rootCA.pem') : '';
 
   return {
-    mkcertAvailable: hasCommand('mkcert'),
+    mkcertAvailable: mkcertStatus.available,
     mkcertCaroot,
     rootCaPath,
-    hasRootCa: Boolean(rootCaPath && existsSync(rootCaPath)),
+    hasRootCa: isReadableFile(rootCaPath),
     certPath: simulatorCertFile,
     keyPath: simulatorKeyFile,
-    isConfigured: existsSync(simulatorCertFile) && existsSync(simulatorKeyFile),
+    isConfigured: isReadableFile(simulatorCertFile) && isReadableFile(simulatorKeyFile),
   };
 }
 
@@ -743,91 +764,111 @@ function reconcilePwaStackManualsBaseUrl() {
   run('docker', [...composeArgs, 'up', '-d', 'api', 'edge'], createPwaStackEnv(sharedEnv));
 }
 
-async function runPwa(command) {
+export async function runPwa(
+  command,
+  {
+    isPortReachableFn = isPortReachable,
+    reconcilePwaStackManualsBaseUrlFn = reconcilePwaStackManualsBaseUrl,
+    buildPwaFn = buildPwa,
+    runPwaServeFn = runPwaServe,
+    setupPwaCertificatesFn = setupPwaCertificates,
+    getSimulatorCertificateStatusFn = getSimulatorCertificateStatus,
+    printMissingCertificateInstructionsFn = printMissingCertificateInstructions,
+    servePwaRootCertificateFn = servePwaRootCertificate,
+    portsConfig = ports,
+    exitFn = (code) => process.exit(code),
+    logger = console,
+  } = {}
+) {
   if (command === 'build') {
-    buildPwa();
+    buildPwaFn();
     const buildRoot = path.resolve(cwd, 'www', 'browser');
-    console.log(`PWA build complete: ${buildRoot}`);
-    console.log(`Build output entries: ${listBuildOutputEntries(buildRoot).join(', ')}`);
+    logger.log(`PWA build complete: ${buildRoot}`);
+    logger.log(`Build output entries: ${listBuildOutputEntries(buildRoot).join(', ')}`);
     return;
   }
 
   if (command === 'serve') {
-    const edgeReachable = await isPortReachable(ports.EDGE_HOST_PORT);
+    const edgeReachable = await isPortReachableFn(portsConfig.EDGE_HOST_PORT);
     if (!edgeReachable) {
-      console.error(
-        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(ports.EDGE_HOST_PORT)}`
+      logger.error(
+        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(portsConfig.EDGE_HOST_PORT)}`
       );
-      console.error('Start it with `npm run dev:stack:up` before serving the simulator PWA.');
-      process.exit(1);
+      logger.error('Start it with `npm run dev:stack:up` before serving the simulator PWA.');
+      exitFn(1);
+      return;
     }
 
-    reconcilePwaStackManualsBaseUrl();
-    runPwaServe();
+    reconcilePwaStackManualsBaseUrlFn();
+    runPwaServeFn();
     return;
   }
 
   if (command === 'simulator') {
-    const edgeReachable = await isPortReachable(ports.EDGE_HOST_PORT);
+    const edgeReachable = await isPortReachableFn(portsConfig.EDGE_HOST_PORT);
     if (!edgeReachable) {
-      console.error(
-        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(ports.EDGE_HOST_PORT)}`
+      logger.error(
+        `Backend stack not running: edge service is unavailable at http://127.0.0.1:${String(portsConfig.EDGE_HOST_PORT)}`
       );
-      console.error('Start it with `npm run dev:stack:up` before running the simulator PWA flow.');
-      process.exit(1);
+      logger.error('Start it with `npm run dev:stack:up` before running the simulator PWA flow.');
+      exitFn(1);
+      return;
     }
 
-    reconcilePwaStackManualsBaseUrl();
-    buildPwa();
-    runPwaServe();
+    reconcilePwaStackManualsBaseUrlFn();
+    buildPwaFn();
+    runPwaServeFn();
     return;
   }
 
   if (command === 'certs-setup') {
-    setupPwaCertificates();
+    setupPwaCertificatesFn();
     return;
   }
 
   if (command === 'certs-check') {
-    const certStatus = getSimulatorCertificateStatus();
+    const certStatus = getSimulatorCertificateStatusFn();
     if (!certStatus.mkcertAvailable) {
-      console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
-      process.exit(1);
+      logger.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
+      exitFn(1);
+      return;
     }
 
     if (!certStatus.hasRootCa) {
-      console.error('mkcert root CA was not found.');
-      console.error('Run `npm run dev:pwa:certs:setup` first.');
-      process.exit(1);
+      logger.error('mkcert root CA was not found.');
+      logger.error('Run `npm run dev:pwa:certs:setup` first.');
+      exitFn(1);
+      return;
     }
 
     if (!certStatus.isConfigured) {
-      printMissingCertificateInstructions();
-      process.exit(1);
+      printMissingCertificateInstructionsFn();
+      exitFn(1);
+      return;
     }
 
-    console.log('PWA HTTPS certificates are configured.');
-    console.log(`Cert: ${certStatus.certPath}`);
-    console.log(`Key:  ${certStatus.keyPath}`);
-    console.log(`mkcert root CA: ${certStatus.rootCaPath}`);
-    console.log(
+    logger.log('PWA HTTPS certificates are configured.');
+    logger.log(`Cert: ${certStatus.certPath}`);
+    logger.log(`Key:  ${certStatus.keyPath}`);
+    logger.log(`mkcert root CA: ${certStatus.rootCaPath}`);
+    logger.log(
       'For the cleanest Simulator PWA flow, ensure Safari does not show a security warning for this origin.'
     );
-    console.log(
-      `If needed, run \`npm run dev:pwa:certs:serve-root\` and open http://localhost:${String(ports.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
+    logger.log(
+      `If needed, run \`npm run dev:pwa:certs:serve-root\` and open http://localhost:${String(portsConfig.PWA_ROOT_CA_PORT)}/rootCA.pem in iPhone Simulator Safari.`
     );
     return;
   }
 
   if (command === 'certs-serve-root') {
-    servePwaRootCertificate();
+    servePwaRootCertificateFn();
     return;
   }
 
-  console.error(
+  logger.error(
     'Unknown pwa command. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
   );
-  process.exit(1);
+  exitFn(1);
 }
 
 function ensurePostgresRunning() {

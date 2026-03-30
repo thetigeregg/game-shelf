@@ -3090,3 +3090,26 @@
 - eac23295 feat: implement move game functionality between lists and add related tests
 - 347306f3 feat: add enteredCollectionAt handling for game entries and update related tests
 
+## v1.38.0 - 2026-03-30
+- 796667c9 Merge pull request #309 from thetigeregg/feat/serve
+- 32c2ba53 feat(handler): add error handling for malformed request URLs in createHandler
+- 9582adf5 fix(dev): reject malformed PWA server port arguments
+- db555d84 feat(sendFile): enhance error handling for file streaming and add corresponding tests
+- 4a192af7 feat(tests): add tests for runPwa function handling various commands and edge cases
+- 11886030 feat(proxy): enhance error handling in proxyRequest and add corresponding tests
+- 3f2a2ffa feat(pwa): improve proxyRequest header handling and add ensureParentDirectories utility
+- 5d229a76 feat(tests): enhance resolveSafePath tests for symlink escapes and add proxyRequest header filtering
+- 1bf3c40c fix(dev): respect injected secrets env in worktree helper
+- e81813c6 feat(env): enhance environment configuration for PWA and add reconciliation for manuals base URL
+- 8d619f5c feat(server): add getDisplayHost function to handle host display logic and update server messages
+- 34e09813 feat(proxy): handle response destruction on upstream errors after headers are sent
+- 6ce50a1e feat(server): improve TCP port validation and update default host to localhost
+- 1cd84ddf feat(proxy): enhance request validation and error handling for proxy requests
+- 40f1a6c5 feat(server): enhance proxy origin validation and improve error handling
+- 31a99643 feat(tests): add unit tests for pwa-https-server functions
+- 8f024e83 fix(dev): resolve PWA serve PR review feedback
+- 7683974c Merge branch 'main' into feat/serve
+- 65265c68 feat: enhance PWA simulator certificate setup with mkcert commands and server
+- 3fa2b4fa feat: enhance PWA simulator instructions for local HTTPS certificate setup
+- e3aa15e8 feat: add PWA simulator support with HTTPS server and related scripts
+

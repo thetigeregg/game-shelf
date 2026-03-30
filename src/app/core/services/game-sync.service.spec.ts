@@ -320,6 +320,38 @@ describe('GameSyncService', () => {
     expect(stored?.enteredCollectionAt).toBeNull();
   });
 
+  it('trims wishlist listType values on sync pulls before clearing enteredCollectionAt', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '2',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        listType: ' wishlist ',
+        updatedAt: '2026-02-02T00:00:00.000Z',
+      }),
+      serverTimestamp: '2026-02-02T00:00:00.000Z',
+    });
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.listType).toBe('wishlist');
+    expect(stored?.enteredCollectionAt).toBeNull();
+  });
+
   it('backfills missing enteredCollectionAt from createdAt on pulled collection games', async () => {
     await servicePrivate.applyGameChange({
       eventId: '1',

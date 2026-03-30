@@ -118,6 +118,7 @@ export class E2eFixtureService {
       releaseYear: null,
       status: null,
       rating: null,
+      enteredCollectionAt: listType === 'collection' ? now : null,
       createdAt: now,
       updatedAt: now,
     };

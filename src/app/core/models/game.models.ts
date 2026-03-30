@@ -377,6 +377,7 @@ export interface GameEntry {
   status?: GameStatus | null;
   rating?: GameRating | null;
   listType: ListType;
+  enteredCollectionAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

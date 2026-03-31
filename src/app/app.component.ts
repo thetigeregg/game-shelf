@@ -59,15 +59,21 @@ export class AppComponent {
 
   constructor() {
     effect(() => {
-      void this.syncConnectionAlert(this.runtimeAvailabilityService.status());
+      void this.syncConnectionAlert(this.runtimeAvailabilityService.status()).catch(
+        this.logAsyncError('[app] sync_connection_alert_failed')
+      );
     });
 
     effect(() => {
-      void this.syncUpdateAlert(this.pwaUpdateService.updateReady());
+      void this.syncUpdateAlert(this.pwaUpdateService.updateReady()).catch(
+        this.logAsyncError('[app] sync_update_alert_failed')
+      );
     });
 
     effect(() => {
-      void this.syncUnrecoverableStateAlert(this.pwaUpdateService.unrecoverableState());
+      void this.syncUnrecoverableStateAlert(this.pwaUpdateService.unrecoverableState()).catch(
+        this.logAsyncError('[app] sync_unrecoverable_state_alert_failed')
+      );
     });
 
     void this.initializeApp();
@@ -136,7 +142,7 @@ export class AppComponent {
 
     const currentVersion = getAppVersionInfo();
     const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
-    const reloadedVersion = this.pwaUpdateService.consumePendingReloadVersion();
+    const reloadedVersion = this.pwaUpdateService.peekPendingReloadVersion();
 
     if (currentVersion.source !== 'live' || currentVersion.isFallback) {
       return;
@@ -160,6 +166,9 @@ export class AppComponent {
       buttons: ['OK'],
     });
 
+    if (reloadedVersion !== null) {
+      this.pwaUpdateService.clearPendingReloadVersion();
+    }
     await alert.present();
     window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
@@ -410,5 +419,11 @@ export class AppComponent {
     }
 
     return parsed.toLocaleString();
+  }
+
+  private logAsyncError(message: string): (error: unknown) => void {
+    return (error: unknown) => {
+      console.error(message, error);
+    };
   }
 }

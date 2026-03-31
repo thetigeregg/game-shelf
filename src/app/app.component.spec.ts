@@ -111,7 +111,9 @@ describe('AppComponent', () => {
     initialize: vi.fn(),
     updateReady: signal<VersionReadyEvent | null>(null),
     unrecoverableState: signal<{ reason: string } | null>(null),
+    peekPendingReloadVersion: vi.fn().mockReturnValue(null),
     consumePendingReloadVersion: vi.fn().mockReturnValue(null),
+    clearPendingReloadVersion: vi.fn(),
     activateUpdateAndReload: vi.fn().mockResolvedValue(true),
     reload: vi.fn(),
   };
@@ -157,7 +159,9 @@ describe('AppComponent', () => {
     pwaUpdateServiceMock.initialize.mockReturnValue(undefined);
     pwaUpdateServiceMock.updateReady.set(null);
     pwaUpdateServiceMock.unrecoverableState.set(null);
+    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue(null);
     pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue(null);
+    pwaUpdateServiceMock.clearPendingReloadVersion.mockReturnValue(undefined);
     pwaUpdateServiceMock.activateUpdateAndReload.mockResolvedValue(true);
 
     TestBed.resetTestingModule();
@@ -377,6 +381,22 @@ describe('AppComponent', () => {
     expect(alertControllerMock.create).not.toHaveBeenCalled();
   });
 
+  it('preserves the pending reload marker when the current version is still fallback data', async () => {
+    vi.mocked(getAppVersionInfo).mockReturnValue({
+      value: '0.0.0',
+      source: 'live',
+      isFallback: true,
+    });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
+    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    expect(pwaUpdateServiceMock.peekPendingReloadVersion).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.clearPendingReloadVersion).not.toHaveBeenCalled();
+  });
+
   it('presents the version alert after a marked update reload reaches the new version', async () => {
     const present = vi.fn().mockResolvedValue(undefined);
     alertControllerMock.create.mockResolvedValueOnce({
@@ -384,7 +404,7 @@ describe('AppComponent', () => {
       onDidDismiss: vi.fn().mockResolvedValue(undefined),
     });
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
-    pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue('1.27.1');
+    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('1.27.1');
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
@@ -395,6 +415,7 @@ describe('AppComponent', () => {
         message: 'Updated from v1.27.0 to v1.27.1.',
       })
     );
+    expect(pwaUpdateServiceMock.clearPendingReloadVersion).toHaveBeenCalledOnce();
     expect(present).toHaveBeenCalledOnce();
   });
 
@@ -405,7 +426,7 @@ describe('AppComponent', () => {
       onDidDismiss: vi.fn().mockResolvedValue(undefined),
     });
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
-    pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue('new-hash');
+    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('new-hash');
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
@@ -416,6 +437,7 @@ describe('AppComponent', () => {
         message: 'Updated from v1.27.0 to v1.27.1.',
       })
     );
+    expect(pwaUpdateServiceMock.clearPendingReloadVersion).toHaveBeenCalledOnce();
     expect(present).toHaveBeenCalledOnce();
   });
 
@@ -591,6 +613,32 @@ describe('AppComponent', () => {
     });
 
     expect(alertControllerMock.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs update alert presentation failures triggered from the effect', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockRejectedValue(new Error('present failed')),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    await flushAsync();
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[app] sync_update_alert_failed',
+      expect.objectContaining({
+        message: 'present failed',
+      })
+    );
   });
 
   it('uses service worker app data when naming the ready update', async () => {
@@ -858,6 +906,30 @@ describe('AppComponent', () => {
     });
 
     expect(alertControllerMock.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs unrecoverable-state alert presentation failures triggered from the effect', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockRejectedValue(new Error('present failed')),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.unrecoverableState.set({
+      reason: 'hash mismatch',
+    });
+    await flushAsync();
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[app] sync_unrecoverable_state_alert_failed',
+      expect.objectContaining({
+        message: 'present failed',
+      })
+    );
   });
 
   it('stores a declined release notification preference from the prompt', async () => {

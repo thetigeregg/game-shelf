@@ -115,10 +115,22 @@ describe('PwaUpdateService', () => {
     const service = createService();
 
     service.markPendingReloadVersion('1.27.1');
+    expect(service.peekPendingReloadVersion()).toBe('1.27.1');
+    expect(service.peekPendingReloadVersion()).toBe('1.27.1');
     expect(service.consumePendingReloadVersion()).toBe('1.27.1');
     expect(service.consumePendingReloadVersion()).toBeNull();
 
     service.markPendingReloadVersion('   ');
+    expect(service.consumePendingReloadVersion()).toBeNull();
+  });
+
+  it('clears the pending reload version without consuming a return value', () => {
+    const service = createService();
+
+    service.markPendingReloadVersion('1.27.1');
+    service.clearPendingReloadVersion();
+
+    expect(service.peekPendingReloadVersion()).toBeNull();
     expect(service.consumePendingReloadVersion()).toBeNull();
   });
 

@@ -75,6 +75,28 @@ ion-fab-list {
   -webkit-backdrop-filter: saturate(160%) blur(14px);
 }
 
+ion-fab.detail-shortcuts-fab {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out;
+  will-change: opacity, transform;
+}
+
+ion-fab.detail-shortcuts-fab.detail-shortcuts-fab-entering {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ion-fab.detail-shortcuts-fab {
+    transition: none;
+  }
+}
+
 .attributions-alert .alert-message {
   white-space: pre-line;
 }

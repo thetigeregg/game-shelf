@@ -564,6 +564,63 @@ describe('AppComponent', () => {
     expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
   });
 
+  it('includes offline sync status in the ready-update prompt', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    gameSyncServiceMock.getReloadSummary.mockResolvedValue({
+      connectivity: 'offline',
+      isSyncInFlight: false,
+      pendingOutboxCount: 0,
+      lastSyncAt: 'not-a-real-timestamp',
+    });
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      latestVersion: { hash: 'new-hash' },
+    });
+    await flushAsync();
+
+    const updatePrompt: unknown = alertControllerMock.create.mock.calls[0]?.[0];
+    expect(getAlertMessage(updatePrompt)).toContain('currently offline');
+    expect(getAlertMessage(updatePrompt)).toContain('last synced recently');
+    expect(getAlertMessage(updatePrompt)).toContain('Reload should be quick.');
+  });
+
+  it('presents a reload-required alert for unrecoverable service worker state', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    const present = vi.fn().mockResolvedValue(undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present,
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.unrecoverableState.set({
+      reason: 'hash mismatch',
+    });
+    await flushAsync();
+
+    const reloadPrompt = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
+    expect(reloadPrompt).toEqual(
+      expect.objectContaining({
+        header: 'Reload Required',
+      })
+    );
+
+    const buttons = getPromptButtons(reloadPrompt);
+    await buttons[0]?.handler?.();
+
+    expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
+    expect(present).toHaveBeenCalledOnce();
+  });
+
   it('stores a declined release notification preference from the prompt', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     notificationServiceMock.shouldPromptForReleaseNotifications.mockResolvedValue(true);

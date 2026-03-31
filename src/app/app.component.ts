@@ -322,8 +322,15 @@ export class AppComponent {
       );
     }
 
-    this.pwaUpdateService.markPendingReloadVersion(reloadMarker);
-    this.pwaUpdateService.reload();
+    const reloadStarted = await this.pwaUpdateService.activateUpdateAndReload(reloadMarker);
+    if (reloadStarted) {
+      return;
+    }
+
+    await this.presentNotificationToast(
+      'The update is still waiting to activate. Close other Game Shelf tabs and try reloading again.',
+      'warning'
+    );
   }
 
   private getReadyUpdateVersionLabel(updateReady: VersionReadyEvent): string | null {

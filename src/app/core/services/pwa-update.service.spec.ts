@@ -12,6 +12,7 @@ describe('PwaUpdateService', () => {
     versionUpdates: Subject<VersionEvent>;
     unrecoverable: Subject<{ reason: string }>;
     checkForUpdate: ReturnType<typeof vi.fn>;
+    activateUpdate: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -22,6 +23,7 @@ describe('PwaUpdateService', () => {
       versionUpdates: versionUpdates$,
       unrecoverable: unrecoverable$,
       checkForUpdate: vi.fn().mockResolvedValue(true),
+      activateUpdate: vi.fn().mockResolvedValue(true),
     };
 
     sessionStorage.clear();
@@ -120,6 +122,48 @@ describe('PwaUpdateService', () => {
     expect(service.consumePendingReloadVersion()).toBeNull();
   });
 
+  it('activates a ready update before reloading', async () => {
+    const service = createService();
+    const reloadSpy = vi.spyOn(service, 'reload').mockImplementation(() => undefined);
+
+    await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(true);
+
+    expect(swUpdateMock.activateUpdate).toHaveBeenCalledOnce();
+    expect(reloadSpy).toHaveBeenCalledOnce();
+    expect(service.consumePendingReloadVersion()).toBe('1.27.1');
+  });
+
+  it('clears the pending reload marker when activation fails', async () => {
+    const service = createService();
+    const reloadSpy = vi.spyOn(service, 'reload').mockImplementation(() => undefined);
+    const warningSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    swUpdateMock.activateUpdate.mockResolvedValueOnce(false);
+
+    await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(false);
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(warningSpy).toHaveBeenCalledWith('[pwa-update] activate_update_skipped');
+  });
+
+  it('warns and skips reload when activation throws', async () => {
+    const service = createService();
+    const reloadSpy = vi.spyOn(service, 'reload').mockImplementation(() => undefined);
+    const warningSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    swUpdateMock.activateUpdate.mockRejectedValueOnce(new Error('activate failed'));
+
+    await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(false);
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(warningSpy).toHaveBeenCalledWith(
+      '[pwa-update] activate_update_failed',
+      expect.objectContaining({
+        message: 'activate failed',
+      })
+    );
+  });
+
   it('treats sessionStorage failures as a no-op', () => {
     const service = createService();
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
@@ -140,6 +184,18 @@ describe('PwaUpdateService', () => {
     expect(setItemSpy).toHaveBeenCalledOnce();
     expect(getItemSpy).toHaveBeenCalledOnce();
     expect(removeItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a plain reload when service workers are disabled', async () => {
+    swUpdateMock.isEnabled = false;
+    const service = createService();
+    const reloadSpy = vi.spyOn(service, 'reload').mockImplementation(() => undefined);
+
+    await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(true);
+
+    expect(swUpdateMock.activateUpdate).not.toHaveBeenCalled();
+    expect(reloadSpy).toHaveBeenCalledOnce();
+    expect(service.consumePendingReloadVersion()).toBe('1.27.1');
   });
 
   it('warns instead of throwing when update checks fail', async () => {

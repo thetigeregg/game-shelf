@@ -48,6 +48,32 @@ export class PwaUpdateService {
     }
   }
 
+  async activateUpdateAndReload(version: string): Promise<boolean> {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    this.markPendingReloadVersion(version);
+
+    if (this.swUpdate.isEnabled) {
+      try {
+        const activated = await this.swUpdate.activateUpdate();
+        if (!activated) {
+          this.clearPendingReloadVersion();
+          console.warn('[pwa-update] activate_update_skipped');
+          return false;
+        }
+      } catch (error: unknown) {
+        this.clearPendingReloadVersion();
+        console.warn('[pwa-update] activate_update_failed', normalizeHttpError(error));
+        return false;
+      }
+    }
+
+    this.reload();
+    return true;
+  }
+
   markPendingReloadVersion(version: string): void {
     if (typeof window === 'undefined' || version.trim().length === 0) {
       return;
@@ -83,6 +109,18 @@ export class PwaUpdateService {
     }
 
     return value;
+  }
+
+  private clearPendingReloadVersion(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.sessionStorage.removeItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+    } catch {
+      return;
+    }
   }
 
   reload(): void {

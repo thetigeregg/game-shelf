@@ -112,7 +112,7 @@ describe('AppComponent', () => {
     updateReady: signal<VersionReadyEvent | null>(null),
     unrecoverableState: signal<{ reason: string } | null>(null),
     consumePendingReloadVersion: vi.fn().mockReturnValue(null),
-    markPendingReloadVersion: vi.fn(),
+    activateUpdateAndReload: vi.fn().mockResolvedValue(true),
     reload: vi.fn(),
   };
 
@@ -158,6 +158,7 @@ describe('AppComponent', () => {
     pwaUpdateServiceMock.updateReady.set(null);
     pwaUpdateServiceMock.unrecoverableState.set(null);
     pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue(null);
+    pwaUpdateServiceMock.activateUpdateAndReload.mockResolvedValue(true);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -643,8 +644,7 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(gameSyncServiceMock.flushPendingSyncForReload).toHaveBeenCalledOnce();
-    expect(pwaUpdateServiceMock.markPendingReloadVersion).toHaveBeenCalledWith('new-hash');
-    expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.activateUpdateAndReload).toHaveBeenCalledWith('new-hash');
   });
 
   it('warns before reloading when local sync work is still pending', async () => {
@@ -694,7 +694,44 @@ describe('AppComponent', () => {
       })
     );
     expect(presentToast).toHaveBeenCalledOnce();
-    expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.activateUpdateAndReload).toHaveBeenCalledWith('new-hash');
+  });
+
+  it('warns when the service worker update could not be activated before reload', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    pwaUpdateServiceMock.activateUpdateAndReload.mockResolvedValue(false);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+    const presentToast = vi.fn().mockResolvedValue(undefined);
+    toastControllerMock.create.mockResolvedValueOnce({
+      present: presentToast,
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    await flushAsync();
+
+    const updatePrompt = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
+    const buttons = getPromptButtons(updatePrompt);
+    await buttons[1]?.handler?.();
+    await flushAsync();
+
+    expect(toastControllerMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'The update is still waiting to activate. Close other Game Shelf tabs and try reloading again.',
+        color: 'warning',
+      })
+    );
+    expect(presentToast).toHaveBeenCalledOnce();
   });
 
   it('includes offline sync status in the ready-update prompt', async () => {

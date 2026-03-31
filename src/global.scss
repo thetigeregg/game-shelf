@@ -77,6 +77,7 @@ ion-fab-list {
 
 ion-fab.detail-shortcuts-fab {
   opacity: 1;
+  pointer-events: auto;
   transform: scale(1);
   transition:
     opacity 140ms ease-out,
@@ -86,6 +87,7 @@ ion-fab.detail-shortcuts-fab {
 
 ion-fab.detail-shortcuts-fab.detail-shortcuts-fab-entering {
   opacity: 0;
+  pointer-events: none;
   transform: scale(0.92);
 }
 

@@ -240,45 +240,60 @@ export class AppComponent {
     };
 
     try {
-      const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
-        connectivity: null,
-        isSyncInFlight: false,
-        pendingOutboxCount: 0,
-        lastSyncAt: null,
-      }));
-      const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
-      const messageParts = [
-        readyVersionLabel === null
-          ? 'A new app version is ready to load.'
-          : `Game Shelf v${readyVersionLabel} is ready to load.`,
-        this.buildSyncReloadMessage(syncSummary),
-      ];
+      let pendingUpdateReady: VersionReadyEvent | null = updateReady;
 
-      const alert = await this.alertController.create({
-        header: 'Update Ready',
-        message: messageParts.join(' '),
-        backdropDismiss: false,
-        buttons: [
-          {
-            text: 'Later',
-            role: 'cancel',
-          },
-          {
-            text: 'Reload',
-            role: 'confirm',
-            handler: () => {
-              void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady)).catch(
-                this.logAsyncError('[app] ready_update_reload_failed')
-              );
+      while (pendingUpdateReady !== null) {
+        const presentedReloadMarker = this.getReadyUpdateReloadMarker(pendingUpdateReady);
+        const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
+          connectivity: null,
+          isSyncInFlight: false,
+          pendingOutboxCount: 0,
+          lastSyncAt: null,
+        }));
+        const readyVersionLabel = this.getReadyUpdateVersionLabel(pendingUpdateReady);
+        const messageParts = [
+          readyVersionLabel === null
+            ? 'A new app version is ready to load.'
+            : `Game Shelf v${readyVersionLabel} is ready to load.`,
+          this.buildSyncReloadMessage(syncSummary),
+        ];
+
+        const alert = await this.alertController.create({
+          header: 'Update Ready',
+          message: messageParts.join(' '),
+          backdropDismiss: false,
+          buttons: [
+            {
+              text: 'Later',
+              role: 'cancel',
             },
-          },
-        ],
-      });
+            {
+              text: 'Reload',
+              role: 'confirm',
+              handler: () => {
+                void this.reloadForReadyUpdate(presentedReloadMarker).catch(
+                  this.logAsyncError('[app] ready_update_reload_failed')
+                );
+              },
+            },
+          ],
+        });
 
-      this.updateAlert = alert;
-      await alert.present();
-      if (typeof alert.onDidDismiss === 'function') {
-        await alert.onDidDismiss();
+        this.updateAlert = alert;
+        await alert.present();
+        if (typeof alert.onDidDismiss === 'function') {
+          await alert.onDidDismiss();
+        }
+
+        const latestPendingUpdate = this.pwaUpdateService.updateReady();
+        if (latestPendingUpdate === null) {
+          pendingUpdateReady = null;
+          continue;
+        }
+
+        const latestReloadMarker = this.getReadyUpdateReloadMarker(latestPendingUpdate);
+        pendingUpdateReady =
+          latestReloadMarker === presentedReloadMarker ? null : latestPendingUpdate;
       }
     } finally {
       this.updateAlert = null;

@@ -575,6 +575,51 @@ describe('AppComponent', () => {
     await flushAsync();
   });
 
+  it('presents a newer queued update after the current update alert is dismissed', async () => {
+    let resolveFirstDismiss: (() => void) | undefined;
+    alertControllerMock.create
+      .mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn(
+          () =>
+            new Promise<void>((resolve) => {
+              resolveFirstDismiss = resolve;
+            })
+        ),
+      })
+      .mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'new-hash', appData: undefined },
+      latestVersion: { hash: 'newer-hash', appData: { version: '1.27.2' } },
+    });
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(1);
+
+    resolveFirstDismiss?.();
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(2);
+    const secondUpdatePrompt = alertControllerMock.create.mock.calls[1]?.[0] as unknown;
+    expect(getAlertMessage(secondUpdatePrompt)).toContain('Game Shelf v1.27.2 is ready to load.');
+  });
+
   it('retries the update-ready alert after a presentation failure clears the sentinel', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     alertControllerMock.create

@@ -142,7 +142,7 @@ export class AppComponent {
 
     const currentVersion = getAppVersionInfo();
     const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
-    const reloadedVersion = this.pwaUpdateService.peekPendingReloadVersion();
+    const pendingReloadMarker = this.pwaUpdateService.peekPendingReloadMarker();
 
     if (currentVersion.source !== 'live' || currentVersion.isFallback) {
       return;
@@ -152,7 +152,7 @@ export class AppComponent {
       return;
     }
 
-    if (previousVersion !== null && reloadedVersion === null) {
+    if (previousVersion !== null && pendingReloadMarker === null) {
       window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
       return;
     }
@@ -167,8 +167,8 @@ export class AppComponent {
       buttons: ['OK'],
     });
 
-    if (reloadedVersion !== null) {
-      this.pwaUpdateService.clearPendingReloadVersion();
+    if (pendingReloadMarker !== null) {
+      this.pwaUpdateService.clearPendingReloadMarker();
     }
     await alert.present();
     window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);

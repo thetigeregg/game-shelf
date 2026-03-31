@@ -145,27 +145,27 @@ describe('PwaUpdateService', () => {
     }
   });
 
-  it('stores and consumes the pending reload version', () => {
+  it('stores and consumes the pending reload marker', () => {
     const service = createService();
 
-    service.markPendingReloadVersion('1.27.1');
-    expect(service.peekPendingReloadVersion()).toBe('1.27.1');
-    expect(service.peekPendingReloadVersion()).toBe('1.27.1');
-    expect(service.consumePendingReloadVersion()).toBe('1.27.1');
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    service.markPendingReloadMarker('1.27.1');
+    expect(service.peekPendingReloadMarker()).toBe('1.27.1');
+    expect(service.peekPendingReloadMarker()).toBe('1.27.1');
+    expect(service.consumePendingReloadMarker()).toBe('1.27.1');
+    expect(service.consumePendingReloadMarker()).toBeNull();
 
-    service.markPendingReloadVersion('   ');
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    service.markPendingReloadMarker('   ');
+    expect(service.consumePendingReloadMarker()).toBeNull();
   });
 
-  it('clears the pending reload version without consuming a return value', () => {
+  it('clears the pending reload marker without consuming a return value', () => {
     const service = createService();
 
-    service.markPendingReloadVersion('1.27.1');
-    service.clearPendingReloadVersion();
+    service.markPendingReloadMarker('1.27.1');
+    service.clearPendingReloadMarker();
 
-    expect(service.peekPendingReloadVersion()).toBeNull();
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(service.peekPendingReloadMarker()).toBeNull();
+    expect(service.consumePendingReloadMarker()).toBeNull();
   });
 
   it('activates a ready update before reloading', async () => {
@@ -176,7 +176,7 @@ describe('PwaUpdateService', () => {
 
     expect(swUpdateMock.activateUpdate).toHaveBeenCalledOnce();
     expect(reloadSpy).toHaveBeenCalledOnce();
-    expect(service.consumePendingReloadVersion()).toBe('1.27.1');
+    expect(service.consumePendingReloadMarker()).toBe('1.27.1');
   });
 
   it('clears the pending reload marker when activation fails', async () => {
@@ -188,7 +188,7 @@ describe('PwaUpdateService', () => {
     await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(false);
 
     expect(reloadSpy).not.toHaveBeenCalled();
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(service.consumePendingReloadMarker()).toBeNull();
     expect(warningSpy).toHaveBeenCalledWith('[pwa-update] activate_update_skipped');
   });
 
@@ -201,7 +201,7 @@ describe('PwaUpdateService', () => {
     await expect(service.activateUpdateAndReload('1.27.1')).resolves.toBe(false);
 
     expect(reloadSpy).not.toHaveBeenCalled();
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(service.consumePendingReloadMarker()).toBeNull();
     expect(warningSpy).toHaveBeenCalledWith(
       '[pwa-update] activate_update_failed',
       expect.objectContaining({
@@ -223,9 +223,9 @@ describe('PwaUpdateService', () => {
     });
 
     expect(() => {
-      service.markPendingReloadVersion('1.27.1');
+      service.markPendingReloadMarker('1.27.1');
     }).not.toThrow();
-    expect(service.consumePendingReloadVersion()).toBeNull();
+    expect(service.consumePendingReloadMarker()).toBeNull();
 
     expect(setItemSpy).toHaveBeenCalledOnce();
     expect(getItemSpy).toHaveBeenCalledOnce();
@@ -241,7 +241,7 @@ describe('PwaUpdateService', () => {
 
     expect(swUpdateMock.activateUpdate).not.toHaveBeenCalled();
     expect(reloadSpy).toHaveBeenCalledOnce();
-    expect(service.consumePendingReloadVersion()).toBe('1.27.1');
+    expect(service.consumePendingReloadMarker()).toBe('1.27.1');
   });
 
   it('warns instead of throwing when update checks fail', async () => {

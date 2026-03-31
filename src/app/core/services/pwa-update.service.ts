@@ -3,7 +3,7 @@ import { SwUpdate, UnrecoverableStateEvent, VersionReadyEvent } from '@angular/s
 import { Subscription } from 'rxjs';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 
-const PENDING_RELOAD_APP_VERSION_STORAGE_KEY = 'game_shelf_pending_reload_app_version';
+const PENDING_RELOAD_MARKER_STORAGE_KEY = 'game_shelf_pending_reload_app_version';
 
 @Injectable({ providedIn: 'root' })
 export class PwaUpdateService {
@@ -67,23 +67,23 @@ export class PwaUpdateService {
     }
   }
 
-  async activateUpdateAndReload(version: string): Promise<boolean> {
+  async activateUpdateAndReload(reloadMarker: string): Promise<boolean> {
     if (typeof window === 'undefined') {
       return false;
     }
 
-    this.markPendingReloadVersion(version);
+    this.markPendingReloadMarker(reloadMarker);
 
     if (this.swUpdate.isEnabled) {
       try {
         const activated = await this.swUpdate.activateUpdate();
         if (!activated) {
-          this.clearPendingReloadVersion();
+          this.clearPendingReloadMarker();
           console.warn('[pwa-update] activate_update_skipped');
           return false;
         }
       } catch (error: unknown) {
-        this.clearPendingReloadVersion();
+        this.clearPendingReloadMarker();
         console.warn('[pwa-update] activate_update_failed', normalizeHttpError(error));
         return false;
       }
@@ -93,48 +93,48 @@ export class PwaUpdateService {
     return true;
   }
 
-  markPendingReloadVersion(version: string): void {
-    if (typeof window === 'undefined' || version.trim().length === 0) {
+  markPendingReloadMarker(reloadMarker: string): void {
+    if (typeof window === 'undefined' || reloadMarker.trim().length === 0) {
       return;
     }
 
     try {
-      window.sessionStorage.setItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY, version);
+      window.sessionStorage.setItem(PENDING_RELOAD_MARKER_STORAGE_KEY, reloadMarker);
     } catch {
       return;
     }
   }
 
-  peekPendingReloadVersion(): string | null {
+  peekPendingReloadMarker(): string | null {
     if (typeof window === 'undefined') {
       return null;
     }
 
     try {
-      return window.sessionStorage.getItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+      return window.sessionStorage.getItem(PENDING_RELOAD_MARKER_STORAGE_KEY);
     } catch {
       return null;
     }
   }
 
-  consumePendingReloadVersion(): string | null {
-    const value = this.peekPendingReloadVersion();
+  consumePendingReloadMarker(): string | null {
+    const value = this.peekPendingReloadMarker();
 
     if (value === null) {
       return null;
     }
 
-    this.clearPendingReloadVersion();
+    this.clearPendingReloadMarker();
     return value;
   }
 
-  clearPendingReloadVersion(): void {
+  clearPendingReloadMarker(): void {
     if (typeof window === 'undefined') {
       return;
     }
 
     try {
-      window.sessionStorage.removeItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+      window.sessionStorage.removeItem(PENDING_RELOAD_MARKER_STORAGE_KEY);
     } catch {
       return;
     }

@@ -224,45 +224,53 @@ export class AppComponent {
       return;
     }
 
-    const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
-      connectivity: null,
-      isSyncInFlight: false,
-      pendingOutboxCount: 0,
-      lastSyncAt: null,
-    }));
-    const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
-    const messageParts = [
-      readyVersionLabel === null
-        ? 'A new app version is ready to load.'
-        : `Game Shelf v${readyVersionLabel} is ready to load.`,
-      this.buildSyncReloadMessage(syncSummary),
-    ];
+    this.updateAlert = {} as Awaited<ReturnType<AlertController['create']>> & {
+      dismiss?: () => Promise<boolean>;
+      onDidDismiss?: () => Promise<unknown>;
+    };
 
-    const alert = await this.alertController.create({
-      header: 'Update Ready',
-      message: messageParts.join(' '),
-      backdropDismiss: false,
-      buttons: [
-        {
-          text: 'Later',
-          role: 'cancel',
-        },
-        {
-          text: 'Reload',
-          role: 'confirm',
-          handler: () => {
-            void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady));
+    try {
+      const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
+        connectivity: null,
+        isSyncInFlight: false,
+        pendingOutboxCount: 0,
+        lastSyncAt: null,
+      }));
+      const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
+      const messageParts = [
+        readyVersionLabel === null
+          ? 'A new app version is ready to load.'
+          : `Game Shelf v${readyVersionLabel} is ready to load.`,
+        this.buildSyncReloadMessage(syncSummary),
+      ];
+
+      const alert = await this.alertController.create({
+        header: 'Update Ready',
+        message: messageParts.join(' '),
+        backdropDismiss: false,
+        buttons: [
+          {
+            text: 'Later',
+            role: 'cancel',
           },
-        },
-      ],
-    });
+          {
+            text: 'Reload',
+            role: 'confirm',
+            handler: () => {
+              void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady));
+            },
+          },
+        ],
+      });
 
-    this.updateAlert = alert;
-    await alert.present();
-    if (typeof alert.onDidDismiss === 'function') {
-      await alert.onDidDismiss();
+      this.updateAlert = alert;
+      await alert.present();
+      if (typeof alert.onDidDismiss === 'function') {
+        await alert.onDidDismiss();
+      }
+    } finally {
+      this.updateAlert = null;
     }
-    this.updateAlert = null;
   }
 
   private async syncUnrecoverableStateAlert(
@@ -272,28 +280,36 @@ export class AppComponent {
       return;
     }
 
-    const alert = await this.alertController.create({
-      header: 'Reload Required',
-      message:
-        'The cached app is out of sync with the latest release and needs a full reload. Reload now to recover.',
-      backdropDismiss: false,
-      buttons: [
-        {
-          text: 'Reload',
-          role: 'confirm',
-          handler: () => {
-            this.pwaUpdateService.reload();
-          },
-        },
-      ],
-    });
+    this.unrecoverableStateAlert = {} as Awaited<ReturnType<AlertController['create']>> & {
+      dismiss?: () => Promise<boolean>;
+      onDidDismiss?: () => Promise<unknown>;
+    };
 
-    this.unrecoverableStateAlert = alert;
-    await alert.present();
-    if (typeof alert.onDidDismiss === 'function') {
-      await alert.onDidDismiss();
+    try {
+      const alert = await this.alertController.create({
+        header: 'Reload Required',
+        message:
+          'The cached app is out of sync with the latest release and needs a full reload. Reload now to recover.',
+        backdropDismiss: false,
+        buttons: [
+          {
+            text: 'Reload',
+            role: 'confirm',
+            handler: () => {
+              this.pwaUpdateService.reload();
+            },
+          },
+        ],
+      });
+
+      this.unrecoverableStateAlert = alert;
+      await alert.present();
+      if (typeof alert.onDidDismiss === 'function') {
+        await alert.onDidDismiss();
+      }
+    } finally {
+      this.unrecoverableStateAlert = null;
     }
-    this.unrecoverableStateAlert = null;
   }
 
   private async reloadForReadyUpdate(reloadMarker: string): Promise<void> {

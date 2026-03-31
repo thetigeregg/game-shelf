@@ -153,6 +153,7 @@ export class AppComponent {
     }
 
     if (previousVersion !== null && reloadedVersion === null) {
+      window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
       return;
     }
 

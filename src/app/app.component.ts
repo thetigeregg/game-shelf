@@ -17,6 +17,7 @@ import {
   RuntimeAvailabilityStatus,
 } from './core/services/runtime-availability.service';
 import { PwaUpdateService } from './core/services/pwa-update.service';
+import { VersionReadyEvent } from '@angular/service-worker';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 @Component({
@@ -145,7 +146,7 @@ export class AppComponent {
       return;
     }
 
-    if (previousVersion !== null && reloadedVersion !== currentVersion.value) {
+    if (previousVersion !== null && reloadedVersion === null) {
       return;
     }
 
@@ -218,24 +219,22 @@ export class AppComponent {
     }
   }
 
-  private async syncUpdateAlert(
-    updateReady: { latestVersion: { hash: string } } | null
-  ): Promise<void> {
+  private async syncUpdateAlert(updateReady: VersionReadyEvent | null): Promise<void> {
     if (updateReady === null || this.updateAlert !== null) {
       return;
     }
 
-    const currentVersion = getAppVersionInfo();
     const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
       connectivity: null,
       isSyncInFlight: false,
       pendingOutboxCount: 0,
       lastSyncAt: null,
     }));
+    const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
     const messageParts = [
-      currentVersion.isFallback
+      readyVersionLabel === null
         ? 'A new app version is ready to load.'
-        : `Game Shelf v${currentVersion.value} is ready to load.`,
+        : `Game Shelf v${readyVersionLabel} is ready to load.`,
       this.buildSyncReloadMessage(syncSummary),
     ];
 
@@ -252,8 +251,7 @@ export class AppComponent {
           text: 'Reload',
           role: 'confirm',
           handler: () => {
-            const latestVersion = getAppVersionInfo();
-            void this.reloadForReadyUpdate(latestVersion.value);
+            void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady));
           },
         },
       ],
@@ -298,7 +296,7 @@ export class AppComponent {
     this.unrecoverableStateAlert = null;
   }
 
-  private async reloadForReadyUpdate(version: string): Promise<void> {
+  private async reloadForReadyUpdate(reloadMarker: string): Promise<void> {
     const syncFlushed = await this.gameSyncService.flushPendingSyncForReload().catch(() => false);
 
     if (!syncFlushed) {
@@ -308,8 +306,41 @@ export class AppComponent {
       );
     }
 
-    this.pwaUpdateService.markPendingReloadVersion(version);
+    this.pwaUpdateService.markPendingReloadVersion(reloadMarker);
     this.pwaUpdateService.reload();
+  }
+
+  private getReadyUpdateVersionLabel(updateReady: VersionReadyEvent): string | null {
+    const appData = updateReady.latestVersion.appData;
+    if (!appData || typeof appData !== 'object') {
+      return null;
+    }
+
+    const candidateKeys = ['version', 'appVersion', 'label'];
+    for (const key of candidateKeys) {
+      const value = (appData as Record<string, unknown>)[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+      if (typeof value === 'number') {
+        return String(value);
+      }
+    }
+
+    return null;
+  }
+
+  private getReadyUpdateReloadMarker(updateReady: VersionReadyEvent): string {
+    if (updateReady.latestVersion.hash.trim().length > 0) {
+      return updateReady.latestVersion.hash;
+    }
+
+    const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
+    if (readyVersionLabel !== null) {
+      return readyVersionLabel;
+    }
+
+    return getAppVersionInfo().value;
   }
 
   private buildSyncReloadMessage(summary: {

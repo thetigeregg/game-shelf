@@ -111,6 +111,40 @@ describe('PwaUpdateService', () => {
     }
   });
 
+  it('cleans up subscriptions and global listeners when the service is destroyed', async () => {
+    const service = createService();
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+
+    service.initialize();
+    await Promise.resolve();
+    swUpdateMock.checkForUpdate.mockClear();
+
+    TestBed.resetTestingModule();
+
+    window.dispatchEvent(new Event('focus'));
+    window.dispatchEvent(new Event('pageshow'));
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+    versionUpdates$.next({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    unrecoverable$.next({ reason: 'cache mismatch' });
+    await Promise.resolve();
+
+    expect(swUpdateMock.checkForUpdate).not.toHaveBeenCalled();
+    expect(service.updateReady()).toBeNull();
+    expect(service.unrecoverableState()).toBeNull();
+
+    if (visibilityDescriptor) {
+      Object.defineProperty(document, 'visibilityState', visibilityDescriptor);
+    }
+  });
+
   it('stores and consumes the pending reload version', () => {
     const service = createService();
 

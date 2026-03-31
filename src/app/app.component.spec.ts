@@ -696,6 +696,38 @@ describe('AppComponent', () => {
     expect(pwaUpdateServiceMock.activateUpdateAndReload).toHaveBeenCalledWith('new-hash');
   });
 
+  it('logs reload failures from the ready-update prompt handler', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+    pwaUpdateServiceMock.activateUpdateAndReload.mockRejectedValueOnce(new Error('reload failed'));
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    await flushAsync();
+
+    const updatePrompt = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
+    const buttons = getPromptButtons(updatePrompt);
+    await buttons[1]?.handler?.();
+    await flushAsync();
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[app] ready_update_reload_failed',
+      expect.objectContaining({
+        message: 'reload failed',
+      })
+    );
+  });
+
   it('warns before reloading when local sync work is still pending', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     gameSyncServiceMock.getReloadSummary.mockResolvedValue({

@@ -44,6 +44,9 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
+  IonFab,
+  IonFabButton,
+  IonFabList,
   IonSegment,
   IonSegmentButton,
   IonSelect,
@@ -139,7 +142,6 @@ import { RecommendationIgnoreService } from '../../core/services/recommendation-
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
-import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
 import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
 import { DetailWebsitesModalComponent } from '../game-detail/detail-websites-modal.component';
 import {
@@ -185,6 +187,8 @@ import {
   chevronBack,
   documentText,
   book,
+  film,
+  link,
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -270,6 +274,9 @@ type NotesToolbarAction =
     IonTitle,
     IonButtons,
     IonButton,
+    IonFab,
+    IonFabButton,
+    IonFabList,
     IonSegment,
     IonSegmentButton,
     IonSelect,
@@ -291,7 +298,6 @@ type NotesToolbarAction =
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     SimilarGameRowComponent,
@@ -333,6 +339,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly SIMILAR_DISCOVERY_PAGE_SIZE = 5;
   private static readonly SIMILAR_DISCOVERY_FETCH_LIMIT = 50;
   private static readonly SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS = 10000;
+  private static readonly GAME_DETAIL_FAB_ENTRANCE_DELAY_MS = 32;
   private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120,
@@ -376,6 +383,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
   rowReleaseDateDisplay: GameRowReleaseDateDisplay = 'year';
   isGameDetailModalOpen = false;
+  isGameDetailFabVisible = false;
+  isGameDetailFabEntered = false;
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
@@ -525,6 +534,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private cachedSimilarDiscoveryDetailRelatedSource: SimilarDiscoveryGameRow[] | null = null;
   private cachedSimilarDiscoveryDetailRelatedIgnoredIds: Set<string> | null = null;
   private imageErrorLogCount = 0;
+  private gameDetailFabEntranceFrameId: number | null = null;
+  private gameDetailFabEntranceTimeoutId: number | null = null;
   private notesAutosaveTimeoutId: number | null = null;
   private notesAutosaveFailureCount = 0;
 
@@ -682,6 +693,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelGameDetailFabEntrance();
     if (this.notesAutosaveTimeoutId !== null) {
       window.clearTimeout(this.notesAutosaveTimeoutId);
       this.notesAutosaveTimeoutId = null;
@@ -1426,6 +1438,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.cancelGameDetailFabEntrance();
+    this.isGameDetailFabVisible = false;
+    this.isGameDetailFabEntered = false;
     this.isVideosModalOpen = false;
     this.isWebsitesModalOpen = false;
     this.resetNoteEditorState();
@@ -1496,7 +1511,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private closeGameDetailModalInternal(): void {
+    this.cancelGameDetailFabEntrance();
     this.isGameDetailModalOpen = false;
+    this.isGameDetailFabVisible = false;
+    this.isGameDetailFabEntered = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
     this.isPricingPickerModalOpen = false;
@@ -1543,8 +1561,50 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
+  onGameDetailModalDidPresent(): void {
+    this.cancelGameDetailFabEntrance();
+    this.isGameDetailFabVisible = true;
+    this.isGameDetailFabEntered = false;
+    this.changeDetectorRef.markForCheck();
+
+    if (this.shouldReduceMotion()) {
+      this.isGameDetailFabEntered = true;
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.gameDetailFabEntranceFrameId = window.requestAnimationFrame(() => {
+      this.gameDetailFabEntranceFrameId = null;
+      this.gameDetailFabEntranceTimeoutId = window.setTimeout(() => {
+        this.gameDetailFabEntranceTimeoutId = null;
+        this.isGameDetailFabEntered = true;
+        this.changeDetectorRef.markForCheck();
+      }, GameListComponent.GAME_DETAIL_FAB_ENTRANCE_DELAY_MS);
+    });
+  }
+
   onGameDetailModalDidDismiss(): void {
     this.closeGameDetailModalInternal();
+  }
+
+  private cancelGameDetailFabEntrance(): void {
+    if (this.gameDetailFabEntranceFrameId !== null) {
+      window.cancelAnimationFrame(this.gameDetailFabEntranceFrameId);
+      this.gameDetailFabEntranceFrameId = null;
+    }
+
+    if (this.gameDetailFabEntranceTimeoutId !== null) {
+      window.clearTimeout(this.gameDetailFabEntranceTimeoutId);
+      this.gameDetailFabEntranceTimeoutId = null;
+    }
+  }
+
+  private shouldReduceMotion(): boolean {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    return false;
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -5497,6 +5557,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
       pause,
       refresh,
       globe,
+      link,
+      film,
       search,
       logoGoogle,
       logoYoutube,

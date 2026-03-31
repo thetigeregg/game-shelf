@@ -3113,3 +3113,25 @@
 - 3fa2b4fa feat: enhance PWA simulator instructions for local HTTPS certificate setup
 - e3aa15e8 feat: add PWA simulator support with HTTPS server and related scripts
 
+## v1.39.0 - 2026-03-31
+- 2331590f Merge pull request #310 from thetigeregg/feat/modal
+- b139c0fa fix(fab): enable pointer events for detail shortcuts during transitions
+- 10aa5df2 fix(app): re-prompt queued service worker updates
+- b5c29fa5 fix(pwa): rename pending reload version API to reload marker
+- 2eebe596 fix(app): handle update reload errors and clean up pwa listeners
+- 79d4923b fix(app): persist seen version when update alert is skipped
+- 9e9231ff fix(app): preserve pending reload prompts and catch alert effect failures
+- bd4f77fc fix(app): activate waiting service worker before update reload
+- 9ddd6bd4 feat(app): improve update alert handling and prevent duplicate alerts
+- 811146ef fix(app): align PWA update prompts with service worker metadata
+- 96273d24 feat(app): enhance PWA update handling and prevent duplicate alerts
+- b75bac1d feat(pwa): add unit tests for PwaUpdateService functionality
+- b16c4c81 feat(game-list): add entrance animation for detail shortcuts FAB
+- 734d62ec feat(game-list): add visibility control for game detail FAB on modal presentation
+- d328c906 refactor(global.scss): remove unused styles for detail shortcuts FAB
+- 82396470 feat(pwa): implement PwaUpdateService for handling app updates and reloads
+- 5a7a2c10 Merge branch 'main' into feat/modal
+- 3e0dbb6a feat: replace DetailShortcutsFab component with ion-fab for improved UI consistency
+- 607db0fc Merge branch 'main' into feat/modal
+- 038545e9 feat(detail-shortcuts-fab): add fixed slot attribute and update tests
+

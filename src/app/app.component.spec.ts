@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { VersionReadyEvent } from '@angular/service-worker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@ionic/angular/standalone', () => {
@@ -108,7 +109,7 @@ describe('AppComponent', () => {
   };
   const pwaUpdateServiceMock = {
     initialize: vi.fn(),
-    updateReady: signal<{ latestVersion: { hash: string } } | null>(null),
+    updateReady: signal<VersionReadyEvent | null>(null),
     unrecoverableState: signal<{ reason: string } | null>(null),
     consumePendingReloadVersion: vi.fn().mockReturnValue(null),
     markPendingReloadVersion: vi.fn(),
@@ -396,6 +397,27 @@ describe('AppComponent', () => {
     expect(present).toHaveBeenCalledOnce();
   });
 
+  it('presents the version alert after a marked update reload stores a service worker hash', async () => {
+    const present = vi.fn().mockResolvedValue(undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present,
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
+    pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue('new-hash');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        header: 'App Updated',
+        message: 'Updated from v1.27.0 to v1.27.1.',
+      })
+    );
+    expect(present).toHaveBeenCalledOnce();
+  });
+
   it('skips the version alert when the current version is still the fallback placeholder', async () => {
     vi.mocked(getAppVersionInfo).mockReturnValue({
       value: '0.0.0',
@@ -476,7 +498,9 @@ describe('AppComponent', () => {
     await flushAsync();
 
     pwaUpdateServiceMock.updateReady.set({
-      latestVersion: { hash: 'new-hash' },
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
     });
     await flushAsync();
 
@@ -488,6 +512,33 @@ describe('AppComponent', () => {
     );
     expect(getAlertMessage(updatePrompt)).toContain('No local changes queued');
     expect(present).toHaveBeenCalledOnce();
+  });
+
+  it('uses service worker app data when naming the ready update', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+    vi.mocked(getAppVersionInfo).mockReturnValue({
+      value: '1.27.0-stale',
+      source: 'live',
+      isFallback: false,
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: { version: '1.27.2' } },
+    });
+    await flushAsync();
+
+    const updatePrompt: unknown = alertControllerMock.create.mock.calls[0]?.[0];
+    expect(getAlertMessage(updatePrompt)).toContain('Game Shelf v1.27.2 is ready to load.');
+    expect(getAlertMessage(updatePrompt)).not.toContain('1.27.0-stale');
   });
 
   it('flushes pending sync and reloads when the ready-update prompt is confirmed', async () => {
@@ -502,22 +553,19 @@ describe('AppComponent', () => {
     await flushAsync();
 
     pwaUpdateServiceMock.updateReady.set({
-      latestVersion: { hash: 'new-hash' },
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
     });
     await flushAsync();
 
     const updatePrompt = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
     const buttons = getPromptButtons(updatePrompt);
-    vi.mocked(getAppVersionInfo).mockReturnValue({
-      value: '1.27.2',
-      source: 'live',
-      isFallback: false,
-    });
     await buttons[1]?.handler?.();
     await flushAsync();
 
     expect(gameSyncServiceMock.flushPendingSyncForReload).toHaveBeenCalledOnce();
-    expect(pwaUpdateServiceMock.markPendingReloadVersion).toHaveBeenCalledWith('1.27.2');
+    expect(pwaUpdateServiceMock.markPendingReloadVersion).toHaveBeenCalledWith('new-hash');
     expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
   });
 
@@ -544,7 +592,9 @@ describe('AppComponent', () => {
     await flushAsync();
 
     pwaUpdateServiceMock.updateReady.set({
-      latestVersion: { hash: 'new-hash' },
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
     });
     await flushAsync();
 
@@ -586,7 +636,9 @@ describe('AppComponent', () => {
     await flushAsync();
 
     pwaUpdateServiceMock.updateReady.set({
-      latestVersion: { hash: 'new-hash' },
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
     });
     await flushAsync();
 

@@ -514,6 +514,84 @@ describe('AppComponent', () => {
     expect(present).toHaveBeenCalledOnce();
   });
 
+  it('does not stack duplicate update-ready alerts while one is still creating', async () => {
+    let resolveCreate:
+      | ((value: { present: () => Promise<void>; onDidDismiss: () => Promise<void> }) => void)
+      | undefined;
+    alertControllerMock.create.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        })
+    );
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    });
+    await flushAsync();
+    pwaUpdateServiceMock.updateReady.set({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'older-hash', appData: undefined },
+      latestVersion: { hash: 'newer-hash', appData: undefined },
+    });
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(1);
+
+    resolveCreate?.({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+    await flushAsync();
+  });
+
+  it('retries the update-ready alert after a presentation failure clears the sentinel', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    alertControllerMock.create
+      .mockResolvedValueOnce({
+        present: vi.fn().mockRejectedValue(new Error('present failed')),
+        onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      })
+      .mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      });
+
+    const component = TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    const initialUpdateReady: VersionReadyEvent = {
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'new-hash', appData: undefined },
+    };
+    await expect(
+      (
+        component as unknown as {
+          syncUpdateAlert: (value: VersionReadyEvent | null) => Promise<void>;
+        }
+      ).syncUpdateAlert(initialUpdateReady)
+    ).rejects.toThrow('present failed');
+
+    await (
+      component as unknown as {
+        syncUpdateAlert: (value: VersionReadyEvent | null) => Promise<void>;
+      }
+    ).syncUpdateAlert({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old-hash', appData: undefined },
+      latestVersion: { hash: 'retry-hash', appData: undefined },
+    });
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(2);
+  });
+
   it('uses service worker app data when naming the ready update', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     alertControllerMock.create.mockResolvedValueOnce({
@@ -707,6 +785,42 @@ describe('AppComponent', () => {
 
     resolveDismiss?.();
     await flushAsync();
+  });
+
+  it('retries the unrecoverable-state alert after a presentation failure clears the sentinel', async () => {
+    alertControllerMock.create
+      .mockResolvedValueOnce({
+        present: vi.fn().mockRejectedValue(new Error('present failed')),
+        onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      })
+      .mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    const component = TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    await expect(
+      (
+        component as unknown as {
+          syncUnrecoverableStateAlert: (value: { reason: string } | null) => Promise<void>;
+        }
+      ).syncUnrecoverableStateAlert({
+        reason: 'hash mismatch',
+      })
+    ).rejects.toThrow('present failed');
+
+    await (
+      component as unknown as {
+        syncUnrecoverableStateAlert: (value: { reason: string } | null) => Promise<void>;
+      }
+    ).syncUnrecoverableStateAlert({
+      reason: 'hash mismatch again',
+    });
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(2);
   });
 
   it('stores a declined release notification preference from the prompt', async () => {

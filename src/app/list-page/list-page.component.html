@@ -266,7 +266,7 @@
             <ion-fab-button
               color="royal"
               aria-label="Open websites"
-              (click)="openAddGameWebsitesModal(); detailShortcutsFab.close()"
+              (click)="openAddGameWebsitesModal(); void detailShortcutsFab.close()"
             >
               <ion-icon name="link" aria-hidden="true"></ion-icon>
             </ion-fab-button>
@@ -274,7 +274,7 @@
               <ion-fab-button
                 color="ocean"
                 aria-label="Open game videos"
-                (click)="openAddGameVideosModal(); detailShortcutsFab.close()"
+                (click)="openAddGameVideosModal(); void detailShortcutsFab.close()"
               >
                 <ion-icon name="film" aria-hidden="true"></ion-icon>
               </ion-fab-button>

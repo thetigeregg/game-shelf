@@ -86,32 +86,30 @@ export class PwaUpdateService {
     }
   }
 
-  consumePendingReloadVersion(): string | null {
+  peekPendingReloadVersion(): string | null {
     if (typeof window === 'undefined') {
       return null;
     }
 
-    let value: string | null;
     try {
-      value = window.sessionStorage.getItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+      return window.sessionStorage.getItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
     } catch {
       return null;
     }
+  }
+
+  consumePendingReloadVersion(): string | null {
+    const value = this.peekPendingReloadVersion();
 
     if (value === null) {
       return null;
     }
 
-    try {
-      window.sessionStorage.removeItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-
+    this.clearPendingReloadVersion();
     return value;
   }
 
-  private clearPendingReloadVersion(): void {
+  clearPendingReloadVersion(): void {
     if (typeof window === 'undefined') {
       return;
     }

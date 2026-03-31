@@ -267,7 +267,9 @@ export class AppComponent {
             text: 'Reload',
             role: 'confirm',
             handler: () => {
-              void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady));
+              void this.reloadForReadyUpdate(this.getReadyUpdateReloadMarker(updateReady)).catch(
+                this.logAsyncError('[app] ready_update_reload_failed')
+              );
             },
           },
         ],

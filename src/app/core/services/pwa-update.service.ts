@@ -1,5 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { SwUpdate, UnrecoverableStateEvent, VersionReadyEvent } from '@angular/service-worker';
+import { Subscription } from 'rxjs';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 
 const PENDING_RELOAD_APP_VERSION_STORAGE_KEY = 'game_shelf_pending_reload_app_version';
@@ -7,10 +8,24 @@ const PENDING_RELOAD_APP_VERSION_STORAGE_KEY = 'game_shelf_pending_reload_app_ve
 @Injectable({ providedIn: 'root' })
 export class PwaUpdateService {
   private initialized = false;
+  private readonly subscriptions = new Subscription();
+  private readonly destroyRef = inject(DestroyRef);
   private readonly swUpdate = inject(SwUpdate);
 
   readonly updateReady = signal<VersionReadyEvent | null>(null);
   readonly unrecoverableState = signal<UnrecoverableStateEvent | null>(null);
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', this.handleResumeLikeEvent);
+        window.removeEventListener('pageshow', this.handleResumeLikeEvent);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      }
+      this.subscriptions.unsubscribe();
+      this.initialized = false;
+    });
+  }
 
   initialize(): void {
     if (this.initialized || typeof window === 'undefined' || !this.swUpdate.isEnabled) {
@@ -19,15 +34,19 @@ export class PwaUpdateService {
 
     this.initialized = true;
 
-    this.swUpdate.versionUpdates.subscribe((event) => {
-      if (event.type === 'VERSION_READY') {
-        this.updateReady.set(event);
-      }
-    });
+    this.subscriptions.add(
+      this.swUpdate.versionUpdates.subscribe((event) => {
+        if (event.type === 'VERSION_READY') {
+          this.updateReady.set(event);
+        }
+      })
+    );
 
-    this.swUpdate.unrecoverable.subscribe((event) => {
-      this.unrecoverableState.set(event);
-    });
+    this.subscriptions.add(
+      this.swUpdate.unrecoverable.subscribe((event) => {
+        this.unrecoverableState.set(event);
+      })
+    );
 
     window.addEventListener('focus', this.handleResumeLikeEvent);
     window.addEventListener('pageshow', this.handleResumeLikeEvent);

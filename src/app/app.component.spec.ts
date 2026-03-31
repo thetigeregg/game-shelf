@@ -379,6 +379,7 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(alertControllerMock.create).not.toHaveBeenCalled();
+    expect(localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY)).toBe('1.27.1');
   });
 
   it('preserves the pending reload marker when the current version is still fallback data', async () => {

@@ -2406,6 +2406,86 @@ describe('GameSyncService', () => {
     navigatorSpy.mockRestore();
   });
 
+  it('reports pending reload work while sync state is active or outbox has entries', async () => {
+    const now = '2026-03-30T18:00:00.000Z';
+    servicePrivate.resetLocalSyncStatePromise = Promise.resolve(true);
+    await expect(service.hasPendingSyncWork()).resolves.toBe(true);
+
+    servicePrivate.resetLocalSyncStatePromise = null;
+    servicePrivate.syncInFlight = true;
+    await expect(service.hasPendingSyncWork()).resolves.toBe(true);
+
+    servicePrivate.syncInFlight = false;
+    servicePrivate.activeSyncPromise = Promise.resolve();
+    await expect(service.hasPendingSyncWork()).resolves.toBe(true);
+
+    servicePrivate.activeSyncPromise = null;
+    await db.outbox.add({
+      opId: 'pending-reload-work',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame(),
+      clientTimestamp: now,
+      createdAt: now,
+      attemptCount: 0,
+      lastError: null,
+    });
+    await expect(service.hasPendingSyncWork()).resolves.toBe(true);
+
+    await db.outbox.clear();
+    await expect(service.hasPendingSyncWork()).resolves.toBe(false);
+  });
+
+  it('waits for reset completion before flushing pending sync for reload', async () => {
+    let resolveReset: ((value: boolean) => void) | undefined;
+    servicePrivate.resetLocalSyncStatePromise = new Promise<boolean>((resolve) => {
+      resolveReset = resolve;
+    });
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+    const pendingWorkSpy = vi.spyOn(service, 'hasPendingSyncWork').mockResolvedValue(false);
+
+    const flushPromise = service.flushPendingSyncForReload();
+    servicePrivate.resetLocalSyncStatePromise = null;
+    resolveReset?.(true);
+
+    await expect(flushPromise).resolves.toBe(true);
+    expect(syncNowSpy).toHaveBeenCalledOnce();
+    expect(pendingWorkSpy).toHaveBeenCalledOnce();
+  });
+
+  it('returns false when reset fails before flushing sync for reload', async () => {
+    servicePrivate.resetLocalSyncStatePromise = Promise.reject(new Error('reset failed'));
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    await expect(service.flushPendingSyncForReload()).resolves.toBe(false);
+
+    expect(syncNowSpy).not.toHaveBeenCalled();
+  });
+
+  it('summarizes reload state from sync metadata and in-flight flags', async () => {
+    const now = '2026-03-30T18:06:00.000Z';
+    await db.syncMeta.put({ key: 'connectivity', value: 'degraded' });
+    await db.syncMeta.put({ key: 'lastSyncAt', value: '2026-03-30T18:05:00.000Z' });
+    await db.outbox.add({
+      opId: 'reload-summary-op',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ igdbGameId: 'reload-summary' }),
+      clientTimestamp: now,
+      createdAt: now,
+      attemptCount: 0,
+      lastError: null,
+    });
+    servicePrivate.syncInFlight = true;
+
+    await expect(service.getReloadSummary()).resolves.toEqual({
+      connectivity: 'degraded',
+      isSyncInFlight: true,
+      pendingOutboxCount: 1,
+      lastSyncAt: '2026-03-30T18:05:00.000Z',
+    });
+  });
+
   it('initialize short-circuits when already initialized', () => {
     servicePrivate.initialized = true;
     const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);

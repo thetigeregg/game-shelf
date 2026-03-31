@@ -16,6 +16,8 @@ import {
   RuntimeAvailabilityService,
   RuntimeAvailabilityStatus,
 } from './core/services/runtime-availability.service';
+import { PwaUpdateService } from './core/services/pwa-update.service';
+import { VersionReadyEvent } from '@angular/service-worker';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 @Component({
@@ -34,8 +36,21 @@ export class AppComponent {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
+  private readonly pwaUpdateService = inject(PwaUpdateService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
   private connectionAlert:
+    | (Awaited<ReturnType<AlertController['create']>> & {
+        dismiss?: () => Promise<boolean>;
+        onDidDismiss?: () => Promise<unknown>;
+      })
+    | null = null;
+  private updateAlert:
+    | (Awaited<ReturnType<AlertController['create']>> & {
+        dismiss?: () => Promise<boolean>;
+        onDidDismiss?: () => Promise<unknown>;
+      })
+    | null = null;
+  private unrecoverableStateAlert:
     | (Awaited<ReturnType<AlertController['create']>> & {
         dismiss?: () => Promise<boolean>;
         onDidDismiss?: () => Promise<unknown>;
@@ -44,7 +59,21 @@ export class AppComponent {
 
   constructor() {
     effect(() => {
-      void this.syncConnectionAlert(this.runtimeAvailabilityService.status());
+      void this.syncConnectionAlert(this.runtimeAvailabilityService.status()).catch(
+        this.logAsyncError('[app] sync_connection_alert_failed')
+      );
+    });
+
+    effect(() => {
+      void this.syncUpdateAlert(this.pwaUpdateService.updateReady()).catch(
+        this.logAsyncError('[app] sync_update_alert_failed')
+      );
+    });
+
+    effect(() => {
+      void this.syncUnrecoverableStateAlert(this.pwaUpdateService.unrecoverableState()).catch(
+        this.logAsyncError('[app] sync_unrecoverable_state_alert_failed')
+      );
     });
 
     void this.initializeApp();
@@ -52,6 +81,7 @@ export class AppComponent {
 
   private async initializeApp(): Promise<void> {
     this.runtimeAvailabilityService.initialize();
+    this.pwaUpdateService.initialize();
     if (isE2eFixturesEnabled()) {
       await this.e2eFixtureService.applyFixtureFromStorage();
     }
@@ -112,12 +142,18 @@ export class AppComponent {
 
     const currentVersion = getAppVersionInfo();
     const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
+    const pendingReloadMarker = this.pwaUpdateService.peekPendingReloadMarker();
 
     if (currentVersion.source !== 'live' || currentVersion.isFallback) {
       return;
     }
 
     if (previousVersion === currentVersion.value) {
+      return;
+    }
+
+    if (previousVersion !== null && pendingReloadMarker === null) {
+      window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
       return;
     }
 
@@ -131,6 +167,9 @@ export class AppComponent {
       buttons: ['OK'],
     });
 
+    if (pendingReloadMarker !== null) {
+      this.pwaUpdateService.clearPendingReloadMarker();
+    }
     await alert.present();
     window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
@@ -188,5 +227,221 @@ export class AppComponent {
     if (typeof activeConnectionAlert.dismiss === 'function') {
       await activeConnectionAlert.dismiss();
     }
+  }
+
+  private async syncUpdateAlert(updateReady: VersionReadyEvent | null): Promise<void> {
+    if (updateReady === null || this.updateAlert !== null) {
+      return;
+    }
+
+    this.updateAlert = {} as Awaited<ReturnType<AlertController['create']>> & {
+      dismiss?: () => Promise<boolean>;
+      onDidDismiss?: () => Promise<unknown>;
+    };
+
+    try {
+      let pendingUpdateReady: VersionReadyEvent | null = updateReady;
+
+      while (pendingUpdateReady !== null) {
+        const presentedReloadMarker = this.getReadyUpdateReloadMarker(pendingUpdateReady);
+        const syncSummary = await this.gameSyncService.getReloadSummary().catch(() => ({
+          connectivity: null,
+          isSyncInFlight: false,
+          pendingOutboxCount: 0,
+          lastSyncAt: null,
+        }));
+        const readyVersionLabel = this.getReadyUpdateVersionLabel(pendingUpdateReady);
+        const messageParts = [
+          readyVersionLabel === null
+            ? 'A new app version is ready to load.'
+            : `Game Shelf v${readyVersionLabel} is ready to load.`,
+          this.buildSyncReloadMessage(syncSummary),
+        ];
+
+        const alert = await this.alertController.create({
+          header: 'Update Ready',
+          message: messageParts.join(' '),
+          backdropDismiss: false,
+          buttons: [
+            {
+              text: 'Later',
+              role: 'cancel',
+            },
+            {
+              text: 'Reload',
+              role: 'confirm',
+              handler: () => {
+                void this.reloadForReadyUpdate(presentedReloadMarker).catch(
+                  this.logAsyncError('[app] ready_update_reload_failed')
+                );
+              },
+            },
+          ],
+        });
+
+        this.updateAlert = alert;
+        await alert.present();
+        if (typeof alert.onDidDismiss === 'function') {
+          await alert.onDidDismiss();
+        }
+
+        const latestPendingUpdate = this.pwaUpdateService.updateReady();
+        if (latestPendingUpdate === null) {
+          pendingUpdateReady = null;
+          continue;
+        }
+
+        const latestReloadMarker = this.getReadyUpdateReloadMarker(latestPendingUpdate);
+        pendingUpdateReady =
+          latestReloadMarker === presentedReloadMarker ? null : latestPendingUpdate;
+      }
+    } finally {
+      this.updateAlert = null;
+    }
+  }
+
+  private async syncUnrecoverableStateAlert(
+    unrecoverableState: { reason: string } | null
+  ): Promise<void> {
+    if (unrecoverableState === null || this.unrecoverableStateAlert !== null) {
+      return;
+    }
+
+    this.unrecoverableStateAlert = {} as Awaited<ReturnType<AlertController['create']>> & {
+      dismiss?: () => Promise<boolean>;
+      onDidDismiss?: () => Promise<unknown>;
+    };
+
+    try {
+      const alert = await this.alertController.create({
+        header: 'Reload Required',
+        message:
+          'The cached app is out of sync with the latest release and needs a full reload. Reload now to recover.',
+        backdropDismiss: false,
+        buttons: [
+          {
+            text: 'Reload',
+            role: 'confirm',
+            handler: () => {
+              this.pwaUpdateService.reload();
+            },
+          },
+        ],
+      });
+
+      this.unrecoverableStateAlert = alert;
+      await alert.present();
+      if (typeof alert.onDidDismiss === 'function') {
+        await alert.onDidDismiss();
+      }
+    } finally {
+      this.unrecoverableStateAlert = null;
+    }
+  }
+
+  private async reloadForReadyUpdate(reloadMarker: string): Promise<void> {
+    const syncFlushed = await this.gameSyncService.flushPendingSyncForReload().catch(() => false);
+
+    if (!syncFlushed) {
+      await this.presentNotificationToast(
+        'Some local changes are still queued. They will resume syncing after the app reloads.',
+        'warning'
+      );
+    }
+
+    const reloadStarted = await this.pwaUpdateService.activateUpdateAndReload(reloadMarker);
+    if (reloadStarted) {
+      return;
+    }
+
+    await this.presentNotificationToast(
+      'The update is still waiting to activate. Close other Game Shelf tabs and try reloading again.',
+      'warning'
+    );
+  }
+
+  private getReadyUpdateVersionLabel(updateReady: VersionReadyEvent): string | null {
+    const appData = updateReady.latestVersion.appData;
+    if (!appData || typeof appData !== 'object') {
+      return null;
+    }
+
+    const candidateKeys = ['version', 'appVersion', 'label'];
+    for (const key of candidateKeys) {
+      const value = (appData as Record<string, unknown>)[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+      if (typeof value === 'number') {
+        return String(value);
+      }
+    }
+
+    return null;
+  }
+
+  private getReadyUpdateReloadMarker(updateReady: VersionReadyEvent): string {
+    if (updateReady.latestVersion.hash.trim().length > 0) {
+      return updateReady.latestVersion.hash;
+    }
+
+    const readyVersionLabel = this.getReadyUpdateVersionLabel(updateReady);
+    if (readyVersionLabel !== null) {
+      return readyVersionLabel;
+    }
+
+    return getAppVersionInfo().value;
+  }
+
+  private buildSyncReloadMessage(summary: {
+    connectivity: string | null;
+    isSyncInFlight: boolean;
+    pendingOutboxCount: number;
+    lastSyncAt: string | null;
+  }): string {
+    const details: string[] = [];
+
+    if (summary.isSyncInFlight) {
+      details.push('Sync is running now');
+    }
+
+    if (summary.pendingOutboxCount > 0) {
+      const noun = summary.pendingOutboxCount === 1 ? 'change' : 'changes';
+      details.push(`${String(summary.pendingOutboxCount)} local ${noun} queued`);
+    } else {
+      details.push('No local changes queued');
+    }
+
+    if (summary.connectivity === 'offline') {
+      details.push('currently offline');
+    } else if (summary.connectivity === 'degraded') {
+      details.push('server connection degraded');
+    }
+
+    if (summary.lastSyncAt) {
+      details.push(`last synced ${this.formatSyncTimestamp(summary.lastSyncAt)}`);
+    }
+
+    const detailSentence = `${details.join(', ')}.`;
+    if (summary.isSyncInFlight || summary.pendingOutboxCount > 0) {
+      return `${detailSentence} Reload will try to finish queued sync first. If anything is still pending, it stays queued locally and resumes after reopening.`;
+    }
+
+    return `${detailSentence} Reload should be quick.`;
+  }
+
+  private formatSyncTimestamp(value: string): string {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'recently';
+    }
+
+    return parsed.toLocaleString();
+  }
+
+  private logAsyncError(message: string): (error: unknown) => void {
+    return (error: unknown) => {
+      console.error(message, error);
+    };
   }
 }

@@ -1600,7 +1600,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private shouldReduceMotion(): boolean {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    return false;
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {

@@ -120,6 +120,28 @@ describe('PwaUpdateService', () => {
     expect(service.consumePendingReloadVersion()).toBeNull();
   });
 
+  it('treats sessionStorage failures as a no-op', () => {
+    const service = createService();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+
+    expect(() => {
+      service.markPendingReloadVersion('1.27.1');
+    }).not.toThrow();
+    expect(service.consumePendingReloadVersion()).toBeNull();
+
+    expect(setItemSpy).toHaveBeenCalledOnce();
+    expect(getItemSpy).toHaveBeenCalledOnce();
+    expect(removeItemSpy).not.toHaveBeenCalled();
+  });
+
   it('warns instead of throwing when update checks fail', async () => {
     const service = createService();
     const warningSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);

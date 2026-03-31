@@ -53,7 +53,11 @@ export class PwaUpdateService {
       return;
     }
 
-    window.sessionStorage.setItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY, version);
+    try {
+      window.sessionStorage.setItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY, version);
+    } catch {
+      return;
+    }
   }
 
   consumePendingReloadVersion(): string | null {
@@ -61,12 +65,23 @@ export class PwaUpdateService {
       return null;
     }
 
-    const value = window.sessionStorage.getItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+    let value: string | null;
+    try {
+      value = window.sessionStorage.getItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+
     if (value === null) {
       return null;
     }
 
-    window.sessionStorage.removeItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+    try {
+      window.sessionStorage.removeItem(PENDING_RELOAD_APP_VERSION_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+
     return value;
   }
 

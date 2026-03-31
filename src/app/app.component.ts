@@ -49,6 +49,12 @@ export class AppComponent {
         onDidDismiss?: () => Promise<unknown>;
       })
     | null = null;
+  private unrecoverableStateAlert:
+    | (Awaited<ReturnType<AlertController['create']>> & {
+        dismiss?: () => Promise<boolean>;
+        onDidDismiss?: () => Promise<unknown>;
+      })
+    | null = null;
 
   constructor() {
     effect(() => {
@@ -246,7 +252,8 @@ export class AppComponent {
           text: 'Reload',
           role: 'confirm',
           handler: () => {
-            void this.reloadForReadyUpdate(currentVersion.value);
+            const latestVersion = getAppVersionInfo();
+            void this.reloadForReadyUpdate(latestVersion.value);
           },
         },
       ],
@@ -263,7 +270,7 @@ export class AppComponent {
   private async syncUnrecoverableStateAlert(
     unrecoverableState: { reason: string } | null
   ): Promise<void> {
-    if (unrecoverableState === null) {
+    if (unrecoverableState === null || this.unrecoverableStateAlert !== null) {
       return;
     }
 
@@ -283,7 +290,12 @@ export class AppComponent {
       ],
     });
 
+    this.unrecoverableStateAlert = alert;
     await alert.present();
+    if (typeof alert.onDidDismiss === 'function') {
+      await alert.onDidDismiss();
+    }
+    this.unrecoverableStateAlert = null;
   }
 
   private async reloadForReadyUpdate(version: string): Promise<void> {

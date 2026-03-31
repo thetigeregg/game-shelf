@@ -508,11 +508,16 @@ describe('AppComponent', () => {
 
     const updatePrompt = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
     const buttons = getPromptButtons(updatePrompt);
+    vi.mocked(getAppVersionInfo).mockReturnValue({
+      value: '1.27.2',
+      source: 'live',
+      isFallback: false,
+    });
     await buttons[1]?.handler?.();
     await flushAsync();
 
     expect(gameSyncServiceMock.flushPendingSyncForReload).toHaveBeenCalledOnce();
-    expect(pwaUpdateServiceMock.markPendingReloadVersion).toHaveBeenCalledWith('1.27.1');
+    expect(pwaUpdateServiceMock.markPendingReloadVersion).toHaveBeenCalledWith('1.27.2');
     expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
   });
 
@@ -619,6 +624,37 @@ describe('AppComponent', () => {
 
     expect(pwaUpdateServiceMock.reload).toHaveBeenCalledOnce();
     expect(present).toHaveBeenCalledOnce();
+  });
+
+  it('does not stack duplicate unrecoverable-state alerts while one is already active', async () => {
+    let resolveDismiss: (() => void) | undefined;
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveDismiss = resolve;
+          })
+      ),
+    });
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    pwaUpdateServiceMock.unrecoverableState.set({
+      reason: 'hash mismatch',
+    });
+    await flushAsync();
+    pwaUpdateServiceMock.unrecoverableState.set({
+      reason: 'hash mismatch again',
+    });
+    await flushAsync();
+
+    expect(alertControllerMock.create).toHaveBeenCalledTimes(1);
+
+    resolveDismiss?.();
+    await flushAsync();
   });
 
   it('stores a declined release notification preference from the prompt', async () => {

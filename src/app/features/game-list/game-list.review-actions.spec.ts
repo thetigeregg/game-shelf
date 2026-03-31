@@ -1013,4 +1013,23 @@ describe('game-list review actions', () => {
 
     expect(page.getRowPriceLabel(createGame({ priceAmount: 19.99 }))).toBeNull();
   });
+
+  it('defaults to full motion when matchMedia is unavailable', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    const originalMatchMedia = window.matchMedia;
+
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(page['shouldReduceMotion']()).toBe(false);
+    } finally {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        value: originalMatchMedia,
+      });
+    }
+  });
 });

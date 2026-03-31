@@ -371,7 +371,7 @@
             <ion-fab-button
               color="royal"
               aria-label="Open websites"
-              (click)="openWebsitesModal(); detailShortcutsFab.close()"
+              (click)="openWebsitesModal(); void detailShortcutsFab.close()"
             >
               <ion-icon name="link" aria-hidden="true"></ion-icon>
             </ion-fab-button>
@@ -379,7 +379,7 @@
               <ion-fab-button
                 color="ocean"
                 aria-label="Open game videos"
-                (click)="openVideosModal(); detailShortcutsFab.close()"
+                (click)="openVideosModal(); void detailShortcutsFab.close()"
               >
                 <ion-icon name="film" aria-hidden="true"></ion-icon>
               </ion-fab-button>

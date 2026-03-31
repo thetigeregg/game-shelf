@@ -111,9 +111,9 @@ describe('AppComponent', () => {
     initialize: vi.fn(),
     updateReady: signal<VersionReadyEvent | null>(null),
     unrecoverableState: signal<{ reason: string } | null>(null),
-    peekPendingReloadVersion: vi.fn().mockReturnValue(null),
-    consumePendingReloadVersion: vi.fn().mockReturnValue(null),
-    clearPendingReloadVersion: vi.fn(),
+    peekPendingReloadMarker: vi.fn().mockReturnValue(null),
+    consumePendingReloadMarker: vi.fn().mockReturnValue(null),
+    clearPendingReloadMarker: vi.fn(),
     activateUpdateAndReload: vi.fn().mockResolvedValue(true),
     reload: vi.fn(),
   };
@@ -159,9 +159,9 @@ describe('AppComponent', () => {
     pwaUpdateServiceMock.initialize.mockReturnValue(undefined);
     pwaUpdateServiceMock.updateReady.set(null);
     pwaUpdateServiceMock.unrecoverableState.set(null);
-    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue(null);
-    pwaUpdateServiceMock.consumePendingReloadVersion.mockReturnValue(null);
-    pwaUpdateServiceMock.clearPendingReloadVersion.mockReturnValue(undefined);
+    pwaUpdateServiceMock.peekPendingReloadMarker.mockReturnValue(null);
+    pwaUpdateServiceMock.consumePendingReloadMarker.mockReturnValue(null);
+    pwaUpdateServiceMock.clearPendingReloadMarker.mockReturnValue(undefined);
     pwaUpdateServiceMock.activateUpdateAndReload.mockResolvedValue(true);
 
     TestBed.resetTestingModule();
@@ -372,7 +372,7 @@ describe('AppComponent', () => {
     expect(alertControllerMock.create).not.toHaveBeenCalled();
   });
 
-  it('skips the version alert until a pending reload version is consumed', async () => {
+  it('skips the version alert until a pending reload marker is consumed', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
 
     TestBed.runInInjectionContext(() => new AppComponent());
@@ -389,13 +389,13 @@ describe('AppComponent', () => {
       isFallback: true,
     });
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
-    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('1.27.1');
+    pwaUpdateServiceMock.peekPendingReloadMarker.mockReturnValue('1.27.1');
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
 
-    expect(pwaUpdateServiceMock.peekPendingReloadVersion).toHaveBeenCalledOnce();
-    expect(pwaUpdateServiceMock.clearPendingReloadVersion).not.toHaveBeenCalled();
+    expect(pwaUpdateServiceMock.peekPendingReloadMarker).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.clearPendingReloadMarker).not.toHaveBeenCalled();
   });
 
   it('presents the version alert after a marked update reload reaches the new version', async () => {
@@ -405,7 +405,7 @@ describe('AppComponent', () => {
       onDidDismiss: vi.fn().mockResolvedValue(undefined),
     });
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
-    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('1.27.1');
+    pwaUpdateServiceMock.peekPendingReloadMarker.mockReturnValue('1.27.1');
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
@@ -416,7 +416,7 @@ describe('AppComponent', () => {
         message: 'Updated from v1.27.0 to v1.27.1.',
       })
     );
-    expect(pwaUpdateServiceMock.clearPendingReloadVersion).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.clearPendingReloadMarker).toHaveBeenCalledOnce();
     expect(present).toHaveBeenCalledOnce();
   });
 
@@ -427,7 +427,7 @@ describe('AppComponent', () => {
       onDidDismiss: vi.fn().mockResolvedValue(undefined),
     });
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.0');
-    pwaUpdateServiceMock.peekPendingReloadVersion.mockReturnValue('new-hash');
+    pwaUpdateServiceMock.peekPendingReloadMarker.mockReturnValue('new-hash');
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsync();
@@ -438,7 +438,7 @@ describe('AppComponent', () => {
         message: 'Updated from v1.27.0 to v1.27.1.',
       })
     );
-    expect(pwaUpdateServiceMock.clearPendingReloadVersion).toHaveBeenCalledOnce();
+    expect(pwaUpdateServiceMock.clearPendingReloadMarker).toHaveBeenCalledOnce();
     expect(present).toHaveBeenCalledOnce();
   });
 

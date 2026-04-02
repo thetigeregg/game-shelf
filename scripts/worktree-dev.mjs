@@ -432,7 +432,9 @@ export async function runWorktreeDev(argv) {
 
   if (argv[0] === 'db') {
     if (!argv[1]) {
-      console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
+      console.error(
+        'Missing db action. Use: seed-refresh | seed-apply | seed-apply-force | sync-rebuild'
+      );
       process.exit(1);
     }
     printWorktreeInfo(context);

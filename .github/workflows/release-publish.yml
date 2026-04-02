@@ -53,7 +53,7 @@ jobs:
 
       - name: Bump version files
         id: version
-        run: devx release version
+        run: npm exec -- devx release version
 
       - name: Configure git author
         run: |

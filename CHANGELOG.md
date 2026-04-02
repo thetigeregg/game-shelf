@@ -3135,3 +3135,10 @@
 - 607db0fc Merge branch 'main' into feat/modal
 - 038545e9 feat(detail-shortcuts-fab): add fixed slot attribute and update tests
 
+## v1.39.1 - 2026-04-02
+- 1f5480f7 Merge pull request #312 from thetigeregg/feat/fix
+- 491b98da fix(dependencies): update playwright to version 1.59.1
+- ddfae51a chore: update dependencies to latest versions
+- 739aa582 fix(dependencies): update @angular/cdk to version 21.2.5
+- c1443e6e fix(dependencies): update Angular packages to version 21.2.7
+

@@ -48,9 +48,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Bump version files
         id: version
-        run: node scripts/release-version.mjs
+        run: npm exec -- devx release version
 
       - name: Configure git author
         run: |

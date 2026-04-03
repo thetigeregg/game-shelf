@@ -2874,6 +2874,7 @@
 - 5d7be486 feat: add detail text toggle functionality and reset on game change
 
 ## v1.21.0 - 2026-03-22
+
 - cc76ccfc Merge pull request #271 from thetigeregg/feat/screenshots
 - 784d1f8e test(media): add coverage for 720p screenshot normalization branches
 - ffcfd3f8 fix(game-detail): address remaining media slide review feedback
@@ -2884,22 +2885,26 @@
 - bbe5f317 feat(detail-media): enhance backdrop handling and media slide structure
 
 ## v1.22.0 - 2026-03-22
+
 - 7dab074f Merge pull request #272 from thetigeregg/feat/crash
 - 5db84705 fix(ui): align detail trace push logging and harden cache tests
 - c287057e feat(explore): implement debug logging and optimize detail data caching
 
 ## v1.23.0 - 2026-03-22
+
 - 6178d395 Merge pull request #273 from thetigeregg/feat/expand
 - c39219d6 feat(explore): enhance explore page tests with swiper mock
 - 1a1bb9da feat(game-detail): add resize observer for detail text elements and refresh logic
 
 ## v1.24.0 - 2026-03-23
+
 - bc14599f Merge pull request #274 from thetigeregg/feat/finda
 - 7782a5bf test(sync): assert cover field preservation in upsert SQL
 - 960264bc feat(sync): add test for preserving cover metadata when payload omits cover fields
 - d6b1cabf feat(sync): enhance game payload handling with cover field reconciliation
 
 ## v1.25.0 - 2026-03-23
+
 - 6f356902 Merge pull request #277 from thetigeregg/feat/bumpa
 - ef18291d Merge branch 'main' into feat/bumpa
 - 632701b2 feat(ncu-all): add format option to ncu command for better output
@@ -2907,10 +2912,12 @@
 - 245b4c0b fix(deps): update jsdom and undici to latest versions
 
 ## v1.26.0 - 2026-03-23
+
 - 022682b0 Merge pull request #278 from thetigeregg/feat/rates
 - 4b5a431a feat: add CodeQL configuration to exclude false positives for rate limiting
 
 ## v1.27.0 - 2026-03-23
+
 - 1e03f7f7 Merge pull request #279 from thetigeregg/feat/fixagain
 - aa4093ef fix(sync): guard syncNow against reset promise failures
 - dd9de4a0 fix(sync): make local sync reset non-blocking
@@ -2919,14 +2926,17 @@
 - cbbb8ace feat(settings): add reset local sync state functionality
 
 ## v1.27.1 - 2026-03-25
+
 - 283e95da Merge pull request #280 from thetigeregg/feat/crapper
 - 6a58a6cc fix(caddy): add headers for runtime configuration caching
 
 ## v1.27.2 - 2026-03-25
+
 - ab2cebb3 Merge pull request #282 from thetigeregg/dependabot/npm_and_yarn/server/fastify-5.8.3
 - 4fcb22fa chore(deps): bump fastify from 5.8.2 to 5.8.3 in /server
 
 ## v1.28.0 - 2026-03-26
+
 - 93ef176b Merge pull request #281 from thetigeregg/feat/persa2
 - b911534c fix: support protocol-relative URLs for custom cover images
 - 8c5bde72 Merge branch 'main' into feat/persa2
@@ -2942,11 +2952,13 @@
 - 1c977cce feat: support custom cover URLs in sync operations and repository handling
 
 ## v1.29.0 - 2026-03-26
+
 - 82e8755d Merge pull request #285 from thetigeregg/feat/rtas
 - afc5530c fix(game-list): avoid non-PTAS price preference recomputes
 - e13cc77e feat: add price preference service and integrate into game filtering
 
 ## v1.30.0 - 2026-03-26
+
 - 40c01e27 Merge pull request #284 from thetigeregg/feat/screenshots
 - 1817be10 fix(media): reject unsafe image urls and prune detail payload cache
 - 2cba6529 fix(game-detail): clear media slide preloader after image settles
@@ -2959,10 +2971,12 @@
 - bba0dea9 feat: implement detail media loading and proxy handling for images
 
 ## v1.30.1 - 2026-03-26
+
 - fffe6797 Merge pull request #286 from thetigeregg/feat/gameart
 - 00fb0448 fix(service): update IGDB cover migration keys and platform IDs
 
 ## v1.30.2 - 2026-03-26
+
 - 7c8f6848 Merge pull request #287 from thetigeregg/feat/bump
 - 055d34d2 fix(services): update BehaviorSubject initialization to remove generic type annotations
 - ea9df84d fix(dependencies): update @typescript-eslint packages to version 8.57.2
@@ -2972,6 +2986,7 @@
 - c6a0c1b1 fix(dependencies): update Angular packages to version 21.2.6
 
 ## v1.30.3 - 2026-03-26
+
 - 8d7eafd3 Merge pull request #288 from thetigeregg/feat/img
 - 05fd9a5b fix(image-cache): enhance symlink handling in image proxy and cache management
 - 459eda6d fix(api): harden managed image cache path handling
@@ -2981,6 +2996,7 @@
 - ed2e1ca2 fix(image-cache): enhance image proxy to handle truncated files and improve cache metrics
 
 ## v1.30.4 - 2026-03-26
+
 - 8f6caa56 Merge pull request #289 from thetigeregg/feat/img
 - 916e7d7d fix(ui): ignore stale detail media load events
 - bb933e10 fix(ui): preserve relative backdrop retry urls
@@ -2989,6 +3005,7 @@
 - 78f702aa fix(detail-media): enhance image loading with retry parameters and placeholder handling
 
 ## v1.31.0 - 2026-03-26
+
 - f83c9df6 Merge pull request #290 from thetigeregg/feat/log
 - eb111594 test(logging): add tests for handling enumerable getters that throw in single-line console
 - bd9c9e66 fix(logging): reuse shared single-line console in server
@@ -3009,18 +3026,22 @@
 - b15e4a38 feat(logging): implement single line console logging across multiple modules
 
 ## v1.31.1 - 2026-03-27
+
 - e7b4f8c8 Merge pull request #291 from thetigeregg/dependabot/npm_and_yarn/server/multi-3e7317fefa
 - 02713b93 chore(deps): bump brace-expansion and google-auth-library in /server
 
 ## v1.31.2 - 2026-03-27
+
 - dadcfabf Merge pull request #292 from thetigeregg/dependabot/npm_and_yarn/server/node-forge-1.4.0
 - 9c51f304 chore(deps): bump node-forge from 1.3.3 to 1.4.0 in /server
 
 ## v1.31.3 - 2026-03-30
+
 - bd1cc60f Merge pull request #301 from thetigeregg/dependabot/github_actions/codecov/codecov-action-6
 - 03e143b6 chore(ci): bump codecov/codecov-action from 5 to 6
 
 ## v1.31.4 - 2026-03-30
+
 - b1fca4ef Merge pull request #302 from thetigeregg/feat/bump
 - 1cb91635 Merge branch 'main' into feat/bump
 - 0245965b chore(deps): update path-to-regexp to version 8.4.0 in server package-lock.json
@@ -3028,6 +3049,7 @@
 - 235ecc86 chore(deps): bump @angular dependencies to version 21.2.5
 
 ## v1.32.0 - 2026-03-30
+
 - f52e24be Merge pull request #303 from thetigeregg/feat/vpn
 - 96fd0560 feat: enhance runtime availability service tests and add new runtime config checks
 - e5a2af9a feat: enhance connection alert handling and add firebase config parsing
@@ -3036,17 +3058,20 @@
 - 4a47bae1 feat: add runtime availability service and banner message for network status
 
 ## v1.32.1 - 2026-03-30
+
 - 4a66f817 Merge pull request #295 from thetigeregg/dependabot/npm_and_yarn/server/typescript-6.0.2
 - adb1f0e1 Merge branch 'main' into dependabot/npm_and_yarn/server/typescript-6.0.2
 - 42895689 chore(deps): bump typescript from 5.9.3 to 6.0.2 in /server
 
 ## v1.33.0 - 2026-03-30
+
 - f8fa98a8 Merge pull request #304 from thetigeregg/feat/detalink
 - e90140bf Merge branch 'main' into feat/detalink
 - 70855e66 feat: add unit tests for game detail metadata interactions and mock dependencies
 - 0d70a1ae feat: enhance metadata filter functionality with new input and logic
 
 ## v1.34.0 - 2026-03-30
+
 - de6b347b Merge pull request #305 from thetigeregg/feat/bump2
 - 2d8fa511 fix(audit): pluralize success and error messages in runAudits
 - d1710cd0 test(scripts): make audit command log assertion cross-platform
@@ -3058,6 +3083,7 @@
 - 5e51ddf4 feat: implement audit fix script for multiple projects
 
 ## v1.35.0 - 2026-03-30
+
 - afe8a465 Merge pull request #306 from thetigeregg/feat/gflink
 - b42cb434 fix(theme): harden dark palette token spec
 - 4dbb9147 feat: update website item icons to use dark theme styles
@@ -3068,11 +3094,13 @@
 - e116911d feat: add dark-palette contrast overrides and corresponding unit tests
 
 ## v1.36.0 - 2026-03-30
+
 - 3c03bffe Merge pull request #308 from thetigeregg/feat/preload
 - 46a9f3d2 feat: enhance explore page tests to include discovery pricing hydration checks
 - 19a62c9b feat: improve recommendation loading by scheduling pricing hydration
 
 ## v1.37.0 - 2026-03-30
+
 - 2361c36c Merge pull request #307 from thetigeregg/feat/xfer
 - 9f6dba27 fix(data): validate enteredCollectionAt during v11 migration
 - c17ba0a1 fix(settings): preserve imported timestamps during CSV import
@@ -3091,6 +3119,7 @@
 - 347306f3 feat: add enteredCollectionAt handling for game entries and update related tests
 
 ## v1.38.0 - 2026-03-30
+
 - 796667c9 Merge pull request #309 from thetigeregg/feat/serve
 - 32c2ba53 feat(handler): add error handling for malformed request URLs in createHandler
 - 9582adf5 fix(dev): reject malformed PWA server port arguments
@@ -3114,6 +3143,7 @@
 - e3aa15e8 feat: add PWA simulator support with HTTPS server and related scripts
 
 ## v1.39.0 - 2026-03-31
+
 - 2331590f Merge pull request #310 from thetigeregg/feat/modal
 - b139c0fa fix(fab): enable pointer events for detail shortcuts during transitions
 - 10aa5df2 fix(app): re-prompt queued service worker updates
@@ -3136,9 +3166,22 @@
 - 038545e9 feat(detail-shortcuts-fab): add fixed slot attribute and update tests
 
 ## v1.39.1 - 2026-04-02
+
 - 1f5480f7 Merge pull request #312 from thetigeregg/feat/fix
 - 491b98da fix(dependencies): update playwright to version 1.59.1
 - ddfae51a chore: update dependencies to latest versions
 - 739aa582 fix(dependencies): update @angular/cdk to version 21.2.5
 - c1443e6e fix(dependencies): update Angular packages to version 21.2.7
 
+## v1.40.0 - 2026-04-03
+
+- 9116a15e Merge pull request #313 from thetigeregg/feat/split
+- 92a1d99c feat: update release workflow to use npm exec for version bump
+- 56cb672b Merge branch 'main' into feat/split
+- 6b2c9b06 feat: remove pre-PR automated code cleanup prompt
+- 8dc601db feat: add initial configuration for game-shelf project
+- d2a2a3e9 feat: refactor worktree-dev script to utilize context and improve structure
+- b48eb263 feat: migrate configuration files to use shared packages
+- a4a2d7f3 feat: add npm dependency installation step in release workflow
+- aadf9efc feat: update dependencies and improve dev scripts
+- 6dba8f97 feat: remove deprecated scripts

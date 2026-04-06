@@ -3185,3 +3185,10 @@
 - a4a2d7f3 feat: add npm dependency installation step in release workflow
 - aadf9efc feat: update dependencies and improve dev scripts
 - 6dba8f97 feat: remove deprecated scripts
+
+## v1.40.1 - 2026-04-06
+
+- 9f93107b Merge pull request #314 from thetigeregg/bump2
+- 8edd191f chore: update @tiptap packages to version 3.22.2 and bump dotenv to 17.4.1
+- 778d1cc6 fix(lint): ignore local worktrees in eslint
+- 4277592f chore: update packages

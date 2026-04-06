@@ -3192,3 +3192,8 @@
 - 8edd191f chore: update @tiptap packages to version 3.22.2 and bump dotenv to 17.4.1
 - 778d1cc6 fix(lint): ignore local worktrees in eslint
 - 4277592f chore: update packages
+
+## v1.40.2 - 2026-04-06
+
+- 312274de Merge pull request #323 from thetigeregg/feat/bump
+- e0f4cea5 chore: update Playwright version to v1.59.1 in Dockerfiles

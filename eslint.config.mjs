@@ -23,6 +23,7 @@ export default defineConfig([
     'coverage/**/*',
     'dist/**/*',
     'www/**/*',
+    'worktrees/**/*',
     '.angular/**/*',
     'test-results/**/*',
   ]),

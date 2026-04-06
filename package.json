@@ -122,7 +122,7 @@
     "@ionic/angular-toolkit": "^12.3.0",
     "@thetigeregg/commitlint-config": "^0.4.0",
     "@thetigeregg/dev-cli": "^0.4.0",
-    "@thetigeregg/lint-staged-config": "^0.2.0",
+    "@thetigeregg/lint-staged-config": "^0.2.4",
     "@thetigeregg/ncu-config": "^0.3.0",
     "@thetigeregg/prettier-config": "^0.3.0",
     "@types/node": "^22.19.15",

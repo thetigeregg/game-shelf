@@ -1,5 +1,5 @@
 ---
-description: PR summary and pre-PR review instructions for agent
+description: PR review and pre-PR review instructions for agent
 globs: ["**/*"]
 alwaysApply: false
 ---

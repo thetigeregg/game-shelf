@@ -1,0 +1,11 @@
+---
+description: Build, format, and test verification before commits
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Before suggesting any commit:
+1. Run `npm run test` from the root to execute the Vitest suite with coverage
+2. Run `npm run lint` from the root to verify ESLint passes
+3. Do not suggest bypassing `.husky/pre-commit` (lint-staged) or `.husky/commit-msg` (commitlint)
+4. If any step fails, fix the issue before proceeding to commit

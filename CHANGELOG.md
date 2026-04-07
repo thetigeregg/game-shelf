@@ -3212,3 +3212,9 @@
 - 5821d5fe chore: rename .pr-summary-prompt.md to .pr-review-prompt.md in .gitignore
 - 31f359c8 chore: add code quality and commit message guidelines, update husky scripts
 - 1ff177e6 chore(deps): update dependencies
+
+## v1.40.4 - 2026-04-07
+
+- 6a0b5c05 Merge pull request #325 from thetigeregg/feat/fix
+- 66943764 style: enhance ion-fab-list with updated style
+- d8319c49 style: update ion-fab-list background and add box-shadow for improved visual appearance

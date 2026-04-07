@@ -69,9 +69,11 @@ ion-content.gs-safe-bottom-with-offset {
 ion-fab-list {
   padding: 6px;
   border-radius: 18px;
-  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.22);
-  background: rgba(var(--ion-background-color-rgb, 255, 255, 255), 0.72);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.3);
+  background: rgba(var(--ion-background-color-rgb, 255, 255, 255), 0.86);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 ion-fab.detail-shortcuts-fab {

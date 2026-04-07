@@ -3197,3 +3197,18 @@
 
 - 312274de Merge pull request #323 from thetigeregg/feat/bump
 - e0f4cea5 chore: update Playwright version to v1.59.1 in Dockerfiles
+
+## v1.40.3 - 2026-04-07
+
+- 900a6b4c Merge pull request #324 from thetigeregg/feat/cursor
+- 7f68afa9 fix: update .cursor/rules/pr-review.mdc
+- 380d16cf fix: update .cursor/rules/commits.mdc
+- cd025b24 chore: simplify pr:review script in package.json by removing VS Code auto-open functionality
+- c4201172 chore: rename pr:summary script to pr:review in package.json
+- c50a2e1a chore: update pre-commit verification steps in workflow.mdc to include build check
+- 2d1d9eb6 chore: add pre-commit verification guidelines to workflow.mdc
+- bfdd478b chore: remove AI agent instructions document
+- 64463b9a chore: update configuration to rename summary output file to review output file
+- 5821d5fe chore: rename .pr-summary-prompt.md to .pr-review-prompt.md in .gitignore
+- 31f359c8 chore: add code quality and commit message guidelines, update husky scripts
+- 1ff177e6 chore(deps): update dependencies

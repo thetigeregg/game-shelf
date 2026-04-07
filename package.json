@@ -53,7 +53,7 @@
     "audit:fix:all": "devx deps audit-all --fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
-    "pr:summary": "devx pr summary && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")",
+    "pr:review": "devx pr review && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")",
     "task:start": "devx task start",
     "repo:bootstrap": "devx repo bootstrap",
     "repo:sync": "devx repo sync",

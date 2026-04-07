@@ -3218,3 +3218,8 @@
 - 6a0b5c05 Merge pull request #325 from thetigeregg/feat/fix
 - 66943764 style: enhance ion-fab-list with updated style
 - d8319c49 style: update ion-fab-list background and add box-shadow for improved visual appearance
+
+## v1.40.5 - 2026-04-07
+
+- 52dc38fd Merge pull request #326 from thetigeregg/feat/bmp
+- 14b726f1 chore: update @thetigeregg/dev-cli to version 1.0.1 in package.json and package-lock.json

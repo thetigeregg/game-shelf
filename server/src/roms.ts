@@ -100,7 +100,10 @@ export function normalizeRomTitle(title: string): string {
 
   return withoutParentheticalNoise
     .toLowerCase()
-    .replace(/\b(the|disc|disk|cd|dvd|rom|rev(?:ision)?|version|ver|v\d+)\b/g, ' ')
+    .replace(
+      /\b(the|disc|disk|cd|dvd|rom|rev(?:ision)?|version|ver|v\d+|instruction|booklet|manual)\b/g,
+      ' '
+    )
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

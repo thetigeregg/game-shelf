@@ -469,6 +469,29 @@ export interface ManualOverrideEntry {
 
 export type ManualOverrideMap = Record<string, ManualOverrideEntry>;
 
+export interface RomCandidate {
+  platformIgdbId: number;
+  fileName: string;
+  relativePath: string;
+  score: number;
+  url: string;
+}
+
+export interface RomResolveResult {
+  status: 'matched' | 'none';
+  bestMatch?: (RomCandidate & { source: 'override' | 'fuzzy' }) | null;
+  candidates: RomCandidate[];
+  unavailable?: boolean;
+  reason?: string | null;
+}
+
+export interface RomOverrideEntry {
+  relativePath: string;
+  updatedAt: string;
+}
+
+export type RomOverrideMap = Record<string, RomOverrideEntry>;
+
 export type SyncEntityType = 'game' | 'tag' | 'view' | 'setting';
 export type SyncOperationType = 'upsert' | 'delete';
 

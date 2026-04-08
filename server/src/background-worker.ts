@@ -12,6 +12,7 @@ import { PopularityIngestService } from './popularity/ingest-service.js';
 import { processQueuedIgdbCacheRevalidation } from './igdb-cache.js';
 import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
 import { processQueuedManualsCatalogRefresh } from './manuals.js';
+import { processQueuedRomsCatalogRefresh } from './roms.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
@@ -501,6 +502,7 @@ async function main(): Promise<void> {
     2
   );
   const manualsCatalogConcurrency = readPositiveIntegerEnv('MANUALS_CATALOG_JOB_CONCURRENCY', 1);
+  const romsCatalogConcurrency = readPositiveIntegerEnv('ROMS_CATALOG_JOB_CONCURRENCY', 1);
   const metadataIntervalMinutes = readPositiveIntegerEnv(
     'METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES',
     60
@@ -1262,6 +1264,10 @@ async function main(): Promise<void> {
         const summary = await processQueuedManualsCatalogRefresh(pool, config.manualsDir);
         return { summary };
       }
+      case 'roms_catalog_refresh': {
+        const summary = await processQueuedRomsCatalogRefresh(pool, config.romsDir);
+        return { summary };
+      }
       default: {
         const unknownType: never = job.jobType;
         throw new Error(`Unsupported job type: ${String(unknownType)}`);
@@ -1390,6 +1396,7 @@ async function main(): Promise<void> {
     startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
+    startConsumers('roms_catalog_refresh', romsCatalogConcurrency);
 
     void runRecommendationSchedulerTick();
     recommendationSchedulerTimer = setInterval(() => {
@@ -1471,6 +1478,7 @@ async function main(): Promise<void> {
     discoveryEnrichmentConcurrency,
     cacheRevalidationConcurrency,
     manualsCatalogConcurrency,
+    romsCatalogConcurrency,
     metadataEnabled: config.igdbMetadataEnrichEnabled,
     popularityIngestEnabled: config.popularityIngestEnabled,
     popularityIngestIntervalMinutes,

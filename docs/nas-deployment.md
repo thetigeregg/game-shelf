@@ -291,9 +291,23 @@ ROM files:
 
 BIOS files:
 
-- Store BIOS files under `nas-data/bios`.
-- Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation__pid-7`).
-- The app serves BIOS assets at `/bios/...` for EmulatorJS (no API indexing/matching required).
+- Store BIOS files under `nas-data/bios` (mounted at `/bios` in `edge`).
+- EmulatorJS in the app loads BIOS via URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
+- The app serves BIOS assets at `/bios/...` for in-browser play (no API indexing/matching required).
+
+Expected layout (relative to `nas-data/bios`):
+
+| Core / case                | Relative path                | Notes                                                                                                                          |
+| -------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| PlayStation (`psx`)        | `psx/scph1001.bin`           | US BIOS default; JP/EU titles may need a different file or a documented multi-BIOS archive if you switch cores/settings later. |
+| Sega CD (`segaCD`)         | `segaCD/bios_CD_U.bin`       | US BIOS default; other regions may need different files.                                                                       |
+| 3DO (`3do`)                | `3do/panafz10.bin`           |                                                                                                                                |
+| Sega Saturn (`segaSaturn`) | `segaSaturn/saturn_bios.bin` |                                                                                                                                |
+| Atari Lynx (`lynx`)        | `lynx/lynxboot.img`          | Required for all Lynx games.                                                                                                   |
+| ColecoVision (`coleco`)    | `coleco/colecovision.rom`    | Required for all ColecoVision games.                                                                                           |
+| NES Famicom Disk System    | `nes/disksys.rom`            | Only requested when the launched ROM path ends with `.fds`; plain `.nes` cartridges do not use this BIOS URL.                  |
+
+Optional frontend override: set `BIOS_PUBLIC_BASE_URL` in the stack (default `/bios`) if BIOS is hosted elsewhere; see the env list above.
 
 ## Local Docker-based API development
 

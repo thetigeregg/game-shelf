@@ -95,10 +95,12 @@ import {
   GameType,
   ListType,
   ManualCandidate,
+  RomCandidate,
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { ManualService } from '../../core/services/manual.service';
+import { RomService } from '../../core/services/rom.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { DebugLogService } from '../../core/services/debug-log.service';
@@ -466,6 +468,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
   manualResolvedSource: 'override' | 'fuzzy' | null = null;
   manualCatalogUnavailable = false;
   manualCatalogUnavailableReason: string | null = null;
+  isRomPickerModalOpen = false;
+  isRomPickerLoading = false;
+  romPickerQuery = '';
+  romPickerResults: RomCandidate[] = [];
+  romPickerError: string | null = null;
+  romResolvedUrl: string | null = null;
+  romResolvedRelativePath: string | null = null;
+  romResolvedSource: 'override' | 'fuzzy' | null = null;
+  romCatalogUnavailable = false;
+  romCatalogUnavailableReason: string | null = null;
   detailTextExpanded = {
     summary: false,
     storyline: false,
@@ -491,6 +503,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private similarDiscoveryLoadRequestId = 0;
   private similarDiscoveryDetailLoadRequestId = 0;
   private manualResolutionRequestId = 0;
+  private romResolutionRequestId = 0;
   private rowActionsSlidingItem: IonItemSliding | null = null;
   private readonly gameShelfService = inject(GameShelfService);
   private readonly popoverController = inject(PopoverController);
@@ -499,6 +512,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly toastController = inject(ToastController);
   private readonly imageCacheService = inject(ImageCacheService);
   private readonly manualService = inject(ManualService);
+  private readonly romService = inject(RomService);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly debugLogService = inject(DebugLogService);
@@ -1473,10 +1487,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.resetReviewPickerState();
     this.resetPricingPickerState();
     this.resetManualPickerState();
+    this.resetRomPickerState();
     this.changeDetectorRef.markForCheck();
     void this.loadDetailCoverUrl(game);
     void this.loadSimilarLibraryGamesForDetail(game);
     void this.resolveManualForGame(game);
+    void this.resolveRomForGame(game);
     this.logManualDebug('detail.open.manual_resolution_queued', {
       gameKey: this.getGameKey(game),
     });
@@ -1521,6 +1537,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isEditMetadataModalOpen = false;
     this.isEditMetadataSaving = false;
     this.isManualPickerModalOpen = false;
+    this.isRomPickerModalOpen = false;
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
     this.isVideosModalOpen = false;
@@ -1554,6 +1571,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.resetReviewPickerState();
     this.resetPricingPickerState();
     this.resetManualPickerState();
+    this.resetRomPickerState();
     this.resetNoteEditorState();
     this.editMetadataTitle = '';
     this.editMetadataPlatformIgdbId = null;
@@ -2071,6 +2089,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   async openManualPickerFromPopover(): Promise<void> {
     await this.dismissDetailActionsPopover();
     this.openManualPickerModal();
+  }
+
+  async openRomPickerFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    this.openRomPickerModal();
   }
 
   async deleteSelectedGameFromPopover(): Promise<void> {
@@ -3108,6 +3131,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
+  get shouldShowOpenRomButton(): boolean {
+    return (
+      !this.isSimilarDiscoveryDetailModalOpen &&
+      this.romResolvedUrl !== null &&
+      this.canShowRomButtonsForSelectedGame()
+    );
+  }
+
   get shouldShowFindManualButton(): boolean {
     if (this.isSimilarDiscoveryDetailModalOpen) {
       return false;
@@ -3124,6 +3155,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return !this.manualCatalogUnavailable || this.manualResolvedSource === 'override';
   }
 
+  get shouldShowFindRomButton(): boolean {
+    if (this.isSimilarDiscoveryDetailModalOpen) {
+      return false;
+    }
+
+    if (!this.selectedGame) {
+      return false;
+    }
+
+    if (!this.canShowRomButtonsForSelectedGame()) {
+      return false;
+    }
+
+    return !this.romCatalogUnavailable || this.romResolvedSource === 'override';
+  }
+
   openManualPdf(): void {
     const url = this.manualResolvedUrl;
 
@@ -3134,40 +3181,43 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openExternalUrl(url);
   }
 
+  openRomPlaceholder(): void {
+    // ROM launch integration is intentionally deferred in this pass.
+  }
+
   openManualPickerModal(): void {
-    if (this.manualCatalogUnavailable && this.manualResolvedSource !== 'override') {
-      const reason = this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.';
-      void this.presentToast(reason, 'warning');
-      return;
-    }
+    const blockReason =
+      this.manualCatalogUnavailable && this.manualResolvedSource !== 'override'
+        ? (this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.')
+        : null;
 
-    const game = this.selectedGame;
-
-    if (!game) {
-      return;
-    }
-
-    this.isManualPickerModalOpen = true;
-    this.manualPickerQuery = game.title.trim();
-    this.manualPickerResults = [];
-    this.manualPickerError = null;
-    this.isManualPickerLoading = false;
-    this.changeDetectorRef.markForCheck();
-    void this.runManualPickerSearch();
+    this.openCatalogPickerModal(
+      blockReason,
+      (query) => {
+        this.isManualPickerModalOpen = true;
+        this.manualPickerQuery = query;
+        this.manualPickerResults = [];
+        this.manualPickerError = null;
+        this.isManualPickerLoading = false;
+      },
+      () => this.runManualPickerSearch()
+    );
   }
 
   closeManualPickerModal(): void {
-    this.isManualPickerModalOpen = false;
-    this.manualPickerQuery = '';
-    this.manualPickerResults = [];
-    this.manualPickerError = null;
-    this.isManualPickerLoading = false;
-    this.changeDetectorRef.markForCheck();
+    this.closeCatalogPickerModal(() => {
+      this.isManualPickerModalOpen = false;
+      this.manualPickerQuery = '';
+      this.manualPickerResults = [];
+      this.manualPickerError = null;
+      this.isManualPickerLoading = false;
+    });
   }
 
   onManualPickerQueryInput(event: Event): void {
-    const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.manualPickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
+    this.updateCatalogPickerQuery(event, (query) => {
+      this.manualPickerQuery = query;
+    });
   }
 
   async runManualPickerSearch(): Promise<void> {
@@ -3226,6 +3276,126 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.manualService.clearOverride(game);
     await this.resolveManualForGame(game);
     await this.presentToast('Manual override cleared.');
+  }
+
+  private openCatalogPickerModal(
+    blockReason: string | null,
+    initializeState: (query: string) => void,
+    runSearch: () => Promise<void>
+  ): void {
+    if (blockReason) {
+      void this.presentToast(blockReason, 'warning');
+      return;
+    }
+
+    const game = this.selectedGame;
+    if (!game) {
+      return;
+    }
+
+    initializeState(game.title.trim());
+    this.changeDetectorRef.markForCheck();
+    void runSearch();
+  }
+
+  private closeCatalogPickerModal(resetState: () => void): void {
+    resetState();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private updateCatalogPickerQuery(event: Event, setQuery: (query: string) => void): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    setQuery((customEvent.detail.value ?? '').replace(/^\s+/, ''));
+  }
+
+  openRomPickerModal(): void {
+    const blockReason =
+      this.romCatalogUnavailable && this.romResolvedSource !== 'override'
+        ? (this.romCatalogUnavailableReason ?? 'ROM catalog is unavailable.')
+        : null;
+
+    this.openCatalogPickerModal(
+      blockReason,
+      (query) => {
+        this.isRomPickerModalOpen = true;
+        this.romPickerQuery = query;
+        this.romPickerResults = [];
+        this.romPickerError = null;
+        this.isRomPickerLoading = false;
+      },
+      () => this.runRomPickerSearch()
+    );
+  }
+
+  closeRomPickerModal(): void {
+    this.closeCatalogPickerModal(() => {
+      this.isRomPickerModalOpen = false;
+      this.romPickerQuery = '';
+      this.romPickerResults = [];
+      this.romPickerError = null;
+      this.isRomPickerLoading = false;
+    });
+  }
+
+  onRomPickerQueryInput(event: Event): void {
+    this.updateCatalogPickerQuery(event, (query) => {
+      this.romPickerQuery = query;
+    });
+  }
+
+  async runRomPickerSearch(): Promise<void> {
+    const game = this.selectedGame;
+    if (!game) {
+      return;
+    }
+
+    this.isRomPickerLoading = true;
+    this.romPickerError = null;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const response = await firstValueFrom(
+        this.romService.searchRoms(game.platformIgdbId, this.romPickerQuery)
+      );
+      this.romCatalogUnavailable = response.unavailable;
+      this.romCatalogUnavailableReason = response.reason;
+      this.romPickerResults = response.items;
+
+      if (response.unavailable) {
+        this.romPickerError = response.reason ?? 'ROM catalog is unavailable.';
+      } else if (response.items.length === 0) {
+        this.romPickerError = 'No ROMs found for this search.';
+      }
+    } catch {
+      this.romPickerError = 'Unable to search ROMs right now.';
+      this.romPickerResults = [];
+    } finally {
+      this.isRomPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  async applyRomMatch(candidate: RomCandidate): Promise<void> {
+    const game = this.selectedGame;
+    if (!game) {
+      return;
+    }
+
+    this.romService.setOverride(game, candidate.relativePath);
+    this.closeRomPickerModal();
+    await this.resolveRomForGame(game);
+    await this.presentToast('ROM match saved.');
+  }
+
+  async clearRomMatchOverride(): Promise<void> {
+    const game = this.selectedGame;
+    if (!game) {
+      return;
+    }
+
+    this.romService.clearOverride(game);
+    await this.resolveRomForGame(game);
+    await this.presentToast('ROM override cleared.');
   }
 
   getTagTextColor(color: string): string {
@@ -4529,6 +4699,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
+  private canShowRomButtonsForSelectedGame(): boolean {
+    const game = this.selectedGame;
+    if (!game) {
+      return false;
+    }
+
+    return this.canShowRomButtonsForGame(game);
+  }
+
+  private canShowRomButtonsForGame(game: GameEntry): boolean {
+    return this.canShowManualButtonsForGame(game);
+  }
+
   private normalizeFilterHours(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
       return null;
@@ -4708,6 +4891,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.manualResolvedSource = null;
     this.manualCatalogUnavailable = false;
     this.manualCatalogUnavailableReason = null;
+  }
+
+  private resetRomPickerState(): void {
+    this.isRomPickerModalOpen = false;
+    this.isRomPickerLoading = false;
+    this.romPickerQuery = '';
+    this.romPickerResults = [];
+    this.romPickerError = null;
+    this.romResolvedUrl = null;
+    this.romResolvedRelativePath = null;
+    this.romResolvedSource = null;
+    this.romCatalogUnavailable = false;
+    this.romCatalogUnavailableReason = null;
   }
 
   private resetImagePickerState(): void {
@@ -4996,6 +5192,71 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private async resolveRomForGame(game: GameEntry): Promise<void> {
+    if (!this.canShowRomButtonsForGame(game)) {
+      if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
+        this.romResolvedUrl = null;
+        this.romResolvedRelativePath = null;
+        this.romResolvedSource = null;
+        this.romCatalogUnavailable = false;
+        this.romCatalogUnavailableReason = null;
+        this.changeDetectorRef.markForCheck();
+      }
+
+      return;
+    }
+
+    const requestId = ++this.romResolutionRequestId;
+    const override = this.romService.getOverride(game);
+
+    try {
+      const result = await firstValueFrom(this.romService.resolveRom(game, override?.relativePath));
+
+      if (requestId !== this.romResolutionRequestId) {
+        return;
+      }
+
+      if (!this.selectedGame || this.getGameKey(this.selectedGame) !== this.getGameKey(game)) {
+        return;
+      }
+
+      this.romCatalogUnavailable = result.unavailable === true;
+      this.romCatalogUnavailableReason = result.reason ?? null;
+
+      if (result.bestMatch) {
+        this.romResolvedUrl = result.bestMatch.url;
+        this.romResolvedRelativePath = result.bestMatch.relativePath;
+        this.romResolvedSource = result.bestMatch.source;
+      } else {
+        this.romResolvedUrl = null;
+        this.romResolvedRelativePath = null;
+        this.romResolvedSource = null;
+      }
+
+      if (override && result.bestMatch?.source !== 'override' && !this.romCatalogUnavailable) {
+        const shouldRemove = await this.confirmRomOverrideRemoval(game);
+        if (shouldRemove && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
+          this.romService.clearOverride(game);
+          await this.resolveRomForGame(game);
+          return;
+        }
+      }
+
+      this.changeDetectorRef.markForCheck();
+    } catch {
+      if (requestId !== this.romResolutionRequestId) {
+        return;
+      }
+
+      this.romResolvedUrl = null;
+      this.romResolvedRelativePath = null;
+      this.romResolvedSource = null;
+      this.romCatalogUnavailable = true;
+      this.romCatalogUnavailableReason = 'ROM catalog is unavailable.';
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
   private logManualDebug(eventName: string, payload: Record<string, unknown>): void {
     this.debugLogService.debug(eventName, payload);
   }
@@ -5004,6 +5265,27 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Manual Not Found',
       message: `Your saved manual match for ${this.getGameDisplayTitle(game)} is no longer available. Remove the custom match and retry auto-match?`,
+      buttons: [
+        {
+          text: 'Keep',
+          role: 'cancel',
+        },
+        {
+          text: 'Remove',
+          role: 'confirm',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'confirm';
+  }
+
+  private async confirmRomOverrideRemoval(game: GameEntry): Promise<boolean> {
+    const alert = await this.alertController.create({
+      header: 'ROM Not Found',
+      message: `Your saved ROM match for ${this.getGameDisplayTitle(game)} is no longer available. Remove the custom match and retry auto-match?`,
       buttons: [
         {
           text: 'Keep',
@@ -5102,6 +5384,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
       if (shouldRefreshManual) {
         void this.resolveManualForGame(updated);
+        void this.resolveRomForGame(updated);
       }
     }
 

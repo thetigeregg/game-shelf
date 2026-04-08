@@ -355,6 +355,52 @@
           }
         },
         {
+          "name": "ROMs Resolve Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/roms/resolve?title=Halo&platformIgdbId=6",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "roms", "resolve"],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "Halo"
+                },
+                {
+                  "key": "platformIgdbId",
+                  "value": "6"
+                }
+              ]
+            },
+            "description": "Checks ROMs resolve path using title matching and platform scoping."
+          }
+        },
+        {
+          "name": "ROMs Search Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/roms/search?platformIgdbId=6&q=halo",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "roms", "search"],
+              "query": [
+                {
+                  "key": "platformIgdbId",
+                  "value": "6"
+                },
+                {
+                  "key": "q",
+                  "value": "halo"
+                }
+              ]
+            },
+            "description": "Checks ROMs search path with platform scoping and query ranking."
+          }
+        },
+        {
           "name": "Recommendations Lanes (Smoke)",
           "request": {
             "method": "GET",
@@ -499,6 +545,31 @@
               ]
             },
             "description": "Returns manuals catalog refresh status/count immediately; may enqueue a background refresh in queue mode when stale or when force=true."
+          }
+        },
+        {
+          "name": "ROMs Refresh (Snapshot + Optional Queue Trigger)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/roms/refresh?force=false",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "roms", "refresh"],
+              "query": [
+                {
+                  "key": "force",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Returns ROMs catalog refresh status/count immediately; may enqueue a background refresh in queue mode when stale or when force=true."
           }
         },
         {

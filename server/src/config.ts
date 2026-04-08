@@ -150,6 +150,8 @@ export interface AppConfig {
   mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  romsDir: string;
+  romsPublicBaseUrl: string;
   firebaseServiceAccountJson: string;
   notificationsTestEndpointEnabled: boolean;
   notificationsObservabilityEndpointEnabled: boolean;
@@ -276,6 +278,8 @@ export interface RateLimitConfig {
     background_jobs_replay: NamedInboundRateLimitConfig;
     manuals_read: NamedInboundRateLimitConfig;
     manuals_refresh: NamedInboundRateLimitConfig;
+    roms_read: NamedInboundRateLimitConfig;
+    roms_refresh: NamedInboundRateLimitConfig;
     popularity_feed: NamedInboundRateLimitConfig;
     steam_prices: NamedInboundRateLimitConfig;
     psprices_prices: NamedInboundRateLimitConfig;
@@ -495,6 +499,8 @@ const rateLimitConfig: RateLimitConfig = {
     }),
     manuals_read: readInboundPolicyConfig('MANUALS_READ', { max: 50, windowMs: 60_000 }),
     manuals_refresh: readInboundPolicyConfig('MANUALS_REFRESH', { max: 50, windowMs: 60_000 }),
+    roms_read: readInboundPolicyConfig('ROMS_READ', { max: 50, windowMs: 60_000 }),
+    roms_refresh: readInboundPolicyConfig('ROMS_REFRESH', { max: 50, windowMs: 60_000 }),
     popularity_feed: readInboundPolicyConfig('POPULARITY_FEED', { max: 50, windowMs: 60_000 }),
     steam_prices: readInboundPolicyConfig('STEAM_PRICES', { max: 60, windowMs: 60_000 }),
     psprices_prices: readInboundPolicyConfig('PSPRICES_PRICES', { max: 60, windowMs: 60_000 }),
@@ -647,6 +653,7 @@ export const config: AppConfig = {
   mobygamesCacheStaleTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   mobygamesSearchRateLimitMaxPerMinute: rateLimitConfig.inbound.mobygames_search.max,
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
+  romsDir: readPathEnv('ROMS_DIR', path.resolve(serverRootDir, '../nas-data/roms')),
   firebaseServiceAccountJson: readSecretFile(
     'FIREBASE_SERVICE_ACCOUNT_JSON',
     'firebase_service_account_json'
@@ -674,6 +681,7 @@ export const config: AppConfig = {
     0.2
   ),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  romsPublicBaseUrl: readEnv('ROMS_PUBLIC_BASE_URL', '/roms'),
   syncPushRateLimitMaxPerMinute: rateLimitConfig.inbound.sync_push.max,
   syncPullRateLimitMaxPerMinute: rateLimitConfig.inbound.sync_pull.max,
   openaiApiKey: readSecretFile('OPENAI_API_KEY', 'openai_api_key'),

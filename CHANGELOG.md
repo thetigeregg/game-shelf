@@ -3223,3 +3223,9 @@
 
 - 52dc38fd Merge pull request #326 from thetigeregg/feat/bmp
 - 14b726f1 chore: update @thetigeregg/dev-cli to version 1.0.1 in package.json and package-lock.json
+
+## v1.40.6 - 2026-04-08
+
+- 99fd537f Merge pull request #329 from thetigeregg/feat/bmp
+- b0b2f7f3 chore: update @tiptap packages to version 3.22.3
+- 52cf859e chore: update @typescript-eslint packages to version 8.58.1

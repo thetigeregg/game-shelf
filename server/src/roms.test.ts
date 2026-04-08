@@ -151,6 +151,34 @@ void test('resolve endpoint returns none for ambiguous title', async () => {
   await fs.rm(rootDir, { recursive: true, force: true });
 });
 
+void test('resolve endpoint returns none when no candidates score above zero', async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'roms-zero-score-'));
+  await fs.mkdir(path.join(rootDir, 'Nintendo Entertainment System__pid-18'), { recursive: true });
+  await fs.writeFile(
+    path.join(rootDir, 'Nintendo Entertainment System__pid-18/Bubble Bobble.nes'),
+    'rom'
+  );
+
+  const app = Fastify();
+  registerRomRoutes(app, {
+    romsDir: rootDir,
+    romsPublicBaseUrl: '/roms',
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/roms/resolve?platformIgdbId=18&title=zzzzzzzz',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = parseJson(response.body) as MatchPayload;
+  assert.equal(payload.status, 'none');
+  assert.deepEqual(payload.candidates, []);
+
+  await app.close();
+  await fs.rm(rootDir, { recursive: true, force: true });
+});
+
 void test('resolve does not auto-match files inside multi-file folders', async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'roms-multifile-no-auto-'));
   await fs.mkdir(path.join(rootDir, 'Sony PlayStation__pid-7/Metal Gear Solid (USA)'), {

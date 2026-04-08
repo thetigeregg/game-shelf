@@ -64,6 +64,8 @@
           window.EJS_gameName = title;
         }
         window.EJS_pathtodata = pathtodata;
+        window.EJS_startOnLoaded = true;
+        window.EJS_fullscreenOnLoaded = true;
 
         var debugRaw = (params.get('debug') || '').toLowerCase();
         if (debugRaw === '1' || debugRaw === 'true' || debugRaw === 'yes') {

@@ -50,6 +50,7 @@ export const environment = {
   production: true,
   gameApiBaseUrl: '/api',
   manualsBaseUrl: '/manuals',
+  romsBaseUrl: '/roms',
   firebase: {
     apiKey: '$(escape_ts_string "${firebase_api_key}")',
     authDomain: '$(escape_ts_string "${firebase_auth_domain}")',

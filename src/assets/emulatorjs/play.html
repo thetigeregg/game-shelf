@@ -86,6 +86,24 @@
           window.EJS_biosUrl = biosUrl.href;
         }
 
+        window.EJS_ready = function () {
+          if (!window.EJS_emulator || typeof window.EJS_emulator.on !== 'function') {
+            return;
+          }
+          window.EJS_emulator.on('exit', function () {
+            try {
+              if (window.parent !== window) {
+                window.parent.postMessage(
+                  { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+                  window.location.origin
+                );
+              }
+            } catch (_err) {
+              /* ignore cross-origin or detached frame */
+            }
+          });
+        };
+
         var script = document.createElement('script');
         script.src = pathtodata + 'loader.js';
         script.async = true;

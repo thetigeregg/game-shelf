@@ -666,8 +666,8 @@
           @if (shouldShowOpenRomButton) {
             <ion-fab-button
               color="forest"
-              aria-label="Open game ROM"
-              (click)="openRomPlaceholder(); void detailShortcutsFab.close()"
+              aria-label="Play ROM"
+              (click)="openRomInEmulator(); void detailShortcutsFab.close()"
             >
               <ion-icon name="play" aria-hidden="true"></ion-icon>
             </ion-fab-button>
@@ -836,6 +836,12 @@
   (dismiss)="closeWebsitesModal()"
   (websiteSelect)="openDetailWebsite($event)"
 ></app-detail-websites-modal>
+
+<app-emulator-js-modal
+  [isOpen]="isEmulatorJsModalOpen"
+  [launchUrl]="emulatorJsLaunchUrl"
+  (dismiss)="closeEmulatorJsModal()"
+></app-emulator-js-modal>
 
 <input
   #customCoverFileInput

@@ -3,6 +3,7 @@ export const environment = {
   gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
+  emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

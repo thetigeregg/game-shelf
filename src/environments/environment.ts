@@ -7,6 +7,7 @@ export const environment = {
   gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
+  emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
   firebase: {
     apiKey: '',
     authDomain: '',

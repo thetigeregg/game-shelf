@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Emulator</title>
+    <style>
+      html,
+      body,
+      #game {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var core = params.get('core');
+        var rom = params.get('rom');
+        var title = params.get('title') || '';
+        var pathtodata = params.get('pathtodata') || 'https://cdn.emulatorjs.org/stable/data/';
+        if (pathtodata.slice(-1) !== '/') {
+          pathtodata += '/';
+        }
+
+        function showError(message) {
+          var text = message || 'Invalid launch parameters';
+          document.body.textContent = '';
+          var paragraph = document.createElement('p');
+          paragraph.style.cssText =
+            'color:#fff;padding:16px;font-family:system-ui,sans-serif;margin:0';
+          paragraph.textContent = text;
+          document.body.appendChild(paragraph);
+        }
+
+        if (!core || !rom) {
+          showError('Missing core or ROM.');
+          return;
+        }
+
+        var romUrl;
+        try {
+          romUrl = new URL(rom, window.location.origin);
+        } catch (_error) {
+          showError('Invalid ROM URL.');
+          return;
+        }
+
+        if (romUrl.origin !== window.location.origin || !romUrl.pathname.startsWith('/roms/')) {
+          showError('ROM URL is not allowed.');
+          return;
+        }
+
+        window.EJS_player = '#game';
+        window.EJS_core = core;
+        window.EJS_gameUrl = romUrl.href;
+        if (title) {
+          window.EJS_gameName = title;
+        }
+        window.EJS_pathtodata = pathtodata;
+
+        var bios = params.get('bios');
+        if (bios) {
+          var biosUrl;
+          try {
+            biosUrl = new URL(bios, window.location.origin);
+          } catch (_error) {
+            showError('Invalid BIOS URL.');
+            return;
+          }
+          if (biosUrl.origin !== window.location.origin || !biosUrl.pathname.startsWith('/bios/')) {
+            showError('BIOS URL is not allowed.');
+            return;
+          }
+          window.EJS_biosUrl = biosUrl.href;
+        }
+
+        var script = document.createElement('script');
+        script.src = pathtodata + 'loader.js';
+        script.async = true;
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>

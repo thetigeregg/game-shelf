@@ -112,7 +112,11 @@ import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './g
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { IgdbProxyService } from '../../core/api/igdb-proxy.service';
 import { environment } from '../../../environments/environment';
-import { buildEmulatorJsPlayShellUrl } from '../../core/utils/emulatorjs-play-url';
+import { resolveEmulatorJsBiosRelativePath } from '../../core/utils/emulatorjs-bios-path';
+import {
+  buildEmulatorJsBiosUrl,
+  buildEmulatorJsPlayShellUrl,
+} from '../../core/utils/emulatorjs-play-url';
 import { resolveEmulatorJsCore } from '../../core/utils/emulatorjs-platform-map';
 import {
   createClosedHltbPickerState,
@@ -3222,6 +3226,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    const biosRelative = resolveEmulatorJsBiosRelativePath(core);
+    const biosBase =
+      typeof environment.biosBaseUrl === 'string' ? environment.biosBaseUrl.trim() : '';
+    const biosUrl =
+      biosRelative && biosBase.length > 0
+        ? buildEmulatorJsBiosUrl(origin, biosBase, biosRelative)
+        : null;
+
     let launchUrl: string;
 
     try {
@@ -3231,6 +3243,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         romUrl,
         gameTitle: game.title,
         pathToData: environment.emulatorJsPathToData,
+        biosUrl,
         debug: environment.emulatorJsDebug,
       });
     } catch {

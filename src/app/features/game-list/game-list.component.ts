@@ -118,6 +118,7 @@ import {
   buildEmulatorJsPlayShellUrl,
 } from '../../core/utils/emulatorjs-play-url';
 import { resolveEmulatorJsCore } from '../../core/utils/emulatorjs-platform-map';
+import { resolveEmulatorJsShader } from '../../core/utils/emulatorjs-shader-map';
 import {
   createClosedHltbPickerState,
   createClosedReviewPickerState,
@@ -3234,6 +3235,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
         ? buildEmulatorJsBiosUrl(origin, biosBase, biosRelative)
         : null;
 
+    const defaultShader = resolveEmulatorJsShader(canonicalPlatformIgdbId);
+
     let launchUrl: string;
 
     try {
@@ -3245,6 +3248,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         pathToData: environment.emulatorJsPathToData,
         biosUrl,
         debug: environment.emulatorJsDebug,
+        defaultShader,
       });
     } catch {
       const toast = await this.toastController.create({

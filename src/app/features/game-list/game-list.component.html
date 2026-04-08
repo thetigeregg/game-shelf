@@ -647,15 +647,6 @@
               <ion-icon name="book" aria-hidden="true"></ion-icon>
             </ion-fab-button>
           }
-          @if (shouldShowOpenRomButton) {
-            <ion-fab-button
-              color="ocean"
-              aria-label="Open game ROM"
-              (click)="openRomPlaceholder(); void detailShortcutsFab.close()"
-            >
-              <ion-icon name="play" aria-hidden="true"></ion-icon>
-            </ion-fab-button>
-          }
           <ion-fab-button
             color="royal"
             aria-label="Open websites"
@@ -670,6 +661,15 @@
               (click)="openVideosModal(); void detailShortcutsFab.close()"
             >
               <ion-icon name="film" aria-hidden="true"></ion-icon>
+            </ion-fab-button>
+          }
+          @if (shouldShowOpenRomButton) {
+            <ion-fab-button
+              color="ocean"
+              aria-label="Open game ROM"
+              (click)="openRomPlaceholder(); void detailShortcutsFab.close()"
+            >
+              <ion-icon name="play" aria-hidden="true"></ion-icon>
             </ion-fab-button>
           }
         </ion-fab-list>

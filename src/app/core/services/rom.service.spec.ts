@@ -52,7 +52,7 @@ describe('RomService', () => {
           platformIgdbId: 8,
           title: 'God of War II',
         },
-        'PlayStation 2__pid-8/God of War II.pdf'
+        'PlayStation 2__pid-8/God of War II.iso'
       )
     );
 
@@ -62,7 +62,7 @@ describe('RomService', () => {
         request.params.get('igdbGameId') === '100' &&
         request.params.get('platformIgdbId') === '8' &&
         request.params.get('title') === 'God of War II' &&
-        request.params.get('preferredRelativePath') === 'PlayStation 2__pid-8/God of War II.pdf'
+        request.params.get('preferredRelativePath') === 'PlayStation 2__pid-8/God of War II.iso'
       );
     });
 
@@ -71,10 +71,10 @@ describe('RomService', () => {
       bestMatch: {
         source: 'override',
         platformIgdbId: 8,
-        fileName: 'God of War II.pdf',
-        relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+        fileName: 'God of War II.iso',
+        relativePath: 'PlayStation 2__pid-8/God of War II.iso',
         score: 1,
-        url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
+        url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.iso',
       },
       candidates: [],
     });
@@ -84,10 +84,10 @@ describe('RomService', () => {
       bestMatch: {
         source: 'override',
         platformIgdbId: 8,
-        fileName: 'God of War II.pdf',
-        relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+        fileName: 'God of War II.iso',
+        relativePath: 'PlayStation 2__pid-8/God of War II.iso',
         score: 1,
-        url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
+        url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.iso',
       },
       candidates: [],
       unavailable: false,
@@ -101,13 +101,13 @@ describe('RomService', () => {
         igdbGameId: '100',
         platformIgdbId: 8,
       },
-      'PlayStation 2__pid-8/God of War II.pdf'
+      'PlayStation 2__pid-8/God of War II.iso'
     );
 
     const raw = localStorage.getItem(ROM_OVERRIDES_STORAGE_KEY);
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(String(raw)) as Record<string, { relativePath: string }>;
-    expect(parsed['100::8'].relativePath).toBe('PlayStation 2__pid-8/God of War II.pdf');
+    expect(parsed['100::8'].relativePath).toBe('PlayStation 2__pid-8/God of War II.iso');
     expect(
       outboxWriter.calls.some((call) => {
         return (
@@ -125,7 +125,7 @@ describe('RomService', () => {
         igdbGameId: '100',
         platformIgdbId: 8,
       },
-      'PlayStation 2__pid-8/God of War II.pdf'
+      'PlayStation 2__pid-8/God of War II.iso'
     );
     outboxWriter.calls = [];
 
@@ -227,8 +227,8 @@ describe('RomService', () => {
       items: [
         {
           platformIgdbId: 8,
-          fileName: 'God of War II.pdf',
-          relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+          fileName: 'God of War II.iso',
+          relativePath: 'PlayStation 2__pid-8/God of War II.iso',
           score: 0.92,
         },
       ],
@@ -240,10 +240,10 @@ describe('RomService', () => {
       items: [
         {
           platformIgdbId: 8,
-          fileName: 'God of War II.pdf',
-          relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+          fileName: 'God of War II.iso',
+          relativePath: 'PlayStation 2__pid-8/God of War II.iso',
           score: 0.92,
-          url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
+          url: '/roms/PlayStation%202__pid-8/God%20of%20War%20II.iso',
         },
       ],
     });
@@ -273,11 +273,11 @@ describe('RomService', () => {
       ROM_OVERRIDES_STORAGE_KEY,
       JSON.stringify({
         '100::8': {
-          relativePath: 'PlayStation 2__pid-8\\God of War II.pdf',
+          relativePath: 'PlayStation 2__pid-8\\God of War II.iso',
           updatedAt: '2026-02-12T00:00:00.000Z',
         },
         'bad::entry': {
-          relativePath: '../bad.pdf',
+          relativePath: '../bad.iso',
         },
       })
     );
@@ -288,7 +288,7 @@ describe('RomService', () => {
         platformIgdbId: 8,
       })
     ).toEqual({
-      relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+      relativePath: 'PlayStation 2__pid-8/God of War II.iso',
       updatedAt: '2026-02-12T00:00:00.000Z',
     });
   });

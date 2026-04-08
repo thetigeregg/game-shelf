@@ -4,6 +4,8 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
   emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
+  /** Set true to enable EmulatorJS debug logs in the play iframe (see play.html `debug=1`). */
+  emulatorJsDebug: false,
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

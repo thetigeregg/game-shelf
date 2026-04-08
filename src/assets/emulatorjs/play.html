@@ -65,6 +65,11 @@
         }
         window.EJS_pathtodata = pathtodata;
 
+        var debugRaw = (params.get('debug') || '').toLowerCase();
+        if (debugRaw === '1' || debugRaw === 'true' || debugRaw === 'yes') {
+          window.EJS_DEBUG_XX = true;
+        }
+
         var bios = params.get('bios');
         if (bios) {
           var biosUrl;

@@ -8,6 +8,8 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
   emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
+  /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */
+  emulatorJsDebug: true,
   firebase: {
     apiKey: '',
     authDomain: '',

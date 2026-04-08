@@ -401,7 +401,7 @@ Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be 
 npm run dev:info
 ```
 
-In local dev, Angular proxies `/manuals/...` and `/roms/...` requests to the worktree-local `edge` service so manual and ROM links resolve without a separate host script.
+In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual links resolve without a separate host script.
 After first launch on each device, open `Settings -> Debug -> Device Write Token` and set a token listed in `client_write_tokens`.
 
 ## 4. Publish over Tailscale only

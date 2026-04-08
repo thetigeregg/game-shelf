@@ -169,7 +169,7 @@ export function registerRomRoutes(app: FastifyInstance, options: RegisterRomRout
           status: 'none',
           candidates: [],
           unavailable: true,
-          reason: catalog.reason ?? 'Rom catalog unavailable.',
+          reason: catalog.reason ?? 'ROM catalog unavailable.',
         });
         return;
       }
@@ -255,7 +255,7 @@ export function registerRomRoutes(app: FastifyInstance, options: RegisterRomRout
         reply.send({
           items: [],
           unavailable: true,
-          reason: catalog.reason ?? 'Rom catalog unavailable.',
+          reason: catalog.reason ?? 'ROM catalog unavailable.',
         });
         return;
       }
@@ -360,7 +360,7 @@ export function registerRomRoutes(app: FastifyInstance, options: RegisterRomRout
     return {
       entries: [],
       unavailable: true,
-      reason: 'Rom catalog is warming up.',
+      reason: 'ROM catalog is warming up.',
     };
   }
 }

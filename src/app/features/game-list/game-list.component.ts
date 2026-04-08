@@ -3186,39 +3186,38 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   openManualPickerModal(): void {
-    if (this.manualCatalogUnavailable && this.manualResolvedSource !== 'override') {
-      const reason = this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.';
-      void this.presentToast(reason, 'warning');
-      return;
-    }
+    const blockReason =
+      this.manualCatalogUnavailable && this.manualResolvedSource !== 'override'
+        ? (this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.')
+        : null;
 
-    const game = this.selectedGame;
-
-    if (!game) {
-      return;
-    }
-
-    this.isManualPickerModalOpen = true;
-    this.manualPickerQuery = game.title.trim();
-    this.manualPickerResults = [];
-    this.manualPickerError = null;
-    this.isManualPickerLoading = false;
-    this.changeDetectorRef.markForCheck();
-    void this.runManualPickerSearch();
+    this.openCatalogPickerModal(
+      blockReason,
+      (query) => {
+        this.isManualPickerModalOpen = true;
+        this.manualPickerQuery = query;
+        this.manualPickerResults = [];
+        this.manualPickerError = null;
+        this.isManualPickerLoading = false;
+      },
+      () => this.runManualPickerSearch()
+    );
   }
 
   closeManualPickerModal(): void {
-    this.isManualPickerModalOpen = false;
-    this.manualPickerQuery = '';
-    this.manualPickerResults = [];
-    this.manualPickerError = null;
-    this.isManualPickerLoading = false;
-    this.changeDetectorRef.markForCheck();
+    this.closeCatalogPickerModal(() => {
+      this.isManualPickerModalOpen = false;
+      this.manualPickerQuery = '';
+      this.manualPickerResults = [];
+      this.manualPickerError = null;
+      this.isManualPickerLoading = false;
+    });
   }
 
   onManualPickerQueryInput(event: Event): void {
-    const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.manualPickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
+    this.updateCatalogPickerQuery(event, (query) => {
+      this.manualPickerQuery = query;
+    });
   }
 
   async runManualPickerSearch(): Promise<void> {
@@ -3279,10 +3278,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.presentToast('Manual override cleared.');
   }
 
-  openRomPickerModal(): void {
-    if (this.romCatalogUnavailable && this.romResolvedSource !== 'override') {
-      const reason = this.romCatalogUnavailableReason ?? 'ROM catalog is unavailable.';
-      void this.presentToast(reason, 'warning');
+  private openCatalogPickerModal(
+    blockReason: string | null,
+    initializeState: (query: string) => void,
+    runSearch: () => Promise<void>
+  ): void {
+    if (blockReason) {
+      void this.presentToast(blockReason, 'warning');
       return;
     }
 
@@ -3291,27 +3293,54 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    this.isRomPickerModalOpen = true;
-    this.romPickerQuery = game.title.trim();
-    this.romPickerResults = [];
-    this.romPickerError = null;
-    this.isRomPickerLoading = false;
+    initializeState(game.title.trim());
     this.changeDetectorRef.markForCheck();
-    void this.runRomPickerSearch();
+    void runSearch();
+  }
+
+  private closeCatalogPickerModal(resetState: () => void): void {
+    resetState();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private updateCatalogPickerQuery(event: Event, setQuery: (query: string) => void): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    setQuery((customEvent.detail.value ?? '').replace(/^\s+/, ''));
+  }
+
+  openRomPickerModal(): void {
+    const blockReason =
+      this.romCatalogUnavailable && this.romResolvedSource !== 'override'
+        ? (this.romCatalogUnavailableReason ?? 'ROM catalog is unavailable.')
+        : null;
+
+    this.openCatalogPickerModal(
+      blockReason,
+      (query) => {
+        this.isRomPickerModalOpen = true;
+        this.romPickerQuery = query;
+        this.romPickerResults = [];
+        this.romPickerError = null;
+        this.isRomPickerLoading = false;
+      },
+      () => this.runRomPickerSearch()
+    );
   }
 
   closeRomPickerModal(): void {
-    this.isRomPickerModalOpen = false;
-    this.romPickerQuery = '';
-    this.romPickerResults = [];
-    this.romPickerError = null;
-    this.isRomPickerLoading = false;
-    this.changeDetectorRef.markForCheck();
+    this.closeCatalogPickerModal(() => {
+      this.isRomPickerModalOpen = false;
+      this.romPickerQuery = '';
+      this.romPickerResults = [];
+      this.romPickerError = null;
+      this.isRomPickerLoading = false;
+    });
   }
 
   onRomPickerQueryInput(event: Event): void {
-    const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.romPickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
+    this.updateCatalogPickerQuery(event, (query) => {
+      this.romPickerQuery = query;
+    });
   }
 
   async runRomPickerSearch(): Promise<void> {

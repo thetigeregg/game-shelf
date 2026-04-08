@@ -215,6 +215,14 @@ export function registerRomRoutes(app: FastifyInstance, options: RegisterRomRout
       const candidates = scored
         .slice(0, MAX_CANDIDATES)
         .map((item) => toRomCandidateResponse(item.entry, normalizedRomsPublicBaseUrl, item.score));
+      if (scored.length === 0) {
+        reply.send({
+          status: 'none',
+          candidates,
+        });
+        return;
+      }
+
       const top = scored[0];
       const scoreGap = scored.length > 1 ? top.score - scored[1].score : top.score;
 

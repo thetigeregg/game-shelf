@@ -35,6 +35,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
 
+### ROM matching behavior
+
+- `GET /v1/roms/resolve` performs automatic matching for normal ROM files.
+- Files located inside multi-file ROM folders are intentionally excluded from automatic matching.
+- `GET /v1/roms/search` still returns those files so users can manually pick the correct ROM from the frontend `Find ROM` flow.
+
 ### Metadata query parameters
 
 - `GET /v1/hltb/search`

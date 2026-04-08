@@ -283,6 +283,8 @@ ROM files:
 - Store ROMs under `nas-data/roms`.
 - Use platform folders that end with `__pid-<platformIgdbId>` (example: `Nintendo NES__pid-18`).
 - The app serves files at `/roms/...` and the API scans `/data/roms` for fuzzy matching.
+- For multi-file ROM folders, automatic `/v1/roms/resolve` matching is intentionally disabled.
+- Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
 
 ## Local Docker-based API development
 

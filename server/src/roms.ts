@@ -26,6 +26,7 @@ interface RomCatalogEntry {
   normalizedTitle: string;
   tokens: string[];
   trigrams: Set<string>;
+  canAutoMatch: boolean;
 }
 
 interface RomCatalog {
@@ -217,7 +218,11 @@ export function registerRomRoutes(app: FastifyInstance, options: RegisterRomRout
       const top = scored[0];
       const scoreGap = scored.length > 1 ? top.score - scored[1].score : top.score;
 
-      if (top.score >= AUTO_MATCH_MIN_SCORE && scoreGap >= AUTO_MATCH_MIN_GAP) {
+      if (
+        top.entry.canAutoMatch &&
+        top.score >= AUTO_MATCH_MIN_SCORE &&
+        scoreGap >= AUTO_MATCH_MIN_GAP
+      ) {
         reply.send({
           status: 'matched',
           bestMatch: {
@@ -387,7 +392,7 @@ async function scanRomsDirectory(romsDir: string): Promise<RomCatalog> {
   }
 
   const entries: RomCatalogEntry[] = [];
-  await walkRoms(romsDir, '', null, entries);
+  await walkRoms(romsDir, '', null, entries, false);
 
   return {
     entries: entries.sort((left, right) =>
@@ -414,7 +419,8 @@ async function walkRoms(
   baseDir: string,
   relativeDir: string,
   activePlatformId: number | null,
-  output: RomCatalogEntry[]
+  output: RomCatalogEntry[],
+  withinMultiFileFolder: boolean
 ): Promise<void> {
   const absoluteDir = relativeDir ? path.join(baseDir, relativeDir) : baseDir;
   const children = await fs.readdir(absoluteDir, { withFileTypes: true });
@@ -425,40 +431,9 @@ async function walkRoms(
     if (child.isDirectory()) {
       const parsedPlatformId = parsePlatformIdFromFolderName(child.name);
       const nextPlatformId = parsedPlatformId ?? activePlatformId;
-
-      // Multi-file ROM sets are modeled as one matchable entry by using
-      // the first file in the folder as a representative launch target.
-      if (nextPlatformId !== null && parsedPlatformId === null) {
-        const childAbsoluteDir = path.join(baseDir, childRelative);
-        const childEntries = await fs.readdir(childAbsoluteDir, { withFileTypes: true });
-        const fileEntries = childEntries
-          .filter((entry) => entry.isFile())
-          .sort((left, right) => left.name.localeCompare(right.name));
-
-        if (fileEntries.length === 0) {
-          await walkRoms(baseDir, childRelative, nextPlatformId, output);
-          continue;
-        }
-
-        const representativeFile = fileEntries[0];
-        const normalizedRelativePath = normalizeRomRelativePath(
-          path.posix.join(childRelative, representativeFile.name)
-        );
-        const normalizedTitle = normalizeRomTitle(child.name);
-
-        output.push({
-          platformIgdbId: nextPlatformId,
-          fileName: child.name,
-          relativePath: normalizedRelativePath,
-          normalizedTitle,
-          tokens: normalizedTitle.split(' ').filter(Boolean),
-          trigrams: buildTrigrams(normalizedTitle),
-        });
-
-        continue;
-      }
-
-      await walkRoms(baseDir, childRelative, nextPlatformId, output);
+      const nextWithinMultiFileFolder =
+        withinMultiFileFolder || (nextPlatformId !== null && parsedPlatformId === null);
+      await walkRoms(baseDir, childRelative, nextPlatformId, output, nextWithinMultiFileFolder);
       continue;
     }
 
@@ -486,6 +461,7 @@ async function walkRoms(
       normalizedTitle,
       tokens: normalizedTitle.split(' ').filter(Boolean),
       trigrams: buildTrigrams(normalizedTitle),
+      canAutoMatch: !withinMultiFileFolder,
     });
   }
 }
@@ -672,6 +648,7 @@ interface RomCatalogSnapshotEntry {
   normalizedTitle: string;
   tokens?: unknown;
   trigrams?: unknown;
+  canAutoMatch?: unknown;
 }
 
 interface SerializedRomCatalogSnapshotRecord {
@@ -798,6 +775,7 @@ function normalizeRomCatalogEntrySnapshot(value: unknown): RomCatalogEntry | nul
     normalizedTitle,
     tokens,
     trigrams,
+    canAutoMatch: entry.canAutoMatch !== false,
   };
 }
 
@@ -809,6 +787,7 @@ function serializeRomCatalogForSnapshot(catalog: RomCatalog): {
     normalizedTitle: string;
     tokens: string[];
     trigrams: string[];
+    canAutoMatch: boolean;
   }>;
   unavailable: boolean;
   reason: string | null;
@@ -821,6 +800,7 @@ function serializeRomCatalogForSnapshot(catalog: RomCatalog): {
       normalizedTitle: entry.normalizedTitle,
       tokens: entry.tokens,
       trigrams: Array.from(entry.trigrams),
+      canAutoMatch: entry.canAutoMatch,
     })),
     unavailable: catalog.unavailable,
     reason: catalog.reason,

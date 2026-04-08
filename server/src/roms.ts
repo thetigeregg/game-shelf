@@ -426,29 +426,36 @@ async function walkRoms(
       const parsedPlatformId = parsePlatformIdFromFolderName(child.name);
       const nextPlatformId = parsedPlatformId ?? activePlatformId;
 
-      // Multi-file ROM sets are modeled as one matchable folder entry.
+      // Multi-file ROM sets are modeled as one matchable entry by using
+      // the first file in the folder as a representative launch target.
       if (nextPlatformId !== null && parsedPlatformId === null) {
         const childAbsoluteDir = path.join(baseDir, childRelative);
         const childEntries = await fs.readdir(childAbsoluteDir, { withFileTypes: true });
-        const hasFiles = childEntries.some((entry) => entry.isFile());
+        const fileEntries = childEntries
+          .filter((entry) => entry.isFile())
+          .sort((left, right) => left.name.localeCompare(right.name));
 
-        if (hasFiles) {
-          const normalizedRelativePath = normalizeRomRelativePath(childRelative);
-          const normalizedTitle = normalizeRomTitle(child.name);
-
-          if (normalizedRelativePath && normalizedTitle) {
-            output.push({
-              platformIgdbId: nextPlatformId,
-              fileName: child.name,
-              relativePath: normalizedRelativePath,
-              normalizedTitle,
-              tokens: normalizedTitle.split(' ').filter(Boolean),
-              trigrams: buildTrigrams(normalizedTitle),
-            });
-          }
-
+        if (fileEntries.length === 0) {
+          await walkRoms(baseDir, childRelative, nextPlatformId, output);
           continue;
         }
+
+        const representativeFile = fileEntries[0];
+        const normalizedRelativePath = normalizeRomRelativePath(
+          path.posix.join(childRelative, representativeFile.name)
+        );
+        const normalizedTitle = normalizeRomTitle(child.name);
+
+        output.push({
+          platformIgdbId: nextPlatformId,
+          fileName: child.name,
+          relativePath: normalizedRelativePath,
+          normalizedTitle,
+          tokens: normalizedTitle.split(' ').filter(Boolean),
+          trigrams: buildTrigrams(normalizedTitle),
+        });
+
+        continue;
       }
 
       await walkRoms(baseDir, childRelative, nextPlatformId, output);

@@ -26,7 +26,7 @@ const IGDB_PLATFORM_ID_TO_EMULATOR_JS_CORE = new Map<number, string>([
   [61, 'lynx'],
   [62, 'jaguar'],
   [64, 'segaMS'],
-  [68, 'colecovision'],
+  [68, 'coleco'],
   [78, 'segaCD'],
   [79, 'arcade'],
   [80, 'arcade'],

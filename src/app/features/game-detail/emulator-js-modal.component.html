@@ -1,13 +1,5 @@
 <ion-modal [isOpen]="isOpen" class="emulator-js-modal" (didDismiss)="onClose()">
   <ng-template>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Play ROM</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="onClose()">Close</ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
     <ion-content class="emulator-js-modal-content gs-safe-bottom" [scrollY]="false">
       @if (safeLaunchUrl) {
         <iframe

@@ -111,6 +111,9 @@ import { GameRowReleaseDateDisplayService } from '../../core/services/game-row-r
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { IgdbProxyService } from '../../core/api/igdb-proxy.service';
+import { environment } from '../../../environments/environment';
+import { buildEmulatorJsPlayShellUrl } from '../../core/utils/emulatorjs-play-url';
+import { resolveEmulatorJsCore } from '../../core/utils/emulatorjs-platform-map';
 import {
   createClosedHltbPickerState,
   createClosedReviewPickerState,
@@ -146,6 +149,7 @@ import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
 import { DetailWebsitesModalComponent } from '../game-detail/detail-websites-modal.component';
+import { EmulatorJsModalComponent } from '../game-detail/emulator-js-modal.component';
 import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
@@ -302,6 +306,7 @@ type NotesToolbarAction =
     GameDetailContentComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
+    EmulatorJsModalComponent,
     SimilarGameRowComponent,
   ],
 })
@@ -478,6 +483,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   romResolvedSource: 'override' | 'fuzzy' | null = null;
   romCatalogUnavailable = false;
   romCatalogUnavailableReason: string | null = null;
+  isEmulatorJsModalOpen = false;
+  emulatorJsLaunchUrl: string | null = null;
   detailTextExpanded = {
     summary: false,
     storyline: false,
@@ -3181,8 +3188,78 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openExternalUrl(url);
   }
 
-  openRomPlaceholder(): void {
-    // ROM launch integration is intentionally deferred in this pass.
+  async openRomInEmulator(): Promise<void> {
+    const game = this.selectedGame;
+    const romUrl = this.romResolvedUrl;
+
+    if (!game || !romUrl) {
+      return;
+    }
+
+    const displayPlatform = this.getGameDisplayPlatform(game);
+    const canonicalPlatformIgdbId =
+      this.platformCustomizationService.resolveCanonicalPlatformIgdbId(
+        displayPlatform.name,
+        displayPlatform.igdbId
+      );
+
+    if (canonicalPlatformIgdbId === null) {
+      await this.presentEmulatorUnsupportedToast();
+      return;
+    }
+
+    const core = resolveEmulatorJsCore(canonicalPlatformIgdbId);
+
+    if (!core) {
+      await this.presentEmulatorUnsupportedToast();
+      return;
+    }
+
+    const origin =
+      typeof globalThis.location !== 'undefined' ? globalThis.location.origin.trim() : '';
+
+    if (origin.length === 0) {
+      return;
+    }
+
+    let launchUrl: string;
+
+    try {
+      launchUrl = buildEmulatorJsPlayShellUrl({
+        origin,
+        core,
+        romUrl,
+        gameTitle: game.title,
+        pathToData: environment.emulatorJsPathToData,
+      });
+    } catch {
+      const toast = await this.toastController.create({
+        message: 'Unable to start the emulator.',
+        duration: 2800,
+        color: 'danger',
+      });
+      await toast.present();
+      return;
+    }
+
+    this.emulatorJsLaunchUrl = launchUrl;
+    this.isEmulatorJsModalOpen = true;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  closeEmulatorJsModal(): void {
+    this.isEmulatorJsModalOpen = false;
+    this.emulatorJsLaunchUrl = null;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private async presentEmulatorUnsupportedToast(): Promise<void> {
+    const toast = await this.toastController.create({
+      message: 'In-browser play is not available for this platform yet.',
+      duration: 3200,
+      color: 'medium',
+    });
+    await toast.present();
   }
 
   openManualPickerModal(): void {

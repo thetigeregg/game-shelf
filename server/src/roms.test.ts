@@ -151,6 +151,49 @@ void test('resolve endpoint returns none for ambiguous title', async () => {
   await fs.rm(rootDir, { recursive: true, force: true });
 });
 
+void test('resolve does not auto-match files inside multi-file folders', async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'roms-multifile-no-auto-'));
+  await fs.mkdir(path.join(rootDir, 'Sony PlayStation__pid-7/Metal Gear Solid (USA)'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(rootDir, 'Sony PlayStation__pid-7/Metal Gear Solid (USA)/Metal Gear Solid.cue'),
+    'pdf'
+  );
+  await fs.writeFile(
+    path.join(rootDir, 'Sony PlayStation__pid-7/Metal Gear Solid (USA)/Metal Gear Solid.bin'),
+    'pdf'
+  );
+
+  const app = Fastify();
+  registerRomRoutes(app, {
+    romsDir: rootDir,
+    romsPublicBaseUrl: '/roms',
+  });
+
+  const resolve = await app.inject({
+    method: 'GET',
+    url: '/v1/roms/resolve?platformIgdbId=7&title=Metal%20Gear%20Solid',
+  });
+  assert.equal(resolve.statusCode, 200);
+  const resolvePayload = parseJson(resolve.body) as MatchPayload;
+  assert.equal(resolvePayload.status, 'none');
+  assert.ok(Array.isArray(resolvePayload.candidates));
+  assert.ok(resolvePayload.candidates.length >= 1);
+
+  const search = await app.inject({
+    method: 'GET',
+    url: '/v1/roms/search?platformIgdbId=7&q=Metal%20Gear%20Solid',
+  });
+  assert.equal(search.statusCode, 200);
+  const searchPayload = parseJson(search.body) as SearchPayload;
+  assert.ok(searchPayload.items.some((item) => (item.relativePath ?? '').endsWith('.cue')));
+  assert.ok(searchPayload.items.some((item) => (item.relativePath ?? '').endsWith('.bin')));
+
+  await app.close();
+  await fs.rm(rootDir, { recursive: true, force: true });
+});
+
 void test('search endpoint lists and ranks candidates by platform', async () => {
   const fixture = await buildFixtureTree();
   const app = Fastify();

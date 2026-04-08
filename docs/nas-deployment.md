@@ -7,6 +7,7 @@
    - `nas-data/postgres`
    - `nas-data/image-cache`
    - `nas-data/manuals`
+   - `nas-data/roms`
 
 ## 2. Create Portainer stack
 
@@ -44,7 +45,7 @@ Required app secrets (one secret per file):
 
 Common stack env vars:
 
-- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
+- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`, `roms`)
 - `SECRETS_HOST_DIR` (required: absolute host path to your secrets directory, e.g. `/volume1/docker/secrets/gameshelf`)
 - `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
 - `DATABASE_URL_FILE`
@@ -166,6 +167,8 @@ Common stack env vars:
 - `CACHE_REVALIDATION_JOB_CONCURRENCY` (optional; default `2`; consumed by `worker-general`)
 - `MANUALS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `worker-general`)
 - `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
+- `ROMS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `worker-general`)
+- `ROMS_DIR` (optional; default `/data/roms`; should match mounted ROMs path)
 
 Queue recovery behavior:
 
@@ -248,6 +251,7 @@ You can override individual directories if needed:
 - `POSTGRES_HOST_DIR`
 - `IMAGE_CACHE_HOST_DIR`
 - `MANUALS_HOST_DIR`
+- `ROMS_HOST_DIR`
 
 ## 3. Start stack
 
@@ -273,6 +277,14 @@ Manual PDFs:
 - Store PDFs under `nas-data/manuals`.
 - Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation 2__pid-8`).
 - The app serves files at `/manuals/...` and the API scans `/data/manuals` for fuzzy matching.
+
+ROM files:
+
+- Store ROMs under `nas-data/roms`.
+- Use platform folders that end with `__pid-<platformIgdbId>` (example: `Nintendo NES__pid-18`).
+- The app serves files at `/roms/...` and the API scans `/data/roms` for fuzzy matching.
+- For multi-file ROM folders, automatic `/v1/roms/resolve` matching is intentionally disabled.
+- Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
 
 ## Local Docker-based API development
 
@@ -391,7 +403,7 @@ Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be 
 npm run dev:info
 ```
 
-In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual PDF links resolve without a separate host script.
+In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual links resolve without a separate host script.
 After first launch on each device, open `Settings -> Debug -> Device Write Token` and set a token listed in `client_write_tokens`.
 
 ## 4. Publish over Tailscale only
@@ -442,6 +454,7 @@ Recommended excludes:
 
 - `nas-data/postgres` (raw live DB files)
 - `nas-data/manuals` (explicitly excluded per current backup policy)
+- `nas-data/roms` (explicitly excluded per current backup policy)
 - transient container/cache data outside your intended persisted dirs
 
 Nightly scheduling is handled by the `backup` container itself (cron inside container).

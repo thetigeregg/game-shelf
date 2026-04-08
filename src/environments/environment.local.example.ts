@@ -2,6 +2,7 @@ export const environment = {
   production: false,
   gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
+  romsBaseUrl: '/roms',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

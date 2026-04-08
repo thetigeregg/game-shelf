@@ -28,6 +28,7 @@ import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { registerRomRoutes } from './roms.js';
 import { registerNotificationRoutes } from './notifications.js';
 import { registerPopularityRoutes } from './popularity/routes.js';
 import { startReleaseMonitor } from './release-monitor.js';
@@ -279,6 +280,21 @@ async function main(): Promise<void> {
         void backgroundJobs.enqueue({
           jobType: 'manuals_catalog_refresh',
           dedupeKey: 'manuals-catalog-refresh',
+          payload,
+          priority: 110,
+          maxAttempts: 3,
+        });
+      },
+    });
+    registerRomRoutes(app, {
+      romsDir: config.romsDir,
+      romsPublicBaseUrl: config.romsPublicBaseUrl,
+      mode: 'queue',
+      queuePool: pool,
+      enqueueCatalogRefreshJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'roms_catalog_refresh',
+          dedupeKey: 'roms-catalog-refresh',
           payload,
           priority: 110,
           maxAttempts: 3,

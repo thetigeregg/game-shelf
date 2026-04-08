@@ -67,6 +67,9 @@
         window.EJS_startOnLoaded = true;
         /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;
            auto-fullscreen after ROM load is denied in iframes and EmulatorJS throws. */
+        window.EJS_defaultOptions = {
+          shader: 'crt-geom.glslp',
+        };
 
         var debugRaw = (params.get('debug') || '').toLowerCase();
         if (debugRaw === '1' || debugRaw === 'true' || debugRaw === 'yes') {

@@ -35,6 +35,8 @@ export type RateLimitPolicyName =
   | 'background_jobs_replay'
   | 'manuals_read'
   | 'manuals_refresh'
+  | 'roms_read'
+  | 'roms_refresh'
   | 'popularity_feed'
   | 'steam_prices'
   | 'psprices_prices'

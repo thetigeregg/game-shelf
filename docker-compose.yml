@@ -29,6 +29,7 @@ services:
       - '127.0.0.1:${EDGE_HOST_PORT:-8080}:8080'
     volumes:
       - ./nas-data/manuals:/manuals:ro
+      - ./nas-data/roms:/roms:ro
     restart: unless-stopped
 
   api:
@@ -195,6 +196,8 @@ services:
       RATE_LIMIT_OUTBOUND_MOBYGAMES_MAX_DELAY_MS: ${RATE_LIMIT_OUTBOUND_MOBYGAMES_MAX_DELAY_MS:-30000}
       MANUALS_DIR: ${MANUALS_DIR:-/data/manuals}
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-/manuals}
+      ROMS_DIR: ${ROMS_DIR:-/data/roms}
+      ROMS_PUBLIC_BASE_URL: ${ROMS_PUBLIC_BASE_URL:-/roms}
       RECOMMENDATIONS_DAILY_STALE_HOURS: ${RECOMMENDATIONS_DAILY_STALE_HOURS:-24}
       RECOMMENDATIONS_TOP_LIMIT: ${RECOMMENDATIONS_TOP_LIMIT:-200}
       RECOMMENDATIONS_SIMILARITY_K: ${RECOMMENDATIONS_SIMILARITY_K:-20}
@@ -254,6 +257,7 @@ services:
     volumes:
       - ./nas-data/image-cache:/data/images
       - ./nas-data/manuals:/data/manuals:ro
+      - ./nas-data/roms:/data/roms:ro
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped
 
@@ -304,6 +308,7 @@ services:
       DISCOVERY_ENRICHMENT_JOB_CONCURRENCY: ${DISCOVERY_ENRICHMENT_JOB_CONCURRENCY:-1}
       CACHE_REVALIDATION_JOB_CONCURRENCY: ${CACHE_REVALIDATION_JOB_CONCURRENCY:-2}
       MANUALS_CATALOG_JOB_CONCURRENCY: ${MANUALS_CATALOG_JOB_CONCURRENCY:-1}
+      ROMS_CATALOG_JOB_CONCURRENCY: ${ROMS_CATALOG_JOB_CONCURRENCY:-1}
       METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES: ${METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES:-60}
       RELEASE_MONITOR_DEBUG_LOGS: ${RELEASE_MONITOR_DEBUG_LOGS:-false}
       HLTB_PERIODIC_REFRESH_YEARS: ${HLTB_PERIODIC_REFRESH_YEARS:-3}
@@ -311,6 +316,7 @@ services:
       METACRITIC_PERIODIC_REFRESH_YEARS: ${METACRITIC_PERIODIC_REFRESH_YEARS:-3}
       METACRITIC_PERIODIC_REFRESH_DAYS: ${METACRITIC_PERIODIC_REFRESH_DAYS:-30}
       MANUALS_DIR: ${MANUALS_DIR:-/data/manuals}
+      ROMS_DIR: ${ROMS_DIR:-/data/roms}
       RECOMMENDATIONS_DAILY_STALE_HOURS: ${RECOMMENDATIONS_DAILY_STALE_HOURS:-24}
       RECOMMENDATIONS_TOP_LIMIT: ${RECOMMENDATIONS_TOP_LIMIT:-200}
       RECOMMENDATIONS_SIMILARITY_K: ${RECOMMENDATIONS_SIMILARITY_K:-20}
@@ -391,6 +397,7 @@ services:
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
+      - ./nas-data/roms:/data/roms:ro
     restart: unless-stopped
 
   worker-recommendations:
@@ -411,6 +418,7 @@ services:
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
+      - ./nas-data/roms:/data/roms:ro
     restart: unless-stopped
 
   postgres:

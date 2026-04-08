@@ -6,6 +6,7 @@ export const environment = {
   production: false,
   gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
+  romsBaseUrl: '/roms',
   firebase: {
     apiKey: '',
     authDomain: '',

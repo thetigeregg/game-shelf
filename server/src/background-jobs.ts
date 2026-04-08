@@ -12,7 +12,8 @@ export type BackgroundJobType =
   | 'mobygames_cache_revalidate'
   | 'steam_price_revalidate'
   | 'psprices_price_revalidate'
-  | 'manuals_catalog_refresh';
+  | 'manuals_catalog_refresh'
+  | 'roms_catalog_refresh';
 
 interface BackgroundJobInsertRow extends QueryResultRow {
   id: number;

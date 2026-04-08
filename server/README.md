@@ -24,11 +24,14 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `POST /v1/notifications/test` (optional, debug/admin)
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
+- `GET /v1/roms/resolve`
+- `GET /v1/roms/search`
 - `GET /v1/recommendations/top`
 - `GET /v1/recommendations/lanes`
 - `GET /v1/recommendations/similar/:igdbGameId`
 - `POST /v1/recommendations/rebuild`
 - `POST /v1/manuals/refresh`
+- `POST /v1/roms/refresh`
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
 
@@ -263,6 +266,10 @@ Inbound policies:
 - `RATE_LIMIT_INBOUND_MANUALS_READ_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_MANUALS_REFRESH_MAX_REQUESTS`
 - `RATE_LIMIT_INBOUND_MANUALS_REFRESH_WINDOW_MS`
+- `RATE_LIMIT_INBOUND_ROMS_READ_MAX_REQUESTS`
+- `RATE_LIMIT_INBOUND_ROMS_READ_WINDOW_MS`
+- `RATE_LIMIT_INBOUND_ROMS_REFRESH_MAX_REQUESTS`
+- `RATE_LIMIT_INBOUND_ROMS_REFRESH_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_POPULARITY_FEED_MAX_REQUESTS`
 - `RATE_LIMIT_INBOUND_POPULARITY_FEED_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_STEAM_PRICES_MAX_REQUESTS`
@@ -324,6 +331,8 @@ Scope note:
 - `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
 - `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `MANUALS_DIR` (used by API and worker; default `/data/manuals` in Docker)
+- `ROMS_CATALOG_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
+- `ROMS_DIR` (used by API and worker; default `/data/roms` in Docker)
 
 Stale recovery behavior:
 

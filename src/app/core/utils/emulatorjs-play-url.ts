@@ -14,6 +14,21 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   debug?: boolean;
   /** Override play shell path for tests. */
   playShellPath?: string;
+  /**
+   * EmulatorJS preset shader filename (e.g. `crt-geom.glslp`). Omitted from the URL when null/empty.
+   * Validated with `isSafeEmulatorJsShaderFileName`.
+   */
+  defaultShader?: string | null;
+}
+
+/** Single-segment shader preset filename safe to pass in the play shell query string. */
+export function isSafeEmulatorJsShaderFileName(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 128) {
+    return false;
+  }
+
+  return /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.glslp$/.test(trimmed);
 }
 
 function normalizePathToData(value: string): string {
@@ -67,6 +82,15 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('bios', resolvedBios.href);
+  }
+
+  const shaderCandidate =
+    typeof params.defaultShader === 'string' ? params.defaultShader.trim() : '';
+  if (shaderCandidate.length > 0) {
+    if (!isSafeEmulatorJsShaderFileName(shaderCandidate)) {
+      throw new Error('Invalid default shader for EmulatorJS play shell');
+    }
+    pageUrl.searchParams.set('shader', shaderCandidate);
   }
 
   return pageUrl.href;

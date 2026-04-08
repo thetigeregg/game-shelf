@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildEmulatorJsPlayShellUrl, isAllowedEmulatorJsRomUrl } from './emulatorjs-play-url';
+import {
+  buildEmulatorJsBiosUrl,
+  buildEmulatorJsPlayShellUrl,
+  isAllowedEmulatorJsBiosUrl,
+  isAllowedEmulatorJsRomUrl,
+  isSafeEmulatorJsBiosRelativePath,
+} from './emulatorjs-play-url';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
   it('builds a play shell URL with normalized pathtodata', () => {
@@ -43,6 +49,73 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     });
 
     expect(new URL(href).pathname).toBe('/custom/play.html');
+  });
+
+  it('appends bios when a valid same-origin /bios/ URL is provided', () => {
+    const biosUrl = 'https://example.com/bios/psx/scph1001.bin';
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'psx',
+      romUrl: '/roms/game.bin',
+      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      biosUrl,
+    });
+    expect(new URL(href).searchParams.get('bios')).toBe(biosUrl);
+  });
+
+  it('throws when bios URL is not under /bios/', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'psx',
+        romUrl: '/roms/game.bin',
+        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+        biosUrl: 'https://example.com/roms/evil.bin',
+      })
+    ).toThrow(/Invalid BIOS URL/);
+  });
+});
+
+describe('buildEmulatorJsBiosUrl', () => {
+  it('joins biosBaseUrl and a safe relative path', () => {
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', 'psx/scph1001.bin')).toBe(
+      'https://app.test/bios/psx/scph1001.bin'
+    );
+  });
+
+  it('returns null for traversal or empty segments', () => {
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '../x.bin')).toBeNull();
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', 'a//b.bin')).toBeNull();
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '/abs.bin')).toBeNull();
+  });
+});
+
+describe('isSafeEmulatorJsBiosRelativePath', () => {
+  it('accepts normal nested paths', () => {
+    expect(isSafeEmulatorJsBiosRelativePath('psx/scph1001.bin')).toBe(true);
+  });
+
+  it('rejects unsafe paths', () => {
+    expect(isSafeEmulatorJsBiosRelativePath('..')).toBe(false);
+    expect(isSafeEmulatorJsBiosRelativePath('a/../b')).toBe(false);
+  });
+});
+
+describe('isAllowedEmulatorJsBiosUrl', () => {
+  it('allows same-origin /bios/ URLs', () => {
+    expect(
+      isAllowedEmulatorJsBiosUrl('https://app.test/bios/psx/scph1001.bin', 'https://app.test')
+    ).toBe(true);
+    expect(isAllowedEmulatorJsBiosUrl('/bios/x.bin', 'https://app.test')).toBe(true);
+  });
+
+  it('rejects other origins and paths', () => {
+    expect(isAllowedEmulatorJsBiosUrl('https://evil.test/bios/x.bin', 'https://app.test')).toBe(
+      false
+    );
+    expect(isAllowedEmulatorJsBiosUrl('https://app.test/roms/x.bin', 'https://app.test')).toBe(
+      false
+    );
   });
 });
 

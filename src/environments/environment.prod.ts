@@ -3,6 +3,7 @@ export const environment = {
   gameApiBaseUrl: '/api',
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
+  biosBaseUrl: '/bios',
   emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
   emulatorJsDebug: false,
   firebase: {

@@ -19,6 +19,11 @@
     file_server
   }
 
+  handle_path /roms/* {
+    root * /roms
+    file_server
+  }
+
   handle {
     root * /srv
     try_files {path} /index.html

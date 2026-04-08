@@ -88,6 +88,8 @@ export default {
       proxyRoutes: {
         '/v1': 'API_HOST_PORT',
         '/manuals': 'EDGE_HOST_PORT',
+        '/roms': 'EDGE_HOST_PORT',
+        '/bios': 'EDGE_HOST_PORT',
       },
       localEnvironmentFile: 'src/environments/environment.local.ts',
       buildRoot: 'www/browser',

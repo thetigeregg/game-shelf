@@ -8,6 +8,7 @@
    - `nas-data/image-cache`
    - `nas-data/manuals`
    - `nas-data/roms`
+   - `nas-data/bios`
 
 ## 2. Create Portainer stack
 
@@ -45,7 +46,7 @@ Required app secrets (one secret per file):
 
 Common stack env vars:
 
-- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`, `roms`)
+- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`, `roms`, `bios`)
 - `SECRETS_HOST_DIR` (required: absolute host path to your secrets directory, e.g. `/volume1/docker/secrets/gameshelf`)
 - `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
 - `DATABASE_URL_FILE`
@@ -169,6 +170,7 @@ Common stack env vars:
 - `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
 - `ROMS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `worker-general`)
 - `ROMS_DIR` (optional; default `/data/roms`; should match mounted ROMs path)
+- `BIOS_PUBLIC_BASE_URL` (optional; default `/bios`; used by frontend EmulatorJS integration)
 
 Queue recovery behavior:
 
@@ -252,6 +254,7 @@ You can override individual directories if needed:
 - `IMAGE_CACHE_HOST_DIR`
 - `MANUALS_HOST_DIR`
 - `ROMS_HOST_DIR`
+- `BIOS_HOST_DIR`
 
 ## 3. Start stack
 
@@ -285,6 +288,12 @@ ROM files:
 - The app serves files at `/roms/...` and the API scans `/data/roms` for fuzzy matching.
 - For multi-file ROM folders, automatic `/v1/roms/resolve` matching is intentionally disabled.
 - Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
+
+BIOS files:
+
+- Store BIOS files under `nas-data/bios`.
+- Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation__pid-7`).
+- The app serves BIOS assets at `/bios/...` for EmulatorJS (no API indexing/matching required).
 
 ## Local Docker-based API development
 
@@ -403,7 +412,7 @@ Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be 
 npm run dev:info
 ```
 
-In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual links resolve without a separate host script.
+In local dev, Angular proxies `/manuals/...` and `/bios/...` requests to the worktree-local `edge` service so asset links resolve without a separate host script.
 After first launch on each device, open `Settings -> Debug -> Device Write Token` and set a token listed in `client_write_tokens`.
 
 ## 4. Publish over Tailscale only
@@ -455,6 +464,7 @@ Recommended excludes:
 - `nas-data/postgres` (raw live DB files)
 - `nas-data/manuals` (explicitly excluded per current backup policy)
 - `nas-data/roms` (explicitly excluded per current backup policy)
+- `nas-data/bios` (explicitly excluded per current backup policy)
 - transient container/cache data outside your intended persisted dirs
 
 Nightly scheduling is handled by the `backup` container itself (cron inside container).

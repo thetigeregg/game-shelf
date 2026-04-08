@@ -30,6 +30,7 @@ services:
     volumes:
       - ./nas-data/manuals:/manuals:ro
       - ./nas-data/roms:/roms:ro
+      - ./nas-data/bios:/bios:ro
     restart: unless-stopped
 
   api:
@@ -198,6 +199,7 @@ services:
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-/manuals}
       ROMS_DIR: ${ROMS_DIR:-/data/roms}
       ROMS_PUBLIC_BASE_URL: ${ROMS_PUBLIC_BASE_URL:-/roms}
+      BIOS_PUBLIC_BASE_URL: ${BIOS_PUBLIC_BASE_URL:-/bios}
       RECOMMENDATIONS_DAILY_STALE_HOURS: ${RECOMMENDATIONS_DAILY_STALE_HOURS:-24}
       RECOMMENDATIONS_TOP_LIMIT: ${RECOMMENDATIONS_TOP_LIMIT:-200}
       RECOMMENDATIONS_SIMILARITY_K: ${RECOMMENDATIONS_SIMILARITY_K:-20}

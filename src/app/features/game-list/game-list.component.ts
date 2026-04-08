@@ -3231,6 +3231,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         romUrl,
         gameTitle: game.title,
         pathToData: environment.emulatorJsPathToData,
+        debug: environment.emulatorJsDebug,
       });
     } catch {
       const toast = await this.toastController.create({

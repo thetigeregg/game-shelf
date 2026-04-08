@@ -19,6 +19,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     expect(parsed.searchParams.get('rom')).toBe(
       'https://example.com/roms/Nintendo%20NES__pid-18/game.nes'
     );
+    expect(parsed.searchParams.get('debug')).toBeNull();
+  });
+
+  it('appends debug=1 when debug is true', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      debug: true,
+    });
+    expect(new URL(href).searchParams.get('debug')).toBe('1');
   });
 
   it('accepts a custom play shell path', () => {

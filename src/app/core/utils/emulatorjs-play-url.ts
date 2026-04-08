@@ -8,6 +8,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   romUrl: string;
   gameTitle?: string | null;
   pathToData: string;
+  /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
+  debug?: boolean;
   /** Override play shell path for tests. */
   playShellPath?: string;
 }
@@ -43,6 +45,10 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
   }
 
   pageUrl.searchParams.set('pathtodata', normalizePathToData(params.pathToData));
+
+  if (params.debug === true) {
+    pageUrl.searchParams.set('debug', '1');
+  }
 
   return pageUrl.href;
 }

@@ -11,7 +11,19 @@ describe('resolveEmulatorJsBiosRelativePath', () => {
 
   it('returns null for cores without a bundled BIOS convention', () => {
     expect(resolveEmulatorJsBiosRelativePath('nes')).toBeNull();
+    expect(resolveEmulatorJsBiosRelativePath('nes', { romUrl: '/roms/x.nes' })).toBeNull();
     expect(resolveEmulatorJsBiosRelativePath('arcade')).toBeNull();
     expect(resolveEmulatorJsBiosRelativePath('')).toBeNull();
+  });
+
+  it('returns FDS BIOS path for nes when rom URL is an FDS disk image', () => {
+    expect(
+      resolveEmulatorJsBiosRelativePath('nes', {
+        romUrl: 'https://app.test/roms/Nintendo%20NES__pid-18/game.fds',
+      })
+    ).toBe('nes/disksys.rom');
+    expect(resolveEmulatorJsBiosRelativePath('nes', { romUrl: '/roms/folder/My%20Game.FDS' })).toBe(
+      'nes/disksys.rom'
+    );
   });
 });

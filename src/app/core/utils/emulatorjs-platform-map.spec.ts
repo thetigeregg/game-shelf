@@ -7,6 +7,8 @@ describe('resolveEmulatorJsCore', () => {
     expect(resolveEmulatorJsCore(19)).toBe('snes');
     expect(resolveEmulatorJsCore(24)).toBe('gba');
     expect(resolveEmulatorJsCore(7)).toBe('psx');
+    expect(resolveEmulatorJsCore(61)).toBe('lynx');
+    expect(resolveEmulatorJsCore(68)).toBe('coleco');
   });
 
   it('returns null for unsupported or modern platforms', () => {

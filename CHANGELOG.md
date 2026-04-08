@@ -3229,3 +3229,18 @@
 - 99fd537f Merge pull request #329 from thetigeregg/feat/bmp
 - b0b2f7f3 chore: update @tiptap packages to version 3.22.3
 - 52cf859e chore: update @typescript-eslint packages to version 8.58.1
+
+## v1.41.0 - 2026-04-08
+
+- 31c932f4 Merge pull request #330 from thetigeregg/feat/rom-map
+- 8fdc91be feat: add handling for zero-score candidates in ROM resolution endpoint
+- 682e7f2c docs: clarify ROM matching behavior for multi-file folders in deployment documentation
+- 3f0e5765 feat: implement multi-file folder handling in ROM resolution and searching logic
+- a197c66c refactor: streamline ROM picker and manual picker modal logic for improved maintainability
+- b81a2928 feat: add romsBaseUrl to production environment configuration and enhance ROM title normalization
+- f7f7db73 fix: correct capitalization of "ROM" in error messages and update test cases to include ROM routes
+- 15372417 fix: update file extensions from .pdf to .iso for God of War II in RomService tests
+- 28df5e30 docs: enhance NAS deployment documentation with ROMs support
+- 5ee703b9 style: update button colors in game list component for better visibility
+- 77b60536 refactor: move Open ROM button to a different position in the game list component
+- acef404e feat: add ROMs support with new endpoints and configurations

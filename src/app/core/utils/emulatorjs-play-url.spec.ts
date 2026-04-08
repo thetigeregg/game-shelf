@@ -5,6 +5,7 @@ import {
   isAllowedEmulatorJsBiosUrl,
   isAllowedEmulatorJsRomUrl,
   isSafeEmulatorJsBiosRelativePath,
+  isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
@@ -26,6 +27,30 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       'https://example.com/roms/Nintendo%20NES__pid-18/game.nes'
     );
     expect(parsed.searchParams.get('debug')).toBeNull();
+    expect(parsed.searchParams.get('shader')).toBeNull();
+  });
+
+  it('appends shader when defaultShader is a safe filename', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      defaultShader: 'crt-lottes.glslp',
+    });
+    expect(new URL(href).searchParams.get('shader')).toBe('crt-lottes.glslp');
+  });
+
+  it('throws when defaultShader is unsafe', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+        defaultShader: '../evil.glslp',
+      })
+    ).toThrow(/Invalid default shader/);
   });
 
   it('appends debug=1 when debug is true', () => {
@@ -87,6 +112,20 @@ describe('buildEmulatorJsBiosUrl', () => {
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '../x.bin')).toBeNull();
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', 'a//b.bin')).toBeNull();
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '/abs.bin')).toBeNull();
+  });
+});
+
+describe('isSafeEmulatorJsShaderFileName', () => {
+  it('accepts single-segment preset names', () => {
+    expect(isSafeEmulatorJsShaderFileName('crt-geom.glslp')).toBe(true);
+    expect(isSafeEmulatorJsShaderFileName('crt-lottes.glslp')).toBe(true);
+  });
+
+  it('rejects paths and bad characters', () => {
+    expect(isSafeEmulatorJsShaderFileName('a/b.glslp')).toBe(false);
+    expect(isSafeEmulatorJsShaderFileName('.hidden.glslp')).toBe(false);
+    expect(isSafeEmulatorJsShaderFileName('no-ext')).toBe(false);
+    expect(isSafeEmulatorJsShaderFileName('')).toBe(false);
   });
 });
 

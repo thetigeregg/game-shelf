@@ -1,17 +1,24 @@
 /**
  * Relative paths under the public BIOS mount (`biosBaseUrl`, default `/bios/`).
  *
- * EmulatorJS `EJS_biosUrl` is a normal file URL (docs example: `someFile.bin`). Single `.bin` /
- * `.rom` payloads work as-is; if the response is an archive, EmulatorJS may decompress it.
+ * EmulatorJS `EJS_biosUrl` is a single URL. **One file per path** for cores that only need one
+ * dump (`.bin` / `.rom` / `.img` as listed). **Multi-file BIOS:** pack every required blob into
+ * **one zip** at the path below; use exact inner filenames from EmulatorJS system docs. Zip path
+ * convention for multi-file cores: `<subdir>/<identifier>-bios.zip` (see `docs/nas-deployment.md`).
+ *
  * Filenames below are conventional — symlink or rename your dumps to match, or change this map.
  *
  * Famicom Disk System: place `disksys.rom` at `nes/disksys.rom`. It is only requested when the
  * launch ROM path ends with `.fds`, so cartridge `.nes` games do not trigger a BIOS fetch.
  *
  * Atari Lynx and ColecoVision require BIOS for all titles (`lynxboot.img`, `colecovision.rom`).
+ *
+ * Nintendo DS (`nds` / melonDS): zip at `nds/melonds-bios.zip` with `bios7.bin`, `bios9.bin`,
+ * `firmware.bin` at archive root (EmulatorJS Nintendo DS docs).
  */
 const EMULATOR_JS_CORE_TO_BIOS_RELATIVE_PATH = new Map<string, string>([
   ['psx', 'psx/scph1001.bin'],
+  ['nds', 'nds/melonds-bios.zip'],
   ['segaCD', 'segaCD/bios_CD_U.bin'],
   ['3do', '3do/panafz10.bin'],
   ['segaSaturn', 'segaSaturn/saturn_bios.bin'],

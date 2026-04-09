@@ -320,6 +320,18 @@ describe('isAllowedEmulatorJsBiosUrl', () => {
     ).toBe(false);
   });
 
+  it('rejects dot-segments (including encoded) in BIOS paths', () => {
+    expect(isAllowedEmulatorJsBiosUrl('https://app.test/bios/../x.bin', 'https://app.test')).toBe(
+      false
+    );
+    expect(
+      isAllowedEmulatorJsBiosUrl('https://app.test/bios/%2e%2e/x.bin', 'https://app.test')
+    ).toBe(false);
+    expect(
+      isAllowedEmulatorJsBiosUrl('https://app.test/bios/%252e%252e/x.bin', 'https://app.test')
+    ).toBe(false);
+  });
+
   it('supports custom bios base allowlist paths', () => {
     expect(
       isAllowedEmulatorJsBiosUrl(
@@ -360,6 +372,18 @@ describe('isAllowedEmulatorJsRomUrl', () => {
     expect(isAllowedEmulatorJsRomUrl('https://user:pass@app.test/roms/x', 'https://app.test')).toBe(
       false
     );
+  });
+
+  it('rejects dot-segments (including encoded) in ROM paths', () => {
+    expect(isAllowedEmulatorJsRomUrl('https://app.test/roms/../x.nes', 'https://app.test')).toBe(
+      false
+    );
+    expect(
+      isAllowedEmulatorJsRomUrl('https://app.test/roms/%2e%2e/x.nes', 'https://app.test')
+    ).toBe(false);
+    expect(
+      isAllowedEmulatorJsRomUrl('https://app.test/roms/%252e%252e/x.nes', 'https://app.test')
+    ).toBe(false);
   });
 
   it('supports custom rom base allowlist paths', () => {

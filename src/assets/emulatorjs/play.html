@@ -77,18 +77,28 @@
             return null;
           }
 
-          if (parsed.protocol !== 'https:') {
-            return null;
-          }
           var normalized = parsed.href;
           if (normalized.slice(-1) !== '/') {
             normalized += '/';
           }
-
-          for (var i = 0; i < ALLOWED_PATH_TO_DATA_PREFIXES.length; i += 1) {
-            if (normalized === ALLOWED_PATH_TO_DATA_PREFIXES[i]) {
+          if (normalized === SELF_HOSTED_PATH_TO_DATA) {
+            var isAllowedSelfHostedProtocol =
+              parsed.protocol === 'https:' || parsed.protocol === 'http:';
+            if (
+              isAllowedSelfHostedProtocol &&
+              parsed.origin === window.location.origin &&
+              parsed.protocol === window.location.protocol
+            ) {
               return normalized;
             }
+            return null;
+          }
+
+          if (normalized === PINNED_PATH_TO_DATA) {
+            if (parsed.protocol === 'https:') {
+              return normalized;
+            }
+            return null;
           }
           return null;
         }
@@ -211,7 +221,7 @@
           return;
         }
         if (!loaderUrl.href.startsWith(normalizedPathToData)) {
-          showError('EmulatorJS loader URL must match the pinned asset path.');
+          showError('EmulatorJS loader URL must be under the configured EmulatorJS data path.');
           return;
         }
 

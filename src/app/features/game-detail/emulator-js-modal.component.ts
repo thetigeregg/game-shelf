@@ -66,6 +66,9 @@ export class EmulatorJsModalComponent implements OnChanges {
   }
 
   onClose(): void {
+    if (!this.isOpen) {
+      return;
+    }
     this.dismiss.emit();
   }
 

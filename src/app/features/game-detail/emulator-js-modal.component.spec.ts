@@ -95,6 +95,7 @@ describe('EmulatorJsModalComponent', () => {
   it('emits dismiss when modal close handler runs', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.dismiss, 'emit');
+    component.isOpen = true;
 
     component.onClose();
 

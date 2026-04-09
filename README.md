@@ -14,6 +14,12 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 - `docs/`: Deployment and operational docs
 - `.github/workflows/`: CI, release/publish, and secret scanning pipelines
 
+## In-browser emulation (EmulatorJS)
+
+- The PWA can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
+- **`loader.js`** is loaded **cross-origin** from that base URL with **Subresource Integrity (SRI)** so only a hash-matched build executes. Defaults and pins are in `src/app/core/config/emulatorjs.constants.ts`; production injection is handled by `scripts/write-environment-prod.sh` when applicable.
+- **ROM** and **BIOS** files are still served **same-origin** from your deployment (`/roms`, `/bios`). Operational layout for BIOS on NAS/docker is described in [`docs/nas-deployment.md`](docs/nas-deployment.md) (sections **BIOS files** and **EmulatorJS runtime (`EJS_pathtodata`)**).
+
 ## Prerequisites
 
 - Node.js `22.21.1` (see `.nvmrc`)

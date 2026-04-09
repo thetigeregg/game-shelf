@@ -14,11 +14,11 @@ export const environment = {
   romsBaseUrl: '/roms',
   /** Public BIOS mount (same origin); used when a core requires `EJS_biosUrl`. */
   biosBaseUrl: '/bios',
-  /** Default EmulatorJS runtime path; app also permits same-origin `/assets/emulatorjs/data/`. */
+  /** HTTPS base URL for EmulatorJS `EJS_pathtodata` (GitHub Pages `game-shelf-assets` bundle only). */
   emulatorJsPathToData: EMULATORJS_DEFAULT_PATH_TO_DATA,
-  /** Optional SRI hash for `loader.js` at the configured `emulatorJsPathToData` (format: `sha384-...`). */
+  /** SRI for cross-origin `loader.js` under `emulatorJsPathToData` (e.g. `sha384-...`). */
   emulatorJsLoaderIntegrity: EMULATORJS_PINNED_LOADER_INTEGRITY,
-  /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */
+  /** Enables EmulatorJS `EJS_DEBUG_XX` in the play iframe (verbose console, unminified scripts). */
   emulatorJsDebug: true,
   firebase: {
     apiKey: '',

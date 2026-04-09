@@ -1,8 +1,17 @@
-import { EMULATORJS_DEFAULT_PATH_TO_DATA } from '../config/emulatorjs.constants';
+/**
+ * Builds and validates same-origin play-shell URLs for EmulatorJS. `pathToData` is the HTTPS
+ * `EJS_pathtodata` base hosted on GitHub Pages from `game-shelf-assets` (allowlisted); ROM/BIOS
+ * URLs stay same-origin. The play shell (`play.html`) enforces the same rules at runtime.
+ */
+import {
+  EMULATORJS_DEFAULT_PATH_TO_DATA,
+  EMULATORJS_REMOTE_BASE_PATH,
+} from '../config/emulatorjs.constants';
 
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
 const DEFAULT_PATH_TO_DATA = EMULATORJS_DEFAULT_PATH_TO_DATA;
-const SELF_HOSTED_PATH_TO_DATA = '/assets/emulatorjs/data/';
+const TRUSTED_REMOTE_PATH_PREFIX = new URL(EMULATORJS_REMOTE_BASE_PATH).href;
+const VERSIONED_EMULATORJS_PATH_PATTERN = /^\/game-shelf-assets\/third-party\/emulatorjs\/[^/]+\/$/;
 
 export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
@@ -11,6 +20,7 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   /** Absolute or same-origin ROM URL (validated in play shell). */
   romUrl: string;
   gameTitle?: string | null;
+  /** Absolute HTTPS URL under the game-shelf-assets EmulatorJS release path; empty uses the pinned default. */
   pathToData: string;
   /** Same-origin absolute BIOS asset URL under the normalized `biosBaseUrl` (validated; optional). */
   biosUrl?: string | null;
@@ -41,47 +51,50 @@ export function isSafeEmulatorJsShaderFileName(value: string): boolean {
   return /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\.glslp)?$/.test(trimmed);
 }
 
-function getAllowedPathToDataPrefixes(pageOrigin: string): string[] {
-  const normalizedOrigin = pageOrigin.replace(/\/+$/, '');
-  return [new URL(SELF_HOSTED_PATH_TO_DATA, `${normalizedOrigin}/`).href, DEFAULT_PATH_TO_DATA];
+function pathnameWithTrailingSlash(parsed: URL): string {
+  return parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`;
 }
 
-function normalizePathToData(value: string, pageOrigin: string): string {
+function isAllowedRemotePathToData(parsed: URL, normalizedHref: string): boolean {
+  if (parsed.protocol !== 'https:') {
+    return false;
+  }
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    return false;
+  }
+  const trustedOrigin = new URL(EMULATORJS_REMOTE_BASE_PATH).origin;
+  if (parsed.origin !== trustedOrigin) {
+    return false;
+  }
+  return (
+    normalizedHref.startsWith(TRUSTED_REMOTE_PATH_PREFIX) &&
+    VERSIONED_EMULATORJS_PATH_PATTERN.test(pathnameWithTrailingSlash(parsed))
+  );
+}
+
+function normalizePathToData(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     return DEFAULT_PATH_TO_DATA;
   }
 
-  const normalizedPageOrigin = pageOrigin.replace(/\/+$/, '');
+  if (!trimmed.includes('://')) {
+    throw new Error('Invalid EmulatorJS pathToData URL');
+  }
+
   let parsed: URL;
   try {
-    parsed = new URL(trimmed, `${normalizedPageOrigin}/`);
+    parsed = new URL(trimmed);
   } catch {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
   const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
-  const allowedPrefixes = getAllowedPathToDataPrefixes(pageOrigin);
-  if (allowedPrefixes.includes(normalized)) {
-    if (normalized === DEFAULT_PATH_TO_DATA && parsed.protocol !== 'https:') {
-      throw new Error('Invalid EmulatorJS pathToData URL');
-    }
-    if (normalized !== DEFAULT_PATH_TO_DATA) {
-      const isAllowedSelfHostedProtocol =
-        parsed.protocol === 'https:' || parsed.protocol === 'http:';
-      const pageProtocol = new URL(`${normalizedPageOrigin}/`).protocol;
-      if (
-        !isAllowedSelfHostedProtocol ||
-        parsed.origin !== normalizedPageOrigin ||
-        parsed.protocol !== pageProtocol
-      ) {
-        throw new Error('Invalid EmulatorJS pathToData URL');
-      }
-    }
-    return normalized;
+  if (!isAllowedRemotePathToData(parsed, normalized)) {
+    throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  throw new Error('Invalid EmulatorJS pathToData URL');
+  return normalized;
 }
 
 function normalizeBiosBasePath(value: string | null | undefined): string {
@@ -134,8 +147,8 @@ export function isSafeEmulatorJsCoreToken(value: string): boolean {
 }
 
 /**
- * Builds the same-origin play shell URL passed to the EmulatorJS iframe.
- * ROM and BIOS allowlisting is enforced in `play.html`.
+ * Builds the same-origin play-shell URL for the EmulatorJS iframe. Query `pathtodata` becomes
+ * EmulatorJS `EJS_pathtodata` (HTTPS static bundle). ROM and BIOS allowlisting is enforced in `play.html`.
  */
 export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlParams): string {
   const normalizedOrigin = params.origin.replace(/\/+$/, '');
@@ -166,7 +179,7 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     pageUrl.searchParams.set('title', title);
   }
 
-  const normalizedPathToData = normalizePathToData(params.pathToData, normalizedOrigin);
+  const normalizedPathToData = normalizePathToData(params.pathToData);
   pageUrl.searchParams.set('pathtodata', normalizedPathToData);
 
   if (params.debug === true) {

@@ -134,6 +134,12 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   assert.equal(tengen.title, 'R.B.I. Baseball (Tengen)');
   assert.equal(tengen.region, 'Unl');
   assert.deepEqual(tengen.flags, ['hM04']);
+
+  const collectorEdition = parseRomFileName('The Last Story (Collector Edition).iso');
+  assert.equal(collectorEdition.title, 'The Last Story (Collector Edition)');
+  assert.equal(collectorEdition.region, null);
+  assert.equal(collectorEdition.revision, null);
+  assert.deepEqual(collectorEdition.flags, []);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

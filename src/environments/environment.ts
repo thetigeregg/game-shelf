@@ -12,7 +12,7 @@ export const environment = {
   /** Default EmulatorJS runtime path; app also permits same-origin `/assets/emulatorjs/data/`. */
   emulatorJsPathToData:
     'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
-  /** Optional SRI hash for `/assets/emulatorjs/data/loader.js` (format: `sha384-...`). */
+  /** Optional SRI hash for `loader.js` at the configured `emulatorJsPathToData` (format: `sha384-...`). */
   emulatorJsLoaderIntegrity:
     'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
   /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */

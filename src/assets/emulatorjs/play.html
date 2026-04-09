@@ -81,6 +81,9 @@
           if (normalized.slice(-1) !== '/') {
             normalized += '/';
           }
+          if (!ALLOWED_PATH_TO_DATA_PREFIXES.includes(normalized)) {
+            return null;
+          }
           if (normalized === SELF_HOSTED_PATH_TO_DATA) {
             var isAllowedSelfHostedProtocol =
               parsed.protocol === 'https:' || parsed.protocol === 'http:';

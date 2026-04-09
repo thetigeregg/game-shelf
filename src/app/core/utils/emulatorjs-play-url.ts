@@ -49,9 +49,10 @@ function normalizePathToData(value: string, pageOrigin: string): string {
     return DEFAULT_PATH_TO_DATA;
   }
 
+  const normalizedPageOrigin = pageOrigin.replace(/\/+$/, '');
   let parsed: URL;
   try {
-    parsed = new URL(trimmed);
+    parsed = new URL(trimmed, `${normalizedPageOrigin}/`);
   } catch {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
@@ -69,7 +70,7 @@ function normalizePathToData(value: string, pageOrigin: string): string {
     return normalized;
   }
 
-  const page = new URL(`${pageOrigin.replace(/\/+$/, '')}/`);
+  const page = new URL(`${normalizedPageOrigin}/`);
   const isAllowedSelfHostedProtocol = parsed.protocol === 'http:' || parsed.protocol === 'https:';
   if (
     !isAllowedSelfHostedProtocol ||

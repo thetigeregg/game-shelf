@@ -96,7 +96,7 @@ export function parsePlatformIdFromFolderName(folderName: string): number | null
 }
 
 export function normalizeRomTitle(title: string): string {
-  const cleaned = normalizeRomDisplayTitle(title);
+  const cleaned = parseRomFileName(title).title;
   const strippedDiacritics = cleaned.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 
   return strippedDiacritics
@@ -114,7 +114,7 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const raw = fileName;
   const trimmed = raw.trim();
 
-  const extensionMatch = trimmed.match(/\.([^.]+)$/u);
+  const extensionMatch = trimmed.match(/\.([a-z0-9]{1,10})$/iu);
   const extension = extensionMatch ? extensionMatch[1].trim().toLowerCase() : null;
   const extensionStart = extensionMatch?.index ?? trimmed.length;
   const withoutExtension = extensionMatch ? trimmed.slice(0, Math.max(0, extensionStart)) : trimmed;

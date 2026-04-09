@@ -170,7 +170,7 @@ Common stack env vars:
 - `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
 - `ROMS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `worker-general`)
 - `ROMS_DIR` (optional; default `/data/roms`; should match mounted ROMs path)
-- `BIOS_PUBLIC_BASE_URL` (optional; default `/bios`; used by frontend EmulatorJS integration)
+- BIOS files for EmulatorJS should be exposed at the default public path `/bios`; a stack env override is not currently supported.
 
 Queue recovery behavior:
 
@@ -307,7 +307,7 @@ Expected layout (relative to `nas-data/bios`):
 | ColecoVision (`coleco`)    | `coleco/colecovision.rom`    | Required for all ColecoVision games.                                                                                           |
 | NES Famicom Disk System    | `nes/disksys.rom`            | Only requested when the launched ROM path ends with `.fds`; plain `.nes` cartridges do not use this BIOS URL.                  |
 
-Optional frontend override: set `BIOS_PUBLIC_BASE_URL` in the stack (default `/bios`) if BIOS is hosted elsewhere; see the env list above.
+Frontend note: the current frontend/play shell expects BIOS assets to be served from `/bios`.
 
 ## Local Docker-based API development
 

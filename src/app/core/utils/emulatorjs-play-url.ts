@@ -1,4 +1,9 @@
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
+const DEFAULT_PATH_TO_DATA = 'https://cdn.emulatorjs.org/stable/data/';
+const ALLOWED_PATH_TO_DATA_PREFIXES = [
+  'https://cdn.emulatorjs.org/stable/data/',
+  'https://cdn.emulatorjs.org/data/',
+] as const;
 
 export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
@@ -34,9 +39,36 @@ export function isSafeEmulatorJsShaderFileName(value: string): boolean {
 function normalizePathToData(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
-    return 'https://cdn.emulatorjs.org/stable/data/';
+    return DEFAULT_PATH_TO_DATA;
   }
-  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error('Invalid EmulatorJS pathToData URL');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Invalid EmulatorJS pathToData URL');
+  }
+
+  const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
+  const isAllowed = ALLOWED_PATH_TO_DATA_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  if (!isAllowed) {
+    throw new Error('Invalid EmulatorJS pathToData URL');
+  }
+  return normalized;
+}
+
+/** Restricts core names to a simple token (mirrors `play.html`). */
+export function isSafeEmulatorJsCoreToken(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 64) {
+    return false;
+  }
+
+  return /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(trimmed);
 }
 
 /**
@@ -45,13 +77,17 @@ function normalizePathToData(value: string): string {
  */
 export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlParams): string {
   const normalizedOrigin = params.origin.replace(/\/+$/, '');
+  const coreCandidate = params.core.trim();
+  if (!isSafeEmulatorJsCoreToken(coreCandidate)) {
+    throw new Error('Invalid emulator core for EmulatorJS play shell');
+  }
   const shellPath = params.playShellPath ?? DEFAULT_PLAY_SHELL_PATH;
   const pageUrl = new URL(
     shellPath.startsWith('/') ? shellPath : `/${shellPath}`,
     `${normalizedOrigin}/`
   );
 
-  pageUrl.searchParams.set('core', params.core);
+  pageUrl.searchParams.set('core', coreCandidate);
 
   const resolvedRom = new URL(params.romUrl, `${normalizedOrigin}/`);
   pageUrl.searchParams.set('rom', resolvedRom.href);

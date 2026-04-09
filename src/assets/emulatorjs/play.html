@@ -20,14 +20,16 @@
     <div id="game"></div>
     <script>
       (function () {
+        var DEFAULT_PATH_TO_DATA = 'https://cdn.emulatorjs.org/stable/data/';
+        var ALLOWED_PATH_TO_DATA_PREFIXES = [
+          'https://cdn.emulatorjs.org/stable/data/',
+          'https://cdn.emulatorjs.org/data/',
+        ];
         var params = new URLSearchParams(window.location.search);
         var core = params.get('core');
         var rom = params.get('rom');
         var title = params.get('title') || '';
-        var pathtodata = params.get('pathtodata') || 'https://cdn.emulatorjs.org/stable/data/';
-        if (pathtodata.slice(-1) !== '/') {
-          pathtodata += '/';
-        }
+        var pathtodata = params.get('pathtodata') || DEFAULT_PATH_TO_DATA;
 
         function showError(message) {
           var text = message || 'Invalid launch parameters';
@@ -50,8 +52,61 @@
           return /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\.glslp)?$/.test(trimmed);
         }
 
+        function isValidCoreToken(value) {
+          if (typeof value !== 'string') {
+            return false;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0 || trimmed.length > 64) {
+            return false;
+          }
+          return /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(trimmed);
+        }
+
+        function normalizePathToData(value) {
+          if (typeof value !== 'string') {
+            return null;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0) {
+            return DEFAULT_PATH_TO_DATA;
+          }
+
+          var parsed;
+          try {
+            parsed = new URL(trimmed);
+          } catch (_error) {
+            return null;
+          }
+
+          if (parsed.protocol !== 'https:') {
+            return null;
+          }
+
+          var normalized = parsed.href;
+          if (normalized.slice(-1) !== '/') {
+            normalized += '/';
+          }
+
+          for (var i = 0; i < ALLOWED_PATH_TO_DATA_PREFIXES.length; i += 1) {
+            if (normalized.startsWith(ALLOWED_PATH_TO_DATA_PREFIXES[i])) {
+              return normalized;
+            }
+          }
+          return null;
+        }
+
         if (!core || !rom) {
           showError('Missing core or ROM.');
+          return;
+        }
+        if (!isValidCoreToken(core)) {
+          showError('Invalid emulator core.');
+          return;
+        }
+        var normalizedPathToData = normalizePathToData(pathtodata);
+        if (!normalizedPathToData) {
+          showError('Invalid EmulatorJS data path.');
           return;
         }
 
@@ -74,7 +129,7 @@
         if (title) {
           window.EJS_gameName = title;
         }
-        window.EJS_pathtodata = pathtodata;
+        window.EJS_pathtodata = normalizedPathToData;
         window.EJS_startOnLoaded = true;
         /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;
            auto-fullscreen after ROM load is denied in iframes and EmulatorJS throws. */
@@ -126,7 +181,7 @@
         };
 
         var script = document.createElement('script');
-        script.src = pathtodata + 'loader.js';
+        script.src = new URL('loader.js', normalizedPathToData).href;
         script.async = true;
         document.body.appendChild(script);
       })();

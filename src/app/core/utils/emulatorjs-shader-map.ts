@@ -5,10 +5,13 @@
 const IGDB_PLATFORM_ID_TO_SHADER = new Map<number, string | null>([
   // 2nd/3rd gen home consoles → crt-lottes (phosphor, older consumer TV)
   [18, 'crt-lottes'],
+  [51, 'crt-lottes'],
   [59, 'crt-lottes'],
   [68, 'crt-lottes'],
   [64, 'crt-lottes'],
   [84, 'crt-lottes'],
+  [99, 'crt-lottes'],
+  [13, 'crt-lottes'],
 
   // 4th gen home consoles → crt-aperture (aperture grille / Trinitron era)
   [19, 'crt-aperture.glslp'],
@@ -17,6 +20,7 @@ const IGDB_PLATFORM_ID_TO_SHADER = new Map<number, string | null>([
   [30, 'crt-aperture.glslp'],
   [482, 'crt-aperture.glslp'],
   [78, 'crt-aperture.glslp'],
+  [306, 'crt-aperture.glslp'],
 
   // 5th gen home consoles → crt-geom (curved, high-fidelity)
   [7, 'crt-geom.glslp'],
@@ -24,11 +28,17 @@ const IGDB_PLATFORM_ID_TO_SHADER = new Map<number, string | null>([
   [50, 'crt-geom.glslp'],
   [4, 'crt-geom.glslp'],
   [416, 'crt-geom.glslp'],
+  [274, 'crt-geom.glslp'],
+  [117, 'crt-geom.glslp'],
 
   // Arcade & PC Engine → crt-easymode (clean scanlines)
+  [52, 'crt-easymode.glslp'],
   [79, 'crt-easymode.glslp'],
   [80, 'crt-easymode.glslp'],
   [86, 'crt-easymode.glslp'],
+  [128, 'crt-easymode.glslp'],
+  [135, 'crt-easymode.glslp'],
+  [136, 'crt-easymode.glslp'],
   [150, 'crt-easymode.glslp'],
 
   // Edge cases → crt-caligari (softer, ambiguous display context)
@@ -45,8 +55,10 @@ const IGDB_PLATFORM_ID_TO_SHADER = new Map<number, string | null>([
   [57, null],
   [61, null],
   [87, null],
+  [119, null],
   [120, null],
   [123, null],
+  [124, null],
 ]);
 
 export function resolveEmulatorJsShader(canonicalPlatformIgdbId: number): string | null {

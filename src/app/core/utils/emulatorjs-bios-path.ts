@@ -1,7 +1,9 @@
 /**
  * Relative paths under the public BIOS mount (`biosBaseUrl`, default `/bios/`).
  *
- * EmulatorJS exposes a single `EJS_biosUrl`. Policy (see `docs/nas-deployment.md`):
+ * EmulatorJS exposes a single `EJS_biosUrl`. Policy and the full supported-platform / BIOS
+ * matrix live in `docs/nas-deployment.md` (**BIOS files**, **EmulatorJS: supported IGDB platforms**).
+ * `EJS_core` tokens follow https://emulatorjs.org/docs4devs/cores.
  *
  * - If the [EmulatorJS system doc](https://emulatorjs.org/docs/systems/) for that core lists
  *   **more than one distinct BIOS file name** (regions, hardware variants, or required sets),

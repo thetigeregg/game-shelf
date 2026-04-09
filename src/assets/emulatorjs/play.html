@@ -20,11 +20,7 @@
     <div id="game"></div>
     <script>
       (function () {
-        var DEFAULT_PATH_TO_DATA = 'https://cdn.emulatorjs.org/stable/data/';
-        var ALLOWED_PATH_TO_DATA_PREFIXES = [
-          'https://cdn.emulatorjs.org/stable/data/',
-          'https://cdn.emulatorjs.org/data/',
-        ];
+        var DEFAULT_PATH_TO_DATA = '/assets/emulatorjs/data/';
         var params = new URLSearchParams(window.location.search);
         var core = params.get('core');
         var rom = params.get('rom');
@@ -68,32 +64,42 @@
             return null;
           }
           var trimmed = value.trim();
-          if (trimmed.length === 0) {
-            return DEFAULT_PATH_TO_DATA;
-          }
-
+          var raw = trimmed.length === 0 ? DEFAULT_PATH_TO_DATA : trimmed;
           var parsed;
           try {
-            parsed = new URL(trimmed);
+            parsed = new URL(raw, window.location.origin);
           } catch (_error) {
             return null;
           }
 
-          if (parsed.protocol !== 'https:') {
+          if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
             return null;
           }
 
-          var normalized = parsed.href;
-          if (normalized.slice(-1) !== '/') {
-            normalized += '/';
+          if (parsed.origin !== window.location.origin) {
+            return null;
+          }
+          if (!parsed.pathname.startsWith('/assets/emulatorjs/data/')) {
+            return null;
           }
 
-          for (var i = 0; i < ALLOWED_PATH_TO_DATA_PREFIXES.length; i += 1) {
-            if (normalized.startsWith(ALLOWED_PATH_TO_DATA_PREFIXES[i])) {
-              return normalized;
-            }
+          var normalizedPath = parsed.pathname;
+          if (normalizedPath.slice(-1) !== '/') {
+            normalizedPath += '/';
           }
-          return null;
+
+          return parsed.origin + normalizedPath;
+        }
+
+        function isValidLoaderIntegrity(value) {
+          if (typeof value !== 'string') {
+            return false;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0 || trimmed.length > 512) {
+            return false;
+          }
+          return /^sha(256|384|512)-[A-Za-z0-9+/=]+$/.test(trimmed);
         }
 
         if (!core || !rom) {
@@ -180,8 +186,29 @@
           });
         };
 
+        var loaderUrl;
+        try {
+          loaderUrl = new URL('loader.js', normalizedPathToData);
+        } catch (_error) {
+          showError('Invalid EmulatorJS loader URL.');
+          return;
+        }
+        if (
+          loaderUrl.origin !== window.location.origin ||
+          !loaderUrl.pathname.startsWith('/assets/emulatorjs/data/')
+        ) {
+          showError('EmulatorJS loader must be served from a self-hosted same-origin path.');
+          return;
+        }
+
         var script = document.createElement('script');
-        script.src = new URL('loader.js', normalizedPathToData).href;
+        script.src = loaderUrl.href;
+        var loaderIntegrity = params.get('loader_integrity');
+        if (isValidLoaderIntegrity(loaderIntegrity)) {
+          script.integrity = loaderIntegrity.trim();
+          script.crossOrigin = 'anonymous';
+          script.referrerPolicy = 'no-referrer';
+        }
         script.async = true;
         document.body.appendChild(script);
       })();

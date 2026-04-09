@@ -16,13 +16,13 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       core: 'nes',
       romUrl: '/roms/Nintendo%20NES__pid-18/game.nes',
       gameTitle: 'Test Game',
-      pathToData: 'https://cdn.emulatorjs.org/stable/data',
+      pathToData: '/assets/emulatorjs/data',
     });
 
     const parsed = new URL(href);
     expect(parsed.origin + parsed.pathname).toBe('https://example.com/assets/emulatorjs/play.html');
     expect(parsed.searchParams.get('core')).toBe('nes');
-    expect(parsed.searchParams.get('pathtodata')).toBe('https://cdn.emulatorjs.org/stable/data/');
+    expect(parsed.searchParams.get('pathtodata')).toBe('/assets/emulatorjs/data/');
     expect(parsed.searchParams.get('title')).toBe('Test Game');
     expect(parsed.searchParams.get('rom')).toBe(
       'https://example.com/roms/Nintendo%20NES__pid-18/game.nes'
@@ -36,7 +36,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       origin: 'https://example.com',
       core: 'nes',
       romUrl: '/roms/x.nes',
-      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      pathToData: '/assets/emulatorjs/data/',
       defaultShader: 'crt-lottes',
     });
     expect(new URL(href).searchParams.get('shader')).toBe('crt-lottes');
@@ -48,13 +48,13 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         origin: 'https://example.com',
         core: 'nes',
         romUrl: '/roms/x.nes',
-        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+        pathToData: '/assets/emulatorjs/data/',
         defaultShader: '../evil.glslp',
       })
     ).toThrow(/Invalid default shader/);
   });
 
-  it('throws when pathToData is not an allowlisted https URL', () => {
+  it('throws when pathToData is not under self-hosted emulator asset path', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
@@ -65,13 +65,26 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });
 
+  it('accepts same-origin absolute pathToData URL', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: 'https://example.com/assets/emulatorjs/data',
+    });
+
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(
+      'https://example.com/assets/emulatorjs/data/'
+    );
+  });
+
   it('throws when core is not a safe token', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'nes<script>',
         romUrl: '/roms/x.nes',
-        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+        pathToData: '/assets/emulatorjs/data/',
       })
     ).toThrow(/Invalid emulator core/);
   });
@@ -81,7 +94,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       origin: 'https://example.com',
       core: 'nes',
       romUrl: '/roms/x.nes',
-      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      pathToData: '/assets/emulatorjs/data/',
       debug: true,
     });
     expect(new URL(href).searchParams.get('debug')).toBe('1');
@@ -92,7 +105,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       origin: 'http://localhost:8100',
       core: 'gba',
       romUrl: 'http://localhost:8100/roms/a/b.gba',
-      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      pathToData: '/assets/emulatorjs/data/',
       playShellPath: '/custom/play.html',
     });
 
@@ -105,7 +118,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       origin: 'https://example.com',
       core: 'psx',
       romUrl: '/roms/game.bin',
-      pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      pathToData: '/assets/emulatorjs/data/',
       biosUrl,
     });
     expect(new URL(href).searchParams.get('bios')).toBe(biosUrl);
@@ -117,10 +130,21 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         origin: 'https://example.com',
         core: 'psx',
         romUrl: '/roms/game.bin',
-        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+        pathToData: '/assets/emulatorjs/data/',
         biosUrl: 'https://example.com/roms/evil.bin',
       })
     ).toThrow(/Invalid BIOS URL/);
+  });
+
+  it('appends loader_integrity when provided', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'psx',
+      romUrl: '/roms/game.bin',
+      pathToData: '/assets/emulatorjs/data/',
+      loaderIntegrity: 'sha384-abc123+/=',
+    });
+    expect(new URL(href).searchParams.get('loader_integrity')).toBe('sha384-abc123+/=');
   });
 });
 

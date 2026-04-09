@@ -1,9 +1,6 @@
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
-const DEFAULT_PATH_TO_DATA = 'https://cdn.emulatorjs.org/stable/data/';
-const ALLOWED_PATH_TO_DATA_PREFIXES = [
-  'https://cdn.emulatorjs.org/stable/data/',
-  'https://cdn.emulatorjs.org/data/',
-] as const;
+const DEFAULT_PATH_TO_DATA = '/assets/emulatorjs/data/';
+const PATH_TO_DATA_PREFIX = '/assets/emulatorjs/data/';
 
 export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
@@ -24,6 +21,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
    * Omitted from the URL when null/empty. Validated with `isSafeEmulatorJsShaderFileName`.
    */
   defaultShader?: string | null;
+  /** Optional script integrity value for `loader.js` (e.g. `sha384-...`). */
+  loaderIntegrity?: string | null;
 }
 
 /** Single-segment shader preset value safe to pass in the play shell query string. */
@@ -44,21 +43,26 @@ function normalizePathToData(value: string): string {
 
   let parsed: URL;
   try {
-    parsed = new URL(trimmed);
+    parsed = new URL(trimmed, 'https://example.invalid/');
   } catch {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  if (parsed.protocol !== 'https:') {
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
-  const isAllowed = ALLOWED_PATH_TO_DATA_PREFIXES.some((prefix) => normalized.startsWith(prefix));
-  if (!isAllowed) {
+  const normalizedPath = parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`;
+  if (!normalizedPath.startsWith(PATH_TO_DATA_PREFIX)) {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
-  return normalized;
+
+  const hasOrigin = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  if (hasOrigin) {
+    return `${parsed.origin}${normalizedPath}`;
+  }
+
+  return normalizedPath;
 }
 
 /** Restricts core names to a simple token (mirrors `play.html`). */
@@ -127,6 +131,12 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
       throw new Error('Invalid default shader for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('shader', shaderCandidate);
+  }
+
+  const loaderIntegrity =
+    typeof params.loaderIntegrity === 'string' ? params.loaderIntegrity.trim() : '';
+  if (loaderIntegrity.length > 0) {
+    pageUrl.searchParams.set('loader_integrity', loaderIntegrity);
   }
 
   return pageUrl.href;

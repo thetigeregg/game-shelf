@@ -3249,6 +3249,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         biosUrl,
         debug: environment.emulatorJsDebug,
         defaultShader,
+        loaderIntegrity: environment.emulatorJsLoaderIntegrity,
       });
     } catch {
       const toast = await this.toastController.create({

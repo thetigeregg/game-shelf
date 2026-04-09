@@ -9,7 +9,10 @@ export const environment = {
   romsBaseUrl: '/roms',
   /** Public BIOS mount (same origin); used when a core requires `EJS_biosUrl`. */
   biosBaseUrl: '/bios',
-  emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
+  /** Must be self-hosted under app origin to avoid third-party iframe script trust. */
+  emulatorJsPathToData: '/assets/emulatorjs/data/',
+  /** Optional SRI hash for `/assets/emulatorjs/data/loader.js` (format: `sha384-...`). */
+  emulatorJsLoaderIntegrity: '',
   /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */
   emulatorJsDebug: true,
   firebase: {

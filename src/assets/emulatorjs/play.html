@@ -118,6 +118,35 @@
           return /^sha(256|384|512)-[A-Za-z0-9+/]+={0,2}$/.test(trimmed);
         }
 
+        function containsDotSegments(pathname) {
+          if (typeof pathname !== 'string') {
+            return true;
+          }
+          var segments = pathname.split('/');
+          for (var i = 0; i < segments.length; i += 1) {
+            var segment = segments[i];
+            if (segment === '.' || segment === '..') {
+              return true;
+            }
+            var decoded = segment;
+            for (var j = 0; j < 3; j += 1) {
+              try {
+                decoded = decodeURIComponent(decoded);
+              } catch (_error) {
+                return true;
+              }
+              if (decoded === '.' || decoded === '..') {
+                return true;
+              }
+              if (decoded === segment) {
+                break;
+              }
+              segment = decoded;
+            }
+          }
+          return false;
+        }
+
         function normalizeBiosBasePath(value) {
           if (typeof value !== 'string') {
             return '/bios';
@@ -125,7 +154,11 @@
           var trimmed = value.trim();
           var raw = trimmed.length === 0 ? '/bios' : trimmed;
           var normalized = raw.replace(/\/+$/, '');
-          return normalized.charAt(0) === '/' ? normalized : '/' + normalized;
+          var withLeadingSlash = normalized.charAt(0) === '/' ? normalized : '/' + normalized;
+          if (containsDotSegments(withLeadingSlash)) {
+            return null;
+          }
+          return withLeadingSlash;
         }
 
         function isAllowedBiosUrl(url, origin, biosBasePath) {
@@ -133,6 +166,7 @@
             url.origin === origin &&
             url.username.length === 0 &&
             url.password.length === 0 &&
+            !containsDotSegments(url.pathname) &&
             url.pathname.startsWith(biosBasePath + '/')
           );
         }
@@ -179,6 +213,7 @@
           romUrl.origin !== pageOrigin ||
           romUrl.username.length > 0 ||
           romUrl.password.length > 0 ||
+          containsDotSegments(romUrl.pathname) ||
           !romUrl.pathname.startsWith(romBasePath)
         ) {
           showError('ROM URL is not allowed.');
@@ -211,6 +246,10 @@
         var bios = params.get('bios');
         if (bios) {
           var biosBasePath = normalizeBiosBasePath(params.get('biosbase'));
+          if (!biosBasePath) {
+            showError('Invalid BIOS base URL.');
+            return;
+          }
           var biosUrl;
           try {
             biosUrl = new URL(bios, window.location.origin);

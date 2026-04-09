@@ -37,7 +37,7 @@ firebase_messaging_sender_id="${FIREBASE_MESSAGING_SENDER_ID_PROD:-$fallback}"
 firebase_app_id="${FIREBASE_APP_ID_PROD:-$fallback}"
 firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
 
-emulatorjs_path_to_data_default="$(node -e "const fs=require('fs');const source=fs.readFileSync('src/app/core/config/emulatorjs.constants.ts','utf8');const match=source.match(/EMULATORJS_PINNED_PATH_TO_DATA\\s*=\\s*`([^`]+)`/);if(!match){process.exit(1);}process.stdout.write(match[1]);")"
+emulatorjs_path_to_data_default="$(node -e 'const fs=require("fs");const source=fs.readFileSync("src/app/core/config/emulatorjs.constants.ts","utf8");const match=source.match(/EMULATORJS_PINNED_PATH_TO_DATA\\s*=\\s*`([^`]+)`/);if(!match){process.exit(1);}process.stdout.write(match[1]);')"
 emulatorjs_path_to_data="${EMULATORJS_PATH_TO_DATA_PROD:-$emulatorjs_path_to_data_default}"
 emulatorjs_loader_integrity_default='sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U'
 if [[ "${emulatorjs_path_to_data}" == "${emulatorjs_path_to_data_default}" ]]; then

@@ -293,16 +293,15 @@
           showError('EmulatorJS loader URL must be under the configured EmulatorJS data path.');
           return;
         }
+        if (loaderUrl.origin !== window.location.origin) {
+          showError('EmulatorJS runtime assets must be served from the same origin.');
+          return;
+        }
 
         var script = document.createElement('script');
         script.src = loaderUrl.href;
         var loaderIntegrity = params.get('loader_integrity');
         var hasValidLoaderIntegrity = isValidLoaderIntegrity(loaderIntegrity);
-        var requiresLoaderIntegrity = loaderUrl.origin !== window.location.origin;
-        if (requiresLoaderIntegrity && !hasValidLoaderIntegrity) {
-          showError('Remote EmulatorJS loader requires a valid loader integrity value.');
-          return;
-        }
         if (loaderIntegrity && !hasValidLoaderIntegrity) {
           showError('Invalid EmulatorJS loader integrity.');
           return;

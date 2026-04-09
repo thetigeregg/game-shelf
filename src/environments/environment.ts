@@ -1,4 +1,7 @@
-import { EMULATORJS_PINNED_PATH_TO_DATA } from '../app/core/config/emulatorjs.constants';
+import {
+  EMULATORJS_DEFAULT_PATH_TO_DATA,
+  EMULATORJS_PINNED_LOADER_INTEGRITY,
+} from '../app/core/config/emulatorjs.constants';
 
 // This file can be replaced during build by using the `fileReplacements` array.
 // `ng build` replaces `environment.ts` with `environment.prod.ts`.
@@ -12,10 +15,9 @@ export const environment = {
   /** Public BIOS mount (same origin); used when a core requires `EJS_biosUrl`. */
   biosBaseUrl: '/bios',
   /** Default EmulatorJS runtime path; app also permits same-origin `/assets/emulatorjs/data/`. */
-  emulatorJsPathToData: EMULATORJS_PINNED_PATH_TO_DATA,
+  emulatorJsPathToData: EMULATORJS_DEFAULT_PATH_TO_DATA,
   /** Optional SRI hash for `loader.js` at the configured `emulatorJsPathToData` (format: `sha384-...`). */
-  emulatorJsLoaderIntegrity:
-    'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
+  emulatorJsLoaderIntegrity: EMULATORJS_PINNED_LOADER_INTEGRITY,
   /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */
   emulatorJsDebug: true,
   firebase: {

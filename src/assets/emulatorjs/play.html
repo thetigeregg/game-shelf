@@ -297,11 +297,17 @@
         var script = document.createElement('script');
         script.src = loaderUrl.href;
         var loaderIntegrity = params.get('loader_integrity');
-        if (loaderIntegrity && !isValidLoaderIntegrity(loaderIntegrity)) {
+        var hasValidLoaderIntegrity = isValidLoaderIntegrity(loaderIntegrity);
+        var requiresLoaderIntegrity = loaderUrl.origin !== window.location.origin;
+        if (requiresLoaderIntegrity && !hasValidLoaderIntegrity) {
+          showError('Remote EmulatorJS loader requires a valid loader integrity value.');
+          return;
+        }
+        if (loaderIntegrity && !hasValidLoaderIntegrity) {
           showError('Invalid EmulatorJS loader integrity.');
           return;
         }
-        if (isValidLoaderIntegrity(loaderIntegrity)) {
+        if (hasValidLoaderIntegrity) {
           script.integrity = loaderIntegrity.trim();
           script.crossOrigin = 'anonymous';
           script.referrerPolicy = 'no-referrer';

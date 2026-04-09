@@ -84,17 +84,7 @@ function normalizePathToData(value: string, pageOrigin: string): string {
   if (isTrustedRemotePathToData(parsed, normalized)) {
     return normalized;
   }
-
-  const page = new URL(`${normalizedPageOrigin}/`);
-  const isAllowedSelfHostedProtocol = parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  if (
-    !isAllowedSelfHostedProtocol ||
-    parsed.origin !== page.origin ||
-    parsed.protocol !== page.protocol
-  ) {
-    throw new Error('Invalid EmulatorJS pathToData URL');
-  }
-  return normalized;
+  throw new Error('Invalid EmulatorJS pathToData URL');
 }
 
 function normalizeBiosBasePath(value: string | null | undefined): string {

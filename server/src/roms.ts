@@ -241,14 +241,17 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const trimmed = raw.trim();
 
   const extensionMatch = trimmed.match(/^(.*[^.])\.([a-z0-9]{1,10})$/iu);
-  const extension = extensionMatch ? extensionMatch[2].trim().toLowerCase() : null;
+  const extensionCandidate = extensionMatch ? extensionMatch[2].trim().toLowerCase() : null;
+  const extension =
+    extensionCandidate && KNOWN_ROM_EXTENSIONS.has(extensionCandidate) ? extensionCandidate : null;
   const copyArtifactMatch =
     extensionMatch === null ? trimmed.match(/^(.*)\.([a-z0-9]{1,10})\s+copy$/iu) : null;
-  const withoutExtension = extensionMatch
-    ? extensionMatch[1].trimEnd()
-    : copyArtifactMatch
-      ? copyArtifactMatch[1].trimEnd()
-      : trimmed;
+  const withoutExtension =
+    extension !== null && extensionMatch
+      ? extensionMatch[1].trimEnd()
+      : copyArtifactMatch
+        ? copyArtifactMatch[1].trimEnd()
+        : trimmed;
 
   const metadataTokens = extractMetadataTokens(withoutExtension);
   let metadataStart = withoutExtension.length;

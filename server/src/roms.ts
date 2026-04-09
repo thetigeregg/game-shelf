@@ -120,7 +120,13 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const extensionMatch = trimmed.match(/\.([a-z0-9]{1,10})$/iu);
   const extension = extensionMatch ? extensionMatch[1].trim().toLowerCase() : null;
   const extensionStart = extensionMatch?.index ?? trimmed.length;
-  const withoutExtension = extensionMatch ? trimmed.slice(0, Math.max(0, extensionStart)) : trimmed;
+  const copyArtifactMatch =
+    extensionMatch === null ? trimmed.match(/^(.*)\.([a-z0-9]{1,10})\s+copy$/iu) : null;
+  const withoutExtension = extensionMatch
+    ? trimmed.slice(0, Math.max(0, extensionStart))
+    : copyArtifactMatch
+      ? copyArtifactMatch[1].trimEnd()
+      : trimmed;
 
   const metadataTokens = extractMetadataTokens(withoutExtension);
   let metadataStart = withoutExtension.length;
@@ -129,7 +135,10 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
     (left, right) => right.start - left.start
   );
   for (const token of trailingMetadataTokens) {
-    const tokenEnd = token.start + token.value.length + 2;
+    if (!isTrailingMetadataToken(token)) {
+      break;
+    }
+    const tokenEnd = token.end;
     if (tokenEnd > trailingMetadataEnd) {
       continue;
     }
@@ -153,6 +162,9 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const flags: string[] = [];
 
   for (const token of metadataTokens) {
+    if (token.start < metadataStart) {
+      continue;
+    }
     if (token.kind === 'paren' && token.value.length > 0) {
       if (region === null && looksLikeRegionToken(token.value)) {
         region = token.value;
@@ -568,6 +580,7 @@ interface MetadataToken {
   kind: 'paren' | 'bracket';
   value: string;
   start: number;
+  end: number;
 }
 
 function extractMetadataTokens(value: string): MetadataToken[] {
@@ -586,6 +599,7 @@ function extractMetadataTokens(value: string): MetadataToken[] {
       kind: char === '(' ? 'paren' : 'bracket',
       value: value.slice(index + 1, end).trim(),
       start: index,
+      end: end + 1,
     });
     index = end;
   }
@@ -648,6 +662,38 @@ function looksLikeRegionToken(value: string): boolean {
 
   const parts = normalized.split(',').map((part) => part.trim());
   if (parts.length === 0) {
+    return false;
+  }
+  const compactLower = normalized.toLowerCase();
+  const knownSingleRegions = new Set([
+    'usa',
+    'japan',
+    'europe',
+    'world',
+    'unl',
+    'korea',
+    'brazil',
+    'australia',
+    'canada',
+    'spain',
+    'france',
+    'germany',
+    'italy',
+    'asia',
+    'china',
+    'taiwan',
+    'russia',
+    'mexico',
+    'uk',
+    'eur',
+    'jpn',
+  ]);
+  if (
+    parts.length === 1 &&
+    !normalized.includes(' ') &&
+    !normalized.includes('-') &&
+    !knownSingleRegions.has(compactLower)
+  ) {
     return false;
   }
   for (const part of parts) {
@@ -714,6 +760,41 @@ function looksLikeRevisionToken(value: string): boolean {
     return false;
   }
   return hasDigit;
+}
+
+function isTrailingMetadataToken(token: MetadataToken): boolean {
+  if (token.kind === 'bracket') {
+    return true;
+  }
+  return (
+    looksLikeRegionToken(token.value) ||
+    looksLikeRevisionToken(token.value) ||
+    looksLikeParentheticalFlagToken(token.value)
+  );
+}
+
+function looksLikeParentheticalFlagToken(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return false;
+  }
+  if (/[0-9]/.test(normalized) || normalized.includes(',') || normalized.includes('/')) {
+    return true;
+  }
+  const words = splitAlphaNumericWords(normalized);
+  const flagWords = new Set([
+    'enhanced',
+    'compatible',
+    'beta',
+    'proto',
+    'prototype',
+    'sample',
+    'demo',
+    'translation',
+    'patched',
+    'hack',
+  ]);
+  return words.some((word) => flagWords.has(word));
 }
 
 function rankRomEntriesByTitle(

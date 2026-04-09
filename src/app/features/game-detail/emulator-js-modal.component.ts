@@ -84,7 +84,7 @@ export class EmulatorJsModalComponent implements OnChanges {
       return null;
     }
 
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    if (parsed.protocol !== window.location.protocol) {
       return null;
     }
     if (parsed.origin !== window.location.origin) {

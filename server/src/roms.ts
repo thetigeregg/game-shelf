@@ -214,9 +214,21 @@ function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
     /\(([^)]*)\)/g,
     (_match, group: string) => {
       const normalizedGroup = group.toLowerCase();
-      const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|disc|disk|cd\s*\d+|dvd|rom|v\d+)/.test(
-        normalizedGroup
+      const groupWords = splitAlphaNumericWords(normalizedGroup);
+      const hasRevisionToken =
+        groupWords.includes('rev') ||
+        groupWords.includes('revision') ||
+        groupWords.some((word) => /^v\d+[a-z0-9.]*$/i.test(word));
+      const hasDiscToken =
+        groupWords.includes('disc') ||
+        groupWords.includes('disk') ||
+        groupWords.includes('dvd') ||
+        (groupWords.includes('cd') && groupWords.some((word) => /^\d+$/.test(word)));
+      const hasRegionToken = groupWords.some((word) =>
+        ['usa', 'eur', 'jpn', 'jp', 'us', 'eu'].includes(word)
       );
+      const hasRomWord = groupWords.includes('rom');
+      const isNoise = hasRegionToken || hasRevisionToken || hasDiscToken || hasRomWord;
       return isNoise ? ' ' : ` ${normalizedGroup} `;
     }
   );

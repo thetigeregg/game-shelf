@@ -129,7 +129,12 @@
         }
 
         function isAllowedBiosUrl(url, origin, biosBasePath) {
-          return url.origin === origin && url.pathname.startsWith(biosBasePath + '/');
+          return (
+            url.origin === origin &&
+            url.username.length === 0 &&
+            url.password.length === 0 &&
+            url.pathname.startsWith(biosBasePath + '/')
+          );
         }
 
         if (!core || !rom) {
@@ -170,7 +175,12 @@
         var romBasePath = romBaseUrl.pathname.endsWith('/')
           ? romBaseUrl.pathname
           : romBaseUrl.pathname + '/';
-        if (romUrl.origin !== pageOrigin || !romUrl.pathname.startsWith(romBasePath)) {
+        if (
+          romUrl.origin !== pageOrigin ||
+          romUrl.username.length > 0 ||
+          romUrl.password.length > 0 ||
+          !romUrl.pathname.startsWith(romBasePath)
+        ) {
           showError('ROM URL is not allowed.');
           return;
         }
@@ -248,6 +258,10 @@
         var script = document.createElement('script');
         script.src = loaderUrl.href;
         var loaderIntegrity = params.get('loader_integrity');
+        if (loaderIntegrity && !isValidLoaderIntegrity(loaderIntegrity)) {
+          showError('Invalid EmulatorJS loader integrity.');
+          return;
+        }
         if (isValidLoaderIntegrity(loaderIntegrity)) {
           script.integrity = loaderIntegrity.trim();
           script.crossOrigin = 'anonymous';

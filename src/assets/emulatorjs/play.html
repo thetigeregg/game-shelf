@@ -256,22 +256,24 @@
           window.EJS_biosUrl = biosUrl.href;
         }
 
+        function postEmulatorExitToParent() {
+          try {
+            if (window.parent !== window) {
+              window.parent.postMessage(
+                { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+                window.location.origin
+              );
+            }
+          } catch (_err) {
+            /* ignore cross-origin or detached frame */
+          }
+        }
+
         window.EJS_ready = function () {
           if (!window.EJS_emulator || typeof window.EJS_emulator.on !== 'function') {
             return;
           }
-          window.EJS_emulator.on('exit', function () {
-            try {
-              if (window.parent !== window) {
-                window.parent.postMessage(
-                  { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
-                  window.location.origin
-                );
-              }
-            } catch (_err) {
-              /* ignore cross-origin or detached frame */
-            }
-          });
+          window.EJS_emulator.on('exit', postEmulatorExitToParent);
         };
 
         var loaderUrl;

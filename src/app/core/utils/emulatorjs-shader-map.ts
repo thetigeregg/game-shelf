@@ -1,6 +1,6 @@
 /**
  * Default RetroArch-style shader presets for EmulatorJS `EJS_defaultOptions.shader`, keyed by
- * canonical IGDB platform id. Values omit `.glslp` unless noted; `resolveEmulatorJsShader` normalizes.
+ * canonical IGDB platform id. Values are passed to EmulatorJS as-is.
  */
 const IGDB_PLATFORM_ID_TO_SHADER = new Map<number, string | null>([
   // 2nd/3rd gen home consoles → crt-lottes (phosphor, older consumer TV)
@@ -68,9 +68,5 @@ export function resolveEmulatorJsShader(canonicalPlatformIgdbId: number): string
     return null;
   }
 
-  const lower = trimmed.toLowerCase();
-  if (lower.endsWith('.glslp')) {
-    return trimmed;
-  }
-  return `${trimmed}.glslp`;
+  return trimmed;
 }

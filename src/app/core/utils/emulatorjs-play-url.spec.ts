@@ -10,15 +10,16 @@ import {
   isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
 import {
+  EMULATORJS_DEFAULT_PATH_TO_DATA,
   EMULATORJS_PINNED_PATH_TO_DATA,
-  EMULATORJS_REMOTE_BASE_PATH,
 } from '../config/emulatorjs.constants';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
-  const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;
+  const PINNED_DATA_PATH = EMULATORJS_DEFAULT_PATH_TO_DATA;
   const VALID_LOADER_INTEGRITY = 'sha384-abc123+/=';
 
   it('builds a play shell URL with normalized pathtodata', () => {
+    const expectedPathToData = new URL(PINNED_DATA_PATH, 'https://example.com/').href;
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
@@ -31,7 +32,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     const parsed = new URL(href);
     expect(parsed.origin + parsed.pathname).toBe('https://example.com/assets/emulatorjs/play.html');
     expect(parsed.searchParams.get('core')).toBe('nes');
-    expect(parsed.searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
+    expect(parsed.searchParams.get('pathtodata')).toBe(expectedPathToData);
     expect(parsed.searchParams.get('title')).toBe('Test Game');
     expect(parsed.searchParams.get('rom')).toBe(
       'https://example.com/roms/Nintendo%20NES__pid-18/game.nes'
@@ -77,6 +78,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
   });
 
   it('normalizes pinned path by appending trailing slash when missing', () => {
+    const expectedPathToData = new URL(PINNED_DATA_PATH, 'https://example.com/').href;
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
@@ -85,32 +87,19 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
 
-    expect(new URL(href).searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(expectedPathToData);
   });
 
-  it('requires loader integrity for trusted remote pathToData overrides', () => {
+  it('rejects trusted remote versioned pathToData overrides', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'nes',
         romUrl: '/roms/x.nes',
-        pathToData: `${EMULATORJS_REMOTE_BASE_PATH}9.9.9`,
+        pathToData: EMULATORJS_PINNED_PATH_TO_DATA,
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
-    ).toThrow(/Missing loader integrity/);
-  });
-
-  it('accepts trusted remote versioned pathToData overrides with loader integrity', () => {
-    const href = buildEmulatorJsPlayShellUrl({
-      origin: 'https://example.com',
-      core: 'nes',
-      romUrl: '/roms/x.nes',
-      pathToData: `${EMULATORJS_REMOTE_BASE_PATH}9.9.9`,
-      loaderIntegrity: VALID_LOADER_INTEGRITY,
-    });
-    expect(new URL(href).searchParams.get('pathtodata')).toBe(
-      `${EMULATORJS_REMOTE_BASE_PATH}9.9.9/`
-    );
-    expect(new URL(href).searchParams.get('loader_integrity')).toBe(VALID_LOADER_INTEGRITY);
+    ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });
 
   it('accepts same-origin self-hosted EmulatorJS runtime path', () => {

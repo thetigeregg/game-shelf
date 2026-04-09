@@ -73,6 +73,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         core: 'nes',
         romUrl: '/roms/x.nes',
         pathToData: 'https://evil.example/data/',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });

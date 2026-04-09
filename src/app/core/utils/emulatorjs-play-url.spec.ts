@@ -156,8 +156,48 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         core: 'nes<script>',
         romUrl: '/roms/x.nes',
         pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid emulator core/);
+  });
+
+  it('throws when loader integrity is missing or blank', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: undefined,
+      })
+    ).toThrow(/Missing loader integrity/);
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: '',
+      })
+    ).toThrow(/Missing loader integrity/);
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: '   ',
+      })
+    ).toThrow(/Missing loader integrity/);
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: null,
+      })
+    ).toThrow(/Missing loader integrity/);
   });
 
   it('appends debug=1 when debug is true', () => {

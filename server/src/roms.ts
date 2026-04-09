@@ -163,7 +163,11 @@ export function normalizeRomTitle(title: string): string {
 
 function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
   const strippedDiacritics = cleanedTitle.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-  return strippedDiacritics
+  const withoutStandaloneRegionAliases = strippedDiacritics.replace(
+    /\b(?:u|us|usa|unitedstates|northamerica|e|eu|eur|europe|j|jp|jpn|japan|w|world|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|uk|latinamerica|hongkong)\b/gi,
+    ' '
+  );
+  return withoutStandaloneRegionAliases
     .toLowerCase()
     .replace(
       /\b(the|disc|disk|cd|dvd|rom|rev(?:ision)?|version|ver|v\d+|instruction|booklet|manual)\b/g,

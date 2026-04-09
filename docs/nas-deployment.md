@@ -170,7 +170,7 @@ Common stack env vars:
 - `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
 - `ROMS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `worker-general`)
 - `ROMS_DIR` (optional; default `/data/roms`; should match mounted ROMs path)
-- BIOS files for EmulatorJS should be exposed at the default public path `/bios`; a stack env override is not currently supported.
+- BIOS files for EmulatorJS (**`EJS_biosUrl`**) should be exposed at the default public path `/bios`; a stack env override is not currently supported.
 
 Queue recovery behavior:
 
@@ -292,8 +292,16 @@ ROM files:
 BIOS files:
 
 - Store BIOS files under `nas-data/bios` (mounted at `/bios` in `edge`).
-- EmulatorJS in the app loads BIOS via URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
+- When using **EmulatorJS** in the PWA, the frontend may set **`EJS_biosUrl`** to same-origin URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
 - The app serves BIOS assets at `/bios/...` for in-browser play (no API indexing/matching required).
+
+### EmulatorJS runtime (`EJS_pathtodata`)
+
+- The in-browser flow uses a same-origin **play shell** (`/assets/emulatorjs/play.html`) that configures EmulatorJS with **`EJS_pathtodata`**: an **absolute HTTPS base URL** pointing at a **pinned, versioned** EmulatorJS distribution.
+- That distribution is published as **static assets** on **GitHub Pages** from the **`game-shelf-assets`** repository (path prefix `.../third-party/emulatorjs/<version>/` on `thetigeregg.github.io`). The **Angular app does not self-host** the EmulatorJS runtime; it is not served from `/assets/emulatorjs/data/` or an equivalent app-origin path.
+- The play shell loads **`loader.js`** from that base URL as a **cross-origin** `<script>` with **Subresource Integrity (SRI)** (via the `loader_integrity` query parameter mapped to the `integrity` attribute), so only a hash-approved build runs in the page.
+- **ROM** payloads and **BIOS** blobs remain **same-origin** to your deployment (`/roms/...`, `/bios/...` as above). Only the EmulatorJS **engine and bundled data files** are fetched from the **`game-shelf-assets`** site.
+- Default URLs and SRI pins live in `src/app/core/config/emulatorjs.constants.ts`. Production builds may inject overrides through `scripts/write-environment-prod.sh` (`EMULATORJS_PATH_TO_DATA_PROD`, `EMULATORJS_LOADER_INTEGRITY_PROD`); values must satisfy the allowlist enforced in `src/app/core/utils/emulatorjs-play-url.ts` and the play shell.
 
 Expected layout (relative to `nas-data/bios`):
 
@@ -307,7 +315,7 @@ Expected layout (relative to `nas-data/bios`):
 | ColecoVision (`coleco`)    | `coleco/colecovision.rom`    | Required for all ColecoVision games.                                                                                           |
 | NES Famicom Disk System    | `nes/disksys.rom`            | Only requested when the launched ROM path ends with `.fds`; plain `.nes` cartridges do not use this BIOS URL.                  |
 
-Frontend note: the current frontend/play shell expects BIOS assets to be served from `/bios`.
+Frontend note: the play shell expects BIOS assets at **`EJS_biosUrl`** to be same-origin under `/bios` (see `biosBaseUrl` / `environment.biosBaseUrl`).
 
 ## Local Docker-based API development
 

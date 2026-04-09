@@ -3247,6 +3247,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
         gameTitle: game.title,
         pathToData: environment.emulatorJsPathToData,
         biosUrl,
+        biosBaseUrl: biosBase,
+        romBaseUrl: environment.romsBaseUrl,
         debug: environment.emulatorJsDebug,
         defaultShader,
         loaderIntegrity: environment.emulatorJsLoaderIntegrity,

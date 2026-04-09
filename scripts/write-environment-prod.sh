@@ -36,6 +36,7 @@ firebase_storage_bucket="${FIREBASE_STORAGE_BUCKET_PROD:-$fallback}"
 firebase_messaging_sender_id="${FIREBASE_MESSAGING_SENDER_ID_PROD:-$fallback}"
 firebase_app_id="${FIREBASE_APP_ID_PROD:-$fallback}"
 firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
+emulatorjs_path_to_data='https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/'
 
 escape_ts_string() {
   local value="${1}"
@@ -52,7 +53,7 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
   biosBaseUrl: '/bios',
-  emulatorJsPathToData: 'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
+  emulatorJsPathToData: '$(escape_ts_string "${emulatorjs_path_to_data}")',
   emulatorJsLoaderIntegrity: 'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
   emulatorJsDebug: false,
   firebase: {

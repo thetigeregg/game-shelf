@@ -1,6 +1,7 @@
+import { EMULATORJS_PINNED_PATH_TO_DATA } from '../config/emulatorjs.constants';
+
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
-const DEFAULT_PATH_TO_DATA =
-  'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
+const DEFAULT_PATH_TO_DATA = EMULATORJS_PINNED_PATH_TO_DATA;
 const SELF_HOSTED_PATH_TO_DATA = '/assets/emulatorjs/data/';
 
 export interface BuildEmulatorJsPlayShellUrlParams {
@@ -15,6 +16,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   biosUrl?: string | null;
   /** Same-origin BIOS base path (defaults to `/bios`). */
   biosBaseUrl?: string | null;
+  /** Same-origin ROM base path (defaults to `/roms`). */
+  romBaseUrl?: string | null;
   /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
   debug?: boolean;
   /** Override play shell path for tests. */
@@ -88,6 +91,12 @@ function normalizeBiosBasePath(value: string | null | undefined): string {
   return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
 }
 
+function normalizeRomBasePath(value: string | null | undefined): string {
+  const baseRaw = typeof value === 'string' ? value.trim() : '';
+  const normalizedBase = (baseRaw.length === 0 ? '/roms' : baseRaw).replace(/\/+$/, '');
+  return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+}
+
 /** Restricts core names to a simple token (mirrors `play.html`). */
 export function isSafeEmulatorJsCoreToken(value: string): boolean {
   const trimmed = value.trim();
@@ -117,7 +126,14 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
   pageUrl.searchParams.set('core', coreCandidate);
 
   const resolvedRom = new URL(params.romUrl, `${normalizedOrigin}/`);
+  const normalizedRomBasePath = normalizeRomBasePath(params.romBaseUrl);
+  if (!isAllowedEmulatorJsRomUrl(resolvedRom.href, normalizedOrigin, normalizedRomBasePath)) {
+    throw new Error('Invalid ROM URL for EmulatorJS play shell');
+  }
   pageUrl.searchParams.set('rom', resolvedRom.href);
+  if (normalizedRomBasePath !== '/roms') {
+    pageUrl.searchParams.set('rombase', normalizedRomBasePath);
+  }
 
   const title = typeof params.gameTitle === 'string' ? params.gameTitle.trim() : '';
   if (title.length > 0) {
@@ -239,7 +255,11 @@ export function isAllowedEmulatorJsBiosUrl(
 }
 
 /** Same-origin `/roms/` check (mirrors play shell rules) for unit tests. */
-export function isAllowedEmulatorJsRomUrl(romUrl: string, pageOrigin: string): boolean {
+export function isAllowedEmulatorJsRomUrl(
+  romUrl: string,
+  pageOrigin: string,
+  romBaseUrl = '/roms'
+): boolean {
   let parsed: URL;
   try {
     parsed = new URL(romUrl, `${pageOrigin.replace(/\/+$/, '')}/`);
@@ -252,5 +272,7 @@ export function isAllowedEmulatorJsRomUrl(romUrl: string, pageOrigin: string): b
     return false;
   }
 
-  return parsed.pathname.startsWith('/roms/');
+  const basePath = normalizeRomBasePath(romBaseUrl);
+  const prefix = `${basePath}/`;
+  return parsed.pathname.startsWith(prefix);
 }

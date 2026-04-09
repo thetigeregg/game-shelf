@@ -153,7 +153,18 @@
           return;
         }
 
-        if (romUrl.origin !== window.location.origin || !romUrl.pathname.startsWith('/roms/')) {
+        var romBaseParam = params.get('rombase') || '/roms/';
+        var romBaseUrl;
+        try {
+          romBaseUrl = new URL(romBaseParam, window.location.origin);
+        } catch (_error) {
+          showError('Invalid ROM base URL.');
+          return;
+        }
+        var romBasePath = romBaseUrl.pathname.endsWith('/')
+          ? romBaseUrl.pathname
+          : romBaseUrl.pathname + '/';
+        if (romUrl.origin !== romBaseUrl.origin || !romUrl.pathname.startsWith(romBasePath)) {
           showError('ROM URL is not allowed.');
           return;
         }

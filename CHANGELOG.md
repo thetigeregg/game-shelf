@@ -3244,3 +3244,11 @@
 - 5ee703b9 style: update button colors in game list component for better visibility
 - 77b60536 refactor: move Open ROM button to a different position in the game list component
 - acef404e feat: add ROMs support with new endpoints and configurations
+
+## v1.41.1 - 2026-04-09
+
+- 2d9e7007 Merge pull request #332 from thetigeregg/feat/bmp
+- 2c7f6136 chore: update Angular dependencies to version 20.3.23 and lru-cache
+- 10f06e78 chore: update dependencies for @thetigeregg packages and vitest
+- 5be539a7 chore: update @angular/cdk dependency to version 21.2.6 in package.json and package-lock.json
+- 4d1ed9fd chore: update Angular dependencies to version 21.2.8 and related packages

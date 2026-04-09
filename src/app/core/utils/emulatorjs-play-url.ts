@@ -1,6 +1,9 @@
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
-const DEFAULT_PATH_TO_DATA = '/assets/emulatorjs/data/';
-const PATH_TO_DATA_PREFIX = '/assets/emulatorjs/data/';
+const DEFAULT_PATH_TO_DATA =
+  'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
+const ALLOWED_PATH_TO_DATA_PREFIXES = [
+  'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
+] as const;
 
 export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
@@ -43,26 +46,21 @@ function normalizePathToData(value: string): string {
 
   let parsed: URL;
   try {
-    parsed = new URL(trimmed, 'https://example.invalid/');
+    parsed = new URL(trimmed);
   } catch {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+  if (parsed.protocol !== 'https:') {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  const normalizedPath = parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`;
-  if (!normalizedPath.startsWith(PATH_TO_DATA_PREFIX)) {
+  const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
+  const isAllowed = ALLOWED_PATH_TO_DATA_PREFIXES.some((prefix) => normalized === prefix);
+  if (!isAllowed) {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
-
-  const hasOrigin = trimmed.startsWith('http://') || trimmed.startsWith('https://');
-  if (hasOrigin) {
-    return `${parsed.origin}${normalizedPath}`;
-  }
-
-  return normalizedPath;
+  return normalized;
 }
 
 /** Restricts core names to a simple token (mirrors `play.html`). */

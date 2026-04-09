@@ -4,8 +4,10 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
   biosBaseUrl: '/bios',
-  emulatorJsPathToData: '/assets/emulatorjs/data/',
-  emulatorJsLoaderIntegrity: '',
+  emulatorJsPathToData:
+    'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
+  emulatorJsLoaderIntegrity:
+    'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
   /** Set true to enable EmulatorJS debug logs in the play iframe (see play.html `debug=1`). */
   emulatorJsDebug: false,
   featureFlags: {

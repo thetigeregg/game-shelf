@@ -154,6 +154,10 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   const dotPrefixedTitle = parseRomFileName('.hack');
   assert.equal(dotPrefixedTitle.title, '.hack');
   assert.equal(dotPrefixedTitle.extension, null);
+
+  const dottedSuffixWithoutKnownExtension = parseRomFileName('P.N.03');
+  assert.equal(dottedSuffixWithoutKnownExtension.title, 'P.N.03');
+  assert.equal(dottedSuffixWithoutKnownExtension.extension, null);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

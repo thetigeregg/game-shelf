@@ -107,6 +107,17 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     );
   });
 
+  it('rejects self-hosted pathToData when page protocol does not match', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'http://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: 'https://example.com/assets/emulatorjs/data',
+      })
+    ).toThrow(/Invalid EmulatorJS pathToData URL/);
+  });
+
   it('rejects same-origin pathToData outside the self-hosted allowlist path', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({

@@ -29,6 +29,16 @@ interface RomCatalogEntry {
   canAutoMatch: boolean;
 }
 
+export interface ParsedRomFileName {
+  raw: string;
+  title: string;
+  extension: string | null;
+  region: string | null;
+  revision: string | null;
+  flags: string[];
+  duplicate: boolean;
+}
+
 interface RomCatalog {
   entries: RomCatalogEntry[];
   unavailable: boolean;
@@ -87,19 +97,10 @@ export function parsePlatformIdFromFolderName(folderName: string): number | null
 }
 
 export function normalizeRomTitle(title: string): string {
-  const strippedDiacritics = title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-  const withoutParentheticalNoise = strippedDiacritics.replace(
-    /\(([^)]*)\)/g,
-    (_match, group: string) => {
-      const normalizedGroup = group.toLowerCase();
-      const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|disc|disk|cd\s*\d+|dvd|rom|v\d+)/.test(
-        normalizedGroup
-      );
-      return isNoise ? ' ' : ` ${normalizedGroup} `;
-    }
-  );
+  const cleaned = normalizeRomDisplayTitle(title);
+  const strippedDiacritics = cleaned.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 
-  return withoutParentheticalNoise
+  return strippedDiacritics
     .toLowerCase()
     .replace(
       /\b(the|disc|disk|cd|dvd|rom|rev(?:ision)?|version|ver|v\d+|instruction|booklet|manual)\b/g,
@@ -108,6 +109,66 @@ export function normalizeRomTitle(title: string): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+export function parseRomFileName(fileName: string): ParsedRomFileName {
+  const raw = fileName;
+  const trimmed = raw.trim();
+
+  const extensionMatch = trimmed.match(/\.([^.]+)$/u);
+  const extension = extensionMatch ? extensionMatch[1].trim().toLowerCase() : null;
+  const withoutExtension = extensionMatch
+    ? trimmed.slice(0, Math.max(0, extensionMatch.index))
+    : trimmed;
+
+  const duplicate = /\s copy(?: \d+)?$/iu.test(withoutExtension);
+
+  const metadataTokens = [...withoutExtension.matchAll(/\(([^)]*)\)|\[([^\]]*)\]/gu)];
+  const metadataStart =
+    metadataTokens.length > 0
+      ? Math.min(
+          ...metadataTokens.map((match) =>
+            typeof match.index === 'number' ? match.index : Number.MAX_SAFE_INTEGER
+          )
+        )
+      : withoutExtension.length;
+  const titleCandidate = withoutExtension.slice(0, metadataStart).trim();
+
+  let region: string | null = null;
+  let revision: string | null = null;
+  const flags: string[] = [];
+
+  for (const token of metadataTokens) {
+    const parenValue = (token.at(1) ?? '').trim();
+    const bracketValue = (token.at(2) ?? '').trim();
+
+    if (parenValue.length > 0) {
+      if (region === null && looksLikeRegionToken(parenValue)) {
+        region = parenValue;
+        continue;
+      }
+      if (revision === null && looksLikeRevisionToken(parenValue)) {
+        revision = parenValue;
+        continue;
+      }
+      flags.push(parenValue);
+      continue;
+    }
+
+    if (bracketValue.length > 0) {
+      flags.push(bracketValue);
+    }
+  }
+
+  return {
+    raw,
+    title: normalizeRomDisplayTitle(titleCandidate),
+    extension,
+    region,
+    revision,
+    flags,
+    duplicate,
+  };
 }
 
 export function scoreRomTitleMatch(queryTitle: string, candidateTitle: string): number {
@@ -455,8 +516,12 @@ async function walkRoms(
     }
 
     const fileName = child.name;
-    const titleWithoutExtension = removeFileExtension(fileName);
-    const normalizedTitle = normalizeRomTitle(titleWithoutExtension);
+    const parsedFileName = parseRomFileName(fileName);
+    if (parsedFileName.duplicate) {
+      continue;
+    }
+
+    const normalizedTitle = normalizeRomTitle(parsedFileName.title);
 
     if (!normalizedTitle) {
       continue;
@@ -474,8 +539,42 @@ async function walkRoms(
   }
 }
 
-function removeFileExtension(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/u, '');
+function normalizeRomDisplayTitle(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+
+  const firstTilde = trimmed.indexOf(' ~ ');
+  const firstDash = trimmed.indexOf(' - ');
+
+  let normalizedSeparator = trimmed;
+  if (firstTilde >= 0 && (firstDash < 0 || firstTilde < firstDash)) {
+    normalizedSeparator = `${trimmed.slice(0, firstTilde)}: ${trimmed.slice(firstTilde + ' ~ '.length)}`;
+  } else if (firstDash >= 0) {
+    normalizedSeparator = `${trimmed.slice(0, firstDash)}: ${trimmed.slice(firstDash + ' - '.length)}`;
+  }
+
+  return normalizedSeparator.replace(/\s+/gu, ' ').trim();
+}
+
+function looksLikeRegionToken(value: string): boolean {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return false;
+  }
+  if (
+    /\b(rev|revision|version|compatible|enhanced|demo|proto|beta|sample|disc|disk|cd|dvd)\b/iu.test(
+      normalized
+    )
+  ) {
+    return false;
+  }
+  return /^[A-Za-z][A-Za-z .-]*(?:,\s*[A-Za-z][A-Za-z .-]*)*$/u.test(normalized);
+}
+
+function looksLikeRevisionToken(value: string): boolean {
+  return /^(?:rev(?:ision)?\.?\s*[a-z0-9]+|v\d+(?:\.\d+)*[a-z0-9]*)$/iu.test(value.trim());
 }
 
 function rankRomEntriesByTitle(

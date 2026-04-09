@@ -10,6 +10,40 @@ const AUTO_MATCH_MIN_SCORE = 0.86;
 const AUTO_MATCH_MIN_GAP = 0.08;
 const MAX_CANDIDATES = 12;
 const MAX_SEARCH_RESULTS = 50;
+const KNOWN_ROM_EXTENSIONS = new Set([
+  '7z',
+  'a26',
+  'bin',
+  'chd',
+  'cia',
+  'cue',
+  'cso',
+  'fds',
+  'gb',
+  'gba',
+  'gbc',
+  'gen',
+  'gg',
+  'iso',
+  'md',
+  'nds',
+  'nes',
+  'nsp',
+  'pbp',
+  'pce',
+  'sfc',
+  'sg',
+  'sgx',
+  'sms',
+  'smc',
+  'smd',
+  'v64',
+  'ws',
+  'wsc',
+  'xci',
+  'z64',
+  'zip',
+]);
 const REGION_BLOCKED_WORDS = new Set([
   'rev',
   'revision',
@@ -157,13 +191,37 @@ export function parsePlatformIdFromFolderName(folderName: string): number | null
 }
 
 export function normalizeRomTitle(title: string): string {
-  const cleaned = parseRomFileName(title).title;
-  return normalizeRomTitleFromCleanTitle(cleaned);
+  return normalizeRomTitleFromCleanTitle(stripKnownRomExtension(title));
+}
+
+function stripKnownRomExtension(value: string): string {
+  const match = value.trim().match(/^(.*[^.])\.([a-z0-9]{1,10})$/iu);
+  if (!match) {
+    return value;
+  }
+
+  const extension = match[2].toLowerCase();
+  if (!KNOWN_ROM_EXTENSIONS.has(extension)) {
+    return value;
+  }
+
+  return match[1];
 }
 
 function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
   const strippedDiacritics = cleanedTitle.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-  const withoutStandaloneRegionAliases = strippedDiacritics.replace(
+  const withoutParentheticalNoise = strippedDiacritics.replace(
+    /\(([^)]*)\)/g,
+    (_match, group: string) => {
+      const normalizedGroup = group.toLowerCase();
+      const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|disc|disk|cd\s*\d+|dvd|rom|v\d+)/.test(
+        normalizedGroup
+      );
+      return isNoise ? ' ' : ` ${normalizedGroup} `;
+    }
+  );
+  const withoutBracketMetadata = withoutParentheticalNoise.replace(/\[[^\]]*\]/g, ' ');
+  const withoutStandaloneRegionAliases = withoutBracketMetadata.replace(
     /\b(?:usa|unitedstates|northamerica|e|eu|eur|europe|j|jp|jpn|japan|w|world|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|uk|latinamerica|hongkong)\b/gi,
     ' '
   );

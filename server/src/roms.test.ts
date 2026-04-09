@@ -103,6 +103,7 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
     normalizeRomTitle('R.B.I. Baseball (Tengen) [hM04] (Unl).nes'),
     'r b i baseball tengen'
   );
+  assert.equal(normalizeRomTitle('P.N.03'), 'p n 03');
 });
 
 void test('parseRomFileName extracts clean title and metadata', () => {

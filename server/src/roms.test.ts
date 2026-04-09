@@ -82,6 +82,7 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
 
 void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
   assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
+  assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A.sfc'), 'chrono trigger a');
   assert.equal(
     normalizeRomTitle('Ace Attorney Investigations - Miles Edgeworth (USA).nds'),
     'ace attorney investigations miles edgeworth'
@@ -134,6 +135,12 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   assert.equal(tengen.title, 'R.B.I. Baseball (Tengen)');
   assert.equal(tengen.region, 'Unl');
   assert.deepEqual(tengen.flags, ['hM04']);
+
+  const chrono = parseRomFileName('Chrono Trigger (USA) Rev A.sfc');
+  assert.equal(chrono.title, 'Chrono Trigger (USA) Rev A');
+  assert.equal(chrono.extension, 'sfc');
+  assert.equal(chrono.region, null);
+  assert.equal(chrono.revision, null);
 
   const collectorEdition = parseRomFileName('The Last Story (Collector Edition).iso');
   assert.equal(collectorEdition.title, 'The Last Story (Collector Edition)');

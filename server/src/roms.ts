@@ -61,16 +61,13 @@ const REGION_BLOCKED_WORDS = new Set([
 ]);
 const KNOWN_REGION_ALIASES = new Set([
   'u',
-  'us',
   'usa',
   'unitedstates',
   'northamerica',
   'e',
-  'eu',
   'eur',
   'europe',
   'j',
-  'jp',
   'jpn',
   'japan',
   'w',
@@ -89,7 +86,6 @@ const KNOWN_REGION_ALIASES = new Set([
   'taiwan',
   'russia',
   'mexico',
-  'uk',
   'latinamerica',
   'hongkong',
 ]);
@@ -234,7 +230,7 @@ function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
   );
   const withoutBracketMetadata = withoutParentheticalNoise.replace(/\[[^\]]*\]/g, ' ');
   const withoutStandaloneRegionAliases = withoutBracketMetadata.replace(
-    /\b(?:usa|unitedstates|northamerica|e|eu|eur|europe|j|jp|jpn|japan|w|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|uk|latinamerica|hongkong)\b/gi,
+    /\b(?:usa|unitedstates|northamerica|e|eur|europe|j|jpn|japan|w|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|latinamerica|hongkong)\b/gi,
     ' '
   );
   return withoutStandaloneRegionAliases

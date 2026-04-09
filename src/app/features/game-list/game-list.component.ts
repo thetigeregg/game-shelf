@@ -4808,7 +4808,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private canShowRomButtonsForGame(game: GameEntry): boolean {
-    return this.canShowManualButtonsForGame(game);
+    const displayPlatform = this.getGameDisplayPlatform(game);
+    const canonicalPlatformIgdbId =
+      this.platformCustomizationService.resolveCanonicalPlatformIgdbId(
+        displayPlatform.name,
+        displayPlatform.igdbId
+      );
+
+    return (
+      canonicalPlatformIgdbId !== null && resolveEmulatorJsCore(canonicalPlatformIgdbId) !== null
+    );
   }
 
   private normalizeFilterHours(value: number | null | undefined): number | null {

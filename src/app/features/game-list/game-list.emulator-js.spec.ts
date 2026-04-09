@@ -132,3 +132,35 @@ describe('GameListComponent emulator launch flow', () => {
     ).toHaveBeenCalledOnce();
   });
 });
+
+describe('GameListComponent ROM UI vs EmulatorJS platform map', () => {
+  /** IGDB 5 (Wii) is on the manual shortcut whitelist but has no EmulatorJS core mapping. */
+  function wiiHarness(): Record<string, unknown> {
+    return {
+      isSimilarDiscoveryDetailModalOpen: false,
+      selectedGame: makeGame({ platform: 'Wii', platformIgdbId: 5 }),
+      romResolvedUrl: '/roms/Wii__pid-5/Test%20Game.iso',
+      romCatalogUnavailable: false,
+      romResolvedSource: null,
+      platformCustomizationService: {
+        resolveCanonicalPlatformIgdbId: vi.fn().mockReturnValue(5),
+      },
+      getGameDisplayPlatform: vi
+        .fn()
+        .mockReturnValue({ name: 'Wii', igdbId: 5 } as { name: string; igdbId: number }),
+    };
+  }
+
+  type RomGateProto = {
+    canShowRomButtonsForGame(this: GameListComponent, game: GameEntry): boolean;
+  };
+
+  it('does not treat manual-whitelist-only platforms as ROM-capable (EmulatorJS map gate)', () => {
+    const harness = wiiHarness();
+    const game = harness.selectedGame as GameEntry;
+    const result = (
+      GameListComponent.prototype as unknown as RomGateProto
+    ).canShowRomButtonsForGame.call(harness as unknown as GameListComponent, game);
+    expect(result).toBe(false);
+  });
+});

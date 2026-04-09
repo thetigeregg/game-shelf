@@ -32,14 +32,25 @@ describe('EmulatorJsModalComponent', () => {
 
   it('sanitizes launch URL on changes and clears empty values', () => {
     const component = createComponent();
+    const localLaunchUrl = `${window.location.origin}/assets/emulatorjs/play.html?core=nes`;
 
-    component.launchUrl = '  https://app.test/assets/emulatorjs/play.html?core=nes  ';
+    component.launchUrl = `  ${localLaunchUrl}  `;
     component.ngOnChanges();
-    expect(component.safeLaunchUrl).toBe(
-      'safe:https://app.test/assets/emulatorjs/play.html?core=nes'
-    );
+    expect(component.safeLaunchUrl).toBe(`safe:${localLaunchUrl}`);
 
     component.launchUrl = '   ';
+    component.ngOnChanges();
+    expect(component.safeLaunchUrl).toBeNull();
+  });
+
+  it('rejects off-origin or non-play-shell launch URLs', () => {
+    const component = createComponent();
+
+    component.launchUrl = 'https://evil.test/assets/emulatorjs/play.html?core=nes';
+    component.ngOnChanges();
+    expect(component.safeLaunchUrl).toBeNull();
+
+    component.launchUrl = `${window.location.origin}/roms/game.nes`;
     component.ngOnChanges();
     expect(component.safeLaunchUrl).toBeNull();
   });

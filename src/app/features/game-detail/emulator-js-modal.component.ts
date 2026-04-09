@@ -35,6 +35,7 @@ function isEmulatorJsExitMessage(data: unknown): boolean {
 })
 export class EmulatorJsModalComponent implements OnChanges {
   private readonly domSanitizer = inject(DomSanitizer);
+  private static readonly PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
 
   @Input() isOpen = false;
   @Input() launchUrl: string | null = null;
@@ -44,8 +45,10 @@ export class EmulatorJsModalComponent implements OnChanges {
 
   ngOnChanges(): void {
     const raw = typeof this.launchUrl === 'string' ? this.launchUrl.trim() : '';
-    this.safeLaunchUrl =
-      raw.length > 0 ? this.domSanitizer.bypassSecurityTrustResourceUrl(raw) : null;
+    const validatedLaunchUrl = this.validateLaunchUrl(raw);
+    this.safeLaunchUrl = validatedLaunchUrl
+      ? this.domSanitizer.bypassSecurityTrustResourceUrl(validatedLaunchUrl)
+      : null;
   }
 
   @HostListener('window:message', ['$event'])
@@ -64,5 +67,33 @@ export class EmulatorJsModalComponent implements OnChanges {
 
   onClose(): void {
     this.dismiss.emit();
+  }
+
+  private validateLaunchUrl(candidate: string): string | null {
+    if (candidate.length === 0) {
+      return null;
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(candidate, window.location.origin);
+    } catch {
+      return null;
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    if (parsed.origin !== window.location.origin) {
+      return null;
+    }
+    if (parsed.pathname !== EmulatorJsModalComponent.PLAY_SHELL_PATH) {
+      return null;
+    }
+    if (parsed.username.length > 0 || parsed.password.length > 0) {
+      return null;
+    }
+
+    return parsed.toString();
   }
 }

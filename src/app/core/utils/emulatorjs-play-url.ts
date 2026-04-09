@@ -100,7 +100,11 @@ function normalizePathToData(value: string): string {
 function normalizeBiosBasePath(value: string | null | undefined): string {
   const baseRaw = typeof value === 'string' ? value.trim() : '';
   const normalizedBase = (baseRaw.length === 0 ? '/bios' : baseRaw).replace(/\/+$/, '');
-  return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+  const normalizedPath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+  if (containsDotSegments(normalizedPath)) {
+    throw new Error('Invalid EmulatorJS bios base path');
+  }
+  return normalizedPath;
 }
 
 function normalizeRomBasePath(value: string | null | undefined): string {
@@ -292,7 +296,12 @@ export function isAllowedEmulatorJsBiosUrl(
     return false;
   }
 
-  const basePath = normalizeBiosBasePath(biosBaseUrl);
+  let basePath: string;
+  try {
+    basePath = normalizeBiosBasePath(biosBaseUrl);
+  } catch {
+    return false;
+  }
   const prefix = `${basePath}/`;
   return !containsDotSegments(parsed.pathname) && parsed.pathname.startsWith(prefix);
 }

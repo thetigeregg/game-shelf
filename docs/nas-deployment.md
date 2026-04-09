@@ -284,16 +284,75 @@ Manual PDFs:
 ROM files:
 
 - Store ROMs under `nas-data/roms`.
-- Use platform folders that end with `__pid-<platformIgdbId>` (example: `Nintendo NES__pid-18`).
+- Use platform folders that end with `__pid-<platformIgdbId>` (example: `Nintendo Entertainment System__pid-18`). The segment before `__pid-` is only for humans; the API reads the trailing `__pid-<id>` token.
 - The app serves files at `/roms/...` and the API scans `/data/roms` for fuzzy matching.
 - For multi-file ROM folders, automatic `/v1/roms/resolve` matching is intentionally disabled.
 - Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
+- **ROM resolve aliases:** the API treats some IGDB platform ids as equivalent when matching ROMs (folder `__pid-` may use either side). Pairs: `99`/`51` → `18` (Famicom / FDS → NES), `58` → `19` (Super Famicom → SNES), `137` → `37` (New 3DS → 3DS), `159` → `20` (DSi → DS), `510` → `24` (e-Reader → GBA). In-browser play still uses the **canonical** platform id from the library entry after `resolveCanonicalPlatformIgdbId` in the app.
+
+### EmulatorJS: supported IGDB platforms (in-browser)
+
+The PWA only offers **Play in browser** when the game’s canonical IGDB platform maps to an `EJS_core` listed under [EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores). The authoritative IGDB → core map is `src/app/core/utils/emulatorjs-platform-map.ts` (`IGDB_TO_DOCUMENTED_EMULATOR_JS_CORE`).
+
+| IGDB ID | Platform (app catalog)              | `EJS_core`   | ROM folder suffix (append to any label) | BIOS via app (`EJS_biosUrl`)                                                                                     |
+| ------: | ----------------------------------- | ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+|       4 | Nintendo 64                         | `n64`        | `__pid-4`                               | —                                                                                                                |
+|       7 | PlayStation                         | `psx`        | `__pid-7`                               | `psx/psx-bios.zip` ([doc](https://emulatorjs.org/docs/systems/playstation))                                      |
+|      13 | DOS                                 | `dos`        | `__pid-13`                              | —                                                                                                                |
+|      18 | Nintendo Entertainment System       | `nes`        | `__pid-18`                              | —; Famicom Disk System (`.fds` ROMs): `nes/disksys.rom` ([doc](https://emulatorjs.org/docs/systems/nes-famicom)) |
+|      19 | Super Nintendo Entertainment System | `snes`       | `__pid-19`                              | `snes/snes-bios.zip` (optional BS-X / Sufami; [doc](https://emulatorjs.org/docs/systems/snes))                   |
+|      20 | Nintendo DS                         | `nds`        | `__pid-20`                              | `nds/nds-bios.zip` ([doc](https://emulatorjs.org/docs/systems/nintendo-ds))                                      |
+|      22 | Game Boy Color                      | `gb`         | `__pid-22`                              | `gb/gb-bios.zip` (optional; [doc](https://emulatorjs.org/docs/systems/nintendo-game-boy))                        |
+|      24 | Game Boy Advance                    | `gba`        | `__pid-24`                              | `gba/gba-bios.zip` (optional; [doc](https://emulatorjs.org/docs/systems/nintendo-game-boy-advance))              |
+|      29 | Sega Mega Drive/Genesis             | `segaMD`     | `__pid-29`                              | `segaMD/bios_MD.bin` ([doc](https://emulatorjs.org/docs/systems/sega-mega-drive))                                |
+|      30 | Sega 32X                            | `sega32x`    | `__pid-30`                              | —                                                                                                                |
+|      32 | Sega Saturn                         | `segaSaturn` | `__pid-32`                              | `segaSaturn/saturn_bios.bin` ([doc](https://emulatorjs.org/docs/systems/sega-saturn))                            |
+|      33 | Game Boy                            | `gb`         | `__pid-33`                              | `gb/gb-bios.zip` (optional; [doc](https://emulatorjs.org/docs/systems/nintendo-game-boy))                        |
+|      35 | Sega Game Gear                      | `segaGG`     | `__pid-35`                              | `segaGG/bios.gg` (optional; [doc](https://emulatorjs.org/docs/systems/sega-game-gear))                           |
+|      38 | PlayStation Portable                | `psp`        | `__pid-38`                              | — ([PSP](https://emulatorjs.org/docs/systems/psp) example omits `EJS_biosUrl`; app matches that)                 |
+|      50 | 3DO Interactive Multiplayer         | `3do`        | `__pid-50`                              | `3do/3do-bios.zip` ([doc](https://emulatorjs.org/docs/systems/3do))                                              |
+|      51 | Family Computer Disk System         | `nes`        | `__pid-51`                              | Same as NES / FDS row (`nes/disksys.rom` when ROM ends with `.fds`)                                              |
+|      52 | Arcade                              | `arcade`     | `__pid-52`                              | — (per-title ROM sets; no single `EJS_biosUrl`)                                                                  |
+|      57 | WonderSwan                          | `ws`         | `__pid-57`                              | —                                                                                                                |
+|      58 | Super Famicom                       | `snes`       | `__pid-58`                              | `snes/snes-bios.zip`                                                                                             |
+|      59 | Atari 2600                          | `atari2600`  | `__pid-59`                              | —                                                                                                                |
+|      61 | Atari Lynx                          | `lynx`       | `__pid-61`                              | `lynx/lynxboot.img` ([doc](https://emulatorjs.org/docs/systems/atari-lynx))                                      |
+|      62 | Atari Jaguar                        | `jaguar`     | `__pid-62`                              | —                                                                                                                |
+|      64 | Sega Master System/Mark III         | `segaMS`     | `__pid-64`                              | `segaMS/segaMS-bios.zip` ([doc](https://emulatorjs.org/docs/systems/sega-master-system))                         |
+|      68 | ColecoVision                        | `coleco`     | `__pid-68`                              | `coleco/colecovision.rom` ([doc](https://emulatorjs.org/docs/systems/colecovision))                              |
+|      78 | Sega CD                             | `segaCD`     | `__pid-78`                              | `segaCD/segaCD-bios.zip` ([doc](https://emulatorjs.org/docs/systems/sega-cd))                                    |
+|      79 | Neo Geo MVS                         | `arcade`     | `__pid-79`                              | —                                                                                                                |
+|      80 | Neo Geo AES                         | `arcade`     | `__pid-80`                              | —                                                                                                                |
+|      84 | SG-1000                             | `segaMS`     | `__pid-84`                              | `segaMS/segaMS-bios.zip`                                                                                         |
+|      86 | TurboGrafx-16/PC Engine             | `pce`        | `__pid-86`                              | —                                                                                                                |
+|      87 | Virtual Boy                         | `vb`         | `__pid-87`                              | —                                                                                                                |
+|      99 | Family Computer                     | `nes`        | `__pid-99`                              | —; `.fds` → `nes/disksys.rom`                                                                                    |
+|     117 | Philips CD-i                        | `arcade`     | `__pid-117`                             | — (`same_cdi` core family; [Cores](https://emulatorjs.org/docs4devs/cores))                                      |
+|     119 | Neo Geo Pocket                      | `ngp`        | `__pid-119`                             | —                                                                                                                |
+|     120 | Neo Geo Pocket Color                | `ngp`        | `__pid-120`                             | —                                                                                                                |
+|     123 | WonderSwan Color                    | `ws`         | `__pid-123`                             | —                                                                                                                |
+|     124 | SwanCrystal                         | `ws`         | `__pid-124`                             | —                                                                                                                |
+|     128 | PC Engine SuperGrafx                | `pce`        | `__pid-128`                             | —                                                                                                                |
+|     135 | Hyper Neo Geo 64                    | `arcade`     | `__pid-135`                             | —                                                                                                                |
+|     136 | Neo Geo CD                          | `arcade`     | `__pid-136`                             | —                                                                                                                |
+|     150 | Turbografx-16/PC Engine CD          | `pce`        | `__pid-150`                             | —                                                                                                                |
+|     274 | PC-FX                               | `pcfx`       | `__pid-274`                             | —                                                                                                                |
+|     306 | Satellaview                         | `snes`       | `__pid-306`                             | `snes/snes-bios.zip`                                                                                             |
+|     410 | Atari Jaguar CD                     | `jaguar`     | `__pid-410`                             | —                                                                                                                |
+|     416 | 64DD                                | `n64`        | `__pid-416`                             | —                                                                                                                |
+|     482 | Sega CD 32X                         | `sega32x`    | `__pid-482`                             | —                                                                                                                |
+
+**Notes:**
+
+- **—** in the BIOS column means the app does **not** set `EJS_biosUrl` for that core today (`src/app/core/utils/emulatorjs-bios-path.ts`). EmulatorJS may still run many of these without extra files; if a core fails without BIOS, add a mapping there using the same zip/single-file rules as below, following [EmulatorJS · Systems](https://emulatorjs.org/docs/systems/).
+- EmulatorJS documents more cores (e.g. Commodore, Atari 5200) than Game Shelf maps from the IGDB catalog; those are intentionally omitted until there is a catalog platform id to attach.
 
 BIOS files:
 
 - Store BIOS files under `nas-data/bios` (mounted at `/bios` in `edge`).
 - When using **EmulatorJS** in the PWA, the frontend may set **`EJS_biosUrl`** to same-origin URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
 - The app serves BIOS assets at `/bios/...` for in-browser play (no API indexing/matching required).
+- Allowed `EJS_core` tokens follow [EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores). Per-system BIOS file names and zip layout follow [EmulatorJS · Systems](https://emulatorjs.org/docs/systems/).
 - EmulatorJS takes a **single** `EJS_biosUrl`. Match how each system is documented in [EmulatorJS · Systems](https://emulatorjs.org/docs/systems/):
   - **Several BIOS file names** are listed for the platform (different regions, hardware, or a required multi-file set) → ship **one zip** at `<EJS_core>/<EJS_core>-bios.zip` (same token as in `emulatorjs-bios-path.ts`). Put every file you need at the **root** of the archive using the **exact filenames** from that system’s doc (no extra directory prefix unless upstream says otherwise).
   - The doc is effectively **one** BIOS file for that platform → use a **single file** at the path in the table (no zip).
@@ -309,7 +368,7 @@ BIOS files:
 
 Expected layout (relative to `nas-data/bios`):
 
-The table lists **every** EmulatorJS core for which Game Shelf sets **`EJS_biosUrl`** (see `src/app/core/utils/emulatorjs-bios-path.ts`). It is **not** every system EmulatorJS can run: cores whose upstream system page has **no** BIOS section (or no `EJS_biosUrl` in the example), such as [PSP](https://emulatorjs.org/docs/systems/psp), are omitted from both the map and this table.
+The table below lists **every** `EJS_core` for which Game Shelf currently sets **`EJS_biosUrl`** (see `src/app/core/utils/emulatorjs-bios-path.ts`). Cross-check the **BIOS via app** column in **EmulatorJS: supported IGDB platforms (in-browser)** above to see which IGDB platforms use each path. Cores that are supported for play but have **no** row here (e.g. `n64`, `psp`, `pce`) do not receive `EJS_biosUrl` from the app unless you extend the map.
 
 | Core / case                   | Relative path                | Packaging   | Inner members (zip) / notes                                                                                                                                                                         |
 | ----------------------------- | ---------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

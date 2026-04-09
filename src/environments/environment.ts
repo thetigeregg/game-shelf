@@ -9,10 +9,12 @@ export const environment = {
   romsBaseUrl: '/roms',
   /** Public BIOS mount (same origin); used when a core requires `EJS_biosUrl`. */
   biosBaseUrl: '/bios',
-  /** Must be self-hosted under app origin to avoid third-party iframe script trust. */
-  emulatorJsPathToData: '/assets/emulatorjs/data/',
+  /** Pinned immutable EmulatorJS runtime path (no moving aliases like `stable`/`latest`). */
+  emulatorJsPathToData:
+    'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
   /** Optional SRI hash for `/assets/emulatorjs/data/loader.js` (format: `sha384-...`). */
-  emulatorJsLoaderIntegrity: '',
+  emulatorJsLoaderIntegrity:
+    'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
   /** Enables EmulatorJS `EJS_DEBUG_XX` (verbose console + unminified scripts) in the play iframe. */
   emulatorJsDebug: true,
   firebase: {

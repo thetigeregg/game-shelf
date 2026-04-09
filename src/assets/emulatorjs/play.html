@@ -20,7 +20,11 @@
     <div id="game"></div>
     <script>
       (function () {
-        var DEFAULT_PATH_TO_DATA = '/assets/emulatorjs/data/';
+        var DEFAULT_PATH_TO_DATA =
+          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
+        var ALLOWED_PATH_TO_DATA_PREFIXES = [
+          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
+        ];
         var params = new URLSearchParams(window.location.search);
         var core = params.get('core');
         var rom = params.get('rom');
@@ -67,28 +71,25 @@
           var raw = trimmed.length === 0 ? DEFAULT_PATH_TO_DATA : trimmed;
           var parsed;
           try {
-            parsed = new URL(raw, window.location.origin);
+            parsed = new URL(raw);
           } catch (_error) {
             return null;
           }
 
-          if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+          if (parsed.protocol !== 'https:') {
             return null;
           }
-
-          if (parsed.origin !== window.location.origin) {
-            return null;
-          }
-          if (!parsed.pathname.startsWith('/assets/emulatorjs/data/')) {
-            return null;
+          var normalized = parsed.href;
+          if (normalized.slice(-1) !== '/') {
+            normalized += '/';
           }
 
-          var normalizedPath = parsed.pathname;
-          if (normalizedPath.slice(-1) !== '/') {
-            normalizedPath += '/';
+          for (var i = 0; i < ALLOWED_PATH_TO_DATA_PREFIXES.length; i += 1) {
+            if (normalized === ALLOWED_PATH_TO_DATA_PREFIXES[i]) {
+              return normalized;
+            }
           }
-
-          return parsed.origin + normalizedPath;
+          return null;
         }
 
         function isValidLoaderIntegrity(value) {
@@ -193,11 +194,8 @@
           showError('Invalid EmulatorJS loader URL.');
           return;
         }
-        if (
-          loaderUrl.origin !== window.location.origin ||
-          !loaderUrl.pathname.startsWith('/assets/emulatorjs/data/')
-        ) {
-          showError('EmulatorJS loader must be served from a self-hosted same-origin path.');
+        if (!loaderUrl.href.startsWith(normalizedPathToData)) {
+          showError('EmulatorJS loader URL must match the pinned asset path.');
           return;
         }
 

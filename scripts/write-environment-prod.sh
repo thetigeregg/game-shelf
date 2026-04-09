@@ -39,6 +39,12 @@ firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
 
 emulatorjs_path_to_data_default="$(node -e "const fs=require('fs');const source=fs.readFileSync('src/app/core/config/emulatorjs.constants.ts','utf8');const remote=source.match(/EMULATORJS_REMOTE_BASE_PATH\\s*=\\s*'([^']+)'/);const version=source.match(/EMULATORJS_RUNTIME_VERSION\\s*=\\s*'([^']+)'/);if(!remote||!version){process.exit(1);}process.stdout.write(remote[1]+version[1]+'/');")"
 emulatorjs_path_to_data="${EMULATORJS_PATH_TO_DATA_PROD:-$emulatorjs_path_to_data_default}"
+emulatorjs_loader_integrity_default='sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U'
+if [[ "${emulatorjs_path_to_data}" == "${emulatorjs_path_to_data_default}" ]]; then
+  emulatorjs_loader_integrity="${EMULATORJS_LOADER_INTEGRITY_PROD:-$emulatorjs_loader_integrity_default}"
+else
+  emulatorjs_loader_integrity="${EMULATORJS_LOADER_INTEGRITY_PROD:-}"
+fi
 
 escape_ts_string() {
   local value="${1}"
@@ -56,7 +62,7 @@ export const environment = {
   romsBaseUrl: '/roms',
   biosBaseUrl: '/bios',
   emulatorJsPathToData: '$(escape_ts_string "${emulatorjs_path_to_data}")',
-  emulatorJsLoaderIntegrity: 'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
+  emulatorJsLoaderIntegrity: '$(escape_ts_string "${emulatorjs_loader_integrity}")',
   emulatorJsDebug: false,
   firebase: {
     apiKey: '$(escape_ts_string "${firebase_api_key}")',

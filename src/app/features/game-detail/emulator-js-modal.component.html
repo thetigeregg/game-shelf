@@ -3,6 +3,7 @@
     <ion-content class="emulator-js-modal-content gs-safe-bottom" [scrollY]="false">
       @if (safeLaunchUrl) {
         <iframe
+          #playFrame
           class="emulator-js-iframe"
           title="Emulator"
           [src]="safeLaunchUrl"

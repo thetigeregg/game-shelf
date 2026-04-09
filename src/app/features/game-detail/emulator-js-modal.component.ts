@@ -1,10 +1,12 @@
 import {
   Component,
+  ElementRef,
   EventEmitter,
   HostListener,
   Input,
   OnChanges,
   Output,
+  ViewChild,
   inject,
 } from '@angular/core';
 import { IonContent, IonModal } from '@ionic/angular/standalone';
@@ -36,6 +38,7 @@ function isEmulatorJsExitMessage(data: unknown): boolean {
 export class EmulatorJsModalComponent implements OnChanges {
   private readonly domSanitizer = inject(DomSanitizer);
   private static readonly PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
+  @ViewChild('playFrame') private playFrame?: ElementRef<HTMLIFrameElement>;
 
   @Input() isOpen = false;
   @Input() launchUrl: string | null = null;
@@ -60,6 +63,10 @@ export class EmulatorJsModalComponent implements OnChanges {
       return;
     }
     if (!isEmulatorJsExitMessage(event.data)) {
+      return;
+    }
+    const frameWindow = this.playFrame?.nativeElement.contentWindow;
+    if (!frameWindow || event.source !== frameWindow) {
       return;
     }
     this.dismiss.emit();

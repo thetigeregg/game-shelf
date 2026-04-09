@@ -10,6 +10,67 @@ const AUTO_MATCH_MIN_SCORE = 0.86;
 const AUTO_MATCH_MIN_GAP = 0.08;
 const MAX_CANDIDATES = 12;
 const MAX_SEARCH_RESULTS = 50;
+const REGION_BLOCKED_WORDS = new Set([
+  'rev',
+  'revision',
+  'version',
+  'compatible',
+  'enhanced',
+  'demo',
+  'proto',
+  'beta',
+  'sample',
+  'disc',
+  'disk',
+  'cd',
+  'dvd',
+]);
+const KNOWN_REGION_ALIASES = new Set([
+  'u',
+  'us',
+  'usa',
+  'unitedstates',
+  'northamerica',
+  'e',
+  'eu',
+  'eur',
+  'europe',
+  'j',
+  'jp',
+  'jpn',
+  'japan',
+  'w',
+  'world',
+  'unl',
+  'korea',
+  'brazil',
+  'australia',
+  'canada',
+  'spain',
+  'france',
+  'germany',
+  'italy',
+  'asia',
+  'china',
+  'taiwan',
+  'russia',
+  'mexico',
+  'uk',
+  'latinamerica',
+  'hongkong',
+]);
+const PARENTHETICAL_FLAG_WORDS = new Set([
+  'enhanced',
+  'compatible',
+  'beta',
+  'proto',
+  'prototype',
+  'sample',
+  'demo',
+  'translation',
+  'patched',
+  'hack',
+]);
 const PLATFORM_ROM_ALIAS_TO_CANONICAL: Record<number, number> = {
   99: 18,
   51: 18,
@@ -641,22 +702,7 @@ function looksLikeRegionToken(value: string): boolean {
     return false;
   }
   const words = splitAlphaNumericWords(normalized);
-  const blockedWords = new Set([
-    'rev',
-    'revision',
-    'version',
-    'compatible',
-    'enhanced',
-    'demo',
-    'proto',
-    'beta',
-    'sample',
-    'disc',
-    'disk',
-    'cd',
-    'dvd',
-  ]);
-  if (words.some((word) => blockedWords.has(word))) {
+  if (words.some((word) => REGION_BLOCKED_WORDS.has(word))) {
     return false;
   }
 
@@ -665,44 +711,9 @@ function looksLikeRegionToken(value: string): boolean {
     return false;
   }
 
-  const knownRegionAliases = new Set([
-    'u',
-    'us',
-    'usa',
-    'unitedstates',
-    'northamerica',
-    'e',
-    'eu',
-    'eur',
-    'europe',
-    'j',
-    'jp',
-    'jpn',
-    'japan',
-    'w',
-    'world',
-    'unl',
-    'korea',
-    'brazil',
-    'australia',
-    'canada',
-    'spain',
-    'france',
-    'germany',
-    'italy',
-    'asia',
-    'china',
-    'taiwan',
-    'russia',
-    'mexico',
-    'uk',
-    'latinamerica',
-    'hongkong',
-  ]);
-
   for (const part of parts) {
     const alias = part.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    if (alias.length === 0 || !knownRegionAliases.has(alias)) {
+    if (alias.length === 0 || !KNOWN_REGION_ALIASES.has(alias)) {
       return false;
     }
   }
@@ -781,19 +792,7 @@ function looksLikeParentheticalFlagToken(value: string): boolean {
     return true;
   }
   const words = splitAlphaNumericWords(normalized);
-  const flagWords = new Set([
-    'enhanced',
-    'compatible',
-    'beta',
-    'proto',
-    'prototype',
-    'sample',
-    'demo',
-    'translation',
-    'patched',
-    'hack',
-  ]);
-  return words.some((word) => flagWords.has(word));
+  return words.some((word) => PARENTHETICAL_FLAG_WORDS.has(word));
 }
 
 function rankRomEntriesByTitle(

@@ -79,6 +79,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     expect(new URL(href).searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
   });
 
+  it('accepts same-origin self-hosted EmulatorJS runtime path', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: 'https://example.com/assets/emulatorjs/data',
+    });
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(
+      'https://example.com/assets/emulatorjs/data/'
+    );
+  });
+
   it('throws when core is not a safe token', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
@@ -137,6 +149,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid BIOS URL/);
   });
 
+  it('adds biosbase when using a non-default bios base path', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'psx',
+      romUrl: '/roms/game.bin',
+      pathToData: PINNED_DATA_PATH,
+      biosUrl: 'https://example.com/public-bios/psx/scph1001.bin',
+      biosBaseUrl: '/public-bios',
+    });
+    expect(new URL(href).searchParams.get('biosbase')).toBe('/public-bios');
+  });
+
   it('appends loader_integrity when provided', () => {
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
@@ -160,6 +184,12 @@ describe('buildEmulatorJsBiosUrl', () => {
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '../x.bin')).toBeNull();
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', 'a//b.bin')).toBeNull();
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios', '/abs.bin')).toBeNull();
+  });
+
+  it('supports custom bios base paths', () => {
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/public-bios', 'psx/scph1001.bin')).toBe(
+      'https://app.test/public-bios/psx/scph1001.bin'
+    );
   });
 });
 
@@ -217,6 +247,23 @@ describe('isAllowedEmulatorJsBiosUrl', () => {
     expect(isAllowedEmulatorJsBiosUrl('https://app.test/roms/x.bin', 'https://app.test')).toBe(
       false
     );
+  });
+
+  it('supports custom bios base allowlist paths', () => {
+    expect(
+      isAllowedEmulatorJsBiosUrl(
+        'https://app.test/public-bios/psx/scph1001.bin',
+        'https://app.test',
+        '/public-bios'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedEmulatorJsBiosUrl(
+        'https://app.test/bios/psx/scph1001.bin',
+        'https://app.test',
+        '/public-bios'
+      )
+    ).toBe(false);
   });
 });
 

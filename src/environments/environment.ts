@@ -9,7 +9,7 @@ export const environment = {
   romsBaseUrl: '/roms',
   /** Public BIOS mount (same origin); used when a core requires `EJS_biosUrl`. */
   biosBaseUrl: '/bios',
-  /** Pinned immutable EmulatorJS runtime path (no moving aliases like `stable`/`latest`). */
+  /** Default EmulatorJS runtime path; app also permits same-origin `/assets/emulatorjs/data/`. */
   emulatorJsPathToData:
     'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
   /** Optional SRI hash for `/assets/emulatorjs/data/loader.js` (format: `sha384-...`). */

@@ -1,9 +1,7 @@
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
 const DEFAULT_PATH_TO_DATA =
   'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
-const ALLOWED_PATH_TO_DATA_PREFIXES = [
-  'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
-] as const;
+const SELF_HOSTED_PATH_TO_DATA = '/assets/emulatorjs/data/';
 
 export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
@@ -15,6 +13,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   pathToData: string;
   /** Same-origin absolute BIOS asset URL under `/bios/` (validated; optional). */
   biosUrl?: string | null;
+  /** Same-origin BIOS base path (defaults to `/bios`). */
+  biosBaseUrl?: string | null;
   /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
   debug?: boolean;
   /** Override play shell path for tests. */
@@ -38,7 +38,12 @@ export function isSafeEmulatorJsShaderFileName(value: string): boolean {
   return /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\.glslp)?$/.test(trimmed);
 }
 
-function normalizePathToData(value: string): string {
+function getAllowedPathToDataPrefixes(pageOrigin: string): string[] {
+  const normalizedOrigin = pageOrigin.replace(/\/+$/, '');
+  return [new URL(SELF_HOSTED_PATH_TO_DATA, `${normalizedOrigin}/`).href, DEFAULT_PATH_TO_DATA];
+}
+
+function normalizePathToData(value: string, pageOrigin: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     return DEFAULT_PATH_TO_DATA;
@@ -56,11 +61,19 @@ function normalizePathToData(value: string): string {
   }
 
   const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
-  const isAllowed = ALLOWED_PATH_TO_DATA_PREFIXES.some((prefix) => normalized === prefix);
+  const isAllowed = getAllowedPathToDataPrefixes(pageOrigin).some(
+    (prefix) => normalized === prefix
+  );
   if (!isAllowed) {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
   return normalized;
+}
+
+function normalizeBiosBasePath(value: string | null | undefined): string {
+  const baseRaw = typeof value === 'string' ? value.trim() : '';
+  const normalizedBase = (baseRaw.length === 0 ? '/bios' : baseRaw).replace(/\/+$/, '');
+  return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
 }
 
 /** Restricts core names to a simple token (mirrors `play.html`). */
@@ -99,7 +112,7 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     pageUrl.searchParams.set('title', title);
   }
 
-  pageUrl.searchParams.set('pathtodata', normalizePathToData(params.pathToData));
+  pageUrl.searchParams.set('pathtodata', normalizePathToData(params.pathToData, normalizedOrigin));
 
   if (params.debug === true) {
     pageUrl.searchParams.set('debug', '1');
@@ -107,7 +120,8 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const biosCandidate = typeof params.biosUrl === 'string' ? params.biosUrl.trim() : '';
   if (biosCandidate.length > 0) {
-    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin)) {
+    const normalizedBiosBasePath = normalizeBiosBasePath(params.biosBaseUrl);
+    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, normalizedBiosBasePath)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     let resolvedBios: URL;
@@ -116,10 +130,13 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     } catch {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
-    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin)) {
+    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, normalizedBiosBasePath)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('bios', resolvedBios.href);
+    if (normalizedBiosBasePath !== '/bios') {
+      pageUrl.searchParams.set('biosbase', normalizedBiosBasePath);
+    }
   }
 
   const shaderCandidate =
@@ -170,9 +187,7 @@ export function buildEmulatorJsBiosUrl(
   }
 
   const origin = pageOrigin.replace(/\/+$/, '');
-  const baseRaw = biosBaseUrl.trim();
-  const normalizedBase = (baseRaw.length === 0 ? '/bios' : baseRaw).replace(/\/+$/, '');
-  const basePath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+  const basePath = normalizeBiosBasePath(biosBaseUrl);
 
   let resolved: URL;
   try {
@@ -181,7 +196,7 @@ export function buildEmulatorJsBiosUrl(
     return null;
   }
 
-  if (!isAllowedEmulatorJsBiosUrl(resolved.href, origin)) {
+  if (!isAllowedEmulatorJsBiosUrl(resolved.href, origin, basePath)) {
     return null;
   }
 
@@ -189,7 +204,11 @@ export function buildEmulatorJsBiosUrl(
 }
 
 /** Same-origin `/bios/` check (mirrors play shell rules) for unit tests. */
-export function isAllowedEmulatorJsBiosUrl(biosUrl: string, pageOrigin: string): boolean {
+export function isAllowedEmulatorJsBiosUrl(
+  biosUrl: string,
+  pageOrigin: string,
+  biosBaseUrl = '/bios'
+): boolean {
   let parsed: URL;
   try {
     parsed = new URL(biosUrl, `${pageOrigin.replace(/\/+$/, '')}/`);
@@ -202,7 +221,9 @@ export function isAllowedEmulatorJsBiosUrl(biosUrl: string, pageOrigin: string):
     return false;
   }
 
-  return parsed.pathname.startsWith('/bios/');
+  const basePath = normalizeBiosBasePath(biosBaseUrl);
+  const prefix = `${basePath}/`;
+  return parsed.pathname.startsWith(prefix);
 }
 
 /** Same-origin `/roms/` check (mirrors play shell rules) for unit tests. */

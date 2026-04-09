@@ -20,11 +20,12 @@
     <div id="game"></div>
     <script>
       (function () {
-        var DEFAULT_PATH_TO_DATA =
+        var PINNED_PATH_TO_DATA =
           'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
-        var ALLOWED_PATH_TO_DATA_PREFIXES = [
-          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/',
-        ];
+        var SELF_HOSTED_PATH_TO_DATA = new URL('/assets/emulatorjs/data/', window.location.origin)
+          .href;
+        var DEFAULT_PATH_TO_DATA = PINNED_PATH_TO_DATA;
+        var ALLOWED_PATH_TO_DATA_PREFIXES = [SELF_HOSTED_PATH_TO_DATA, PINNED_PATH_TO_DATA];
         var params = new URLSearchParams(window.location.search);
         var core = params.get('core');
         var rom = params.get('rom');
@@ -103,6 +104,20 @@
           return /^sha(256|384|512)-[A-Za-z0-9+/=]+$/.test(trimmed);
         }
 
+        function normalizeBiosBasePath(value) {
+          if (typeof value !== 'string') {
+            return '/bios';
+          }
+          var trimmed = value.trim();
+          var raw = trimmed.length === 0 ? '/bios' : trimmed;
+          var normalized = raw.replace(/\/+$/, '');
+          return normalized.charAt(0) === '/' ? normalized : '/' + normalized;
+        }
+
+        function isAllowedBiosUrl(url, origin, biosBasePath) {
+          return url.origin === origin && url.pathname.startsWith(biosBasePath + '/');
+        }
+
         if (!core || !rom) {
           showError('Missing core or ROM.');
           return;
@@ -155,6 +170,7 @@
 
         var bios = params.get('bios');
         if (bios) {
+          var biosBasePath = normalizeBiosBasePath(params.get('biosbase'));
           var biosUrl;
           try {
             biosUrl = new URL(bios, window.location.origin);
@@ -162,7 +178,7 @@
             showError('Invalid BIOS URL.');
             return;
           }
-          if (biosUrl.origin !== window.location.origin || !biosUrl.pathname.startsWith('/bios/')) {
+          if (!isAllowedBiosUrl(biosUrl, window.location.origin, biosBasePath)) {
             showError('BIOS URL is not allowed.');
             return;
           }

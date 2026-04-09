@@ -97,6 +97,10 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
     'cardcaptor sakura sakura card hen sakura to card to otomodachi'
   );
   assert.equal(normalizeRomTitle('Combat ~ Tank-Plus (USA).a26'), 'combat tank plus');
+  assert.equal(
+    normalizeRomTitle('R.B.I. Baseball (Tengen) [hM04] (Unl).nes'),
+    'r b i baseball tengen'
+  );
 });
 
 void test('parseRomFileName extracts clean title and metadata', () => {
@@ -125,6 +129,11 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   const copyArtifact = parseRomFileName('Boktai - The Sun Is in Your Hand (USA).gba copy');
   assert.equal(copyArtifact.title, 'Boktai: The Sun Is in Your Hand');
   assert.equal(copyArtifact.extension, null);
+
+  const tengen = parseRomFileName('R.B.I. Baseball (Tengen) [hM04] (Unl).nes');
+  assert.equal(tengen.title, 'R.B.I. Baseball (Tengen)');
+  assert.equal(tengen.region, 'Unl');
+  assert.deepEqual(tengen.flags, ['hM04']);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

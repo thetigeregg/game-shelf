@@ -124,12 +124,29 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
 
   const metadataTokens = extractMetadataTokens(withoutExtension);
   let metadataStart = withoutExtension.length;
-  for (const match of metadataTokens) {
-    if (match.start < metadataStart) {
-      metadataStart = match.start;
+  let trailingMetadataEnd = withoutExtension.length;
+  const trailingMetadataTokens = [...metadataTokens].sort(
+    (left, right) => right.start - left.start
+  );
+  for (const token of trailingMetadataTokens) {
+    const tokenEnd = token.start + token.value.length + 2;
+    if (tokenEnd > trailingMetadataEnd) {
+      continue;
     }
+
+    const between = withoutExtension.slice(tokenEnd, trailingMetadataEnd);
+    if (between.trim().length > 0) {
+      continue;
+    }
+
+    metadataStart = token.start;
+    trailingMetadataEnd = token.start;
   }
-  const titleCandidate = withoutExtension.slice(0, metadataStart).trim();
+  const trimmedTitleCandidate = withoutExtension.slice(0, metadataStart).trim();
+  const titleCandidate =
+    trimmedTitleCandidate.length >= 2 || metadataStart === withoutExtension.length
+      ? trimmedTitleCandidate
+      : withoutExtension.trim();
 
   let region: string | null = null;
   let revision: string | null = null;

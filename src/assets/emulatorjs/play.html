@@ -20,17 +20,15 @@
     <div id="game"></div>
     <script>
       (function () {
-        var PINNED_PATH_TO_DATA =
-          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
+        var TRUSTED_REMOTE_PATH_TO_DATA_PREFIX =
+          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/';
         var SELF_HOSTED_PATH_TO_DATA = new URL('/assets/emulatorjs/data/', window.location.origin)
           .href;
-        var DEFAULT_PATH_TO_DATA = PINNED_PATH_TO_DATA;
-        var ALLOWED_PATH_TO_DATA_PREFIXES = [SELF_HOSTED_PATH_TO_DATA, PINNED_PATH_TO_DATA];
         var params = new URLSearchParams(window.location.search);
         var core = params.get('core');
         var rom = params.get('rom');
         var title = params.get('title') || '';
-        var pathtodata = params.get('pathtodata') || DEFAULT_PATH_TO_DATA;
+        var pathtodata = params.get('pathtodata');
 
         function showError(message) {
           var text = message || 'Invalid launch parameters';
@@ -69,7 +67,10 @@
             return null;
           }
           var trimmed = value.trim();
-          var raw = trimmed.length === 0 ? DEFAULT_PATH_TO_DATA : trimmed;
+          if (trimmed.length === 0) {
+            return null;
+          }
+          var raw = trimmed;
           var parsed;
           try {
             parsed = new URL(raw);
@@ -80,9 +81,6 @@
           var normalized = parsed.href;
           if (normalized.slice(-1) !== '/') {
             normalized += '/';
-          }
-          if (!ALLOWED_PATH_TO_DATA_PREFIXES.includes(normalized)) {
-            return null;
           }
           if (normalized === SELF_HOSTED_PATH_TO_DATA) {
             var isAllowedSelfHostedProtocol =
@@ -97,7 +95,10 @@
             return null;
           }
 
-          if (normalized === PINNED_PATH_TO_DATA) {
+          if (
+            normalized.startsWith(TRUSTED_REMOTE_PATH_TO_DATA_PREFIX) &&
+            /^\/game-shelf-assets\/third-party\/emulatorjs\/[^/]+\/$/.test(parsed.pathname)
+          ) {
             if (parsed.protocol === 'https:') {
               return normalized;
             }
@@ -161,10 +162,15 @@
           showError('Invalid ROM base URL.');
           return;
         }
+        var pageOrigin = window.location.origin;
+        if (romBaseUrl.origin !== pageOrigin) {
+          showError('Invalid ROM base URL.');
+          return;
+        }
         var romBasePath = romBaseUrl.pathname.endsWith('/')
           ? romBaseUrl.pathname
           : romBaseUrl.pathname + '/';
-        if (romUrl.origin !== romBaseUrl.origin || !romUrl.pathname.startsWith(romBasePath)) {
+        if (romUrl.origin !== pageOrigin || !romUrl.pathname.startsWith(romBasePath)) {
           showError('ROM URL is not allowed.');
           return;
         }

@@ -36,7 +36,9 @@ firebase_storage_bucket="${FIREBASE_STORAGE_BUCKET_PROD:-$fallback}"
 firebase_messaging_sender_id="${FIREBASE_MESSAGING_SENDER_ID_PROD:-$fallback}"
 firebase_app_id="${FIREBASE_APP_ID_PROD:-$fallback}"
 firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
-emulatorjs_path_to_data='https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/'
+
+emulatorjs_path_to_data_default="$(node -e "const fs=require('fs');const source=fs.readFileSync('src/app/core/config/emulatorjs.constants.ts','utf8');const remote=source.match(/EMULATORJS_REMOTE_BASE_PATH\\s*=\\s*'([^']+)'/);const version=source.match(/EMULATORJS_RUNTIME_VERSION\\s*=\\s*'([^']+)'/);if(!remote||!version){process.exit(1);}process.stdout.write(remote[1]+version[1]+'/');")"
+emulatorjs_path_to_data="${EMULATORJS_PATH_TO_DATA_PROD:-$emulatorjs_path_to_data_default}"
 
 escape_ts_string() {
   local value="${1}"

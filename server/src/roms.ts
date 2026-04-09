@@ -36,7 +36,6 @@ export interface ParsedRomFileName {
   region: string | null;
   revision: string | null;
   flags: string[];
-  duplicate: boolean;
 }
 
 interface RomCatalog {
@@ -117,11 +116,8 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
 
   const extensionMatch = trimmed.match(/\.([^.]+)$/u);
   const extension = extensionMatch ? extensionMatch[1].trim().toLowerCase() : null;
-  const withoutExtension = extensionMatch
-    ? trimmed.slice(0, Math.max(0, extensionMatch.index))
-    : trimmed;
-
-  const duplicate = /\s copy(?: \d+)?$/iu.test(withoutExtension);
+  const extensionStart = extensionMatch?.index ?? trimmed.length;
+  const withoutExtension = extensionMatch ? trimmed.slice(0, Math.max(0, extensionStart)) : trimmed;
 
   const metadataTokens = [...withoutExtension.matchAll(/\(([^)]*)\)|\[([^\]]*)\]/gu)];
   const metadataStart =
@@ -167,7 +163,6 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
     region,
     revision,
     flags,
-    duplicate,
   };
 }
 
@@ -517,10 +512,6 @@ async function walkRoms(
 
     const fileName = child.name;
     const parsedFileName = parseRomFileName(fileName);
-    if (parsedFileName.duplicate) {
-      continue;
-    }
-
     const normalizedTitle = normalizeRomTitle(parsedFileName.title);
 
     if (!normalizedTitle) {

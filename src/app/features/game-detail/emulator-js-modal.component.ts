@@ -29,6 +29,30 @@ function isEmulatorJsExitMessage(data: unknown): boolean {
   );
 }
 
+/**
+ * Pure predicate for `window.message` handling. Kept exported for unit tests (Vitest cannot JIT
+ * this component’s external template without extra wiring).
+ */
+export function shouldHandleEmulatorJsExitMessage(
+  event: MessageEvent<unknown>,
+  options: { isOpen: boolean; iframeContentWindow: Window | null }
+): boolean {
+  if (!options.isOpen) {
+    return false;
+  }
+  if (event.origin !== window.location.origin) {
+    return false;
+  }
+  if (!isEmulatorJsExitMessage(event.data)) {
+    return false;
+  }
+  const { iframeContentWindow } = options;
+  if (iframeContentWindow !== null && event.source !== iframeContentWindow) {
+    return false;
+  }
+  return true;
+}
+
 @Component({
   selector: 'app-emulator-js-modal',
   standalone: true,
@@ -58,21 +82,9 @@ export class EmulatorJsModalComponent implements OnChanges {
 
   @HostListener('window:message', ['$event'])
   onWindowMessage(event: MessageEvent<unknown>): void {
-    if (!this.isOpen) {
-      return;
-    }
-    if (event.origin !== window.location.origin) {
-      return;
-    }
-    if (!isEmulatorJsExitMessage(event.data)) {
-      return;
-    }
     const frameEl = this.playFrame?.nativeElement;
-    const frameWindow = frameEl ? frameEl.contentWindow : null;
-    // When we have a resolved iframe, require the message to come from it (spoof resistance).
-    // If `contentWindow` is not available yet, still accept: origin + payload already constrain
-    // who can close the modal to same-origin code that knows our contract.
-    if (frameWindow !== null && event.source !== frameWindow) {
+    const iframeContentWindow = frameEl ? frameEl.contentWindow : null;
+    if (!shouldHandleEmulatorJsExitMessage(event, { isOpen: this.isOpen, iframeContentWindow })) {
       return;
     }
     this.ngZone.run(() => {

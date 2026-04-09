@@ -6,6 +6,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import {
   normalizeRomTitle,
+  parseRomFileName,
   parsePlatformIdFromFolderName,
   processQueuedRomsCatalogRefresh,
   registerRomRoutes,
@@ -79,13 +80,51 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
   assert.equal(parsePlatformIdFromFolderName('PS2__pid-0'), null);
 });
 
-void test('normalizeRomTitle removes punctuation and edition noise', () => {
-  assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A'), 'chrono trigger a');
-  assert.equal(normalizeRomTitle('God of War II - Instruction Rom'), 'god of war ii');
+void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
+  assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
   assert.equal(
-    normalizeRomTitle('The Last Story (Collector Edition) Instruction Booklet'),
-    'last story collector edition'
+    normalizeRomTitle('Ace Attorney Investigations - Miles Edgeworth (USA).nds'),
+    'ace attorney investigations miles edgeworth'
   );
+  assert.equal(
+    normalizeRomTitle('Boktai - The Sun Is in Your Hand (USA).gba'),
+    'boktai sun is in your hand'
+  );
+  assert.equal(
+    normalizeRomTitle(
+      'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
+    ),
+    'cardcaptor sakura sakura card hen sakura to card to otomodachi'
+  );
+  assert.equal(normalizeRomTitle('Combat ~ Tank-Plus (USA).a26'), 'combat tank plus');
+});
+
+void test('parseRomFileName extracts clean title, metadata, and duplicate marker', () => {
+  const banjo = parseRomFileName('Banjo-Kazooie (USA) (Rev 1).z64');
+  assert.deepEqual(banjo, {
+    raw: 'Banjo-Kazooie (USA) (Rev 1).z64',
+    title: 'Banjo-Kazooie',
+    extension: 'z64',
+    region: 'USA',
+    revision: 'Rev 1',
+    flags: [],
+    duplicate: false,
+  });
+
+  const sakura = parseRomFileName(
+    'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
+  );
+  assert.equal(sakura.title, 'Cardcaptor Sakura: Sakura Card Hen - Sakura to Card to Otomodachi');
+  assert.equal(sakura.region, 'Japan');
+  assert.equal(sakura.revision, 'Rev 1');
+
+  const harvest = parseRomFileName('Harvest Moon GBC (USA) (SGB Enhanced) (GB Compatible).gbc');
+  assert.equal(harvest.title, 'Harvest Moon GBC');
+  assert.equal(harvest.region, 'USA');
+  assert.deepEqual(harvest.flags, ['SGB Enhanced', 'GB Compatible']);
+
+  const copyArtifact = parseRomFileName('Boktai - The Sun Is in Your Hand (USA).gba copy');
+  assert.equal(copyArtifact.duplicate, true);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

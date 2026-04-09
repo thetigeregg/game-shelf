@@ -4,7 +4,8 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   romsBaseUrl: '/roms',
   biosBaseUrl: '/bios',
-  emulatorJsPathToData: 'https://cdn.emulatorjs.org/stable/data/',
+  emulatorJsPathToData: '/assets/emulatorjs/data/',
+  emulatorJsLoaderIntegrity: '',
   /** Set true to enable EmulatorJS debug logs in the play iframe (see play.html `debug=1`). */
   emulatorJsDebug: false,
   featureFlags: {

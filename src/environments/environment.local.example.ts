@@ -1,4 +1,7 @@
-import { EMULATORJS_DEFAULT_PATH_TO_DATA } from '../app/core/config/emulatorjs.constants';
+import {
+  EMULATORJS_DEFAULT_PATH_TO_DATA,
+  EMULATORJS_PINNED_LOADER_INTEGRITY,
+} from '../app/core/config/emulatorjs.constants';
 
 export const environment = {
   production: false,
@@ -9,8 +12,7 @@ export const environment = {
   /** HTTPS base URL for EmulatorJS `EJS_pathtodata` (GitHub Pages `game-shelf-assets` distribution only). */
   emulatorJsPathToData: EMULATORJS_DEFAULT_PATH_TO_DATA,
   /** SRI hash for cross-origin `loader.js` at `emulatorJsPathToData` (must match the pinned build). */
-  emulatorJsLoaderIntegrity:
-    'sha384-CwARP2ej7UlPGk5E0IPt89lxjdb3t7zStyLR6PL7Sg4xzHSrvXh/R4vbb4PrSv6U',
+  emulatorJsLoaderIntegrity: EMULATORJS_PINNED_LOADER_INTEGRITY,
   /** When true, sets EmulatorJS `EJS_DEBUG_XX` in the play iframe (see `play.html` `debug=1`). */
   emulatorJsDebug: false,
   featureFlags: {

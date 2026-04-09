@@ -664,11 +664,22 @@ function looksLikeRegionToken(value: string): boolean {
   if (parts.length === 0) {
     return false;
   }
-  const compactLower = normalized.toLowerCase();
-  const knownSingleRegions = new Set([
+
+  const knownRegionAliases = new Set([
+    'u',
+    'us',
     'usa',
-    'japan',
+    'unitedstates',
+    'northamerica',
+    'e',
+    'eu',
+    'eur',
     'europe',
+    'j',
+    'jp',
+    'jpn',
+    'japan',
+    'w',
     'world',
     'unl',
     'korea',
@@ -685,25 +696,13 @@ function looksLikeRegionToken(value: string): boolean {
     'russia',
     'mexico',
     'uk',
-    'eur',
-    'jpn',
+    'latinamerica',
+    'hongkong',
   ]);
-  if (
-    parts.length === 1 &&
-    !normalized.includes(' ') &&
-    !normalized.includes('-') &&
-    !knownSingleRegions.has(compactLower)
-  ) {
-    return false;
-  }
+
   for (const part of parts) {
-    if (part.length === 0 || !isAsciiLetter(part[0])) {
-      return false;
-    }
-    for (const char of part) {
-      if (isAsciiLetter(char) || char === ' ' || char === '.' || char === '-') {
-        continue;
-      }
+    const alias = part.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (alias.length === 0 || !knownRegionAliases.has(alias)) {
       return false;
     }
   }

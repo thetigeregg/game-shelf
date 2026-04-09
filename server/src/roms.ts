@@ -178,13 +178,12 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const raw = fileName;
   const trimmed = raw.trim();
 
-  const extensionMatch = trimmed.match(/\.([a-z0-9]{1,10})$/iu);
-  const extension = extensionMatch ? extensionMatch[1].trim().toLowerCase() : null;
-  const extensionStart = extensionMatch?.index ?? trimmed.length;
+  const extensionMatch = trimmed.match(/^(.*[^.])\.([a-z0-9]{1,10})$/iu);
+  const extension = extensionMatch ? extensionMatch[2].trim().toLowerCase() : null;
   const copyArtifactMatch =
     extensionMatch === null ? trimmed.match(/^(.*)\.([a-z0-9]{1,10})\s+copy$/iu) : null;
   const withoutExtension = extensionMatch
-    ? trimmed.slice(0, Math.max(0, extensionStart))
+    ? extensionMatch[1].trimEnd()
     : copyArtifactMatch
       ? copyArtifactMatch[1].trimEnd()
       : trimmed;

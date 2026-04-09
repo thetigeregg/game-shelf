@@ -224,6 +224,20 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     expect(new URL(href).searchParams.get('biosbase')).toBe('/public-bios');
   });
 
+  it('throws when biosBaseUrl contains dot segments (mirrors play shell)', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'psx',
+        romUrl: '/roms/game.bin',
+        pathToData: PINNED_DATA_PATH,
+        biosUrl: 'https://example.com/bios/psx/scph1001.bin',
+        biosBaseUrl: '/bios/../x',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS bios base path/);
+  });
+
   it('appends loader_integrity when provided', () => {
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
@@ -290,6 +304,12 @@ describe('buildEmulatorJsBiosUrl', () => {
     expect(buildEmulatorJsBiosUrl('https://app.test', '/public-bios', 'psx/scph1001.bin')).toBe(
       'https://app.test/public-bios/psx/scph1001.bin'
     );
+  });
+
+  it('throws when bios base path contains dot segments', () => {
+    expect(() =>
+      buildEmulatorJsBiosUrl('https://app.test', '/bios/../x', 'psx/scph1001.bin')
+    ).toThrow(/Invalid EmulatorJS bios base path/);
   });
 });
 
@@ -383,6 +403,16 @@ describe('isAllowedEmulatorJsBiosUrl', () => {
         'https://app.test/bios/psx/scph1001.bin',
         'https://app.test',
         '/public-bios'
+      )
+    ).toBe(false);
+  });
+
+  it('rejects dot segments in configured bios base path', () => {
+    expect(
+      isAllowedEmulatorJsBiosUrl(
+        'https://app.test/bios/psx/scph1001.bin',
+        'https://app.test',
+        '/bios/../x'
       )
     ).toBe(false);
   });

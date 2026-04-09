@@ -1,10 +1,7 @@
-import {
-  EMULATORJS_PINNED_PATH_TO_DATA,
-  EMULATORJS_REMOTE_BASE_PATH,
-} from '../config/emulatorjs.constants';
+import { EMULATORJS_DEFAULT_PATH_TO_DATA } from '../config/emulatorjs.constants';
 
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
-const DEFAULT_PATH_TO_DATA = EMULATORJS_PINNED_PATH_TO_DATA;
+const DEFAULT_PATH_TO_DATA = EMULATORJS_DEFAULT_PATH_TO_DATA;
 const SELF_HOSTED_PATH_TO_DATA = '/assets/emulatorjs/data/';
 
 export interface BuildEmulatorJsPlayShellUrlParams {
@@ -49,15 +46,6 @@ function getAllowedPathToDataPrefixes(pageOrigin: string): string[] {
   return [new URL(SELF_HOSTED_PATH_TO_DATA, `${normalizedOrigin}/`).href, DEFAULT_PATH_TO_DATA];
 }
 
-function isTrustedRemotePathToData(url: URL, normalizedUrl: string): boolean {
-  const normalizedBase = EMULATORJS_REMOTE_BASE_PATH.replace(/\/+$/, '/');
-  return (
-    url.protocol === 'https:' &&
-    normalizedUrl.startsWith(normalizedBase) &&
-    /^\/game-shelf-assets\/third-party\/emulatorjs\/[^/]+\/?$/.test(url.pathname)
-  );
-}
-
 function normalizePathToData(value: string, pageOrigin: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -93,9 +81,6 @@ function normalizePathToData(value: string, pageOrigin: string): string {
     return normalized;
   }
 
-  if (isTrustedRemotePathToData(parsed, normalized)) {
-    return normalized;
-  }
   throw new Error('Invalid EmulatorJS pathToData URL');
 }
 
@@ -220,14 +205,6 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const loaderIntegrity =
     typeof params.loaderIntegrity === 'string' ? params.loaderIntegrity.trim() : '';
-  const pathToDataUrl = new URL(normalizedPathToData);
-  const usesTrustedRemotePathToData = isTrustedRemotePathToData(
-    pathToDataUrl,
-    normalizedPathToData
-  );
-  if (loaderIntegrity.length === 0 && usesTrustedRemotePathToData) {
-    throw new Error('Missing loader integrity for remote EmulatorJS pathToData URL');
-  }
   if (loaderIntegrity.length > 0) {
     if (!isValidEmulatorJsLoaderIntegrity(loaderIntegrity)) {
       throw new Error('Invalid loader integrity for EmulatorJS play shell');

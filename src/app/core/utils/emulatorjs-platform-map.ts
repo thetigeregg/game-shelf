@@ -2,8 +2,9 @@
  * Maps canonical IGDB platform IDs to EmulatorJS `EJS_core` values.
  * See https://emulatorjs.org/docs/systems and https://emulatorjs.org/docs4devs/cores
  *
- * Platforms in the manual/ROM shortcut whitelist that are not supported in-browser
- * (e.g. Wii, GameCube, PS2, Xbox) return `null`.
+ * Game detail ROM UI (find/play) is gated on `resolveEmulatorJsCore` returning non-null.
+ * Manual PDF shortcuts use a separate whitelist in `GameListComponent`; platforms that
+ * allow manuals but have no in-browser core (e.g. Wii, GameCube, PS2, Xbox) return `null` here.
  */
 const IGDB_PLATFORM_ID_TO_EMULATOR_JS_CORE = new Map<number, string>([
   [4, 'n64'],

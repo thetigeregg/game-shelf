@@ -37,8 +37,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
    * Omitted from the URL when null/empty. Validated with `isSafeEmulatorJsShaderFileName`.
    */
   defaultShader?: string | null;
-  /** Optional script integrity value for `loader.js` (e.g. `sha384-...`). */
-  loaderIntegrity?: string | null;
+  /** Script integrity for `loader.js` (e.g. `sha384-...`); required — `play.html` rejects launches without it. */
+  loaderIntegrity: string | null | undefined;
 }
 
 /** Single-segment shader preset value safe to pass in the play shell query string. */
@@ -222,12 +222,13 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const loaderIntegrity =
     typeof params.loaderIntegrity === 'string' ? params.loaderIntegrity.trim() : '';
-  if (loaderIntegrity.length > 0) {
-    if (!isValidEmulatorJsLoaderIntegrity(loaderIntegrity)) {
-      throw new Error('Invalid loader integrity for EmulatorJS play shell');
-    }
-    pageUrl.searchParams.set('loader_integrity', loaderIntegrity);
+  if (loaderIntegrity.length === 0) {
+    throw new Error('Missing loader integrity for EmulatorJS play shell');
   }
+  if (!isValidEmulatorJsLoaderIntegrity(loaderIntegrity)) {
+    throw new Error('Invalid loader integrity for EmulatorJS play shell');
+  }
+  pageUrl.searchParams.set('loader_integrity', loaderIntegrity);
 
   return pageUrl.href;
 }

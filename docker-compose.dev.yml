@@ -5,7 +5,6 @@ services:
       REQUIRE_AUTH: ${REQUIRE_AUTH:-false}
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-http://127.0.0.1:8080/manuals}
       ROMS_PUBLIC_BASE_URL: ${ROMS_PUBLIC_BASE_URL:-http://127.0.0.1:8080/roms}
-      BIOS_PUBLIC_BASE_URL: ${BIOS_PUBLIC_BASE_URL:-http://127.0.0.1:8080/bios}
     ports:
       - '127.0.0.1:${API_HOST_PORT:-3000}:3000'
 

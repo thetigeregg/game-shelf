@@ -5,6 +5,7 @@ import {
   isAllowedEmulatorJsBiosUrl,
   isAllowedEmulatorJsRomUrl,
   isSafeEmulatorJsBiosRelativePath,
+  isSafeEmulatorJsCoreToken,
   isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
 
@@ -51,6 +52,28 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         defaultShader: '../evil.glslp',
       })
     ).toThrow(/Invalid default shader/);
+  });
+
+  it('throws when pathToData is not an allowlisted https URL', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: 'https://evil.example/data/',
+      })
+    ).toThrow(/Invalid EmulatorJS pathToData URL/);
+  });
+
+  it('throws when core is not a safe token', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes<script>',
+        romUrl: '/roms/x.nes',
+        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      })
+    ).toThrow(/Invalid emulator core/);
   });
 
   it('appends debug=1 when debug is true', () => {
@@ -126,6 +149,20 @@ describe('isSafeEmulatorJsShaderFileName', () => {
     expect(isSafeEmulatorJsShaderFileName('.hidden.glslp')).toBe(false);
     expect(isSafeEmulatorJsShaderFileName('no-ext')).toBe(true);
     expect(isSafeEmulatorJsShaderFileName('')).toBe(false);
+  });
+});
+
+describe('isSafeEmulatorJsCoreToken', () => {
+  it('accepts known EmulatorJS-style core tokens', () => {
+    expect(isSafeEmulatorJsCoreToken('nes')).toBe(true);
+    expect(isSafeEmulatorJsCoreToken('segaCD')).toBe(true);
+    expect(isSafeEmulatorJsCoreToken('psx_hle')).toBe(true);
+  });
+
+  it('rejects invalid or unsafe core values', () => {
+    expect(isSafeEmulatorJsCoreToken('')).toBe(false);
+    expect(isSafeEmulatorJsCoreToken('../psx')).toBe(false);
+    expect(isSafeEmulatorJsCoreToken('psx<script>')).toBe(false);
   });
 });
 

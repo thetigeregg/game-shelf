@@ -13,13 +13,19 @@
  * Famicom Disk System: `nes/disksys.rom` only when the ROM path ends with `.fds`.
  */
 const EMULATOR_JS_CORE_TO_BIOS_RELATIVE_PATH = new Map<string, string>([
-  ['psx', 'psx/psx-bios.zip'],
-  ['nds', 'nds/nds-bios.zip'],
-  ['segaCD', 'segaCD/segaCD-bios.zip'],
   ['3do', '3do/3do-bios.zip'],
-  ['segaSaturn', 'segaSaturn/saturn_bios.bin'],
-  ['lynx', 'lynx/lynxboot.img'],
   ['coleco', 'coleco/colecovision.rom'],
+  ['gb', 'gb/gb-bios.zip'],
+  ['gba', 'gba/gba-bios.zip'],
+  ['lynx', 'lynx/lynxboot.img'],
+  ['nds', 'nds/nds-bios.zip'],
+  ['psx', 'psx/psx-bios.zip'],
+  ['segaCD', 'segaCD/segaCD-bios.zip'],
+  ['segaGG', 'segaGG/bios.gg'],
+  ['segaMD', 'segaMD/bios_MD.bin'],
+  ['segaMS', 'segaMS/segaMS-bios.zip'],
+  ['segaSaturn', 'segaSaturn/saturn_bios.bin'],
+  ['snes', 'snes/snes-bios.zip'],
 ]);
 
 const NES_FDS_DISK_IMAGE_SUFFIX = '.fds';

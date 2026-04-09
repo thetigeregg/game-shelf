@@ -298,7 +298,6 @@ BIOS files:
   - **Several BIOS file names** are listed for the platform (different regions, hardware, or a required multi-file set) → ship **one zip** at `<EJS_core>/<EJS_core>-bios.zip` (same token as in `emulatorjs-bios-path.ts`). Put every file you need at the **root** of the archive using the **exact filenames** from that system’s doc (no extra directory prefix unless upstream says otherwise).
   - The doc is effectively **one** BIOS file for that platform → use a **single file** at the path in the table (no zip).
 - Add new cores to `src/app/core/utils/emulatorjs-bios-path.ts` using the same rule; symlink, rename, or zip contents to match the EmulatorJS filenames.
-- **Migrating older layouts:** if you previously used loose files (e.g. `psx/scph1001.bin`, `segaCD/bios_CD_U.bin`, `3do/panafz10.bin`) or `nds/melonds-bios.zip`, move those dumps into the new zip paths (`psx/psx-bios.zip`, `segaCD/segaCD-bios.zip`, `3do/3do-bios.zip`, `nds/nds-bios.zip`) with **doc-accurate names at the zip root**.
 
 ### EmulatorJS runtime (`EJS_pathtodata`)
 

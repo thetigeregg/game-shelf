@@ -115,7 +115,7 @@
           if (trimmed.length === 0 || trimmed.length > 512) {
             return false;
           }
-          return /^sha(256|384|512)-[A-Za-z0-9+/=]+$/.test(trimmed);
+          return /^sha(256|384|512)-[A-Za-z0-9+/]+={0,2}$/.test(trimmed);
         }
 
         function normalizeBiosBasePath(value) {

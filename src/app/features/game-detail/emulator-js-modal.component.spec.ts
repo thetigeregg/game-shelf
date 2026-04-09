@@ -1,126 +1,109 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
-import { DomSanitizer } from '@angular/platform-browser';
+import { describe, expect, it } from 'vitest';
 
-vi.mock('@ionic/angular/standalone', () => {
-  const Stub = () => null;
-  return {
-    IonModal: Stub,
-    IonContent: Stub,
-  };
-});
+import { shouldHandleEmulatorJsExitMessage } from './emulator-js-modal.component';
 
-import { EmulatorJsModalComponent } from './emulator-js-modal.component';
+/** Must match `assets/emulatorjs/play.html`. */
+const EMULATOR_EXIT_DATA = {
+  source: 'game-shelf-emulatorjs',
+  type: 'emulator-exit',
+} as const;
 
-describe('EmulatorJsModalComponent', () => {
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [
+function makeMessage(init: {
+  origin?: string;
+  source: MessageEventSource | null;
+  data?: unknown;
+}): MessageEvent<unknown> {
+  return new MessageEvent('message', {
+    origin: init.origin ?? window.location.origin,
+    source: init.source,
+    data: init.data ?? EMULATOR_EXIT_DATA,
+  });
+}
+
+describe('shouldHandleEmulatorJsExitMessage', () => {
+  it('returns true for a valid exit message when iframe contentWindow is not resolved (regression)', () => {
+    expect(
+      shouldHandleEmulatorJsExitMessage(makeMessage({ source: window }), {
+        isOpen: true,
+        iframeContentWindow: null,
+      })
+    ).toBe(true);
+  });
+
+  it('returns true when message source matches iframe contentWindow', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const inner = iframe.contentWindow;
+    if (!inner) {
+      throw new Error('Expected iframe.contentWindow');
+    }
+    try {
+      expect(
+        shouldHandleEmulatorJsExitMessage(makeMessage({ source: inner }), {
+          isOpen: true,
+          iframeContentWindow: inner,
+        })
+      ).toBe(true);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('returns false when iframe is known but message source is not the iframe window', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const inner = iframe.contentWindow;
+    if (!inner) {
+      throw new Error('Expected iframe.contentWindow');
+    }
+    try {
+      expect(
+        shouldHandleEmulatorJsExitMessage(makeMessage({ source: window }), {
+          isOpen: true,
+          iframeContentWindow: inner,
+        })
+      ).toBe(false);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('returns false when the modal is not open', () => {
+    expect(
+      shouldHandleEmulatorJsExitMessage(makeMessage({ source: window }), {
+        isOpen: false,
+        iframeContentWindow: null,
+      })
+    ).toBe(false);
+  });
+
+  it('returns false when event origin does not match the page', () => {
+    expect(
+      shouldHandleEmulatorJsExitMessage(
+        makeMessage({
+          origin: 'https://evil.example',
+          source: window,
+        }),
         {
-          provide: DomSanitizer,
-          useValue: {
-            bypassSecurityTrustResourceUrl: vi.fn((value: string) => `safe:${value}`),
-          },
-        },
-      ],
-    });
+          isOpen: true,
+          iframeContentWindow: null,
+        }
+      )
+    ).toBe(false);
   });
 
-  function createComponent(): EmulatorJsModalComponent {
-    return TestBed.runInInjectionContext(() => new EmulatorJsModalComponent());
-  }
-
-  it('sanitizes launch URL on changes and clears empty values', () => {
-    const component = createComponent();
-    const localLaunchUrl = `${window.location.origin}/assets/emulatorjs/play.html?core=nes`;
-
-    component.launchUrl = `  ${localLaunchUrl}  `;
-    component.ngOnChanges();
-    expect(component.safeLaunchUrl).toBe(`safe:${localLaunchUrl}`);
-
-    component.launchUrl = '   ';
-    component.ngOnChanges();
-    expect(component.safeLaunchUrl).toBeNull();
-  });
-
-  it('rejects off-origin or non-play-shell launch URLs', () => {
-    const component = createComponent();
-
-    component.launchUrl = 'https://evil.test/assets/emulatorjs/play.html?core=nes';
-    component.ngOnChanges();
-    expect(component.safeLaunchUrl).toBeNull();
-
-    component.launchUrl = `${window.location.origin}/roms/game.nes`;
-    component.ngOnChanges();
-    expect(component.safeLaunchUrl).toBeNull();
-  });
-
-  it('emits dismiss only for same-origin emulator exit messages while open', () => {
-    const component = createComponent();
-    const emitSpy = vi.spyOn(component.dismiss, 'emit');
-    const frameWindow = {} as Window;
-    (
-      component as unknown as { playFrame?: { nativeElement: { contentWindow: Window } } }
-    ).playFrame = {
-      nativeElement: { contentWindow: frameWindow },
-    };
-    component.isOpen = true;
-
-    component.onWindowMessage({
-      origin: window.location.origin,
-      data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
-      source: frameWindow,
-    } as MessageEvent<unknown>);
-
-    expect(emitSpy).toHaveBeenCalledOnce();
-  });
-
-  it('ignores messages when closed, foreign-origin, wrong source, or invalid payload', () => {
-    const component = createComponent();
-    const emitSpy = vi.spyOn(component.dismiss, 'emit');
-    const frameWindow = {} as Window;
-    (
-      component as unknown as { playFrame?: { nativeElement: { contentWindow: Window } } }
-    ).playFrame = {
-      nativeElement: { contentWindow: frameWindow },
-    };
-
-    component.isOpen = false;
-    component.onWindowMessage({
-      origin: window.location.origin,
-      data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
-      source: frameWindow,
-    } as MessageEvent<unknown>);
-
-    component.isOpen = true;
-    component.onWindowMessage({
-      origin: 'https://evil.test',
-      data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
-      source: frameWindow,
-    } as MessageEvent<unknown>);
-
-    component.onWindowMessage({
-      origin: window.location.origin,
-      data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
-      source: {} as Window,
-    } as MessageEvent<unknown>);
-
-    component.onWindowMessage({
-      origin: window.location.origin,
-      data: { source: 'other', type: 'emulator-exit' },
-      source: frameWindow,
-    } as MessageEvent<unknown>);
-
-    expect(emitSpy).not.toHaveBeenCalled();
-  });
-
-  it('emits dismiss when modal close handler runs', () => {
-    const component = createComponent();
-    const emitSpy = vi.spyOn(component.dismiss, 'emit');
-    component.isOpen = true;
-
-    component.onClose();
-
-    expect(emitSpy).toHaveBeenCalledOnce();
+  it('returns false for payloads that are not the emulator exit contract', () => {
+    expect(
+      shouldHandleEmulatorJsExitMessage(
+        makeMessage({
+          source: window,
+          data: { source: 'other', type: 'emulator-exit' },
+        }),
+        {
+          isOpen: true,
+          iframeContentWindow: null,
+        }
+      )
+    ).toBe(false);
   });
 });

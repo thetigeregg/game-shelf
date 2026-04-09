@@ -15,11 +15,11 @@ import {
 } from '../config/emulatorjs.constants';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
-  const PINNED_DATA_PATH = EMULATORJS_DEFAULT_PATH_TO_DATA;
+  const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;
   const VALID_LOADER_INTEGRITY = 'sha384-abc123+/=';
 
   it('builds a play shell URL with normalized pathtodata', () => {
-    const expectedPathToData = new URL(PINNED_DATA_PATH, 'https://example.com/').href;
+    const expectedPathToData = EMULATORJS_PINNED_PATH_TO_DATA;
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
@@ -77,8 +77,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });
 
+  it('uses the pinned default when pathToData is empty', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: '   ',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(EMULATORJS_DEFAULT_PATH_TO_DATA);
+  });
+
   it('normalizes pinned path by appending trailing slash when missing', () => {
-    const expectedPathToData = new URL(PINNED_DATA_PATH, 'https://example.com/').href;
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
@@ -87,51 +97,54 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
 
-    expect(new URL(href).searchParams.get('pathtodata')).toBe(expectedPathToData);
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
   });
 
-  it('rejects trusted remote versioned pathToData overrides', () => {
+  it('accepts another version directory under the trusted assets EmulatorJS base', () => {
+    const altVersion =
+      'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.0.0/';
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: altVersion.slice(0, -1),
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(altVersion);
+  });
+
+  it('rejects same-origin self-hosted EmulatorJS data paths', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'nes',
         romUrl: '/roms/x.nes',
-        pathToData: EMULATORJS_PINNED_PATH_TO_DATA,
+        pathToData: 'https://example.com/assets/emulatorjs/data/',
         loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });
 
-  it('accepts same-origin self-hosted EmulatorJS runtime path', () => {
-    const href = buildEmulatorJsPlayShellUrl({
-      origin: 'https://example.com',
-      core: 'nes',
-      romUrl: '/roms/x.nes',
-      pathToData: 'https://example.com/assets/emulatorjs/data',
-    });
-    expect(new URL(href).searchParams.get('pathtodata')).toBe(
-      'https://example.com/assets/emulatorjs/data/'
-    );
-  });
-
-  it('rejects self-hosted pathToData when page protocol does not match', () => {
-    expect(() =>
-      buildEmulatorJsPlayShellUrl({
-        origin: 'http://example.com',
-        core: 'nes',
-        romUrl: '/roms/x.nes',
-        pathToData: 'https://example.com/assets/emulatorjs/data',
-      })
-    ).toThrow(/Invalid EmulatorJS pathToData URL/);
-  });
-
-  it('rejects same-origin pathToData outside the self-hosted allowlist path', () => {
+  it('rejects trusted-host paths outside the versioned EmulatorJS directory pattern', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'nes',
         romUrl: '/roms/x.nes',
-        pathToData: 'https://example.com/assets/other-emulator/data',
+        pathToData: 'https://thetigeregg.github.io/game-shelf-assets/third-party/other-tool/1.0.0/',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS pathToData URL/);
+  });
+
+  it('rejects non-absolute pathToData values', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: '/game-shelf-assets/third-party/emulatorjs/4.2.3/',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid EmulatorJS pathToData URL/);
   });

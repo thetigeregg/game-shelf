@@ -37,6 +37,11 @@ firebase_messaging_sender_id="${FIREBASE_MESSAGING_SENDER_ID_PROD:-$fallback}"
 firebase_app_id="${FIREBASE_APP_ID_PROD:-$fallback}"
 firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
 
+# EmulatorJS: `environment.emulatorJsPathToData` is the HTTPS base URL passed through to the play
+# shell as EmulatorJS `EJS_pathtodata` (static hosting on GitHub Pages from `game-shelf-assets`).
+# Default comes from `EMULATORJS_DEFAULT_PATH_TO_DATA` in `emulatorjs.constants.ts`.
+# Optional `EMULATORJS_PATH_TO_DATA_PROD` / `EMULATORJS_LOADER_INTEGRITY_PROD` must match the
+# allowlist and SRI expectations enforced in `emulatorjs-play-url.ts` and `play.html`.
 emulatorjs_constants_json="$(node -e 'const fs=require("fs");const vm=require("vm");const source=fs.readFileSync("src/app/core/config/emulatorjs.constants.ts","utf8");const transformed=source.replace(/^\s*export\s+const\s+/gm,"const ");const context={result:null};vm.runInNewContext(`${transformed}\nresult={pathToData:EMULATORJS_DEFAULT_PATH_TO_DATA,loaderIntegrity:EMULATORJS_PINNED_LOADER_INTEGRITY};`,context);const result=context.result;if(!result||typeof result.pathToData!=="string"||result.pathToData.length===0||typeof result.loaderIntegrity!=="string"||result.loaderIntegrity.length===0){process.exit(1);}process.stdout.write(JSON.stringify(result));')"
 emulatorjs_path_to_data_default="$(node -e 'const payload=JSON.parse(process.argv[1]);process.stdout.write(payload.pathToData);' "${emulatorjs_constants_json}")"
 emulatorjs_path_to_data="${EMULATORJS_PATH_TO_DATA_PROD:-$emulatorjs_path_to_data_default}"

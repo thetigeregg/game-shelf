@@ -294,6 +294,9 @@ BIOS files:
 - Store BIOS files under `nas-data/bios` (mounted at `/bios` in `edge`).
 - When using **EmulatorJS** in the PWA, the frontend may set **`EJS_biosUrl`** to same-origin URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
 - The app serves BIOS assets at `/bios/...` for in-browser play (no API indexing/matching required).
+- **Single-file BIOS:** use **one file** at the relative path in the table below (e.g. `psx/scph1001.bin`). Do not wrap a lone dump in a zip unless you have a specific reason.
+- **Multi-file BIOS:** EmulatorJS exposes a **single** `EJS_biosUrl`, so anything that needs **more than one** blob for boot (e.g. Nintendo DS firmware + ARM7/ARM9 BIOS) must be supplied as **one zip** at the path in the table. Put required members at the **root** of the archive with the **exact names** given in [EmulatorJS system docs](https://emulatorjs.org/docs/systems/) for that core (inner paths like `nds/foo.bin` will not match what the core expects unless documented otherwise).
+- **Zip naming (this repository):** multi-file packs use `<subdir>/<identifier>-bios.zip`, where `<subdir>` is a short folder per system (usually the EmulatorJS core token, e.g. `nds`) and `<identifier>` distinguishes the core (e.g. `melonds` → `nds/melonds-bios.zip`). New multi-file cores added to `emulatorjs-bios-path.ts` should follow the same pattern unless a core already has a widely used upstream filename.
 
 ### EmulatorJS runtime (`EJS_pathtodata`)
 
@@ -305,15 +308,18 @@ BIOS files:
 
 Expected layout (relative to `nas-data/bios`):
 
-| Core / case                | Relative path                | Notes                                                                                                                          |
-| -------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| PlayStation (`psx`)        | `psx/scph1001.bin`           | US BIOS default; JP/EU titles may need a different file or a documented multi-BIOS archive if you switch cores/settings later. |
-| Sega CD (`segaCD`)         | `segaCD/bios_CD_U.bin`       | US BIOS default; other regions may need different files.                                                                       |
-| 3DO (`3do`)                | `3do/panafz10.bin`           |                                                                                                                                |
-| Sega Saturn (`segaSaturn`) | `segaSaturn/saturn_bios.bin` |                                                                                                                                |
-| Atari Lynx (`lynx`)        | `lynx/lynxboot.img`          | Required for all Lynx games.                                                                                                   |
-| ColecoVision (`coleco`)    | `coleco/colecovision.rom`    | Required for all ColecoVision games.                                                                                           |
-| NES Famicom Disk System    | `nes/disksys.rom`            | Only requested when the launched ROM path ends with `.fds`; plain `.nes` cartridges do not use this BIOS URL.                  |
+| Core / case                | Relative path                | Packaging   | Notes                                                                                                                                                                                                            |
+| -------------------------- | ---------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PlayStation (`psx`)        | `psx/scph1001.bin`           | Single file | US BIOS default; JP/EU titles may need a different file or a documented multi-BIOS archive if you switch cores/settings later.                                                                                   |
+| Sega CD (`segaCD`)         | `segaCD/bios_CD_U.bin`       | Single file | US BIOS default; other regions may need different files.                                                                                                                                                         |
+| 3DO (`3do`)                | `3do/panafz10.bin`           | Single file |                                                                                                                                                                                                                  |
+| Sega Saturn (`segaSaturn`) | `segaSaturn/saturn_bios.bin` | Single file |                                                                                                                                                                                                                  |
+| Atari Lynx (`lynx`)        | `lynx/lynxboot.img`          | Single file | Required for all Lynx games.                                                                                                                                                                                     |
+| ColecoVision (`coleco`)    | `coleco/colecovision.rom`    | Single file | Required for all ColecoVision games.                                                                                                                                                                             |
+| NES Famicom Disk System    | `nes/disksys.rom`            | Single file | Only requested when the launched ROM path ends with `.fds`; plain `.nes` cartridges do not use this BIOS URL.                                                                                                    |
+| Nintendo DS (`nds`)        | `nds/melonds-bios.zip`       | **Zip**     | Root of zip: `bios7.bin`, `bios9.bin`, `firmware.bin` (required names per [EmulatorJS DS](https://emulatorjs.org/docs/systems/nintendo-ds/)). Optional DSi files from the same doc may be added to the same zip. |
+
+Any **future** core in `emulatorjs-bios-path.ts` that requires **multiple** BIOS files should use **one zip** at `<subdir>/<identifier>-bios.zip` and document the required inner filenames beside that row.
 
 Frontend note: the play shell expects BIOS assets at **`EJS_biosUrl`** to be same-origin under `/bios` (see `biosBaseUrl` / `environment.biosBaseUrl`).
 

@@ -8,10 +8,10 @@ import {
   isSafeEmulatorJsCoreToken,
   isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
+import { EMULATORJS_PINNED_PATH_TO_DATA } from '../config/emulatorjs.constants';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
-  const PINNED_DATA_PATH =
-    'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/4.2.3/';
+  const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;
 
   it('builds a play shell URL with normalized pathtodata', () => {
     const href = buildEmulatorJsPlayShellUrl({
@@ -171,6 +171,29 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     });
     expect(new URL(href).searchParams.get('loader_integrity')).toBe('sha384-abc123+/=');
   });
+
+  it('adds rombase when using a non-default rom base path', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'psx',
+      romUrl: '/public-roms/game.bin',
+      romBaseUrl: '/public-roms',
+      pathToData: PINNED_DATA_PATH,
+    });
+    expect(new URL(href).searchParams.get('rombase')).toBe('/public-roms');
+  });
+
+  it('throws when rom URL is not under configured rom base', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'psx',
+        romUrl: '/roms/game.bin',
+        romBaseUrl: '/public-roms',
+        pathToData: PINNED_DATA_PATH,
+      })
+    ).toThrow(/Invalid ROM URL/);
+  });
 });
 
 describe('buildEmulatorJsBiosUrl', () => {
@@ -283,5 +306,22 @@ describe('isAllowedEmulatorJsRomUrl', () => {
       false
     );
     expect(isAllowedEmulatorJsRomUrl('not-a-url', 'https://app.test')).toBe(false);
+  });
+
+  it('supports custom rom base allowlist paths', () => {
+    expect(
+      isAllowedEmulatorJsRomUrl(
+        'https://app.test/public-roms/folder/file.nes',
+        'https://app.test',
+        '/public-roms'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedEmulatorJsRomUrl(
+        'https://app.test/roms/folder/file.nes',
+        'https://app.test',
+        '/public-roms'
+      )
+    ).toBe(false);
   });
 });

@@ -99,7 +99,7 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
   assert.equal(normalizeRomTitle('Combat ~ Tank-Plus (USA).a26'), 'combat tank plus');
 });
 
-void test('parseRomFileName extracts clean title, metadata, and duplicate marker', () => {
+void test('parseRomFileName extracts clean title and metadata', () => {
   const banjo = parseRomFileName('Banjo-Kazooie (USA) (Rev 1).z64');
   assert.deepEqual(banjo, {
     raw: 'Banjo-Kazooie (USA) (Rev 1).z64',
@@ -108,7 +108,6 @@ void test('parseRomFileName extracts clean title, metadata, and duplicate marker
     region: 'USA',
     revision: 'Rev 1',
     flags: [],
-    duplicate: false,
   });
 
   const sakura = parseRomFileName(
@@ -124,7 +123,8 @@ void test('parseRomFileName extracts clean title, metadata, and duplicate marker
   assert.deepEqual(harvest.flags, ['SGB Enhanced', 'GB Compatible']);
 
   const copyArtifact = parseRomFileName('Boktai - The Sun Is in Your Hand (USA).gba copy');
-  assert.equal(copyArtifact.duplicate, true);
+  assert.equal(copyArtifact.title, 'Boktai: The Sun Is in Your Hand');
+  assert.equal(copyArtifact.extension, null);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

@@ -49,7 +49,11 @@ emulatorjs_loader_integrity_default="$(node -e 'const payload=JSON.parse(process
 if [[ "${emulatorjs_path_to_data}" == "${emulatorjs_path_to_data_default}" ]]; then
   emulatorjs_loader_integrity="${EMULATORJS_LOADER_INTEGRITY_PROD:-$emulatorjs_loader_integrity_default}"
 else
-  emulatorjs_loader_integrity="${EMULATORJS_LOADER_INTEGRITY_PROD:-}"
+  if [[ -z "${EMULATORJS_LOADER_INTEGRITY_PROD:-}" ]]; then
+    echo "Missing required secret: EMULATORJS_LOADER_INTEGRITY_PROD when EMULATORJS_PATH_TO_DATA_PROD overrides the default path" >&2
+    exit 1
+  fi
+  emulatorjs_loader_integrity="${EMULATORJS_LOADER_INTEGRITY_PROD}"
 fi
 
 escape_ts_string() {

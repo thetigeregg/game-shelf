@@ -83,6 +83,7 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
 void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
   assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
   assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A.sfc'), 'chrono trigger a');
+  assert.equal(normalizeRomTitle('Among Us (USA).nsp'), 'among us');
   assert.equal(
     normalizeRomTitle('Ace Attorney Investigations - Miles Edgeworth (USA).nds'),
     'ace attorney investigations miles edgeworth'

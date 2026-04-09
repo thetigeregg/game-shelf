@@ -104,6 +104,7 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
     normalizeRomTitle('R.B.I. Baseball (Tengen) [hM04] (Unl).nes'),
     'r b i baseball tengen'
   );
+  assert.equal(normalizeRomTitle('A Tale (From ABC).nes'), 'a tale from abc');
   assert.equal(normalizeRomTitle('P.N.03'), 'p n 03');
 });
 

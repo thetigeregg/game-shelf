@@ -181,7 +181,8 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     pageUrl.searchParams.set('title', title);
   }
 
-  pageUrl.searchParams.set('pathtodata', normalizePathToData(params.pathToData, normalizedOrigin));
+  const normalizedPathToData = normalizePathToData(params.pathToData, normalizedOrigin);
+  pageUrl.searchParams.set('pathtodata', normalizedPathToData);
 
   if (params.debug === true) {
     pageUrl.searchParams.set('debug', '1');
@@ -219,6 +220,14 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const loaderIntegrity =
     typeof params.loaderIntegrity === 'string' ? params.loaderIntegrity.trim() : '';
+  const pathToDataUrl = new URL(normalizedPathToData);
+  const usesTrustedRemotePathToData = isTrustedRemotePathToData(
+    pathToDataUrl,
+    normalizedPathToData
+  );
+  if (loaderIntegrity.length === 0 && usesTrustedRemotePathToData) {
+    throw new Error('Missing loader integrity for remote EmulatorJS pathToData URL');
+  }
   if (loaderIntegrity.length > 0) {
     if (!isValidEmulatorJsLoaderIntegrity(loaderIntegrity)) {
       throw new Error('Invalid loader integrity for EmulatorJS play shell');

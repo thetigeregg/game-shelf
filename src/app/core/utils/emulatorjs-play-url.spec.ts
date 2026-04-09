@@ -16,6 +16,7 @@ import {
 
 describe('buildEmulatorJsPlayShellUrl', () => {
   const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;
+  const VALID_LOADER_INTEGRITY = 'sha384-abc123+/=';
 
   it('builds a play shell URL with normalized pathtodata', () => {
     const href = buildEmulatorJsPlayShellUrl({
@@ -24,6 +25,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: '/roms/Nintendo%20NES__pid-18/game.nes',
       gameTitle: 'Test Game',
       pathToData: PINNED_DATA_PATH,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
 
     const parsed = new URL(href);
@@ -45,6 +47,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: '/roms/x.nes',
       pathToData: PINNED_DATA_PATH,
       defaultShader: 'crt-lottes',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('shader')).toBe('crt-lottes');
   });
@@ -57,6 +60,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         romUrl: '/roms/x.nes',
         pathToData: PINNED_DATA_PATH,
         defaultShader: '../evil.glslp',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid default shader/);
   });
@@ -78,21 +82,35 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       core: 'nes',
       romUrl: '/roms/x.nes',
       pathToData: PINNED_DATA_PATH.slice(0, -1),
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
 
     expect(new URL(href).searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
   });
 
-  it('accepts trusted remote versioned pathToData overrides', () => {
+  it('requires loader integrity for trusted remote pathToData overrides', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: `${EMULATORJS_REMOTE_BASE_PATH}9.9.9`,
+      })
+    ).toThrow(/Missing loader integrity/);
+  });
+
+  it('accepts trusted remote versioned pathToData overrides with loader integrity', () => {
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
       romUrl: '/roms/x.nes',
       pathToData: `${EMULATORJS_REMOTE_BASE_PATH}9.9.9`,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('pathtodata')).toBe(
       `${EMULATORJS_REMOTE_BASE_PATH}9.9.9/`
     );
+    expect(new URL(href).searchParams.get('loader_integrity')).toBe(VALID_LOADER_INTEGRITY);
   });
 
   it('accepts same-origin self-hosted EmulatorJS runtime path', () => {
@@ -147,6 +165,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: '/roms/x.nes',
       pathToData: PINNED_DATA_PATH,
       debug: true,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('debug')).toBe('1');
   });
@@ -158,6 +177,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: 'http://localhost:8100/roms/a/b.gba',
       pathToData: PINNED_DATA_PATH,
       playShellPath: '/custom/play.html',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
 
     expect(new URL(href).pathname).toBe('/custom/play.html');
@@ -171,6 +191,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: '/roms/game.bin',
       pathToData: PINNED_DATA_PATH,
       biosUrl,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('bios')).toBe(biosUrl);
   });
@@ -183,6 +204,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         romUrl: '/roms/game.bin',
         pathToData: PINNED_DATA_PATH,
         biosUrl: 'https://example.com/roms/evil.bin',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid BIOS URL/);
   });
@@ -195,6 +217,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       pathToData: PINNED_DATA_PATH,
       biosUrl: 'https://example.com/public-bios/psx/scph1001.bin',
       biosBaseUrl: '/public-bios',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('biosbase')).toBe('/public-bios');
   });
@@ -229,6 +252,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       romUrl: '/public-roms/game.bin',
       romBaseUrl: '/public-roms',
       pathToData: PINNED_DATA_PATH,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('rombase')).toBe('/public-roms');
   });
@@ -241,6 +265,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         romUrl: '/roms/game.bin',
         romBaseUrl: '/public-roms',
         pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid ROM URL/);
   });

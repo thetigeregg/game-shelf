@@ -11,7 +11,7 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   romUrl: string;
   gameTitle?: string | null;
   pathToData: string;
-  /** Same-origin absolute BIOS asset URL under `/bios/` (validated; optional). */
+  /** Same-origin absolute BIOS asset URL under the normalized `biosBaseUrl` (validated; optional). */
   biosUrl?: string | null;
   /** Same-origin BIOS base path (defaults to `/bios`). */
   biosBaseUrl?: string | null;
@@ -56,15 +56,26 @@ function normalizePathToData(value: string, pageOrigin: string): string {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  if (parsed.protocol !== 'https:') {
+  const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
+  const allowedPrefixes = getAllowedPathToDataPrefixes(pageOrigin);
+  if (!allowedPrefixes.includes(normalized)) {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
 
-  const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
-  const isAllowed = getAllowedPathToDataPrefixes(pageOrigin).some(
-    (prefix) => normalized === prefix
-  );
-  if (!isAllowed) {
+  if (normalized === DEFAULT_PATH_TO_DATA) {
+    if (parsed.protocol !== 'https:') {
+      throw new Error('Invalid EmulatorJS pathToData URL');
+    }
+    return normalized;
+  }
+
+  const page = new URL(`${pageOrigin.replace(/\/+$/, '')}/`);
+  const isAllowedSelfHostedProtocol = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  if (
+    !isAllowedSelfHostedProtocol ||
+    parsed.origin !== page.origin ||
+    parsed.protocol !== page.protocol
+  ) {
     throw new Error('Invalid EmulatorJS pathToData URL');
   }
   return normalized;
@@ -175,7 +186,7 @@ export function isSafeEmulatorJsBiosRelativePath(value: string): boolean {
 
 /**
  * Builds an absolute same-origin BIOS URL under `biosBaseUrl` (e.g. `/bios`).
- * Returns null if the path is unsafe or the result is not under `/bios/`.
+ * Returns null if the path is unsafe or the result is not under the normalized `biosBaseUrl`.
  */
 export function buildEmulatorJsBiosUrl(
   pageOrigin: string,
@@ -203,7 +214,7 @@ export function buildEmulatorJsBiosUrl(
   return resolved.href;
 }
 
-/** Same-origin `/bios/` check (mirrors play shell rules) for unit tests. */
+/** Same-origin BIOS-base-path check (mirrors play shell rules) for unit tests. */
 export function isAllowedEmulatorJsBiosUrl(
   biosUrl: string,
   pageOrigin: string,

@@ -99,6 +99,33 @@ function normalizeRomBasePath(value: string | null | undefined): string {
   return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
 }
 
+function containsDotSegments(pathname: string): boolean {
+  const segments = pathname.split('/');
+  for (let i = 0; i < segments.length; i += 1) {
+    let segment = segments[i];
+    if (segment === '.' || segment === '..') {
+      return true;
+    }
+    let decoded = segment;
+    for (let j = 0; j < 3; j += 1) {
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch {
+        return true;
+      }
+      if (decoded === '.' || decoded === '..') {
+        return true;
+      }
+      if (decoded === segment) {
+        break;
+      }
+      segment = decoded;
+    }
+  }
+
+  return false;
+}
+
 /** Restricts core names to a simple token (mirrors `play.html`). */
 export function isSafeEmulatorJsCoreToken(value: string): boolean {
   const trimmed = value.trim();
@@ -256,7 +283,7 @@ export function isAllowedEmulatorJsBiosUrl(
 
   const basePath = normalizeBiosBasePath(biosBaseUrl);
   const prefix = `${basePath}/`;
-  return parsed.pathname.startsWith(prefix);
+  return !containsDotSegments(parsed.pathname) && parsed.pathname.startsWith(prefix);
 }
 
 /** Same-origin `/roms/` check (mirrors play shell rules) for unit tests. */
@@ -279,7 +306,7 @@ export function isAllowedEmulatorJsRomUrl(
 
   const basePath = normalizeRomBasePath(romBaseUrl);
   const prefix = `${basePath}/`;
-  return parsed.pathname.startsWith(prefix);
+  return !containsDotSegments(parsed.pathname) && parsed.pathname.startsWith(prefix);
 }
 
 const EMULATORJS_LOADER_INTEGRITY_PATTERN = /^(?:sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;

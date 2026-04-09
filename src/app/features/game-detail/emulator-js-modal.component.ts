@@ -4,6 +4,7 @@ import {
   EventEmitter,
   HostListener,
   Input,
+  NgZone,
   OnChanges,
   Output,
   ViewChild,
@@ -37,6 +38,7 @@ function isEmulatorJsExitMessage(data: unknown): boolean {
 })
 export class EmulatorJsModalComponent implements OnChanges {
   private readonly domSanitizer = inject(DomSanitizer);
+  private readonly ngZone = inject(NgZone);
   private static readonly PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
   @ViewChild('playFrame') private playFrame?: ElementRef<HTMLIFrameElement>;
 
@@ -65,11 +67,17 @@ export class EmulatorJsModalComponent implements OnChanges {
     if (!isEmulatorJsExitMessage(event.data)) {
       return;
     }
-    const frameWindow = this.playFrame?.nativeElement.contentWindow;
-    if (!frameWindow || event.source !== frameWindow) {
+    const frameEl = this.playFrame?.nativeElement;
+    const frameWindow = frameEl ? frameEl.contentWindow : null;
+    // When we have a resolved iframe, require the message to come from it (spoof resistance).
+    // If `contentWindow` is not available yet, still accept: origin + payload already constrain
+    // who can close the modal to same-origin code that knows our contract.
+    if (frameWindow !== null && event.source !== frameWindow) {
       return;
     }
-    this.dismiss.emit();
+    this.ngZone.run(() => {
+      this.dismiss.emit();
+    });
   }
 
   onClose(): void {

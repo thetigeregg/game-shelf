@@ -1,4 +1,7 @@
-import { EMULATORJS_PINNED_PATH_TO_DATA } from '../config/emulatorjs.constants';
+import {
+  EMULATORJS_PINNED_PATH_TO_DATA,
+  EMULATORJS_REMOTE_BASE_PATH,
+} from '../config/emulatorjs.constants';
 
 const DEFAULT_PLAY_SHELL_PATH = '/assets/emulatorjs/play.html';
 const DEFAULT_PATH_TO_DATA = EMULATORJS_PINNED_PATH_TO_DATA;
@@ -46,6 +49,15 @@ function getAllowedPathToDataPrefixes(pageOrigin: string): string[] {
   return [new URL(SELF_HOSTED_PATH_TO_DATA, `${normalizedOrigin}/`).href, DEFAULT_PATH_TO_DATA];
 }
 
+function isTrustedRemotePathToData(url: URL, normalizedUrl: string): boolean {
+  const normalizedBase = EMULATORJS_REMOTE_BASE_PATH.replace(/\/+$/, '/');
+  return (
+    url.protocol === 'https:' &&
+    normalizedUrl.startsWith(normalizedBase) &&
+    /^\/game-shelf-assets\/third-party\/emulatorjs\/[^/]+\/?$/.test(url.pathname)
+  );
+}
+
 function normalizePathToData(value: string, pageOrigin: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -62,14 +74,14 @@ function normalizePathToData(value: string, pageOrigin: string): string {
 
   const normalized = parsed.href.endsWith('/') ? parsed.href : `${parsed.href}/`;
   const allowedPrefixes = getAllowedPathToDataPrefixes(pageOrigin);
-  if (!allowedPrefixes.includes(normalized)) {
-    throw new Error('Invalid EmulatorJS pathToData URL');
-  }
-
-  if (normalized === DEFAULT_PATH_TO_DATA) {
-    if (parsed.protocol !== 'https:') {
+  if (allowedPrefixes.includes(normalized)) {
+    if (normalized === DEFAULT_PATH_TO_DATA && parsed.protocol !== 'https:') {
       throw new Error('Invalid EmulatorJS pathToData URL');
     }
+    return normalized;
+  }
+
+  if (isTrustedRemotePathToData(parsed, normalized)) {
     return normalized;
   }
 
@@ -179,6 +191,9 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
   const loaderIntegrity =
     typeof params.loaderIntegrity === 'string' ? params.loaderIntegrity.trim() : '';
   if (loaderIntegrity.length > 0) {
+    if (!isValidEmulatorJsLoaderIntegrity(loaderIntegrity)) {
+      throw new Error('Invalid loader integrity for EmulatorJS play shell');
+    }
     pageUrl.searchParams.set('loader_integrity', loaderIntegrity);
   }
 
@@ -245,7 +260,7 @@ export function isAllowedEmulatorJsBiosUrl(
   }
 
   const origin = pageOrigin.replace(/\/+$/, '');
-  if (parsed.origin !== origin) {
+  if (parsed.origin !== origin || parsed.username.length > 0 || parsed.password.length > 0) {
     return false;
   }
 
@@ -268,11 +283,17 @@ export function isAllowedEmulatorJsRomUrl(
   }
 
   const origin = pageOrigin.replace(/\/+$/, '');
-  if (parsed.origin !== origin) {
+  if (parsed.origin !== origin || parsed.username.length > 0 || parsed.password.length > 0) {
     return false;
   }
 
   const basePath = normalizeRomBasePath(romBaseUrl);
   const prefix = `${basePath}/`;
   return parsed.pathname.startsWith(prefix);
+}
+
+const EMULATORJS_LOADER_INTEGRITY_PATTERN = /^(?:sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;
+
+export function isValidEmulatorJsLoaderIntegrity(value: string): boolean {
+  return EMULATORJS_LOADER_INTEGRITY_PATTERN.test(value.trim());
 }

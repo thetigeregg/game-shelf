@@ -4,11 +4,15 @@ import {
   buildEmulatorJsPlayShellUrl,
   isAllowedEmulatorJsBiosUrl,
   isAllowedEmulatorJsRomUrl,
+  isValidEmulatorJsLoaderIntegrity,
   isSafeEmulatorJsBiosRelativePath,
   isSafeEmulatorJsCoreToken,
   isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
-import { EMULATORJS_PINNED_PATH_TO_DATA } from '../config/emulatorjs.constants';
+import {
+  EMULATORJS_PINNED_PATH_TO_DATA,
+  EMULATORJS_REMOTE_BASE_PATH,
+} from '../config/emulatorjs.constants';
 
 describe('buildEmulatorJsPlayShellUrl', () => {
   const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;
@@ -77,6 +81,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     });
 
     expect(new URL(href).searchParams.get('pathtodata')).toBe(PINNED_DATA_PATH);
+  });
+
+  it('accepts trusted remote versioned pathToData overrides', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/roms/x.nes',
+      pathToData: `${EMULATORJS_REMOTE_BASE_PATH}9.9.9`,
+    });
+    expect(new URL(href).searchParams.get('pathtodata')).toBe(
+      `${EMULATORJS_REMOTE_BASE_PATH}9.9.9/`
+    );
   });
 
   it('accepts same-origin self-hosted EmulatorJS runtime path', () => {
@@ -170,6 +186,18 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       loaderIntegrity: 'sha384-abc123+/=',
     });
     expect(new URL(href).searchParams.get('loader_integrity')).toBe('sha384-abc123+/=');
+  });
+
+  it('throws when loader_integrity is invalid', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'psx',
+        romUrl: '/roms/game.bin',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: 'md5-not-allowed',
+      })
+    ).toThrow(/Invalid loader integrity/);
   });
 
   it('adds rombase when using a non-default rom base path', () => {
@@ -272,6 +300,15 @@ describe('isAllowedEmulatorJsBiosUrl', () => {
     );
   });
 
+  it('rejects URLs with embedded credentials', () => {
+    expect(
+      isAllowedEmulatorJsBiosUrl(
+        'https://user:pass@app.test/bios/psx/scph1001.bin',
+        'https://app.test'
+      )
+    ).toBe(false);
+  });
+
   it('supports custom bios base allowlist paths', () => {
     expect(
       isAllowedEmulatorJsBiosUrl(
@@ -308,6 +345,12 @@ describe('isAllowedEmulatorJsRomUrl', () => {
     expect(isAllowedEmulatorJsRomUrl('not-a-url', 'https://app.test')).toBe(false);
   });
 
+  it('rejects URLs with embedded credentials', () => {
+    expect(isAllowedEmulatorJsRomUrl('https://user:pass@app.test/roms/x', 'https://app.test')).toBe(
+      false
+    );
+  });
+
   it('supports custom rom base allowlist paths', () => {
     expect(
       isAllowedEmulatorJsRomUrl(
@@ -323,5 +366,17 @@ describe('isAllowedEmulatorJsRomUrl', () => {
         '/public-roms'
       )
     ).toBe(false);
+  });
+});
+
+describe('isValidEmulatorJsLoaderIntegrity', () => {
+  it('accepts valid SRI values', () => {
+    expect(isValidEmulatorJsLoaderIntegrity('sha384-abcDEF123+/==')).toBe(true);
+    expect(isValidEmulatorJsLoaderIntegrity(' sha512-abc123+/= ')).toBe(true);
+  });
+
+  it('rejects invalid SRI values', () => {
+    expect(isValidEmulatorJsLoaderIntegrity('md5-abc123')).toBe(false);
+    expect(isValidEmulatorJsLoaderIntegrity('sha384-')).toBe(false);
   });
 });

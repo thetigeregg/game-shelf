@@ -78,6 +78,18 @@ function normalizePathToData(value: string, pageOrigin: string): string {
     if (normalized === DEFAULT_PATH_TO_DATA && parsed.protocol !== 'https:') {
       throw new Error('Invalid EmulatorJS pathToData URL');
     }
+    if (normalized !== DEFAULT_PATH_TO_DATA) {
+      const isAllowedSelfHostedProtocol =
+        parsed.protocol === 'https:' || parsed.protocol === 'http:';
+      const pageProtocol = new URL(`${normalizedPageOrigin}/`).protocol;
+      if (
+        !isAllowedSelfHostedProtocol ||
+        parsed.origin !== normalizedPageOrigin ||
+        parsed.protocol !== pageProtocol
+      ) {
+        throw new Error('Invalid EmulatorJS pathToData URL');
+      }
+    }
     return normalized;
   }
 

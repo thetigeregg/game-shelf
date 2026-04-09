@@ -97,8 +97,11 @@ export function parsePlatformIdFromFolderName(folderName: string): number | null
 
 export function normalizeRomTitle(title: string): string {
   const cleaned = parseRomFileName(title).title;
-  const strippedDiacritics = cleaned.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  return normalizeRomTitleFromCleanTitle(cleaned);
+}
 
+function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
+  const strippedDiacritics = cleanedTitle.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
   return strippedDiacritics
     .toLowerCase()
     .replace(
@@ -119,15 +122,13 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const extensionStart = extensionMatch?.index ?? trimmed.length;
   const withoutExtension = extensionMatch ? trimmed.slice(0, Math.max(0, extensionStart)) : trimmed;
 
-  const metadataTokens = [...withoutExtension.matchAll(/\(([^)]*)\)|\[([^\]]*)\]/gu)];
-  const metadataStart =
-    metadataTokens.length > 0
-      ? Math.min(
-          ...metadataTokens.map((match) =>
-            typeof match.index === 'number' ? match.index : Number.MAX_SAFE_INTEGER
-          )
-        )
-      : withoutExtension.length;
+  const metadataTokens = extractMetadataTokens(withoutExtension);
+  let metadataStart = withoutExtension.length;
+  for (const match of metadataTokens) {
+    if (match.start < metadataStart) {
+      metadataStart = match.start;
+    }
+  }
   const titleCandidate = withoutExtension.slice(0, metadataStart).trim();
 
   let region: string | null = null;
@@ -135,24 +136,21 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
   const flags: string[] = [];
 
   for (const token of metadataTokens) {
-    const parenValue = (token.at(1) ?? '').trim();
-    const bracketValue = (token.at(2) ?? '').trim();
-
-    if (parenValue.length > 0) {
-      if (region === null && looksLikeRegionToken(parenValue)) {
-        region = parenValue;
+    if (token.kind === 'paren' && token.value.length > 0) {
+      if (region === null && looksLikeRegionToken(token.value)) {
+        region = token.value;
         continue;
       }
-      if (revision === null && looksLikeRevisionToken(parenValue)) {
-        revision = parenValue;
+      if (revision === null && looksLikeRevisionToken(token.value)) {
+        revision = token.value;
         continue;
       }
-      flags.push(parenValue);
+      flags.push(token.value);
       continue;
     }
 
-    if (bracketValue.length > 0) {
-      flags.push(bracketValue);
+    if (token.kind === 'bracket' && token.value.length > 0) {
+      flags.push(token.value);
     }
   }
 
@@ -512,7 +510,7 @@ async function walkRoms(
 
     const fileName = child.name;
     const parsedFileName = parseRomFileName(fileName);
-    const normalizedTitle = normalizeRomTitle(parsedFileName.title);
+    const normalizedTitle = normalizeRomTitleFromCleanTitle(parsedFileName.title);
 
     if (!normalizedTitle) {
       continue;
@@ -549,23 +547,156 @@ function normalizeRomDisplayTitle(value: string): string {
   return normalizedSeparator.replace(/\s+/gu, ' ').trim();
 }
 
+interface MetadataToken {
+  kind: 'paren' | 'bracket';
+  value: string;
+  start: number;
+}
+
+function extractMetadataTokens(value: string): MetadataToken[] {
+  const tokens: MetadataToken[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    const close = char === '(' ? ')' : char === '[' ? ']' : '';
+    if (!close) {
+      continue;
+    }
+    const end = value.indexOf(close, index + 1);
+    if (end < 0) {
+      continue;
+    }
+    tokens.push({
+      kind: char === '(' ? 'paren' : 'bracket',
+      value: value.slice(index + 1, end).trim(),
+      start: index,
+    });
+    index = end;
+  }
+  return tokens;
+}
+
+function isAsciiLetter(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isAsciiAlphaNumeric(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return isAsciiLetter(char) || (code >= 48 && code <= 57);
+}
+
+function splitAlphaNumericWords(value: string): string[] {
+  const words: string[] = [];
+  let current = '';
+  for (const char of value.toLowerCase()) {
+    if (isAsciiAlphaNumeric(char)) {
+      current += char;
+      continue;
+    }
+    if (current.length > 0) {
+      words.push(current);
+      current = '';
+    }
+  }
+  if (current.length > 0) {
+    words.push(current);
+  }
+  return words;
+}
+
 function looksLikeRegionToken(value: string): boolean {
   const normalized = value.trim();
   if (normalized.length === 0) {
     return false;
   }
-  if (
-    /\b(rev|revision|version|compatible|enhanced|demo|proto|beta|sample|disc|disk|cd|dvd)\b/iu.test(
-      normalized
-    )
-  ) {
+  const words = splitAlphaNumericWords(normalized);
+  const blockedWords = new Set([
+    'rev',
+    'revision',
+    'version',
+    'compatible',
+    'enhanced',
+    'demo',
+    'proto',
+    'beta',
+    'sample',
+    'disc',
+    'disk',
+    'cd',
+    'dvd',
+  ]);
+  if (words.some((word) => blockedWords.has(word))) {
     return false;
   }
-  return /^[A-Za-z][A-Za-z .-]*(?:,\s*[A-Za-z][A-Za-z .-]*)*$/u.test(normalized);
+
+  const parts = normalized.split(',').map((part) => part.trim());
+  if (parts.length === 0) {
+    return false;
+  }
+  for (const part of parts) {
+    if (part.length === 0 || !isAsciiLetter(part[0])) {
+      return false;
+    }
+    for (const char of part) {
+      if (isAsciiLetter(char) || char === ' ' || char === '.' || char === '-') {
+        continue;
+      }
+      return false;
+    }
+  }
+  return true;
 }
 
 function looksLikeRevisionToken(value: string): boolean {
-  return /^(?:rev(?:ision)?\.?\s*[a-z0-9]+|v\d+(?:\.\d+)*[a-z0-9]*)$/iu.test(value.trim());
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  const compact = normalized.startsWith('revision')
+    ? normalized.slice('revision'.length).trimStart()
+    : normalized.startsWith('rev')
+      ? normalized.slice('rev'.length).trimStart()
+      : '';
+  if (compact.length > 0) {
+    const revValue = compact.startsWith('.') ? compact.slice(1).trimStart() : compact;
+    if (revValue.length === 0) {
+      return false;
+    }
+    for (const char of revValue) {
+      if (!isAsciiAlphaNumeric(char)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (!normalized.startsWith('v') || normalized.length < 2) {
+    return false;
+  }
+  const version = normalized.slice(1);
+  let hasDigit = false;
+  let previousWasDot = false;
+  for (const char of version) {
+    if (char >= '0' && char <= '9') {
+      hasDigit = true;
+      previousWasDot = false;
+      continue;
+    }
+    if (char === '.') {
+      if (previousWasDot) {
+        return false;
+      }
+      previousWasDot = true;
+      continue;
+    }
+    if (isAsciiLetter(char)) {
+      previousWasDot = false;
+      continue;
+    }
+    return false;
+  }
+  return hasDigit;
 }
 
 function rankRomEntriesByTitle(

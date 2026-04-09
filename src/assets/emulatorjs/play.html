@@ -47,7 +47,7 @@
           if (trimmed.length === 0 || trimmed.length > 128) {
             return false;
           }
-          return /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.glslp$/.test(trimmed);
+          return /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\.glslp)?$/.test(trimmed);
         }
 
         if (!core || !rom) {
@@ -79,7 +79,7 @@
         /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;
            auto-fullscreen after ROM load is denied in iframes and EmulatorJS throws. */
         /* menu-bar-button: top-right control that toggles the bottom toolbar (EJS class ejs_virtualGamepad_open).
-           Shader: optional `shader` query param (validated filename); mapped from IGDB platform in the Angular app. */
+           Shader: optional `shader` query param (validated single-segment value); mapped from IGDB platform in app. */
         window.EJS_defaultOptions = { 'menu-bar-button': 'hidden' };
         var shaderParam = params.get('shader');
         if (isValidEmulatorJsShaderFileName(shaderParam)) {

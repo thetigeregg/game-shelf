@@ -1,26 +1,22 @@
 /**
  * Relative paths under the public BIOS mount (`biosBaseUrl`, default `/bios/`).
  *
- * EmulatorJS `EJS_biosUrl` is a single URL. **One file per path** for cores that only need one
- * dump (`.bin` / `.rom` / `.img` as listed). **Multi-file BIOS:** pack every required blob into
- * **one zip** at the path below; use exact inner filenames from EmulatorJS system docs. Zip path
- * convention for multi-file cores: `<subdir>/<identifier>-bios.zip` (see `docs/nas-deployment.md`).
+ * EmulatorJS exposes a single `EJS_biosUrl`. Policy (see `docs/nas-deployment.md`):
  *
- * Filenames below are conventional — symlink or rename your dumps to match, or change this map.
+ * - If the [EmulatorJS system doc](https://emulatorjs.org/docs/systems/) for that core lists
+ *   **more than one distinct BIOS file name** (regions, hardware variants, or required sets),
+ *   use **one zip** at `<EJS_core>/<EJS_core>-bios.zip` with those names at the **archive root**
+ *   (include every member you rely on; exact spellings must match the doc).
+ * - If the upstream doc is effectively **one** BIOS file for the platform, use that **single
+ *   file** at the path below (no zip).
  *
- * Famicom Disk System: place `disksys.rom` at `nes/disksys.rom`. It is only requested when the
- * launch ROM path ends with `.fds`, so cartridge `.nes` games do not trigger a BIOS fetch.
- *
- * Atari Lynx and ColecoVision require BIOS for all titles (`lynxboot.img`, `colecovision.rom`).
- *
- * Nintendo DS (`nds` / melonDS): zip at `nds/melonds-bios.zip` with `bios7.bin`, `bios9.bin`,
- * `firmware.bin` at archive root (EmulatorJS Nintendo DS docs).
+ * Famicom Disk System: `nes/disksys.rom` only when the ROM path ends with `.fds`.
  */
 const EMULATOR_JS_CORE_TO_BIOS_RELATIVE_PATH = new Map<string, string>([
-  ['psx', 'psx/scph1001.bin'],
-  ['nds', 'nds/melonds-bios.zip'],
-  ['segaCD', 'segaCD/bios_CD_U.bin'],
-  ['3do', '3do/panafz10.bin'],
+  ['psx', 'psx/psx-bios.zip'],
+  ['nds', 'nds/nds-bios.zip'],
+  ['segaCD', 'segaCD/segaCD-bios.zip'],
+  ['3do', '3do/3do-bios.zip'],
   ['segaSaturn', 'segaSaturn/saturn_bios.bin'],
   ['lynx', 'lynx/lynxboot.img'],
   ['coleco', 'coleco/colecovision.rom'],

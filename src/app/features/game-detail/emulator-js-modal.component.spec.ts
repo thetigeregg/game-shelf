@@ -58,35 +58,57 @@ describe('EmulatorJsModalComponent', () => {
   it('emits dismiss only for same-origin emulator exit messages while open', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.dismiss, 'emit');
+    const frameWindow = {} as Window;
+    (
+      component as unknown as { playFrame?: { nativeElement: { contentWindow: Window } } }
+    ).playFrame = {
+      nativeElement: { contentWindow: frameWindow },
+    };
     component.isOpen = true;
 
     component.onWindowMessage({
       origin: window.location.origin,
       data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+      source: frameWindow,
     } as MessageEvent<unknown>);
 
     expect(emitSpy).toHaveBeenCalledOnce();
   });
 
-  it('ignores messages when closed, foreign-origin, or invalid payload', () => {
+  it('ignores messages when closed, foreign-origin, wrong source, or invalid payload', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.dismiss, 'emit');
+    const frameWindow = {} as Window;
+    (
+      component as unknown as { playFrame?: { nativeElement: { contentWindow: Window } } }
+    ).playFrame = {
+      nativeElement: { contentWindow: frameWindow },
+    };
 
     component.isOpen = false;
     component.onWindowMessage({
       origin: window.location.origin,
       data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+      source: frameWindow,
     } as MessageEvent<unknown>);
 
     component.isOpen = true;
     component.onWindowMessage({
       origin: 'https://evil.test',
       data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+      source: frameWindow,
+    } as MessageEvent<unknown>);
+
+    component.onWindowMessage({
+      origin: window.location.origin,
+      data: { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+      source: {} as Window,
     } as MessageEvent<unknown>);
 
     component.onWindowMessage({
       origin: window.location.origin,
       data: { source: 'other', type: 'emulator-exit' },
+      source: frameWindow,
     } as MessageEvent<unknown>);
 
     expect(emitSpy).not.toHaveBeenCalled();

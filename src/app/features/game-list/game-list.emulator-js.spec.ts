@@ -77,7 +77,7 @@ describe('GameListComponent emulator launch flow', () => {
     expect(launchUrl.searchParams.get('pathtodata')).toBe(EMULATORJS_DEFAULT_PATH_TO_DATA);
     expect(launchUrl.searchParams.get('loader_integrity')).toBeTruthy();
     expect(launchUrl.searchParams.get('bios')).toBe(
-      `${window.location.origin}/bios/psx/scph1001.bin`
+      `${window.location.origin}/bios/psx/psx-bios.zip`
     );
   });
 

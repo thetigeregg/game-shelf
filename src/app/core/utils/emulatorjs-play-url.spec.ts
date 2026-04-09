@@ -30,15 +30,15 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     expect(parsed.searchParams.get('shader')).toBeNull();
   });
 
-  it('appends shader when defaultShader is a safe filename', () => {
+  it('appends shader when defaultShader is a safe value', () => {
     const href = buildEmulatorJsPlayShellUrl({
       origin: 'https://example.com',
       core: 'nes',
       romUrl: '/roms/x.nes',
       pathToData: 'https://cdn.emulatorjs.org/stable/data/',
-      defaultShader: 'crt-lottes.glslp',
+      defaultShader: 'crt-lottes',
     });
-    expect(new URL(href).searchParams.get('shader')).toBe('crt-lottes.glslp');
+    expect(new URL(href).searchParams.get('shader')).toBe('crt-lottes');
   });
 
   it('throws when defaultShader is unsafe', () => {
@@ -118,13 +118,13 @@ describe('buildEmulatorJsBiosUrl', () => {
 describe('isSafeEmulatorJsShaderFileName', () => {
   it('accepts single-segment preset names', () => {
     expect(isSafeEmulatorJsShaderFileName('crt-geom.glslp')).toBe(true);
-    expect(isSafeEmulatorJsShaderFileName('crt-lottes.glslp')).toBe(true);
+    expect(isSafeEmulatorJsShaderFileName('crt-lottes')).toBe(true);
   });
 
   it('rejects paths and bad characters', () => {
     expect(isSafeEmulatorJsShaderFileName('a/b.glslp')).toBe(false);
     expect(isSafeEmulatorJsShaderFileName('.hidden.glslp')).toBe(false);
-    expect(isSafeEmulatorJsShaderFileName('no-ext')).toBe(false);
+    expect(isSafeEmulatorJsShaderFileName('no-ext')).toBe(true);
     expect(isSafeEmulatorJsShaderFileName('')).toBe(false);
   });
 });

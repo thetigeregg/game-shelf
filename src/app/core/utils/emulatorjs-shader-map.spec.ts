@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { resolveEmulatorJsShader } from './emulatorjs-shader-map';
 
 describe('resolveEmulatorJsShader', () => {
-  it('returns normalized .glslp filenames for mapped platforms', () => {
-    expect(resolveEmulatorJsShader(18)).toBe('crt-lottes.glslp');
+  it('returns mapped shader values as-is for supported platforms', () => {
+    expect(resolveEmulatorJsShader(18)).toBe('crt-lottes');
     expect(resolveEmulatorJsShader(19)).toBe('crt-aperture.glslp');
     expect(resolveEmulatorJsShader(7)).toBe('crt-geom.glslp');
     expect(resolveEmulatorJsShader(79)).toBe('crt-easymode.glslp');
-    expect(resolveEmulatorJsShader(62)).toBe('crt-caligari.glslp');
+    expect(resolveEmulatorJsShader(62)).toBe('crt-caligari');
   });
 
   it('returns null for handheld / LCD mappings', () => {

@@ -42,7 +42,9 @@ firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
 # Default comes from `EMULATORJS_DEFAULT_PATH_TO_DATA` in `emulatorjs.constants.ts`.
 # Optional `EMULATORJS_PATH_TO_DATA_PROD` / `EMULATORJS_LOADER_INTEGRITY_PROD` must match the
 # allowlist and SRI expectations enforced in `emulatorjs-play-url.ts` and `play.html`.
-emulatorjs_constants_json="$(node -e 'const fs=require("fs");const vm=require("vm");const source=fs.readFileSync("src/app/core/config/emulatorjs.constants.ts","utf8");const transformed=source.replace(/^\s*export\s+const\s+/gm,"const ");const context={result:null};const vmSource=transformed+\"\nresult={pathToData:EMULATORJS_DEFAULT_PATH_TO_DATA,loaderIntegrity:EMULATORJS_PINNED_LOADER_INTEGRITY};\";vm.runInNewContext(vmSource,context);const result=context.result;if(!result||typeof result.pathToData!==\"string\"||result.pathToData.length===0||typeof result.loaderIntegrity!==\"string\"||result.loaderIntegrity.length===0){process.exit(1);}process.stdout.write(JSON.stringify(result));')"
+emulatorjs_constants_json="$(
+  node -e 'const fs=require("fs");const vm=require("vm");const source=fs.readFileSync("src/app/core/config/emulatorjs.constants.ts","utf8");const transformed=source.replace(/^\s*export\s+const\s+/gm,"const ");const context={result:null};const vmSource=transformed+"\nresult={pathToData:EMULATORJS_DEFAULT_PATH_TO_DATA,loaderIntegrity:EMULATORJS_PINNED_LOADER_INTEGRITY};";vm.runInNewContext(vmSource,context);const result=context.result;if(!result||typeof result.pathToData!=="string"||result.pathToData.length===0||typeof result.loaderIntegrity!=="string"||result.loaderIntegrity.length===0){process.exit(1);}process.stdout.write(JSON.stringify(result));'
+)"
 emulatorjs_path_to_data_default="$(node -e 'const payload=JSON.parse(process.argv[1]);process.stdout.write(payload.pathToData);' "${emulatorjs_constants_json}")"
 emulatorjs_path_to_data="${EMULATORJS_PATH_TO_DATA_PROD:-$emulatorjs_path_to_data_default}"
 emulatorjs_loader_integrity_default="$(node -e 'const payload=JSON.parse(process.argv[1]);process.stdout.write(payload.loaderIntegrity);' "${emulatorjs_constants_json}")"

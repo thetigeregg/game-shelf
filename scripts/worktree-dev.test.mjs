@@ -106,7 +106,7 @@ test('runPwa serve exits with guidance when the edge service is unreachable', as
   assert.deepEqual(exitCodes, [1]);
   assert.deepEqual(operations, []);
   assert.match(errors[0], /edge service is unavailable at http:\/\/127\.0\.0\.1:9080/);
-  assert.match(errors[1], /npm run dev:stack:up/);
+  assert.match(errors[1], /npx devx worktree stack up/);
 });
 
 test('runPwa simulator reconciles the stack before building and serving', async () => {

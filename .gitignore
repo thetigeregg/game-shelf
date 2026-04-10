@@ -82,5 +82,4 @@ server/.env.dev
 nas-data/
 nas-secrets/
 /worktrees/
-.pr-review-prompt.md
-.pr-agent-prompt.md
+prompts/

@@ -11,8 +11,8 @@ export default {
   },
   pr: {
     baseRef: 'origin/main',
-    reviewOutputFile: '.pr-review-prompt.md',
-    agentOutputFile: '.pr-agent-prompt.md',
+    prepOutputFile: 'prompts/pr-prep-prompt.md',
+    feedbackOutputFile: 'prompts/pr-feedback-prompt.md',
     excludedDiffPaths: [':(glob,exclude)**/package-lock.json', ':(glob,exclude)**/dist/**'],
     ciWorkflowName: 'CI PR Checks',
     coverageArtifactName: 'coverage-reports',
@@ -22,7 +22,7 @@ export default {
   worktree: {
     adapterModule: 'scripts/worktree-dev.mjs',
     bootstrap: {
-      installScript: 'ci:all',
+      installScript: 'deps:install:all',
     },
     runtime: {
       projectSlugPrefix: 'gameshelf',
@@ -78,7 +78,7 @@ export default {
         'metacritic-scraper',
         'psprices-scraper',
       ],
-      startCommandHint: 'npm run dev:stack:up',
+      startCommandHint: 'npx devx worktree stack up',
     },
     frontend: {
       prestartCommand: 'npm run prestart',

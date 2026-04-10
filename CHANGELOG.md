@@ -3252,3 +3252,71 @@
 - 10f06e78 chore: update dependencies for @thetigeregg packages and vitest
 - 5be539a7 chore: update @angular/cdk dependency to version 21.2.6 in package.json and package-lock.json
 - 4d1ed9fd chore: update Angular dependencies to version 21.2.8 and related packages
+
+## v1.42.0 - 2026-04-10
+
+- 1099c05e Merge pull request #331 from thetigeregg/feat/rom-map
+- dca43fae fix(ci): correct EmulatorJS constants eval in prod environment writer
+- 08fdba72 fix(emulator): add biosBaseUrl support and validation in EmulatorJS play URL
+- 7c00cd27 fix(emulatorjs): hardcode /roms and /bios in play shell; drop base query params
+- 1f46b1cc fix(roms): match spaced multi-word region tokens in title normalization
+- a5b2ff87 fix(emulator): add loader integrity validation to EmulatorJS play URL tests
+- 8b9f05b5 fix(docs, emulator): enhance documentation for ROM and BIOS handling
+- 5e745d39 fix(emulator): enforce required loader integrity and update platform mapping logic for ROM UI
+- 7d13af8b fix(emulator): add validation for biosBaseUrl to reject dot segments and update related tests
+- 34a5d292 fix(emulator): enforce required integrity secret for EmulatorJS loader in production environment
+- 007fe4b9 fix(docs, emulator): expand BIOS file paths and update related tests for EmulatorJS
+- e31683c3 fix(docs): update migration instructions for BIOS file handling in EmulatorJS
+- 4ff9bd13 fix(emulator): refactor message handling logic
+- d858112e fix(emulator): improve message handling and iframe exit detection in EmulatorJS integration
+- d7cdc6da fix(docs, emulator): update BIOS file handling and paths for EmulatorJS
+- 8ae48d63 fix(docs): clarify BIOS file handling for EmulatorJS, including single and multi-file requirements
+- ad60b8e1 fix(emulator): update iframe sandbox attributes to allow same-origin access
+- 4760d546 fix(emulator): enhance EmulatorJS integration with updated path handling and SRI validation
+- e6806d09 fix(emulator): update EmulatorJS path and loader integrity handling in production environment
+- c05c3ef6 fix(roms): add test for normalization of ROM titles with new formats
+- d232d294 fix(emulator): enforce valid loader integrity for remote EmulatorJS scripts
+- 02c68d32 fix(emulator): require remote loader SRI and tighten ROM title noise parsing
+- 9a436799 fix(roms): enhance ROM filename parsing and add test for dotted suffix without known extension
+- b36bd645 fix(emulator): remove clipboard-write from iframe allowed attributes
+- 2ec83e9c Revert "fix(emulator): update allowed attributes for iframe"
+- f2af8551 fix(emulator): update allowed attributes for iframe
+- 91a0053e fix(server): preserve world in ROM title normalization
+- 106639ba fix(emulator): reject dot-segments in BIOS and ROM paths for enhanced security
+- 1ac398ed fix(emulator): add validation for BIOS base URL and enhance path normalization
+- 66337d2a fix(roms): avoid over-stripping dotted query titles and harden EmulatorJS prod env path source
+- 60761427 fix(server): preserve ambiguous words in rom title normalization
+- 6f0f39fa fix(emulator): enforce strict SRI integrity format in EmulatorJS loader
+- c018f53c fix: remove BIOS public base URL from example and enhance ROM title normalization
+- 83c399a9 feat: add BIOS public base URL and enhance ROM filename parsing with dot-prefixed titles
+- 31bdd3a5 Merge branch 'main' into feat/rom-map
+- bb160751 fix(emulator): add conditional integrity handling for EmulatorJS loader
+- dfde60ce fix(emulator): enhance loader integrity validation and restrict URL credential usage
+- eb6be282 fix(emulator): enforce same-origin rom constraints and dedupe runtime path source
+- 29384c5d fix(emulator): align ROM/BIOS allowlisting with configurable base URLs
+- 04e17775 fix(emulator): harden modal exit message source checks and optimize ROM token parsing allocations
+- c05555ce fix(emulator): resolve PR review feedback for pathToData, protocol validation
+- 39b238dc fix(emulator): resolve PR review issues for path validation and modal dismiss handling
+- 32424911 fix(emulator): preserve mid-title metadata and align EmulatorJS runtime/BIOS allowlists
+- e170c5d8 refactor(roms): enhance ROM title normalization and metadata extraction logic
+- e67d70bf feat(emulator): update EmulatorJS path to pinned immutable assets and enhance validation
+- c621e090 feat(emulator): update EmulatorJS path configuration to self-hosted assets
+- 21cd47e5 fix(emulator): harden play shell inputs and align BIOS path configuration
+- 2f05ee81 refactor: streamline ROM filename parsing logic and improve associated test coverage
+- 3f2facf6 refactor: remove duplicate marker from ROM filename parsing and update related tests
+- 6b3d9551 feat: implement ROM filename parsing and enhance title normalization in roms module
+- 8a4ae7f3 refactor: update shader handling in EmulatorJS to support single-segment values
+- 06c20b20 feat: implement shader filename validation and integration in EmulatorJS play URL generation
+- 4badcace feat: add menu bar button option to EmulatorJS default settings
+- ac0a84db feat: add default shader options for EmulatorJS configuration
+- d4446df8 feat: enhance BIOS file handling for EmulatorJS with FDS support and documentation updates
+- 15d1dad6 feat: implement BIOS file path resolution and validation for EmulatorJS
+- e1e53086 fix: prevent automatic fullscreen on load for EmulatorJS due to iframe restrictions
+- 8647bd96 feat: enable automatic start and fullscreen for EmulatorJS on load
+- f8f2d7ce feat: enhance EmulatorJS modal with exit message handling and UI improvements
+- 57fdd23e feat: add proxy configuration for /roms and /bios endpoints in development setup
+- bfa9ff1d feat: update proxy configuration to include /roms endpoint and enhance deployment documentation
+- 8e445a66 feat: add debug parameter to EmulatorJS play URL generation and configuration
+- c61693dd feat: add BIOS support in environment configuration and deployment documentation
+- 4ef045af Merge branch 'main' into feat/rom-map
+- 20d3f535 feat: integrate EmulatorJS for in-browser ROM play with modal support

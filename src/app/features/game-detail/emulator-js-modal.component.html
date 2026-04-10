@@ -1,0 +1,19 @@
+<ion-modal [isOpen]="isOpen" class="emulator-js-modal" (didDismiss)="onClose()">
+  <ng-template>
+    <ion-content class="emulator-js-modal-content gs-safe-bottom" [scrollY]="false">
+      @if (safeLaunchUrl) {
+        <iframe
+          #playFrame
+          class="emulator-js-iframe"
+          title="Emulator"
+          [src]="safeLaunchUrl"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="autoplay; fullscreen; gamepad"
+          sandbox="allow-scripts allow-same-origin"
+          allowfullscreen
+        ></iframe>
+      }
+    </ion-content>
+  </ng-template>
+</ion-modal>

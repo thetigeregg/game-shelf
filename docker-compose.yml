@@ -30,6 +30,7 @@ services:
     volumes:
       - ./nas-data/manuals:/manuals:ro
       - ./nas-data/roms:/roms:ro
+      - ./nas-data/bios:/bios:ro
     restart: unless-stopped
 
   api:

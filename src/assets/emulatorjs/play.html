@@ -28,6 +28,7 @@
         var rom = params.get('rom');
         var title = params.get('title') || '';
         var pathtodata = params.get('pathtodata');
+        var biosBaseParam = params.get('bios_base');
 
         function showError(message) {
           var text = message || 'Invalid launch parameters';
@@ -139,6 +140,21 @@
           return false;
         }
 
+        function normalizeBasePath(value, fallback) {
+          if (typeof value !== 'string') {
+            value = '';
+          }
+          var trimmed = value.trim();
+          var chosen = trimmed.length > 0 ? trimmed : fallback;
+          var normalizedBase = chosen.replace(/\/+$/, '');
+          var normalizedPath =
+            normalizedBase.charAt(0) === '/' ? normalizedBase : '/' + normalizedBase;
+          if (containsDotSegments(normalizedPath)) {
+            return null;
+          }
+          return normalizedPath;
+        }
+
         function isAllowedBiosUrl(url, origin, biosBasePath) {
           return (
             url.origin === origin &&
@@ -209,7 +225,11 @@
 
         var bios = params.get('bios');
         if (bios) {
-          var biosBasePath = '/bios';
+          var biosBasePath = normalizeBasePath(biosBaseParam, '/bios');
+          if (!biosBasePath) {
+            showError('Invalid BIOS base path.');
+            return;
+          }
           var biosUrl;
           try {
             biosUrl = new URL(bios, window.location.origin);

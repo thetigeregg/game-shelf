@@ -75,7 +75,7 @@ function setupPwaCertificates() {
     console.log(`mkcert root CA: ${updatedStatus.rootCaPath}`);
   }
   console.log(
-    'If you need to install the mkcert root CA in iPhone Simulator, run: npm run dev:pwa:certs:serve-root'
+    'If you need to install the mkcert root CA in iPhone Simulator, run: npx devx worktree pwa certs-serve-root'
   );
 }
 

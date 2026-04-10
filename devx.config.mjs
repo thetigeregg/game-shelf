@@ -22,7 +22,7 @@ export default {
   worktree: {
     adapterModule: 'scripts/worktree-dev.mjs',
     bootstrap: {
-      installScript: 'ci:all',
+      installScript: 'deps:install:all',
     },
     runtime: {
       projectSlugPrefix: 'gameshelf',
@@ -78,7 +78,7 @@ export default {
         'metacritic-scraper',
         'psprices-scraper',
       ],
-      startCommandHint: 'npm run dev:stack:up',
+      startCommandHint: 'npx devx worktree stack up',
     },
     frontend: {
       prestartCommand: 'npm run prestart',

@@ -23,6 +23,7 @@
     "test:ui:e2e:install": "npx playwright install --with-deps chromium",
     "lint": "npx eslint .",
     "prepare": "husky",
+    "deps:install:all": "npm ci && npm --prefix server ci && npm --prefix worker ci && npm --prefix hltb-scraper ci && npm --prefix metacritic-scraper ci && npm --prefix psprices-scraper ci",
     "generate:metacritic-platform-artifacts": "node scripts/generate-metacritic-platform-artifacts.mjs",
     "generate:mobygames-platform-artifacts": "node scripts/generate-mobygames-platform-artifacts.mjs",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",

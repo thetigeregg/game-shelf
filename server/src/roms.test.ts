@@ -107,6 +107,10 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
   );
   assert.equal(normalizeRomTitle('A Tale (From ABC).nes'), 'a tale from abc');
   assert.equal(normalizeRomTitle('P.N.03'), 'p n 03');
+  assert.equal(normalizeRomTitle('Some RPG North America.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG United States.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG Latin America.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG Hong Kong.sfc'), 'some rpg');
 });
 
 void test('parseRomFileName extracts clean title and metadata', () => {

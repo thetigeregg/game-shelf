@@ -230,7 +230,7 @@ function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
   );
   const withoutBracketMetadata = withoutParentheticalNoise.replace(/\[[^\]]*\]/g, ' ');
   const withoutStandaloneRegionAliases = withoutBracketMetadata.replace(
-    /\b(?:usa|unitedstates|northamerica|e|eur|europe|j|jpn|japan|w|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|latinamerica|hongkong)\b/gi,
+    /\b(?:usa|united(?:[\s._-])*states|unitedstates|north(?:[\s._-])*america|northamerica|e|eur|europe|j|jpn|japan|w|unl|korea|brazil|australia|canada|spain|france|germany|italy|asia|china|taiwan|russia|mexico|latin(?:[\s._-])*america|latinamerica|hong(?:[\s._-])*kong|hongkong)\b/gi,
     ' '
   );
   return withoutStandaloneRegionAliases

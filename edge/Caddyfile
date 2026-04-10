@@ -24,6 +24,11 @@
     file_server
   }
 
+  handle_path /bios/* {
+    root * /bios
+    file_server
+  }
+
   handle {
     root * /srv
     try_files {path} /index.html

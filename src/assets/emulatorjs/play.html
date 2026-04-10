@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- EmulatorJS bootstrap: validates launch params, sets EJS_* globals, loads loader.js from EJS_pathtodata (HTTPS GitHub Pages game-shelf-assets only; SRI required). ROM/BIOS are same-origin. Supported platforms + BIOS layout: docs/nas-deployment.md (ROM files, EmulatorJS sections). -->
+<!-- EmulatorJS bootstrap: validates launch params, sets EJS_* globals, loads loader.js from EJS_pathtodata (HTTPS GitHub Pages game-shelf-assets only; SRI required). ROM/BIOS are same-origin under fixed `/roms/` and `/bios` (no query-string base overrides). Supported platforms + BIOS layout: docs/nas-deployment.md (ROM files, EmulatorJS sections). -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -139,20 +139,6 @@
           return false;
         }
 
-        function normalizeBiosBasePath(value) {
-          if (typeof value !== 'string') {
-            return '/bios';
-          }
-          var trimmed = value.trim();
-          var raw = trimmed.length === 0 ? '/bios' : trimmed;
-          var normalized = raw.replace(/\/+$/, '');
-          var withLeadingSlash = normalized.charAt(0) === '/' ? normalized : '/' + normalized;
-          if (containsDotSegments(withLeadingSlash)) {
-            return null;
-          }
-          return withLeadingSlash;
-        }
-
         function isAllowedBiosUrl(url, origin, biosBasePath) {
           return (
             url.origin === origin &&
@@ -185,22 +171,8 @@
           return;
         }
 
-        var romBaseParam = params.get('rombase') || '/roms/';
-        var romBaseUrl;
-        try {
-          romBaseUrl = new URL(romBaseParam, window.location.origin);
-        } catch (_error) {
-          showError('Invalid ROM base URL.');
-          return;
-        }
         var pageOrigin = window.location.origin;
-        if (romBaseUrl.origin !== pageOrigin) {
-          showError('Invalid ROM base URL.');
-          return;
-        }
-        var romBasePath = romBaseUrl.pathname.endsWith('/')
-          ? romBaseUrl.pathname
-          : romBaseUrl.pathname + '/';
+        var romBasePath = '/roms/';
         if (
           romUrl.origin !== pageOrigin ||
           romUrl.username.length > 0 ||
@@ -237,11 +209,7 @@
 
         var bios = params.get('bios');
         if (bios) {
-          var biosBasePath = normalizeBiosBasePath(params.get('biosbase'));
-          if (!biosBasePath) {
-            showError('Invalid BIOS base URL.');
-            return;
-          }
+          var biosBasePath = '/bios';
           var biosUrl;
           try {
             biosUrl = new URL(bios, window.location.origin);

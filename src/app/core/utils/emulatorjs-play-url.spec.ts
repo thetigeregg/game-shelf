@@ -252,31 +252,17 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid BIOS URL/);
   });
 
-  it('adds biosbase when using a non-default bios base path', () => {
-    const href = buildEmulatorJsPlayShellUrl({
-      origin: 'https://example.com',
-      core: 'psx',
-      romUrl: '/roms/game.bin',
-      pathToData: PINNED_DATA_PATH,
-      biosUrl: 'https://example.com/public-bios/psx/scph1001.bin',
-      biosBaseUrl: '/public-bios',
-      loaderIntegrity: VALID_LOADER_INTEGRITY,
-    });
-    expect(new URL(href).searchParams.get('biosbase')).toBe('/public-bios');
-  });
-
-  it('throws when biosBaseUrl contains dot segments (mirrors play shell)', () => {
+  it('throws when BIOS URL is not under /bios', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'psx',
         romUrl: '/roms/game.bin',
         pathToData: PINNED_DATA_PATH,
-        biosUrl: 'https://example.com/bios/psx/scph1001.bin',
-        biosBaseUrl: '/bios/../x',
+        biosUrl: 'https://example.com/public-bios/psx/scph1001.bin',
         loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
-    ).toThrow(/Invalid EmulatorJS bios base path/);
+    ).toThrow(/Invalid BIOS URL/);
   });
 
   it('appends loader_integrity when provided', () => {
@@ -302,25 +288,12 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid loader integrity/);
   });
 
-  it('adds rombase when using a non-default rom base path', () => {
-    const href = buildEmulatorJsPlayShellUrl({
-      origin: 'https://example.com',
-      core: 'psx',
-      romUrl: '/public-roms/game.bin',
-      romBaseUrl: '/public-roms',
-      pathToData: PINNED_DATA_PATH,
-      loaderIntegrity: VALID_LOADER_INTEGRITY,
-    });
-    expect(new URL(href).searchParams.get('rombase')).toBe('/public-roms');
-  });
-
-  it('throws when rom URL is not under configured rom base', () => {
+  it('throws when ROM URL is not under /roms', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
         origin: 'https://example.com',
         core: 'psx',
-        romUrl: '/roms/game.bin',
-        romBaseUrl: '/public-roms',
+        romUrl: '/public-roms/game.bin',
         pathToData: PINNED_DATA_PATH,
         loaderIntegrity: VALID_LOADER_INTEGRITY,
       })

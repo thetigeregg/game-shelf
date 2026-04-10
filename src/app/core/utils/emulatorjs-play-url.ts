@@ -25,6 +25,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   pathToData: string;
   /** Same-origin absolute BIOS asset URL under `/bios/` (validated in play shell; optional). */
   biosUrl?: string | null;
+  /** Same-origin BIOS base path allowlist (e.g. `/bios`); defaults to `/bios`. */
+  biosBaseUrl?: string | null;
   /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
   debug?: boolean;
   /** Override play shell path for tests. */
@@ -185,7 +187,8 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const biosCandidate = typeof params.biosUrl === 'string' ? params.biosUrl.trim() : '';
   if (biosCandidate.length > 0) {
-    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, '/bios')) {
+    const biosBasePath = normalizeBiosBasePath(params.biosBaseUrl);
+    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, biosBasePath)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     let resolvedBios: URL;
@@ -194,10 +197,11 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     } catch {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
-    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, '/bios')) {
+    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, biosBasePath)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('bios', resolvedBios.href);
+    pageUrl.searchParams.set('bios_base', biosBasePath);
   }
 
   const shaderCandidate =

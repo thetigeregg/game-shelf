@@ -14,6 +14,15 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 - `docs/`: Deployment and operational docs
 - `.github/workflows/`: CI, release/publish, and secret scanning pipelines
 
+## In-browser emulation (EmulatorJS)
+
+- The PWA can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
+- **`loader.js`** is loaded **cross-origin** from that base URL with **Subresource Integrity (SRI)** so only a hash-matched build executes. Defaults and pins are in `src/app/core/config/emulatorjs.constants.ts`; production injection is handled by `scripts/write-environment-prod.sh` when applicable.
+- **ROM** and **BIOS** files are still served **same-origin** from your deployment (`/roms`, `/bios`).
+- **Supported platforms** are IGDB catalog entries mapped to documented `EJS_core` values ([EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores)); the map is `src/app/core/utils/emulatorjs-platform-map.ts`. **`Play in browser`** only appears when that map returns a core for the game’s canonical platform id.
+- **ROM folders** on disk use names ending in `__pid-<platformIgdbId>` (see **`ROM files`** and **`EmulatorJS: supported IGDB platforms (in-browser)`** in [`docs/nas-deployment.md`](docs/nas-deployment.md)). **BIOS** paths under `/bios/...` are fixed per core in `src/app/core/utils/emulatorjs-bios-path.ts`; the NAS guide lists every core for which the app sets `EJS_biosUrl`, zip vs single-file layout, and which supported platforms have no BIOS URL today.
+- Full operational layout (ROM layout, supported platform table with BIOS column, BIOS file table, `EJS_pathtodata`) lives in [`docs/nas-deployment.md`](docs/nas-deployment.md) under **ROM files**, **EmulatorJS: supported IGDB platforms (in-browser)**, **BIOS files**, and **EmulatorJS runtime (`EJS_pathtodata`)**.
+
 ## Prerequisites
 
 - Node.js `22.21.1` (see `.nvmrc`)

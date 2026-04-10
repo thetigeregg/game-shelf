@@ -1,0 +1,300 @@
+<!doctype html>
+<!-- EmulatorJS bootstrap: validates launch params, sets EJS_* globals, loads loader.js from EJS_pathtodata (HTTPS GitHub Pages game-shelf-assets only; SRI required). ROM/BIOS are same-origin under fixed `/roms/` and `/bios` (no query-string base overrides). Supported platforms + BIOS layout: docs/nas-deployment.md (ROM files, EmulatorJS sections). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Emulator</title>
+    <style>
+      html,
+      body,
+      #game {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script>
+      (function () {
+        var TRUSTED_REMOTE_PATH_TO_DATA_PREFIX =
+          'https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/';
+        var params = new URLSearchParams(window.location.search);
+        var core = params.get('core');
+        var rom = params.get('rom');
+        var title = params.get('title') || '';
+        var pathtodata = params.get('pathtodata');
+        var biosBaseParam = params.get('bios_base');
+
+        function showError(message) {
+          var text = message || 'Invalid launch parameters';
+          document.body.textContent = '';
+          var paragraph = document.createElement('p');
+          paragraph.style.cssText =
+            'color:#fff;padding:16px;font-family:system-ui,sans-serif;margin:0';
+          paragraph.textContent = text;
+          document.body.appendChild(paragraph);
+        }
+
+        function isValidEmulatorJsShaderFileName(value) {
+          if (typeof value !== 'string') {
+            return false;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0 || trimmed.length > 128) {
+            return false;
+          }
+          return /^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\.glslp)?$/.test(trimmed);
+        }
+
+        function isValidCoreToken(value) {
+          if (typeof value !== 'string') {
+            return false;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0 || trimmed.length > 64) {
+            return false;
+          }
+          return /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(trimmed);
+        }
+
+        function normalizePathToData(value) {
+          if (typeof value !== 'string') {
+            return null;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0) {
+            return null;
+          }
+          if (trimmed.indexOf('://') === -1) {
+            return null;
+          }
+          var parsed;
+          try {
+            parsed = new URL(trimmed);
+          } catch (_error) {
+            return null;
+          }
+
+          var normalized = parsed.href;
+          if (normalized.slice(-1) !== '/') {
+            normalized += '/';
+          }
+          var pathname = parsed.pathname;
+          if (pathname.slice(-1) !== '/') {
+            pathname += '/';
+          }
+          if (
+            normalized.startsWith(TRUSTED_REMOTE_PATH_TO_DATA_PREFIX) &&
+            /^\/game-shelf-assets\/third-party\/emulatorjs\/[^/]+\/$/.test(pathname) &&
+            parsed.protocol === 'https:' &&
+            parsed.username.length === 0 &&
+            parsed.password.length === 0
+          ) {
+            return normalized;
+          }
+          return null;
+        }
+
+        function isValidLoaderIntegrity(value) {
+          if (typeof value !== 'string') {
+            return false;
+          }
+          var trimmed = value.trim();
+          if (trimmed.length === 0 || trimmed.length > 512) {
+            return false;
+          }
+          return /^sha(256|384|512)-[A-Za-z0-9+/]+={0,2}$/.test(trimmed);
+        }
+
+        function containsDotSegments(pathname) {
+          if (typeof pathname !== 'string') {
+            return true;
+          }
+          var segments = pathname.split('/');
+          for (var i = 0; i < segments.length; i += 1) {
+            var segment = segments[i];
+            if (segment === '.' || segment === '..') {
+              return true;
+            }
+            var decoded = segment;
+            for (var j = 0; j < 3; j += 1) {
+              try {
+                decoded = decodeURIComponent(decoded);
+              } catch (_error) {
+                return true;
+              }
+              if (decoded === '.' || decoded === '..') {
+                return true;
+              }
+              if (decoded === segment) {
+                break;
+              }
+              segment = decoded;
+            }
+          }
+          return false;
+        }
+
+        function normalizeBasePath(value, fallback) {
+          if (typeof value !== 'string') {
+            value = '';
+          }
+          var trimmed = value.trim();
+          var chosen = trimmed.length > 0 ? trimmed : fallback;
+          var normalizedBase = chosen.replace(/\/+$/, '');
+          var normalizedPath =
+            normalizedBase.charAt(0) === '/' ? normalizedBase : '/' + normalizedBase;
+          if (containsDotSegments(normalizedPath)) {
+            return null;
+          }
+          return normalizedPath;
+        }
+
+        function isAllowedBiosUrl(url, origin, biosBasePath) {
+          return (
+            url.origin === origin &&
+            url.username.length === 0 &&
+            url.password.length === 0 &&
+            !containsDotSegments(url.pathname) &&
+            url.pathname.startsWith(biosBasePath + '/')
+          );
+        }
+
+        if (!core || !rom) {
+          showError('Missing core or ROM.');
+          return;
+        }
+        if (!isValidCoreToken(core)) {
+          showError('Invalid emulator core.');
+          return;
+        }
+        var normalizedPathToData = normalizePathToData(pathtodata);
+        if (!normalizedPathToData) {
+          showError('Invalid EmulatorJS data path.');
+          return;
+        }
+
+        var romUrl;
+        try {
+          romUrl = new URL(rom, window.location.origin);
+        } catch (_error) {
+          showError('Invalid ROM URL.');
+          return;
+        }
+
+        var pageOrigin = window.location.origin;
+        var romBasePath = '/roms/';
+        if (
+          romUrl.origin !== pageOrigin ||
+          romUrl.username.length > 0 ||
+          romUrl.password.length > 0 ||
+          containsDotSegments(romUrl.pathname) ||
+          !romUrl.pathname.startsWith(romBasePath)
+        ) {
+          showError('ROM URL is not allowed.');
+          return;
+        }
+
+        window.EJS_player = '#game';
+        window.EJS_core = core;
+        window.EJS_gameUrl = romUrl.href;
+        if (title) {
+          window.EJS_gameName = title;
+        }
+        window.EJS_pathtodata = normalizedPathToData;
+        window.EJS_startOnLoaded = true;
+        /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;
+           auto-fullscreen after ROM load is denied in iframes and EmulatorJS throws. */
+        /* menu-bar-button: top-right control that toggles the bottom toolbar (EJS class ejs_virtualGamepad_open).
+           Shader: optional `shader` query param (validated single-segment value); mapped from IGDB platform in app. */
+        window.EJS_defaultOptions = { 'menu-bar-button': 'hidden' };
+        var shaderParam = params.get('shader');
+        if (isValidEmulatorJsShaderFileName(shaderParam)) {
+          window.EJS_defaultOptions.shader = shaderParam.trim();
+        }
+
+        var debugRaw = (params.get('debug') || '').toLowerCase();
+        if (debugRaw === '1' || debugRaw === 'true' || debugRaw === 'yes') {
+          window.EJS_DEBUG_XX = true;
+        }
+
+        var bios = params.get('bios');
+        if (bios) {
+          var biosBasePath = normalizeBasePath(biosBaseParam, '/bios');
+          if (!biosBasePath) {
+            showError('Invalid BIOS base path.');
+            return;
+          }
+          var biosUrl;
+          try {
+            biosUrl = new URL(bios, window.location.origin);
+          } catch (_error) {
+            showError('Invalid BIOS URL.');
+            return;
+          }
+          if (!isAllowedBiosUrl(biosUrl, window.location.origin, biosBasePath)) {
+            showError('BIOS URL is not allowed.');
+            return;
+          }
+          window.EJS_biosUrl = biosUrl.href;
+        }
+
+        function postEmulatorExitToParent() {
+          try {
+            if (window.parent !== window) {
+              window.parent.postMessage(
+                { source: 'game-shelf-emulatorjs', type: 'emulator-exit' },
+                window.location.origin
+              );
+            }
+          } catch (_err) {
+            /* ignore cross-origin or detached frame */
+          }
+        }
+
+        window.EJS_ready = function () {
+          if (!window.EJS_emulator || typeof window.EJS_emulator.on !== 'function') {
+            return;
+          }
+          window.EJS_emulator.on('exit', postEmulatorExitToParent);
+        };
+
+        var loaderUrl;
+        try {
+          loaderUrl = new URL('loader.js', normalizedPathToData);
+        } catch (_error) {
+          showError('Invalid EmulatorJS loader URL.');
+          return;
+        }
+        if (!loaderUrl.href.startsWith(normalizedPathToData)) {
+          showError('EmulatorJS loader URL must be under the configured EmulatorJS data path.');
+          return;
+        }
+
+        var loaderIntegrity = params.get('loader_integrity');
+        var hasValidLoaderIntegrity = isValidLoaderIntegrity(loaderIntegrity);
+        if (loaderIntegrity && !hasValidLoaderIntegrity) {
+          showError('Invalid EmulatorJS loader integrity.');
+          return;
+        }
+        if (!hasValidLoaderIntegrity) {
+          showError('EmulatorJS loader integrity is required for the configured runtime.');
+          return;
+        }
+
+        var script = document.createElement('script');
+        script.src = loaderUrl.href;
+        script.integrity = loaderIntegrity.trim();
+        script.crossOrigin = 'anonymous';
+        script.referrerPolicy = 'no-referrer';
+        script.async = true;
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>

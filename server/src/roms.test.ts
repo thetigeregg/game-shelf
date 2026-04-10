@@ -6,6 +6,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import {
   normalizeRomTitle,
+  parseRomFileName,
   parsePlatformIdFromFolderName,
   processQueuedRomsCatalogRefresh,
   registerRomRoutes,
@@ -79,13 +80,90 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
   assert.equal(parsePlatformIdFromFolderName('PS2__pid-0'), null);
 });
 
-void test('normalizeRomTitle removes punctuation and edition noise', () => {
-  assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A'), 'chrono trigger a');
-  assert.equal(normalizeRomTitle('God of War II - Instruction Rom'), 'god of war ii');
+void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
+  assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
+  assert.equal(normalizeRomTitle('Super Mario World (USA).sfc'), 'super mario world');
+  assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A.sfc'), 'chrono trigger a');
+  assert.equal(normalizeRomTitle('Among Us.nsp'), 'among us');
+  assert.equal(normalizeRomTitle('Among Us (USA).nsp'), 'among us');
   assert.equal(
-    normalizeRomTitle('The Last Story (Collector Edition) Instruction Booklet'),
-    'last story collector edition'
+    normalizeRomTitle('Ace Attorney Investigations - Miles Edgeworth (USA).nds'),
+    'ace attorney investigations miles edgeworth'
   );
+  assert.equal(
+    normalizeRomTitle('Boktai - The Sun Is in Your Hand (USA).gba'),
+    'boktai sun is in your hand'
+  );
+  assert.equal(
+    normalizeRomTitle(
+      'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
+    ),
+    'cardcaptor sakura sakura card hen sakura to card to otomodachi'
+  );
+  assert.equal(normalizeRomTitle('Combat ~ Tank-Plus (USA).a26'), 'combat tank plus');
+  assert.equal(
+    normalizeRomTitle('R.B.I. Baseball (Tengen) [hM04] (Unl).nes'),
+    'r b i baseball tengen'
+  );
+  assert.equal(normalizeRomTitle('A Tale (From ABC).nes'), 'a tale from abc');
+  assert.equal(normalizeRomTitle('P.N.03'), 'p n 03');
+  assert.equal(normalizeRomTitle('Some RPG North America.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG United States.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG Latin America.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Some RPG Hong Kong.sfc'), 'some rpg');
+});
+
+void test('parseRomFileName extracts clean title and metadata', () => {
+  const banjo = parseRomFileName('Banjo-Kazooie (USA) (Rev 1).z64');
+  assert.deepEqual(banjo, {
+    raw: 'Banjo-Kazooie (USA) (Rev 1).z64',
+    title: 'Banjo-Kazooie',
+    extension: 'z64',
+    region: 'USA',
+    revision: 'Rev 1',
+    flags: [],
+  });
+
+  const sakura = parseRomFileName(
+    'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
+  );
+  assert.equal(sakura.title, 'Cardcaptor Sakura: Sakura Card Hen - Sakura to Card to Otomodachi');
+  assert.equal(sakura.region, 'Japan');
+  assert.equal(sakura.revision, 'Rev 1');
+
+  const harvest = parseRomFileName('Harvest Moon GBC (USA) (SGB Enhanced) (GB Compatible).gbc');
+  assert.equal(harvest.title, 'Harvest Moon GBC');
+  assert.equal(harvest.region, 'USA');
+  assert.deepEqual(harvest.flags, ['SGB Enhanced', 'GB Compatible']);
+
+  const copyArtifact = parseRomFileName('Boktai - The Sun Is in Your Hand (USA).gba copy');
+  assert.equal(copyArtifact.title, 'Boktai: The Sun Is in Your Hand');
+  assert.equal(copyArtifact.extension, null);
+
+  const tengen = parseRomFileName('R.B.I. Baseball (Tengen) [hM04] (Unl).nes');
+  assert.equal(tengen.title, 'R.B.I. Baseball (Tengen)');
+  assert.equal(tengen.region, 'Unl');
+  assert.deepEqual(tengen.flags, ['hM04']);
+
+  const chrono = parseRomFileName('Chrono Trigger (USA) Rev A.sfc');
+  assert.equal(chrono.title, 'Chrono Trigger (USA) Rev A');
+  assert.equal(chrono.extension, 'sfc');
+  assert.equal(chrono.region, null);
+  assert.equal(chrono.revision, null);
+
+  const collectorEdition = parseRomFileName('The Last Story (Collector Edition).iso');
+  assert.equal(collectorEdition.title, 'The Last Story (Collector Edition)');
+  assert.equal(collectorEdition.region, null);
+  assert.equal(collectorEdition.revision, null);
+  assert.deepEqual(collectorEdition.flags, []);
+
+  const dotPrefixedTitle = parseRomFileName('.hack');
+  assert.equal(dotPrefixedTitle.title, '.hack');
+  assert.equal(dotPrefixedTitle.extension, null);
+
+  const dottedSuffixWithoutKnownExtension = parseRomFileName('P.N.03');
+  assert.equal(dottedSuffixWithoutKnownExtension.title, 'P.N.03');
+  assert.equal(dottedSuffixWithoutKnownExtension.extension, null);
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

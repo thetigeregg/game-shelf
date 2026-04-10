@@ -29,6 +29,7 @@ services:
     volumes:
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/manuals:ro
       - ${ROMS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/roms}:/roms:ro
+      - ${BIOS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/bios}:/bios:ro
     restart: unless-stopped
 
   api:

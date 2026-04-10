@@ -118,7 +118,7 @@ npx devx worktree pwa serve
 
 The installed-PWA path proxies requests under `/api/` and `/manuals/` through the local HTTPS origin so the simulator exercises the production web configuration.
 `npx devx worktree pwa serve` and `npx devx worktree pwa simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
-When using `dev:*` commands, ports are derived from the current worktree path and shown by:
+When using `npx devx worktree ...` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
 npx devx worktree info

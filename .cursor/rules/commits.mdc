@@ -25,4 +25,4 @@ Must follow Conventional Commits format.
 ## PR descriptions must include:
 - Summary
 - Implementation details
-- Testing performed
+- Testing notes

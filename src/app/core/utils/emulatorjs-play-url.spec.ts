@@ -237,6 +237,23 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       loaderIntegrity: VALID_LOADER_INTEGRITY,
     });
     expect(new URL(href).searchParams.get('bios')).toBe(biosUrl);
+    expect(new URL(href).searchParams.get('bios_base')).toBe('/bios');
+  });
+
+  it('supports custom bios base paths consistently', () => {
+    const biosUrl = 'https://example.com/public-bios/psx/scph1001.bin';
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'psx',
+      romUrl: '/roms/game.bin',
+      pathToData: PINNED_DATA_PATH,
+      biosUrl,
+      biosBaseUrl: '/public-bios',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+    const parsed = new URL(href);
+    expect(parsed.searchParams.get('bios')).toBe(biosUrl);
+    expect(parsed.searchParams.get('bios_base')).toBe('/public-bios');
   });
 
   it('throws when bios URL is not under /bios/', () => {
@@ -263,6 +280,20 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
     ).toThrow(/Invalid BIOS URL/);
+  });
+
+  it('throws when biosBaseUrl is invalid', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'psx',
+        romUrl: '/roms/game.bin',
+        pathToData: PINNED_DATA_PATH,
+        biosUrl: 'https://example.com/bios/psx/scph1001.bin',
+        biosBaseUrl: '/bios/../x',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS bios base path/);
   });
 
   it('appends loader_integrity when provided', () => {

@@ -370,7 +370,7 @@ These require API bearer authorization when `REQUIRE_AUTH=true` (client write to
 
 ```bash
 cd ..
-npm run dev:stack:up
+npx devx worktree stack up
 ```
 
 This starts the API in Docker with Postgres + HLTB scraper dependencies.

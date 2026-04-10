@@ -59,46 +59,46 @@ cp .env.example .env
 4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `psprices-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
-npm run dev:stack:up
+npx devx worktree stack up
 ```
 
 To start stack and auto-seed the DB only when empty:
 
 ```bash
-npm run dev:stack:up:seed
+npx devx worktree stack up-seed
 ```
 
 5. (Optional) Follow stack logs:
 
 ```bash
-npm run dev:stack:logs
+npx devx worktree stack logs
 ```
 
 6. Run frontend:
 
 ```bash
-npm run dev:start
+npx devx worktree frontend
 ```
 
-Frontend dev server port is derived from worktree context (shown by `npm run dev:info`).
+Frontend dev server port is derived from worktree context (shown by `npx devx worktree info`).
 Manual URLs resolve through the worktree-local `edge` service during dev.
 For iPhone Simulator Safari testing without full PWA fidelity, use:
 
 ```bash
-npm run dev:simulator
+npx devx worktree simulator
 ```
 
 For installed-PWA simulator testing, use the required `mkcert` setup flow:
 
 ```bash
-npm run dev:pwa:certs:setup
-npm run dev:pwa:certs:check
+npx devx worktree pwa certs-setup
+npx devx worktree pwa certs-check
 ```
 
 If Safari in iPhone Simulator still shows "This website is not secure", serve the `mkcert` root CA to the simulator and install/trust it there too:
 
 ```bash
-npm run dev:pwa:certs:serve-root
+npx devx worktree pwa certs-serve-root
 ```
 
 Then in iPhone Simulator Safari open the printed `http://localhost:<port>/rootCA.pem` URL, install the downloaded profile, and enable full trust in `Settings > General > About > Certificate Trust Settings`.
@@ -106,22 +106,22 @@ Then in iPhone Simulator Safari open the printed `http://localhost:<port>/rootCA
 Then build and serve the production PWA over HTTPS:
 
 ```bash
-npm run dev:pwa:simulator
+npx devx worktree pwa simulator
 ```
 
 Or run the steps separately:
 
 ```bash
-npm run dev:pwa:build
-npm run dev:pwa:serve
+npx devx worktree pwa build
+npx devx worktree pwa serve
 ```
 
 The installed-PWA path proxies requests under `/api/` and `/manuals/` through the local HTTPS origin so the simulator exercises the production web configuration.
-`npm run dev:pwa:serve` and `npm run dev:pwa:simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
+`npx devx worktree pwa serve` and `npx devx worktree pwa simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
 When using `dev:*` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
-npm run dev:info
+npx devx worktree info
 ```
 
 This allows multiple worktrees to run concurrently without Docker/container/port clashes.
@@ -130,17 +130,17 @@ For faster realistic testing without cross-worktree DB pollution:
 1. Refresh a shared seed dump from a known-good local DB:
 
 ```bash
-npm run dev:db:seed:refresh
+npx devx worktree db seed-refresh
 ```
 
 2. Apply that seed into a worktree-local DB:
 
 ```bash
-npm run dev:db:seed:apply
+npx devx worktree db seed-apply
 ```
 
 The default seed file path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` (override with `DEV_DB_SEED_PATH`).
-`seed:apply` restores only when the current worktree DB is empty; use `npm run dev:db:seed:apply:force` to overwrite.
+`seed:apply` restores only when the current worktree DB is empty; use `npx devx worktree db seed-apply --force` to overwrite.
 When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 

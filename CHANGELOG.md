@@ -3320,3 +3320,17 @@
 - c61693dd feat: add BIOS support in environment configuration and deployment documentation
 - 4ef045af Merge branch 'main' into feat/rom-map
 - 20d3f535 feat: integrate EmulatorJS for in-browser ROM play with modal support
+
+## v1.42.1 - 2026-04-10
+
+- 46b83a8e Merge pull request #333 from thetigeregg/feat/depsma
+- 8f793acf chore(docs): update copilot instructions to use npx for worktree commands
+- b724c27f chore(deps): upgrade dev-cli v3 and align worktree tooling
+- 0b68563f chore(rules): remove outdated PR agent and review instructions
+- a2063090 chore(config): update commit message rules and clean up husky scripts
+- 51acc019 chore(config): add cursorignore and settings for file exclusions
+- 97a44423 chore(deps): update deps
+- 688a6dfa chore(config): extend ncu-config to reject TypeScript package
+- f3ae2e5a chore(config): update prompt file paths and upgrade dev-cli version
+- 16fbacc5 chore(config): update installation and command hints to use new worktree commands
+- 2aad6f97 chore(package): remove deprecated devx commands from package.json

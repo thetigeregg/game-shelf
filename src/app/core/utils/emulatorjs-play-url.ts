@@ -1,7 +1,8 @@
 /**
  * Builds and validates same-origin play-shell URLs for EmulatorJS. `pathToData` is the HTTPS
- * `EJS_pathtodata` base hosted on GitHub Pages from `game-shelf-assets` (allowlisted); ROM/BIOS
- * URLs stay same-origin. The play shell (`play.html`) enforces the same rules at runtime.
+ * `EJS_pathtodata` base hosted on GitHub Pages from `game-shelf-assets` (allowlisted); ROMs must
+ * live under `/roms/` and BIOS under `/bios/` (mirrored in `play.html`, which does not accept base
+ * path overrides via query string).
  */
 import {
   EMULATORJS_DEFAULT_PATH_TO_DATA,
@@ -22,12 +23,8 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   gameTitle?: string | null;
   /** Absolute HTTPS URL under the game-shelf-assets EmulatorJS release path; empty uses the pinned default. */
   pathToData: string;
-  /** Same-origin absolute BIOS asset URL under the normalized `biosBaseUrl` (validated; optional). */
+  /** Same-origin absolute BIOS asset URL under `/bios/` (validated in play shell; optional). */
   biosUrl?: string | null;
-  /** Same-origin BIOS base path (defaults to `/bios`). */
-  biosBaseUrl?: string | null;
-  /** Same-origin ROM base path (defaults to `/roms`). */
-  romBaseUrl?: string | null;
   /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
   debug?: boolean;
   /** Override play shell path for tests. */
@@ -169,14 +166,10 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
   pageUrl.searchParams.set('core', coreCandidate);
 
   const resolvedRom = new URL(params.romUrl, `${normalizedOrigin}/`);
-  const normalizedRomBasePath = normalizeRomBasePath(params.romBaseUrl);
-  if (!isAllowedEmulatorJsRomUrl(resolvedRom.href, normalizedOrigin, normalizedRomBasePath)) {
+  if (!isAllowedEmulatorJsRomUrl(resolvedRom.href, normalizedOrigin, '/roms')) {
     throw new Error('Invalid ROM URL for EmulatorJS play shell');
   }
   pageUrl.searchParams.set('rom', resolvedRom.href);
-  if (normalizedRomBasePath !== '/roms') {
-    pageUrl.searchParams.set('rombase', normalizedRomBasePath);
-  }
 
   const title = typeof params.gameTitle === 'string' ? params.gameTitle.trim() : '';
   if (title.length > 0) {
@@ -192,8 +185,7 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const biosCandidate = typeof params.biosUrl === 'string' ? params.biosUrl.trim() : '';
   if (biosCandidate.length > 0) {
-    const normalizedBiosBasePath = normalizeBiosBasePath(params.biosBaseUrl);
-    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, normalizedBiosBasePath)) {
+    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, '/bios')) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     let resolvedBios: URL;
@@ -202,13 +194,10 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     } catch {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
-    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, normalizedBiosBasePath)) {
+    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, '/bios')) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('bios', resolvedBios.href);
-    if (normalizedBiosBasePath !== '/bios') {
-      pageUrl.searchParams.set('biosbase', normalizedBiosBasePath);
-    }
   }
 
   const shaderCandidate =

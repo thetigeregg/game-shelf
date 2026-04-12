@@ -115,6 +115,12 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
   assert.equal(normalizeRomTitle('Some RPG United States.sfc'), 'some rpg');
   assert.equal(normalizeRomTitle('Some RPG Latin America.sfc'), 'some rpg');
   assert.equal(normalizeRomTitle('Some RPG Hong Kong.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Deep Dive (En).nes'), 'deep dive');
+  assert.equal(normalizeRomTitle('Crazy Taxi v1.004 (1999)(US).chd'), 'crazy taxi');
+  assert.equal(
+    normalizeRomTitle('Mario Golf - World Tour (USA) (En,Fr,Es).cia'),
+    'mario golf world tour'
+  );
 });
 
 void test('parseRomFileName extracts clean title and metadata', () => {
@@ -207,6 +213,33 @@ void test('parseRomFileName strips GoodTools-style Eu, Jp, and hyphenated region
   const asciiJp = parseRomFileName('Kakinoki Shogi (1994) (ASCII) (Jp).7z');
   assert.equal(asciiJp.title, 'Kakinoki Shogi');
   assert.equal(asciiJp.region, 'Jp');
+});
+
+void test('parseRomFileName handles TOSEC versions, No-Intro languages, NP, and extra extensions', () => {
+  const tosec = parseRomFileName('Crazy Taxi v1.001 (1999)(Crave Entertainment)(US).chd');
+  assert.equal(tosec.title, 'Crazy Taxi');
+  assert.equal(tosec.region, 'US');
+  assert.equal(tosec.extension, 'chd');
+
+  const langs = parseRomFileName('Mario Golf - World Tour (USA) (En,Fr,Es).cia');
+  assert.equal(langs.title, 'Mario Golf: World Tour');
+  assert.equal(langs.region, 'USA');
+  assert.equal(langs.extension, 'cia');
+  assert.ok(langs.flags.includes('En,Fr,Es'));
+
+  const multiRegion = parseRomFileName('Mario Kart 7 (USA, Europe) (En,Fr,De).3ds');
+  assert.equal(multiRegion.title, 'Mario Kart 7');
+  assert.equal(multiRegion.region, 'USA, Europe');
+  assert.equal(multiRegion.extension, '3ds');
+
+  const np = parseRomFileName('Game Boy Gallery (Japan) (NP).gb');
+  assert.equal(np.title, 'Game Boy Gallery');
+  assert.equal(np.region, 'Japan');
+  assert.ok(np.flags.includes('NP'));
+
+  const rvz = parseRomFileName('Luigi Mansion 3 (USA).rvz');
+  assert.equal(rvz.title, 'Luigi Mansion 3');
+  assert.equal(rvz.extension, 'rvz');
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

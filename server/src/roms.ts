@@ -61,6 +61,7 @@ const REGION_BLOCKED_WORDS = new Set([
 ]);
 const KNOWN_REGION_ALIASES = new Set([
   'u',
+  'us',
   'usa',
   'unitedstates',
   'northamerica',

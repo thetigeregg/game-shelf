@@ -124,6 +124,11 @@ void test('parseRomFileName extracts clean title and metadata', () => {
     flags: [],
   });
 
+  const usAlias = parseRomFileName('Secret of Mana (US).sfc');
+  assert.equal(usAlias.title, 'Secret of Mana');
+  assert.equal(usAlias.region, 'US');
+  assert.equal(usAlias.extension, 'sfc');
+
   const sakura = parseRomFileName(
     'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
   );

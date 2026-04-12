@@ -81,6 +81,10 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
 });
 
 void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
+  const ballzIgdb = "Ballz: The Director's Cut";
+  const ballzFile = "Ballz - The Director's Cut (1995) (Panasonic) (US) [!].7z";
+  assert.equal(normalizeRomTitle(ballzIgdb), normalizeRomTitle(parseRomFileName(ballzFile).title));
+
   assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
   assert.equal(normalizeRomTitle('Super Mario World (USA).sfc'), 'super mario world');
   assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A.sfc'), 'chrono trigger a');
@@ -128,6 +132,12 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   assert.equal(usAlias.title, 'Secret of Mana');
   assert.equal(usAlias.region, 'US');
   assert.equal(usAlias.extension, 'sfc');
+
+  const ballz3do = parseRomFileName("Ballz - The Director's Cut (1995) (Panasonic) (US) [!].7z");
+  assert.equal(ballz3do.title, "Ballz: The Director's Cut");
+  assert.equal(ballz3do.extension, '7z');
+  assert.equal(ballz3do.region, 'US');
+  assert.ok(ballz3do.flags.includes('!'));
 
   const sakura = parseRomFileName(
     'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'

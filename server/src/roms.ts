@@ -269,7 +269,7 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
     (left, right) => right.start - left.start
   );
   for (const token of trailingMetadataTokens) {
-    if (!isTrailingMetadataToken(token)) {
+    if (!isTrailingMetadataToken(token, withoutExtension)) {
       break;
     }
     const tokenEnd = token.end;
@@ -845,14 +845,33 @@ function looksLikeRevisionToken(value: string): boolean {
   return hasDigit;
 }
 
-function isTrailingMetadataToken(token: MetadataToken): boolean {
+function looksLikeTrailingPublisherParenAfterReleaseYear(
+  withoutExtension: string,
+  token: MetadataToken
+): boolean {
+  if (token.kind !== 'paren') {
+    return false;
+  }
+  const inner = token.value.trim();
+  if (inner.length < 2 || /\d/.test(inner)) {
+    return false;
+  }
+  if (!/^[A-Za-z][A-Za-z\s.'&-]*$/u.test(inner)) {
+    return false;
+  }
+  const beforeParen = withoutExtension.slice(0, token.start).trimEnd();
+  return /\(\d{4}\)\s*$/u.test(beforeParen);
+}
+
+function isTrailingMetadataToken(token: MetadataToken, withoutExtension: string): boolean {
   if (token.kind === 'bracket') {
     return true;
   }
   return (
     looksLikeRegionToken(token.value) ||
     looksLikeRevisionToken(token.value) ||
-    looksLikeParentheticalFlagToken(token.value)
+    looksLikeParentheticalFlagToken(token.value) ||
+    looksLikeTrailingPublisherParenAfterReleaseYear(withoutExtension, token)
   );
 }
 

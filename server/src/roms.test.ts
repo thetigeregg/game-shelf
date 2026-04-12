@@ -181,6 +181,34 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   assert.equal(dottedSuffixWithoutKnownExtension.extension, null);
 });
 
+void test('parseRomFileName strips GoodTools-style Eu, Jp, and hyphenated regions', () => {
+  const battlesportEu = parseRomFileName('BattleSport (1995) (Studio 3DO) (Eu) [!].7z');
+  assert.equal(battlesportEu.title, 'BattleSport');
+  assert.equal(battlesportEu.region, 'Eu');
+  assert.equal(battlesportEu.extension, '7z');
+
+  const wingCmd = parseRomFileName(
+    'Wing Commander III - Heart of the Tiger (1995) (Origin) (Eu-US) (Disc 1 of 4) [!].7z'
+  );
+  assert.equal(wingCmd.title, 'Wing Commander III: Heart of the Tiger');
+  assert.equal(wingCmd.region, 'Eu-US');
+  assert.ok(wingCmd.flags.includes('Disc 1 of 4'));
+
+  const shanghaiJp = parseRomFileName(
+    'Shanghai - Banri no Choujou (1994) (Electronic Arts Victor) (Jp).7z'
+  );
+  assert.equal(shanghaiJp.title, 'Shanghai: Banri no Choujou');
+  assert.equal(shanghaiJp.region, 'Jp');
+
+  const riseEu = parseRomFileName('Rise of the Robots (1995) (Time Warner Interactive) (Eu).7z');
+  assert.equal(riseEu.title, 'Rise of the Robots');
+  assert.equal(riseEu.region, 'Eu');
+
+  const asciiJp = parseRomFileName('Kakinoki Shogi (1994) (ASCII) (Jp).7z');
+  assert.equal(asciiJp.title, 'Kakinoki Shogi');
+  assert.equal(asciiJp.region, 'Jp');
+});
+
 void test('scoreRomTitleMatch prefers closer candidates', () => {
   const exact = scoreRomTitleMatch('Chrono Trigger', 'Chrono Trigger');
   const near = scoreRomTitleMatch('Chrono Trigger', 'Chrono Trigger DS');

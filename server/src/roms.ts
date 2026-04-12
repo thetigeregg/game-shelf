@@ -66,9 +66,11 @@ const KNOWN_REGION_ALIASES = new Set([
   'unitedstates',
   'northamerica',
   'e',
+  'eu',
   'eur',
   'europe',
   'j',
+  'jp',
   'jpn',
   'japan',
   'w',
@@ -769,6 +771,17 @@ function splitAlphaNumericWords(value: string): string[] {
   return words;
 }
 
+function expandRegionHyphenSegments(part: string): string[] {
+  const trimmed = part.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+  return trimmed
+    .split(/\s*-\s*/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
 function looksLikeRegionToken(value: string): boolean {
   const normalized = value.trim();
   if (normalized.length === 0) {
@@ -779,13 +792,21 @@ function looksLikeRegionToken(value: string): boolean {
     return false;
   }
 
-  const parts = normalized.split(',').map((part) => part.trim());
-  if (parts.length === 0) {
+  const commaParts = normalized
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (commaParts.length === 0) {
     return false;
   }
 
-  for (const part of parts) {
-    const alias = part.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const segments: string[] = [];
+  for (const part of commaParts) {
+    segments.push(...expandRegionHyphenSegments(part));
+  }
+
+  for (const segment of segments) {
+    const alias = segment.toLowerCase().replace(/[^a-z0-9]+/g, '');
     if (alias.length === 0 || !KNOWN_REGION_ALIASES.has(alias)) {
       return false;
     }
@@ -853,10 +874,17 @@ function looksLikeTrailingPublisherParenAfterReleaseYear(
     return false;
   }
   const inner = token.value.trim();
-  if (inner.length < 2 || /\d/.test(inner)) {
+  if (inner.length < 2 || !/[A-Za-z]/.test(inner)) {
     return false;
   }
-  if (!/^[A-Za-z][A-Za-z\s.'&-]*$/u.test(inner)) {
+  const compact = inner.replace(/\s/g, '');
+  if (/^\d+$/.test(compact)) {
+    return false;
+  }
+  if (looksLikeRevisionToken(inner) || looksLikeRegionToken(inner)) {
+    return false;
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9\s.'&/+\-]*$/u.test(inner)) {
     return false;
   }
   const beforeParen = withoutExtension.slice(0, token.start).trimEnd();

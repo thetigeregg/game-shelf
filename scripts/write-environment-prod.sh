@@ -40,6 +40,8 @@ firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
 # EmulatorJS: `environment.emulatorJsPathToData` is the HTTPS base URL passed through to the play
 # shell as EmulatorJS `EJS_pathtodata` (static hosting on GitHub Pages from `game-shelf-assets`).
 # Default comes from `EMULATORJS_DEFAULT_PATH_TO_DATA` in `emulatorjs.constants.ts`.
+# After each assets deploy, SRI must match `entrypoints.loader.sri.sha384` in the published manifest
+# (`EMULATORJS_ASSETS_MANIFEST_URL` in the same file).
 # Optional `EMULATORJS_PATH_TO_DATA_PROD` / `EMULATORJS_LOADER_INTEGRITY_PROD` must match the
 # allowlist and SRI expectations enforced in `emulatorjs-play-url.ts` and `play.html`.
 emulatorjs_constants_json="$(

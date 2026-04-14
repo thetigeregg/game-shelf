@@ -81,6 +81,10 @@ void test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
 });
 
 void test('normalizeRomTitle strips metadata and normalizes first subtitle separator', () => {
+  const ballzIgdb = "Ballz: The Director's Cut";
+  const ballzFile = "Ballz - The Director's Cut (1995) (Panasonic) (US) [!].7z";
+  assert.equal(normalizeRomTitle(ballzIgdb), normalizeRomTitle(parseRomFileName(ballzFile).title));
+
   assert.equal(normalizeRomTitle('Banjo-Kazooie (USA) (Rev 1).z64'), 'banjo kazooie');
   assert.equal(normalizeRomTitle('Super Mario World (USA).sfc'), 'super mario world');
   assert.equal(normalizeRomTitle('Chrono Trigger (USA) Rev A.sfc'), 'chrono trigger a');
@@ -111,6 +115,12 @@ void test('normalizeRomTitle strips metadata and normalizes first subtitle separ
   assert.equal(normalizeRomTitle('Some RPG United States.sfc'), 'some rpg');
   assert.equal(normalizeRomTitle('Some RPG Latin America.sfc'), 'some rpg');
   assert.equal(normalizeRomTitle('Some RPG Hong Kong.sfc'), 'some rpg');
+  assert.equal(normalizeRomTitle('Deep Dive (En).nes'), 'deep dive');
+  assert.equal(normalizeRomTitle('Crazy Taxi v1.004 (1999)(US).chd'), 'crazy taxi');
+  assert.equal(
+    normalizeRomTitle('Mario Golf - World Tour (USA) (En,Fr,Es).cia'),
+    'mario golf world tour'
+  );
 });
 
 void test('parseRomFileName extracts clean title and metadata', () => {
@@ -123,6 +133,17 @@ void test('parseRomFileName extracts clean title and metadata', () => {
     revision: 'Rev 1',
     flags: [],
   });
+
+  const usAlias = parseRomFileName('Secret of Mana (US).sfc');
+  assert.equal(usAlias.title, 'Secret of Mana');
+  assert.equal(usAlias.region, 'US');
+  assert.equal(usAlias.extension, 'sfc');
+
+  const ballz3do = parseRomFileName("Ballz - The Director's Cut (1995) (Panasonic) (US) [!].7z");
+  assert.equal(ballz3do.title, "Ballz: The Director's Cut");
+  assert.equal(ballz3do.extension, '7z');
+  assert.equal(ballz3do.region, 'US');
+  assert.ok(ballz3do.flags.includes('!'));
 
   const sakura = parseRomFileName(
     'Cardcaptor Sakura - Sakura Card Hen - Sakura to Card to Otomodachi (Japan) (Rev 1).gba'
@@ -164,6 +185,61 @@ void test('parseRomFileName extracts clean title and metadata', () => {
   const dottedSuffixWithoutKnownExtension = parseRomFileName('P.N.03');
   assert.equal(dottedSuffixWithoutKnownExtension.title, 'P.N.03');
   assert.equal(dottedSuffixWithoutKnownExtension.extension, null);
+});
+
+void test('parseRomFileName strips GoodTools-style Eu, Jp, and hyphenated regions', () => {
+  const battlesportEu = parseRomFileName('BattleSport (1995) (Studio 3DO) (Eu) [!].7z');
+  assert.equal(battlesportEu.title, 'BattleSport');
+  assert.equal(battlesportEu.region, 'Eu');
+  assert.equal(battlesportEu.extension, '7z');
+
+  const wingCmd = parseRomFileName(
+    'Wing Commander III - Heart of the Tiger (1995) (Origin) (Eu-US) (Disc 1 of 4) [!].7z'
+  );
+  assert.equal(wingCmd.title, 'Wing Commander III: Heart of the Tiger');
+  assert.equal(wingCmd.region, 'Eu-US');
+  assert.ok(wingCmd.flags.includes('Disc 1 of 4'));
+
+  const shanghaiJp = parseRomFileName(
+    'Shanghai - Banri no Choujou (1994) (Electronic Arts Victor) (Jp).7z'
+  );
+  assert.equal(shanghaiJp.title, 'Shanghai: Banri no Choujou');
+  assert.equal(shanghaiJp.region, 'Jp');
+
+  const riseEu = parseRomFileName('Rise of the Robots (1995) (Time Warner Interactive) (Eu).7z');
+  assert.equal(riseEu.title, 'Rise of the Robots');
+  assert.equal(riseEu.region, 'Eu');
+
+  const asciiJp = parseRomFileName('Kakinoki Shogi (1994) (ASCII) (Jp).7z');
+  assert.equal(asciiJp.title, 'Kakinoki Shogi');
+  assert.equal(asciiJp.region, 'Jp');
+});
+
+void test('parseRomFileName handles TOSEC versions, No-Intro languages, NP, and extra extensions', () => {
+  const tosec = parseRomFileName('Crazy Taxi v1.001 (1999)(Crave Entertainment)(US).chd');
+  assert.equal(tosec.title, 'Crazy Taxi');
+  assert.equal(tosec.region, 'US');
+  assert.equal(tosec.extension, 'chd');
+
+  const langs = parseRomFileName('Mario Golf - World Tour (USA) (En,Fr,Es).cia');
+  assert.equal(langs.title, 'Mario Golf: World Tour');
+  assert.equal(langs.region, 'USA');
+  assert.equal(langs.extension, 'cia');
+  assert.ok(langs.flags.includes('En,Fr,Es'));
+
+  const multiRegion = parseRomFileName('Mario Kart 7 (USA, Europe) (En,Fr,De).3ds');
+  assert.equal(multiRegion.title, 'Mario Kart 7');
+  assert.equal(multiRegion.region, 'USA, Europe');
+  assert.equal(multiRegion.extension, '3ds');
+
+  const np = parseRomFileName('Game Boy Gallery (Japan) (NP).gb');
+  assert.equal(np.title, 'Game Boy Gallery');
+  assert.equal(np.region, 'Japan');
+  assert.ok(np.flags.includes('NP'));
+
+  const rvz = parseRomFileName('Luigi Mansion 3 (USA).rvz');
+  assert.equal(rvz.title, 'Luigi Mansion 3');
+  assert.equal(rvz.extension, 'rvz');
 });
 
 void test('scoreRomTitleMatch prefers closer candidates', () => {

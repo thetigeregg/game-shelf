@@ -35,6 +35,8 @@ const NES_FDS_DISK_IMAGE_SUFFIX = '.fds';
 export interface ResolveEmulatorJsBiosRelativePathOptions {
   /** Absolute or same-origin ROM URL; used to detect FDS (`.fds`) for `nes` only. */
   romUrl?: string | null;
+  /** Canonical IGDB platform id (used for platform-specific BIOS decisions on shared cores). */
+  canonicalPlatformIgdbId?: number | null;
 }
 
 function romUrlPathnameEndsWithFds(romUrl: string): boolean {
@@ -71,6 +73,12 @@ export function resolveEmulatorJsBiosRelativePath(
       return 'nes/disksys.rom';
     }
     return null;
+  }
+
+  // `pce` is used for both HuCard (`pid 86`) and CD (`pid 150`) in platform mapping.
+  // For CD titles we follow the multi-file zip convention (`<core>/<core>-bios.zip`).
+  if (key === 'pce') {
+    return options?.canonicalPlatformIgdbId === 150 ? 'pce/pce-bios.zip' : null;
   }
 
   const path = EMULATOR_JS_CORE_TO_BIOS_RELATIVE_PATH.get(key);

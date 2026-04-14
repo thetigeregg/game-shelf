@@ -7,11 +7,16 @@
 }
 
 .emulator-js-modal-content {
+  --ion-safe-area-bottom: 0px;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
   --padding-bottom: 0;
   height: 100%;
+}
+
+.emulator-js-modal-content.gs-safe-bottom {
+  --padding-bottom: 0px;
 }
 
 .emulator-js-iframe {

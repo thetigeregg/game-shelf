@@ -1,6 +1,6 @@
 <ion-modal [isOpen]="isOpen" class="emulator-js-modal" (didDismiss)="onClose()">
   <ng-template>
-    <ion-content class="emulator-js-modal-content" [scrollY]="false">
+    <ion-content class="emulator-js-modal-content gs-safe-bottom" [scrollY]="false">
       @if (safeLaunchUrl) {
         <iframe
           #playFrame

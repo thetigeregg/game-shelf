@@ -254,7 +254,63 @@ function stripKnownRomExtension(value: string): string {
 
 /** TOSEC / Redump-style version before ` (` metadata, e.g. `Crazy Taxi v1.004 (1999)(US)`. */
 function stripTosecVersionBeforeOpenParen(title: string): string {
-  return title.replace(/\s+v\d(?:[\d.a-z.]*)?(?=\s*\()/giu, '').trimEnd();
+  const trimmed = title.trimEnd();
+  let out = '';
+  let index = 0;
+
+  while (index < trimmed.length) {
+    const current = trimmed[index];
+    const hasLeadingWhitespace = /\s/u.test(current);
+    if (!hasLeadingWhitespace) {
+      out += current;
+      index += 1;
+      continue;
+    }
+
+    let wsEnd = index;
+    while (wsEnd < trimmed.length && /\s/u.test(trimmed[wsEnd])) {
+      wsEnd += 1;
+    }
+
+    const marker = trimmed[wsEnd];
+    if (!marker || marker.toLowerCase() !== 'v') {
+      out += trimmed.slice(index, wsEnd);
+      index = wsEnd;
+      continue;
+    }
+
+    const firstVersionChar = trimmed[wsEnd + 1];
+    if (!firstVersionChar || firstVersionChar < '0' || firstVersionChar > '9') {
+      out += trimmed.slice(index, wsEnd + 1);
+      index = wsEnd + 1;
+      continue;
+    }
+
+    let versionEnd = wsEnd + 2;
+    while (versionEnd < trimmed.length) {
+      const char = trimmed[versionEnd];
+      const isDigit = char >= '0' && char <= '9';
+      if (isDigit || char === '.' || isAsciiLetter(char)) {
+        versionEnd += 1;
+        continue;
+      }
+      break;
+    }
+
+    let lookahead = versionEnd;
+    while (lookahead < trimmed.length && /\s/u.test(trimmed[lookahead])) {
+      lookahead += 1;
+    }
+    if (lookahead < trimmed.length && trimmed[lookahead] === '(') {
+      index = versionEnd;
+      continue;
+    }
+
+    out += trimmed.slice(index, versionEnd);
+    index = versionEnd;
+  }
+
+  return out.trimEnd();
 }
 
 /** Same version token at end of title stem (no following parenthesis). */

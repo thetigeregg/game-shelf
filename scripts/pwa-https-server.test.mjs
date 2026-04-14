@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -250,6 +251,55 @@ test('createHandler returns 404 for missing asset paths instead of the SPA shell
     assert.match(response.body, /Not found/);
     assert.equal(response.headers?.['Content-Type'], 'text/plain; charset=utf-8');
   } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('createHandler proxies rom and bios paths to upstream origin', async () => {
+  const rootDir = mkdtempSync(path.join(os.tmpdir(), 'pwa-https-server-'));
+  writeFileSync(path.join(rootDir, 'index.html'), '<!doctype html><title>Game Shelf</title>');
+
+  const forwardedPaths = [];
+  const upstream = createServer((request, response) => {
+    forwardedPaths.push(request.url ?? '');
+    response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    response.end('ok');
+  });
+
+  await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const address = upstream.address();
+  assert.ok(address && typeof address === 'object');
+  const proxyOrigin = `http://127.0.0.1:${String(address.port)}`;
+
+  try {
+    const handler = createHandler(rootDir, proxyOrigin);
+
+    const romResponse = new MockResponse();
+    const romRequest = new PassThrough();
+    romRequest.method = 'GET';
+    romRequest.url = '/roms/nes__pid-18/Super%20Mario%20Bros.%20(World)%20(HVC-SM).nes';
+    romRequest.headers = {};
+    handler(romRequest, romResponse);
+    romRequest.end();
+    await waitForStreamEnd(romResponse);
+    assert.equal(romResponse.statusCode, 200);
+
+    const biosResponse = new MockResponse();
+    const biosRequest = new PassThrough();
+    biosRequest.method = 'GET';
+    biosRequest.url = '/bios/psx/psx-bios.zip';
+    biosRequest.headers = {};
+    handler(biosRequest, biosResponse);
+    biosRequest.end();
+    await waitForStreamEnd(biosResponse);
+    assert.equal(biosResponse.statusCode, 200);
+
+    assert.deepEqual(forwardedPaths, [
+      '/roms/nes__pid-18/Super%20Mario%20Bros.%20(World)%20(HVC-SM).nes',
+      '/bios/psx/psx-bios.zip',
+    ]);
+  } finally {
+    upstream.close();
     rmSync(rootDir, { recursive: true, force: true });
   }
 });

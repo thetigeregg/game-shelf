@@ -3227,7 +3227,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    const biosRelative = resolveEmulatorJsBiosRelativePath(core, { romUrl });
+    const biosRelative = resolveEmulatorJsBiosRelativePath(core, {
+      romUrl,
+      canonicalPlatformIgdbId,
+    });
     const biosBase =
       typeof environment.biosBaseUrl === 'string' ? environment.biosBaseUrl.trim() : '';
 

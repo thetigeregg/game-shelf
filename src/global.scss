@@ -67,7 +67,7 @@ ion-content.gs-safe-bottom-with-offset {
 }
 
 ion-modal.emulator-js-modal {
-  --ion-safe-area-top: 0px !important;
+  --ion-safe-area-top: inherit !important;
   --ion-safe-area-right: 0px !important;
   --ion-safe-area-bottom: 0px !important;
   --ion-safe-area-left: 0px !important;

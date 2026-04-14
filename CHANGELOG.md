@@ -3334,3 +3334,14 @@
 - f3ae2e5a chore(config): update prompt file paths and upgrade dev-cli version
 - 16fbacc5 chore(config): update installation and command hints to use new worktree commands
 - 2aad6f97 chore(package): remove deprecated devx commands from package.json
+
+## v1.43.0 - 2026-04-14
+
+- 566c9a96 Merge pull request #341 from thetigeregg/feat/emu
+- 5c3c7794 fix(server): replace TOSEC version regex with linear parser to satisfy CodeQL
+- aeafeba3 fix(emulatorjs): use pce BIOS zip for pid-150 CD launches
+- 55d9d826 chore(emulatorjs): add assets manifest URL and document SRI pin workflow
+- 7b7e7f52 feat(roms): handle TOSEC versions, No-Intro languages, and more extensions
+- bf7458b4 fix(roms): parse Eu, Jp, compound regions, and multi-word dump publishers
+- d9638584 fix(roms): strip publisher paren after year in ROM filenames
+- 97c91512 fix(roms): treat US as known region alias in ROM filenames

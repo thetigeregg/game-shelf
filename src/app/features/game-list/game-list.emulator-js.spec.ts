@@ -81,6 +81,33 @@ describe('GameListComponent emulator launch flow', () => {
     );
   });
 
+  it('sets pce BIOS zip for Turbografx-16/PC Engine CD (pid 150)', async () => {
+    const harness = makeHarness({
+      selectedGame: makeGame({
+        platform: 'Turbografx-16/PC Engine CD',
+        platformIgdbId: 150,
+      }),
+      romResolvedUrl: '/roms/Turbografx-16%2FPC%20Engine%20CD__pid-150/Game.chd',
+      platformCustomizationService: {
+        resolveCanonicalPlatformIgdbId: vi.fn().mockReturnValue(150),
+      },
+      getGameDisplayPlatform: vi.fn().mockReturnValue({
+        name: 'Turbografx-16/PC Engine CD',
+        igdbId: 150,
+      } as { name: string; igdbId: number }),
+    });
+
+    await GameListComponent.prototype.openRomInEmulator.call(
+      harness as unknown as GameListComponent
+    );
+
+    const launchUrl = new URL(String(harness.emulatorJsLaunchUrl));
+    expect(launchUrl.searchParams.get('core')).toBe('pce');
+    expect(launchUrl.searchParams.get('bios')).toBe(
+      `${window.location.origin}/bios/pce/pce-bios.zip`
+    );
+  });
+
   it('shows unsupported toast path when canonical platform id is missing', async () => {
     const harness = makeHarness({
       platformCustomizationService: {

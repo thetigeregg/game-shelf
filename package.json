@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.42.1",
+  "version": "1.43.1",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -90,7 +90,7 @@
     "@thetigeregg/lint-staged-config": "^1.0.0",
     "@thetigeregg/ncu-config": "^2.0.0",
     "@thetigeregg/prettier-config": "^1.0.0",
-    "@types/node": "^22.19.17",
+    "@types/node": "^24.12.2",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
     "@vitest/coverage-v8": "^4.1.4",

@@ -217,7 +217,13 @@
         } catch (_error) {
           isStandaloneDisplayMode = window.navigator.standalone === true;
         }
-        var isIosDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent);
+        var userAgent = window.navigator.userAgent || '';
+        var isClassicIosDevice = /iPad|iPhone|iPod/.test(userAgent);
+        var isIpadOsDesktopUa =
+          /Macintosh/.test(userAgent) &&
+          typeof window.navigator.maxTouchPoints === 'number' &&
+          window.navigator.maxTouchPoints > 1;
+        var isIosDevice = isClassicIosDevice || isIpadOsDesktopUa;
         /* iOS standalone PWAs can reject EmulatorJS auto-start media init unless user-gesture driven. */
         window.EJS_startOnLoaded = !(isStandaloneDisplayMode && isIosDevice);
         /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;

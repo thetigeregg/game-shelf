@@ -348,7 +348,12 @@ export function createHandler(rootDir, proxyOrigin) {
       return;
     }
 
-    if (requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/manuals/')) {
+    if (
+      requestUrl.pathname.startsWith('/api/') ||
+      requestUrl.pathname.startsWith('/manuals/') ||
+      requestUrl.pathname.startsWith('/roms/') ||
+      requestUrl.pathname.startsWith('/bios/')
+    ) {
       proxyRequest(request, response, proxyOrigin);
       return;
     }

@@ -3354,3 +3354,11 @@
 - b25ceb55 chore(dependencies): update @types/node to version 24.12.2 and undici-types to version 7.16.0
 - f67ec811 Merge branch 'main' into feat/node
 - d7ad503b chore(runtime): bump node runtime to 24.14.0
+
+## v1.43.2 - 2026-04-14
+
+- cc4bef3c Merge pull request #342 from thetigeregg/feat/bump
+- 24f35c65 chore(dependencies): mark extraneous packages in package-lock.json
+- 7c8a65b4 chore(dependencies): update package-lock.json
+- 9a79481a Merge branch 'main' into feat/bump
+- e5d1d3fb chore(deps): update dependencies in package.json

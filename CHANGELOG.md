@@ -3362,3 +3362,15 @@
 - 7c8a65b4 chore(dependencies): update package-lock.json
 - 9a79481a Merge branch 'main' into feat/bump
 - e5d1d3fb chore(deps): update dependencies in package.json
+
+## v1.43.3 - 2026-04-14
+
+- c9993aa3 Merge pull request #344 from thetigeregg/feat/emuz
+- 66b0e623 fix(emulator): harden iOS standalone detection and remove redundant modal safe-area override
+- 56f28b34 fix(test): await upstream server close in pwa https proxy test
+- f45993ad fix(emulatorjs): disable auto-start for ios standalone pwa
+- 2286e50d fix(emulator): set modal ion-content background to black
+- 4921c08e fix(emulator): update modal safe-area variables for better responsiveness
+- 252c5c95 fix(emulator): force modal safe-area vars to zero with important
+- 4c0127ce fix(emulator): remove unnecessary class from modal content
+- da418666 fix(pwa): proxy rom and bios paths in local https server

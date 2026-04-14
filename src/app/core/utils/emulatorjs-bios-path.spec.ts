@@ -30,4 +30,12 @@ describe('resolveEmulatorJsBiosRelativePath', () => {
       'nes/disksys.rom'
     );
   });
+
+  it('returns PC Engine CD BIOS zip only for platform id 150', () => {
+    expect(resolveEmulatorJsBiosRelativePath('pce', { canonicalPlatformIgdbId: 150 })).toBe(
+      'pce/pce-bios.zip'
+    );
+    expect(resolveEmulatorJsBiosRelativePath('pce', { canonicalPlatformIgdbId: 86 })).toBeNull();
+    expect(resolveEmulatorJsBiosRelativePath('pce')).toBeNull();
+  });
 });

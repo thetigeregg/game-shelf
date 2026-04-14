@@ -299,7 +299,15 @@ test('createHandler proxies rom and bios paths to upstream origin', async () => 
       '/bios/psx/psx-bios.zip',
     ]);
   } finally {
-    upstream.close();
+    await new Promise((resolve, reject) => {
+      upstream.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
     rmSync(rootDir, { recursive: true, force: true });
   }
 });

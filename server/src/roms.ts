@@ -11,9 +11,12 @@ const AUTO_MATCH_MIN_GAP = 0.08;
 const MAX_CANDIDATES = 12;
 const MAX_SEARCH_RESULTS = 50;
 const KNOWN_ROM_EXTENSIONS = new Set([
+  '32x',
+  '3ds',
   '7z',
   'a26',
   'bin',
+  'cci',
   'chd',
   'cia',
   'cue',
@@ -24,13 +27,19 @@ const KNOWN_ROM_EXTENSIONS = new Set([
   'gbc',
   'gen',
   'gg',
+  'hdm',
   'iso',
   'md',
+  'min',
+  'm3u',
   'nds',
   'nes',
+  'ngc',
   'nsp',
   'pbp',
   'pce',
+  'pkg',
+  'rvz',
   'sfc',
   'sg',
   'sgx',
@@ -61,13 +70,16 @@ const REGION_BLOCKED_WORDS = new Set([
 ]);
 const KNOWN_REGION_ALIASES = new Set([
   'u',
+  'us',
   'usa',
   'unitedstates',
   'northamerica',
   'e',
+  'eu',
   'eur',
   'europe',
   'j',
+  'jp',
   'jpn',
   'japan',
   'w',
@@ -100,6 +112,42 @@ const PARENTHETICAL_FLAG_WORDS = new Set([
   'translation',
   'patched',
   'hack',
+  'np',
+  'reprint',
+]);
+/** No-Intro / Redump-style language tags, e.g. (En,Fr,Es). Excludes `eu` (ambiguous with Europe). */
+const NOINTRO_LANGUAGE_CODES = new Set([
+  'ar',
+  'bg',
+  'ca',
+  'cs',
+  'da',
+  'de',
+  'el',
+  'en',
+  'es',
+  'et',
+  'fi',
+  'fr',
+  'gl',
+  'hr',
+  'hu',
+  'is',
+  'it',
+  'ja',
+  'ko',
+  'ms',
+  'nl',
+  'no',
+  'pl',
+  'pt',
+  'ro',
+  'ru',
+  'sk',
+  'sv',
+  'tr',
+  'uk',
+  'zh',
 ]);
 const PLATFORM_ROM_ALIAS_TO_CANONICAL: Record<number, number> = {
   99: 18,
@@ -204,11 +252,83 @@ function stripKnownRomExtension(value: string): string {
   return match[1];
 }
 
+/** TOSEC / Redump-style version before ` (` metadata, e.g. `Crazy Taxi v1.004 (1999)(US)`. */
+function stripTosecVersionBeforeOpenParen(title: string): string {
+  const trimmed = title.trimEnd();
+  let out = '';
+  let index = 0;
+
+  while (index < trimmed.length) {
+    const current = trimmed[index];
+    const hasLeadingWhitespace = /\s/u.test(current);
+    if (!hasLeadingWhitespace) {
+      out += current;
+      index += 1;
+      continue;
+    }
+
+    let wsEnd = index;
+    while (wsEnd < trimmed.length && /\s/u.test(trimmed[wsEnd])) {
+      wsEnd += 1;
+    }
+
+    const marker = trimmed[wsEnd];
+    if (!marker || marker.toLowerCase() !== 'v') {
+      out += trimmed.slice(index, wsEnd);
+      index = wsEnd;
+      continue;
+    }
+
+    const firstVersionChar = trimmed[wsEnd + 1];
+    if (!firstVersionChar || firstVersionChar < '0' || firstVersionChar > '9') {
+      out += trimmed.slice(index, wsEnd + 1);
+      index = wsEnd + 1;
+      continue;
+    }
+
+    let versionEnd = wsEnd + 2;
+    while (versionEnd < trimmed.length) {
+      const char = trimmed[versionEnd];
+      const isDigit = char >= '0' && char <= '9';
+      if (isDigit || char === '.' || isAsciiLetter(char)) {
+        versionEnd += 1;
+        continue;
+      }
+      break;
+    }
+
+    let lookahead = versionEnd;
+    while (lookahead < trimmed.length && /\s/u.test(trimmed[lookahead])) {
+      lookahead += 1;
+    }
+    if (lookahead < trimmed.length && trimmed[lookahead] === '(') {
+      index = versionEnd;
+      continue;
+    }
+
+    out += trimmed.slice(index, versionEnd);
+    index = versionEnd;
+  }
+
+  return out.trimEnd();
+}
+
+/** Same version token at end of title stem (no following parenthesis). */
+function stripTrailingTosecVersionToken(title: string): string {
+  return title.replace(/\s+v\d(?:[\d.a-z]*)?$/iu, '').trimEnd();
+}
+
+function stripTosecStyleVersionTokens(title: string): string {
+  return stripTrailingTosecVersionToken(stripTosecVersionBeforeOpenParen(title.trim()));
+}
+
 function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
-  const strippedDiacritics = cleanedTitle.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  const withoutTosecVersion = stripTosecStyleVersionTokens(cleanedTitle);
+  const strippedDiacritics = withoutTosecVersion.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
   const withoutParentheticalNoise = strippedDiacritics.replace(
     /\(([^)]*)\)/g,
     (_match, group: string) => {
+      const trimmedGroup = group.trim();
       const normalizedGroup = group.toLowerCase();
       const groupWords = splitAlphaNumericWords(normalizedGroup);
       const hasRevisionToken =
@@ -220,11 +340,19 @@ function normalizeRomTitleFromCleanTitle(cleanedTitle: string): string {
         groupWords.includes('disk') ||
         groupWords.includes('dvd') ||
         (groupWords.includes('cd') && groupWords.some((word) => /^\d+$/.test(word)));
-      const hasRegionToken = groupWords.some((word) =>
-        ['usa', 'eur', 'jpn', 'jp', 'us', 'eu'].includes(word)
-      );
+      const hasRegionNoise = looksLikeRegionToken(trimmedGroup);
+      const hasLanguageListNoise = looksLikeNoIntroLanguageListParen(trimmedGroup);
+      const hasYearOnly = /^\d{4}$/.test(trimmedGroup);
+      const hasDumpFlagWord = groupWords.some((word) => PARENTHETICAL_FLAG_WORDS.has(word));
       const hasRomWord = groupWords.includes('rom');
-      const isNoise = hasRegionToken || hasRevisionToken || hasDiscToken || hasRomWord;
+      const isNoise =
+        hasRegionNoise ||
+        hasLanguageListNoise ||
+        hasYearOnly ||
+        hasDumpFlagWord ||
+        hasRevisionToken ||
+        hasDiscToken ||
+        hasRomWord;
       return isNoise ? ' ' : ` ${normalizedGroup} `;
     }
   );
@@ -268,7 +396,7 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
     (left, right) => right.start - left.start
   );
   for (const token of trailingMetadataTokens) {
-    if (!isTrailingMetadataToken(token)) {
+    if (!isTrailingMetadataToken(token, withoutExtension)) {
       break;
     }
     const tokenEnd = token.end;
@@ -284,7 +412,9 @@ export function parseRomFileName(fileName: string): ParsedRomFileName {
     metadataStart = token.start;
     trailingMetadataEnd = token.start;
   }
-  const trimmedTitleCandidate = withoutExtension.slice(0, metadataStart).trim();
+  const trimmedTitleCandidate = stripTosecStyleVersionTokens(
+    withoutExtension.slice(0, metadataStart).trim()
+  );
   const titleCandidate =
     trimmedTitleCandidate.length >= 2 || metadataStart === withoutExtension.length
       ? trimmedTitleCandidate
@@ -768,9 +898,44 @@ function splitAlphaNumericWords(value: string): string[] {
   return words;
 }
 
+function expandRegionHyphenSegments(part: string): string[] {
+  const trimmed = part.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+  return trimmed
+    .split(/\s*-\s*/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function looksLikeNoIntroLanguageListParen(value: string): boolean {
+  const raw = value.trim();
+  if (raw.length === 0) {
+    return false;
+  }
+  const parts = raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) {
+    return false;
+  }
+  for (const part of parts) {
+    const code = part.toLowerCase().replace(/[^a-z]/g, '');
+    if (code.length < 2 || code.length > 3 || !NOINTRO_LANGUAGE_CODES.has(code)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function looksLikeRegionToken(value: string): boolean {
   const normalized = value.trim();
   if (normalized.length === 0) {
+    return false;
+  }
+  if (looksLikeNoIntroLanguageListParen(normalized)) {
     return false;
   }
   const words = splitAlphaNumericWords(normalized);
@@ -778,13 +943,21 @@ function looksLikeRegionToken(value: string): boolean {
     return false;
   }
 
-  const parts = normalized.split(',').map((part) => part.trim());
-  if (parts.length === 0) {
+  const commaParts = normalized
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (commaParts.length === 0) {
     return false;
   }
 
-  for (const part of parts) {
-    const alias = part.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const segments: string[] = [];
+  for (const part of commaParts) {
+    segments.push(...expandRegionHyphenSegments(part));
+  }
+
+  for (const segment of segments) {
+    const alias = segment.toLowerCase().replace(/[^a-z0-9]+/g, '');
     if (alias.length === 0 || !KNOWN_REGION_ALIASES.has(alias)) {
       return false;
     }
@@ -844,14 +1017,41 @@ function looksLikeRevisionToken(value: string): boolean {
   return hasDigit;
 }
 
-function isTrailingMetadataToken(token: MetadataToken): boolean {
+function looksLikeTrailingPublisherParenAfterReleaseYear(
+  withoutExtension: string,
+  token: MetadataToken
+): boolean {
+  if (token.kind !== 'paren') {
+    return false;
+  }
+  const inner = token.value.trim();
+  if (inner.length < 2 || !/[A-Za-z]/.test(inner)) {
+    return false;
+  }
+  const compact = inner.replace(/\s/g, '');
+  if (/^\d+$/.test(compact)) {
+    return false;
+  }
+  if (looksLikeRevisionToken(inner) || looksLikeRegionToken(inner)) {
+    return false;
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9\s.'&/+\-]*$/u.test(inner)) {
+    return false;
+  }
+  const beforeParen = withoutExtension.slice(0, token.start).trimEnd();
+  return /\(\d{4}\)\s*$/u.test(beforeParen);
+}
+
+function isTrailingMetadataToken(token: MetadataToken, withoutExtension: string): boolean {
   if (token.kind === 'bracket') {
     return true;
   }
   return (
     looksLikeRegionToken(token.value) ||
     looksLikeRevisionToken(token.value) ||
-    looksLikeParentheticalFlagToken(token.value)
+    looksLikeNoIntroLanguageListParen(token.value) ||
+    looksLikeParentheticalFlagToken(token.value) ||
+    looksLikeTrailingPublisherParenAfterReleaseYear(withoutExtension, token)
   );
 }
 

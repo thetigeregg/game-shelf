@@ -10,9 +10,25 @@ import {
   isSafeEmulatorJsShaderFileName,
 } from './emulatorjs-play-url';
 import {
+  EMULATORJS_ASSETS_MANIFEST_URL,
   EMULATORJS_DEFAULT_PATH_TO_DATA,
+  EMULATORJS_PINNED_LOADER_INTEGRITY,
   EMULATORJS_PINNED_PATH_TO_DATA,
+  EMULATORJS_RUNTIME_VERSION,
 } from '../config/emulatorjs.constants';
+
+describe('EmulatorJS pinned assets (game-shelf-assets manifest)', () => {
+  it('keeps version, manifest URL, path-to-data base, and loader SRI shape aligned', () => {
+    expect(EMULATORJS_ASSETS_MANIFEST_URL).toBe(
+      `https://thetigeregg.github.io/game-shelf-assets/manifests/third-party/emulatorjs/${EMULATORJS_RUNTIME_VERSION}.json`
+    );
+    expect(EMULATORJS_PINNED_PATH_TO_DATA).toBe(
+      `https://thetigeregg.github.io/game-shelf-assets/third-party/emulatorjs/${EMULATORJS_RUNTIME_VERSION}/`
+    );
+    expect(EMULATORJS_DEFAULT_PATH_TO_DATA).toBe(EMULATORJS_PINNED_PATH_TO_DATA);
+    expect(EMULATORJS_PINNED_LOADER_INTEGRITY.startsWith('sha384-')).toBe(true);
+  });
+});
 
 describe('buildEmulatorJsPlayShellUrl', () => {
   const PINNED_DATA_PATH = EMULATORJS_PINNED_PATH_TO_DATA;

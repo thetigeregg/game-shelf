@@ -3345,3 +3345,12 @@
 - bf7458b4 fix(roms): parse Eu, Jp, compound regions, and multi-word dump publishers
 - d9638584 fix(roms): strip publisher paren after year in ROM filenames
 - 97c91512 fix(roms): treat US as known region alias in ROM filenames
+
+## v1.43.1 - 2026-04-14
+
+- 03b3705b Merge pull request #343 from thetigeregg/feat/node
+- 35941806 chore(dependencies): update @types/node to version 24.12.2 and undici-types to version 7.16.0
+- cfccd676 fix(docker): pin node base images to 24.14.0-alpine
+- b25ceb55 chore(dependencies): update @types/node to version 24.12.2 and undici-types to version 7.16.0
+- f67ec811 Merge branch 'main' into feat/node
+- d7ad503b chore(runtime): bump node runtime to 24.14.0

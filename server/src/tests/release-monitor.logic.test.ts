@@ -149,7 +149,8 @@ void test('release event titles clamp long game names to iOS-friendly length', (
   });
 
   assert.equal(events.length, 1);
-  assert.ok(events[0]?.title.endsWith('... - date set'));
+  assert.equal(events[0]?.title, 'Release date set');
+  assert.ok(events[0]?.body.includes(': Release timing: Dec 1, 2026.'));
   assert.ok((events[0]?.title.length ?? 0) <= 40);
   assert.ok((events[0]?.body.length ?? 0) <= 90);
 });

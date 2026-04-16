@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
 import { config } from '../config.js';
+import { MAX_NOTIFICATION_BODY, MAX_NOTIFICATION_TITLE } from '../notification-copy-policy.js';
 import { releaseMonitorInternals, startReleaseMonitor } from '../release-monitor.js';
 
 class NotificationSettingsPoolMock {
@@ -39,6 +40,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     setEvents.map((entry) => entry.type),
     ['release_date_set']
   );
+  assert.ok((setEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((setEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 
   const changedAndDayEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '52189',
@@ -64,6 +67,12 @@ void test('release events include set/changed/removed/day transitions', () => {
     changedAndDayEvents.map((entry) => entry.type),
     ['release_date_changed', 'release_day']
   );
+  assert.equal(changedAndDayEvents[1]?.title, 'Releases today');
+  assert.equal(changedAndDayEvents[1]?.body, 'Grand Theft Auto VI: releases today.');
+  changedAndDayEvents.forEach((event) => {
+    assert.ok(event.title.length <= MAX_NOTIFICATION_TITLE);
+    assert.ok(event.body.length <= MAX_NOTIFICATION_BODY);
+  });
 
   const removedEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '52189',
@@ -89,6 +98,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     removedEvents.map((entry) => entry.type),
     ['release_date_removed']
   );
+  assert.ok((removedEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((removedEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 
   const impreciseChangedEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '92550',
@@ -114,6 +125,66 @@ void test('release events include set/changed/removed/day transitions', () => {
     impreciseChangedEvents.map((entry) => entry.type),
     ['release_date_changed']
   );
+  assert.ok((impreciseChangedEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((impreciseChangedEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
+});
+
+void test('release event bodies clamp long title prefixes to iOS-friendly length', () => {
+  const events = releaseMonitorInternals.buildReleaseEvents({
+    igdbGameId: '99999',
+    platformIgdbId: 167,
+    title: 'A Very Long Upcoming Game Name That Should Be Truncated For Notifications',
+    releaseBefore: {
+      precision: 'unknown',
+      marker: null,
+      date: null,
+      year: null,
+      display: null,
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-12-01',
+      date: '2026-12-01',
+      year: 2026,
+      display: 'Dec 1, 2026',
+    },
+    now: new Date('2026-03-06T10:00:00.000Z'),
+  });
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.title, 'Release date set');
+  assert.ok(events[0]?.body.includes(': Release timing: Dec 1, 2026.'));
+  assert.ok((events[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((events[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
+});
+
+void test('release event body clamps very long detail suffix to iOS-safe length', () => {
+  const events = releaseMonitorInternals.buildReleaseEvents({
+    igdbGameId: '99111',
+    platformIgdbId: 6,
+    title: 'S',
+    releaseBefore: {
+      precision: 'day',
+      marker: '2026-01-01',
+      date: '2026-01-01',
+      year: 2026,
+      display: 'Jan 1, 2026',
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-12-31',
+      date: '2026-12-31',
+      year: 2026,
+      display:
+        'This is an intentionally huge release timing detail that should be clamped to stay within the body limit',
+    },
+    now: new Date('2026-03-06T10:00:00.000Z'),
+  });
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.type, 'release_date_changed');
+  assert.ok(events[0]?.body.startsWith('S: '));
+  assert.ok((events[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('unknown release date cadence is weekly for future/unknown year and yearly for past years', () => {
@@ -707,6 +778,12 @@ void test('normalizers handle invalid marker and precision inputs', () => {
     '2026-11-19'
   );
   assert.equal(releaseMonitorInternals.normalizeDateString('Q4 2026'), null);
+
+  const dayInfo = releaseMonitorInternals.normalizeReleaseInfoFromPrecision('day', '2026-12-01');
+  assert.equal(dayInfo.display, 'Dec 1, 2026');
+
+  const monthInfo = releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-12');
+  assert.equal(monthInfo.display, 'Dec 2026');
 });
 
 void test('metacritic merge does not overwrite non-metacritic review source fields', () => {

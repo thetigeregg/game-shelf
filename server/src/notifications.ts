@@ -2,6 +2,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import { sendFcmMulticast } from './fcm.js';
+import {
+  clampTextWithEllipsis,
+  MAX_NOTIFICATION_BODY,
+  MAX_NOTIFICATION_TITLE,
+} from './notification-copy-policy.js';
 import { applyRouteRateLimit } from './rate-limit.js';
 import { isAuthorizedMutatingRequest } from './request-security.js';
 
@@ -191,9 +196,11 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         [TEST_ENDPOINT_MAX_ACTIVE_TOKENS]
       );
       const tokens = result.rows.map((row) => row.token);
+      const title = clampTextWithEllipsis('Game Shelf Test Notification', MAX_NOTIFICATION_TITLE);
+      const body = `Open app to verify delivery at ${new Date().toISOString().slice(11, 16)} UTC.`;
       const sendResult = await sendFcmMulticast(tokens, {
-        title: 'Game Shelf Test Notification',
-        body: `Sent at ${new Date().toISOString()}`,
+        title,
+        body: clampTextWithEllipsis(body, MAX_NOTIFICATION_BODY),
         data: {
           eventType: 'test',
           route: '/tabs/wishlist',

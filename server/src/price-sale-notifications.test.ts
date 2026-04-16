@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
+import { MAX_NOTIFICATION_BODY, MAX_NOTIFICATION_TITLE } from './notification-copy-policy.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 
 interface NotificationLogRow {
@@ -160,8 +161,8 @@ void test('sends notification for wishlist transition from not-on-sale to on-sal
 
   assert.equal(sends.length, 1);
   assert.equal(sends[0]?.title, 'Elden Ring on sale');
-  assert.ok((sends[0]?.title?.length ?? 0) <= 40);
-  assert.ok((sends[0]?.body?.length ?? 0) <= 90);
+  assert.ok((sends[0]?.title?.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((sends[0]?.body?.length ?? 0) <= MAX_NOTIFICATION_BODY);
   assert.equal(sends[0]?.data['eventType'], 'price_on_sale');
   assert.equal(sends[0]?.data['route'], '/tabs/wishlist');
   assert.equal(pool.getLogCount(), 1);
@@ -206,8 +207,8 @@ void test('truncates very long sale notification title while preserving body vis
 
   assert.equal(sends.length, 1);
   assert.ok(sends[0]?.title.endsWith('... on sale'));
-  assert.ok((sends[0]?.title.length ?? 0) <= 40);
-  assert.ok((sends[0]?.body.length ?? 0) <= 90);
+  assert.ok((sends[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((sends[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('skips notification when game is already on sale', async () => {

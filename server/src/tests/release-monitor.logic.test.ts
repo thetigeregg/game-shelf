@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
 import { config } from '../config.js';
+import { MAX_NOTIFICATION_BODY, MAX_NOTIFICATION_TITLE } from '../notification-copy-policy.js';
 import { releaseMonitorInternals, startReleaseMonitor } from '../release-monitor.js';
 
 class NotificationSettingsPoolMock {
@@ -39,8 +40,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     setEvents.map((entry) => entry.type),
     ['release_date_set']
   );
-  assert.ok((setEvents[0]?.title.length ?? 0) <= 40);
-  assert.ok((setEvents[0]?.body.length ?? 0) <= 90);
+  assert.ok((setEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((setEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 
   const changedAndDayEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '52189',
@@ -69,8 +70,8 @@ void test('release events include set/changed/removed/day transitions', () => {
   assert.equal(changedAndDayEvents[1]?.title, 'Releases today');
   assert.equal(changedAndDayEvents[1]?.body, 'Grand Theft Auto VI: releases today.');
   changedAndDayEvents.forEach((event) => {
-    assert.ok(event.title.length <= 40);
-    assert.ok(event.body.length <= 90);
+    assert.ok(event.title.length <= MAX_NOTIFICATION_TITLE);
+    assert.ok(event.body.length <= MAX_NOTIFICATION_BODY);
   });
 
   const removedEvents = releaseMonitorInternals.buildReleaseEvents({
@@ -97,8 +98,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     removedEvents.map((entry) => entry.type),
     ['release_date_removed']
   );
-  assert.ok((removedEvents[0]?.title.length ?? 0) <= 40);
-  assert.ok((removedEvents[0]?.body.length ?? 0) <= 90);
+  assert.ok((removedEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((removedEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 
   const impreciseChangedEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '92550',
@@ -124,8 +125,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     impreciseChangedEvents.map((entry) => entry.type),
     ['release_date_changed']
   );
-  assert.ok((impreciseChangedEvents[0]?.title.length ?? 0) <= 40);
-  assert.ok((impreciseChangedEvents[0]?.body.length ?? 0) <= 90);
+  assert.ok((impreciseChangedEvents[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((impreciseChangedEvents[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('release event bodies clamp long title prefixes to iOS-friendly length', () => {
@@ -153,8 +154,8 @@ void test('release event bodies clamp long title prefixes to iOS-friendly length
   assert.equal(events.length, 1);
   assert.equal(events[0]?.title, 'Release date set');
   assert.ok(events[0]?.body.includes(': Release timing: Dec 1, 2026.'));
-  assert.ok((events[0]?.title.length ?? 0) <= 40);
-  assert.ok((events[0]?.body.length ?? 0) <= 90);
+  assert.ok((events[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((events[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('release event body clamps very long detail suffix to iOS-safe length', () => {
@@ -183,7 +184,7 @@ void test('release event body clamps very long detail suffix to iOS-safe length'
   assert.equal(events.length, 1);
   assert.equal(events[0]?.type, 'release_date_changed');
   assert.ok(events[0]?.body.startsWith('S: '));
-  assert.ok((events[0]?.body.length ?? 0) <= 90);
+  assert.ok((events[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('unknown release date cadence is weekly for future/unknown year and yearly for past years', () => {

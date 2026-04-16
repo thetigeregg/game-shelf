@@ -18,7 +18,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
-const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',

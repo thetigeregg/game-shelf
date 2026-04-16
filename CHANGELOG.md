@@ -3384,3 +3384,20 @@
 
 - 83a8f124 Merge pull request #346 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.14
 - 6bb201c9 chore(deps): bump hono from 4.12.12 to 4.12.14
+
+## v1.43.6 - 2026-04-16
+
+- a7616be7 Merge pull request #347 from thetigeregg/feat/noti
+- 0d8fec17 fix(notifications): handle empty base title in clampTitleWithSuffix
+- 927c95fe fix(notifications): clamp test FCM body with shared copy policy helper
+- 4285641c test(server): use notification copy policy constants in notification tests
+- 5420f4d1 fix(release-monitor): preserve full-year values when parsing local release dates
+- 280ccf9e fix(notifications): preserve minimum title context in release event body clamps
+- 921d6c36 fix(notifications): resolve review feedback on notification copy clamping and release display tests
+- 72ddc699 fix(notifications): clamp release event body detail and use month-year display for month precision
+- 11cc7075 fix(server): stabilize release notification date locale formatting
+- 87360fb4 test(notifications): assert release-day body copy uses releases today
+- 12ed6ca3 fix(notifications): update release-day body copy to releases today
+- fb36f160 fix(notifications): align release push copy with iOS limit plan
+- 3c571a1e fix(notifications): enforce iOS-safe title/body limits for push copy
+- 3536b308 fix(notifications): align release day/month text with wishlist date format

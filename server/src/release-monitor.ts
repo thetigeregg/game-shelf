@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
-import { clampTitleWithEllipsis, MAX_NOTIFICATION_BODY } from './notification-copy-policy.js';
+import { clampTextWithEllipsis, MAX_NOTIFICATION_BODY } from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
@@ -1896,14 +1896,19 @@ function formatReleaseNotificationMonthYear(monthString: string): string {
 function buildReleaseEventBody(gameTitle: string, detail: string): string {
   const normalizedDetail = detail.trim();
   if (normalizedDetail.length === 0) {
-    return clampTitleWithEllipsis(gameTitle, MAX_NOTIFICATION_BODY);
+    return clampTextWithEllipsis(gameTitle, MAX_NOTIFICATION_BODY);
   }
 
-  const maxDetailLength = Math.max(1, MAX_NOTIFICATION_BODY - 3);
-  const clampedDetail = clampTitleWithEllipsis(normalizedDetail, maxDetailLength);
-  const suffix = `: ${clampedDetail}`;
+  const titleDetailSeparator = ': ';
+  const minimumTitleBudget = 1;
+  const maxDetailLength = Math.max(
+    1,
+    MAX_NOTIFICATION_BODY - titleDetailSeparator.length - minimumTitleBudget
+  );
+  const clampedDetail = clampTextWithEllipsis(normalizedDetail, maxDetailLength);
+  const suffix = `${titleDetailSeparator}${clampedDetail}`;
   const titleBudget = Math.max(1, MAX_NOTIFICATION_BODY - suffix.length);
-  const displayTitle = clampTitleWithEllipsis(gameTitle, titleBudget);
+  const displayTitle = clampTextWithEllipsis(gameTitle, titleBudget);
   return `${displayTitle}${suffix}`;
 }
 

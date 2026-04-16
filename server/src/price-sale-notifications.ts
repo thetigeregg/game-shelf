@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { sendFcmMulticast, type FcmSendResult } from './fcm.js';
+import { clampTitleWithSuffix, MAX_NOTIFICATION_TITLE } from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
@@ -237,7 +238,11 @@ function buildSaleNotificationEvent(args: {
 
   return {
     type: 'price_on_sale',
-    title: `${args.title} is on sale`,
+    title: clampTitleWithSuffix({
+      baseTitle: args.title,
+      suffix: 'on sale',
+      max: MAX_NOTIFICATION_TITLE,
+    }),
     body: `Now ${displayPrice}${discountSuffix}.`,
     eventKey,
     payload: {

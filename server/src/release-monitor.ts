@@ -1900,14 +1900,14 @@ function buildReleaseEventBody(gameTitle: string, detail: string): string {
   }
 
   const titleDetailSeparator = ': ';
-  const minimumTitleBudget = 1;
+  const minimumTitleBudget = 4;
   const maxDetailLength = Math.max(
     1,
     MAX_NOTIFICATION_BODY - titleDetailSeparator.length - minimumTitleBudget
   );
   const clampedDetail = clampTextWithEllipsis(normalizedDetail, maxDetailLength);
   const suffix = `${titleDetailSeparator}${clampedDetail}`;
-  const titleBudget = Math.max(1, MAX_NOTIFICATION_BODY - suffix.length);
+  const titleBudget = Math.max(minimumTitleBudget, MAX_NOTIFICATION_BODY - suffix.length);
   const displayTitle = clampTextWithEllipsis(gameTitle, titleBudget);
   return `${displayTitle}${suffix}`;
 }

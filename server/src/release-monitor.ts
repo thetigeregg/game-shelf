@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
+import { clampTextWithEllipsis, MAX_NOTIFICATION_BODY } from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
@@ -17,6 +18,15 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
+const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  year: 'numeric',
+});
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -1186,8 +1196,8 @@ function buildReleaseEvents(args: {
     const afterDisplay = after.display ?? afterMarker;
     events.push({
       type: 'release_date_set',
-      title: `${args.title}: Release date set`,
-      body: `${args.title} now has a release timing (${afterDisplay}).`,
+      title: 'Release date set',
+      body: buildReleaseEventBody(args.title, `Release timing: ${afterDisplay}.`),
       eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1204,8 +1214,8 @@ function buildReleaseEvents(args: {
     const afterDisplay = after.display ?? afterMarker;
     events.push({
       type: 'release_date_changed',
-      title: `${args.title}: Release date changed`,
-      body: `${args.title} moved from ${beforeDisplay} to ${afterDisplay}.`,
+      title: 'Release date changed',
+      body: buildReleaseEventBody(args.title, `${beforeDisplay} -> ${afterDisplay}.`),
       eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1215,8 +1225,8 @@ function buildReleaseEvents(args: {
     const beforeMarker = before.marker ?? 'unknown';
     events.push({
       type: 'release_date_removed',
-      title: `${args.title}: Release date removed`,
-      body: `${args.title} no longer has a confirmed release date.`,
+      title: 'Release date removed',
+      body: buildReleaseEventBody(args.title, 'Release date removed.'),
       eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}`,
       releaseMarker: null,
     });
@@ -1231,8 +1241,8 @@ function buildReleaseEvents(args: {
     // remains single-shot via event_key reservation in release_notification_log.
     events.push({
       type: 'release_day',
-      title: `${args.title} releases today`,
-      body: `${args.title} has reached its scheduled release date.`,
+      title: 'Releases today',
+      body: buildReleaseEventBody(args.title, 'releases today.'),
       eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
       releaseMarker: after.marker,
     });
@@ -1689,7 +1699,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: day,
       date: day,
       year: integerOrNull(day.slice(0, 4)),
-      display: day,
+      display: formatReleaseNotificationDate(day),
     };
   }
 
@@ -1720,7 +1730,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: `${monthMatch[1]}-${monthMatch[2]}`,
       date: null,
       year: integerOrNull(monthMatch[1]),
-      display: `${monthMatch[1]}-${monthMatch[2]}`,
+      display: formatReleaseNotificationMonthYear(`${monthMatch[1]}-${monthMatch[2]}`),
     };
   }
 
@@ -1863,6 +1873,90 @@ function normalizeReleasePrecision(value: string | null): ReleasePrecision | nul
 
 function formatDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function formatReleaseNotificationDate(dateString: string): string {
+  const parsed = parseDateOnlyAsLocalDate(dateString);
+  if (!parsed) {
+    return dateString;
+  }
+
+  return RELEASE_NOTIFICATION_FULL_DATE_FORMATTER.format(parsed);
+}
+
+function formatReleaseNotificationMonthYear(monthString: string): string {
+  const parsed = parseMonthOnlyAsLocalDate(monthString);
+  if (!parsed) {
+    return monthString;
+  }
+
+  return RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER.format(parsed);
+}
+
+function buildReleaseEventBody(gameTitle: string, detail: string): string {
+  const normalizedDetail = detail.trim();
+  if (normalizedDetail.length === 0) {
+    return clampTextWithEllipsis(gameTitle, MAX_NOTIFICATION_BODY);
+  }
+
+  const titleDetailSeparator = ': ';
+  const minimumTitleBudget = 4;
+  const maxDetailLength = Math.max(
+    1,
+    MAX_NOTIFICATION_BODY - titleDetailSeparator.length - minimumTitleBudget
+  );
+  const clampedDetail = clampTextWithEllipsis(normalizedDetail, maxDetailLength);
+  const suffix = `${titleDetailSeparator}${clampedDetail}`;
+  const titleBudget = Math.max(minimumTitleBudget, MAX_NOTIFICATION_BODY - suffix.length);
+  const displayTitle = clampTextWithEllipsis(gameTitle, titleBudget);
+  return `${displayTitle}${suffix}`;
+}
+
+function parseMonthOnlyAsLocalDate(value: string): Date | null {
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return null;
+  }
+  if (monthIndex < 0 || monthIndex > 11) {
+    return null;
+  }
+
+  const date = createLocalDatePreservingFullYear(year, monthIndex, 1);
+  return date.getFullYear() === year && date.getMonth() === monthIndex ? date : null;
+}
+
+function parseDateOnlyAsLocalDate(value: string): Date | null {
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  const date = createLocalDatePreservingFullYear(year, monthIndex, day);
+  return date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day
+    ? date
+    : null;
+}
+
+function createLocalDatePreservingFullYear(year: number, monthIndex: number, day: number): Date {
+  const date = new Date(0);
+  date.setHours(0, 0, 0, 0);
+  date.setFullYear(year, monthIndex, day);
+  return date;
 }
 
 function normalizeDateString(value: string | null | undefined): string | null {

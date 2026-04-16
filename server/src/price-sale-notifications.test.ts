@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
+import { MAX_NOTIFICATION_BODY, MAX_NOTIFICATION_TITLE } from './notification-copy-policy.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 
 interface NotificationLogRow {
@@ -159,10 +160,55 @@ void test('sends notification for wishlist transition from not-on-sale to on-sal
   );
 
   assert.equal(sends.length, 1);
-  assert.equal(sends[0]?.title, 'Elden Ring is on sale');
+  assert.equal(sends[0]?.title, 'Elden Ring on sale');
+  assert.ok((sends[0]?.title?.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((sends[0]?.body?.length ?? 0) <= MAX_NOTIFICATION_BODY);
   assert.equal(sends[0]?.data['eventType'], 'price_on_sale');
   assert.equal(sends[0]?.data['route'], '/tabs/wishlist');
   assert.equal(pool.getLogCount(), 1);
+});
+
+void test('truncates very long sale notification title while preserving body visibility', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+  const sends: Array<{ title: string; body: string }> = [];
+
+  await maybeSendWishlistSaleNotification(
+    pool as unknown as Pool,
+    {
+      igdbGameId: '101',
+      platformIgdbId: 6,
+      previousPayload: {
+        listType: 'wishlist',
+        title: 'The Extremely Long and Overly Descriptive Title of a Future RPG Adventure',
+        priceAmount: 59.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 0,
+        priceIsFree: false,
+      },
+      nextPayload: {
+        listType: 'wishlist',
+        title: 'The Extremely Long and Overly Descriptive Title of a Future RPG Adventure',
+        priceAmount: 29.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 50,
+        priceIsFree: false,
+        priceCurrency: 'USD',
+      },
+    },
+    {
+      sendMulticast: (_tokens, payload) => {
+        sends.push({ title: payload.title, body: payload.body });
+        return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+      },
+    }
+  );
+
+  assert.equal(sends.length, 1);
+  assert.ok(sends[0]?.title.endsWith('... on sale'));
+  assert.ok((sends[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
+  assert.ok((sends[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
 });
 
 void test('skips notification when game is already on sale', async () => {

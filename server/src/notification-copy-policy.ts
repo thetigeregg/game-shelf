@@ -25,7 +25,12 @@ export function clampTitleWithSuffix(args: {
     return clampTextWithEllipsis(args.baseTitle, max);
   }
 
-  const joined = `${args.baseTitle.trim()} ${normalizedSuffix}`;
+  const trimmedBase = args.baseTitle.trim();
+  if (trimmedBase.length === 0) {
+    return clampTextWithEllipsis(normalizedSuffix, max);
+  }
+
+  const joined = `${trimmedBase} ${normalizedSuffix}`;
   if (joined.length <= max) {
     return joined;
   }
@@ -36,6 +41,6 @@ export function clampTitleWithSuffix(args: {
     return clampTextWithEllipsis(joined, max);
   }
 
-  const clampedBase = clampTextWithEllipsis(args.baseTitle, availableBase);
+  const clampedBase = clampTextWithEllipsis(trimmedBase, availableBase);
   return `${clampedBase} ${normalizedSuffix}`;
 }

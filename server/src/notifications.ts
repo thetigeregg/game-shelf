@@ -200,7 +200,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
       const body = `Open app to verify delivery at ${new Date().toISOString().slice(11, 16)} UTC.`;
       const sendResult = await sendFcmMulticast(tokens, {
         title,
-        body: body.length <= MAX_NOTIFICATION_BODY ? body : 'Open app to verify delivery.',
+        body: clampTextWithEllipsis(body, MAX_NOTIFICATION_BODY),
         data: {
           eventType: 'test',
           route: '/tabs/wishlist',

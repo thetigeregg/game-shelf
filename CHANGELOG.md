@@ -3374,3 +3374,8 @@
 - 252c5c95 fix(emulator): force modal safe-area vars to zero with important
 - 4c0127ce fix(emulator): remove unnecessary class from modal content
 - da418666 fix(pwa): proxy rom and bios paths in local https server
+
+## v1.43.4 - 2026-04-16
+
+- db3c1960 Merge pull request #345 from thetigeregg/dependabot/npm_and_yarn/server/fastify-5.8.5
+- b8d77408 chore(deps): bump fastify from 5.8.4 to 5.8.5 in /server

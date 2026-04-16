@@ -66,6 +66,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     changedAndDayEvents.map((entry) => entry.type),
     ['release_date_changed', 'release_day']
   );
+  assert.equal(changedAndDayEvents[1]?.title, 'Releases today');
+  assert.equal(changedAndDayEvents[1]?.body, 'Grand Theft Auto VI: releases today.');
   changedAndDayEvents.forEach((event) => {
     assert.ok(event.title.length <= 40);
     assert.ok(event.body.length <= 90);

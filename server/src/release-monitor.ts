@@ -1238,7 +1238,7 @@ function buildReleaseEvents(args: {
     events.push({
       type: 'release_day',
       title: 'Releases today',
-      body: buildReleaseEventBody(args.title, 'Scheduled release reached.'),
+      body: buildReleaseEventBody(args.title, 'releases today.'),
       eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
       releaseMarker: after.marker,
     });

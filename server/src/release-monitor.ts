@@ -1928,7 +1928,7 @@ function parseMonthOnlyAsLocalDate(value: string): Date | null {
     return null;
   }
 
-  const date = new Date(year, monthIndex, 1);
+  const date = createLocalDatePreservingFullYear(year, monthIndex, 1);
   return date.getFullYear() === year && date.getMonth() === monthIndex ? date : null;
 }
 
@@ -1946,10 +1946,17 @@ function parseDateOnlyAsLocalDate(value: string): Date | null {
     return null;
   }
 
-  const date = new Date(year, monthIndex, day);
+  const date = createLocalDatePreservingFullYear(year, monthIndex, day);
   return date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day
     ? date
     : null;
+}
+
+function createLocalDatePreservingFullYear(year: number, monthIndex: number, day: number): Date {
+  const date = new Date(0);
+  date.setHours(0, 0, 0, 0);
+  date.setFullYear(year, monthIndex, day);
+  return date;
 }
 
 function normalizeDateString(value: string | null | undefined): string | null {

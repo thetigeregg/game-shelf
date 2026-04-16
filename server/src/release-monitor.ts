@@ -4,11 +4,7 @@ import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
-import {
-  clampTitleWithSuffix,
-  MAX_NOTIFICATION_BODY,
-  MAX_NOTIFICATION_TITLE,
-} from './notification-copy-policy.js';
+import { clampTitleWithEllipsis, MAX_NOTIFICATION_BODY } from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
@@ -1194,16 +1190,10 @@ function buildReleaseEvents(args: {
   if (!beforeKnown && afterKnown) {
     const afterMarker = after.marker ?? 'unknown';
     const afterDisplay = after.display ?? afterMarker;
-    const title = clampTitleWithSuffix({
-      baseTitle: args.title,
-      suffix: '- date set',
-      max: MAX_NOTIFICATION_TITLE,
-    });
-    const body = `Release timing: ${afterDisplay}.`;
     events.push({
       type: 'release_date_set',
-      title,
-      body: body.length <= MAX_NOTIFICATION_BODY ? body : 'Release timing updated.',
+      title: 'Release date set',
+      body: buildReleaseEventBody(args.title, `Release timing: ${afterDisplay}.`),
       eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1218,16 +1208,10 @@ function buildReleaseEvents(args: {
     const afterMarker = after.marker ?? 'unknown';
     const beforeDisplay = before.display ?? beforeMarker;
     const afterDisplay = after.display ?? afterMarker;
-    const title = clampTitleWithSuffix({
-      baseTitle: args.title,
-      suffix: '- date changed',
-      max: MAX_NOTIFICATION_TITLE,
-    });
-    const body = `${beforeDisplay} -> ${afterDisplay}.`;
     events.push({
       type: 'release_date_changed',
-      title,
-      body: body.length <= MAX_NOTIFICATION_BODY ? body : 'Release date changed.',
+      title: 'Release date changed',
+      body: buildReleaseEventBody(args.title, `${beforeDisplay} -> ${afterDisplay}.`),
       eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1235,15 +1219,10 @@ function buildReleaseEvents(args: {
 
   if (beforeKnown && !afterKnown) {
     const beforeMarker = before.marker ?? 'unknown';
-    const title = clampTitleWithSuffix({
-      baseTitle: args.title,
-      suffix: '- date removed',
-      max: MAX_NOTIFICATION_TITLE,
-    });
     events.push({
       type: 'release_date_removed',
-      title,
-      body: 'Release date removed.',
+      title: 'Release date removed',
+      body: buildReleaseEventBody(args.title, 'Release date removed.'),
       eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}`,
       releaseMarker: null,
     });
@@ -1256,15 +1235,10 @@ function buildReleaseEvents(args: {
   ) {
     // This can evaluate true across multiple monitor runs on release day; delivery
     // remains single-shot via event_key reservation in release_notification_log.
-    const title = clampTitleWithSuffix({
-      baseTitle: args.title,
-      suffix: '- releases today',
-      max: MAX_NOTIFICATION_TITLE,
-    });
     events.push({
       type: 'release_day',
-      title,
-      body: 'Scheduled release reached.',
+      title: 'Releases today',
+      body: buildReleaseEventBody(args.title, 'Scheduled release reached.'),
       eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
       releaseMarker: after.marker,
     });
@@ -1904,6 +1878,14 @@ function formatReleaseNotificationDate(dateString: string): string {
   }
 
   return RELEASE_NOTIFICATION_FULL_DATE_FORMATTER.format(parsed);
+}
+
+function buildReleaseEventBody(gameTitle: string, detail: string): string {
+  const normalizedDetail = detail.trim();
+  const suffix = normalizedDetail.length > 0 ? `: ${normalizedDetail}` : '';
+  const titleBudget = Math.max(1, MAX_NOTIFICATION_BODY - suffix.length);
+  const displayTitle = clampTitleWithEllipsis(gameTitle, titleBudget);
+  return `${displayTitle}${suffix}`;
 }
 
 function parseDateOnlyAsLocalDate(value: string): Date | null {

@@ -182,6 +182,7 @@ void test('release event body clamps very long detail suffix to iOS-safe length'
 
   assert.equal(events.length, 1);
   assert.equal(events[0]?.type, 'release_date_changed');
+  assert.ok(events[0]?.body.startsWith('S: '));
   assert.ok((events[0]?.body.length ?? 0) <= 90);
 });
 

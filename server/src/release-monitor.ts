@@ -5,6 +5,11 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
 import {
+  clampTitleWithSuffix,
+  MAX_NOTIFICATION_BODY,
+  MAX_NOTIFICATION_TITLE,
+} from './notification-copy-policy.js';
+import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
   RELEASE_NOTIFICATIONS_ENABLED_KEY,
@@ -1189,10 +1194,16 @@ function buildReleaseEvents(args: {
   if (!beforeKnown && afterKnown) {
     const afterMarker = after.marker ?? 'unknown';
     const afterDisplay = after.display ?? afterMarker;
+    const title = clampTitleWithSuffix({
+      baseTitle: args.title,
+      suffix: '- date set',
+      max: MAX_NOTIFICATION_TITLE,
+    });
+    const body = `Release timing: ${afterDisplay}.`;
     events.push({
       type: 'release_date_set',
-      title: `${args.title}: Release date set`,
-      body: `${args.title} now has a release timing (${afterDisplay}).`,
+      title,
+      body: body.length <= MAX_NOTIFICATION_BODY ? body : 'Release timing updated.',
       eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1207,10 +1218,16 @@ function buildReleaseEvents(args: {
     const afterMarker = after.marker ?? 'unknown';
     const beforeDisplay = before.display ?? beforeMarker;
     const afterDisplay = after.display ?? afterMarker;
+    const title = clampTitleWithSuffix({
+      baseTitle: args.title,
+      suffix: '- date changed',
+      max: MAX_NOTIFICATION_TITLE,
+    });
+    const body = `${beforeDisplay} -> ${afterDisplay}.`;
     events.push({
       type: 'release_date_changed',
-      title: `${args.title}: Release date changed`,
-      body: `${args.title} moved from ${beforeDisplay} to ${afterDisplay}.`,
+      title,
+      body: body.length <= MAX_NOTIFICATION_BODY ? body : 'Release date changed.',
       eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}:${after.precision}:${afterMarker}`,
       releaseMarker: afterMarker,
     });
@@ -1218,10 +1235,15 @@ function buildReleaseEvents(args: {
 
   if (beforeKnown && !afterKnown) {
     const beforeMarker = before.marker ?? 'unknown';
+    const title = clampTitleWithSuffix({
+      baseTitle: args.title,
+      suffix: '- date removed',
+      max: MAX_NOTIFICATION_TITLE,
+    });
     events.push({
       type: 'release_date_removed',
-      title: `${args.title}: Release date removed`,
-      body: `${args.title} no longer has a confirmed release date.`,
+      title,
+      body: 'Release date removed.',
       eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}`,
       releaseMarker: null,
     });
@@ -1234,10 +1256,15 @@ function buildReleaseEvents(args: {
   ) {
     // This can evaluate true across multiple monitor runs on release day; delivery
     // remains single-shot via event_key reservation in release_notification_log.
+    const title = clampTitleWithSuffix({
+      baseTitle: args.title,
+      suffix: '- releases today',
+      max: MAX_NOTIFICATION_TITLE,
+    });
     events.push({
       type: 'release_day',
-      title: `${args.title} releases today`,
-      body: `${args.title} has reached its scheduled release date.`,
+      title,
+      body: 'Scheduled release reached.',
       eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
       releaseMarker: after.marker,
     });

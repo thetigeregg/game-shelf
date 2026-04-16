@@ -39,6 +39,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     setEvents.map((entry) => entry.type),
     ['release_date_set']
   );
+  assert.ok((setEvents[0]?.title.length ?? 0) <= 40);
+  assert.ok((setEvents[0]?.body.length ?? 0) <= 90);
 
   const changedAndDayEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '52189',
@@ -64,6 +66,10 @@ void test('release events include set/changed/removed/day transitions', () => {
     changedAndDayEvents.map((entry) => entry.type),
     ['release_date_changed', 'release_day']
   );
+  changedAndDayEvents.forEach((event) => {
+    assert.ok(event.title.length <= 40);
+    assert.ok(event.body.length <= 90);
+  });
 
   const removedEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '52189',
@@ -89,6 +95,8 @@ void test('release events include set/changed/removed/day transitions', () => {
     removedEvents.map((entry) => entry.type),
     ['release_date_removed']
   );
+  assert.ok((removedEvents[0]?.title.length ?? 0) <= 40);
+  assert.ok((removedEvents[0]?.body.length ?? 0) <= 90);
 
   const impreciseChangedEvents = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '92550',
@@ -114,6 +122,36 @@ void test('release events include set/changed/removed/day transitions', () => {
     impreciseChangedEvents.map((entry) => entry.type),
     ['release_date_changed']
   );
+  assert.ok((impreciseChangedEvents[0]?.title.length ?? 0) <= 40);
+  assert.ok((impreciseChangedEvents[0]?.body.length ?? 0) <= 90);
+});
+
+void test('release event titles clamp long game names to iOS-friendly length', () => {
+  const events = releaseMonitorInternals.buildReleaseEvents({
+    igdbGameId: '99999',
+    platformIgdbId: 167,
+    title: 'A Very Long Upcoming Game Name That Should Be Truncated For Notifications',
+    releaseBefore: {
+      precision: 'unknown',
+      marker: null,
+      date: null,
+      year: null,
+      display: null,
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-12-01',
+      date: '2026-12-01',
+      year: 2026,
+      display: 'Dec 1, 2026',
+    },
+    now: new Date('2026-03-06T10:00:00.000Z'),
+  });
+
+  assert.equal(events.length, 1);
+  assert.ok(events[0]?.title.endsWith('... - date set'));
+  assert.ok((events[0]?.title.length ?? 0) <= 40);
+  assert.ok((events[0]?.body.length ?? 0) <= 90);
 });
 
 void test('unknown release date cadence is weekly for future/unknown year and yearly for past years', () => {

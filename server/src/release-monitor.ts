@@ -17,6 +17,11 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
+const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -1689,7 +1694,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: day,
       date: day,
       year: integerOrNull(day.slice(0, 4)),
-      display: day,
+      display: formatReleaseNotificationDate(day),
     };
   }
 
@@ -1720,7 +1725,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: `${monthMatch[1]}-${monthMatch[2]}`,
       date: null,
       year: integerOrNull(monthMatch[1]),
-      display: `${monthMatch[1]}-${monthMatch[2]}`,
+      display: formatReleaseNotificationDate(`${monthMatch[1]}-${monthMatch[2]}-01`),
     };
   }
 
@@ -1863,6 +1868,35 @@ function normalizeReleasePrecision(value: string | null): ReleasePrecision | nul
 
 function formatDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function formatReleaseNotificationDate(dateString: string): string {
+  const parsed = parseDateOnlyAsLocalDate(dateString);
+  if (!parsed) {
+    return dateString;
+  }
+
+  return RELEASE_NOTIFICATION_FULL_DATE_FORMATTER.format(parsed);
+}
+
+function parseDateOnlyAsLocalDate(value: string): Date | null {
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  const date = new Date(year, monthIndex, day);
+  return date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day
+    ? date
+    : null;
 }
 
 function normalizeDateString(value: string | null | undefined): string | null {

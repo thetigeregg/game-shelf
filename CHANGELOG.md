@@ -3379,3 +3379,8 @@
 
 - db3c1960 Merge pull request #345 from thetigeregg/dependabot/npm_and_yarn/server/fastify-5.8.5
 - b8d77408 chore(deps): bump fastify from 5.8.4 to 5.8.5 in /server
+
+## v1.43.5 - 2026-04-16
+
+- 83a8f124 Merge pull request #346 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.14
+- 6bb201c9 chore(deps): bump hono from 4.12.12 to 4.12.14

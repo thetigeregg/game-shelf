@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
-    "@fastify/middie": "^9.3.1",
+    "@fastify/middie": "^9.3.2",
     "@fastify/rate-limit": "^10.3.0",
     "dotenv": "^17.4.2",
     "express-rate-limit": "^8.3.2",

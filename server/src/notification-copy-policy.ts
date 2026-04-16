@@ -1,8 +1,8 @@
 export const MAX_NOTIFICATION_TITLE = 40;
 export const MAX_NOTIFICATION_BODY = 90;
 
-export function clampTitleWithEllipsis(title: string, max = MAX_NOTIFICATION_TITLE): string {
-  const normalized = title.trim();
+export function clampTextWithEllipsis(text: string, max = MAX_NOTIFICATION_TITLE): string {
+  const normalized = text.trim();
   if (normalized.length <= max) {
     return normalized;
   }
@@ -22,7 +22,7 @@ export function clampTitleWithSuffix(args: {
   const max = args.max ?? MAX_NOTIFICATION_TITLE;
   const normalizedSuffix = args.suffix.trim();
   if (normalizedSuffix.length === 0) {
-    return clampTitleWithEllipsis(args.baseTitle, max);
+    return clampTextWithEllipsis(args.baseTitle, max);
   }
 
   const joined = `${args.baseTitle.trim()} ${normalizedSuffix}`;
@@ -33,9 +33,9 @@ export function clampTitleWithSuffix(args: {
   const minimumBaseBudget = 4;
   const availableBase = max - normalizedSuffix.length - 1;
   if (availableBase < minimumBaseBudget) {
-    return clampTitleWithEllipsis(joined, max);
+    return clampTextWithEllipsis(joined, max);
   }
 
-  const clampedBase = clampTitleWithEllipsis(args.baseTitle, availableBase);
+  const clampedBase = clampTextWithEllipsis(args.baseTitle, availableBase);
   return `${clampedBase} ${normalizedSuffix}`;
 }

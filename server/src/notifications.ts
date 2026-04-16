@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { config } from './config.js';
 import { sendFcmMulticast } from './fcm.js';
 import {
-  clampTitleWithEllipsis,
+  clampTextWithEllipsis,
   MAX_NOTIFICATION_BODY,
   MAX_NOTIFICATION_TITLE,
 } from './notification-copy-policy.js';
@@ -196,7 +196,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         [TEST_ENDPOINT_MAX_ACTIVE_TOKENS]
       );
       const tokens = result.rows.map((row) => row.token);
-      const title = clampTitleWithEllipsis('Game Shelf Test Notification', MAX_NOTIFICATION_TITLE);
+      const title = clampTextWithEllipsis('Game Shelf Test Notification', MAX_NOTIFICATION_TITLE);
       const body = `Open app to verify delivery at ${new Date().toISOString().slice(11, 16)} UTC.`;
       const sendResult = await sendFcmMulticast(tokens, {
         title,

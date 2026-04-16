@@ -128,7 +128,7 @@ void test('release events include set/changed/removed/day transitions', () => {
   assert.ok((impreciseChangedEvents[0]?.body.length ?? 0) <= 90);
 });
 
-void test('release event titles clamp long game names to iOS-friendly length', () => {
+void test('release event bodies clamp long title prefixes to iOS-friendly length', () => {
   const events = releaseMonitorInternals.buildReleaseEvents({
     igdbGameId: '99999',
     platformIgdbId: 167,
@@ -776,6 +776,9 @@ void test('normalizers handle invalid marker and precision inputs', () => {
     '2026-11-19'
   );
   assert.equal(releaseMonitorInternals.normalizeDateString('Q4 2026'), null);
+
+  const dayInfo = releaseMonitorInternals.normalizeReleaseInfoFromPrecision('day', '2026-12-01');
+  assert.equal(dayInfo.display, 'Dec 1, 2026');
 
   const monthInfo = releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-12');
   assert.equal(monthInfo.display, 'Dec 2026');

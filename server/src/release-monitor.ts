@@ -23,6 +23,10 @@ const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US'
   month: 'short',
   year: 'numeric',
 });
+const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  year: 'numeric',
+});
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -1726,7 +1730,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: `${monthMatch[1]}-${monthMatch[2]}`,
       date: null,
       year: integerOrNull(monthMatch[1]),
-      display: formatReleaseNotificationDate(`${monthMatch[1]}-${monthMatch[2]}-01`),
+      display: formatReleaseNotificationMonthYear(`${monthMatch[1]}-${monthMatch[2]}`),
     };
   }
 
@@ -1880,12 +1884,47 @@ function formatReleaseNotificationDate(dateString: string): string {
   return RELEASE_NOTIFICATION_FULL_DATE_FORMATTER.format(parsed);
 }
 
+function formatReleaseNotificationMonthYear(monthString: string): string {
+  const parsed = parseMonthOnlyAsLocalDate(monthString);
+  if (!parsed) {
+    return monthString;
+  }
+
+  return RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER.format(parsed);
+}
+
 function buildReleaseEventBody(gameTitle: string, detail: string): string {
   const normalizedDetail = detail.trim();
-  const suffix = normalizedDetail.length > 0 ? `: ${normalizedDetail}` : '';
+  if (normalizedDetail.length === 0) {
+    return clampTitleWithEllipsis(gameTitle, MAX_NOTIFICATION_BODY);
+  }
+
+  const maxDetailLength = Math.max(1, MAX_NOTIFICATION_BODY - 3);
+  const clampedDetail = clampTitleWithEllipsis(normalizedDetail, maxDetailLength);
+  const suffix = `: ${clampedDetail}`;
   const titleBudget = Math.max(1, MAX_NOTIFICATION_BODY - suffix.length);
   const displayTitle = clampTitleWithEllipsis(gameTitle, titleBudget);
   return `${displayTitle}${suffix}`;
+}
+
+function parseMonthOnlyAsLocalDate(value: string): Date | null {
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return null;
+  }
+  if (monthIndex < 0 || monthIndex > 11) {
+    return null;
+  }
+
+  const date = new Date(year, monthIndex, 1);
+  return date.getFullYear() === year && date.getMonth() === monthIndex ? date : null;
 }
 
 function parseDateOnlyAsLocalDate(value: string): Date | null {

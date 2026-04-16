@@ -157,6 +157,34 @@ void test('release event titles clamp long game names to iOS-friendly length', (
   assert.ok((events[0]?.body.length ?? 0) <= 90);
 });
 
+void test('release event body clamps very long detail suffix to iOS-safe length', () => {
+  const events = releaseMonitorInternals.buildReleaseEvents({
+    igdbGameId: '99111',
+    platformIgdbId: 6,
+    title: 'S',
+    releaseBefore: {
+      precision: 'day',
+      marker: '2026-01-01',
+      date: '2026-01-01',
+      year: 2026,
+      display: 'Jan 1, 2026',
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-12-31',
+      date: '2026-12-31',
+      year: 2026,
+      display:
+        'This is an intentionally huge release timing detail that should be clamped to stay within the body limit',
+    },
+    now: new Date('2026-03-06T10:00:00.000Z'),
+  });
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.type, 'release_date_changed');
+  assert.ok((events[0]?.body.length ?? 0) <= 90);
+});
+
 void test('unknown release date cadence is weekly for future/unknown year and yearly for past years', () => {
   const now = new Date('2026-03-06T10:00:00.000Z');
   const oneDayMs = 24 * 60 * 60 * 1000;
@@ -748,6 +776,9 @@ void test('normalizers handle invalid marker and precision inputs', () => {
     '2026-11-19'
   );
   assert.equal(releaseMonitorInternals.normalizeDateString('Q4 2026'), null);
+
+  const monthInfo = releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-12');
+  assert.equal(monthInfo.display, 'Dec 2026');
 });
 
 void test('metacritic merge does not overwrite non-metacritic review source fields', () => {

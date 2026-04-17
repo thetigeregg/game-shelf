@@ -3401,3 +3401,8 @@
 - fb36f160 fix(notifications): align release push copy with iOS limit plan
 - 3c571a1e fix(notifications): enforce iOS-safe title/body limits for push copy
 - 3536b308 fix(notifications): align release day/month text with wishlist date format
+
+## v1.43.7 - 2026-04-17
+
+- e64e3733 Merge pull request #348 from thetigeregg/dependabot/npm_and_yarn/server/fastify/middie-9.3.2
+- ae076c07 chore(deps): bump @fastify/middie from 9.3.1 to 9.3.2 in /server

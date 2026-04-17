@@ -3406,3 +3406,8 @@
 
 - e64e3733 Merge pull request #348 from thetigeregg/dependabot/npm_and_yarn/server/fastify/middie-9.3.2
 - ae076c07 chore(deps): bump @fastify/middie from 9.3.1 to 9.3.2 in /server
+
+## v1.43.8 - 2026-04-17
+
+- 26240c01 Merge pull request #350 from thetigeregg/dependabot/npm_and_yarn/protobufjs-7.5.5
+- 7e0b20da chore(deps): bump protobufjs from 7.5.4 to 7.5.5

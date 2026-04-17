@@ -3411,3 +3411,8 @@
 
 - 26240c01 Merge pull request #350 from thetigeregg/dependabot/npm_and_yarn/protobufjs-7.5.5
 - 7e0b20da chore(deps): bump protobufjs from 7.5.4 to 7.5.5
+
+## v1.43.9 - 2026-04-17
+
+- 6a74ace5 Merge pull request #349 from thetigeregg/dependabot/npm_and_yarn/server/protobufjs-7.5.5
+- 905e7a22 chore(deps): bump protobufjs from 7.5.4 to 7.5.5 in /server

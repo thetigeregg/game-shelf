@@ -3421,3 +3421,12 @@
 
 - b15ca270 Merge pull request #358 from thetigeregg/dependabot/docker/server/node-24.15.0-alpine
 - f592792b chore(docker): bump node in /server
+
+## v1.43.11 - 2026-04-20
+
+- 2b5909d4 Merge pull request #359 from thetigeregg/feat/bump
+- 14a50fd6 Revert "Merge pull request #358 from thetigeregg/dependabot/docker/server/node-24.15.0-alpine"
+- b8692ac7 Revert "chore(docker): bump node from 24.14.0-alpine to 24.15.0-alpine in /edge"
+- 55f9dd1e chore(docker): bump node from 24.14.0-alpine to 24.15.0-alpine in /edge
+- b8c7e694 chore(deps): update @thetigeregg/dev-cli to version 4.0.1
+- c89504aa chore(deps): update Angular and other dependencies to latest versions

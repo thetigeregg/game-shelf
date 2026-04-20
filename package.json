@@ -55,7 +55,7 @@
     "@tiptap/extension-details": "^3.22.3",
     "@tiptap/extension-list": "^3.22.3",
     "@tiptap/extension-underline": "^3.22.3",
-    "@tiptap/pm": "^3.22.3",
+    "@tiptap/pm": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.3",
     "dexie": "^4.4.2",
     "dompurify": "^3.4.0",

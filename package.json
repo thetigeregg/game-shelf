@@ -78,7 +78,7 @@
     "@angular/build": "^21.2.7",
     "@angular/cli": "^21.2.7",
     "@angular/compiler-cli": "^21.2.8",
-    "@angular/language-service": "^21.2.8",
+    "@angular/language-service": "^21.2.9",
     "@capacitor/cli": "8.3.0",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",

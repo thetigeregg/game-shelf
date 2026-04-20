@@ -3430,3 +3430,8 @@
 - 55f9dd1e chore(docker): bump node from 24.14.0-alpine to 24.15.0-alpine in /edge
 - b8c7e694 chore(deps): update @thetigeregg/dev-cli to version 4.0.1
 - c89504aa chore(deps): update Angular and other dependencies to latest versions
+
+## v1.43.12 - 2026-04-20
+
+- b344ffa8 Merge pull request #356 from thetigeregg/dependabot/npm_and_yarn/server/typescript-6.0.3
+- 9b51e482 chore(deps): bump typescript from 6.0.2 to 6.0.3 in /server

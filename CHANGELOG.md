@@ -3440,3 +3440,8 @@
 
 - 9ddbcc04 Merge pull request #369 from thetigeregg/dependabot/npm_and_yarn/multi-7bdfbe8666
 - 523de05c chore(deps): bump ip-address and express-rate-limit
+
+## v1.43.14 - 2026-05-08
+
+- e69097bc Merge pull request #370 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.18
+- b353e668 chore(deps): bump hono from 4.12.14 to 4.12.18

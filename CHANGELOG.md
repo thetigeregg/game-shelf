@@ -3435,3 +3435,8 @@
 
 - b344ffa8 Merge pull request #356 from thetigeregg/dependabot/npm_and_yarn/server/typescript-6.0.3
 - 9b51e482 chore(deps): bump typescript from 6.0.2 to 6.0.3 in /server
+
+## v1.43.13 - 2026-05-08
+
+- 9ddbcc04 Merge pull request #369 from thetigeregg/dependabot/npm_and_yarn/multi-7bdfbe8666
+- 523de05c chore(deps): bump ip-address and express-rate-limit

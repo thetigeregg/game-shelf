@@ -91,7 +91,7 @@
     "@thetigeregg/ncu-config": "^2.0.0",
     "@thetigeregg/prettier-config": "^1.0.0",
     "@types/node": "^24.12.2",
-    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.58.2",
     "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^9.39.3",

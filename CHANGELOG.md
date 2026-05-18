@@ -3454,3 +3454,8 @@
 - 64e417fc chore(deps): update Angular ecosystem packages
 - 3a2518f8 chore(deps): update Angular dependencies to version
 - ceafd2a6 chore(deps): update multiple dependencies in package-lock.json
+
+## v1.43.16 - 2026-05-18
+
+- eff0ef5d Merge pull request #381 from thetigeregg/feat/bump
+- 92785cf1 chore(deps): update deps

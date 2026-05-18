@@ -377,7 +377,7 @@ async function createExploreDetailComponentHarness(page: ExplorePage): Promise<{
     ),
   };
 
-  component.ngOnChanges(makeSimpleGameChange(component.game) as never);
+  component.ngOnChanges(makeSimpleGameChange(component.game));
   component.ngAfterViewInit();
 
   return {
@@ -1740,10 +1740,10 @@ describe('ExplorePage explore modes UX', () => {
       openGameDetail: (item: unknown) => Promise<void>;
       openSimilarRecommendation: (item: unknown, event: Event) => Promise<void>;
     };
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     const openSimilarRecommendation = vi
       .spyOn(page, 'openSimilarRecommendation')
-      .mockResolvedValue(undefined as never);
+      .mockResolvedValue(undefined);
     const event = new Event('click');
 
     page.onRecommendationRowClick('recommendation', mockLanesResponse.items[0], event);
@@ -1804,10 +1804,10 @@ describe('ExplorePage explore modes UX', () => {
     page.libraryOwnedGameIds.add('100');
     page.activeDetailRecommendation = { igdbGameId: '200', platformIgdbId: 6 };
 
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     const openSimilarRecommendation = vi
       .spyOn(page, 'openSimilarRecommendation')
-      .mockResolvedValue(undefined as never);
+      .mockResolvedValue(undefined);
     const event = new Event('click');
     page.onRecommendationRowClick(
       'recommendation',
@@ -1821,7 +1821,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.isActiveDetailIgnored).toBe(true);
 
     page.isGameDetailModalOpen = false;
-    await page.openGameDetail({ igdbGameId: '200', platformIgdbId: 6 } as never);
+    await page.openGameDetail({ igdbGameId: '200', platformIgdbId: 6 });
     expect(page.isGameDetailModalOpen).toBe(false);
 
     page.activeDetailRecommendation = null;
@@ -2233,7 +2233,7 @@ describe('ExplorePage explore modes UX', () => {
     page.markGameIdAsOwned('   ');
     expect(page.libraryOwnedGameIds.size).toBe(beforeOwnedSize);
 
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     page.selectedTarget = 'DISCOVERY';
     page.detailNavigationStack = [
       { igdbGameId: '100', platformIgdbId: 6 },
@@ -2440,7 +2440,7 @@ describe('ExplorePage explore modes UX', () => {
       ...mockLaneItem,
       igdbGameId: '300',
     };
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
 
     page.detailNavigationStack = [previousItem];
     page.activeDetailRecommendation = activeItem;
@@ -2615,7 +2615,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getSimilarCoverUrl(similar)).toContain('placeholder');
     expect(page.getSimilarReasonBadges(similar)[0]?.text).toContain('Blend');
 
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     page.detailNavigationStack = [mockLanesResponse.items[0]];
     page.goBackInDetailNavigation();
     expect(openGameDetail).toHaveBeenCalledTimes(1);
@@ -2718,7 +2718,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getMergedPlatformLabels(mockLanesResponse.items[0])).toBeTruthy();
     expect(page.getPlatformDisplayName('', null)).toBe('Unknown platform');
 
-    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     const stopPropagation = vi.fn();
     await page.openSimilarRecommendation(
       {

@@ -4,9 +4,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameRating,
-  GameRatingFilterOption,
   GameStatus,
-  GameStatusFilterOption,
   GameType,
   isGameRating,
 } from '../../core/models/game.models';
@@ -683,8 +681,7 @@ export class GameListFilteringEngine {
     if (filters.statuses.length > 0) {
       const gameStatus = normalized.status;
       const matchesNone = gameStatus === null && filters.statuses.includes('none');
-      const matchesStatus =
-        gameStatus !== null && filters.statuses.includes(gameStatus as GameStatusFilterOption);
+      const matchesStatus = gameStatus !== null && filters.statuses.includes(gameStatus);
 
       if (!matchesNone && !matchesStatus) {
         return false;
@@ -713,9 +710,7 @@ export class GameListFilteringEngine {
 
     if (filters.excludedStatuses.length > 0) {
       const gameStatus = normalized.status;
-      const matchesStatus =
-        gameStatus !== null &&
-        filters.excludedStatuses.includes(gameStatus as GameStatusFilterOption);
+      const matchesStatus = gameStatus !== null && filters.excludedStatuses.includes(gameStatus);
 
       if (matchesStatus) {
         return false;
@@ -740,8 +735,7 @@ export class GameListFilteringEngine {
     if (filters.ratings.length > 0) {
       const gameRating = normalized.rating;
       const matchesNone = gameRating === null && filters.ratings.includes('none');
-      const matchesRating =
-        gameRating !== null && filters.ratings.includes(gameRating as GameRatingFilterOption);
+      const matchesRating = gameRating !== null && filters.ratings.includes(gameRating);
 
       if (!matchesNone && !matchesRating) {
         return false;

@@ -1258,7 +1258,7 @@ function parseProvider(value: unknown): DiscoveryMatchProvider | null {
   }
   const normalized = value.trim().toLowerCase();
   return normalized === 'hltb' || normalized === 'review' || normalized === 'pricing'
-    ? (normalized as DiscoveryMatchProvider)
+    ? normalized
     : null;
 }
 
@@ -1272,7 +1272,7 @@ function parseStateFilter(value: unknown): DiscoveryMatchStateStatus | 'all' {
   }
   const normalized = value.trim();
   return normalized === 'missing' || normalized === 'retrying' || normalized === 'permanentMiss'
-    ? (normalized as DiscoveryMatchStateStatus)
+    ? normalized
     : 'all';
 }
 

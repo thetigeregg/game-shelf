@@ -91,7 +91,7 @@ void test('repository wraps callback with advisory lock and unlock', async () =>
 
   const result = await repository.withAdvisoryLock(() => Promise.resolve('ok'));
   assert.equal(result.acquired, true);
-  assert.equal((result as { acquired: true; value: string }).value, 'ok');
+  assert.equal(result.value, 'ok');
   assert.equal(
     queries.some((sql) => sql.includes('pg_try_advisory_lock')),
     true

@@ -22,6 +22,6 @@ describe('resolveEmulatorJsShader', () => {
   it('returns null for invalid ids', () => {
     expect(resolveEmulatorJsShader(0)).toBeNull();
     expect(resolveEmulatorJsShader(-1)).toBeNull();
-    expect(resolveEmulatorJsShader(1.5 as unknown as number)).toBeNull();
+    expect(resolveEmulatorJsShader(1.5)).toBeNull();
   });
 });

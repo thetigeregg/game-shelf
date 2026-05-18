@@ -253,7 +253,12 @@ export class DebugLogService {
             return null;
           }
 
-          return { ts, level, message, details } as DebugLogEntry;
+          return {
+            ts,
+            level,
+            message,
+            ...(details === undefined ? {} : { details }),
+          };
         })
         .filter((entry): entry is DebugLogEntry => entry !== null);
 

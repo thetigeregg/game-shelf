@@ -238,9 +238,7 @@ export class PlatformCustomizationService {
 
     const merged: PlatformDisplayNameMap =
       normalizedName.length === 0
-        ? (Object.fromEntries(
-            Object.entries(next).filter(([entryKey]) => entryKey !== key)
-          ) as PlatformDisplayNameMap)
+        ? Object.fromEntries(Object.entries(next).filter(([entryKey]) => entryKey !== key))
         : { ...next, [key]: normalizedName };
 
     const normalized = this.normalizeMap(merged);

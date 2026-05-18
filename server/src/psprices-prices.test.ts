@@ -929,13 +929,13 @@ void test('queued PSPrices revalidation stores retry state after a no-match disc
     releaseYear: 2026,
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(JSON.stringify({ candidates: [] }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       })
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
@@ -1005,7 +1005,7 @@ void test('queued PSPrices revalidation clears retry state after a successful di
     },
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -1021,7 +1021,7 @@ void test('queued PSPrices revalidation clears retry state after a successful di
           headers: { 'content-type': 'application/json' },
         }
       )
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
@@ -1059,13 +1059,13 @@ void test('queued PSPrices revalidation does not write retry state after a wishl
     releaseYear: 2026,
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(JSON.stringify({ candidates: [] }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       })
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
@@ -1102,7 +1102,7 @@ void test('queued PSPrices revalidation clears stale retry state after a wishlis
     },
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -1118,7 +1118,7 @@ void test('queued PSPrices revalidation clears stale retry state after a wishlis
           headers: { 'content-type': 'application/json' },
         }
       )
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
@@ -1148,7 +1148,7 @@ void test('queued PSPrices revalidation refreshes locked games using the saved m
     psPricesUrl: 'https://psprices.com/region-ch/game/1702/corrected-title',
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -1164,7 +1164,7 @@ void test('queued PSPrices revalidation refreshes locked games using the saved m
           headers: { 'content-type': 'application/json' },
         }
       )
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
@@ -1213,13 +1213,13 @@ void test('queued PSPrices revalidation rearms capped retry state before persist
   config.recommendationsDiscoveryEnrichMaxAttempts = 6;
   config.recommendationsDiscoveryEnrichRearmAfterDays = 30;
   config.recommendationsDiscoveryEnrichRearmRecentReleaseYears = 1;
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(JSON.stringify({ candidates: [] }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       })
-    )) as typeof fetch;
+    );
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {

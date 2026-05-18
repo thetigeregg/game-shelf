@@ -58,7 +58,6 @@ vi.mock('swiper/modules', () => ({
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import type { GameEntry } from '../../core/models/game.models';
-import type { SimpleChanges } from '@angular/core';
 
 type SwiperInstanceMock = {
   allowTouchMove: boolean;
@@ -217,7 +216,7 @@ describe('GameDetailContentComponent rating display', () => {
         firstChange,
         isFirstChange: () => firstChange,
       },
-    } as SimpleChanges);
+    });
   }
 
   it('shows rating label without trailing zeros and edit action when rated', () => {

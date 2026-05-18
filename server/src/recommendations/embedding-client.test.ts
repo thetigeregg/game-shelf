@@ -28,13 +28,13 @@ void test('generateEmbeddings throws when api key is missing', async () => {
 });
 
 void test('generateEmbeddings throws for non-ok response and shortens body text', async () => {
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response('x'.repeat(1000), {
         status: 429,
         statusText: 'Too Many Requests',
       })
-    )) as typeof fetch;
+    );
 
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',
@@ -55,7 +55,7 @@ void test('generateEmbeddings validates response entry count and embedding prese
     dimensions: 3,
   });
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -63,10 +63,10 @@ void test('generateEmbeddings validates response entry count and embedding prese
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
-    )) as typeof fetch;
+    );
   await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /expected number of vectors/);
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -74,10 +74,10 @@ void test('generateEmbeddings validates response entry count and embedding prese
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
-    )) as typeof fetch;
+    );
   await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /missing embedding data/);
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -88,10 +88,10 @@ void test('generateEmbeddings validates response entry count and embedding prese
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
-    )) as typeof fetch;
+    );
   await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /incorrect dimension/);
 
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -102,13 +102,13 @@ void test('generateEmbeddings validates response entry count and embedding prese
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
-    )) as typeof fetch;
+    );
   await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /non-finite embedding values/);
   restoreFetch();
 });
 
 void test('generateEmbeddings returns vectors sorted by index', async () => {
-  globalThis.fetch = (() =>
+  globalThis.fetch = () =>
     Promise.resolve(
       new Response(
         JSON.stringify({
@@ -119,7 +119,7 @@ void test('generateEmbeddings returns vectors sorted by index', async () => {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
-    )) as typeof fetch;
+    );
 
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',

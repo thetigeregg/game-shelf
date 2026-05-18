@@ -3459,3 +3459,9 @@
 
 - eff0ef5d Merge pull request #381 from thetigeregg/feat/bump
 - 92785cf1 chore(deps): update deps
+
+## v1.43.17 - 2026-05-18
+
+- 643f425d Merge pull request #382 from thetigeregg/feat/bump
+- b7fce90e Merge branch 'main' into feat/bump
+- cd2d724d chore(deps): update Playwright version to v1.60.0 in Dockerfiles

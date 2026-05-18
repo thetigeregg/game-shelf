@@ -211,7 +211,7 @@ export class RomService {
 
     const filtered = Object.fromEntries(
       Object.entries(nextMap).filter(([entryKey]) => entryKey !== key)
-    ) as RomOverrideMap;
+    );
     this.persistOverrides(filtered);
   }
 

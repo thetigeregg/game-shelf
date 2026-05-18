@@ -21,7 +21,9 @@ void test('runMigrations normalizes non-error throw values', async () => {
         return Promise.resolve();
       }
       const nonErrorReason: unknown = 'migration_failed_as_string';
-      return Promise.reject(nonErrorReason as Error);
+      // Intentionally reject with a non-Error to assert runMigrations normalization.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- test fixture
+      return Promise.reject(nonErrorReason);
     },
   };
 

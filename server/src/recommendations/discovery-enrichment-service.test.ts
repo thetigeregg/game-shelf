@@ -344,10 +344,10 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(null, { status: 500 }));
-  }) as typeof fetch;
+  };
 
   const steamMetadataClient = {
     fetchGameMetadataByIds: () =>
@@ -671,7 +671,7 @@ void test('discovery enrichment refreshes locked HLTB and review providers using
 
   const fetchUrls: string[] = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = ((input: URL | RequestInfo) => {
+  globalThis.fetch = (input: URL | RequestInfo) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     fetchUrls.push(url);
@@ -706,7 +706,7 @@ void test('discovery enrichment refreshes locked HLTB and review providers using
     }
 
     return Promise.resolve(new Response('{}', { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(repository as never, {
@@ -1189,7 +1189,7 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
     },
   ];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => Promise.resolve(new Response(null, { status: 500 }))) as typeof fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 500 }));
   try {
     const service = new DiscoveryEnrichmentService(repository as never, {
       enabled: true,
@@ -1283,10 +1283,10 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
@@ -1348,10 +1348,10 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
@@ -1452,12 +1452,12 @@ void test('discovery enrichment does not increment retry state on transient prov
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(
       new Response(JSON.stringify({ error: 'upstream_down' }), { status: 500 })
     );
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(
@@ -1515,10 +1515,10 @@ void test('discovery enrichment increments retry state on 204 no-content respons
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(null, { status: 204 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(
@@ -1666,10 +1666,10 @@ void test('discovery enrichment rearms capped retry state for recent releases af
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(
@@ -1737,10 +1737,10 @@ void test('discovery enrichment rearms capped retry state when release year is m
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(
@@ -1801,10 +1801,10 @@ void test('discovery enrichment keeps permanent miss for older releases outside 
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(
@@ -1865,10 +1865,10 @@ void test('discovery enrichment does not rearm before cooldown days elapse', asy
 
   let fetchCalls = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
-  }) as typeof fetch;
+  };
 
   try {
     const service = new DiscoveryEnrichmentService(

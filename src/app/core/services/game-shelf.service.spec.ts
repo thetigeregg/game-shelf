@@ -139,7 +139,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(mario, 'collection');
@@ -183,7 +183,7 @@ describe('GameShelfService', () => {
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-02T00:00:00.000Z',
       enteredCollectionAt: '2024-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.setGameTimestamps('123', 130, {
       updatedAt: '2024-01-02T00:00:00.000Z',
@@ -223,7 +223,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     repository.exists.mockResolvedValue({
       ...mario,
       platform: 'PC',
@@ -231,7 +231,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(mario, 'collection');
@@ -265,7 +265,7 @@ describe('GameShelfService', () => {
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(game, 'wishlist', {
@@ -306,7 +306,7 @@ describe('GameShelfService', () => {
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     repository.exists.mockResolvedValue({
       ...mario,
       platform: 'PC',
@@ -314,7 +314,7 @@ describe('GameShelfService', () => {
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(mario, 'wishlist');
@@ -348,13 +348,13 @@ describe('GameShelfService', () => {
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     repository.exists.mockResolvedValue({
       ...game,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(game, 'wishlist');
@@ -390,7 +390,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(mario, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -438,7 +438,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
 
@@ -470,7 +470,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -498,7 +498,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -538,7 +538,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -579,7 +579,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -613,7 +613,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -646,7 +646,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    } as GameEntry);
+    });
 
     await service.addGame(game, 'collection');
 
@@ -804,7 +804,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: 'x',
       updatedAt: 'x',
-    } as GameEntry);
+    });
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response('{}', { status: 200 }));
@@ -935,7 +935,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: 'x',
       updatedAt: 'x',
-    } as GameEntry);
+    });
 
     let capturedHeaders: HeadersInit | undefined;
     vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
@@ -1018,7 +1018,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: 'x',
       updatedAt: 'x',
-    } as GameEntry);
+    });
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
@@ -1074,7 +1074,7 @@ describe('GameShelfService', () => {
         listType: 'collection',
         createdAt: 'x',
         updatedAt: 'x',
-      } as GameEntry);
+      });
 
     await service.migrateLegacyPickerCoversToCustomCovers();
 
@@ -1085,7 +1085,7 @@ describe('GameShelfService', () => {
   });
 
   it('uses the direct Metacritic fallback helper when review lookup is unavailable', async () => {
-    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined;
     searchApi.lookupMetacriticScore.mockReturnValue(
       of({
         metacriticScore: 91,
@@ -1802,7 +1802,7 @@ describe('GameShelfService', () => {
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined;
     searchApi.lookupMetacriticScore.mockReturnValue(
       of({
         metacriticScore: 87,
@@ -2021,7 +2021,7 @@ describe('GameShelfService', () => {
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined;
     searchApi.lookupMetacriticScore.mockReturnValue(of(null));
     repository.upsertFromCatalog.mockResolvedValue(existingEntry);
 
@@ -2162,7 +2162,7 @@ describe('GameShelfService', () => {
       priceDiscountPercent: null,
       priceIsFree: null,
       priceUrl: null,
-    } as GameEntry);
+    });
 
     await service.refreshGamePricing('77', 32);
 
@@ -2822,7 +2822,7 @@ describe('GameShelfService', () => {
     ).resolves.toBeNull();
 
     const originalLookupPsPrices = searchApi.lookupPsPrices;
-    (searchApi as Partial<GameSearchApi>).lookupPsPrices = undefined as never;
+    (searchApi as Partial<GameSearchApi>).lookupPsPrices = undefined;
 
     await expect(
       (
@@ -3291,7 +3291,7 @@ describe('GameShelfService', () => {
       createdAt: 'x',
       updatedAt: 'x',
       rating: null,
-    } as GameEntry);
+    });
     repository.listTags.mockResolvedValue([]);
     await service.setGameRating('123', 130, 99 as never);
     expect(repository.setGameRating).toHaveBeenCalledWith('123', 130, null);
@@ -3612,7 +3612,7 @@ describe('GameShelfService', () => {
       groupBy: 'none',
       createdAt: 'x',
       updatedAt: 'z',
-    } as GameListView);
+    });
     repository.listViews.mockResolvedValue([
       {
         id: 11,

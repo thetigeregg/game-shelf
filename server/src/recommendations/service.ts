@@ -1322,7 +1322,7 @@ export function parseRecommendationTarget(value: unknown): RecommendationTarget 
   if (typeof value === 'string') {
     const normalized = normalizeTokenKey(value).toUpperCase();
     if (normalized === 'BACKLOG' || normalized === 'WISHLIST' || normalized === 'DISCOVERY') {
-      return normalized as RecommendationTarget;
+      return normalized;
     }
   }
 

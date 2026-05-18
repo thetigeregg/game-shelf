@@ -190,7 +190,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
     psPricesTitle: string;
     psPricesPlatform: string;
   } = {
-    priceSource: 'psprices' as PricingSource,
+    priceSource: 'psprices',
     priceFetchedAt: '',
     priceAmount: '',
     priceCurrency: '',

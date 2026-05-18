@@ -27,7 +27,7 @@ function queryResult<T extends QueryResultRow>(rows: T[], rowCount = rows.length
     oid: 0,
     fields: [],
     rows,
-  } as QueryResult<T>;
+  };
 }
 
 function normalizeSql(sql: string): string {
@@ -116,11 +116,11 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -133,8 +133,8 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       )
     ) {
       return queryResult([
-        { igdb_game_id: '10', platform_igdb_id: 6 } as QueryResultRow,
-        { igdb_game_id: '11', platform_igdb_id: 6 } as QueryResultRow,
+        { igdb_game_id: '10', platform_igdb_id: 6 },
+        { igdb_game_id: '11', platform_igdb_id: 6 },
       ]);
     }
 
@@ -147,10 +147,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
 
     if (normalized.includes('with target_game_ids as')) {
       recomputeParams.push(params ?? []);
-      return queryResult(
-        [{ popularity_score: 123 } as QueryResultRow, { popularity_score: 45 } as QueryResultRow],
-        2
-      );
+      return queryResult([{ popularity_score: 123 }, { popularity_score: 45 }], 2);
     }
 
     throw new Error(`Unexpected SQL in test: ${sql}`);
@@ -260,11 +257,11 @@ void test('runOnce carries websites and steam app ids into refreshed game payloa
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -276,7 +273,7 @@ void test('runOnce carries websites and steam app ids into refreshed game payloa
         'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
       )
     ) {
-      return queryResult([{ igdb_game_id: '10', platform_igdb_id: 6 } as QueryResultRow]);
+      return queryResult([{ igdb_game_id: '10', platform_igdb_id: 6 }]);
     }
 
     if (
@@ -289,7 +286,7 @@ void test('runOnce carries websites and steam app ids into refreshed game payloa
     }
 
     if (normalized.includes('with target_game_ids as')) {
-      return queryResult([{ popularity_score: 123 } as QueryResultRow], 1);
+      return queryResult([{ popularity_score: 123 }], 1);
     }
 
     throw new Error(`Unexpected SQL in test: ${sql}`);
@@ -388,11 +385,11 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -408,9 +405,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       const gameIds = Array.isArray(params?.[0])
         ? params[0].filter((value): value is string => typeof value === 'string')
         : [];
-      return queryResult(
-        gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 }) as QueryResultRow)
-      );
+      return queryResult(gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 })));
     }
 
     if (
@@ -425,7 +420,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
         ? params[0].filter((value): value is string => typeof value === 'string')
         : [];
       return queryResult(
-        gameIds.map(() => ({ popularity_score: 1 }) as QueryResultRow),
+        gameIds.map(() => ({ popularity_score: 1 })),
         gameIds.length
       );
     }
@@ -524,7 +519,7 @@ void test('runOnce exits early when advisory lock is unavailable', async () => {
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: false } as QueryResultRow]);
+      return queryResult([{ acquired: false }]);
     }
 
     throw new Error(`Unexpected SQL when lock is unavailable: ${sql}`);
@@ -554,11 +549,11 @@ void test('runOnce handles invalid sourceTypeIds by returning empty type summary
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     throw new Error(`Unexpected SQL for invalid sourceTypeIds test: ${sql}`);
@@ -593,11 +588,11 @@ void test('runOnce returns zero-signal summary when primitive rows normalize to 
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     throw new Error(`Unexpected SQL for empty primitives test: ${sql}`);
@@ -649,11 +644,11 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -685,7 +680,7 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
     }
 
     if (normalized.includes('with target_game_ids as')) {
-      return queryResult([{ popularity_score: 111 } as QueryResultRow], 1);
+      return queryResult([{ popularity_score: 111 }], 1);
     }
 
     throw new Error(`Unexpected SQL for missing game insert test: ${sql}`);
@@ -780,11 +775,11 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -796,7 +791,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
         'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
       )
     ) {
-      return queryResult([{ igdb_game_id: '347668', platform_igdb_id: 6 } as QueryResultRow]);
+      return queryResult([{ igdb_game_id: '347668', platform_igdb_id: 6 }]);
     }
 
     if (
@@ -836,7 +831,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
     }
 
     if (normalized.includes('with target_game_ids as')) {
-      return queryResult([{ popularity_score: 1082.5 } as QueryResultRow], 1);
+      return queryResult([{ popularity_score: 1082.5 }], 1);
     }
 
     throw new Error(`Unexpected SQL for existing game refresh test: ${sql}`);
@@ -919,11 +914,11 @@ void test('runOnce applies cooldown when popularity type fetch is rate limited',
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     throw new Error(`Unexpected SQL for popularity type rate limit test: ${sql}`);
@@ -974,11 +969,11 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -994,9 +989,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
       const gameIds = Array.isArray(params?.[0])
         ? params[0].filter((value): value is string => typeof value === 'string')
         : [];
-      return queryResult(
-        gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 }) as QueryResultRow)
-      );
+      return queryResult(gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 })));
     }
 
     if (
@@ -1007,7 +1000,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
     }
 
     if (normalized.includes('with target_game_ids as')) {
-      return queryResult([{ popularity_score: 77 } as QueryResultRow], 1);
+      return queryResult([{ popularity_score: 77 }], 1);
     }
 
     throw new Error(`Unexpected SQL for primitive rate limit test: ${sql}`);
@@ -1085,11 +1078,11 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
     const normalized = normalizeSql(sql);
 
     if (normalized.startsWith('select pg_try_advisory_lock')) {
-      return queryResult([{ acquired: true } as QueryResultRow]);
+      return queryResult([{ acquired: true }]);
     }
 
     if (normalized.startsWith('select pg_advisory_unlock')) {
-      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+      return queryResult([{ pg_advisory_unlock: true }]);
     }
 
     if (normalized.includes('insert into game_popularity')) {
@@ -1097,7 +1090,7 @@ void test('runOnce keeps persisted signal results when game metadata fetch is ra
     }
 
     if (normalized.includes('with target_game_ids as')) {
-      return queryResult([{ popularity_score: 33 } as QueryResultRow], 1);
+      return queryResult([{ popularity_score: 33 }], 1);
     }
 
     throw new Error(`Unexpected SQL for game metadata rate limit test: ${sql}`);

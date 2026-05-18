@@ -444,7 +444,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { igdbGameId: '123', platformIgdbId: 130 },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const removed = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -472,7 +472,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { igdbGameId: '123', platformIgdbId: 'invalid' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stillThere = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -496,7 +496,7 @@ describe('GameSyncService', () => {
         tagIds: [1, 1, 2, -3, 'bad'],
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['777', 130]).first();
     expect(stored?.title).toBe('Unknown title');
@@ -518,7 +518,7 @@ describe('GameSyncService', () => {
         discoverySource: 'recent',
       }),
       serverTimestamp: '2026-03-05T14:15:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -553,7 +553,7 @@ describe('GameSyncService', () => {
         discoverySource: 'recent',
       }),
       serverTimestamp: '2026-03-05T14:15:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -599,7 +599,7 @@ describe('GameSyncService', () => {
         discoverySource: 'recent',
       }),
       serverTimestamp: '2026-03-05T14:15:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -646,7 +646,7 @@ describe('GameSyncService', () => {
           discoverySource: 'recent',
         }),
         serverTimestamp: '2026-01-01T00:00:00.000Z',
-      } as SyncChangeEvent,
+      },
     ]);
 
     const stored = await db.games
@@ -683,7 +683,7 @@ describe('GameSyncService', () => {
         title: 'Pulled Game',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const localRow = await db.games
       .where('[igdbGameId+platformIgdbId]')
@@ -728,7 +728,7 @@ describe('GameSyncService', () => {
         createdAt: 'not-a-date',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.hltbMainHours).toBeNull();
@@ -806,7 +806,7 @@ describe('GameSyncService', () => {
         title: 'Updated Title',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.title).toBe('Updated Title');
@@ -864,7 +864,7 @@ describe('GameSyncService', () => {
         title: 'Updated Title',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.title).toBe('Updated Title');
@@ -931,7 +931,7 @@ describe('GameSyncService', () => {
         psPricesMatchLocked: false,
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.hltbMatchGameId).toBe(7003);
@@ -959,7 +959,7 @@ describe('GameSyncService', () => {
         hltbMatchUrl: '  //howlongtobeat.com/game/7003  ',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.hltbMatchGameId).toBe(7003);
@@ -991,7 +991,7 @@ describe('GameSyncService', () => {
         title: 'Updated Title',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.title).toBe('Updated Title');
@@ -1031,7 +1031,7 @@ describe('GameSyncService', () => {
         ],
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.screenshots).toEqual([
@@ -1119,7 +1119,7 @@ describe('GameSyncService', () => {
         ],
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.websites).toEqual([
@@ -1151,7 +1151,7 @@ describe('GameSyncService', () => {
         rating: '4.5',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.rating).toBe(4.5);
@@ -1169,7 +1169,7 @@ describe('GameSyncService', () => {
         customCoverUrl: '  data:image/png;base64,AAA  ',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.customTitle).toBe('Custom Game');
@@ -1192,7 +1192,7 @@ describe('GameSyncService', () => {
         customCoverUrl: 'ftp://not-allowed.example',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.customTitle).toBeNull();
@@ -1210,7 +1210,7 @@ describe('GameSyncService', () => {
         customCoverUrl: ' https://images.example.com/custom-cover.jpg ',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
@@ -1225,7 +1225,7 @@ describe('GameSyncService', () => {
         customCoverUrl: ' //images.example.com/custom-cover.jpg ',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.customCoverUrl).toBe('https://images.example.com/custom-cover.jpg');
@@ -1240,7 +1240,7 @@ describe('GameSyncService', () => {
         customCoverUrl: 'https://user:pass@images.example.com/custom-cover.jpg',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.customCoverUrl).toBeNull();
@@ -1274,7 +1274,7 @@ describe('GameSyncService', () => {
           coverSource: 'igdb',
         }),
         serverTimestamp: '2026-01-01T00:00:00.000Z',
-      } as SyncChangeEvent,
+      },
       new Set(['123::130'])
     );
 
@@ -1313,7 +1313,7 @@ describe('GameSyncService', () => {
           coverSource: 'igdb',
         }),
         serverTimestamp: '2026-01-01T00:00:00.000Z',
-      } as SyncChangeEvent,
+      },
       new Set(['123::130'])
     );
 
@@ -1337,7 +1337,7 @@ describe('GameSyncService', () => {
         mobygamesGameId: 42,
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.reviewScore).toBe(88);
@@ -1361,7 +1361,7 @@ describe('GameSyncService', () => {
         mobygamesGameId: 42,
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.reviewScore).toBe(88);
@@ -1382,7 +1382,7 @@ describe('GameSyncService', () => {
         mobygamesGameId: 42,
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.reviewScore).toBe(75);
@@ -1402,7 +1402,7 @@ describe('GameSyncService', () => {
         mobygamesGameId: 42,
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.reviewScore).toBe(88);
@@ -1421,7 +1421,7 @@ describe('GameSyncService', () => {
         reviewSource: 'metacritic',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.reviewScore).toBe(91);
@@ -1461,7 +1461,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { id: 7 },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const deletedTag = await db.tags.get(7);
     expect(deletedTag).toBeUndefined();
@@ -1476,7 +1476,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { id: 5, name: '  ', color: '  ' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.tags.get(5);
     expect(stored?.name).toBe('Tag 5');
@@ -1490,7 +1490,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { id: 11, name: '  ', listType: 'bad', filters: null, groupBy: null },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const stored = await db.views.get(11);
     expect(stored?.name).toBe('Saved View');
@@ -1504,7 +1504,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { id: 11 },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     const removed = await db.views.get(11);
     expect(removed).toBeUndefined();
   });
@@ -1519,7 +1519,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { key: PLATFORM_ORDER_STORAGE_KEY, value: '["130"]' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     expect(localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY)).toBe('["130"]');
     expect(orderRefreshSpy).toHaveBeenCalled();
 
@@ -1529,7 +1529,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { key: PLATFORM_DISPLAY_NAMES_STORAGE_KEY, value: '{"130":"Switch"}' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     expect(localStorage.getItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY)).toBe('{"130":"Switch"}');
     expect(displayRefreshSpy).toHaveBeenCalled();
 
@@ -1539,7 +1539,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { key: PLATFORM_ORDER_STORAGE_KEY },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     expect(localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY)).toBeNull();
   });
 
@@ -1604,14 +1604,14 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: '', platformIgdbId: 130 }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     await servicePrivate.applyGameChange({
       eventId: '15',
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: 'abc', platformIgdbId: 0 }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const games = await db.games.toArray();
     expect(games.length).toBe(0);
@@ -1624,7 +1624,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { id: 'bad' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     await servicePrivate.applyTagChange({
       eventId: '17',
@@ -1632,7 +1632,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { id: 0, name: 'ignored' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const tags = await db.tags.toArray();
     expect(tags.length).toBe(0);
@@ -1645,7 +1645,7 @@ describe('GameSyncService', () => {
       operation: 'delete',
       payload: { id: 'bad' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     await servicePrivate.applyViewChange({
       eventId: '19',
@@ -1653,7 +1653,7 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { id: 22, name: 'Wish', listType: 'wishlist' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     const view = await db.views.get(22);
     expect(view?.listType).toBe('wishlist');
@@ -1666,14 +1666,14 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: { key: '   ', value: 'x' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
     await servicePrivate.applySettingChange({
       eventId: '21',
       entityType: 'setting',
       operation: 'delete',
       payload: { key: '   ' },
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     expect(localStorage.getItem('')).toBeNull();
   });
@@ -2331,7 +2331,7 @@ describe('GameSyncService', () => {
         title: 'Retry Game',
       }),
       serverTimestamp: '2026-01-01T00:00:00.000Z',
-    } as SyncChangeEvent);
+    });
 
     expect(putSpy).toHaveBeenCalledTimes(2);
     const firstArg = putSpy.mock.calls[0][0] as { id?: number };
@@ -2356,7 +2356,7 @@ describe('GameSyncService', () => {
           title: 'Throw Game',
         }),
         serverTimestamp: '2026-01-01T00:00:00.000Z',
-      } as SyncChangeEvent)
+      })
     ).rejects.toThrow('abort');
 
     expect(putSpy).toHaveBeenCalledTimes(1);

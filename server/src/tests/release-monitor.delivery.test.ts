@@ -733,7 +733,7 @@ void test('processQueuedReleaseMonitorGame reuses short-lived cached settings an
 
 void test('processGameRow refreshes unlocked HLTB/review metadata and persists a payload patch', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = ((input: URL | RequestInfo) => {
+  globalThis.fetch = (input: URL | RequestInfo) => {
     const url =
       input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
 
@@ -809,7 +809,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
     }
 
     return Promise.resolve(new Response(null, { status: 404 }));
-  }) as typeof fetch;
+  };
 
   try {
     const pool = new ProcessGameRowPoolMock();
@@ -864,7 +864,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
 
 void test('processGameRow refreshes locked HLTB/review metadata using saved match query fields', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = ((input: URL | RequestInfo) => {
+  globalThis.fetch = (input: URL | RequestInfo) => {
     const url =
       input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
 
@@ -940,7 +940,7 @@ void test('processGameRow refreshes locked HLTB/review metadata using saved matc
     }
 
     return Promise.resolve(new Response(null, { status: 404 }));
-  }) as typeof fetch;
+  };
 
   try {
     const pool = new ProcessGameRowPoolMock();
@@ -991,7 +991,7 @@ void test('processGameRow refreshes locked HLTB/review metadata using saved matc
 
 void test('processGameRow treats explicit mobygames override id mismatch as review miss', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = ((input: URL | RequestInfo) => {
+  globalThis.fetch = (input: URL | RequestInfo) => {
     const url =
       input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
 
@@ -1053,7 +1053,7 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
     }
 
     return Promise.resolve(new Response(null, { status: 404 }));
-  }) as typeof fetch;
+  };
 
   try {
     const pool = new ProcessGameRowPoolMock();

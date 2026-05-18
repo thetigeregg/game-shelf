@@ -216,7 +216,7 @@ export class ManualService {
 
     const filtered = Object.fromEntries(
       Object.entries(nextMap).filter(([entryKey]) => entryKey !== key)
-    ) as ManualOverrideMap;
+    );
     this.persistOverrides(filtered);
   }
 

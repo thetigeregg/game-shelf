@@ -147,7 +147,7 @@ function resolveServiceAccount(): ServiceAccount {
     if (!parsedUnknown || typeof parsedUnknown !== 'object') {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON must be a JSON object.');
     }
-    cachedServiceAccount = parsedUnknown as ServiceAccount;
+    cachedServiceAccount = parsedUnknown;
     return cachedServiceAccount;
   } catch (error) {
     const message =

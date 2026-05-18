@@ -39,9 +39,7 @@ function makeHarness(overrides?: Partial<Record<string, unknown>>): Record<strin
     platformCustomizationService: {
       resolveCanonicalPlatformIgdbId: vi.fn().mockReturnValue(7),
     },
-    getGameDisplayPlatform: vi
-      .fn()
-      .mockReturnValue({ name: 'Sony PlayStation', igdbId: 7 } as { name: string; igdbId: number }),
+    getGameDisplayPlatform: vi.fn().mockReturnValue({ name: 'Sony PlayStation', igdbId: 7 }),
     presentEmulatorUnsupportedToast: vi.fn().mockResolvedValue(undefined),
     toastController,
     changeDetectorRef,
@@ -94,7 +92,7 @@ describe('GameListComponent emulator launch flow', () => {
       getGameDisplayPlatform: vi.fn().mockReturnValue({
         name: 'Turbografx-16/PC Engine CD',
         igdbId: 150,
-      } as { name: string; igdbId: number }),
+      }),
     });
 
     await GameListComponent.prototype.openRomInEmulator.call(
@@ -172,9 +170,7 @@ describe('GameListComponent ROM UI vs EmulatorJS platform map', () => {
       platformCustomizationService: {
         resolveCanonicalPlatformIgdbId: vi.fn().mockReturnValue(5),
       },
-      getGameDisplayPlatform: vi
-        .fn()
-        .mockReturnValue({ name: 'Wii', igdbId: 5 } as { name: string; igdbId: number }),
+      getGameDisplayPlatform: vi.fn().mockReturnValue({ name: 'Wii', igdbId: 5 }),
     };
   }
 

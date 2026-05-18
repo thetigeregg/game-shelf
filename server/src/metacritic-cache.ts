@@ -176,9 +176,7 @@ function normalizeMetacriticQuery(rawUrl: string): NormalizedMetacriticQuery | n
     releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
     platform,
     platformIgdbId:
-      Number.isInteger(platformIgdbId) && (platformIgdbId as number) > 0
-        ? (platformIgdbId as number)
-        : null,
+      Number.isInteger(platformIgdbId) && (platformIgdbId as number) > 0 ? platformIgdbId : null,
     includeCandidates,
   };
 }

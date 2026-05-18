@@ -1062,7 +1062,7 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
 
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
-  globalThis.fetch = (() => {
+  globalThis.fetch = () => {
     fetchCalls += 1;
     return Promise.resolve(
       new Response(JSON.stringify({ games: [] }), {
@@ -1070,7 +1070,7 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
         headers: { 'content-type': 'application/json' },
       })
     );
-  }) as typeof fetch;
+  };
 
   const originalDateNow = Date.now;
   const fakeNow = 1_700_000_000_000;

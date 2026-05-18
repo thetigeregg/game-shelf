@@ -31,10 +31,7 @@ vi.mock('@ionic/angular/standalone', () => {
 
 import { AdminDiscoveryMatchPage } from './admin-discovery-match.page';
 import { groupAdminDiscoveryItems } from './admin-discovery-match.utils';
-import type {
-  AdminDiscoveryDetailResponse,
-  AdminDiscoveryMatchService,
-} from '../core/services/admin-discovery-match.service';
+import type { AdminDiscoveryDetailResponse } from '../core/services/admin-discovery-match.service';
 import type { GameShelfService } from '../core/services/game-shelf.service';
 import type {
   HltbMatchCandidate,
@@ -174,7 +171,7 @@ function createPageHarness(): {
     { value: 'psprices', label: 'PSPrices' },
   ]);
   setField(page, 'gameShelfService', gameShelfService);
-  setField(page, 'adminMatchService', adminMatchService as unknown as AdminDiscoveryMatchService);
+  setField(page, 'adminMatchService', adminMatchService);
   setField(page, 'clientWriteAuth', {
     getToken: vi.fn(() => 'device-token-1'),
     hasToken: vi.fn(() => true),

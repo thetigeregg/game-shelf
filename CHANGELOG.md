@@ -3445,3 +3445,12 @@
 
 - e69097bc Merge pull request #370 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.18
 - b353e668 chore(deps): bump hono from 4.12.14 to 4.12.18
+
+## v1.43.15 - 2026-05-18
+
+- bb52494e Merge pull request #380 from thetigeregg/feat/bump
+- cf30c2b4 chore(deps): fix lint and build after typescript-eslint bump
+- 285349be chore(deps): update dependencies in package.json and package-lock.json
+- 64e417fc chore(deps): update Angular ecosystem packages
+- 3a2518f8 chore(deps): update Angular dependencies to version
+- ceafd2a6 chore(deps): update multiple dependencies in package-lock.json

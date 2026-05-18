@@ -58,7 +58,7 @@
     "@tiptap/pm": "^3.23.4",
     "@tiptap/starter-kit": "^3.23.4",
     "dexie": "^4.4.2",
-    "dompurify": "^3.4.4",
+    "dompurify": "^3.4.5",
     "fake-indexeddb": "^6.2.5",
     "firebase": "^11.10.0",
     "ionicons": "^8.0.13",

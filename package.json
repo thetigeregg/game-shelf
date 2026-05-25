@@ -53,7 +53,7 @@
     "@semantic-icons/simple-icons": "^0.58.0",
     "@tiptap/core": "^3.23.4",
     "@tiptap/extension-details": "^3.23.4",
-    "@tiptap/extension-list": "^3.23.4",
+    "@tiptap/extension-list": "^3.23.6",
     "@tiptap/extension-underline": "^3.23.4",
     "@tiptap/pm": "^3.23.4",
     "@tiptap/starter-kit": "^3.23.4",

@@ -3478,3 +3478,10 @@
 
 - 1ebd550c Merge pull request #396 from thetigeregg/feat/bump2
 - 160bf39e chore(deps): update pg and tsx to latest versions in server package
+
+## v1.44.0 - 2026-05-28
+
+- 481311e4 Merge pull request #397 from thetigeregg/feat/highlight
+- 90033262 Merge branch 'main' into feat/highlight
+- ed33a890 refactor(game-search): restructure badge display for better layout and styling
+- 0b6dac33 feat(ui): highlight search results already in library

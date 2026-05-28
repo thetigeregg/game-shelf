@@ -3465,3 +3465,16 @@
 - 643f425d Merge pull request #382 from thetigeregg/feat/bump
 - b7fce90e Merge branch 'main' into feat/bump
 - cd2d724d chore(deps): update Playwright version to v1.60.0 in Dockerfiles
+
+## v1.43.18 - 2026-05-28
+
+- 804913be Merge pull request #395 from thetigeregg/feat/bump
+- 065159ec chore(deps): update package dependencies to latest versions
+- f18ec83c chore(deps): update @angular/cdk to version 21.2.13
+- 19b01a1c chore(deps): update Angular packages to version 21.2.15
+- ba62c3ec chore(deps): update qs package
+
+## v1.43.19 - 2026-05-28
+
+- 1ebd550c Merge pull request #396 from thetigeregg/feat/bump2
+- 160bf39e chore(deps): update pg and tsx to latest versions in server package

@@ -124,6 +124,20 @@ describe('presentShareFile', () => {
     expect(revokeSpy).not.toHaveBeenCalled();
   });
 
+  it('falls back to anchor download when share rejects a non-error value', async () => {
+    const share = vi.fn().mockRejectedValue('share unavailable');
+    const canShare = vi.fn().mockReturnValue(true);
+    stubNavigator({ share, canShare });
+
+    mockBlobUrls();
+    const anchor = mockAnchorDownload();
+
+    await presentShareFile(shareParams);
+
+    expect(share).toHaveBeenCalledOnce();
+    expect(anchor.click).toHaveBeenCalledOnce();
+  });
+
   it('does not download when the user cancels share with a cancel message', async () => {
     const share = vi.fn().mockRejectedValue(new Error('User canceled share'));
     const canShare = vi.fn().mockReturnValue(true);

@@ -147,8 +147,7 @@ import {
   parseTagSelection,
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
-import { presentShareFile } from '../../core/utils/share-file.util';
-import { buildGamesExportCsv } from '../../settings/settings-import-export.utils';
+import { exportSelectedGamesCsv } from './game-list-selection-export.util';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
@@ -936,13 +935,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     try {
-      const tags = await this.gameShelfService.listTags();
-      const csv = buildGamesExportCsv(selectedGames, tags);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      await presentShareFile({
-        content: csv,
-        filename: `game-shelf-selected-export-${timestamp}.csv`,
-        mimeType: 'text/csv;charset=utf-8',
+      await exportSelectedGamesCsv(selectedGames, {
+        listTags: () => this.gameShelfService.listTags(),
       });
       await this.presentToast('CSV export prepared.');
     } catch {

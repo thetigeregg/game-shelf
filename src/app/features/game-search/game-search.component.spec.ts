@@ -19,6 +19,8 @@ describe('GameSearchComponent', () => {
   const gameShelfService = {
     listSearchPlatforms: vi.fn(() => of([])),
     searchGames: vi.fn(() => of([])),
+    listLibraryGames: vi.fn().mockResolvedValue([]),
+    watchList: vi.fn(() => of([])),
     findGameByIdentity: vi.fn(),
     searchBoxArtByTitle: vi.fn(() => of([])),
     shouldUseIgdbCoverForPlatform: vi.fn(() => false),
@@ -224,13 +226,112 @@ describe('GameSearchComponent', () => {
   });
 
   it('returns action labels for add and select modes', () => {
-    expect(component.getActionLabel('100')).toBe('Add');
+    const result = makeResult();
+    expect(component.getActionLabel('100', result)).toBe('Add');
 
     component.actionMode = 'select';
-    expect(component.getActionLabel('100')).toBe('Select');
+    expect(component.getActionLabel('100', result)).toBe('Select');
 
     (component as { addingExternalIds: Set<string> }).addingExternalIds.add('100');
-    expect(component.getActionLabel('100')).toBe('Selecting...');
+    expect(component.getActionLabel('100', result)).toBe('Selecting...');
+  });
+
+  it('returns In Library when the result exists on any platform', async () => {
+    const result = makeResult();
+    gameShelfService.listLibraryGames.mockResolvedValue([
+      {
+        igdbGameId: '100',
+        platformIgdbId: 21,
+        title: 'Metroid Prime',
+        listType: 'collection',
+      },
+    ]);
+
+    component.ngOnInit();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.isResultInLibrary(result)).toBe(true);
+    expect(component.getActionLabel('100', result)).toBe('In Library');
+  });
+
+  it('returns In Library when only one of multiple platforms is on the shelf', async () => {
+    const result = makeResult({
+      platformOptions: [
+        { id: 21, name: 'GameCube' },
+        { id: 8, name: 'PlayStation 2' },
+      ],
+      platforms: ['GameCube', 'PlayStation 2'],
+    });
+    gameShelfService.listLibraryGames.mockResolvedValue([
+      {
+        igdbGameId: '100',
+        platformIgdbId: 8,
+        title: 'Metroid Prime',
+        listType: 'wishlist',
+      },
+    ]);
+
+    component.ngOnInit();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.isResultInLibrary(result)).toBe(true);
+  });
+
+  it('does not mark results as in library without platform options', async () => {
+    const result = makeResult({
+      platformOptions: [],
+      platforms: [],
+      platform: null,
+      platformIgdbId: null,
+    });
+    gameShelfService.listLibraryGames.mockResolvedValue([
+      {
+        igdbGameId: '100',
+        platformIgdbId: 21,
+        title: 'Metroid Prime',
+        listType: 'collection',
+      },
+    ]);
+
+    component.ngOnInit();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.isResultInLibrary(result)).toBe(false);
+  });
+
+  it('does not mark results as in library when not on the shelf', async () => {
+    const result = makeResult();
+    gameShelfService.listLibraryGames.mockResolvedValue([]);
+
+    component.ngOnInit();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.isResultInLibrary(result)).toBe(false);
+    expect(component.getActionLabel('100', result)).toBe('Add');
+  });
+
+  it('does not check library membership in select mode', async () => {
+    const result = makeResult();
+    component.actionMode = 'select';
+    gameShelfService.listLibraryGames.mockResolvedValue([
+      {
+        igdbGameId: '100',
+        platformIgdbId: 21,
+        title: 'Metroid Prime',
+        listType: 'collection',
+      },
+    ]);
+
+    component.ngOnInit();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.isResultInLibrary(result)).toBe(false);
+    expect(component.getActionLabel('100', result)).toBe('Select');
   });
 
   it('replaces broken images with the placeholder asset', () => {

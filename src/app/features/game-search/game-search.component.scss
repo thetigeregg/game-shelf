@@ -37,3 +37,16 @@ ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);
 }
+
+ion-item.in-library {
+  --background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+ion-item .in-library-badge {
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-primary-contrast);
+  margin-right: 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+}

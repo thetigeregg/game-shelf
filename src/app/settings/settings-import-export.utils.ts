@@ -1,14 +1,17 @@
 import { isGameRating } from '../core/models/game.models';
 import type {
   GameCatalogResult,
+  GameEntry,
   GameGroupByField,
   GameListFilters,
   GameRating,
   GameStatus,
   ListType,
+  Tag,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { sanitizeExternalHttpUrlString } from '../core/utils/url-host.util';
+import { normalizeTagIds } from '../features/game-list/game-list-detail-actions';
 
 const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'main_game',
@@ -382,4 +385,244 @@ export function parseFilters(
   } catch {
     return null;
   }
+}
+
+export type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
+
+export interface ExportCsvRow {
+  type: ExportRowType;
+  listType: string;
+  igdbGameId: string;
+  platformIgdbId: string;
+  title: string;
+  customTitle: string;
+  summary: string;
+  storyline: string;
+  notes: string;
+  coverUrl: string;
+  customCoverUrl: string;
+  coverSource: string;
+  gameType: string;
+  platform: string;
+  customPlatform: string;
+  customPlatformIgdbId: string;
+  collections: string;
+  releaseDate: string;
+  releaseYear: string;
+  hltbMainHours: string;
+  hltbMainExtraHours: string;
+  hltbCompletionistHours: string;
+  reviewScore: string;
+  reviewUrl: string;
+  reviewSource: string;
+  mobyScore: string;
+  mobygamesGameId: string;
+  metacriticScore: string;
+  metacriticUrl: string;
+  similarGameIgdbIds: string;
+  status: string;
+  rating: string;
+  developers: string;
+  franchises: string;
+  genres: string;
+  publishers: string;
+  tags: string;
+  gameTagIds: string;
+  tagId: string;
+  name: string;
+  color: string;
+  groupBy: string;
+  filters: string;
+  key: string;
+  value: string;
+  enteredCollectionAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const CSV_HEADERS: Array<keyof ExportCsvRow> = [
+  'type',
+  'listType',
+  'igdbGameId',
+  'platformIgdbId',
+  'title',
+  'customTitle',
+  'summary',
+  'storyline',
+  'notes',
+  'coverUrl',
+  'customCoverUrl',
+  'coverSource',
+  'gameType',
+  'platform',
+  'customPlatform',
+  'customPlatformIgdbId',
+  'collections',
+  'releaseDate',
+  'releaseYear',
+  'hltbMainHours',
+  'hltbMainExtraHours',
+  'hltbCompletionistHours',
+  'reviewScore',
+  'reviewUrl',
+  'reviewSource',
+  'mobyScore',
+  'mobygamesGameId',
+  'metacriticScore',
+  'metacriticUrl',
+  'similarGameIgdbIds',
+  'status',
+  'rating',
+  'developers',
+  'franchises',
+  'genres',
+  'publishers',
+  'tags',
+  'gameTagIds',
+  'tagId',
+  'name',
+  'color',
+  'groupBy',
+  'filters',
+  'key',
+  'value',
+  'enteredCollectionAt',
+  'createdAt',
+  'updatedAt',
+];
+
+export const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
+  'type',
+  'listType',
+  'igdbGameId',
+  'platformIgdbId',
+  'title',
+  'platform',
+  'releaseDate',
+  'releaseYear',
+  'status',
+  'rating',
+  'developers',
+  'franchises',
+  'genres',
+  'publishers',
+  'tags',
+  'name',
+  'color',
+  'groupBy',
+  'filters',
+  'key',
+  'value',
+  'createdAt',
+  'updatedAt',
+];
+
+export function buildTagByIdMap(tags: Tag[]): Map<number, Tag> {
+  const tagById = new Map<number, Tag>();
+
+  tags.forEach((tag) => {
+    if (typeof tag.id === 'number' && tag.id > 0) {
+      tagById.set(tag.id, tag);
+    }
+  });
+
+  return tagById;
+}
+
+export function mapGameEntryToExportRow(game: GameEntry, tagById: Map<number, Tag>): ExportCsvRow {
+  const normalizedTagIds = normalizeTagIds(game.tagIds);
+  const tagNames = normalizedTagIds
+    .map((tagId) => tagById.get(tagId)?.name)
+    .filter((name): name is string => typeof name === 'string' && name.length > 0);
+
+  return {
+    type: 'game',
+    listType: game.listType,
+    igdbGameId: game.igdbGameId,
+    platformIgdbId: String(game.platformIgdbId),
+    title: game.title,
+    customTitle: game.customTitle ?? '',
+    summary: game.summary ?? '',
+    storyline: game.storyline ?? '',
+    notes: game.notes ?? '',
+    coverUrl: game.coverUrl ?? '',
+    customCoverUrl: game.customCoverUrl ?? '',
+    coverSource: game.coverSource,
+    gameType: game.gameType ?? '',
+    platform: game.platform,
+    customPlatform: game.customPlatform ?? '',
+    customPlatformIgdbId:
+      game.customPlatformIgdbId !== null && game.customPlatformIgdbId !== undefined
+        ? String(game.customPlatformIgdbId)
+        : '',
+    collections: JSON.stringify(game.collections ?? []),
+    releaseDate: game.releaseDate ?? '',
+    releaseYear: game.releaseYear !== null ? String(game.releaseYear) : '',
+    hltbMainHours:
+      game.hltbMainHours !== null && game.hltbMainHours !== undefined
+        ? String(game.hltbMainHours)
+        : '',
+    hltbMainExtraHours:
+      game.hltbMainExtraHours !== null && game.hltbMainExtraHours !== undefined
+        ? String(game.hltbMainExtraHours)
+        : '',
+    hltbCompletionistHours:
+      game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined
+        ? String(game.hltbCompletionistHours)
+        : '',
+    reviewScore:
+      game.reviewScore !== null && game.reviewScore !== undefined
+        ? String(game.reviewScore)
+        : game.metacriticScore !== null && game.metacriticScore !== undefined
+          ? String(game.metacriticScore)
+          : '',
+    reviewUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
+    reviewSource: game.reviewSource ?? '',
+    mobyScore:
+      game.mobyScore !== null && game.mobyScore !== undefined ? String(game.mobyScore) : '',
+    mobygamesGameId:
+      game.mobygamesGameId !== null && game.mobygamesGameId !== undefined
+        ? String(game.mobygamesGameId)
+        : '',
+    metacriticScore:
+      game.metacriticScore !== null && game.metacriticScore !== undefined
+        ? String(game.metacriticScore)
+        : '',
+    metacriticUrl: game.metacriticUrl ?? '',
+    similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
+    status: game.status ?? '',
+    rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
+    developers: JSON.stringify(game.developers ?? []),
+    franchises: JSON.stringify(game.franchises ?? []),
+    genres: JSON.stringify(game.genres ?? []),
+    publishers: JSON.stringify(game.publishers ?? []),
+    tags: JSON.stringify(tagNames),
+    gameTagIds: JSON.stringify(normalizedTagIds),
+    tagId: '',
+    name: '',
+    color: '',
+    groupBy: '',
+    filters: '',
+    key: '',
+    value: '',
+    enteredCollectionAt: game.enteredCollectionAt ?? '',
+    createdAt: game.createdAt,
+    updatedAt: game.updatedAt,
+  };
+}
+
+export function serializeExportCsvRows(rows: ExportCsvRow[]): string {
+  const lines = [
+    CSV_HEADERS.join(','),
+    ...rows.map((row) => CSV_HEADERS.map((header) => escapeCsvValue(row[header])).join(',')),
+  ];
+
+  return lines.join('\n');
+}
+
+export function buildGamesExportCsv(games: GameEntry[], tags: Tag[]): string {
+  const tagById = buildTagByIdMap(tags);
+  const rows = games.map((game) => mapGameEntryToExportRow(game, tagById));
+
+  return serializeExportCsvRows(rows);
 }

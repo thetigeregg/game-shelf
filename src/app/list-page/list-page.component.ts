@@ -866,6 +866,16 @@ export class ListPageComponent {
     await this.gameListComponent?.deleteSelectedGames();
   }
 
+  async exportSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+
+    if (this.selectedGamesCount === 0) {
+      return;
+    }
+
+    await this.gameListComponent?.exportSelectedGamesToCsv();
+  }
+
   async moveSelectedGamesFromPopover(): Promise<void> {
     this.closeBulkActionsPopover();
     await this.gameListComponent?.moveSelectedGamesToOtherList();

@@ -63,11 +63,15 @@
         </div>
         <ion-label>
           <h2>{{ result.title }}</h2>
-          @if (isResultInLibrary(result)) {
-            <ion-badge class="in-library-badge">In Library</ion-badge>
-          }
-          @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
-            <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
+          @if (isResultInLibrary(result) || getGameTypeBadgeLabel(result)) {
+            <div class="game-badges">
+              @if (isResultInLibrary(result)) {
+                <ion-badge class="in-library-badge">In Library</ion-badge>
+              }
+              @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
+                <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
+              }
+            </div>
           }
           <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
         </ion-label>

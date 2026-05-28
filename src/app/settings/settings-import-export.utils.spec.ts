@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DEFAULT_GAME_LIST_FILTERS } from '../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, type GameEntry, type Tag } from '../core/models/game.models';
 import {
+  buildGamesExportCsv,
   escapeCsvValue,
   normalizeColor,
   normalizeCoverSource,
@@ -246,5 +247,53 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.excludedPlatform).toEqual(['SNES']);
     expect(parsed?.excludedGenres).toEqual(['Puzzle']);
     expect(parsed?.excludedGameTypes).toEqual(['expansion']);
+  });
+
+  it('buildGamesExportCsv emits game rows with tag names and review columns', () => {
+    const tags: Tag[] = [
+      {
+        id: 1,
+        name: 'Favorites',
+        color: '#3880ff',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      },
+    ];
+    const games: GameEntry[] = [
+      {
+        igdbGameId: '1234',
+        platformIgdbId: 19,
+        title: 'Chrono Trigger',
+        coverUrl: null,
+        coverSource: 'igdb',
+        platform: 'Super Nintendo Entertainment System',
+        releaseDate: '1995-03-11',
+        releaseYear: 1995,
+        listType: 'collection',
+        tagIds: [1],
+        enteredCollectionAt: '2025-08-05T00:00:00.000Z',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+        reviewScore: 86,
+        reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.6,
+        mobygamesGameId: 4501,
+        metacriticScore: null,
+        metacriticUrl: null,
+      },
+    ];
+
+    const csv = buildGamesExportCsv(games, tags);
+    const [headerLine, gameLine] = csv.split('\n');
+
+    expect(headerLine).toContain('reviewSource');
+    expect(headerLine).toContain('mobyScore');
+    expect(headerLine).toContain('mobygamesGameId');
+    expect(headerLine).toContain('enteredCollectionAt');
+    expect(gameLine).toContain(',mobygames,8.6,4501,');
+    expect(gameLine).toContain('2025-08-05T00:00:00.000Z');
+    expect(gameLine).toContain('Favorites');
+    expect(gameLine).toContain('[1]');
   });
 });

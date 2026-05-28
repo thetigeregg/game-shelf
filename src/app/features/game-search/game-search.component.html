@@ -49,6 +49,7 @@
     @for (result of results; track trackByExternalId($index, result)) {
       <ion-item
         lines="full"
+        [class.in-library]="isResultInLibrary(result)"
         [button]="enableDetailNavigation"
         [detail]="enableDetailNavigation"
         (click)="requestDetail($event, result)"
@@ -62,8 +63,15 @@
         </div>
         <ion-label>
           <h2>{{ result.title }}</h2>
-          @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
-            <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
+          @if (isResultInLibrary(result) || getGameTypeBadgeLabel(result)) {
+            <div class="game-badges">
+              @if (isResultInLibrary(result)) {
+                <ion-badge class="in-library-badge">In Library</ion-badge>
+              }
+              @if (getGameTypeBadgeLabel(result); as gameTypeBadgeLabel) {
+                <ion-badge class="game-type-badge">{{ gameTypeBadgeLabel }}</ion-badge>
+              }
+            </div>
           }
           <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
         </ion-label>
@@ -71,10 +79,10 @@
           slot="end"
           fill="outline"
           size="small"
-          [disabled]="isAdding(result.igdbGameId)"
+          [disabled]="isAdding(result.igdbGameId) || isResultInLibrary(result)"
           (click)="onActionButtonClick($event, result)"
         >
-          {{ getActionLabel(result.igdbGameId) }}
+          {{ getActionLabel(result.igdbGameId, result) }}
         </ion-button>
       </ion-item>
     }

@@ -648,6 +648,38 @@ describe('ListPageComponent', () => {
     expect(component.headerActionsPopoverEvent).toBeUndefined();
   });
 
+  it('exportSelectedGamesFromPopover closes bulk menu and exports selected games', async () => {
+    const component = createComponent();
+    const exportSelectedGamesToCsv = vi.fn().mockResolvedValue(undefined);
+
+    component.selectedGamesCount = 2;
+    component.isBulkActionsPopoverOpen = true;
+    component.bulkActionsPopoverEvent = new Event('click');
+    component.gameListComponent = {
+      exportSelectedGamesToCsv,
+    } as never;
+
+    await component.exportSelectedGamesFromPopover();
+
+    expect(component.isBulkActionsPopoverOpen).toBe(false);
+    expect(component.bulkActionsPopoverEvent).toBeUndefined();
+    expect(exportSelectedGamesToCsv).toHaveBeenCalledOnce();
+  });
+
+  it('exportSelectedGamesFromPopover does nothing when no games are selected', async () => {
+    const component = createComponent();
+    const exportSelectedGamesToCsv = vi.fn().mockResolvedValue(undefined);
+
+    component.selectedGamesCount = 0;
+    component.gameListComponent = {
+      exportSelectedGamesToCsv,
+    } as never;
+
+    await component.exportSelectedGamesFromPopover();
+
+    expect(exportSelectedGamesToCsv).not.toHaveBeenCalled();
+  });
+
   it('opens popovers and normalizes group-by selections before persisting', () => {
     const component = createComponent();
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');

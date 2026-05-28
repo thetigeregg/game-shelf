@@ -147,6 +147,7 @@ import {
   parseTagSelection,
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
+import { exportSelectedGamesCsv } from './game-list-selection-export.util';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
@@ -924,6 +925,23 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.presentToast(
       `${String(selectedGames.length)} game${selectedGames.length === 1 ? '' : 's'} deleted.`
     );
+  }
+
+  async exportSelectedGamesToCsv(): Promise<void> {
+    const selectedGames = this.getSelectedGames();
+
+    if (selectedGames.length === 0) {
+      return;
+    }
+
+    try {
+      await exportSelectedGamesCsv(selectedGames, {
+        listTags: () => this.gameShelfService.listTags(),
+      });
+      await this.presentToast('CSV export prepared.');
+    } catch {
+      await this.presentToast('Unable to export CSV.', 'danger');
+    }
   }
 
   async moveSelectedGamesToOtherList(): Promise<void> {

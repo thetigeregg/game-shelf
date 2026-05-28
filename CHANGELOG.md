@@ -3473,3 +3473,8 @@
 - f18ec83c chore(deps): update @angular/cdk to version 21.2.13
 - 19b01a1c chore(deps): update Angular packages to version 21.2.15
 - ba62c3ec chore(deps): update qs package
+
+## v1.43.19 - 2026-05-28
+
+- 1ebd550c Merge pull request #396 from thetigeregg/feat/bump2
+- 160bf39e chore(deps): update pg and tsx to latest versions in server package

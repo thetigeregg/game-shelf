@@ -24,7 +24,7 @@ import {
   IonBadge,
   IonButton,
 } from '@ionic/angular/standalone';
-import { Subject, firstValueFrom, of } from 'rxjs';
+import { Subject, firstValueFrom, merge, of } from 'rxjs';
 import {
   catchError,
   debounceTime,
@@ -34,6 +34,7 @@ import {
   takeUntil,
   tap,
 } from 'rxjs/operators';
+import { getGameKey } from '../../settings/settings-mgc.utils';
 import {
   GameCatalogPlatformOption,
   GameCatalogResult,
@@ -90,6 +91,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   private readonly searchState$ = new Subject<{ query: string; platformIgdbId: number | null }>();
   private readonly destroy$ = new Subject<void>();
   private readonly addingExternalIds = new Set<string>();
+  private readonly libraryIdentityKeys = new Set<string>();
   private searchReady = false;
   private readonly gameShelfService = inject(GameShelfService);
   private readonly platformOrderService = inject(PlatformOrderService);
@@ -101,6 +103,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     this.loadSearchPlatforms();
+    this.subscribeToLibraryIdentityKeys();
 
     this.searchState$
       .pipe(
@@ -211,6 +214,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
 
         if (addResult.status === 'added') {
           this.gameAdded.emit();
+          void this.refreshLibraryIdentityKeys();
         }
 
         return;
@@ -373,12 +377,32 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       .join(' ');
   }
 
-  getActionLabel(externalId: string): string {
+  isResultInLibrary(result: GameCatalogResult): boolean {
+    if (this.actionMode !== 'add') {
+      return false;
+    }
+
+    const platforms = this.getPlatformOptions(result);
+
+    if (platforms.length === 0) {
+      return false;
+    }
+
+    return platforms.some((platform) =>
+      this.libraryIdentityKeys.has(getGameKey(result.igdbGameId, platform.id))
+    );
+  }
+
+  getActionLabel(externalId: string, result?: GameCatalogResult): string {
     if (this.actionMode === 'select') {
       return this.isAdding(externalId) ? 'Selecting...' : 'Select';
     }
 
-    return 'Add';
+    if (result && this.isResultInLibrary(result)) {
+      return 'In Library';
+    }
+
+    return this.isAdding(externalId) ? 'Adding...' : 'Add';
   }
 
   private async resolvePlatformSelection(
@@ -548,6 +572,53 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       };
     } catch {
       return result;
+    }
+  }
+
+  private subscribeToLibraryIdentityKeys(): void {
+    if (this.actionMode !== 'add') {
+      return;
+    }
+
+    void this.refreshLibraryIdentityKeys();
+
+    merge(
+      this.gameShelfService.watchList('collection'),
+      this.gameShelfService.watchList('wishlist')
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        void this.refreshLibraryIdentityKeys();
+      });
+  }
+
+  private async refreshLibraryIdentityKeys(): Promise<void> {
+    if (this.actionMode !== 'add') {
+      return;
+    }
+
+    try {
+      const entries = await this.gameShelfService.listLibraryGames();
+      const nextKeys = new Set<string>();
+
+      for (const entry of entries) {
+        if (
+          typeof entry.platformIgdbId === 'number' &&
+          Number.isInteger(entry.platformIgdbId) &&
+          entry.platformIgdbId > 0
+        ) {
+          nextKeys.add(getGameKey(entry.igdbGameId, entry.platformIgdbId));
+        }
+      }
+
+      this.runInZone(() => {
+        this.libraryIdentityKeys.clear();
+        for (const key of nextKeys) {
+          this.libraryIdentityKeys.add(key);
+        }
+      });
+    } catch {
+      // Do not block search on cache refresh failures.
     }
   }
 

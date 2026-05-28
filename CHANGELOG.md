@@ -3485,3 +3485,11 @@
 - 90033262 Merge branch 'main' into feat/highlight
 - ed33a890 refactor(game-search): restructure badge display for better layout and styling
 - 0b6dac33 feat(ui): highlight search results already in library
+
+## v1.45.0 - 2026-05-28
+
+- 20d0824c Merge pull request #398 from thetigeregg/feat/quick-csv
+- a30540c1 test(game-list): extract selection CSV export for patch coverage
+- 01620579 test(utils): add coverage for presentShareFile utility
+- 69c231c3 Merge branch 'main' into feat/quick-csv
+- 23046860 feat(ui): add multi-select export CSV on collection and wishlist

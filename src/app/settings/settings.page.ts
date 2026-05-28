@@ -41,7 +41,6 @@ import {
   GameRating,
   GameStatus,
   ListType,
-  Tag,
 } from '../core/models/game.models';
 import {
   COLOR_SCHEME_STORAGE_KEY,
@@ -69,7 +68,11 @@ import {
 import { coercePreferenceBoolean } from '../core/utils/preference-bool';
 import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
 import {
-  escapeCsvValue,
+  ExportCsvRow,
+  ExportRowType,
+  REQUIRED_CSV_HEADERS,
+  buildTagByIdMap,
+  mapGameEntryToExportRow,
   normalizeColor,
   normalizeCoverSource,
   normalizeGroupBy,
@@ -86,7 +89,9 @@ import {
   parsePositiveInteger,
   parsePositiveIntegerArray,
   parseStringArray,
+  serializeExportCsvRows,
 } from './settings-import-export.utils';
+import { presentShareFile } from '../core/utils/share-file.util';
 import {
   getGameKey,
   hasHltbData,
@@ -163,58 +168,6 @@ import {
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
-type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
-
-interface ExportCsvRow {
-  type: ExportRowType;
-  listType: string;
-  igdbGameId: string;
-  platformIgdbId: string;
-  title: string;
-  customTitle: string;
-  summary: string;
-  storyline: string;
-  notes: string;
-  coverUrl: string;
-  customCoverUrl: string;
-  coverSource: string;
-  gameType: string;
-  platform: string;
-  customPlatform: string;
-  customPlatformIgdbId: string;
-  collections: string;
-  releaseDate: string;
-  releaseYear: string;
-  hltbMainHours: string;
-  hltbMainExtraHours: string;
-  hltbCompletionistHours: string;
-  reviewScore: string;
-  reviewUrl: string;
-  reviewSource: string;
-  mobyScore: string;
-  mobygamesGameId: string;
-  metacriticScore: string;
-  metacriticUrl: string;
-  similarGameIgdbIds: string;
-  status: string;
-  rating: string;
-  developers: string;
-  franchises: string;
-  genres: string;
-  publishers: string;
-  tags: string;
-  gameTagIds: string;
-  tagId: string;
-  name: string;
-  color: string;
-  groupBy: string;
-  filters: string;
-  key: string;
-  value: string;
-  enteredCollectionAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface ParsedGameImportRow {
   kind: 'game';
@@ -273,83 +226,6 @@ interface ImportPreviewRow {
 interface PlatformCustomizationItem extends GameCatalogPlatformOption {
   customName: string;
 }
-
-const CSV_HEADERS: Array<keyof ExportCsvRow> = [
-  'type',
-  'listType',
-  'igdbGameId',
-  'platformIgdbId',
-  'title',
-  'customTitle',
-  'summary',
-  'storyline',
-  'notes',
-  'coverUrl',
-  'customCoverUrl',
-  'coverSource',
-  'gameType',
-  'platform',
-  'customPlatform',
-  'customPlatformIgdbId',
-  'collections',
-  'releaseDate',
-  'releaseYear',
-  'hltbMainHours',
-  'hltbMainExtraHours',
-  'hltbCompletionistHours',
-  'reviewScore',
-  'reviewUrl',
-  'reviewSource',
-  'mobyScore',
-  'mobygamesGameId',
-  'metacriticScore',
-  'metacriticUrl',
-  'similarGameIgdbIds',
-  'status',
-  'rating',
-  'developers',
-  'franchises',
-  'genres',
-  'publishers',
-  'tags',
-  'gameTagIds',
-  'tagId',
-  'name',
-  'color',
-  'groupBy',
-  'filters',
-  'key',
-  'value',
-  'enteredCollectionAt',
-  'createdAt',
-  'updatedAt',
-];
-
-const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
-  'type',
-  'listType',
-  'igdbGameId',
-  'platformIgdbId',
-  'title',
-  'platform',
-  'releaseDate',
-  'releaseYear',
-  'status',
-  'rating',
-  'developers',
-  'franchises',
-  'genres',
-  'publishers',
-  'tags',
-  'name',
-  'color',
-  'groupBy',
-  'filters',
-  'key',
-  'value',
-  'createdAt',
-  'updatedAt',
-];
 
 @Component({
   selector: 'app-settings',
@@ -958,7 +834,7 @@ export class SettingsPage {
       const csv = await this.buildExportCsv();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `game-shelf-export-${timestamp}.csv`;
-      await this.presentShareFile({
+      await presentShareFile({
         content: csv,
         filename,
         mimeType: 'text/csv;charset=utf-8',
@@ -975,7 +851,7 @@ export class SettingsPage {
       const content = this.debugLogService.exportText();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `game-shelf-debug-${timestamp}.log`;
-      await this.presentShareFile({
+      await presentShareFile({
         content,
         filename,
         mimeType: 'text/plain;charset=utf-8',
@@ -2656,97 +2532,9 @@ export class SettingsPage {
       this.repository.listViews('wishlist'),
     ]);
 
-    const tagById = new Map<number, Tag>();
+    const tagById = buildTagByIdMap(tags);
 
-    tags.forEach((tag) => {
-      if (typeof tag.id === 'number' && tag.id > 0) {
-        tagById.set(tag.id, tag);
-      }
-    });
-
-    const rows: ExportCsvRow[] = [];
-
-    games.forEach((game) => {
-      const normalizedTagIds = this.normalizeTagIds(game.tagIds);
-      const tagNames = this.normalizeTagIds(game.tagIds)
-        .map((tagId) => tagById.get(tagId)?.name)
-        .filter((name): name is string => typeof name === 'string' && name.length > 0);
-
-      rows.push({
-        type: 'game',
-        listType: game.listType,
-        igdbGameId: game.igdbGameId,
-        platformIgdbId: String(game.platformIgdbId),
-        title: game.title,
-        customTitle: game.customTitle ?? '',
-        summary: game.summary ?? '',
-        storyline: game.storyline ?? '',
-        notes: game.notes ?? '',
-        coverUrl: game.coverUrl ?? '',
-        customCoverUrl: game.customCoverUrl ?? '',
-        coverSource: game.coverSource,
-        gameType: game.gameType ?? '',
-        platform: game.platform,
-        customPlatform: game.customPlatform ?? '',
-        customPlatformIgdbId:
-          game.customPlatformIgdbId !== null && game.customPlatformIgdbId !== undefined
-            ? String(game.customPlatformIgdbId)
-            : '',
-        collections: JSON.stringify(game.collections ?? []),
-        releaseDate: game.releaseDate ?? '',
-        releaseYear: game.releaseYear !== null ? String(game.releaseYear) : '',
-        hltbMainHours:
-          game.hltbMainHours !== null && game.hltbMainHours !== undefined
-            ? String(game.hltbMainHours)
-            : '',
-        hltbMainExtraHours:
-          game.hltbMainExtraHours !== null && game.hltbMainExtraHours !== undefined
-            ? String(game.hltbMainExtraHours)
-            : '',
-        hltbCompletionistHours:
-          game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined
-            ? String(game.hltbCompletionistHours)
-            : '',
-        reviewScore:
-          game.reviewScore !== null && game.reviewScore !== undefined
-            ? String(game.reviewScore)
-            : game.metacriticScore !== null && game.metacriticScore !== undefined
-              ? String(game.metacriticScore)
-              : '',
-        reviewUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
-        reviewSource: game.reviewSource ?? '',
-        mobyScore:
-          game.mobyScore !== null && game.mobyScore !== undefined ? String(game.mobyScore) : '',
-        mobygamesGameId:
-          game.mobygamesGameId !== null && game.mobygamesGameId !== undefined
-            ? String(game.mobygamesGameId)
-            : '',
-        metacriticScore:
-          game.metacriticScore !== null && game.metacriticScore !== undefined
-            ? String(game.metacriticScore)
-            : '',
-        metacriticUrl: game.metacriticUrl ?? '',
-        similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
-        status: game.status ?? '',
-        rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
-        developers: JSON.stringify(game.developers ?? []),
-        franchises: JSON.stringify(game.franchises ?? []),
-        genres: JSON.stringify(game.genres ?? []),
-        publishers: JSON.stringify(game.publishers ?? []),
-        tags: JSON.stringify(tagNames),
-        gameTagIds: JSON.stringify(normalizedTagIds),
-        tagId: '',
-        name: '',
-        color: '',
-        groupBy: '',
-        filters: '',
-        key: '',
-        value: '',
-        enteredCollectionAt: game.enteredCollectionAt ?? '',
-        createdAt: game.createdAt,
-        updatedAt: game.updatedAt,
-      });
-    });
+    const rows: ExportCsvRow[] = games.map((game) => mapGameEntryToExportRow(game, tagById));
 
     tags.forEach((tag) => {
       rows.push({
@@ -2907,12 +2695,7 @@ export class SettingsPage {
       });
     });
 
-    const lines = [
-      CSV_HEADERS.join(','),
-      ...rows.map((row) => CSV_HEADERS.map((header) => escapeCsvValue(row[header])).join(',')),
-    ];
-
-    return lines.join('\n');
+    return serializeExportCsvRows(rows);
   }
 
   private async parseImportCsv(csv: string): Promise<ImportPreviewRow[]> {
@@ -3812,14 +3595,6 @@ export class SettingsPage {
     return map;
   }
 
-  private normalizeTagIds(tagIds: number[] | undefined): number[] {
-    if (!Array.isArray(tagIds)) {
-      return [];
-    }
-
-    return [...new Set(tagIds.filter((value) => Number.isInteger(value) && value > 0))];
-  }
-
   private resolveUniqueName(name: string, usedNamesLowercase: Set<string>): string {
     const trimmed = name.trim();
     const baseName = trimmed.length > 0 ? trimmed : 'Untitled';
@@ -3844,73 +3619,6 @@ export class SettingsPage {
     const fallback = `${baseName} (${String(Date.now())})`;
     usedNamesLowercase.add(fallback.toLowerCase());
     return fallback;
-  }
-
-  private async presentShareFile(params: {
-    content: string;
-    filename: string;
-    mimeType: string;
-  }): Promise<void> {
-    const blob = new Blob([params.content], { type: params.mimeType });
-
-    const webNavigator = navigator as Navigator & {
-      share?: (data: { title?: string; text?: string; files?: File[] }) => Promise<void>;
-      canShare?: (data: { files?: File[] }) => boolean;
-    };
-
-    if (typeof webNavigator.share === 'function') {
-      const file = this.tryCreateFile(blob, params.filename, params.mimeType);
-
-      if (file) {
-        const canShareFiles =
-          typeof webNavigator.canShare !== 'function' || webNavigator.canShare({ files: [file] });
-
-        if (canShareFiles) {
-          try {
-            await webNavigator.share({
-              files: [file],
-            });
-            return;
-          } catch (error: unknown) {
-            if (this.isShareCancelError(error)) {
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-
-    try {
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = params.filename;
-      anchor.click();
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-
-  private tryCreateFile(blob: Blob, filename: string, mimeType: string): File | null {
-    try {
-      if (typeof File !== 'function') {
-        return null;
-      }
-
-      return new File([blob], filename, { type: mimeType });
-    } catch {
-      return null;
-    }
-  }
-
-  private isShareCancelError(error: unknown): boolean {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return true;
-    }
-
-    const message = error instanceof Error ? error.message : '';
-    return /abort|cancel/i.test(message);
   }
 
   private async presentToast(

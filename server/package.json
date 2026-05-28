@@ -19,7 +19,7 @@
     "fastify-plugin": "^5.1.0",
     "fastify-rate-limit": "npm:@fastify/rate-limit@^10.3.0",
     "firebase-admin": "^13.10.0",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "tsx": "^4.22.1"
   },
   "devDependencies": {

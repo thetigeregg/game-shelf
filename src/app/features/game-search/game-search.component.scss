@@ -20,14 +20,22 @@ ion-item h2 {
   font-weight: 600;
 }
 
-ion-item ion-badge {
+ion-item .game-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 6px;
+}
+
+ion-item .game-badges ion-badge {
+  margin: 0;
+  vertical-align: middle;
 }
 
 ion-item .game-type-badge {
   --background: #4a4a4a;
   --color: #ffffff;
-  margin-right: 6px;
   font-size: 0.66rem;
   font-weight: 600;
   text-transform: none;
@@ -36,4 +44,16 @@ ion-item .game-type-badge {
 ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);
+}
+
+ion-item.in-library {
+  --background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+ion-item .in-library-badge {
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-primary-contrast);
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
 }

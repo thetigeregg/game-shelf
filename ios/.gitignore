@@ -16,3 +16,5 @@ App/App/config.xml
 App/App/GoogleService-Info.plist
 App/App/GoogleService-Info.dev.plist
 App/App/GoogleService-Info.prod.plist
+App/App/Firebase/Prod/GoogleService-Info.plist
+App/App/Firebase/Dev/GoogleService-Info.plist

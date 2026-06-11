@@ -2,7 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { FirebaseMessaging } from '@capacitor-firebase/messaging';
+import { FirebaseMessaging } from './firebase-messaging.client';
+import type { FirebaseNotificationListenerEvent } from './firebase-messaging.types';
 import { environment } from '../../../environments/environment';
 import { getAppVersion } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
@@ -318,20 +319,26 @@ export class NotificationService {
 
     // Foreground presentation is handled natively via the FirebaseMessaging
     // `presentationOptions` in capacitor.config.ts; this listener is for diagnostics.
-    await FirebaseMessaging.addListener('notificationReceived', (event) => {
-      console.info('[notifications] notification_received', event.notification);
-    }).catch((error: unknown) => {
+    await FirebaseMessaging.addListener(
+      'notificationReceived',
+      (event: FirebaseNotificationListenerEvent) => {
+        console.info('[notifications] notification_received', event.notification);
+      }
+    ).catch((error: unknown) => {
       console.error('[notifications] listener_attach_failed', error);
     });
 
-    await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
-      const route = this.extractRoute(event.notification.data);
-      if (route !== null) {
-        void this.router.navigateByUrl(route).catch(() => {
-          window.location.assign(route);
-        });
+    await FirebaseMessaging.addListener(
+      'notificationActionPerformed',
+      (event: FirebaseNotificationListenerEvent) => {
+        const route = this.extractRoute(event.notification.data);
+        if (route !== null) {
+          void this.router.navigateByUrl(route).catch(() => {
+            window.location.assign(route);
+          });
+        }
       }
-    }).catch((error: unknown) => {
+    ).catch((error: unknown) => {
       console.error('[notifications] listener_attach_failed', error);
     });
   }

@@ -66,12 +66,16 @@ the corresponding API uses, or push token registration and delivery will fail.
 
 The repo ships two native targets and shared schemes:
 
-| Target       | Scheme   | Bundle ID                             | Info plist            |
-| ------------ | -------- | ------------------------------------- | --------------------- |
-| **App DEV**  | **DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`  |
-| **App PROD** | **PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist` |
+| Target       | Scheme       | Bundle ID                             | Info plist            |
+| ------------ | ------------ | ------------------------------------- | --------------------- |
+| **App DEV**  | **App DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`  |
+| **App PROD** | **App PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist` |
 
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
+
+`npm run run:ios:*` passes `--scheme "App DEV"` / `--scheme "App PROD"` so Capacitor deploys
+the matching `App DEV.app` / `App PROD.app` bundle. Scheme names must match the built product
+name (`cap run` resolves the deploy path as `${scheme}.app`).
 
 #### Firebase plist per target
 
@@ -89,14 +93,14 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 
 ## Day-to-day workflow
 
-| Task               | Command                                     | Scheme   |
-| ------------------ | ------------------------------------------- | -------- |
-| Run dev on device  | `npm run run:ios:local`                     | **DEV**  |
-| Run prod on device | `npm run run:ios:prod` (alias: `run:ios`)   | **PROD** |
-| Sync only (dev)    | `npm run sync:ios:local`                    | —        |
-| Sync only (prod)   | `npm run sync:ios:prod` (alias: `sync:ios`) | —        |
-| Open Xcode         | `npm run open:ios`                          | —        |
-| List run targets   | `npm run list:ios:targets`                  | —        |
+| Task               | Command                                     | Scheme       |
+| ------------------ | ------------------------------------------- | ------------ |
+| Run dev on device  | `npm run run:ios:local`                     | **App DEV**  |
+| Run prod on device | `npm run run:ios:prod` (alias: `run:ios`)   | **App PROD** |
+| Sync only (dev)    | `npm run sync:ios:local`                    | —            |
+| Sync only (prod)   | `npm run sync:ios:prod` (alias: `sync:ios`) | —            |
+| Open Xcode         | `npm run open:ios`                          | —            |
+| List run targets   | `npm run list:ios:targets`                  | —            |
 
 `run:ios:*` runs the matching `sync:ios:*`, then `cap run ios --no-sync --scheme …`.
 `scripts/run-ios.mjs` loads `.env` for device targeting (shell exports still override).

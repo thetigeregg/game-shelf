@@ -19,7 +19,7 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 - The app can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
 - **`loader.js`** is loaded **cross-origin** from that base URL with **Subresource Integrity (SRI)** so only a hash-matched build executes. Defaults and pins are in `src/app/core/config/emulatorjs.constants.ts` (after each `game-shelf-assets` deploy, align pins with `EMULATORJS_ASSETS_MANIFEST_URL`); production injection is handled by `scripts/write-environment-prod.sh` when applicable.
-- **ROM** and **BIOS** files are served from your deployment (`/roms`, `/bios`). On the web they are same-origin; the Capacitor iOS app loads them from the absolute backend host configured in `src/environments/environment.ios.ts`.
+- **ROM** and **BIOS** files are served from your deployment (`/roms`, `/bios`). On the web they are same-origin; the Capacitor iOS app loads them from the absolute backend host configured in `environment.ios.local.ts` or `environment.ios.prod.ts`.
 - **Supported platforms** are IGDB catalog entries mapped to documented `EJS_core` values ([EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores)); the map is `src/app/core/utils/emulatorjs-platform-map.ts`. **`Play in browser`** only appears when that map returns a core for the game’s canonical platform id.
 - **ROM folders** on disk use names ending in `__pid-<platformIgdbId>` (see **`ROM files`** and **`EmulatorJS: supported IGDB platforms (in-browser)`** in [`docs/nas-deployment.md`](docs/nas-deployment.md)). **BIOS** paths under `/bios/...` are fixed per core in `src/app/core/utils/emulatorjs-bios-path.ts`; the NAS guide lists every core for which the app sets `EJS_biosUrl`, zip vs single-file layout, and which supported platforms have no BIOS URL today.
 - Full operational layout (ROM layout, supported platform table with BIOS column, BIOS file table, `EJS_pathtodata`) lives in [`docs/nas-deployment.md`](docs/nas-deployment.md) under **ROM files**, **EmulatorJS: supported IGDB platforms (in-browser)**, **BIOS files**, and **EmulatorJS runtime (`EJS_pathtodata`)**.
@@ -125,34 +125,47 @@ npm run build
 
 The frontend ships as a native iOS app via Capacitor. The web deployment (edge) remains for browsers.
 
-1. Create the iOS build environment from the template and set your backend origin:
+Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
+See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
+
+1. Create gitignored environment files from the templates:
 
 ```bash
-cp src/environments/environment.ios.example.ts src/environments/environment.ios.ts
+cp src/environments/environment.ios.local.example.ts src/environments/environment.ios.local.ts
+cp src/environments/environment.ios.prod.example.ts src/environments/environment.ios.prod.ts
 ```
 
-2. Build the web bundle with absolute backend URLs and sync it into the iOS project:
+Set `BACKEND_ORIGIN` in each file (prod HTTPS host; dev `http://<mac-lan-ip>:8080` for local Docker edge).
+
+2. Build and sync the variant you need:
 
 ```bash
-npm run sync:ios
+npm run sync:ios:prod    # production backend (alias: npm run sync:ios)
+npm run sync:ios:local   # local Docker edge on your Mac
 ```
 
-3. Open the Xcode workspace and run on a device:
+3. Open Xcode and run on a device:
 
 ```bash
 npm run open:ios
 ```
 
-Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed).
+Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). For side-by-side dev + prod apps, duplicate the App target in Xcode (`App Dev`, bundle id `…gameshelf.dev`, `Info.dev.plist`) — steps are in the multi-environment doc.
 
 ### Push notifications (release notifications)
 
-Release notifications use native push via `@capacitor-firebase/messaging` (APNs through FCM). One-time setup:
+Release notifications use native push via `@capacitor-firebase/messaging` (APNs through FCM).
 
-1. In the Firebase console, add an **iOS app** (bundle id `io.github.thetigeregg.gameshelf`) to the existing Firebase project and download `GoogleService-Info.plist`.
-2. Add `GoogleService-Info.plist` to `ios/App/App/` in Xcode (File > Add Files to "App", App target).
-3. Upload your **APNs Auth Key** (from the Apple Developer portal) in Firebase project settings > Cloud Messaging.
-4. In Xcode, the App target already has the Push Notifications entitlement and `remote-notification` background mode configured (`App.entitlements`, `Info.plist`).
+- **Prod app**: Firebase prod project, `GoogleService-Info.prod.plist`, bundle `io.github.thetigeregg.gameshelf`
+- **Dev app**: Firebase dev project, `GoogleService-Info.dev.plist`, bundle `io.github.thetigeregg.gameshelf.dev`
+
+One-time setup per Firebase project:
+
+1. Add the iOS app with the matching bundle ID and download the plist (save as `.prod.plist` or `.dev.plist` under `ios/App/App/`).
+2. Upload your **APNs Auth Key** in Firebase project settings > Cloud Messaging.
+3. In Xcode, enable Push Notifications and `remote-notification` background mode on each target (`App.entitlements`, `Info.plist` / `Info.dev.plist`).
+
+Local Docker should use the **dev** Firebase service account; production uses **prod**. The plist in each app must match the Firebase project behind that app's API.
 
 The backend contract is unchanged: tokens register via `POST /v1/notifications/fcm/register` and the server sends through `firebase-admin`. Web browsers no longer support notifications (web push was removed with PWA support).
 
@@ -255,8 +268,8 @@ Compose stacks use:
 - Local secrets should not be committed:
   - `src/environments/environment.local.ts` is ignored
   - use `src/environments/environment.local.example.ts` as template
-  - `src/environments/environment.ios.ts` is ignored
-  - use `src/environments/environment.ios.example.ts` as template
+  - `src/environments/environment.ios.local.ts` and `environment.ios.prod.ts` are ignored
+  - use `environment.ios.local.example.ts` and `environment.ios.prod.example.ts` as templates
 - Secret scanning:
   - `.gitleaks.toml`
   - `.github/workflows/secret-scan.yml`

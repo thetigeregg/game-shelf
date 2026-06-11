@@ -10,6 +10,16 @@
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3A0B10A62FDB39D00015969E /* GoogleService-Info.dev.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */; };
 		3A0B10A72FDB39D00015969E /* GoogleService-Info.prod.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */; };
+		3A0B10AC2FDB3A630015969E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		3A0B10AE2FDB3A630015969E /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0B10A92FDB3A630015969E /* CapApp-SPM */; };
+		3A0B10B02FDB3A630015969E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		3A0B10B12FDB3A630015969E /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		3A0B10B22FDB3A630015969E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
+		3A0B10B32FDB3A630015969E /* GoogleService-Info.dev.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */; };
+		3A0B10B42FDB3A630015969E /* GoogleService-Info.prod.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */; };
+		3A0B10B52FDB3A630015969E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
+		3A0B10B62FDB3A630015969E /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
+		3A0B10B72FDB3A630015969E /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -23,19 +33,29 @@
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.dev.plist"; sourceTree = "<group>"; };
 		3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.prod.plist"; sourceTree = "<group>"; };
+		3A0B10BB2FDB3A630015969E /* PROD.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PROD.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A0B10BC2FDB3A630015969E /* PROD.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = PROD.plist; path = "/Users/sixtopia/projects/game-shelf/worktrees/feat/cap/ios/App/App/PROD.plist"; sourceTree = "<absolute>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* DEV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DEV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		504EC3131FED79650016851F /* DEV.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = DEV.plist; sourceTree = "<group>"; };
 		504EC3191FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		3A0B10AD2FDB3A630015969E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A0B10AE2FDB3A630015969E /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -60,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* DEV.app */,
+				3A0B10BB2FDB3A630015969E /* PROD.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,7 +94,8 @@
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
-				504EC3131FED79650016851F /* Info.plist */,
+				504EC3131FED79650016851F /* DEV.plist */,
+				3A0B10BC2FDB3A630015969E /* PROD.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */,
@@ -85,6 +107,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		3A0B10A82FDB3A630015969E /* PROD */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3A0B10B82FDB3A630015969E /* Build configuration list for PBXNativeTarget "PROD" */;
+			buildPhases = (
+				3A0B10AB2FDB3A630015969E /* Sources */,
+				3A0B10AD2FDB3A630015969E /* Frameworks */,
+				3A0B10AF2FDB3A630015969E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PROD;
+			packageProductDependencies = (
+				3A0B10A92FDB3A630015969E /* CapApp-SPM */,
+			);
+			productName = App;
+			productReference = 3A0B10BB2FDB3A630015969E /* PROD.app */;
+			productType = "com.apple.product-type.application";
+		};
 		504EC3031FED79650016851F /* DEV */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "DEV" */;
@@ -138,11 +180,27 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* DEV */,
+				3A0B10A82FDB3A630015969E /* PROD */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		3A0B10AF2FDB3A630015969E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A0B10B02FDB3A630015969E /* LaunchScreen.storyboard in Resources */,
+				3A0B10B12FDB3A630015969E /* public in Resources */,
+				3A0B10B22FDB3A630015969E /* Assets.xcassets in Resources */,
+				3A0B10B32FDB3A630015969E /* GoogleService-Info.dev.plist in Resources */,
+				3A0B10B42FDB3A630015969E /* GoogleService-Info.prod.plist in Resources */,
+				3A0B10B52FDB3A630015969E /* capacitor.config.json in Resources */,
+				3A0B10B62FDB3A630015969E /* Main.storyboard in Resources */,
+				3A0B10B72FDB3A630015969E /* config.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -161,6 +219,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		3A0B10AB2FDB3A630015969E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A0B10AC2FDB3A630015969E /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -191,6 +257,54 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		3A0B10B92FDB3A630015969E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6V392K7X46;
+				INFOPLIST_FILE = "DEV copy-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.46.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3A0B10BA2FDB3A630015969E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6V392K7X46;
+				INFOPLIST_FILE = "DEV copy-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.46.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -351,6 +465,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3A0B10B82FDB3A630015969E /* Build configuration list for PBXNativeTarget "PROD" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3A0B10B92FDB3A630015969E /* Debug */,
+				3A0B10BA2FDB3A630015969E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -372,6 +495,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		3A0B10AA2FDB3A630015969E /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "CapApp-SPM";
+		};
 		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
@@ -379,6 +506,11 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		3A0B10A92FDB3A630015969E /* CapApp-SPM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A0B10AA2FDB3A630015969E /* XCLocalSwiftPackageReference "CapApp-SPM" */;
+			productName = "CapApp-SPM";
+		};
 		4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;

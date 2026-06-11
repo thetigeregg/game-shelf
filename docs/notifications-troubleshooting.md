@@ -3,6 +3,15 @@
 Notifications are delivered as native push to the Capacitor iOS app (APNs via FCM,
 `@capacitor-firebase/messaging`). Browsers are not supported.
 
+## Dev vs prod Firebase
+
+When running side-by-side dev and prod iOS apps (see [`ios-multi-environment.md`](ios-multi-environment.md)):
+
+- Each app bundles its own `GoogleService-Info.*.plist` from a **separate Firebase project**.
+- The API the app talks to must use the matching `FIREBASE_SERVICE_ACCOUNT_JSON` (dev Docker → dev project; prod NAS → prod project).
+- A mismatch (dev plist + prod server, or the reverse) causes `token_registration_failed` or silent send failures.
+- Test push against the API host that matches the app you are exercising (`sync:ios:local` + dev app → local `/api/v1/notifications/test`).
+
 ## 1. Device Preconditions
 
 - Confirm iOS notification permission for the app is granted (Settings > Notifications).

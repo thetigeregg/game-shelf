@@ -14,3 +14,5 @@ App/App/config.xml
 
 # Firebase iOS config (download from the Firebase console; contains project keys)
 App/App/GoogleService-Info.plist
+App/App/GoogleService-Info.dev.plist
+App/App/GoogleService-Info.prod.plist

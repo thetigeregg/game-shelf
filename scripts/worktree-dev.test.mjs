@@ -5,8 +5,21 @@ import {
   createSharedEnv,
   ensureParentDirectories,
   isEntrypoint,
+  printSuggestedIosLocalOrigin,
   waitForPostgresReady,
 } from './worktree-dev.mjs';
+
+test('printSuggestedIosLocalOrigin prints suggested local origin when LAN host is available', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { IOS_LAN_HOST: '192.168.0.21' },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[0], /iOS local origin \(suggested\): http:\/\/192\.168\.0\.21:\d+/);
+  assert.match(lines[1], /EDGE_BIND_HOST=0\.0\.0\.0/);
+});
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });

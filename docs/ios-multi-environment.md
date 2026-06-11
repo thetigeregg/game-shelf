@@ -5,17 +5,19 @@ backend URLs, Firebase project, and bundle ID.
 
 ## Architecture
 
-| Variant  | Angular config | Env file                               | Backend                    | Firebase plist                  | Bundle ID                             |
-| -------- | -------------- | -------------------------------------- | -------------------------- | ------------------------------- | ------------------------------------- |
-| **Dev**  | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:8080` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Prod** | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`      | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
+| Variant  | Angular config | Env file                               | Backend                           | Firebase plist                  | Bundle ID                             |
+| -------- | -------------- | -------------------------------------- | --------------------------------- | ------------------------------- | ------------------------------------- |
+| **Dev**  | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Prod** | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`             | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
 
-Dev uses Docker edge on your Mac (`:8080`), which serves `/api`, `/manuals`, `/roms`,
-and `/bios` on a single origin. Prod uses the deployed HTTPS edge host.
+Dev uses Docker edge on your Mac (worktree-specific port from `npx devx worktree info`),
+which serves `/api`, `/manuals`, `/roms`, and `/bios` on a single origin. Prod uses the
+deployed HTTPS edge host.
 
-Web browser local dev (`ng serve --configuration local` + `proxy.conf.json`) is a
-separate mechanism — the dev server proxies on your Mac; the iOS app must call real
-URLs reachable from the phone.
+Web browser local dev (`npx devx worktree frontend` + dynamic proxy) is a separate
+mechanism — the dev server proxies on your Mac. `npx devx worktree simulator` serves the
+**web** app to Safari in Simulator; it does not configure the bundled Capacitor app on a
+physical device. The iOS app must call real URLs reachable from the phone.
 
 ## One-time setup
 
@@ -24,16 +26,23 @@ URLs reachable from the phone.
 Add to `.env` (see `.env.example`):
 
 ```bash
-IOS_BACKEND_ORIGIN_LOCAL=http://192.168.x.x:8080
+# Optional overrides for physical device testing
+EDGE_BIND_HOST=0.0.0.0
+IOS_LAN_HOST=192.168.x.x
+IOS_BACKEND_ORIGIN_LOCAL=http://192.168.x.x:<edge-port>
 IOS_BACKEND_ORIGIN_PROD=https://your-production-host
 ```
 
-- **Local**: your Mac's LAN IP on port `8080` (not `127.0.0.1` — the phone cannot reach localhost on your Mac)
+- **Local**: use the worktree edge port from `npx devx worktree info` (not `127.0.0.1` — the phone cannot reach localhost on your Mac)
+- **Physical device access**: set `EDGE_BIND_HOST=0.0.0.0` so Docker edge is reachable from Wi‑Fi
 - **Prod**: your HTTPS production edge host
 
 `scripts/write-environment-ios.mjs` generates gitignored `environment.ios.local.ts` and
 `environment.ios.prod.ts` before each iOS build (`prebuild:ios:local` / `prebuild:ios:prod`).
-`BACKEND_ORIGIN` is an optional fallback when the variant-specific variable is unset.
+For local builds it auto-composes `http://<lan-host>:<edge-port>` from worktree context when
+`IOS_BACKEND_ORIGIN_LOCAL` is unset, using `IOS_LAN_HOST` or auto-detected LAN IPv4 plus the
+worktree `EDGE_HOST_PORT`. Set `IOS_BACKEND_ORIGIN_LOCAL` to override the full origin.
+`BACKEND_ORIGIN` is an optional fallback when no local origin can be composed.
 Shell exports override `.env` values.
 
 ### 2. Firebase (separate dev and prod projects)
@@ -100,18 +109,19 @@ corresponding scheme.
 
 ### Verify side-by-side
 
-1. Start Docker edge on Mac (port `8080` reachable from phone Wi‑Fi).
-2. `npm run run:ios:local` — installs **GameShelf Dev** via **DEV** scheme.
-3. `npm run run:ios:prod` — installs prod app via **PROD** scheme.
-4. Confirm two home-screen icons; dev hits LAN Docker, prod hits production.
+1. `npx devx worktree stack up` — start the worktree-isolated Docker stack.
+2. Set `EDGE_BIND_HOST=0.0.0.0` in `.env` so edge is reachable from phone Wi‑Fi.
+3. `npm run run:ios:local` — installs **GameShelf Dev** via **DEV** scheme.
+4. `npm run run:ios:prod` — installs prod app via **PROD** scheme.
+5. Confirm two home-screen icons; dev hits LAN Docker, prod hits production.
 
 ### Push smoke test
 
 Enable release notifications in each app, then:
 
 ```bash
-# Dev (local API, dev Firebase)
-curl -X POST http://<mac-lan-ip>:8080/api/v1/notifications/test \
+# Dev (local API, dev Firebase) — use edge port from `npx devx worktree info`
+curl -X POST http://<mac-lan-ip>:<edge-port>/api/v1/notifications/test \
   -H 'authorization: Bearer <API_TOKEN>' \
   -H 'content-type: application/json' \
   -d '{}'
@@ -141,7 +151,7 @@ Side-by-side installs require both targets so each app keeps its own embedded bu
 See [`notifications-troubleshooting.md`](notifications-troubleshooting.md) for push
 debugging. Common iOS multi-env issues:
 
-- **Connection unavailable on dev**: wrong LAN IP, phone not on same Wi‑Fi, or Docker not listening on `0.0.0.0:8080`
+- **Connection unavailable on dev**: wrong LAN IP, phone not on same Wi‑Fi, wrong worktree edge port, or `EDGE_BIND_HOST` still at default `127.0.0.1`
 - **ATS blocked HTTP**: dev target must use `Info.dev.plist`, not `Info.plist`
 - **Push works in one app only**: plist / service account mismatch with backend
 - **Wrong backend after sync**: you synced local but ran the prod scheme (or vice versa)

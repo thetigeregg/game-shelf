@@ -169,7 +169,7 @@ npm run sync:ios:local
 npm run open:ios         # open Xcode (debugger, manual scheme/run)
 ```
 
-Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). Side-by-side dev + prod apps use **App DEV** and **App PROD** targets with **DEV** / **PROD** schemes — see the multi-environment doc.
+Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). Side-by-side dev + prod apps use **App DEV** and **App PROD** targets/schemes — see the multi-environment doc.
 
 ### Push notifications (release notifications)
 

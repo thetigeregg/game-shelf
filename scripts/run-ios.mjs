@@ -4,11 +4,11 @@ import { loadProjectEnv } from './dotenv.mjs';
 
 const VARIANTS = {
   local: {
-    scheme: 'DEV',
+    scheme: 'App DEV',
     syncScript: 'sync:ios:local',
   },
   prod: {
-    scheme: 'PROD',
+    scheme: 'App PROD',
     syncScript: 'sync:ios:prod',
   },
 };

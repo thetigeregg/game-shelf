@@ -15,8 +15,8 @@ test('resolveVariant rejects invalid values', () => {
 });
 
 test('resolveScheme maps variants to Xcode schemes', () => {
-  assert.equal(resolveScheme('local'), 'DEV');
-  assert.equal(resolveScheme('prod'), 'PROD');
+  assert.equal(resolveScheme('local'), 'App DEV');
+  assert.equal(resolveScheme('prod'), 'App PROD');
 });
 
 test('buildCapRunArgs includes scheme and no-sync', () => {
@@ -25,14 +25,14 @@ test('buildCapRunArgs includes scheme and no-sync', () => {
     'ios',
     '--no-sync',
     '--scheme',
-    'DEV',
+    'App DEV',
   ]);
   assert.deepEqual(buildCapRunArgs({ variant: 'prod', env: {} }), [
     'run',
     'ios',
     '--no-sync',
     '--scheme',
-    'PROD',
+    'App PROD',
   ]);
 });
 
@@ -45,7 +45,7 @@ test('buildCapRunArgs prefers IOS_TARGET_ID over IOS_TARGET_NAME', () => {
         IOS_TARGET_NAME: 'Your iPhone',
       },
     }),
-    ['run', 'ios', '--no-sync', '--scheme', 'DEV', '--target', '00008110-ABCDEF']
+    ['run', 'ios', '--no-sync', '--scheme', 'App DEV', '--target', '00008110-ABCDEF']
   );
 });
 
@@ -55,7 +55,7 @@ test('buildCapRunArgs uses IOS_TARGET_NAME when ID is unset', () => {
       variant: 'prod',
       env: { IOS_TARGET_NAME: 'Your iPhone' },
     }),
-    ['run', 'ios', '--no-sync', '--scheme', 'PROD', '--target-name', 'Your iPhone']
+    ['run', 'ios', '--no-sync', '--scheme', 'App PROD', '--target-name', 'Your iPhone']
   );
 });
 
@@ -84,7 +84,7 @@ test('buildCapRunArgs forwards extra cap run args', () => {
     'ios',
     '--no-sync',
     '--scheme',
-    'DEV',
+    'App DEV',
     '--live-reload',
   ]);
 });

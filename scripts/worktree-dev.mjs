@@ -16,6 +16,8 @@ import {
   runWorktreeBootstrap,
 } from '@thetigeregg/dev-cli';
 
+import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
+
 const cwd = process.cwd();
 const args = process.argv.slice(2);
 const config = await loadDevxConfig({ cwd });
@@ -32,6 +34,23 @@ export function createSharedEnv({
   manualsPublicBaseUrl = `http://127.0.0.1:${context.runtime.ports.EDGE_HOST_PORT}/manuals`,
 } = {}) {
   return context.createSharedEnv({ processEnv, manualsPublicBaseUrl });
+}
+
+export function printSuggestedIosLocalOrigin({ processEnv = process.env, log = console.log } = {}) {
+  const edgePort = context.runtime.ports.EDGE_HOST_PORT;
+  const lanHost = resolveLanHost(processEnv);
+  const suggestedOrigin = formatSuggestedIosLocalOrigin(lanHost, edgePort);
+
+  if (!suggestedOrigin) {
+    log('iOS local origin (suggested): unavailable (set IOS_LAN_HOST in .env)');
+    log(
+      '  Set IOS_BACKEND_ORIGIN_LOCAL to override. Use EDGE_BIND_HOST=0.0.0.0 for device access.'
+    );
+    return;
+  }
+
+  log(`iOS local origin (suggested): ${suggestedOrigin}`);
+  log('  Set IOS_BACKEND_ORIGIN_LOCAL to override. Use EDGE_BIND_HOST=0.0.0.0 for device access.');
 }
 
 function runStack(action) {
@@ -306,6 +325,7 @@ export async function runWorktreeDev(argv) {
 
   if (argv[0] === 'info') {
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     process.exit(0);
   }
 
@@ -326,6 +346,7 @@ export async function runWorktreeDev(argv) {
   if (argv[0] === 'frontend') {
     context.createSharedEnv();
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     ensureDependenciesInstalled(context, false);
     runFrontendDev(context);
     process.exit(0);
@@ -333,6 +354,7 @@ export async function runWorktreeDev(argv) {
 
   if (argv[0] === 'simulator') {
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     ensureDependenciesInstalled(context, false);
     runFrontendDev(context, {
       external: true,
@@ -347,6 +369,7 @@ export async function runWorktreeDev(argv) {
       process.exit(1);
     }
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     runStack(argv[1]);
     process.exit(0);
   }

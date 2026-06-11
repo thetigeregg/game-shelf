@@ -3,6 +3,10 @@ import { resolve } from 'node:path';
 import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
 
+import { createWorktreeContext, loadDevxConfig } from '@thetigeregg/dev-cli';
+
+import { composeLocalBackendOrigin, resolveLanHost } from './lan-host.mjs';
+
 const ENV_PATH = resolve(process.cwd(), '.env');
 const EMULATORJS_CONSTANTS_PATH = resolve(
   process.cwd(),
@@ -97,10 +101,68 @@ export function normalizeBackendOrigin(value) {
   return `${parsed.protocol}//${parsed.host}`;
 }
 
-export function resolveBackendOrigin(variant, envValues) {
+export function parseOriginPort(origin) {
+  if (typeof origin !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    if (parsed.port) {
+      const port = Number.parseInt(parsed.port, 10);
+      return Number.isInteger(port) ? port : null;
+    }
+
+    return parsed.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveWorktreeEdgePort(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const config = await loadDevxConfig({ cwd });
+  const context = await createWorktreeContext({ cwd, config });
+  return context.runtime.ports.EDGE_HOST_PORT;
+}
+
+export function resolveLocalBackendOrigin(envValues, options = {}) {
+  const explicit = normalizeBackendOrigin(envValues.IOS_BACKEND_ORIGIN_LOCAL);
+  const edgePort = options.edgePort;
+  const logWarning = options.logWarning ?? (() => {});
+
+  if (explicit !== null) {
+    if (edgePort != null) {
+      const explicitPort = parseOriginPort(explicit);
+      if (explicitPort !== null && explicitPort !== edgePort) {
+        logWarning(
+          `[write-environment-ios] IOS_BACKEND_ORIGIN_LOCAL uses port ${explicitPort}, but this worktree edge port is ${edgePort}.`
+        );
+      }
+    }
+
+    return explicit;
+  }
+
+  if (edgePort != null) {
+    const lanHost = resolveLanHost(envValues, options);
+    const composed = composeLocalBackendOrigin(lanHost, edgePort);
+    if (composed !== null) {
+      return composed;
+    }
+  }
+
+  return normalizeBackendOrigin(envValues.BACKEND_ORIGIN);
+}
+
+export function resolveBackendOrigin(variant, envValues, options = {}) {
   const config = VARIANTS[variant];
   if (!config) {
     throw new Error(`Unknown iOS environment variant: ${variant}`);
+  }
+
+  if (variant === 'local') {
+    return resolveLocalBackendOrigin(envValues, options);
   }
 
   for (const key of config.envKeys) {
@@ -147,12 +209,15 @@ result = {
   return result;
 }
 
-export function buildEnvironmentIosSource(variant, envValues) {
+export function buildEnvironmentIosSource(variant, envValues, options = {}) {
   const config = VARIANTS[variant];
-  const backendOrigin = resolveBackendOrigin(variant, envValues);
+  const backendOrigin = resolveBackendOrigin(variant, envValues, options);
 
   if (backendOrigin === null) {
-    const keys = config.envKeys.join(' or ');
+    const keys =
+      variant === 'local'
+        ? 'IOS_BACKEND_ORIGIN_LOCAL, IOS_LAN_HOST, or BACKEND_ORIGIN'
+        : config.envKeys.join(' or ');
     throw new Error(
       `Missing or invalid backend origin for ios-${variant}. Set ${keys} in .env or the shell environment.`
     );
@@ -187,7 +252,7 @@ export const environment = {
 `;
 }
 
-export function writeEnvironmentIos(variant, options = {}) {
+export async function writeEnvironmentIos(variant, options = {}) {
   const config = VARIANTS[variant];
   if (!config) {
     throw new Error(`Unknown iOS environment variant: ${variant}`);
@@ -205,8 +270,19 @@ export function writeEnvironmentIos(variant, options = {}) {
     ...(options.processEnv ?? process.env),
   };
 
+  const resolveOptions = {
+    ...options,
+    logWarning: options.logWarning ?? ((message) => console.warn(message)),
+  };
+
+  if (variant === 'local') {
+    resolveOptions.edgePort =
+      options.edgePort ?? (await resolveWorktreeEdgePort({ cwd: options.cwd }));
+  }
+
   readEmulatorJsConstants();
-  const source = buildEnvironmentIosSource(variant, envValues);
+  const source = buildEnvironmentIosSource(variant, envValues, resolveOptions);
+  const backendOrigin = resolveBackendOrigin(variant, envValues, resolveOptions);
 
   if (options.write !== false) {
     writeFileSync(config.outputPath, source, 'utf8');
@@ -214,12 +290,12 @@ export function writeEnvironmentIos(variant, options = {}) {
 
   return {
     outputPath: config.outputPath,
-    backendOrigin: resolveBackendOrigin(variant, envValues),
+    backendOrigin,
     source,
   };
 }
 
-function main() {
+async function main() {
   const variant = process.argv[2];
 
   if (variant !== 'local' && variant !== 'prod') {
@@ -228,7 +304,7 @@ function main() {
   }
 
   try {
-    const result = writeEnvironmentIos(variant);
+    const result = await writeEnvironmentIos(variant);
     console.info(
       `[write-environment-ios] Wrote ${result.outputPath} with origin ${result.backendOrigin}`
     );

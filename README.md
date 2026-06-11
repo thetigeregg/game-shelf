@@ -128,20 +128,31 @@ The frontend ships as a native iOS app via Capacitor. The web deployment (edge) 
 Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
 See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
 
-1. Set iOS backend origins in `.env` (or export in your shell):
+1. For local device testing against a worktree stack, start Docker and note the edge port:
 
 ```bash
-IOS_BACKEND_ORIGIN_LOCAL=http://<mac-lan-ip>:8080
+npx devx worktree stack up
+npx devx worktree info   # shows edge port and suggested iOS local origin
+```
+
+Set in `.env` (or export in your shell):
+
+```bash
+EDGE_BIND_HOST=0.0.0.0              # required for physical iPhone access
+IOS_LAN_HOST=<mac-lan-ip>           # optional if auto-detect works
+IOS_BACKEND_ORIGIN_LOCAL=http://<mac-lan-ip>:<edge-port>   # optional override
 IOS_BACKEND_ORIGIN_PROD=https://<your-production-host>
 ```
 
-`npm run build:ios:local` / `build:ios:prod` generate gitignored `environment.ios.*.ts` from these vars via `scripts/write-environment-ios.mjs`. `BACKEND_ORIGIN` is an optional fallback when the variant-specific key is unset.
+`npm run build:ios:local` / `build:ios:prod` generate gitignored `environment.ios.*.ts` via
+`scripts/write-environment-ios.mjs`. Local builds auto-compose the origin from worktree edge
+port plus `IOS_LAN_HOST` (or auto-detected LAN IPv4) when `IOS_BACKEND_ORIGIN_LOCAL` is unset.
 
 2. Build, sync, and run on a connected device:
 
 ```bash
 npm run run:ios:prod    # production backend (alias: npm run run:ios)
-npm run run:ios:local   # local Docker edge on your Mac
+npm run run:ios:local   # local Docker edge on your Mac (worktree-aware)
 ```
 
 Connect and trust your iPhone first. To pick a specific device, set optional env vars (see `.env.example`) or run `npm run list:ios:targets`. First-time code signing may still require opening Xcode once.

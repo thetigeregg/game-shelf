@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createSharedEnv, ensureParentDirectories, isEntrypoint } from './worktree-dev.mjs';
+import {
+  createSharedEnv,
+  ensureParentDirectories,
+  isEntrypoint,
+  waitForPostgresReady,
+} from './worktree-dev.mjs';
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });
@@ -57,4 +62,68 @@ test('isEntrypoint resolves relative script paths before comparing module urls',
     }),
     true
   );
+});
+
+test('waitForPostgresReady returns immediately when postgres is already accepting connections', () => {
+  let attempts = 0;
+
+  waitForPostgresReady({
+    runCommand: () => {
+      attempts += 1;
+      return { status: 0, stdout: Buffer.from(''), stderr: Buffer.from('') };
+    },
+    sleep: () => {
+      throw new Error('sleep should not be called when postgres is ready');
+    },
+    log: () => undefined,
+    error: () => undefined,
+    exit: () => {
+      throw new Error('exit should not be called when postgres is ready');
+    },
+  });
+
+  assert.equal(attempts, 1);
+});
+
+test('waitForPostgresReady retries until postgres accepts connections', () => {
+  let attempts = 0;
+  const sleeps = [];
+
+  waitForPostgresReady({
+    maxAttempts: 3,
+    delaySeconds: 1,
+    runCommand: () => {
+      attempts += 1;
+      return { status: attempts >= 2 ? 0 : 1, stdout: Buffer.from(''), stderr: Buffer.from('') };
+    },
+    sleep: (seconds) => {
+      sleeps.push(seconds);
+    },
+    log: () => undefined,
+    error: () => undefined,
+    exit: () => {
+      throw new Error('exit should not be called when postgres becomes ready');
+    },
+  });
+
+  assert.equal(attempts, 2);
+  assert.deepEqual(sleeps, [1]);
+});
+
+test('waitForPostgresReady exits when postgres never becomes ready', () => {
+  let exitCode = null;
+
+  waitForPostgresReady({
+    maxAttempts: 2,
+    delaySeconds: 1,
+    runCommand: () => ({ status: 1, stdout: Buffer.from(''), stderr: Buffer.from('not ready') }),
+    sleep: () => undefined,
+    log: () => undefined,
+    error: () => undefined,
+    exit: (code) => {
+      exitCode = code;
+    },
+  });
+
+  assert.equal(exitCode, 1);
 });

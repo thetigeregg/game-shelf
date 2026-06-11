@@ -49,14 +49,67 @@ function runStack(action) {
   }
 }
 
+function buildPostgresExecScript(innerScript) {
+  return `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; ${innerScript}`;
+}
+
+function buildPostgresExecCommand(innerScript) {
+  return `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    buildPostgresExecScript(innerScript)
+  )}`;
+}
+
+export function waitForPostgresReady({
+  maxAttempts = 30,
+  delaySeconds = 2,
+  runCommand = (command, env) =>
+    spawnSync('sh', ['-lc', command], {
+      cwd: context.cwd,
+      env,
+      stdio: 'pipe',
+    }),
+  sleep = (seconds) => {
+    spawnSync('sleep', [String(seconds)], { stdio: 'ignore' });
+  },
+  log = console.log,
+  error = console.error,
+  exit = (code) => {
+    process.exit(code);
+  },
+} = {}) {
+  const readinessCommand = buildPostgresExecCommand(
+    'pg_isready -h 127.0.0.1 -U "$user" -d "$db" >/dev/null 2>&1'
+  );
+  const env = context.createSharedEnv();
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = runCommand(readinessCommand, env);
+    if (result.status === 0) {
+      if (attempt > 1) {
+        log('Postgres is ready.');
+      }
+      return;
+    }
+
+    if (attempt < maxAttempts) {
+      log(`Waiting for postgres (${attempt}/${maxAttempts})...`);
+      sleep(delaySeconds);
+    }
+  }
+
+  error('Timed out waiting for postgres to accept connections.');
+  exit(1);
+}
+
 function ensurePostgresRunning() {
   context.run('docker', [...context.composeArgs, 'up', '-d', 'postgres']);
+  waitForPostgresReady();
 }
 
 function isCurrentDbEmpty() {
-  const query = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -Atq -U "$user" -d "$db" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
-  )}`;
+  const query = buildPostgresExecCommand(
+    `psql -Atq -U "$user" -d "$db" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
+  );
   const output = context.runShellCapture(query, context.createSharedEnv()).trim();
   const count = Number.parseInt(output || '0', 10);
   if (!Number.isInteger(count)) {
@@ -68,9 +121,9 @@ function isCurrentDbEmpty() {
 
 function reconcileGameSyncHistory() {
   console.log('Reconciling game sync history with current games table');
-  const reconcileCmd = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db" -c "BEGIN; DELETE FROM sync_events WHERE entity_type = 'game'; INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp) SELECT 'game', igdb_game_id || '::' || platform_igdb_id::text, 'upsert', payload, NOW() FROM games; COMMIT;"`
-  )}`;
+  const reconcileCmd = buildPostgresExecCommand(
+    `psql -v ON_ERROR_STOP=1 -U "$user" -d "$db" -c "BEGIN; DELETE FROM sync_events WHERE entity_type = 'game'; INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp) SELECT 'game', igdb_game_id || '::' || platform_igdb_id::text, 'upsert', payload, NOW() FROM games; COMMIT;"`
+  );
 
   context.runShell(reconcileCmd, context.createSharedEnv());
   console.log('Game sync history reconciliation complete.');
@@ -86,8 +139,8 @@ function dbSeedRefresh() {
   reconcileGameSyncHistory();
 
   console.log('Refreshing DB seed from current worktree postgres');
-  const dumpCommand = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
+  const dumpCommand = `${buildPostgresExecCommand(
+    `pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
   )} > ${shellEscape(tempSqlPath)}`;
   context.runShell(dumpCommand, context.createSharedEnv());
 
@@ -139,9 +192,7 @@ function dbSeedRestoreFromFile(seedPath) {
     ? `gzip -dc ${shellEscape(seedPath)}`
     : `cat ${shellEscape(seedPath)}`;
 
-  const restoreCmd = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"`
-  )}`;
+  const restoreCmd = buildPostgresExecCommand('psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"');
 
   context.runShell(`${sourceCmd} | ${restoreCmd}`, context.createSharedEnv());
 }

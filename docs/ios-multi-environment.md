@@ -5,10 +5,10 @@ backend URLs, Firebase project, and (after manual Xcode setup) bundle ID.
 
 ## Architecture
 
-| Variant  | Angular config | Env file                   | Backend                    | Firebase plist                  | Bundle ID                             |
-| -------- | -------------- | -------------------------- | -------------------------- | ------------------------------- | ------------------------------------- |
-| **Dev**  | `ios-local`    | `environment.ios.local.ts` | `http://<mac-lan-ip>:8080` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Prod** | `ios-prod`     | `environment.ios.prod.ts`  | `https://<prod-host>`      | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
+| Variant  | Angular config | Env file                               | Backend                    | Firebase plist                  | Bundle ID                             |
+| -------- | -------------- | -------------------------------------- | -------------------------- | ------------------------------- | ------------------------------------- |
+| **Dev**  | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:8080` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Prod** | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`      | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
 
 Dev uses Docker edge on your Mac (`:8080`), which serves `/api`, `/manuals`, `/roms`,
 and `/bios` on a single origin. Prod uses the deployed HTTPS edge host.
@@ -19,19 +19,22 @@ URLs reachable from the phone.
 
 ## One-time setup
 
-### 1. Environment files
+### 1. Backend origin env vars
+
+Add to `.env` (see `.env.example`):
 
 ```bash
-cp src/environments/environment.ios.local.example.ts src/environments/environment.ios.local.ts
-cp src/environments/environment.ios.prod.example.ts src/environments/environment.ios.prod.ts
+IOS_BACKEND_ORIGIN_LOCAL=http://192.168.x.x:8080
+IOS_BACKEND_ORIGIN_PROD=https://your-production-host
 ```
 
-Edit each file's `BACKEND_ORIGIN`:
+- **Local**: your Mac's LAN IP on port `8080` (not `127.0.0.1` — the phone cannot reach localhost on your Mac)
+- **Prod**: your HTTPS production edge host
 
-- **Local**: `http://192.168.x.x:8080` (your Mac's LAN IP, not `127.0.0.1`)
-- **Prod**: `https://your-production-host`
-
-Both files are gitignored.
+`scripts/write-environment-ios.mjs` generates gitignored `environment.ios.local.ts` and
+`environment.ios.prod.ts` before each iOS build (`prebuild:ios:local` / `prebuild:ios:prod`).
+`BACKEND_ORIGIN` is an optional fallback when the variant-specific variable is unset.
+Shell exports override `.env` values.
 
 ### 2. Firebase (separate dev and prod projects)
 

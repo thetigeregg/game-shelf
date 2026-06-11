@@ -72,7 +72,49 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.ios.ts"
+                  "with": "src/environments/environment.ios.prod.ts"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "ios-local": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "2.1mb",
+                  "maximumError": "5mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "10kb",
+                  "maximumError": "12kb"
+                }
+              ],
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.ios.local.ts"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "ios-prod": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "2.1mb",
+                  "maximumError": "5mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "10kb",
+                  "maximumError": "12kb"
+                }
+              ],
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.ios.prod.ts"
                 }
               ],
               "outputHashing": "all"

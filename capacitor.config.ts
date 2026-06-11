@@ -9,6 +9,17 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
   },
+  experimental: {
+    ios: {
+      spm: {
+        packageOptions: {
+          '@capacitor-firebase/<package-name>': {
+            symlink: true,
+          },
+        },
+      },
+    },
+  },
 };
 
 export default config;

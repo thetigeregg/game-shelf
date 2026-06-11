@@ -9,13 +9,10 @@ import {
   createWorktreeContext,
   ensureParentDirectories,
   ensureDependenciesInstalled,
-  getSimulatorCertificateStatus,
   loadDevxConfig,
-  printMissingCertificateInstructions,
   printWorktreeInfo,
   runComposeCommand,
   runFrontendDev,
-  runPwaCommand,
   runWorktreeBootstrap,
 } from '@thetigeregg/dev-cli';
 
@@ -35,111 +32,6 @@ export function createSharedEnv({
   manualsPublicBaseUrl = `http://127.0.0.1:${context.runtime.ports.EDGE_HOST_PORT}/manuals`,
 } = {}) {
   return context.createSharedEnv({ processEnv, manualsPublicBaseUrl });
-}
-
-export function createPwaStackEnv(baseEnv = createSharedEnv()) {
-  return {
-    ...baseEnv,
-    MANUALS_PUBLIC_BASE_URL: context.pwaManualsPublicBaseUrl,
-  };
-}
-
-function setupPwaCertificates() {
-  const certStatus = getSimulatorCertificateStatus(context);
-  if (!certStatus.mkcertAvailable) {
-    console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
-    process.exit(1);
-  }
-
-  ensureParentDirectories([context.simulatorCertFile, context.simulatorKeyFile]);
-  context.run('mkcert', ['-install'], context.createSharedEnv());
-  context.run(
-    'mkcert',
-    [
-      '-cert-file',
-      context.simulatorCertFile,
-      '-key-file',
-      context.simulatorKeyFile,
-      'localhost',
-      '127.0.0.1',
-      '::1',
-    ],
-    context.createSharedEnv()
-  );
-
-  const updatedStatus = getSimulatorCertificateStatus(context);
-  console.log('Simulator PWA certificates are ready.');
-  console.log(`Cert: ${updatedStatus.certPath}`);
-  console.log(`Key:  ${updatedStatus.keyPath}`);
-  if (updatedStatus.rootCaPath) {
-    console.log(`mkcert root CA: ${updatedStatus.rootCaPath}`);
-  }
-  console.log(
-    'If you need to install the mkcert root CA in iPhone Simulator, run: npx devx worktree pwa certs-serve-root'
-  );
-}
-
-function reconcilePwaStackManualsBaseUrl() {
-  console.log('Ensuring installed-PWA manual links stay on the local HTTPS origin.');
-  console.log(
-    'Recreating api and edge services if needed so MANUALS_PUBLIC_BASE_URL=/manuals is applied.'
-  );
-  context.run(
-    'docker',
-    [...context.composeArgs, 'up', '-d', 'api', 'edge'],
-    createPwaStackEnv(context.createSharedEnv())
-  );
-}
-
-export async function runPwa(
-  command,
-  {
-    isPortReachableFn,
-    reconcilePwaStackManualsBaseUrlFn = reconcilePwaStackManualsBaseUrl,
-    buildPwaFn,
-    runPwaServeFn,
-    setupPwaCertificatesFn = setupPwaCertificates,
-    getSimulatorCertificateStatusFn,
-    printMissingCertificateInstructionsFn,
-    servePwaRootCertificateFn,
-    portsConfig,
-    exitFn,
-    logger,
-  } = {}
-) {
-  const effectiveContext = portsConfig
-    ? {
-        ...context,
-        runtime: {
-          ...context.runtime,
-          ports: {
-            ...context.runtime.ports,
-            ...portsConfig,
-          },
-        },
-      }
-    : context;
-
-  return runPwaCommand(effectiveContext, command, {
-    isPortReachableFn,
-    reconcilePwaStackFn: reconcilePwaStackManualsBaseUrlFn
-      ? () => reconcilePwaStackManualsBaseUrlFn()
-      : undefined,
-    buildPwaFn: buildPwaFn ? () => buildPwaFn() : undefined,
-    runPwaServeFn: runPwaServeFn ? () => runPwaServeFn() : undefined,
-    setupPwaCertificatesFn: setupPwaCertificatesFn ? () => setupPwaCertificatesFn() : undefined,
-    getSimulatorCertificateStatusFn: getSimulatorCertificateStatusFn
-      ? () => getSimulatorCertificateStatusFn()
-      : undefined,
-    printMissingCertificateInstructionsFn: printMissingCertificateInstructionsFn
-      ? () => printMissingCertificateInstructionsFn()
-      : () => printMissingCertificateInstructions(effectiveContext),
-    servePwaRootCertificateFn: servePwaRootCertificateFn
-      ? () => servePwaRootCertificateFn()
-      : undefined,
-    exitFn,
-    logger,
-  });
 }
 
 function runStack(action) {
@@ -328,7 +220,7 @@ export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.
 export async function runWorktreeDev(argv) {
   if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
     console.log(
-      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|pwa|stack|db> [action]'
+      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|stack|db> [action]'
     );
     console.log('');
     console.log('Commands:');
@@ -339,22 +231,6 @@ export async function runWorktreeDev(argv) {
     console.log('  frontend                  Run Angular dev server for this worktree');
     console.log(
       '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
-    );
-    console.log(
-      '  pwa build                 Build production frontend for installed-PWA simulator testing'
-    );
-    console.log(
-      '  pwa serve                 Serve built frontend over HTTPS with /api and /manuals proxying'
-    );
-    console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
-    console.log(
-      '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
-    );
-    console.log(
-      '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
-    );
-    console.log(
-      '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
     );
     console.log('  stack up                  Start worktree-isolated docker stack');
     console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -374,12 +250,6 @@ export async function runWorktreeDev(argv) {
     );
     console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
     console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
-    console.log(
-      '  WORKTREE_PWA_CERT_FILE    Override local HTTPS cert path for simulator PWA serving'
-    );
-    console.log(
-      '  WORKTREE_PWA_KEY_FILE     Override local HTTPS key path for simulator PWA serving'
-    );
     process.exit(0);
   }
 
@@ -439,19 +309,6 @@ export async function runWorktreeDev(argv) {
     }
     printWorktreeInfo(context);
     runDb(argv[1], parseOptions(argv.slice(2)));
-    process.exit(0);
-  }
-
-  if (argv[0] === 'pwa') {
-    if (!argv[1]) {
-      console.error(
-        'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
-      );
-      process.exit(1);
-    }
-    printWorktreeInfo(context);
-    ensureDependenciesInstalled(context, false);
-    await runPwa(argv[1]);
     process.exit(0);
   }
 

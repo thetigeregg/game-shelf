@@ -16,38 +16,11 @@ import { GAME_SEARCH_API } from './app/core/api/game-search-api';
 import { IgdbProxyService } from './app/core/api/igdb-proxy.service';
 import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
 import { GameSyncService } from './app/core/services/game-sync.service';
-import { isDevMode, provideZoneChangeDetection } from '@angular/core';
-import { provideServiceWorker } from '@angular/service-worker';
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getMessaging, provideMessaging } from '@angular/fire/messaging';
-import { getFirebaseWebConfig } from './app/core/config/runtime-config';
+import { provideZoneChangeDetection } from '@angular/core';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
 import { register as registerSwiperElements } from 'swiper/element/bundle';
 
 registerSwiperElements();
-
-function hasFirebaseMessagingConfig(): boolean {
-  const firebase = getFirebaseWebConfig();
-
-  const requiredKeys: Array<keyof typeof firebase> = [
-    'apiKey',
-    'appId',
-    'projectId',
-    'messagingSenderId',
-  ];
-
-  return requiredKeys.every((key) => {
-    const value = firebase[key];
-    return typeof value === 'string' && value.trim().length > 0;
-  });
-}
-
-const firebaseProviders = hasFirebaseMessagingConfig()
-  ? [
-      provideFirebaseApp(() => initializeApp(getFirebaseWebConfig())),
-      provideMessaging(() => getMessaging()),
-    ]
-  : [];
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -60,11 +33,6 @@ bootstrapApplication(AppComponent, {
     { provide: HTTP_INTERCEPTORS, useClass: ClientWriteTokenInterceptor, multi: true },
     provideIonicAngular({ mode: 'ios' }),
     provideHttpClient(withInterceptorsFromDi()),
-    ...firebaseProviders,
-    provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000',
-    }),
   ],
 }).catch((err: unknown) => {
   console.error(err);

@@ -14,17 +14,22 @@
     reverse_proxy http://api:3000
   }
 
+  # Static asset mounts are fetched cross-origin by the Capacitor iOS shell
+  # (capacitor://localhost), so they need permissive CORS headers.
   handle_path /manuals/* {
+    header Access-Control-Allow-Origin "*"
     root * /manuals
     file_server
   }
 
   handle_path /roms/* {
+    header Access-Control-Allow-Origin "*"
     root * /roms
     file_server
   }
 
   handle_path /bios/* {
+    header Access-Control-Allow-Origin "*"
     root * /bios
     file_server
   }

@@ -3,8 +3,6 @@ import {
   getAppVersion,
   getAppVersionInfo,
   getRuntimeConfigSource,
-  getFirebaseVapidKey,
-  getFirebaseWebConfig,
   hasLiveRuntimeConfig,
   isE2eFixturesEnabled,
   isMgcImportFeatureEnabled,
@@ -214,44 +212,6 @@ describe('runtime-config', () => {
       };
 
       expect(isRecommendationsExploreEnabled()).toBe(true);
-    });
-  });
-
-  describe('getFirebaseWebConfig()', () => {
-    it('returns environment fallback when runtime config is missing', () => {
-      const config = getFirebaseWebConfig();
-      expect(config.projectId).toBe('');
-    });
-
-    it('prefers runtime firebase fields when present', () => {
-      window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-        firebase: {
-          apiKey: 'runtime-api-key',
-          projectId: 'runtime-project',
-          messagingSenderId: 'runtime-sender',
-          appId: 'runtime-app',
-        },
-      };
-
-      const config = getFirebaseWebConfig();
-      expect(config.apiKey).toBe('runtime-api-key');
-      expect(config.projectId).toBe('runtime-project');
-      expect(config.messagingSenderId).toBe('runtime-sender');
-      expect(config.appId).toBe('runtime-app');
-    });
-  });
-
-  describe('getFirebaseVapidKey()', () => {
-    it('returns environment fallback when runtime value is missing', () => {
-      expect(getFirebaseVapidKey()).toBe('');
-    });
-
-    it('returns runtime vapid key when present', () => {
-      window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-        firebaseVapidKey: 'runtime-vapid',
-      };
-
-      expect(getFirebaseVapidKey()).toBe('runtime-vapid');
     });
   });
 

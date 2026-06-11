@@ -2,11 +2,11 @@
 
 ## Overview
 
-Game Shelf is an Ionic + Angular PWA for tracking a personal game library with metadata enrichment, box art/manual lookup, and browser sync support.
+Game Shelf is an Ionic + Angular app (web + Capacitor iOS) for tracking a personal game library with metadata enrichment, box art/manual lookup, and browser sync support.
 
 ## Project structure
 
-- `src/`: Frontend app (Ionic/Angular PWA)
+- `src/`: Frontend app (Ionic/Angular, web + Capacitor iOS)
   - `src/app/core/`: Services, models, data layer, API clients, security, and utils
   - `src/app/features/`: Feature modules (e.g. game-list)
 - `server/`: Fastify 5 API (sync, image proxy/cache, manuals, metadata proxy)
@@ -20,7 +20,7 @@ Game Shelf is an Ionic + Angular PWA for tracking a personal game library with m
 
 ## Tech stack
 
-- Angular 21 + Ionic 8 (frontend PWA)
+- Angular 21 + Ionic 8 + Capacitor (frontend)
 - Fastify 5 (server)
 - Dexie (IndexedDB ORM for local storage)
 - TipTap (rich text editor for game notes)

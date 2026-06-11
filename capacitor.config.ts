@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: 'io.github.thetigeregg.gameshelf',
   appName: 'GameShelf',
   webDir: 'www/browser',
+  plugins: {
+    FirebaseMessaging: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
 };
 
 export default config;

@@ -24,8 +24,7 @@ export interface ReleaseNotificationEventsPreference {
 
 /**
  * Release notifications are native push only (APNs via FCM through
- * `@capacitor-firebase/messaging`). Browsers are unsupported: web push was removed
- * together with PWA support.
+ * `@capacitor-firebase/messaging` on Capacitor iOS). The web app has no push support.
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {

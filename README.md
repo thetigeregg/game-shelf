@@ -137,20 +137,24 @@ IOS_BACKEND_ORIGIN_PROD=https://<your-production-host>
 
 `npm run build:ios:local` / `build:ios:prod` generate gitignored `environment.ios.*.ts` from these vars via `scripts/write-environment-ios.mjs`. `BACKEND_ORIGIN` is an optional fallback when the variant-specific key is unset.
 
-2. Build and sync the variant you need:
+2. Build, sync, and run on a connected device:
 
 ```bash
-npm run sync:ios:prod    # production backend (alias: npm run sync:ios)
-npm run sync:ios:local   # local Docker edge on your Mac
+npm run run:ios:prod    # production backend (alias: npm run run:ios)
+npm run run:ios:local   # local Docker edge on your Mac
 ```
 
-3. Open Xcode and run on a device:
+Connect and trust your iPhone first. To pick a specific device, set optional env vars (see `.env.example`) or run `npm run list:ios:targets`. First-time code signing may still require opening Xcode once.
+
+**Alternate workflows:**
 
 ```bash
-npm run open:ios
+npm run sync:ios:prod    # build + sync only (alias: npm run sync:ios)
+npm run sync:ios:local
+npm run open:ios         # open Xcode (debugger, manual scheme/run)
 ```
 
-Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). For side-by-side dev + prod apps, duplicate the App target in Xcode (`App Dev`, bundle id `…gameshelf.dev`, `Info.dev.plist`) — steps are in the multi-environment doc.
+Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). Side-by-side dev + prod apps use **App DEV** and **App PROD** targets with **DEV** / **PROD** schemes — see the multi-environment doc.
 
 ### Push notifications (release notifications)
 

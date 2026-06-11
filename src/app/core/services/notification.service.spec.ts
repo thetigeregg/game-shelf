@@ -1,42 +1,46 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { Messaging } from '@angular/fire/messaging';
-import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 
-const isSupportedMock = vi.fn<() => Promise<boolean>>();
-const getTokenMock = vi.fn<() => Promise<string | null>>();
-const deleteTokenMock = vi.fn<() => Promise<boolean>>();
-const onMessageMock = vi.fn();
+const checkPermissionsMock = vi.fn<() => Promise<{ receive: string }>>();
+const requestPermissionsMock = vi.fn<() => Promise<{ receive: string }>>();
+const getTokenMock = vi.fn<() => Promise<{ token: string }>>();
+const deleteTokenMock = vi.fn<() => Promise<void>>();
+const addListenerMock =
+  vi.fn<
+    (eventName: string, listener: (event: unknown) => void) => Promise<{ remove: () => void }>
+  >();
 
-vi.mock('firebase/messaging', () => ({
-  isSupported: () => isSupportedMock(),
-  getToken: (...args: unknown[]) => getTokenMock(...args),
-  deleteToken: (...args: unknown[]) => deleteTokenMock(...args),
-  onMessage: (...args: unknown[]) => {
-    onMessageMock(...args);
-    return () => undefined;
+vi.mock('@capacitor-firebase/messaging', () => ({
+  FirebaseMessaging: {
+    checkPermissions: () => checkPermissionsMock(),
+    requestPermissions: () => requestPermissionsMock(),
+    getToken: () => getTokenMock(),
+    deleteToken: () => deleteTokenMock(),
+    addListener: (eventName: string, listener: (event: unknown) => void) =>
+      addListenerMock(eventName, listener),
   },
 }));
 
-interface NotificationConstructorMock {
-  permission: NotificationPermission;
-  requestPermission: () => Promise<NotificationPermission>;
-}
+const isNativePlatformMock = vi.fn<() => boolean>();
+const getNativePlatformMock = vi.fn<() => string>();
+
+vi.mock('../utils/native-platform.util', () => ({
+  isNativePlatform: () => isNativePlatformMock(),
+  getNativePlatform: () => getNativePlatformMock(),
+}));
 
 describe('NotificationService', () => {
   let service: NotificationService;
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
-  let originalNotification: typeof Notification | undefined;
-  const originalVapidKey = environment.firebaseVapidKey;
+  let httpClient: HttpClient;
 
   beforeEach(() => {
     localStorage.clear();
-    originalNotification = globalThis.Notification;
 
     TestBed.configureTestingModule({
       providers: [
@@ -49,163 +53,97 @@ describe('NotificationService', () => {
             navigateByUrl: vi.fn().mockResolvedValue(true),
           },
         },
-        { provide: Messaging, useValue: {} },
         { provide: SYNC_OUTBOX_WRITER, useValue: null },
       ],
     });
 
     service = TestBed.inject(NotificationService);
     router = TestBed.inject(Router) as unknown as { navigateByUrl: ReturnType<typeof vi.fn> };
-    vi.spyOn(window, 'focus').mockImplementation(() => undefined);
-    isSupportedMock.mockResolvedValue(true);
-    getTokenMock.mockResolvedValue('fcm-token-1234567890');
-    deleteTokenMock.mockResolvedValue(true);
-    onMessageMock.mockImplementation(() => undefined);
+    httpClient = TestBed.inject(HttpClient);
+
+    isNativePlatformMock.mockReturnValue(true);
+    getNativePlatformMock.mockReturnValue('ios');
+    checkPermissionsMock.mockResolvedValue({ receive: 'granted' });
+    requestPermissionsMock.mockResolvedValue({ receive: 'granted' });
+    getTokenMock.mockResolvedValue({ token: 'fcm-token-1234567890' });
+    deleteTokenMock.mockResolvedValue(undefined);
+    addListenerMock.mockResolvedValue({ remove: () => undefined });
   });
 
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
-    environment.firebaseVapidKey = originalVapidKey;
-    if (originalNotification) {
-      globalThis.Notification = originalNotification;
-    } else {
-      delete (globalThis as { Notification?: unknown }).Notification;
-    }
+    checkPermissionsMock.mockReset();
+    requestPermissionsMock.mockReset();
+    getTokenMock.mockReset();
+    deleteTokenMock.mockReset();
+    addListenerMock.mockReset();
+    isNativePlatformMock.mockReset();
+    getNativePlatformMock.mockReset();
   });
 
-  it('returns denied when browser permission is not granted', async () => {
-    setNotificationMock({
-      permission: 'default',
-      requestPermission: () => Promise.resolve('denied'),
-    });
+  it('reports push as unsupported outside the native shell', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+
+    expect(service.isPushSupported()).toBe(false);
+
+    const result = await service.requestPermissionAndRegister();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('not supported on this device');
+
+    expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
+
+    await service.initialize();
+    expect(addListenerMock).not.toHaveBeenCalled();
+  });
+
+  it('returns denied when native permission is not granted', async () => {
+    requestPermissionsMock.mockResolvedValue({ receive: 'denied' });
 
     const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not granted');
   });
 
-  it('fails registration when service worker registration cannot be resolved', async () => {
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
-    environment.firebaseVapidKey = 'test-vapid-key';
+  it('treats permission request failures as denied', async () => {
+    requestPermissionsMock.mockRejectedValue(new Error('plugin unavailable'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    const resolveSpy = vi
-      .spyOn(
-        service as unknown as { resolveServiceWorkerRegistration: () => Promise<null> },
-        'resolveServiceWorkerRegistration'
-      )
-      .mockResolvedValue(null);
-
-    const result = await (
-      service as unknown as {
-        registerCurrentDevice: () => Promise<{ ok: boolean; message?: string }>;
-      }
-    ).registerCurrentDevice();
-
-    expect(resolveSpy).toHaveBeenCalledOnce();
+    const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
-    expect(result.message).toContain('service worker');
+    expect(result.message).toContain('not granted');
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('fails registration when the plugin returns no token', async () => {
+    getTokenMock.mockResolvedValue({ token: '' });
+
+    const result = await service.requestPermissionAndRegister();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Firebase iOS configuration');
   });
 
   it('fails registration when backend token save fails', async () => {
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
-    environment.firebaseVapidKey = 'test-vapid-key';
+    vi.spyOn(httpClient, 'post').mockReturnValue(throwError(() => new Error('backend down')));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    vi.spyOn(
-      service as unknown as {
-        resolveServiceWorkerRegistration: () => Promise<ServiceWorkerRegistration>;
-      },
-      'resolveServiceWorkerRegistration'
-    ).mockResolvedValue({} as ServiceWorkerRegistration);
-
-    vi.spyOn(
-      service as unknown as {
-        httpClient: { post: (url: string, body: unknown) => unknown };
-      },
-      'httpClient',
-      'get'
-    ).mockReturnValue({
-      post: () => throwError(() => new Error('backend down')),
-    });
-
-    const result = await (
-      service as unknown as {
-        registerCurrentDevice: () => Promise<{ ok: boolean; message?: string }>;
-      }
-    ).registerCurrentDevice();
-
+    const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('server');
     expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   it('stores token when backend registration succeeds', async () => {
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
-    environment.firebaseVapidKey = 'test-vapid-key';
+    const postSpy = vi.spyOn(httpClient, 'post').mockReturnValue(of({ ok: true }));
 
-    vi.spyOn(
-      service as unknown as {
-        resolveServiceWorkerRegistration: () => Promise<ServiceWorkerRegistration>;
-      },
-      'resolveServiceWorkerRegistration'
-    ).mockResolvedValue({} as ServiceWorkerRegistration);
-
-    vi.spyOn(
-      service as unknown as {
-        httpClient: { post: (url: string, body: unknown) => unknown };
-      },
-      'httpClient',
-      'get'
-    ).mockReturnValue({
-      post: () => of({ ok: true }),
-    });
-
-    const result = await (
-      service as unknown as {
-        registerCurrentDevice: () => Promise<{ ok: boolean }>;
-      }
-    ).registerCurrentDevice();
-
+    const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(true);
     expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBe('fcm-token-1234567890');
-  });
-
-  it('returns not supported when messaging is unavailable', async () => {
-    const noMessagingService = createService({ withMessaging: false });
-    const result = await noMessagingService.requestPermissionAndRegister();
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain('not supported on this device');
-    expect(await noMessagingService.shouldPromptForReleaseNotifications()).toBe(false);
-  });
-
-  it('does not wire foreground listener when browser notifications are unsupported', async () => {
-    isSupportedMock.mockResolvedValue(false);
-    await service.initialize();
-    expect(onMessageMock).not.toHaveBeenCalled();
-  });
-
-  it('handles requestPermissionAndRegister branches for unsupported and missing API', async () => {
-    isSupportedMock.mockResolvedValue(false);
-    expect(await service.requestPermissionAndRegister()).toEqual({
-      ok: false,
-      message: 'Notifications are not supported in this browser.',
-    });
-
-    isSupportedMock.mockResolvedValue(true);
-    delete (globalThis as { Notification?: unknown }).Notification;
-    expect(await service.requestPermissionAndRegister()).toEqual({
-      ok: false,
-      message: 'Notification API is unavailable.',
-    });
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/notifications/fcm/register'),
+      expect.objectContaining({ token: 'fcm-token-1234567890', platform: 'ios' })
+    );
   });
 
   it('stores and reads release notification enabled preference values', () => {
@@ -325,10 +263,6 @@ describe('NotificationService', () => {
 
   it('registerCurrentDeviceIfPermitted registers when enabled and permission granted', async () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
     const registerSpy = vi
       .spyOn(
         service as unknown as {
@@ -345,64 +279,38 @@ describe('NotificationService', () => {
 
   it('registerCurrentDeviceIfPermitted returns failure when permission is not granted', async () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
-    setNotificationMock({
-      permission: 'default',
-      requestPermission: () => Promise.resolve('default'),
-    });
+    checkPermissionsMock.mockResolvedValue({ receive: 'prompt' });
 
     const result = await service.registerCurrentDeviceIfPermitted();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not been granted');
   });
 
-  it('resolves service worker registrations for existing, new, and error states', async () => {
-    const getRegistration = vi
-      .fn()
-      .mockResolvedValueOnce({ id: 'existing' })
-      .mockResolvedValueOnce(null);
-    const register = vi
-      .fn()
-      .mockResolvedValueOnce({ id: 'new-registration' })
-      .mockRejectedValueOnce(new Error('bad sw'));
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: { getRegistration, register },
-    });
+  it('registerCurrentDeviceIfPermitted reports unsupported outside the native shell', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    isNativePlatformMock.mockReturnValue(false);
 
-    const method = (
-      service as unknown as {
-        resolveServiceWorkerRegistration: () => Promise<ServiceWorkerRegistration | null>;
-      }
-    ).resolveServiceWorkerRegistration.bind(service);
-
-    await expect(method()).resolves.toEqual({ id: 'existing' });
-    await expect(method()).resolves.toEqual({ id: 'new-registration' });
-    await expect(method()).resolves.toBeNull();
+    const result = await service.registerCurrentDeviceIfPermitted();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('not supported on this device');
   });
 
-  it('resolves device platform from user agent', () => {
+  it('resolves device platform from the Capacitor platform identifier', () => {
     const resolvePlatform = (
       service as unknown as { resolveDevicePlatform: () => 'web' | 'android' | 'ios' }
     ).resolveDevicePlatform.bind(service);
 
-    setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)');
+    getNativePlatformMock.mockReturnValue('ios');
     expect(resolvePlatform()).toBe('ios');
 
-    setUserAgent('Mozilla/5.0 (Linux; Android 15; Pixel 9)');
+    getNativePlatformMock.mockReturnValue('android');
     expect(resolvePlatform()).toBe('android');
 
-    setUserAgent('Mozilla/5.0 (X11; Linux x86_64)');
+    getNativePlatformMock.mockReturnValue('web');
     expect(resolvePlatform()).toBe('web');
   });
 
-  it('returns static firebase worker URL', () => {
-    const buildUrl = (
-      service as unknown as { buildFirebaseWorkerUrl: () => string }
-    ).buildFirebaseWorkerUrl.bind(service);
-    expect(buildUrl()).toBe('/firebase-messaging-sw.js');
-  });
-
-  it('initializes once and hooks foreground listener when supported', async () => {
+  it('initializes once and attaches native listeners a single time', async () => {
     const registerSpy = vi
       .spyOn(
         service as unknown as {
@@ -415,16 +323,13 @@ describe('NotificationService', () => {
     await service.initialize();
     await service.initialize();
 
-    expect(onMessageMock).toHaveBeenCalledTimes(1);
+    const listenedEvents = addListenerMock.mock.calls.map(([eventName]) => eventName);
+    expect(listenedEvents).toEqual(['notificationReceived', 'notificationActionPerformed']);
     expect(registerSpy).not.toHaveBeenCalled();
   });
 
   it('registers device during initialize when enabled and permission already granted', async () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
     const registerSpy = vi
       .spyOn(
         service as unknown as {
@@ -475,50 +380,22 @@ describe('NotificationService', () => {
     expect(initializeInternalSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('does not register duplicate foreground listener on initialize retry after failure', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
-    setNotificationMock({
-      permission: 'granted',
-      requestPermission: () => Promise.resolve('granted'),
-    });
-    vi.spyOn(
-      service as unknown as {
-        registerCurrentDevice: () => Promise<{ ok: boolean; token?: string }>;
-      },
-      'registerCurrentDevice'
-    )
-      .mockRejectedValueOnce(new Error('register failed'))
-      .mockResolvedValueOnce({ ok: true, token: 'abc' });
-    const beforeCount = onMessageMock.mock.calls.length;
-
-    await expect(service.initialize()).rejects.toThrow('register failed');
-    await expect(service.initialize()).resolves.toBeUndefined();
-
-    expect(onMessageMock.mock.calls.length - beforeCount).toBe(1);
-  });
-
   it('prompts for release notifications only when no preference is stored', async () => {
-    setNotificationMock({
-      permission: 'default',
-      requestPermission: () => Promise.resolve('default'),
-    });
+    checkPermissionsMock.mockResolvedValue({ receive: 'prompt' });
     expect(await service.shouldPromptForReleaseNotifications()).toBe(true);
 
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
   });
 
+  it('does not prompt when native permission was already denied', async () => {
+    checkPermissionsMock.mockResolvedValue({ receive: 'denied' });
+    expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
+  });
+
   it('returns warning outcome when backend unregister fails', async () => {
     localStorage.setItem('game-shelf:notifications:fcm-token', 'token-1');
-    vi.spyOn(
-      service as unknown as {
-        httpClient: { post: (url: string, body: unknown) => unknown };
-      },
-      'httpClient',
-      'get'
-    ).mockReturnValue({
-      post: () => throwError(() => new Error('backend down')),
-    });
+    vi.spyOn(httpClient, 'post').mockReturnValue(throwError(() => new Error('backend down')));
 
     const result = await service.unregisterCurrentDevice();
     expect(result.ok).toBe(false);
@@ -528,15 +405,7 @@ describe('NotificationService', () => {
 
   it('returns warning outcome when firebase deleteToken fails', async () => {
     localStorage.setItem('game-shelf:notifications:fcm-token', 'token-2');
-    vi.spyOn(
-      service as unknown as {
-        httpClient: { post: (url: string, body: unknown) => unknown };
-      },
-      'httpClient',
-      'get'
-    ).mockReturnValue({
-      post: () => of({ ok: true }),
-    });
+    vi.spyOn(httpClient, 'post').mockReturnValue(of({ ok: true }));
     deleteTokenMock.mockRejectedValueOnce(new Error('fcm delete failed'));
 
     const result = await service.unregisterCurrentDevice();
@@ -544,201 +413,46 @@ describe('NotificationService', () => {
     expect(result.message).toContain('did not fully complete');
   });
 
-  it('uses router navigation for foreground notification route clicks', async () => {
-    const originalServiceWorker = navigator.serviceWorker;
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {},
-    });
-    const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
-    setForegroundNotificationMock(notificationInstance);
+  it('unregisters cleanly when backend and plugin both succeed', async () => {
+    localStorage.setItem('game-shelf:notifications:fcm-token', 'token-3');
+    vi.spyOn(httpClient, 'post').mockReturnValue(of({ ok: true }));
 
-    (
-      service as unknown as {
-        showForegroundNotification: (payload: {
-          notification?: { title?: string; body?: string };
-          data?: Record<string, string>;
-        }) => void;
-      }
-    ).showForegroundNotification({
-      notification: { title: 'Title', body: 'Body' },
-      data: { route: '/tabs/wishlist' },
-    });
+    const result = await service.unregisterCurrentDevice();
+    expect(result.ok).toBe(true);
+    expect(deleteTokenMock).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
+  });
 
-    notificationInstance.onclick?.();
+  it('navigates with the router when a notification tap carries a route', async () => {
+    await service.initialize();
+
+    const actionListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationActionPerformed'
+    )?.[1];
+    expect(actionListener).toBeDefined();
+
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/tabs/wishlist' } },
+    });
     await Promise.resolve();
 
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: originalServiceWorker,
-    });
   });
 
-  it('handles foreground click when router navigation fails', async () => {
-    const originalServiceWorker = navigator.serviceWorker;
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {},
-    });
-    const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
-    setForegroundNotificationMock(notificationInstance);
-    router.navigateByUrl.mockRejectedValueOnce(new Error('router failed'));
+  it('ignores notification taps without a usable route', async () => {
+    await service.initialize();
 
-    (
-      service as unknown as {
-        showForegroundNotification: (payload: {
-          notification?: { title?: string; body?: string };
-          data?: Record<string, string>;
-        }) => void;
-      }
-    ).showForegroundNotification({
-      notification: { title: 'Title', body: 'Body' },
-      data: { route: '/tabs/wishlist' },
-    });
+    const actionListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationActionPerformed'
+    )?.[1];
 
-    notificationInstance.onclick?.();
+    actionListener?.({ actionId: 'tap', notification: { data: { route: 'not-a-path' } } });
+    actionListener?.({ actionId: 'tap', notification: { data: {} } });
+    actionListener?.({ actionId: 'tap', notification: {} });
     await Promise.resolve();
 
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: originalServiceWorker,
-    });
-  });
-
-  it('logs foreground notification construction failures', () => {
-    const originalServiceWorker = navigator.serviceWorker;
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {},
-    });
-    const notificationConstructor = vi.fn(() => {
-      throw new Error('notification constructor failed');
-    }) as unknown as typeof Notification;
-    Object.defineProperty(notificationConstructor, 'permission', {
-      configurable: true,
-      get: () => 'granted',
-    });
-    Object.defineProperty(notificationConstructor, 'requestPermission', {
-      configurable: true,
-      value: () => Promise.resolve('granted'),
-    });
-    globalThis.Notification = notificationConstructor;
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-    (
-      service as unknown as {
-        showForegroundNotification: (payload: {
-          notification?: { title?: string; body?: string };
-          data?: Record<string, string>;
-        }) => void;
-      }
-    ).showForegroundNotification({
-      notification: { title: 'Title', body: 'Body' },
-      data: {},
-    });
-
-    expect(errorSpy).toHaveBeenCalled();
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: originalServiceWorker,
-    });
-  });
-
-  it('returns early for foreground notifications when permission is not granted or API missing', () => {
-    const originalNotification = globalThis.Notification;
-    const notificationSpy = vi.fn();
-    const constructorWithDeniedPermission = notificationSpy as unknown as typeof Notification;
-    Object.defineProperty(constructorWithDeniedPermission, 'permission', {
-      configurable: true,
-      get: () => 'default',
-    });
-    Object.defineProperty(constructorWithDeniedPermission, 'requestPermission', {
-      configurable: true,
-      value: () => Promise.resolve('default'),
-    });
-    try {
-      globalThis.Notification = constructorWithDeniedPermission;
-
-      (
-        service as unknown as {
-          showForegroundNotification: (payload: {
-            notification?: { title?: string; body?: string };
-            data?: Record<string, string>;
-          }) => void;
-        }
-      ).showForegroundNotification({ notification: { title: 'Title', body: 'Body' }, data: {} });
-      expect(notificationSpy).not.toHaveBeenCalled();
-
-      delete (globalThis as { Notification?: unknown }).Notification;
-      (
-        service as unknown as {
-          showForegroundNotification: (payload: {
-            notification?: { title?: string; body?: string };
-            data?: Record<string, string>;
-          }) => void;
-        }
-      ).showForegroundNotification({ notification: { title: 'Title', body: 'Body' }, data: {} });
-      expect(notificationSpy).not.toHaveBeenCalled();
-    } finally {
-      if (typeof originalNotification === 'undefined') {
-        delete (globalThis as { Notification?: unknown }).Notification;
-      } else {
-        globalThis.Notification = originalNotification;
-      }
-    }
-  });
-
-  it('uses service worker showNotification for foreground message when available', async () => {
-    const originalServiceWorker = navigator.serviceWorker;
-    const originalNotification = globalThis.Notification;
-    const showNotification = vi.fn().mockResolvedValue(undefined);
-    try {
-      Object.defineProperty(navigator, 'serviceWorker', {
-        configurable: true,
-        value: {
-          getRegistration: vi.fn().mockResolvedValue({ showNotification }),
-        },
-      });
-      const fallbackConstructorSpy = vi.fn();
-      const notificationConstructor = fallbackConstructorSpy as unknown as typeof Notification;
-      Object.defineProperty(notificationConstructor, 'permission', {
-        configurable: true,
-        get: () => 'granted',
-      });
-      Object.defineProperty(notificationConstructor, 'requestPermission', {
-        configurable: true,
-        value: () => Promise.resolve('granted'),
-      });
-      globalThis.Notification = notificationConstructor;
-
-      (
-        service as unknown as {
-          showForegroundNotification: (payload: {
-            notification?: { title?: string; body?: string };
-            data?: Record<string, string>;
-          }) => void;
-        }
-      ).showForegroundNotification({
-        notification: { title: 'Title', body: 'Body' },
-        data: { route: '/tabs/discover' },
-      });
-      await Promise.resolve();
-
-      expect(showNotification).toHaveBeenCalledOnce();
-      expect(fallbackConstructorSpy).not.toHaveBeenCalled();
-    } finally {
-      Object.defineProperty(navigator, 'serviceWorker', {
-        configurable: true,
-        value: originalServiceWorker,
-      });
-      if (typeof originalNotification === 'undefined') {
-        delete (globalThis as { Notification?: unknown }).Notification;
-      } else {
-        globalThis.Notification = originalNotification;
-      }
-    }
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('handles localStorage read failures in stored-token lookup', () => {
@@ -759,10 +473,7 @@ describe('NotificationService', () => {
 
   it('enqueues settings upserts when outbox writer is configured', () => {
     const enqueueOperation = vi.fn();
-    const serviceWithOutbox = createService({
-      withMessaging: true,
-      outboxWriter: { enqueueOperation },
-    });
+    const serviceWithOutbox = createService({ enqueueOperation });
 
     serviceWithOutbox.setReleaseNotificationsEnabled(true);
 
@@ -779,50 +490,8 @@ describe('NotificationService', () => {
   });
 });
 
-function setNotificationMock(config: NotificationConstructorMock): void {
-  const notificationConstructor = function notificationConstructor() {
-    return undefined;
-  } as unknown as typeof Notification;
-
-  Object.defineProperty(notificationConstructor, 'permission', {
-    configurable: true,
-    get: () => config.permission,
-  });
-  Object.defineProperty(notificationConstructor, 'requestPermission', {
-    configurable: true,
-    value: config.requestPermission,
-  });
-
-  globalThis.Notification = notificationConstructor;
-}
-
-function setForegroundNotificationMock(instance: { onclick: (() => void) | null }): void {
-  const notificationConstructor = function notificationConstructor() {
-    return instance as unknown as Notification;
-  } as unknown as typeof Notification;
-
-  Object.defineProperty(notificationConstructor, 'permission', {
-    configurable: true,
-    get: () => 'granted',
-  });
-  Object.defineProperty(notificationConstructor, 'requestPermission', {
-    configurable: true,
-    value: () => Promise.resolve('granted'),
-  });
-
-  globalThis.Notification = notificationConstructor;
-}
-
-function setUserAgent(userAgent: string): void {
-  Object.defineProperty(window.navigator, 'userAgent', {
-    configurable: true,
-    value: userAgent,
-  });
-}
-
-function createService(options: {
-  withMessaging: boolean;
-  outboxWriter?: { enqueueOperation: (operation: unknown) => Promise<void> | void } | null;
+function createService(outboxWriter: {
+  enqueueOperation: (operation: unknown) => Promise<void> | void;
 }): NotificationService {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -836,8 +505,7 @@ function createService(options: {
           navigateByUrl: vi.fn().mockResolvedValue(true),
         },
       },
-      ...(options.withMessaging ? [{ provide: Messaging, useValue: {} }] : []),
-      { provide: SYNC_OUTBOX_WRITER, useValue: options.outboxWriter ?? null },
+      { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter },
     ],
   });
 

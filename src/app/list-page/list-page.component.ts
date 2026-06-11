@@ -502,7 +502,7 @@ export class ListPageComponent {
       return;
     }
 
-    // On iOS PWA, keyboard opening is more reliable when focus is triggered
+    // On iOS WebKit, keyboard opening is more reliable when focus is triggered
     // directly from the user gesture on the underlying native input.
     void searchbar.setFocus();
     void searchbar.getInputElement().then((input) => {

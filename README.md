@@ -4,7 +4,8 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 ## Repository Structure
 
-- `src/`: Frontend app (Ionic/Angular PWA)
+- `src/`: Frontend app (Ionic/Angular, web + Capacitor iOS)
+- `ios/`: Capacitor iOS native project (Xcode)
 - `server/`: Fastify API (sync, image proxy/cache, manuals, metadata proxy)
 - `worker/`: Shared metadata logic/tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
@@ -16,9 +17,9 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 ## In-browser emulation (EmulatorJS)
 
-- The PWA can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
+- The app can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
 - **`loader.js`** is loaded **cross-origin** from that base URL with **Subresource Integrity (SRI)** so only a hash-matched build executes. Defaults and pins are in `src/app/core/config/emulatorjs.constants.ts` (after each `game-shelf-assets` deploy, align pins with `EMULATORJS_ASSETS_MANIFEST_URL`); production injection is handled by `scripts/write-environment-prod.sh` when applicable.
-- **ROM** and **BIOS** files are still served **same-origin** from your deployment (`/roms`, `/bios`).
+- **ROM** and **BIOS** files are served from your deployment (`/roms`, `/bios`). On the web they are same-origin; the Capacitor iOS app loads them from the absolute backend host configured in `src/environments/environment.ios.ts`.
 - **Supported platforms** are IGDB catalog entries mapped to documented `EJS_core` values ([EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores)); the map is `src/app/core/utils/emulatorjs-platform-map.ts`. **`Play in browser`** only appears when that map returns a core for the game’s canonical platform id.
 - **ROM folders** on disk use names ending in `__pid-<platformIgdbId>` (see **`ROM files`** and **`EmulatorJS: supported IGDB platforms (in-browser)`** in [`docs/nas-deployment.md`](docs/nas-deployment.md)). **BIOS** paths under `/bios/...` are fixed per core in `src/app/core/utils/emulatorjs-bios-path.ts`; the NAS guide lists every core for which the app sets `EJS_biosUrl`, zip vs single-file layout, and which supported platforms have no BIOS URL today.
 - Full operational layout (ROM layout, supported platform table with BIOS column, BIOS file table, `EJS_pathtodata`) lives in [`docs/nas-deployment.md`](docs/nas-deployment.md) under **ROM files**, **EmulatorJS: supported IGDB platforms (in-browser)**, **BIOS files**, and **EmulatorJS runtime (`EJS_pathtodata`)**.
@@ -82,42 +83,12 @@ npx devx worktree frontend
 
 Frontend dev server port is derived from worktree context (shown by `npx devx worktree info`).
 Manual URLs resolve through the worktree-local `edge` service during dev.
-For iPhone Simulator Safari testing without full PWA fidelity, use:
+For iPhone Simulator Safari testing, use:
 
 ```bash
 npx devx worktree simulator
 ```
 
-For installed-PWA simulator testing, use the required `mkcert` setup flow:
-
-```bash
-npx devx worktree pwa certs-setup
-npx devx worktree pwa certs-check
-```
-
-If Safari in iPhone Simulator still shows "This website is not secure", serve the `mkcert` root CA to the simulator and install/trust it there too:
-
-```bash
-npx devx worktree pwa certs-serve-root
-```
-
-Then in iPhone Simulator Safari open the printed `http://localhost:<port>/rootCA.pem` URL, install the downloaded profile, and enable full trust in `Settings > General > About > Certificate Trust Settings`.
-
-Then build and serve the production PWA over HTTPS:
-
-```bash
-npx devx worktree pwa simulator
-```
-
-Or run the steps separately:
-
-```bash
-npx devx worktree pwa build
-npx devx worktree pwa serve
-```
-
-The installed-PWA path proxies requests under `/api/` and `/manuals/` through the local HTTPS origin so the simulator exercises the production web configuration.
-`npx devx worktree pwa serve` and `npx devx worktree pwa simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
 When using `npx devx worktree ...` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
@@ -149,6 +120,41 @@ For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-dep
 ```bash
 npm run build
 ```
+
+## iOS App (Capacitor)
+
+The frontend ships as a native iOS app via Capacitor. The web deployment (edge) remains for browsers.
+
+1. Create the iOS build environment from the template and set your backend origin:
+
+```bash
+cp src/environments/environment.ios.example.ts src/environments/environment.ios.ts
+```
+
+2. Build the web bundle with absolute backend URLs and sync it into the iOS project:
+
+```bash
+npm run sync:ios
+```
+
+3. Open the Xcode workspace and run on a device:
+
+```bash
+npm run open:ios
+```
+
+Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed).
+
+### Push notifications (release notifications)
+
+Release notifications use native push via `@capacitor-firebase/messaging` (APNs through FCM). One-time setup:
+
+1. In the Firebase console, add an **iOS app** (bundle id `io.github.thetigeregg.gameshelf`) to the existing Firebase project and download `GoogleService-Info.plist`.
+2. Add `GoogleService-Info.plist` to `ios/App/App/` in Xcode (File > Add Files to "App", App target).
+3. Upload your **APNs Auth Key** (from the Apple Developer portal) in Firebase project settings > Cloud Messaging.
+4. In Xcode, the App target already has the Push Notifications entitlement and `remote-notification` background mode configured (`App.entitlements`, `Info.plist`).
+
+The backend contract is unchanged: tokens register via `POST /v1/notifications/fcm/register` and the server sends through `firebase-admin`. Web browsers no longer support notifications (web push was removed with PWA support).
 
 ## Pricing Metadata
 
@@ -249,6 +255,8 @@ Compose stacks use:
 - Local secrets should not be committed:
   - `src/environments/environment.local.ts` is ignored
   - use `src/environments/environment.local.example.ts` as template
+  - `src/environments/environment.ios.ts` is ignored
+  - use `src/environments/environment.ios.example.ts` as template
 - Secret scanning:
   - `.gitleaks.toml`
   - `.github/workflows/secret-scan.yml`

@@ -1,8 +1,10 @@
 /**
- * Builds and validates same-origin play-shell URLs for EmulatorJS. `pathToData` is the HTTPS
- * `EJS_pathtodata` base hosted on GitHub Pages from `game-shelf-assets` (allowlisted); ROMs must
- * live under `/roms/` and BIOS under `/bios/` (mirrored in `play.html`, which does not accept base
- * path overrides via query string).
+ * Builds and validates play-shell URLs for EmulatorJS. `pathToData` is the HTTPS
+ * `EJS_pathtodata` base hosted on GitHub Pages from `game-shelf-assets` (allowlisted).
+ * ROM and BIOS URLs must live under the configured `romsBaseUrl` / `biosBaseUrl`
+ * (defaults `/roms` and `/bios`, mirrored in `play.html`). On web these bases are
+ * same-origin paths; in the Capacitor native shell they are absolute HTTPS URLs on
+ * the backend host, which `play.html` only accepts under the `capacitor:` scheme.
  */
 import {
   EMULATORJS_DEFAULT_PATH_TO_DATA,
@@ -18,15 +20,17 @@ export interface BuildEmulatorJsPlayShellUrlParams {
   /** Page origin, e.g. `https://example.com` (no trailing slash). */
   origin: string;
   core: string;
-  /** Absolute or same-origin ROM URL (validated in play shell). */
+  /** ROM URL under the configured ROM base (validated in play shell). */
   romUrl: string;
   gameTitle?: string | null;
   /** Absolute HTTPS URL under the game-shelf-assets EmulatorJS release path; empty uses the pinned default. */
   pathToData: string;
-  /** Same-origin absolute BIOS asset URL under `/bios/` (validated in play shell; optional). */
+  /** BIOS asset URL under the configured BIOS base (validated in play shell; optional). */
   biosUrl?: string | null;
-  /** Same-origin BIOS base path allowlist (e.g. `/bios`); defaults to `/bios`. */
+  /** BIOS base allowlist: same-origin path (e.g. `/bios`) or absolute HTTPS base URL; defaults to `/bios`. */
   biosBaseUrl?: string | null;
+  /** ROM base allowlist: same-origin path (e.g. `/roms`) or absolute HTTPS base URL; defaults to `/roms`. */
+  romBaseUrl?: string | null;
   /** When true, appends `debug=1` so the play shell sets `EJS_DEBUG_XX` (verbose logs, unminified scripts). */
   debug?: boolean;
   /** Override play shell path for tests. */
@@ -96,20 +100,56 @@ function normalizePathToData(value: string): string {
   return normalized;
 }
 
-function normalizeBiosBasePath(value: string | null | undefined): string {
-  const baseRaw = typeof value === 'string' ? value.trim() : '';
-  const normalizedBase = (baseRaw.length === 0 ? '/bios' : baseRaw).replace(/\/+$/, '');
-  const normalizedPath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
-  if (containsDotSegments(normalizedPath)) {
-    throw new Error('Invalid EmulatorJS bios base path');
-  }
-  return normalizedPath;
+interface EmulatorJsAssetBase {
+  /** Absolute asset host origin, or null when assets are same-origin with the page. */
+  origin: string | null;
+  /** Normalized base path with leading slash and no trailing slash. */
+  basePath: string;
 }
 
-function normalizeRomBasePath(value: string | null | undefined): string {
-  const baseRaw = typeof value === 'string' ? value.trim() : '';
-  const normalizedBase = (baseRaw.length === 0 ? '/roms' : baseRaw).replace(/\/+$/, '');
-  return normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+/**
+ * Splits an asset base config value into origin + path. Accepts either a same-origin
+ * path (`/bios`) or an absolute HTTPS base URL (`https://host/bios`, used by the
+ * Capacitor native shell where assets live on the backend host).
+ */
+function splitEmulatorJsAssetBase(
+  value: string | null | undefined,
+  fallbackPath: string
+): EmulatorJsAssetBase {
+  const raw = typeof value === 'string' ? value.trim() : '';
+
+  if (/^https:\/\//i.test(raw)) {
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      throw new Error('Invalid EmulatorJS asset base URL');
+    }
+    if (parsed.username.length > 0 || parsed.password.length > 0) {
+      throw new Error('Invalid EmulatorJS asset base URL');
+    }
+    const basePath = parsed.pathname.replace(/\/+$/, '');
+    if (containsDotSegments(basePath)) {
+      throw new Error('Invalid EmulatorJS asset base URL');
+    }
+    return { origin: parsed.origin, basePath: basePath.length > 0 ? basePath : fallbackPath };
+  }
+
+  if (raw.includes('://')) {
+    throw new Error('Invalid EmulatorJS asset base URL');
+  }
+
+  const normalizedBase = (raw.length === 0 ? fallbackPath : raw).replace(/\/+$/, '');
+  const normalizedPath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
+  if (containsDotSegments(normalizedPath)) {
+    throw new Error('Invalid EmulatorJS asset base path');
+  }
+  return { origin: null, basePath: normalizedPath };
+}
+
+/** Serializes an asset base for the play shell query string (`bios_base` / `rom_base`). */
+function serializeEmulatorJsAssetBase(base: EmulatorJsAssetBase): string {
+  return base.origin === null ? base.basePath : `${base.origin}${base.basePath}`;
 }
 
 function containsDotSegments(pathname: string): boolean {
@@ -150,8 +190,9 @@ export function isSafeEmulatorJsCoreToken(value: string): boolean {
 }
 
 /**
- * Builds the same-origin play-shell URL for the EmulatorJS iframe. Query `pathtodata` becomes
- * EmulatorJS `EJS_pathtodata` (HTTPS static bundle). ROM and BIOS allowlisting is enforced in `play.html`.
+ * Builds the play-shell URL for the EmulatorJS iframe (shell itself is always same-origin).
+ * Query `pathtodata` becomes EmulatorJS `EJS_pathtodata` (HTTPS static bundle). ROM and BIOS
+ * allowlisting is enforced in `play.html`.
  */
 export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlParams): string {
   const normalizedOrigin = params.origin.replace(/\/+$/, '');
@@ -167,11 +208,17 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   pageUrl.searchParams.set('core', coreCandidate);
 
-  const resolvedRom = new URL(params.romUrl, `${normalizedOrigin}/`);
-  if (!isAllowedEmulatorJsRomUrl(resolvedRom.href, normalizedOrigin, '/roms')) {
+  const romBase = splitEmulatorJsAssetBase(params.romBaseUrl, '/roms');
+  const resolvedRom = new URL(params.romUrl, `${romBase.origin ?? normalizedOrigin}/`);
+  if (
+    !isAllowedEmulatorJsRomUrl(resolvedRom.href, normalizedOrigin, params.romBaseUrl ?? '/roms')
+  ) {
     throw new Error('Invalid ROM URL for EmulatorJS play shell');
   }
   pageUrl.searchParams.set('rom', resolvedRom.href);
+  if (romBase.origin !== null) {
+    pageUrl.searchParams.set('rom_base', serializeEmulatorJsAssetBase(romBase));
+  }
 
   const title = typeof params.gameTitle === 'string' ? params.gameTitle.trim() : '';
   if (title.length > 0) {
@@ -187,21 +234,21 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
 
   const biosCandidate = typeof params.biosUrl === 'string' ? params.biosUrl.trim() : '';
   if (biosCandidate.length > 0) {
-    const biosBasePath = normalizeBiosBasePath(params.biosBaseUrl);
-    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, biosBasePath)) {
+    const biosBase = splitEmulatorJsAssetBase(params.biosBaseUrl, '/bios');
+    if (!isAllowedEmulatorJsBiosUrl(biosCandidate, normalizedOrigin, params.biosBaseUrl)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     let resolvedBios: URL;
     try {
-      resolvedBios = new URL(biosCandidate, `${normalizedOrigin}/`);
+      resolvedBios = new URL(biosCandidate, `${biosBase.origin ?? normalizedOrigin}/`);
     } catch {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
-    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, biosBasePath)) {
+    if (!isAllowedEmulatorJsBiosUrl(resolvedBios.href, normalizedOrigin, params.biosBaseUrl)) {
       throw new Error('Invalid BIOS URL for EmulatorJS play shell');
     }
     pageUrl.searchParams.set('bios', resolvedBios.href);
-    pageUrl.searchParams.set('bios_base', biosBasePath);
+    pageUrl.searchParams.set('bios_base', serializeEmulatorJsAssetBase(biosBase));
   }
 
   const shaderCandidate =
@@ -243,7 +290,8 @@ export function isSafeEmulatorJsBiosRelativePath(value: string): boolean {
 }
 
 /**
- * Builds an absolute same-origin BIOS URL under `biosBaseUrl` (e.g. `/bios`).
+ * Builds an absolute BIOS URL under `biosBaseUrl` (same-origin path like `/bios`, or an
+ * absolute HTTPS base on the configured backend host).
  * Returns null if the path is unsafe or the result is not under the normalized `biosBaseUrl`.
  */
 export function buildEmulatorJsBiosUrl(
@@ -256,71 +304,76 @@ export function buildEmulatorJsBiosUrl(
   }
 
   const origin = pageOrigin.replace(/\/+$/, '');
-  const basePath = normalizeBiosBasePath(biosBaseUrl);
 
-  let resolved: URL;
+  let base: EmulatorJsAssetBase;
   try {
-    resolved = new URL(biosRelativePath, `${origin}${basePath}/`);
+    base = splitEmulatorJsAssetBase(biosBaseUrl, '/bios');
   } catch {
     return null;
   }
 
-  if (!isAllowedEmulatorJsBiosUrl(resolved.href, origin, basePath)) {
+  let resolved: URL;
+  try {
+    resolved = new URL(biosRelativePath, `${base.origin ?? origin}${base.basePath}/`);
+  } catch {
+    return null;
+  }
+
+  if (!isAllowedEmulatorJsBiosUrl(resolved.href, origin, biosBaseUrl)) {
     return null;
   }
 
   return resolved.href;
 }
 
-/** Same-origin BIOS-base-path check (mirrors play shell rules) for unit tests. */
-export function isAllowedEmulatorJsBiosUrl(
-  biosUrl: string,
+function isAllowedEmulatorJsAssetUrl(
+  assetUrl: string,
   pageOrigin: string,
-  biosBaseUrl = '/bios'
+  baseUrl: string | null | undefined,
+  fallbackPath: string
 ): boolean {
+  const origin = pageOrigin.replace(/\/+$/, '');
+
+  let base: EmulatorJsAssetBase;
+  try {
+    base = splitEmulatorJsAssetBase(baseUrl, fallbackPath);
+  } catch {
+    return false;
+  }
+
+  const allowedOrigin = base.origin ?? origin;
+
   let parsed: URL;
   try {
-    parsed = new URL(biosUrl, `${pageOrigin.replace(/\/+$/, '')}/`);
+    parsed = new URL(assetUrl, `${allowedOrigin}/`);
   } catch {
     return false;
   }
 
-  const origin = pageOrigin.replace(/\/+$/, '');
-  if (parsed.origin !== origin || parsed.username.length > 0 || parsed.password.length > 0) {
+  if (parsed.origin !== allowedOrigin || parsed.username.length > 0 || parsed.password.length > 0) {
     return false;
   }
 
-  let basePath: string;
-  try {
-    basePath = normalizeBiosBasePath(biosBaseUrl);
-  } catch {
-    return false;
-  }
-  const prefix = `${basePath}/`;
+  const prefix = `${base.basePath}/`;
   return !containsDotSegments(parsed.pathname) && parsed.pathname.startsWith(prefix);
 }
 
-/** Same-origin `/roms/` check (mirrors play shell rules) for unit tests. */
+/** BIOS base allowlist check (mirrors play shell rules). */
+export function isAllowedEmulatorJsBiosUrl(
+  biosUrl: string,
+  pageOrigin: string,
+  biosBaseUrl: string | null | undefined = '/bios'
+): boolean {
+  return isAllowedEmulatorJsAssetUrl(biosUrl, pageOrigin, biosBaseUrl, '/bios');
+}
+
+/** ROM base allowlist check (mirrors play shell rules). */
 export function isAllowedEmulatorJsRomUrl(
   romUrl: string,
   pageOrigin: string,
-  romBaseUrl = '/roms'
+  romBaseUrl: string | null | undefined = '/roms'
 ): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(romUrl, `${pageOrigin.replace(/\/+$/, '')}/`);
-  } catch {
-    return false;
-  }
-
-  const origin = pageOrigin.replace(/\/+$/, '');
-  if (parsed.origin !== origin || parsed.username.length > 0 || parsed.password.length > 0) {
-    return false;
-  }
-
-  const basePath = normalizeRomBasePath(romBaseUrl);
-  const prefix = `${basePath}/`;
-  return !containsDotSegments(parsed.pathname) && parsed.pathname.startsWith(prefix);
+  return isAllowedEmulatorJsAssetUrl(romUrl, pageOrigin, romBaseUrl, '/roms');
 }
 
 const EMULATORJS_LOADER_INTEGRITY_PATTERN = /^(?:sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;

@@ -1,18 +1,22 @@
 # Notifications Troubleshooting
 
-## 1. Browser/Device Preconditions
+Notifications are delivered as native push to the Capacitor iOS app (APNs via FCM,
+`@capacitor-firebase/messaging`). Browsers are not supported.
 
-- Confirm browser/site notification permission is `granted`.
-- Confirm OS-level notifications are enabled for the browser/app.
-- Confirm service worker is registered (`firebase-messaging-sw.js`).
+## 1. Device Preconditions
 
-## 2. Frontend Registration Checks
+- Confirm iOS notification permission for the app is granted (Settings > Notifications).
+- Confirm `GoogleService-Info.plist` is bundled in the iOS app target.
+- Confirm the APNs auth key is uploaded in Firebase project settings > Cloud Messaging.
+- Confirm the app was built with the Push Notifications capability (`App.entitlements`)
+  and the `remote-notification` background mode.
+
+## 2. App Registration Checks
 
 - Open app settings and enable release notifications.
 - Verify token registration request succeeds:
   - `POST /v1/notifications/fcm/register`
-- In browser logs, verify no:
-  - `[notifications] service_worker_register_failed`
+- In the WebView console (Safari > Develop > device), verify no:
   - `[notifications] token_registration_failed`
   - `[notifications] backend_register_failed`
 

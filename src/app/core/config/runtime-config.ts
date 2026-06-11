@@ -9,21 +9,9 @@ interface RuntimeFeatureFlags {
   tasEnabled?: boolean;
 }
 
-interface RuntimeFirebaseConfig {
-  apiKey?: string;
-  authDomain?: string;
-  projectId?: string;
-  storageBucket?: string;
-  messagingSenderId?: string;
-  appId?: string;
-}
-
 interface RuntimeConfig {
   appVersion?: string;
-  firebaseCdnVersion?: string;
   featureFlags?: RuntimeFeatureFlags;
-  firebase?: RuntimeFirebaseConfig;
-  firebaseVapidKey?: string;
 }
 
 export type RuntimeConfigSource = 'live' | 'persisted' | 'default';
@@ -78,38 +66,7 @@ function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
 
   const candidate = value as RuntimeConfig;
   const appVersion = normalizeRuntimeString(candidate.appVersion) ?? undefined;
-  const firebaseCdnVersion = normalizeRuntimeString(candidate.firebaseCdnVersion) ?? undefined;
-  const firebaseVapidKey = normalizeRuntimeString(candidate.firebaseVapidKey) ?? undefined;
-  const firebaseCandidate = candidate.firebase;
   const featureFlagsCandidate = candidate.featureFlags;
-  const firebase =
-    firebaseCandidate && typeof firebaseCandidate === 'object'
-      ? {
-          ...(normalizeRuntimeString(firebaseCandidate.apiKey) !== null
-            ? { apiKey: normalizeRuntimeString(firebaseCandidate.apiKey) ?? undefined }
-            : {}),
-          ...(normalizeRuntimeString(firebaseCandidate.authDomain) !== null
-            ? { authDomain: normalizeRuntimeString(firebaseCandidate.authDomain) ?? undefined }
-            : {}),
-          ...(normalizeRuntimeString(firebaseCandidate.projectId) !== null
-            ? { projectId: normalizeRuntimeString(firebaseCandidate.projectId) ?? undefined }
-            : {}),
-          ...(normalizeRuntimeString(firebaseCandidate.storageBucket) !== null
-            ? {
-                storageBucket: normalizeRuntimeString(firebaseCandidate.storageBucket) ?? undefined,
-              }
-            : {}),
-          ...(normalizeRuntimeString(firebaseCandidate.messagingSenderId) !== null
-            ? {
-                messagingSenderId:
-                  normalizeRuntimeString(firebaseCandidate.messagingSenderId) ?? undefined,
-              }
-            : {}),
-          ...(normalizeRuntimeString(firebaseCandidate.appId) !== null
-            ? { appId: normalizeRuntimeString(firebaseCandidate.appId) ?? undefined }
-            : {}),
-        }
-      : undefined;
   const featureFlags =
     featureFlagsCandidate && typeof featureFlagsCandidate === 'object'
       ? {
@@ -131,21 +88,12 @@ function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
         }
       : undefined;
 
-  if (
-    appVersion === undefined &&
-    firebaseCdnVersion === undefined &&
-    firebaseVapidKey === undefined &&
-    firebase === undefined &&
-    featureFlags === undefined
-  ) {
+  if (appVersion === undefined && featureFlags === undefined) {
     return {};
   }
 
   return {
     ...(appVersion !== undefined ? { appVersion } : {}),
-    ...(firebaseCdnVersion !== undefined ? { firebaseCdnVersion } : {}),
-    ...(firebaseVapidKey !== undefined ? { firebaseVapidKey } : {}),
-    ...(firebase !== undefined ? { firebase } : {}),
     ...(featureFlags !== undefined ? { featureFlags } : {}),
   };
 }
@@ -285,38 +233,4 @@ export function isTasFeatureEnabled(): boolean {
   }
 
   return environment.featureFlags.tasEnabled;
-}
-
-export function getFirebaseWebConfig(): {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  messagingSenderId: string;
-  appId: string;
-} {
-  const fallback = environment.firebase;
-  const candidate = resolveRuntimeConfig().config?.firebase;
-  if (!candidate || typeof candidate !== 'object') {
-    return fallback;
-  }
-
-  return {
-    apiKey: normalizeRuntimeString(candidate.apiKey) ?? fallback.apiKey,
-    authDomain: normalizeRuntimeString(candidate.authDomain) ?? fallback.authDomain,
-    projectId: normalizeRuntimeString(candidate.projectId) ?? fallback.projectId,
-    storageBucket: normalizeRuntimeString(candidate.storageBucket) ?? fallback.storageBucket,
-    messagingSenderId:
-      normalizeRuntimeString(candidate.messagingSenderId) ?? fallback.messagingSenderId,
-    appId: normalizeRuntimeString(candidate.appId) ?? fallback.appId,
-  };
-}
-
-export function getFirebaseVapidKey(): string {
-  const runtimeValue = normalizeRuntimeString(resolveRuntimeConfig().config?.firebaseVapidKey);
-  if (runtimeValue !== null) {
-    return runtimeValue;
-  }
-
-  return environment.firebaseVapidKey;
 }

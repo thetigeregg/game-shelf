@@ -309,7 +309,7 @@ describe('buildEmulatorJsPlayShellUrl', () => {
         biosBaseUrl: '/bios/../x',
         loaderIntegrity: VALID_LOADER_INTEGRITY,
       })
-    ).toThrow(/Invalid EmulatorJS bios base path/);
+    ).toThrow(/Invalid EmulatorJS asset base path/);
   });
 
   it('appends loader_integrity when provided', () => {
@@ -367,10 +367,18 @@ describe('buildEmulatorJsBiosUrl', () => {
     );
   });
 
-  it('throws when bios base path contains dot segments', () => {
-    expect(() =>
-      buildEmulatorJsBiosUrl('https://app.test', '/bios/../x', 'psx/scph1001.bin')
-    ).toThrow(/Invalid EmulatorJS bios base path/);
+  it('returns null when bios base path contains dot segments', () => {
+    expect(buildEmulatorJsBiosUrl('https://app.test', '/bios/../x', 'psx/scph1001.bin')).toBeNull();
+  });
+
+  it('supports absolute HTTPS bios bases for the native shell', () => {
+    expect(
+      buildEmulatorJsBiosUrl(
+        'capacitor://localhost',
+        'https://backend.test/bios',
+        'psx/scph1001.bin'
+      )
+    ).toBe('https://backend.test/bios/psx/scph1001.bin');
   });
 });
 

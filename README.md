@@ -171,7 +171,7 @@ One-time setup per Firebase project:
 
 Local Docker should use the **dev** Firebase service account; production uses **prod**. The plist in each app must match the Firebase project behind that app's API.
 
-The backend contract is unchanged: tokens register via `POST /v1/notifications/fcm/register` and the server sends through `firebase-admin`. Web browsers no longer support notifications (web push was removed with PWA support).
+The backend contract is unchanged: tokens register via `POST /v1/notifications/fcm/register` and the server sends through `firebase-admin`. Web browsers do not support push notifications; use the iOS app.
 
 ## Pricing Metadata
 

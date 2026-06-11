@@ -267,7 +267,7 @@ For production, use only `docker-compose.portainer.yml` (do not include `docker-
 
 Services:
 
-- `edge` serves the PWA and proxies `/api/*`.
+- `edge` serves the web app and proxies `/api/*`.
 - `api` hosts metadata + sync endpoints.
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
@@ -292,7 +292,7 @@ ROM files:
 
 ### EmulatorJS: supported IGDB platforms (in-browser)
 
-The PWA only offers **Play in browser** when the game’s canonical IGDB platform maps to an `EJS_core` listed under [EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores). The authoritative IGDB → core map is `src/app/core/utils/emulatorjs-platform-map.ts` (`IGDB_TO_DOCUMENTED_EMULATOR_JS_CORE`).
+The app only offers **Play in browser** when the game’s canonical IGDB platform maps to an `EJS_core` listed under [EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores). The authoritative IGDB → core map is `src/app/core/utils/emulatorjs-platform-map.ts` (`IGDB_TO_DOCUMENTED_EMULATOR_JS_CORE`).
 
 | IGDB ID | Platform (app catalog)              | `EJS_core`   | ROM folder suffix (append to any label) | BIOS via app (`EJS_biosUrl`)                                                                                     |
 | ------: | ----------------------------------- | ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -350,7 +350,7 @@ The PWA only offers **Play in browser** when the game’s canonical IGDB platfor
 BIOS files:
 
 - Store BIOS files under `nas-data/bios` (mounted at `/bios` in `edge`).
-- When using **EmulatorJS** in the PWA, the frontend may set **`EJS_biosUrl`** to same-origin URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
+- When using **EmulatorJS**, the frontend may set **`EJS_biosUrl`** to URLs under `/bios/...`. Paths and filenames are **fixed conventions** in `src/app/core/utils/emulatorjs-bios-path.ts` (not the same `__pid-<platformIgdbId>` layout as ROMs/manuals). Symlink or rename dumps to match, or adjust that map if your files use different names.
 - The app serves BIOS assets at `/bios/...` for in-browser play (no API indexing/matching required).
 - Allowed `EJS_core` tokens follow [EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores). Per-system BIOS file names and zip layout follow [EmulatorJS · Systems](https://emulatorjs.org/docs/systems/).
 - EmulatorJS takes a **single** `EJS_biosUrl`. Match how each system is documented in [EmulatorJS · Systems](https://emulatorjs.org/docs/systems/):

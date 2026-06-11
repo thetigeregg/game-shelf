@@ -1,3 +1,7 @@
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { isNativePlatform } from './native-platform.util';
+
 export interface ShareFileParams {
   content: string;
   filename: string;
@@ -5,6 +9,11 @@ export interface ShareFileParams {
 }
 
 export async function presentShareFile(params: ShareFileParams): Promise<void> {
+  if (isNativePlatform()) {
+    await presentNativeShareFile(params);
+    return;
+  }
+
   const blob = new Blob([params.content], { type: params.mimeType });
 
   const webNavigator = navigator as Navigator & {
@@ -43,6 +52,28 @@ export async function presentShareFile(params: ShareFileParams): Promise<void> {
     anchor.click();
   } finally {
     URL.revokeObjectURL(objectUrl);
+  }
+}
+
+/** Stages the file in the app cache directory and opens the native share sheet. */
+async function presentNativeShareFile(params: ShareFileParams): Promise<void> {
+  const written = await Filesystem.writeFile({
+    path: params.filename,
+    data: params.content,
+    directory: Directory.Cache,
+    encoding: Encoding.UTF8,
+  });
+
+  try {
+    await Share.share({ files: [written.uri] });
+  } catch (error: unknown) {
+    if (!isShareCancelError(error)) {
+      throw error;
+    }
+  } finally {
+    await Filesystem.deleteFile({ path: params.filename, directory: Directory.Cache }).catch(
+      () => undefined
+    );
   }
 }
 

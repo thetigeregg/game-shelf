@@ -1,4 +1,6 @@
+import { DefaultSystemBrowserOptions, InAppBrowser } from '@capacitor/inappbrowser';
 import { parseHttpUrl } from './url-host.util';
+import { isNativePlatform } from './native-platform.util';
 
 export function openExternalUrl(url: string | null | undefined): void {
   if (typeof url !== 'string') {
@@ -7,6 +9,18 @@ export function openExternalUrl(url: string | null | undefined): void {
 
   const parsedUrl = resolveOpenableUrl(url);
   if (!parsedUrl) {
+    return;
+  }
+
+  if (isNativePlatform()) {
+    // window.open is unreliable inside the Capacitor WKWebView; use the system
+    // browser sheet (SFSafariViewController) instead.
+    void InAppBrowser.openInSystemBrowser({
+      url: parsedUrl.href,
+      options: DefaultSystemBrowserOptions,
+    }).catch((error: unknown) => {
+      console.error('[open-external-url] system_browser_open_failed', error);
+    });
     return;
   }
 

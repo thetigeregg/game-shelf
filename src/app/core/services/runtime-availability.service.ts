@@ -1,5 +1,7 @@
 import { Injectable, signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import { setLiveRuntimeConfig } from '../config/runtime-config';
+import { isNativePlatform } from '../utils/native-platform.util';
 
 export type RuntimeAvailabilityStatus = 'checking' | 'online' | 'offline' | 'service-unreachable';
 
@@ -62,7 +64,9 @@ export class RuntimeAvailabilityService {
       return;
     }
 
-    const probeSucceeded = await this.probeRuntimeConfig();
+    const probeSucceeded = isNativePlatform()
+      ? await this.probeApiHealth()
+      : await this.probeRuntimeConfig();
     this.status.set(probeSucceeded ? 'online' : 'service-unreachable');
   }
 
@@ -85,6 +89,22 @@ export class RuntimeAvailabilityService {
 
     void this.refresh();
   };
+
+  /**
+   * On the native shell the bundled runtime-config asset is always reachable, so it cannot
+   * indicate backend availability. Probe the API health endpoint on the configured host instead.
+   */
+  private async probeApiHealth(): Promise<boolean> {
+    try {
+      const baseUrl = environment.gameApiBaseUrl.trim().replace(/\/+$/, '');
+      const url = new URL(`${baseUrl}/v1/health`, window.location.origin);
+      url.searchParams.set('ts', String(Date.now()));
+      const response = await fetch(url.toString(), { cache: 'no-store' });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
 
   private async probeRuntimeConfig(): Promise<boolean> {
     try {
@@ -122,8 +142,6 @@ export class RuntimeAvailabilityService {
     }
 
     const appVersion = this.matchLastString(script, 'appVersion');
-    const firebaseCdnVersion = this.matchLastString(script, 'firebaseCdnVersion');
-    const firebaseVapidKey = this.matchLastString(script, 'firebaseVapidKey');
     const showMgcImport = this.matchLastBoolean(script, 'showMgcImport');
     const e2eFixtures = this.matchLastBoolean(script, 'e2eFixtures');
     const recommendationsExploreEnabled = this.matchLastBoolean(
@@ -131,20 +149,9 @@ export class RuntimeAvailabilityService {
       'recommendationsExploreEnabled'
     );
     const tasEnabled = this.matchLastBoolean(script, 'tasEnabled');
-    const firebase = {
-      apiKey: this.matchLastString(script, 'apiKey'),
-      authDomain: this.matchLastString(script, 'authDomain'),
-      projectId: this.matchLastString(script, 'projectId'),
-      storageBucket: this.matchLastString(script, 'storageBucket'),
-      messagingSenderId: this.matchLastString(script, 'messagingSenderId'),
-      appId: this.matchLastString(script, 'appId'),
-    };
 
     if (
       appVersion === null &&
-      firebaseCdnVersion === null &&
-      firebaseVapidKey === null &&
-      Object.values(firebase).every((value) => value === null) &&
       showMgcImport === null &&
       e2eFixtures === null &&
       recommendationsExploreEnabled === null &&
@@ -155,22 +162,6 @@ export class RuntimeAvailabilityService {
 
     return {
       ...(appVersion !== null ? { appVersion } : {}),
-      ...(firebaseCdnVersion !== null ? { firebaseCdnVersion } : {}),
-      ...(firebaseVapidKey !== null ? { firebaseVapidKey } : {}),
-      ...(Object.values(firebase).some((value) => value !== null)
-        ? {
-            firebase: {
-              ...(firebase.apiKey !== null ? { apiKey: firebase.apiKey } : {}),
-              ...(firebase.authDomain !== null ? { authDomain: firebase.authDomain } : {}),
-              ...(firebase.projectId !== null ? { projectId: firebase.projectId } : {}),
-              ...(firebase.storageBucket !== null ? { storageBucket: firebase.storageBucket } : {}),
-              ...(firebase.messagingSenderId !== null
-                ? { messagingSenderId: firebase.messagingSenderId }
-                : {}),
-              ...(firebase.appId !== null ? { appId: firebase.appId } : {}),
-            },
-          }
-        : {}),
       ...(showMgcImport !== null ||
       e2eFixtures !== null ||
       recommendationsExploreEnabled !== null ||

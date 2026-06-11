@@ -128,14 +128,14 @@ The frontend ships as a native iOS app via Capacitor. The web deployment (edge) 
 Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
 See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
 
-1. Create gitignored environment files from the templates:
+1. Set iOS backend origins in `.env` (or export in your shell):
 
 ```bash
-cp src/environments/environment.ios.local.example.ts src/environments/environment.ios.local.ts
-cp src/environments/environment.ios.prod.example.ts src/environments/environment.ios.prod.ts
+IOS_BACKEND_ORIGIN_LOCAL=http://<mac-lan-ip>:8080
+IOS_BACKEND_ORIGIN_PROD=https://<your-production-host>
 ```
 
-Set `BACKEND_ORIGIN` in each file (prod HTTPS host; dev `http://<mac-lan-ip>:8080` for local Docker edge).
+`npm run build:ios:local` / `build:ios:prod` generate gitignored `environment.ios.*.ts` from these vars via `scripts/write-environment-ios.mjs`. `BACKEND_ORIGIN` is an optional fallback when the variant-specific key is unset.
 
 2. Build and sync the variant you need:
 
@@ -268,8 +268,8 @@ Compose stacks use:
 - Local secrets should not be committed:
   - `src/environments/environment.local.ts` is ignored
   - use `src/environments/environment.local.example.ts` as template
-  - `src/environments/environment.ios.local.ts` and `environment.ios.prod.ts` are ignored
-  - use `environment.ios.local.example.ts` and `environment.ios.prod.example.ts` as templates
+  - `src/environments/environment.ios.local.ts` and `environment.ios.prod.ts` are generated and ignored
+  - set `IOS_BACKEND_ORIGIN_LOCAL` / `IOS_BACKEND_ORIGIN_PROD` in `.env` (see `.env.example`)
 - Secret scanning:
   - `.gitleaks.toml`
   - `.github/workflows/secret-scan.yml`

@@ -5,9 +5,8 @@ import { pathToFileURL } from 'node:url';
 
 import { createWorktreeContext, loadDevxConfig } from '@thetigeregg/dev-cli';
 
+import { loadProjectEnv } from './dotenv.mjs';
 import { composeLocalBackendOrigin, resolveLanHost } from './lan-host.mjs';
-
-const ENV_PATH = resolve(process.cwd(), '.env');
 const EMULATORJS_CONSTANTS_PATH = resolve(
   process.cwd(),
   'src/app/core/config/emulatorjs.constants.ts'
@@ -28,41 +27,7 @@ const VARIANTS = {
   },
 };
 
-export function parseDotEnv(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf('=');
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-
-    if (!key) {
-      continue;
-    }
-
-    const unquoted =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-        ? rawValue.slice(1, -1)
-        : rawValue;
-
-    values[key] = unquoted;
-  }
-
-  return values;
-}
+export { parseDotEnv } from './dotenv.mjs';
 
 export function normalizeBackendOrigin(value) {
   if (typeof value !== 'string') {
@@ -258,17 +223,11 @@ export async function writeEnvironmentIos(variant, options = {}) {
     throw new Error(`Unknown iOS environment variant: ${variant}`);
   }
 
-  let dotenvValues = {};
-  try {
-    dotenvValues = parseDotEnv(readFileSync(ENV_PATH, 'utf8'));
-  } catch {
-    dotenvValues = {};
-  }
-
-  const envValues = {
-    ...dotenvValues,
-    ...(options.processEnv ?? process.env),
-  };
+  const envValues = loadProjectEnv(options.processEnv ?? process.env, {
+    envPath: options.envPath,
+    dotenvValues: options.dotenvValues,
+    readFileSync: options.readFileSync,
+  });
 
   const resolveOptions = {
     ...options,

@@ -21,6 +21,34 @@ test('printSuggestedIosLocalOrigin prints suggested local origin when LAN host i
   assert.match(lines[1], /EDGE_BIND_HOST=0\.0\.0\.0/);
 });
 
+test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exported', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { PATH: '/usr/bin' },
+    dotenvValues: { IOS_LAN_HOST: '192.168.0.55' },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[0], /iOS local origin \(suggested\): http:\/\/192\.168\.0\.55:\d+/);
+});
+
+test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { PATH: '/usr/bin' },
+    dotenvValues: {
+      IOS_LAN_HOST: '192.168.0.55',
+      IOS_TARGET_ID: '00008140-0014444C1184801C',
+      IOS_TARGET_NAME: "Jake's iPhone",
+    },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[2], /iOS run target \(from \.env\): 00008140-0014444C1184801C/);
+});
+
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });
 

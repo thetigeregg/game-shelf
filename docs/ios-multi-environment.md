@@ -1,7 +1,7 @@
 # iOS Multi-Environment Setup
 
 Game Shelf supports **side-by-side** prod and dev iOS apps. Each variant has its own
-backend URLs, Firebase project, and (after manual Xcode setup) bundle ID.
+backend URLs, Firebase project, and bundle ID.
 
 ## Architecture
 
@@ -53,33 +53,24 @@ Wire each backend to its Firebase service account:
 The plist bundled in each app must match the Firebase project whose service account
 the corresponding API uses, or push token registration and delivery will fail.
 
-### 3. Xcode (manual — second target and schemes)
+### 3. Xcode targets and schemes
 
-Capacitor ships one `ios/` tree. A second installable app requires duplicating the
-**App** target in Xcode. Do **not** change `capacitor.config.ts` `appId` (stays prod).
+The repo ships two native targets and shared schemes:
 
-#### Duplicate target
+| Target       | Scheme   | Bundle ID                             | Info plist            |
+| ------------ | -------- | ------------------------------------- | --------------------- |
+| **App DEV**  | **DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`  |
+| **App PROD** | **PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist` |
 
-1. `npm run open:ios`
-2. Duplicate **App** target → rename to **App Dev**
-3. **App Dev** build settings:
-   - `PRODUCT_BUNDLE_IDENTIFIER` = `io.github.thetigeregg.gameshelf.dev`
-   - `INFOPLIST_FILE` = `App/Info.dev.plist` (LAN HTTP via `NSAllowsLocalNetworking`)
-   - Display name is `GameShelf Dev` in `Info.dev.plist`
+Do **not** change `capacitor.config.ts` `appId` (stays prod).
 
 #### Firebase plist per target
 
-Add both plists to the Xcode project. Each target's **Copy Bundle Resources** should
-include exactly one plist, built into the app as `GoogleService-Info.plist` (rename
-in the copy phase or verify `@capacitor-firebase/messaging` resolves your filename).
+Each target's **Copy Bundle Resources** should include exactly one plist, built into
+the app as `GoogleService-Info.plist`:
 
-- `GoogleService-Info.prod.plist` → **App** target only
-- `GoogleService-Info.dev.plist` → **App Dev** target only
-
-#### Schemes
-
-- **App** → prod target
-- **GameShelf Dev** (duplicate scheme) → **App Dev** target
+- `GoogleService-Info.prod.plist` → **App PROD** target only
+- `GoogleService-Info.dev.plist` → **App DEV** target only
 
 Enable Push Notifications and `remote-notification` background mode on both targets.
 
@@ -89,21 +80,29 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 
 ## Day-to-day workflow
 
-| Task            | Command                  | Xcode scheme      |
-| --------------- | ------------------------ | ----------------- |
-| Build/sync dev  | `npm run sync:ios:local` | **GameShelf Dev** |
-| Build/sync prod | `npm run sync:ios:prod`  | **App**           |
+| Task               | Command                                     | Scheme   |
+| ------------------ | ------------------------------------------- | -------- |
+| Run dev on device  | `npm run run:ios:local`                     | **DEV**  |
+| Run prod on device | `npm run run:ios:prod` (alias: `run:ios`)   | **PROD** |
+| Sync only (dev)    | `npm run sync:ios:local`                    | —        |
+| Sync only (prod)   | `npm run sync:ios:prod` (alias: `sync:ios`) | —        |
+| Open Xcode         | `npm run open:ios`                          | —        |
+| List run targets   | `npm run list:ios:targets`                  | —        |
 
-`sync:ios` is an alias for `sync:ios:prod`.
+`run:ios:*` runs the matching `sync:ios:*`, then `cap run ios --no-sync --scheme …`.
+Connect and trust your iPhone first. To target a specific device, set `IOS_TARGET_NAME`
+or `IOS_TARGET_ID` in `.env` (ID wins when both are set). Use `npm run list:ios:targets`
+to discover names and IDs.
 
 **Critical:** `cap sync` overwrites `ios/App/App/public/`. Always run the matching
-`sync:ios:*` before building the corresponding Xcode target.
+`sync:ios:*` (or `run:ios:*`, which does this for you) before building the
+corresponding scheme.
 
 ### Verify side-by-side
 
 1. Start Docker edge on Mac (port `8080` reachable from phone Wi‑Fi).
-2. `npm run sync:ios:local` → run **GameShelf Dev** on device.
-3. `npm run sync:ios:prod` → run **App** on device.
+2. `npm run run:ios:local` — installs **GameShelf Dev** via **DEV** scheme.
+3. `npm run run:ios:prod` — installs prod app via **PROD** scheme.
 4. Confirm two home-screen icons; dev hits LAN Docker, prod hits production.
 
 ### Push smoke test
@@ -135,7 +134,7 @@ npm run sync:ios:local   # or sync:ios:prod
 cp ios/App/App/GoogleService-Info.dev.plist ios/App/App/GoogleService-Info.plist   # or .prod.
 ```
 
-Side-by-side installs require the second target so each app keeps its own embedded bundle.
+Side-by-side installs require both targets so each app keeps its own embedded bundle.
 
 ## Troubleshooting
 
@@ -145,4 +144,4 @@ debugging. Common iOS multi-env issues:
 - **Connection unavailable on dev**: wrong LAN IP, phone not on same Wi‑Fi, or Docker not listening on `0.0.0.0:8080`
 - **ATS blocked HTTP**: dev target must use `Info.dev.plist`, not `Info.plist`
 - **Push works in one app only**: plist / service account mismatch with backend
-- **Wrong backend after sync**: you synced local but built the prod scheme (or vice versa)
+- **Wrong backend after sync**: you synced local but ran the prod scheme (or vice versa)

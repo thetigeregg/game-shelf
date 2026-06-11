@@ -1,5 +1,9 @@
 export default {
   projectName: 'game-shelf',
+  editor: {
+    command: 'cursor',
+    args: ['--profile', 'Ionic'],
+  },
   branchPrefix: 'feat/',
   baseBranch: 'main',
   worktreeRoot: 'worktrees',

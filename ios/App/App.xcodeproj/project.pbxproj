@@ -8,18 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
-		3A0B10A62FDB39D00015969E /* GoogleService-Info.dev.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */; };
 		3A0B10AC2FDB3A630015969E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		3A0B10AE2FDB3A630015969E /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0B10A92FDB3A630015969E /* CapApp-SPM */; };
 		3A0B10B02FDB3A630015969E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		3A0B10B12FDB3A630015969E /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		3A0B10B22FDB3A630015969E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
-		3A0B10B42FDB3A630015969E /* GoogleService-Info.prod.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */; };
 		3A0B10B52FDB3A630015969E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		3A0B10B62FDB3A630015969E /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		3A0B10B72FDB3A630015969E /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3A0B10C02FDB3B5C0015969E /* Info.dev.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10BF2FDB3B5C0015969E /* Info.dev.plist */; };
 		3A0B10C12FDB3B730015969E /* Info.prod.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10BC2FDB3A630015969E /* Info.prod.plist */; };
+		3A0B10CA2FDB3D1B0015969E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10C52FDB3CDE0015969E /* GoogleService-Info.plist */; };
+		3A0B10CB2FDB3D1F0015969E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10C72FDB3CDE0015969E /* GoogleService-Info.plist */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -31,11 +31,11 @@
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
-		3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.dev.plist"; sourceTree = "<group>"; };
-		3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.prod.plist"; sourceTree = "<group>"; };
 		3A0B10BB2FDB3A630015969E /* PROD.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PROD.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A0B10BC2FDB3A630015969E /* Info.prod.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.prod.plist; path = "/Users/sixtopia/projects/game-shelf/worktrees/feat/cap/ios/App/App/Info.prod.plist"; sourceTree = "<absolute>"; };
 		3A0B10BF2FDB3B5C0015969E /* Info.dev.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.dev.plist; sourceTree = "<group>"; };
+		3A0B10C52FDB3CDE0015969E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		3A0B10C72FDB3CDE0015969E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* DEV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DEV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -67,6 +67,31 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3A0B10C62FDB3CDE0015969E /* Dev */ = {
+			isa = PBXGroup;
+			children = (
+				3A0B10C52FDB3CDE0015969E /* GoogleService-Info.plist */,
+			);
+			path = Dev;
+			sourceTree = "<group>";
+		};
+		3A0B10C82FDB3CDE0015969E /* Prod */ = {
+			isa = PBXGroup;
+			children = (
+				3A0B10C72FDB3CDE0015969E /* GoogleService-Info.plist */,
+			);
+			path = Prod;
+			sourceTree = "<group>";
+		};
+		3A0B10C92FDB3CDE0015969E /* Firebase */ = {
+			isa = PBXGroup;
+			children = (
+				3A0B10C62FDB3CDE0015969E /* Dev */,
+				3A0B10C82FDB3CDE0015969E /* Prod */,
+			);
+			path = Firebase;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
@@ -88,6 +113,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				3A0B10C92FDB3CDE0015969E /* Firebase */,
 				504EC3191FED79650016851F /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -98,8 +124,6 @@
 				3A0B10BC2FDB3A630015969E /* Info.prod.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
-				3A0B10A42FDB39D00015969E /* GoogleService-Info.dev.plist */,
-				3A0B10A52FDB39D00015969E /* GoogleService-Info.prod.plist */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -194,10 +218,10 @@
 				3A0B10C12FDB3B730015969E /* Info.prod.plist in Resources */,
 				3A0B10B12FDB3A630015969E /* public in Resources */,
 				3A0B10B22FDB3A630015969E /* Assets.xcassets in Resources */,
-				3A0B10B42FDB3A630015969E /* GoogleService-Info.prod.plist in Resources */,
 				3A0B10B52FDB3A630015969E /* capacitor.config.json in Resources */,
 				3A0B10B62FDB3A630015969E /* Main.storyboard in Resources */,
 				3A0B10B72FDB3A630015969E /* config.xml in Resources */,
+				3A0B10CB2FDB3D1F0015969E /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,10 +233,10 @@
 				3A0B10C02FDB3B5C0015969E /* Info.dev.plist in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
-				3A0B10A62FDB39D00015969E /* GoogleService-Info.dev.plist in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				3A0B10CA2FDB3D1B0015969E /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

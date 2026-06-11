@@ -1,45 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const ENV_PATH = resolve(process.cwd(), '.env');
+import { loadProjectEnv } from './dotenv.mjs';
+
 const OUTPUT_PATH = resolve(process.cwd(), 'src/assets/runtime-config.js');
 const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
-
-function parseDotEnv(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf('=');
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-
-    if (!key) {
-      continue;
-    }
-
-    const unquoted =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-        ? rawValue.slice(1, -1)
-        : rawValue;
-
-    values[key] = unquoted;
-  }
-
-  return values;
-}
 
 function parseBoolean(value, fallback = false) {
   if (typeof value === 'boolean') {
@@ -63,15 +28,7 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-let dotenvValues = {};
 let appVersion = '0.0.0';
-
-try {
-  const envContent = readFileSync(ENV_PATH, 'utf8');
-  dotenvValues = parseDotEnv(envContent);
-} catch {
-  dotenvValues = {};
-}
 
 try {
   const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8'));
@@ -82,11 +39,7 @@ try {
   appVersion = '0.0.0';
 }
 
-// Allow CI/e2e/runtime environment variables to override local .env values.
-const envValues = {
-  ...dotenvValues,
-  ...process.env,
-};
+const envValues = loadProjectEnv();
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);

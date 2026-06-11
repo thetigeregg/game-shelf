@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildCapRunArgs, resolveScheme, resolveVariant } from './run-ios.mjs';
+import { buildCapRunArgs, loadRunIosEnv, resolveScheme, resolveVariant } from './run-ios.mjs';
 
 test('resolveVariant accepts local and prod', () => {
   assert.equal(resolveVariant('local'), 'local');
@@ -57,6 +57,25 @@ test('buildCapRunArgs uses IOS_TARGET_NAME when ID is unset', () => {
     }),
     ['run', 'ios', '--no-sync', '--scheme', 'PROD', '--target-name', 'Your iPhone']
   );
+});
+
+test('loadRunIosEnv merges .env values and lets process env override', () => {
+  const env = loadRunIosEnv(
+    {
+      IOS_TARGET_NAME: 'Shell iPhone',
+      PATH: '/usr/bin',
+    },
+    {
+      dotenvValues: {
+        IOS_TARGET_NAME: 'Dotenv iPhone',
+        IOS_TARGET_ID: '00008110-ABCDEF',
+      },
+    }
+  );
+
+  assert.equal(env.IOS_TARGET_NAME, 'Shell iPhone');
+  assert.equal(env.IOS_TARGET_ID, '00008110-ABCDEF');
+  assert.equal(env.PATH, '/usr/bin');
 });
 
 test('buildCapRunArgs forwards extra cap run args', () => {

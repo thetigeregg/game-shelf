@@ -99,9 +99,16 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 | List run targets   | `npm run list:ios:targets`                  | —        |
 
 `run:ios:*` runs the matching `sync:ios:*`, then `cap run ios --no-sync --scheme …`.
-Connect and trust your iPhone first. To target a specific device, set `IOS_TARGET_NAME`
-or `IOS_TARGET_ID` in `.env` (ID wins when both are set). Use `npm run list:ios:targets`
-to discover names and IDs.
+`scripts/run-ios.mjs` loads `.env` for device targeting (shell exports still override).
+
+Connect and trust your iPhone first. To target a specific device, set `IOS_TARGET_ID` or
+`IOS_TARGET_NAME` in `.env` (ID wins when both are set). Prefer `IOS_TARGET_ID` — device
+names must match exactly, including apostrophe characters. Use `npm run list:ios:targets`
+to discover names and IDs. `npx devx worktree info` also prints the configured run target
+when set in `.env`.
+
+Running `npx cap run ios` directly bypasses `run-ios.mjs`, so `.env` device targeting and
+the documented workflow do not apply.
 
 **Critical:** `cap sync` overwrites `ios/App/App/public/`. Always run the matching
 `sync:ios:*` (or `run:ios:*`, which does this for you) before building the
@@ -109,11 +116,15 @@ corresponding scheme.
 
 ### Verify side-by-side
 
-1. `npx devx worktree stack up` — start the worktree-isolated Docker stack.
-2. Set `EDGE_BIND_HOST=0.0.0.0` in `.env` so edge is reachable from phone Wi‑Fi.
+1. Set `EDGE_BIND_HOST=0.0.0.0` in `.env` so edge is reachable from phone Wi‑Fi.
+2. `npx devx worktree stack up` — start (or restart) the worktree-isolated Docker stack.
+   Restart is required after changing `EDGE_BIND_HOST`.
 3. `npm run run:ios:local` — installs **GameShelf Dev** via **DEV** scheme.
 4. `npm run run:ios:prod` — installs prod app via **PROD** scheme.
 5. Confirm two home-screen icons; dev hits LAN Docker, prod hits production.
+
+`npx devx worktree info` prints the suggested local origin using `IOS_LAN_HOST` from `.env`
+when set, otherwise auto-detected LAN IPv4 plus the worktree edge port.
 
 ### Push smoke test
 

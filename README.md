@@ -138,8 +138,9 @@ npx devx worktree info   # shows edge port and suggested iOS local origin
 Set in `.env` (or export in your shell):
 
 ```bash
-EDGE_BIND_HOST=0.0.0.0              # required for physical iPhone access
+EDGE_BIND_HOST=0.0.0.0              # required for physical iPhone access; restart stack after changing
 IOS_LAN_HOST=<mac-lan-ip>           # optional if auto-detect works
+IOS_TARGET_ID=<device-id>           # preferred for npm run run:ios:*
 IOS_BACKEND_ORIGIN_LOCAL=http://<mac-lan-ip>:<edge-port>   # optional override
 IOS_BACKEND_ORIGIN_PROD=https://<your-production-host>
 ```
@@ -155,7 +156,10 @@ npm run run:ios:prod    # production backend (alias: npm run run:ios)
 npm run run:ios:local   # local Docker edge on your Mac (worktree-aware)
 ```
 
-Connect and trust your iPhone first. To pick a specific device, set optional env vars (see `.env.example`) or run `npm run list:ios:targets`. First-time code signing may still require opening Xcode once.
+Connect and trust your iPhone first. `npm run run:ios:*` loads `.env` for `IOS_TARGET_ID` /
+`IOS_TARGET_NAME` (prefer ID). Use `npm run list:ios:targets` to discover values, or
+`npx devx worktree info` to see the configured target. First-time code signing may still
+require opening Xcode once.
 
 **Alternate workflows:**
 

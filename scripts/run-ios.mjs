@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 
+import { loadProjectEnv } from './dotenv.mjs';
+
 const VARIANTS = {
   local: {
     scheme: 'DEV',
@@ -23,6 +25,10 @@ export function resolveVariant(variant) {
 
 export function resolveScheme(variant) {
   return VARIANTS[resolveVariant(variant)].scheme;
+}
+
+export function loadRunIosEnv(processEnv = process.env, options = {}) {
+  return loadProjectEnv(processEnv, options);
 }
 
 export function buildCapRunArgs({ variant, env = process.env, extraArgs = [] }) {
@@ -61,7 +67,7 @@ function runCommand(command, args, options = {}) {
   });
 }
 
-export async function runIos(variant, { env = process.env, extraArgs = [] } = {}) {
+export async function runIos(variant, { env = loadRunIosEnv(), extraArgs = [] } = {}) {
   const resolvedVariant = resolveVariant(variant);
   const { syncScript } = VARIANTS[resolvedVariant];
 

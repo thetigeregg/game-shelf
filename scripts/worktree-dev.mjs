@@ -16,6 +16,7 @@ import {
   runWorktreeBootstrap,
 } from '@thetigeregg/dev-cli';
 
+import { loadProjectEnv } from './dotenv.mjs';
 import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
 
 const cwd = process.cwd();
@@ -36,9 +37,15 @@ export function createSharedEnv({
   return context.createSharedEnv({ processEnv, manualsPublicBaseUrl });
 }
 
-export function printSuggestedIosLocalOrigin({ processEnv = process.env, log = console.log } = {}) {
+export function printSuggestedIosLocalOrigin({
+  processEnv = process.env,
+  log = console.log,
+  dotenvValues,
+  envPath,
+} = {}) {
+  const env = loadProjectEnv(processEnv, { dotenvValues, envPath });
   const edgePort = context.runtime.ports.EDGE_HOST_PORT;
-  const lanHost = resolveLanHost(processEnv);
+  const lanHost = resolveLanHost(env);
   const suggestedOrigin = formatSuggestedIosLocalOrigin(lanHost, edgePort);
 
   if (!suggestedOrigin) {
@@ -51,6 +58,15 @@ export function printSuggestedIosLocalOrigin({ processEnv = process.env, log = c
 
   log(`iOS local origin (suggested): ${suggestedOrigin}`);
   log('  Set IOS_BACKEND_ORIGIN_LOCAL to override. Use EDGE_BIND_HOST=0.0.0.0 for device access.');
+
+  const targetId = env.IOS_TARGET_ID?.trim();
+  const targetName = env.IOS_TARGET_NAME?.trim();
+
+  if (targetId) {
+    log(`iOS run target (from .env): ${targetId} (IOS_TARGET_ID)`);
+  } else if (targetName) {
+    log(`iOS run target (from .env): ${targetName} (IOS_TARGET_NAME)`);
+  }
 }
 
 function runStack(action) {

@@ -15,7 +15,7 @@ const addListenerMock =
     (eventName: string, listener: (event: unknown) => void) => Promise<{ remove: () => void }>
   >();
 
-vi.mock('@capacitor-firebase/messaging', () => ({
+vi.mock('./firebase-messaging.client', () => ({
   FirebaseMessaging: {
     checkPermissions: () => checkPermissionsMock(),
     requestPermissions: () => requestPermissionsMock(),

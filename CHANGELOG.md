@@ -3493,3 +3493,21 @@
 - 01620579 test(utils): add coverage for presentShareFile utility
 - 69c231c3 Merge branch 'main' into feat/quick-csv
 - 23046860 feat(ui): add multi-select export CSV on collection and wishlist
+
+## v1.46.0 - 2026-06-11
+
+- c7addc10 Merge pull request #409 from thetigeregg/feat/bump
+- b6aeb39e fix(server): remove unused fastify-rate-limit alias
+- a66977de docs: replace CLAUDE workflow placeholders with verify commands
+- 227f1428 chore(docs): add CLAUDE workflow and PR preparation guidelines
+- d02993ff chore(ci): bump gitleaks/gitleaks-action from 2 to 3
+- 1ce08a64 chore(ci): bump codecov/codecov-action from 6 to 7
+- 60c2624f chore(devx): open new worktrees with Ionic Cursor profile
+- 7a802e04 chore(deps): update @thetigeregg/dev-cli
+- 6a88c949 chore(deps): update @fastify/rate-limit, fastify-plugin, and firebase-admin
+- f64ad1e8 chore(deps): remove unused eslint-plugin-jsdoc
+- b643dd17 chore(deps): update eslint and related packages to latest versions in package.json
+- b156726b chore(deps): update package-lock.json and package.json for tsx and @types/node versions
+- ef1929e5 feat(config): add Angular package filtering to ncu configuration
+- 05d66f1e chore(deps): update dependencies in package.json and package-lock.json
+- 1ffac2fe chore(deps): update @google-cloud/storage to v7.21.0 and @grpc/grpc-js to v1.14.4

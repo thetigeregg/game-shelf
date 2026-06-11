@@ -2,12 +2,11 @@
 
 Before suggesting any commit:
 
-1. Run `<test-command>` to execute tests
-2. Run `<format-command>` to verify formatting
-3. Do not bypass pre-commit hooks
-4. If any step fails, fix the issue before proceeding
-
-<!-- TODO: Replace <test-command> and <format-command> with this project's actual commands -->
+1. Run `npm run lint` from the root to verify ESLint passes
+2. Run `npm run test` from the root to execute the Vitest suite with coverage
+3. Run `npm run build` from the root to verify the Angular build passes
+4. Do not bypass pre-commit hooks
+5. If any step fails, fix the issue before proceeding
 
 # Code Quality
 

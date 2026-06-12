@@ -16,6 +16,11 @@ import {
   runWorktreeBootstrap,
 } from '@thetigeregg/dev-cli';
 
+import {
+  bootstrapIosFirebasePlistsFromConfig,
+  formatFirebasePlistStatusLines,
+  loadFirebaseBootstrapOptions,
+} from './bootstrap-ios-firebase-plists.mjs';
 import { loadProjectEnv } from './dotenv.mjs';
 import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
 
@@ -25,6 +30,15 @@ const config = await loadDevxConfig({ cwd });
 const context = await createWorktreeContext({ cwd, config });
 
 export { ensureParentDirectories };
+
+export async function printFirebasePlistStatus({ cwd = process.cwd(), log = console.log } = {}) {
+  const options = await loadFirebaseBootstrapOptions({ cwd });
+  const lines = formatFirebasePlistStatusLines(options);
+
+  for (const line of lines) {
+    log(line);
+  }
+}
 
 function shellEscape(value) {
   return `'${String(value).replace(/'/g, `'"'"'`)}'`;
@@ -313,7 +327,7 @@ export async function runWorktreeDev(argv) {
     console.log('Commands:');
     console.log('  info                      Show derived project name, ports, and seed path');
     console.log(
-      '  bootstrap [--force]       Bootstrap .env (overwrite existing with --force) and install deps if missing'
+      '  bootstrap [--force]       Bootstrap .env and Firebase plists (overwrite existing with --force) and install deps if missing'
     );
     console.log('  frontend                  Run Angular dev server for this worktree');
     console.log(
@@ -336,6 +350,7 @@ export async function runWorktreeDev(argv) {
       `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String((config.worktree.runtime?.maxPortOffset ?? 10000) - 1)})`
     );
     console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
+    console.log('  WORKTREE_IOS_FIREBASE_DIR Shared Firebase plist directory for iOS bootstrap');
     console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
     process.exit(0);
   }
@@ -343,6 +358,7 @@ export async function runWorktreeDev(argv) {
   if (argv[0] === 'info') {
     printWorktreeInfo(context);
     printSuggestedIosLocalOrigin();
+    await printFirebasePlistStatus();
     process.exit(0);
   }
 
@@ -352,11 +368,16 @@ export async function runWorktreeDev(argv) {
       console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
       console.log('');
       console.log('Options:');
-      console.log('  --force   Overwrite existing .env from shared template');
+      console.log('  --force   Overwrite existing .env and Firebase plists from shared templates');
       process.exit(0);
     }
 
-    runWorktreeBootstrap(context, parseOptions(bootstrapArgs));
+    const bootstrapOptions = parseOptions(bootstrapArgs);
+    runWorktreeBootstrap(context, bootstrapOptions);
+    await bootstrapIosFirebasePlistsFromConfig({
+      force: bootstrapOptions.force,
+      failOnMissing: false,
+    });
     process.exit(0);
   }
 

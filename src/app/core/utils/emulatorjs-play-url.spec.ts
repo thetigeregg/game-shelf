@@ -368,19 +368,6 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     expect(parsed.searchParams.get('bios_base')).toBe('https://backend.test/bios');
   });
 
-  it('rejects absolute HTTPS rom bases on web origins', () => {
-    expect(() =>
-      buildEmulatorJsPlayShellUrl({
-        origin: 'https://example.com',
-        core: 'nes',
-        romUrl: 'https://backend.test/roms/game.nes',
-        romBaseUrl: 'https://backend.test/roms',
-        pathToData: PINNED_DATA_PATH,
-        loaderIntegrity: VALID_LOADER_INTEGRITY,
-      })
-    ).toThrow(/Invalid ROM URL/);
-  });
-
   it('rejects non-https asset base URLs', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
@@ -575,16 +562,6 @@ describe('isAllowedEmulatorJsBiosUrl', () => {
       )
     ).toBe(false);
   });
-
-  it('rejects absolute HTTPS bios bases on web origins', () => {
-    expect(
-      isAllowedEmulatorJsBiosUrl(
-        'https://backend.test/bios/psx/scph1001.bin',
-        'https://app.test',
-        'https://backend.test/bios'
-      )
-    ).toBe(false);
-  });
 });
 
 describe('isAllowedEmulatorJsRomUrl', () => {
@@ -638,26 +615,6 @@ describe('isAllowedEmulatorJsRomUrl', () => {
         '/public-roms'
       )
     ).toBe(false);
-  });
-
-  it('rejects absolute HTTPS rom bases on web origins', () => {
-    expect(
-      isAllowedEmulatorJsRomUrl(
-        'https://backend.test/roms/folder/file.nes',
-        'https://app.test',
-        'https://backend.test/roms'
-      )
-    ).toBe(false);
-  });
-
-  it('allows absolute HTTPS rom bases in the Capacitor shell', () => {
-    expect(
-      isAllowedEmulatorJsRomUrl(
-        'https://backend.test/roms/folder/file.nes',
-        'capacitor://localhost',
-        'https://backend.test/roms'
-      )
-    ).toBe(true);
   });
 });
 

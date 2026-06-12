@@ -1,5 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const isNativePlatformMock = vi.fn<() => boolean>();
+const writeFileMock = vi.fn<() => Promise<{ uri: string }>>();
+const deleteFileMock = vi.fn<() => Promise<void>>();
+const shareMock = vi.fn<() => Promise<void>>();
+
+vi.mock('./native-platform.util', () => ({
+  isNativePlatform: () => isNativePlatformMock(),
+}));
+
+vi.mock('@capacitor/filesystem', () => ({
+  Directory: { Cache: 'CACHE' },
+  Encoding: { UTF8: 'utf8' },
+  Filesystem: {
+    writeFile: (...args: unknown[]) => writeFileMock(...args),
+    deleteFile: (...args: unknown[]) => deleteFileMock(...args),
+  },
+}));
+
+vi.mock('@capacitor/share', () => ({
+  Share: {
+    share: (...args: unknown[]) => shareMock(...args),
+  },
+}));
+
 import { presentShareFile } from './share-file.util';
 
 const shareParams = {
@@ -21,6 +45,10 @@ describe('presentShareFile', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    isNativePlatformMock.mockReset();
+    writeFileMock.mockReset();
+    deleteFileMock.mockReset();
+    shareMock.mockReset();
   });
 
   function mockAnchorDownload(): { click: ReturnType<typeof vi.fn> } {
@@ -165,6 +193,45 @@ describe('presentShareFile', () => {
 
     expect(share).not.toHaveBeenCalled();
     expect(anchor.click).toHaveBeenCalledOnce();
+  });
+
+  it('stages files in cache and opens the native share sheet on Capacitor', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    writeFileMock.mockResolvedValue({ uri: 'file:///cache/game-shelf-export.csv' });
+    deleteFileMock.mockResolvedValue(undefined);
+    shareMock.mockResolvedValue(undefined);
+
+    await presentShareFile(shareParams);
+
+    expect(writeFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: shareParams.filename,
+        data: shareParams.content,
+        directory: 'CACHE',
+      })
+    );
+    expect(shareMock).toHaveBeenCalledWith({ files: ['file:///cache/game-shelf-export.csv'] });
+    expect(deleteFileMock).toHaveBeenCalled();
+  });
+
+  it('ignores native share cancellation errors', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    writeFileMock.mockResolvedValue({ uri: 'file:///cache/game-shelf-export.csv' });
+    deleteFileMock.mockResolvedValue(undefined);
+    shareMock.mockRejectedValue(new DOMException('Share canceled', 'AbortError'));
+
+    await expect(presentShareFile(shareParams)).resolves.toBeUndefined();
+    expect(deleteFileMock).toHaveBeenCalled();
+  });
+
+  it('rethrows unexpected native share failures', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    writeFileMock.mockResolvedValue({ uri: 'file:///cache/game-shelf-export.csv' });
+    deleteFileMock.mockResolvedValue(undefined);
+    shareMock.mockRejectedValue(new Error('share failed'));
+
+    await expect(presentShareFile(shareParams)).rejects.toThrow('share failed');
+    expect(deleteFileMock).toHaveBeenCalled();
   });
 
   it('falls back to anchor download when File construction throws', async () => {

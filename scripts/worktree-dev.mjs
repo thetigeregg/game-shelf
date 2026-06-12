@@ -56,16 +56,17 @@ export function printSuggestedIosLocalOrigin({
     return;
   }
 
-  log(`iOS local origin (suggested): ${suggestedOrigin}`);
-  log('  Set IOS_BACKEND_ORIGIN_LOCAL to override. Use EDGE_BIND_HOST=0.0.0.0 for device access.');
+  log(`iOS local origin (suggested): available on edge port ${edgePort}`);
+  log('  Set IOS_LAN_HOST and IOS_BACKEND_ORIGIN_LOCAL in .env for the full origin URL.');
+  log('  Use EDGE_BIND_HOST=0.0.0.0 for device access.');
 
-  const targetId = env.IOS_TARGET_ID?.trim();
-  const targetName = env.IOS_TARGET_NAME?.trim();
+  const hasTargetId = Boolean(env.IOS_TARGET_ID?.trim());
+  const hasTargetName = Boolean(env.IOS_TARGET_NAME?.trim());
 
-  if (targetId) {
-    log(`iOS run target (from .env): ${targetId} (IOS_TARGET_ID)`);
-  } else if (targetName) {
-    log(`iOS run target (from .env): ${targetName} (IOS_TARGET_NAME)`);
+  if (hasTargetId) {
+    log('iOS run target (from .env): IOS_TARGET_ID is set');
+  } else if (hasTargetName) {
+    log('iOS run target (from .env): IOS_TARGET_NAME is set');
   }
 }
 

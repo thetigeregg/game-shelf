@@ -260,6 +260,27 @@ describe('runtime-config', () => {
     });
   });
 
+  describe('readPersistedRuntimeConfig()', () => {
+    it('returns null when window is unavailable', () => {
+      const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+      Object.defineProperty(globalThis, 'window', {
+        value: undefined,
+        configurable: true,
+      });
+
+      try {
+        expect(persistRuntimeConfig({ appVersion: '9.9.9' })).toEqual({ appVersion: '9.9.9' });
+        expect(getAppVersion()).toBe('0.0.0');
+        expect(getRuntimeConfigSource()).toBe('default');
+      } finally {
+        if (windowDescriptor) {
+          Object.defineProperty(globalThis, 'window', windowDescriptor);
+        }
+      }
+    });
+  });
+
   describe('persistRuntimeConfig()', () => {
     it('returns null for invalid runtime config input', () => {
       expect(persistRuntimeConfig(null)).toBeNull();

@@ -428,6 +428,20 @@ describe('AppComponent', () => {
     expect(notificationServiceMock.initialize).toHaveBeenCalledOnce();
   });
 
+  it('logs connection alert sync failures from the availability effect', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    alertControllerMock.create.mockRejectedValue(new Error('alert create failed'));
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    runtimeAvailabilityServiceMock.status.set('service-unreachable');
+    await flushAsync();
+
+    expect(errorSpy).toHaveBeenCalledWith('[app] sync_connection_alert_failed', expect.any(Error));
+  });
+
   it('logs notification initialization failures', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, vi.mocked(getAppVersionInfo)().value);

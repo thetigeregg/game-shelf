@@ -86,7 +86,7 @@ export class ThemeService {
       return;
     }
 
-    void StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light }).catch(
+    void StatusBar.setStyle({ style: isDarkMode ? Style.Light : Style.Dark }).catch(
       () => undefined
     );
   }

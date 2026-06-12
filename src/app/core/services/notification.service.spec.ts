@@ -471,6 +471,115 @@ describe('NotificationService', () => {
     }
   });
 
+  it('treats localStorage read failures as disabled release notifications', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage denied');
+    });
+
+    expect(service.isReleaseNotificationsEnabled()).toBe(false);
+    expect(service.hasStoredReleaseNotificationsPreference()).toBe(false);
+    expect(getItemSpy).toHaveBeenCalled();
+  });
+
+  it('registerCurrentDeviceIfPermitted reports registration failures', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    vi.spyOn(
+      service as unknown as {
+        registerCurrentDevice: () => Promise<{ ok: boolean; message?: string }>;
+      },
+      'registerCurrentDevice'
+    ).mockResolvedValue({ ok: false, message: 'Unable to save this device token on the server.' });
+
+    const result = await service.registerCurrentDeviceIfPermitted();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('server');
+  });
+
+  it('treats permission check failures as denied', async () => {
+    checkPermissionsMock.mockRejectedValue(new Error('plugin unavailable'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('logs foreground notification diagnostics from the native listener', async () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    await service.initialize();
+
+    const receivedListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationReceived'
+    )?.[1];
+
+    receivedListener?.({
+      actionId: 'tap',
+      notification: { title: 'Release', data: { route: '/tabs/wishlist' } },
+    });
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      '[notifications] notification_received',
+      expect.objectContaining({ title: 'Release' })
+    );
+  });
+
+  it('falls back to window navigation when router navigation fails', async () => {
+    router.navigateByUrl.mockRejectedValueOnce(new Error('router failed'));
+    const assignMock = vi.fn();
+    const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign: assignMock },
+    });
+
+    try {
+      await service.initialize();
+
+      const actionListener = addListenerMock.mock.calls.find(
+        ([eventName]) => eventName === 'notificationActionPerformed'
+      )?.[1];
+
+      actionListener?.({
+        actionId: 'tap',
+        notification: { data: { route: '/tabs/wishlist' } },
+      });
+      await Promise.resolve();
+
+      expect(assignMock).toHaveBeenCalledWith('/tabs/wishlist');
+    } finally {
+      if (locationDescriptor) {
+        Object.defineProperty(window, 'location', locationDescriptor);
+      }
+    }
+  });
+
+  it('logs listener attach failures without aborting initialization', async () => {
+    addListenerMock
+      .mockRejectedValueOnce(new Error('listener failed'))
+      .mockResolvedValueOnce({ remove: () => undefined });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await service.initialize();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[notifications] listener_attach_failed',
+      expect.any(Error)
+    );
+  });
+
+  it('reports token registration failures during permitted device registration', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    getTokenMock.mockRejectedValueOnce(new Error('token failed'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await service.registerCurrentDeviceIfPermitted();
+
+    expect(result.ok).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[notifications] token_registration_failed',
+      expect.any(Error)
+    );
+  });
+
   it('enqueues settings upserts when outbox writer is configured', () => {
     const enqueueOperation = vi.fn();
     const serviceWithOutbox = createService({ enqueueOperation });

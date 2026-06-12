@@ -95,10 +95,48 @@ the corresponding API uses, or push token registration and delivery will fail.
 
 The repo ships two native targets and shared schemes:
 
-| Target       | Scheme       | Bundle ID                             | Info plist            |
-| ------------ | ------------ | ------------------------------------- | --------------------- |
-| **App DEV**  | **App DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`  |
-| **App PROD** | **App PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist` |
+| Target       | Scheme       | Bundle ID                             | Info plist (generated) |
+| ------------ | ------------ | ------------------------------------- | ---------------------- |
+| **App DEV**  | **App DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`   |
+| **App PROD** | **App PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist`  |
+
+`Info.dev.plist` and `Info.prod.plist` are **generated** from shared source plists. Edit
+the sources instead of the generated files:
+
+| Source file                   | Purpose                                                 |
+| ----------------------------- | ------------------------------------------------------- |
+| `App/Info.shared.plist`       | Keys shared by both targets                             |
+| `App/Info.dev.overlay.plist`  | Dev-only keys (`CFBundleDisplayName`, ATS for LAN HTTP) |
+| `App/Info.prod.overlay.plist` | Prod-only keys (`CFBundleDisplayName`)                  |
+
+After editing sources, regenerate committed outputs:
+
+```bash
+npm run generate:ios-info-plists
+```
+
+`prebuild:ios` runs this automatically before each iOS build. Do not edit
+`Info.dev.plist` or `Info.prod.plist` directly — changes are overwritten on the next build.
+
+#### Privacy manifest
+
+Apple requires apps to declare **Required Reason APIs** in a privacy manifest
+(`PrivacyInfo.xcprivacy`). Game Shelf includes one at `App/PrivacyInfo.xcprivacy`, copied
+into both **App DEV** and **App PROD** bundles.
+
+It declares `NSPrivacyAccessedAPICategoryFileTimestamp` with reason `C617.1` because
+`@capacitor/filesystem` accesses file metadata when staging native exports (CSV, debug logs)
+to cache before opening the share sheet. The plugin does not ship its own manifest; the host
+app must declare this entry.
+
+Edit `App/PrivacyInfo.xcprivacy` directly when adding Capacitor plugins that use other
+Required Reason APIs (for example `UserDefaults` from `@capacitor/preferences`). Do not
+generate this file from the Info.plist script — dev and prod share the same declarations.
+
+Before App Store submission, inspect the built app's **Privacy Report** in Xcode (Product →
+Archive) and confirm the aggregated manifest includes the app-level `FileTimestamp` entry.
+See the [Capacitor privacy manifest docs](https://capacitorjs.com/docs/ios/privacy-manifest)
+for Apple's scanner and additional plugin requirements.
 
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
 

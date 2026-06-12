@@ -3628,3 +3628,13 @@
 - a7dc440a Merge pull request #416 from thetigeregg/feat/http
 - ab57c791 Merge branch 'main' into feat/http
 - 03716abd feat(ios): enable CapacitorHttp native networking
+
+## v1.53.0 - 2026-06-12
+
+- ecfd49c1 Merge pull request #417 from thetigeregg/feat/fv
+- f747286f Merge branch 'main' into feat/fv
+- f1363dad fix(ios): resolve manual and ROM catalog URLs from client base on native
+- f547a29d fix(dev): use LAN host for worktree manuals public base URL
+- b818b993 chore(deps): update Package.resolved to include ion-ios-fileviewer and update originHash
+- 9c11a490 Merge branch 'main' into feat/fv
+- 10ef1579 feat(ios): open manual PDFs with native file viewer

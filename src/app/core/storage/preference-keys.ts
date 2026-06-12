@@ -4,7 +4,22 @@ export const PREFERENCE_STORAGE_MIGRATION_KEY = 'game-shelf:preference-storage-m
 
 export const E2E_FIXTURE_STORAGE_KEY = 'game-shelf:e2e-fixture';
 
-export const PREFERENCE_STORAGE_EXCLUDED_KEYS = [E2E_FIXTURE_STORAGE_KEY] as const;
+export const DEBUG_LOGS_STORAGE_KEY = 'game-shelf:debug-logs:v2';
+
+export const DEBUG_LOGS_LEGACY_STORAGE_KEY = 'game-shelf:debug-logs:v1';
+
+export const PREFERENCE_STORAGE_EXCLUDED_KEYS = [
+  E2E_FIXTURE_STORAGE_KEY,
+  DEBUG_LOGS_STORAGE_KEY,
+  DEBUG_LOGS_LEGACY_STORAGE_KEY,
+] as const;
+
+export const SETTINGS_EXPORT_EXCLUDED_KEYS = [
+  PREFERENCE_STORAGE_MIGRATION_KEY,
+  E2E_FIXTURE_STORAGE_KEY,
+  DEBUG_LOGS_STORAGE_KEY,
+  DEBUG_LOGS_LEGACY_STORAGE_KEY,
+] as const;
 
 export function isPreferenceStorageKey(key: string): boolean {
   if (
@@ -16,4 +31,10 @@ export function isPreferenceStorageKey(key: string): boolean {
   }
 
   return PREFERENCE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+export function isExportableSettingsKey(key: string): boolean {
+  return !SETTINGS_EXPORT_EXCLUDED_KEYS.includes(
+    key as (typeof SETTINGS_EXPORT_EXCLUDED_KEYS)[number]
+  );
 }

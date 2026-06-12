@@ -3638,3 +3638,17 @@
 - b818b993 chore(deps): update Package.resolved to include ion-ios-fileviewer and update originHash
 - 9c11a490 Merge branch 'main' into feat/fv
 - 10ef1579 feat(ios): open manual PDFs with native file viewer
+
+## v1.54.0 - 2026-06-12
+
+- cf010c02 Merge pull request #418 from thetigeregg/feat/sqlite
+- 48e4bc69 fix(storage): stop readPreference localStorage fallback after init
+- 236d6acf fix(storage): guard preference cache rollbacks against stale writes
+- b06392e1 fix(storage): roll back cache when native Preferences writes fail
+- de09b26e test(notification): init preference storage in native mode
+- f712e8b5 fix(storage): guard migration and reclaim against storage failures
+- 2172a706 fix(storage): defer migration cleanup and reset test singleton
+- b54e53cd fix(storage): harden preference init and scope key reclaim
+- 6b7728bc fix(storage): exclude internal keys from export and native prefs
+- 768d4f1a Merge branch 'main' into feat/sqlite
+- 0cece3af feat(storage): migrate native prefs to Capacitor Preferences

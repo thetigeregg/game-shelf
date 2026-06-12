@@ -88,11 +88,13 @@ export function formatSuggestedIosLocalOrigin(host, edgePort) {
   return origin;
 }
 
-export function resolveManualsPublicBaseUrl(envValues = {}, edgePort, options = {}) {
-  const explicit =
-    typeof envValues.MANUALS_PUBLIC_BASE_URL === 'string'
-      ? envValues.MANUALS_PUBLIC_BASE_URL.trim()
-      : '';
+export function resolveAssetPublicBaseUrl(envValues = {}, edgePort, mountPath, options = {}) {
+  const normalizedMountPath =
+    typeof mountPath === 'string' && mountPath.trim().length > 0 ? mountPath.trim() : 'manuals';
+  const envKey =
+    normalizedMountPath === 'roms' ? 'ROMS_PUBLIC_BASE_URL' : 'MANUALS_PUBLIC_BASE_URL';
+  const fallbackRelativePath = `/${normalizedMountPath}`;
+  const explicit = typeof envValues[envKey] === 'string' ? envValues[envKey].trim() : '';
 
   if (/^https?:\/\//i.test(explicit)) {
     return explicit.replace(/\/+$/, '');
@@ -101,13 +103,21 @@ export function resolveManualsPublicBaseUrl(envValues = {}, edgePort, options = 
   const lanHost = resolveLanHost(envValues, options);
   const origin = composeLocalBackendOrigin(lanHost, edgePort);
   if (origin) {
-    return `${origin}/manuals`;
+    return `${origin}/${normalizedMountPath}`;
   }
 
   const port = Number.parseInt(String(edgePort), 10);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
-    return '/manuals';
+    return fallbackRelativePath;
   }
 
-  return `http://127.0.0.1:${port}/manuals`;
+  return `http://127.0.0.1:${port}/${normalizedMountPath}`;
+}
+
+export function resolveManualsPublicBaseUrl(envValues = {}, edgePort, options = {}) {
+  return resolveAssetPublicBaseUrl(envValues, edgePort, 'manuals', options);
+}
+
+export function resolveRomsPublicBaseUrl(envValues = {}, edgePort, options = {}) {
+  return resolveAssetPublicBaseUrl(envValues, edgePort, 'roms', options);
 }

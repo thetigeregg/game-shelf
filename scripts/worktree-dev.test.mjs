@@ -55,6 +55,7 @@ test('createSharedEnv uses LAN host for dev manuals origin by default', () => {
   });
 
   assert.match(env.MANUALS_PUBLIC_BASE_URL, /^http:\/\/192\.168\.0\.21:\d+\/manuals$/);
+  assert.match(env.ROMS_PUBLIC_BASE_URL, /^http:\/\/192\.168\.0\.21:\d+\/roms$/);
   assert.equal(env.PATH, '/usr/bin');
 });
 
@@ -62,11 +63,13 @@ test('createSharedEnv preserves an absolute MANUALS_PUBLIC_BASE_URL from env', (
   const env = createSharedEnv({
     processEnv: {
       PATH: '/usr/bin',
+      IOS_LAN_HOST: '192.168.0.21',
       MANUALS_PUBLIC_BASE_URL: 'http://192.168.0.99:12000/manuals/',
     },
   });
 
   assert.equal(env.MANUALS_PUBLIC_BASE_URL, 'http://192.168.0.99:12000/manuals');
+  assert.match(env.ROMS_PUBLIC_BASE_URL, /^http:\/\/192\.168\.0\.21:\d+\/roms$/);
 });
 
 test('createSharedEnv preserves an explicit secrets host dir from the provided env', () => {

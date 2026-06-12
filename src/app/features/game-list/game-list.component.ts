@@ -178,6 +178,7 @@ import {
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
 import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
+import { openDocumentUrl } from '../../core/utils/open-document-url.util';
 import { openExternalUrl } from '../../core/utils/open-external-url';
 import { addIcons } from 'ionicons';
 import {
@@ -3201,14 +3202,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return !this.romCatalogUnavailable || this.romResolvedSource === 'override';
   }
 
-  openManualPdf(): void {
+  async openManualPdf(): Promise<void> {
     const url = this.manualResolvedUrl;
 
     if (!url) {
       return;
     }
 
-    this.openExternalUrl(url);
+    try {
+      await openDocumentUrl(url);
+    } catch (error: unknown) {
+      console.error('[game-list] manual_open_failed', error);
+      await this.presentToast('Unable to open manual.', 'danger');
+    }
   }
 
   async openRomInEmulator(): Promise<void> {

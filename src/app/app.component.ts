@@ -1,4 +1,5 @@
 import { Component, effect, inject } from '@angular/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 import {
   AlertController,
   IonApp,
@@ -16,8 +17,11 @@ import {
   RuntimeAvailabilityService,
   RuntimeAvailabilityStatus,
 } from './core/services/runtime-availability.service';
+import { isNativePlatform } from './core/utils/native-platform.util';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
+const MIN_SPLASH_VISIBLE_MS = 300;
+
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
@@ -41,6 +45,7 @@ export class AppComponent {
         onDidDismiss?: () => Promise<unknown>;
       })
     | null = null;
+  private readonly appStartedAt = Date.now();
 
   constructor() {
     effect(() => {
@@ -67,6 +72,25 @@ export class AppComponent {
     await this.initializeNotifications().catch((error: unknown) => {
       console.error('[app] notifications_init_failed', error);
     });
+    await this.hideSplashScreenWhenReady().catch((error: unknown) => {
+      console.error('[app] splash_screen_hide_failed', error);
+    });
+  }
+
+  private async hideSplashScreenWhenReady(): Promise<void> {
+    if (!isNativePlatform()) {
+      return;
+    }
+
+    const remainingVisibleMs = MIN_SPLASH_VISIBLE_MS - (Date.now() - this.appStartedAt);
+
+    if (remainingVisibleMs > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, remainingVisibleMs);
+      });
+    }
+
+    await SplashScreen.hide({ fadeOutDuration: 300 });
   }
 
   private async initializeNotifications(): Promise<void> {

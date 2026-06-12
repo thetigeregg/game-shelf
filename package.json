@@ -96,7 +96,6 @@
     "@angular/cli": "^21.2.13",
     "@angular/compiler-cli": "^21.2.15",
     "@angular/language-service": "^21.2.15",
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "8.4.0",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",

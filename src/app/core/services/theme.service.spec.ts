@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Style } from '@capacitor/status-bar';
-import { PreferenceStorageService } from '../storage/preference-storage.service';
+import {
+  PreferenceStorageService,
+  resetPreferenceStorageForTesting,
+} from '../storage/preference-storage.service';
 import { ThemeService } from './theme.service';
 
 const isNativePlatformMock = vi.fn<() => boolean>();
@@ -40,6 +43,7 @@ describe('ThemeService', () => {
 
   afterEach(() => {
     localStorage.clear();
+    resetPreferenceStorageForTesting();
     document.documentElement.classList.remove('ion-palette-dark');
     vi.restoreAllMocks();
     isNativePlatformMock.mockReset();

@@ -60,6 +60,8 @@ describe('NotificationService', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    isNativePlatformMock.mockReturnValue(true);
+    getNativePlatformMock.mockReturnValue('ios');
     preferencesGet.mockImplementation(({ key }: { key: string }) => {
       if (key === 'game-shelf:preference-storage-migration-v1') {
         return Promise.resolve({ value: '1' });
@@ -93,8 +95,6 @@ describe('NotificationService', () => {
     router = TestBed.inject(Router) as unknown as { navigateByUrl: ReturnType<typeof vi.fn> };
     httpClient = TestBed.inject(HttpClient);
 
-    isNativePlatformMock.mockReturnValue(true);
-    getNativePlatformMock.mockReturnValue('ios');
     checkPermissionsMock.mockResolvedValue({ receive: 'granted' });
     requestPermissionsMock.mockResolvedValue({ receive: 'granted' });
     getTokenMock.mockResolvedValue({ token: 'fcm-token-1234567890' });

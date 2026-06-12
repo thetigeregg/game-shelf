@@ -238,6 +238,36 @@ describe('PreferenceStorageService', () => {
     expect(preferencesRemove).not.toHaveBeenCalledWith({ key: 'other-plugin:key' });
   });
 
+  it('keeps excluded keys in Preferences when localStorage write fails on native', async () => {
+    nativePlatformState.value = true;
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === DEBUG_LOGS_STORAGE_KEY) {
+        return Promise.resolve({ value: '[{"ts":"1","level":"info","message":"legacy"}]' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', DEBUG_LOGS_STORAGE_KEY],
+    });
+    preferencesRemove.mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    expect(localStorage.getItem(DEBUG_LOGS_STORAGE_KEY)).toBeNull();
+    expect(preferencesRemove).not.toHaveBeenCalledWith({ key: DEBUG_LOGS_STORAGE_KEY });
+
+    setItemSpy.mockRestore();
+  });
+
   it('falls back to localStorage when native Preferences initialization fails', async () => {
     nativePlatformState.value = true;
     localStorage.setItem('game-shelf:theme', 'light');

@@ -373,7 +373,7 @@ export async function runWorktreeDev(argv) {
     }
 
     const bootstrapOptions = parseOptions(bootstrapArgs);
-    runWorktreeBootstrap(context, bootstrapOptions);
+    await runWorktreeBootstrap(context, bootstrapOptions);
     await bootstrapIosFirebasePlistsFromConfig({
       force: bootstrapOptions.force,
       failOnMissing: false,

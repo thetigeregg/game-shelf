@@ -1,5 +1,5 @@
 {
-  "originHash" : "c1b776c99712c69a48a6b80a68137001842c1494f95a64575203fb369485a8af",
+  "originHash" : "db7f4aff4beaf0107ef8161d8d3f38cf3d44b862a461138d1801a1280b1a3598",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -107,6 +107,15 @@
       "state" : {
         "revision" : "0d81e26e828ff9582807e2339112cedf2e0fab85",
         "version" : "1.1.2"
+      }
+    },
+    {
+      "identity" : "ion-ios-fileviewer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ionic-team/ion-ios-fileviewer.git",
+      "state" : {
+        "revision" : "e00a7f5ede0da6054d36b9913495ad18e887f5ab",
+        "version" : "1.0.3"
       }
     },
     {

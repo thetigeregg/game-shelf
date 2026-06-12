@@ -1,7 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { setLiveRuntimeConfig } from '../config/runtime-config';
 import { isNativePlatform } from '../utils/native-platform.util';
+import { NetworkConnectivityService } from './network-connectivity.service';
 
 export type RuntimeAvailabilityStatus = 'checking' | 'online' | 'offline' | 'service-unreachable';
 
@@ -12,6 +13,7 @@ export class RuntimeAvailabilityService {
   private probeTimerId: number | null = null;
 
   readonly status = signal<RuntimeAvailabilityStatus>('checking');
+  private readonly networkConnectivity = inject(NetworkConnectivityService);
 
   initialize(): void {
     if (this.initialized || typeof window === 'undefined') {
@@ -20,14 +22,21 @@ export class RuntimeAvailabilityService {
 
     this.initialized = true;
 
-    if (!navigator.onLine) {
+    if (!this.networkConnectivity.isConnected()) {
       this.status.set('offline');
     } else if (window.__GAME_SHELF_RUNTIME_CONFIG__) {
       this.status.set('online');
     }
 
-    window.addEventListener('online', this.handleOnline);
-    window.addEventListener('offline', this.handleOffline);
+    this.networkConnectivity.onConnectedChange((connected) => {
+      if (connected) {
+        void this.refresh();
+        return;
+      }
+
+      this.status.set('offline');
+    });
+
     window.addEventListener('focus', this.handleResumeLikeEvent);
     window.addEventListener('pageshow', this.handleResumeLikeEvent);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -59,7 +68,7 @@ export class RuntimeAvailabilityService {
       return;
     }
 
-    if (!navigator.onLine) {
+    if (!this.networkConnectivity.isConnected()) {
       this.status.set('offline');
       return;
     }
@@ -69,14 +78,6 @@ export class RuntimeAvailabilityService {
       : await this.probeRuntimeConfig();
     this.status.set(probeSucceeded ? 'online' : 'service-unreachable');
   }
-
-  private readonly handleOnline = () => {
-    void this.refresh();
-  };
-
-  private readonly handleOffline = () => {
-    this.status.set('offline');
-  };
 
   private readonly handleResumeLikeEvent = () => {
     void this.refresh();

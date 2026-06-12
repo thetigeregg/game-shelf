@@ -56,8 +56,8 @@ export function printSuggestedIosLocalOrigin({
     return;
   }
 
-  log(`iOS local origin (suggested): available on edge port ${edgePort}`);
-  log('  Set IOS_LAN_HOST and IOS_BACKEND_ORIGIN_LOCAL in .env for the full origin URL.');
+  log(`iOS local origin (suggested): ${suggestedOrigin}`);
+  log(`  Set IOS_BACKEND_ORIGIN_LOCAL=${suggestedOrigin} in .env (IOS_LAN_HOST=${lanHost}).`);
   log('  Use EDGE_BIND_HOST=0.0.0.0 for device access.');
 
   const hasTargetId = Boolean(env.IOS_TARGET_ID?.trim());

@@ -155,12 +155,11 @@ port plus `IOS_LAN_HOST` (or auto-detected LAN IPv4) when `IOS_BACKEND_ORIGIN_LO
 2. Build, sync, and run on a connected device:
 
 ```bash
-npx devx worktree ios prod    # production backend (alias: npm run run:ios:prod)
+npx devx worktree ios prod    # production backend
 npx devx worktree ios local   # local Docker edge on your Mac (worktree-aware)
 ```
 
-`npm run run:ios:*` are thin aliases for the commands above. Connect and trust your iPhone
-first. `npx devx worktree ios` loads `.env` for `IOS_TARGET_ID` /
+Connect and trust your iPhone first. `npx devx worktree ios` loads `.env` for `IOS_TARGET_ID` /
 `IOS_TARGET_NAME` (prefer ID). Use `npm run list:ios:targets` to discover values, or
 `npx devx worktree info` to see the configured target. First-time code signing may still
 require opening Xcode once.
@@ -179,7 +178,7 @@ For faster UI iteration on a physical iPhone without rebuilding on every change:
 
 ```bash
 npx devx worktree stack up
-npx devx worktree ios live    # alias: npm run run:ios:live
+npx devx worktree ios live
 ```
 
 Prerequisites:
@@ -191,7 +190,7 @@ Prerequisites:
 
 Live reload serves the app from the worktree Angular dev server (`FRONTEND_PORT` from
 `npx devx worktree info`) and proxies `/v1`, `/manuals`, `/roms`, and `/bios` to the
-worktree backend on your Mac. Unlike `run:ios:local`, the phone does not need direct access
+worktree backend on your Mac. Unlike `npx devx worktree ios local`, the phone does not need direct access
 to the Docker edge port — `EDGE_BIND_HOST=0.0.0.0` is not required for API calls during
 live reload.
 

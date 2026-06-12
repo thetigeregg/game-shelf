@@ -109,7 +109,7 @@ The repo ships two native targets and shared schemes:
 
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
 
-`npx devx worktree ios <local|prod|live>` (aliases: `npm run run:ios:*`) passes
+`npx devx worktree ios <local|prod|live>` passes
 `--scheme "App DEV"` / `--scheme "App PROD"` so Capacitor deploys the matching
 `App DEV.app` / `App PROD.app` bundle. Scheme names must match the built product name
 (`cap run` resolves the deploy path as `${scheme}.app`). Implementation lives in
@@ -144,8 +144,7 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 `npx devx worktree ios local|prod` runs the matching `sync:ios:*`, then
 `cap run ios --no-sync --scheme …`. `npx devx worktree ios live` starts a worktree dev
 server and deploys with `cap run --live-reload`. `scripts/run-ios.mjs` loads `.env` for
-device targeting (shell exports still override). `npm run run:ios:*` are aliases for the
-worktree commands.
+device targeting (shell exports still override).
 
 Connect and trust your iPhone first. To target a specific device, set `IOS_TARGET_ID` or
 `IOS_TARGET_NAME` in `.env` (ID wins when both are set). Prefer `IOS_TARGET_ID` — device
@@ -177,7 +176,7 @@ Use `npx devx worktree info` to see derived ports. `EDGE_BIND_HOST=0.0.0.0` is n
 required for API access during live reload because requests are proxied on your Mac.
 
 **Critical:** `cap sync` overwrites `ios/App/App/public/`. Always run the matching
-`sync:ios:*` (or `run:ios:*`, which does this for you) before building the
+`sync:ios:*` (or `npx devx worktree ios local|prod`, which does this for you) before building the
 corresponding scheme.
 
 ### Verify side-by-side
@@ -185,8 +184,8 @@ corresponding scheme.
 1. Set `EDGE_BIND_HOST=0.0.0.0` in `.env` so edge is reachable from phone Wi‑Fi.
 2. `npx devx worktree stack up` — start (or restart) the worktree-isolated Docker stack.
    Restart is required after changing `EDGE_BIND_HOST`.
-3. `npm run run:ios:local` — installs **GameShelf Dev** via **DEV** scheme.
-4. `npm run run:ios:prod` — installs prod app via **PROD** scheme.
+3. `npx devx worktree ios local` — installs **GameShelf Dev** via **DEV** scheme.
+4. `npx devx worktree ios prod` — installs prod app via **PROD** scheme.
 5. Confirm two home-screen icons; dev hits LAN Docker, prod hits production.
 
 `npx devx worktree info` prints the suggested local origin using `IOS_LAN_HOST` from `.env`
@@ -215,8 +214,8 @@ Requires `NOTIFICATIONS_TEST_ENDPOINT_ENABLED=true` on the server.
 ## Single-target switching (without side-by-side)
 
 Side-by-side installs require both targets so each app keeps its own embedded bundle.
-The repo ships both **App DEV** and **App PROD** targets; use the matching `run:ios:*`
-command instead of swapping plists manually.
+The repo ships both **App DEV** and **App PROD** targets; use the matching
+`npx devx worktree ios local|prod` command instead of swapping plists manually.
 
 ## Troubleshooting
 

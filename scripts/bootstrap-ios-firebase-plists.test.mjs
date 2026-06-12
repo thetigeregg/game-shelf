@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -13,7 +15,7 @@ import {
 
 test('expandUserPath expands tilde-prefixed paths', () => {
   const expanded = expandUserPath('~/config/game-shelf/ios');
-  assert.ok(expanded.endsWith('/config/game-shelf/ios'));
+  assert.equal(expanded, path.join(os.homedir(), 'config', 'game-shelf', 'ios'));
 });
 
 test('resolveSharedFirebaseDir prefers WORKTREE_IOS_FIREBASE_DIR override', () => {
@@ -157,7 +159,7 @@ test('formatMissingFirebasePlistMessage includes setup instructions', () => {
     '/shared'
   );
 
-  assert.match(message.join('\n'), /mkdir -p \/shared/);
+  assert.match(message.join('\n'), /mkdir -p '\/shared'/);
   assert.match(message.join('\n'), /GoogleService-Info\.dev\.plist/);
 });
 

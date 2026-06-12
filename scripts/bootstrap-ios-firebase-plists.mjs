@@ -54,15 +54,23 @@ export function resolveFirebasePlistMappings({
   }));
 }
 
+function shellQuotePath(value) {
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+}
+
 export function formatMissingFirebasePlistMessage(missing, sharedDir) {
   const missingFiles = missing.map((entry) => entry.sharedFile).join(', ');
+  const quotedSharedDir = shellQuotePath(sharedDir);
   return [
     `Missing shared Firebase plist(s): ${missingFiles}`,
     `Expected directory: ${sharedDir}`,
     'One-time setup:',
-    `  mkdir -p ${sharedDir}`,
+    `  mkdir -p ${quotedSharedDir}`,
     '  # Download from Firebase Console and save as:',
-    ...missing.map((entry) => `  #   ${path.join(sharedDir, entry.sharedFile)} (${entry.variant})`),
+    ...missing.map(
+      (entry) =>
+        `  #   ${shellQuotePath(path.join(sharedDir, entry.sharedFile))} (${entry.variant})`
+    ),
     'Override with WORKTREE_IOS_FIREBASE_DIR if needed.',
     'See docs/ios-multi-environment.md for bundle IDs and Firebase project setup.',
   ];

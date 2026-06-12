@@ -22,7 +22,6 @@ export {
 } from './ios-run-common.mjs';
 
 const LIVE_RELOAD_SERVE_CONFIGURATION = 'ios-live';
-const LIVE_RELOAD_BIND_HOST = '0.0.0.0';
 const LOCAL_ENVIRONMENT_FILE = 'src/environments/environment.local.ts';
 const LOCAL_ENVIRONMENT_EXAMPLE_FILE = 'src/environments/environment.local.example.ts';
 const WEB_BUILD_ROOT = 'www/browser';
@@ -39,11 +38,13 @@ export function resolveLiveReloadHost(envValues = {}, options = {}) {
 }
 
 export function buildNgServeArgs(context, proxyPath) {
+  const bindHost = context.config.worktree.frontend?.externalHost ?? '0.0.0.0';
+
   return [
     '--port',
     String(context.runtime.ports.FRONTEND_PORT),
     '--host',
-    LIVE_RELOAD_BIND_HOST,
+    bindHost,
     '--proxy-config',
     proxyPath,
     '--configuration',
@@ -184,6 +185,7 @@ export async function runIosLive({
   const { binary: serveBinary, args: servePrefixArgs } = parseShellCommand(
     frontendConfig.serveCommand ?? 'npx ng serve'
   );
+  const bindHost = context.config.worktree.frontend?.externalHost ?? '0.0.0.0';
   const serveArgs = [...servePrefixArgs, ...buildNgServeArgs(context, proxyPath)];
 
   const devServer = await spawnDevServer(serveBinary, serveArgs, {
@@ -211,7 +213,7 @@ export async function runIosLive({
 
   try {
     await waitForDevServer(frontendPort);
-    log(`Dev server ready on ${LIVE_RELOAD_BIND_HOST}:${frontendPort}. Deploying to device...`);
+    log(`Dev server ready on ${bindHost}:${frontendPort}. Deploying to device...`);
 
     await runCommand(
       'npx',
@@ -225,7 +227,12 @@ export async function runIosLive({
     log('Use Ctrl+C to quit.');
 
     await new Promise((resolve) => {
-      devServer.on('close', resolve);
+      if (devServer.exitCode !== null) {
+        resolve();
+        return;
+      }
+
+      devServer.once('close', resolve);
     });
   } finally {
     process.removeListener('SIGINT', shutdown);

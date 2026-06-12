@@ -4,12 +4,8 @@ export async function resolveWorktreeFrontendPort({
   cwd = process.cwd(),
   processEnv = process.env,
 } = {}) {
-  const env = {
-    ...processEnv,
-    WORKTREE_PORT_OFFSET: processEnv.WORKTREE_PORT_OFFSET ?? '0',
-  };
   const config = await loadDevxConfig({ cwd });
-  const context = await createWorktreeContext({ cwd, config, processEnv: env });
+  const context = await createWorktreeContext({ cwd, config, processEnv });
   return context.runtime.ports.FRONTEND_PORT;
 }
 

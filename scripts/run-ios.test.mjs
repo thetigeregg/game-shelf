@@ -16,6 +16,7 @@ import {
   resolveConfiguredCommand,
   resolveDevServerProbeHosts,
   resolveLiveReloadHost,
+  resolveLiveReloadFrontendPaths,
   resolveScheme,
   resolveVariant,
   RunIosInterruptedError,
@@ -164,6 +165,38 @@ test('buildCapRunArgs forwards extra cap run args', () => {
   ]);
 });
 
+test('resolveLiveReloadFrontendPaths uses devx config with defaults', () => {
+  assert.deepEqual(resolveLiveReloadFrontendPaths(), {
+    localEnvironmentFile: 'src/environments/environment.local.ts',
+    localEnvironmentExampleFile: 'src/environments/environment.local.example.ts',
+    buildRoot: 'www/browser',
+  });
+});
+
+test('resolveLiveReloadFrontendPaths reads configured frontend paths', () => {
+  assert.deepEqual(
+    resolveLiveReloadFrontendPaths({
+      localEnvironmentFile: 'custom/environment.local.ts',
+      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+      buildRoot: 'dist/app',
+    }),
+    {
+      localEnvironmentFile: 'custom/environment.local.ts',
+      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+      buildRoot: 'dist/app',
+    }
+  );
+});
+
+test('resolveLiveReloadFrontendPaths derives example file from local environment file', () => {
+  assert.equal(
+    resolveLiveReloadFrontendPaths({
+      localEnvironmentFile: 'custom/environment.local.ts',
+    }).localEnvironmentExampleFile,
+    'custom/environment.local.example.ts'
+  );
+});
+
 test('ensureLocalEnvironmentFile returns existing local environment file', () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
   const envDir = path.join(cwd, 'src/environments');
@@ -195,6 +228,27 @@ test('ensureLocalEnvironmentFile bootstraps from example when missing', () => {
     localPath
   );
   assert.match(lines[0], /Created src\/environments\/environment\.local\.ts/);
+});
+
+test('ensureLocalEnvironmentFile supports configured environment paths', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+  const envDir = path.join(cwd, 'custom');
+  const examplePath = path.join(envDir, 'environment.local.example.ts');
+  const localPath = path.join(envDir, 'environment.local.ts');
+
+  mkdirSync(envDir, { recursive: true });
+  writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+  assert.equal(
+    ensureLocalEnvironmentFile(cwd, {
+      localEnvironmentFile: 'custom/environment.local.ts',
+      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+      copyFile: (source, destination) => {
+        writeFileSync(destination, `copied:${source}`, 'utf8');
+      },
+    }),
+    localPath
+  );
 });
 
 test('resolveLiveReloadHost prefers IOS_LAN_HOST', () => {

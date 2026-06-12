@@ -24,9 +24,24 @@ vi.mock('./core/config/runtime-config', () => ({
   isE2eFixturesEnabled: vi.fn(() => false),
 }));
 
+const { splashHideMock } = vi.hoisted(() => ({
+  splashHideMock: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@capacitor/splash-screen', () => ({
+  SplashScreen: {
+    hide: splashHideMock,
+  },
+}));
+
+vi.mock('./core/utils/native-platform.util', () => ({
+  isNativePlatform: vi.fn(() => false),
+}));
+
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { AppComponent } from './app.component';
 import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
+import { isNativePlatform } from './core/utils/native-platform.util';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
@@ -451,5 +466,43 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(errorSpy).toHaveBeenCalledWith('[app] notifications_init_failed', expect.any(Error));
+  });
+
+  it('does not hide the splash screen on web', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    vi.mocked(isNativePlatform).mockReturnValue(false);
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    expect(splashHideMock).not.toHaveBeenCalled();
+  });
+
+  it('hides the splash screen on native after startup with a fade-out', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 350);
+    });
+
+    expect(splashHideMock).toHaveBeenCalledWith({ fadeOutDuration: 300 });
+  });
+
+  it('logs splash screen hide failures', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    splashHideMock.mockRejectedValueOnce(new Error('splash hide failed'));
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 350);
+    });
+
+    expect(errorSpy).toHaveBeenCalledWith('[app] splash_screen_hide_failed', expect.any(Error));
   });
 });

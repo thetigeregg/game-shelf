@@ -52,15 +52,16 @@ function readWebStorageItem(key: string): string | null {
   }
 }
 
-function writeWebStorageItem(key: string, value: string): void {
+function writeWebStorageItem(key: string, value: string): boolean {
   if (typeof window === 'undefined') {
-    return;
+    return false;
   }
 
   try {
     window.localStorage.setItem(key, value);
+    return true;
   } catch {
-    // Ignore storage failures.
+    return false;
   }
 }
 
@@ -182,7 +183,7 @@ export class PreferenceStorageService {
     }
 
     if (typeof window === 'undefined') {
-      return { migratedKeys: [], migrationPending: true };
+      return { migratedKeys: [], migrationPending: false };
     }
 
     const migratedKeys: string[] = [];
@@ -228,7 +229,9 @@ export class PreferenceStorageService {
       const entry = await Preferences.get({ key });
 
       if (typeof entry.value === 'string') {
-        writeWebStorageItem(key, entry.value);
+        if (!writeWebStorageItem(key, entry.value)) {
+          continue;
+        }
       }
 
       await Preferences.remove({ key });

@@ -37,6 +37,17 @@ test('resolveConfiguredCommand supports explicit command arrays', () => {
   });
 });
 
+test('resolveConfiguredCommand rejects non-string non-array values', () => {
+  assert.throws(
+    () => resolveConfiguredCommand(null),
+    /Configured command must be a non-empty string or a command array/
+  );
+  assert.throws(
+    () => resolveConfiguredCommand({ cmd: 'npm' }),
+    /Configured command must be a non-empty string or a command array/
+  );
+});
+
 test('appendShellArgs quotes arguments that contain spaces', () => {
   assert.equal(
     appendShellArgs('npx ng serve', ['--proxy-config', '/tmp/path with spaces.json']),
@@ -54,6 +65,9 @@ test('describeRunIosFailure returns safe literal messages for known failures', (
     ['Invalid iOS run variant. Expected "local", "prod", or "live".']
   );
   assert.deepEqual(describeRunIosFailure(new Error('npm exited with code 1')), [
+    'iOS run command failed. See command output above for details.',
+  ]);
+  assert.deepEqual(describeRunIosFailure(new Error('npx cap sync exited due to signal SIGTERM')), [
     'iOS run command failed. See command output above for details.',
   ]);
   assert.deepEqual(describeRunIosFailure('not-an-error'), ['run-ios failed.']);
@@ -217,22 +231,20 @@ test('resolveDevServerProbeHosts probes explicit bind hosts and LAN host when di
   ]);
 });
 
-test('formatDevServerReadyMessage shows LAN host for device reachability', () => {
+test('formatDevServerReadyMessage omits env-derived host values from logs', () => {
   assert.equal(
     formatDevServerReadyMessage({
-      lanHost: '192.168.0.21',
       frontendPort: 14146,
       bindHost: '0.0.0.0',
     }),
-    'Dev server ready at 192.168.0.21:14146. Deploying to device...'
+    'Dev server ready on port 14146. Deploying to device...'
   );
   assert.equal(
     formatDevServerReadyMessage({
-      lanHost: '192.168.0.21',
       frontendPort: 14146,
       bindHost: '192.168.0.10',
     }),
-    'Dev server ready at 192.168.0.21:14146 (bound to 192.168.0.10). Deploying to device...'
+    'Dev server ready on port 14146 (bound to 192.168.0.10). Deploying to device...'
   );
 });
 

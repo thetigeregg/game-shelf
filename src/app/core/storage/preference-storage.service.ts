@@ -132,8 +132,16 @@ export class PreferenceStorageService {
       return;
     }
 
+    const previousValue = this.cache.get(key);
     this.cache.set(key, value);
-    void Preferences.set({ key, value }).catch(() => undefined);
+    void Preferences.set({ key, value }).catch(() => {
+      if (previousValue === undefined) {
+        this.cache.delete(key);
+        return;
+      }
+
+      this.cache.set(key, previousValue);
+    });
   }
 
   removeItem(key: string): void {
@@ -142,8 +150,13 @@ export class PreferenceStorageService {
       return;
     }
 
+    const previousValue = this.cache.get(key);
     this.cache.delete(key);
-    void Preferences.remove({ key }).catch(() => undefined);
+    void Preferences.remove({ key }).catch(() => {
+      if (previousValue !== undefined) {
+        this.cache.set(key, previousValue);
+      }
+    });
   }
 
   keys(): string[] {

@@ -145,6 +145,92 @@ describe('PreferenceStorageService', () => {
     });
   });
 
+  it('restores cache when Preferences.set fails on native', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === 'game-shelf:theme') {
+        return Promise.resolve({ value: 'dark' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+    preferencesSet.mockResolvedValue(undefined);
+
+    await service.initialize();
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+
+    preferencesSet.mockRejectedValueOnce(new Error('write failed'));
+    service.setItem('game-shelf:theme', 'light');
+    expect(service.getItem('game-shelf:theme')).toBe('light');
+
+    await vi.waitFor(() => {
+      expect(service.getItem('game-shelf:theme')).toBe('dark');
+    });
+  });
+
+  it('restores cache when Preferences.set fails for a new key on native', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1'],
+    });
+    preferencesSet.mockRejectedValueOnce(new Error('write failed'));
+
+    await service.initialize();
+    service.setItem('game-shelf:new-key', 'value');
+    expect(service.getItem('game-shelf:new-key')).toBe('value');
+
+    await vi.waitFor(() => {
+      expect(service.getItem('game-shelf:new-key')).toBeNull();
+    });
+  });
+
+  it('restores cache when Preferences.remove fails on native', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === 'game-shelf:theme') {
+        return Promise.resolve({ value: 'dark' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+    preferencesSet.mockResolvedValue(undefined);
+    preferencesRemove.mockRejectedValueOnce(new Error('remove failed'));
+
+    await service.initialize();
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+
+    service.removeItem('game-shelf:theme');
+    expect(service.getItem('game-shelf:theme')).toBeNull();
+
+    await vi.waitFor(() => {
+      expect(service.getItem('game-shelf:theme')).toBe('dark');
+    });
+  });
+
   it('keeps large debug logs in localStorage on native', async () => {
     nativePlatformState.value = true;
     localStorage.setItem(DEBUG_LOGS_STORAGE_KEY, '[]');

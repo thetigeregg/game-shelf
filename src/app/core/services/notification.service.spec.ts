@@ -106,6 +106,10 @@ describe('NotificationService', () => {
     localStorage.clear();
     resetPreferenceStorageForTesting();
     vi.restoreAllMocks();
+    preferencesGet.mockReset();
+    preferencesSet.mockReset();
+    preferencesRemove.mockReset();
+    preferencesKeys.mockReset();
     checkPermissionsMock.mockReset();
     requestPermissionsMock.mockReset();
     getTokenMock.mockReset();

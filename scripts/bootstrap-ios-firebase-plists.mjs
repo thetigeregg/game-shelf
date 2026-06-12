@@ -200,6 +200,6 @@ async function main() {
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+if (entrypoint && import.meta.url === pathToFileURL(path.resolve(entrypoint)).href) {
   main();
 }

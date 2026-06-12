@@ -8,12 +8,28 @@ import {
   buildCapLiveReloadArgs,
   buildCapRunArgs,
   buildNgServeArgs,
+  describeRunIosFailure,
   ensureLocalEnvironmentFile,
   loadRunIosEnv,
   resolveLiveReloadHost,
   resolveScheme,
   resolveVariant,
 } from './run-ios.mjs';
+
+test('describeRunIosFailure returns safe literal messages for known failures', () => {
+  assert.deepEqual(
+    describeRunIosFailure(new Error('Usage: node scripts/run-ios.mjs <local|prod|live>')),
+    ['Usage: node scripts/run-ios.mjs <local|prod|live> [cap run args...]']
+  );
+  assert.deepEqual(
+    describeRunIosFailure(new Error('Invalid iOS run variant "staging". Expected "local".')),
+    ['Invalid iOS run variant. Expected "local", "prod", or "live".']
+  );
+  assert.deepEqual(describeRunIosFailure(new Error('npm exited with code 1')), [
+    'iOS run command failed. See command output above for details.',
+  ]);
+  assert.deepEqual(describeRunIosFailure('not-an-error'), ['run-ios failed.']);
+});
 
 test('resolveVariant accepts local, prod, and live', () => {
   assert.equal(resolveVariant('local'), 'local');

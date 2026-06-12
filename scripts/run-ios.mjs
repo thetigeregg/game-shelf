@@ -117,7 +117,7 @@ function runCommand(command, args, options = {}) {
         return;
       }
 
-      reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
+      reject(new Error(`${command} exited with code ${code}`));
     });
   });
 }
@@ -265,6 +265,56 @@ export async function runIos(
   );
 }
 
+export function describeRunIosFailure(error) {
+  if (!(error instanceof Error)) {
+    return ['run-ios failed.'];
+  }
+
+  const { message } = error;
+
+  if (message.startsWith('Usage: node scripts/run-ios.mjs')) {
+    return ['Usage: node scripts/run-ios.mjs <local|prod|live> [cap run args...]'];
+  }
+
+  if (message.startsWith('Invalid iOS run variant')) {
+    return ['Invalid iOS run variant. Expected "local", "prod", or "live".'];
+  }
+
+  if (message.startsWith('Unable to resolve LAN host')) {
+    return [
+      'Unable to resolve LAN host for live reload.',
+      'Set IOS_LAN_HOST in .env to your Mac Wi-Fi IP address.',
+    ];
+  }
+
+  if (message.startsWith('Missing src/environments/environment.local.ts')) {
+    return [
+      `Missing ${LOCAL_ENVIRONMENT_FILE} and ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}.`,
+      `Create ${LOCAL_ENVIRONMENT_FILE} before running live reload.`,
+    ];
+  }
+
+  if (message.startsWith(`Missing ${WEB_BUILD_ROOT}/`)) {
+    return [
+      `Missing ${WEB_BUILD_ROOT}/.`,
+      'Run npm run sync:ios:local once to build web assets before live reload.',
+    ];
+  }
+
+  if (message.startsWith('Timed out waiting for dev server')) {
+    return [
+      'Timed out waiting for the dev server to become reachable.',
+      'Check ng serve output above for details.',
+    ];
+  }
+
+  if (/^(npm|npx) exited with code \d+$/.test(message)) {
+    return ['iOS run command failed. See command output above for details.'];
+  }
+
+  return ['run-ios failed. See output above for details.'];
+}
+
 async function main() {
   const [variant, ...extraArgs] = process.argv.slice(2);
 
@@ -280,7 +330,10 @@ const isDirectExecution =
 
 if (isDirectExecution) {
   main().catch((error) => {
-    console.error(error.message);
+    for (const line of describeRunIosFailure(error)) {
+      console.error(line);
+    }
+
     process.exit(1);
   });
 }

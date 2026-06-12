@@ -1,23 +1,21 @@
 {
-  "images": [
+  "images" : [
     {
-      "idiom": "universal",
-      "filename": "Default@1x~universal~anyany.png",
-      "scale": "1x"
+      "filename" : "lucid-origin_a_surreal_and_vibrant_cinematic_photo_of_Soft_illustrated_splash_screen_for_a_vi-0.jpg",
+      "idiom" : "universal",
+      "scale" : "1x"
     },
     {
-      "idiom": "universal",
-      "filename": "Default@2x~universal~anyany.png",
-      "scale": "2x"
+      "idiom" : "universal",
+      "scale" : "2x"
     },
     {
-      "idiom": "universal",
-      "filename": "Default@3x~universal~anyany.png",
-      "scale": "3x"
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
-  "info": {
-    "version": 1,
-    "author": "xcode"
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
   }
 }

@@ -21,6 +21,12 @@ export const SETTINGS_EXPORT_EXCLUDED_KEYS = [
   DEBUG_LOGS_LEGACY_STORAGE_KEY,
 ] as const;
 
+export function isExcludedPreferenceStorageKey(key: string): boolean {
+  return PREFERENCE_STORAGE_EXCLUDED_KEYS.includes(
+    key as (typeof PREFERENCE_STORAGE_EXCLUDED_KEYS)[number]
+  );
+}
+
 export function isPreferenceStorageKey(key: string): boolean {
   if (
     PREFERENCE_STORAGE_EXCLUDED_KEYS.includes(

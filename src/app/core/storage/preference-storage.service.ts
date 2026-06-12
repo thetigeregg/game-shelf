@@ -1,7 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Preferences } from '@capacitor/preferences';
 import { isNativePlatform } from '../utils/native-platform.util';
-import { isPreferenceStorageKey, PREFERENCE_STORAGE_MIGRATION_KEY } from './preference-keys';
+import {
+  isExcludedPreferenceStorageKey,
+  isPreferenceStorageKey,
+  PREFERENCE_STORAGE_MIGRATION_KEY,
+} from './preference-keys';
 
 let preferenceStorageInstance: PreferenceStorageService | null = null;
 
@@ -71,6 +75,7 @@ function removeWebStorageItem(key: string): void {
 export class PreferenceStorageService {
   private readonly cache = new Map<string, string>();
   private initialized = false;
+  private nativePreferencesEnabled = false;
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -84,14 +89,21 @@ export class PreferenceStorageService {
       return;
     }
 
-    await this.migrateFromLocalStorageIfNeeded();
-    await this.reclaimExcludedKeysFromPreferences();
-    await this.hydrateCacheFromPreferences();
+    try {
+      await this.migrateFromLocalStorageIfNeeded();
+      await this.reclaimExcludedKeysFromPreferences();
+      await this.hydrateCacheFromPreferences();
+      this.nativePreferencesEnabled = true;
+    } catch {
+      this.nativePreferencesEnabled = false;
+      this.cache.clear();
+    }
+
     this.initialized = true;
   }
 
   private usesNativePreferences(key: string): boolean {
-    return isNativePlatform() && isPreferenceStorageKey(key);
+    return this.nativePreferencesEnabled && isPreferenceStorageKey(key);
   }
 
   getItem(key: string): string | null {
@@ -123,7 +135,7 @@ export class PreferenceStorageService {
   }
 
   keys(): string[] {
-    if (!isNativePlatform()) {
+    if (!this.nativePreferencesEnabled) {
       return this.readWebStorageKeys();
     }
 
@@ -180,7 +192,7 @@ export class PreferenceStorageService {
     const result = await Preferences.keys();
 
     for (const key of result.keys) {
-      if (isPreferenceStorageKey(key)) {
+      if (!isExcludedPreferenceStorageKey(key)) {
         continue;
       }
 

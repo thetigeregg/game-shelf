@@ -22,9 +22,19 @@ export {
 } from './ios-run-common.mjs';
 
 const LIVE_RELOAD_SERVE_CONFIGURATION = 'ios-live';
-const LOCAL_ENVIRONMENT_FILE = 'src/environments/environment.local.ts';
-const LOCAL_ENVIRONMENT_EXAMPLE_FILE = 'src/environments/environment.local.example.ts';
-const WEB_BUILD_ROOT = 'www/browser';
+const DEFAULT_LOCAL_ENVIRONMENT_FILE = 'src/environments/environment.local.ts';
+const DEFAULT_WEB_BUILD_ROOT = 'www/browser';
+
+export function resolveLiveReloadFrontendPaths(frontendConfig = {}) {
+  const localEnvironmentFile =
+    frontendConfig.localEnvironmentFile ?? DEFAULT_LOCAL_ENVIRONMENT_FILE;
+  const localEnvironmentExampleFile =
+    frontendConfig.localEnvironmentExampleFile ??
+    localEnvironmentFile.replace(/\.ts$/, '.example.ts');
+  const buildRoot = frontendConfig.buildRoot ?? DEFAULT_WEB_BUILD_ROOT;
+
+  return { localEnvironmentFile, localEnvironmentExampleFile, buildRoot };
+}
 
 export function resolveLiveReloadHost(envValues = {}, options = {}) {
   const host = resolveLanHost(envValues, options);
@@ -67,33 +77,38 @@ export function buildCapLiveReloadArgs({
 
 export function ensureLocalEnvironmentFile(
   cwd,
-  { log = console.log, copyFile = copyFileSync } = {}
+  {
+    log = console.log,
+    copyFile = copyFileSync,
+    localEnvironmentFile = DEFAULT_LOCAL_ENVIRONMENT_FILE,
+    localEnvironmentExampleFile = DEFAULT_LOCAL_ENVIRONMENT_FILE.replace(/\.ts$/, '.example.ts'),
+  } = {}
 ) {
-  const localEnvironmentPath = path.resolve(cwd, LOCAL_ENVIRONMENT_FILE);
+  const localEnvironmentPath = path.resolve(cwd, localEnvironmentFile);
   if (existsSync(localEnvironmentPath)) {
     return localEnvironmentPath;
   }
 
-  const examplePath = path.resolve(cwd, LOCAL_ENVIRONMENT_EXAMPLE_FILE);
+  const examplePath = path.resolve(cwd, localEnvironmentExampleFile);
   if (!existsSync(examplePath)) {
     throw new Error(
-      `Missing ${LOCAL_ENVIRONMENT_FILE} and ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}. Create ${LOCAL_ENVIRONMENT_FILE} before running live reload.`
+      `Missing ${localEnvironmentFile} and ${localEnvironmentExampleFile}. Create ${localEnvironmentFile} before running live reload.`
     );
   }
 
   copyFile(examplePath, localEnvironmentPath);
-  log(`Created ${LOCAL_ENVIRONMENT_FILE} from ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}.`);
+  log(`Created ${localEnvironmentFile} from ${localEnvironmentExampleFile}.`);
   return localEnvironmentPath;
 }
 
-function assertWebBuildOutput(cwd) {
-  const webBuildPath = path.resolve(cwd, WEB_BUILD_ROOT);
+function assertWebBuildOutput(cwd, buildRoot = DEFAULT_WEB_BUILD_ROOT) {
+  const webBuildPath = path.resolve(cwd, buildRoot);
   if (existsSync(webBuildPath)) {
     return;
   }
 
   throw new Error(
-    `Missing ${WEB_BUILD_ROOT}/. Run npm run sync:ios:local once to build web assets before live reload.`
+    `Missing ${buildRoot}/. Run npm run sync:ios:local once to build web assets before live reload.`
   );
 }
 
@@ -266,9 +281,9 @@ async function waitForDevServer(
   throw new Error(`Timed out waiting for dev server on port ${port}.`);
 }
 
-async function createLiveReloadContext(cwd = process.cwd()) {
+async function createLiveReloadContext(cwd = process.cwd(), processEnv = process.env) {
   const config = await loadDevxConfig({ cwd });
-  return createWorktreeContext({ cwd, config });
+  return createWorktreeContext({ cwd, config, processEnv });
 }
 
 export class RunIosInterruptedError extends Error {
@@ -285,17 +300,18 @@ export async function runIosLive({
   extraArgs = [],
   log = console.log,
 } = {}) {
-  const context = await createLiveReloadContext(cwd);
+  const context = await createLiveReloadContext(cwd, env);
   const sharedEnv = context.createSharedEnv({ processEnv: env });
   const frontendPort = context.runtime.ports.FRONTEND_PORT;
   const lanHost = resolveLiveReloadHost(env);
+  const frontendPaths = resolveLiveReloadFrontendPaths(context.config.worktree.frontend);
 
   log(`iOS live reload frontend port: ${frontendPort}`);
   log('Ensure the worktree Docker stack is running (npx devx worktree stack up).');
   log('Set IOS_LAN_HOST in .env if auto-detect fails; see npx devx worktree info for details.');
 
-  ensureLocalEnvironmentFile(cwd, { log });
-  assertWebBuildOutput(cwd);
+  ensureLocalEnvironmentFile(cwd, { log, ...frontendPaths });
+  assertWebBuildOutput(cwd, frontendPaths.buildRoot);
 
   let shuttingDown = false;
   let interruptedSignal = null;
@@ -446,16 +462,22 @@ export function describeRunIosFailure(error) {
     ];
   }
 
-  if (message.startsWith('Missing src/environments/environment.local.ts')) {
+  const missingLocalEnvironmentMatch = message.match(
+    /^Missing (.+) and (.+)\. Create (.+) before running live reload\.$/
+  );
+  if (missingLocalEnvironmentMatch) {
+    const [, localEnvironmentFile, localEnvironmentExampleFile] = missingLocalEnvironmentMatch;
     return [
-      `Missing ${LOCAL_ENVIRONMENT_FILE} and ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}.`,
-      `Create ${LOCAL_ENVIRONMENT_FILE} before running live reload.`,
+      `Missing ${localEnvironmentFile} and ${localEnvironmentExampleFile}.`,
+      `Create ${localEnvironmentFile} before running live reload.`,
     ];
   }
 
-  if (message.startsWith(`Missing ${WEB_BUILD_ROOT}/`)) {
+  const missingWebBuildMatch = message.match(/^Missing (.+)\/\. Run npm run sync:ios:local/);
+  if (missingWebBuildMatch) {
+    const [, buildRoot] = missingWebBuildMatch;
     return [
-      `Missing ${WEB_BUILD_ROOT}/.`,
+      `Missing ${buildRoot}/.`,
       'Run npm run sync:ios:local once to build web assets before live reload.',
     ];
   }

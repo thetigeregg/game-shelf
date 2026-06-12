@@ -6,6 +6,7 @@ import {
   formatSuggestedIosLocalOrigin,
   resolveLanHost,
   resolveManualsPublicBaseUrl,
+  resolveRomsPublicBaseUrl,
 } from './lan-host.mjs';
 
 test('resolveLanHost prefers IOS_LAN_HOST when set', () => {
@@ -88,5 +89,19 @@ test('resolveManualsPublicBaseUrl falls back to localhost when LAN host is unava
       }),
     }),
     'http://127.0.0.1:10028/manuals'
+  );
+});
+
+test('resolveRomsPublicBaseUrl prefers an absolute ROMS_PUBLIC_BASE_URL override', () => {
+  assert.equal(
+    resolveRomsPublicBaseUrl({ ROMS_PUBLIC_BASE_URL: 'http://192.168.0.99:12000/roms/' }, 8080),
+    'http://192.168.0.99:12000/roms'
+  );
+});
+
+test('resolveRomsPublicBaseUrl composes LAN roms origin from IOS_LAN_HOST', () => {
+  assert.equal(
+    resolveRomsPublicBaseUrl({ IOS_LAN_HOST: '192.168.0.21' }, 10028),
+    'http://192.168.0.21:10028/roms'
   );
 });

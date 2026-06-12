@@ -5,6 +5,12 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
+
+const preferencesGet = vi.hoisted(() => vi.fn());
+const preferencesSet = vi.hoisted(() => vi.fn());
+const preferencesRemove = vi.hoisted(() => vi.fn());
+const preferencesKeys = vi.hoisted(() => vi.fn());
 
 const checkPermissionsMock = vi.fn<() => Promise<{ receive: string }>>();
 const requestPermissionsMock = vi.fn<() => Promise<{ receive: string }>>();
@@ -34,17 +40,38 @@ vi.mock('../utils/native-platform.util', () => ({
   getNativePlatform: () => getNativePlatformMock(),
 }));
 
+vi.mock('@capacitor/preferences', () => ({
+  Preferences: {
+    get: preferencesGet,
+    set: preferencesSet,
+    remove: preferencesRemove,
+    keys: preferencesKeys,
+  },
+}));
+
 describe('NotificationService', () => {
   let service: NotificationService;
+  let preferenceStorage: PreferenceStorageService;
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
   let httpClient: HttpClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesSet.mockResolvedValue(undefined);
+    preferencesRemove.mockResolvedValue(undefined);
+    preferencesKeys.mockResolvedValue({ keys: ['game-shelf:preference-storage-migration-v1'] });
 
     TestBed.configureTestingModule({
       providers: [
         NotificationService,
+        PreferenceStorageService,
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -57,6 +84,8 @@ describe('NotificationService', () => {
       ],
     });
 
+    preferenceStorage = TestBed.inject(PreferenceStorageService);
+    await preferenceStorage.initialize();
     service = TestBed.inject(NotificationService);
     router = TestBed.inject(Router) as unknown as { navigateByUrl: ReturnType<typeof vi.fn> };
     httpClient = TestBed.inject(HttpClient);
@@ -130,7 +159,7 @@ describe('NotificationService', () => {
     const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('server');
-    expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
+    expect(preferenceStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
     expect(errorSpy).toHaveBeenCalled();
   });
 
@@ -139,7 +168,9 @@ describe('NotificationService', () => {
 
     const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(true);
-    expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBe('fcm-token-1234567890');
+    expect(preferenceStorage.getItem('game-shelf:notifications:fcm-token')).toBe(
+      'fcm-token-1234567890'
+    );
     expect(postSpy).toHaveBeenCalledWith(
       expect.stringContaining('/v1/notifications/fcm/register'),
       expect.objectContaining({ token: 'fcm-token-1234567890', platform: 'ios' })
@@ -164,7 +195,7 @@ describe('NotificationService', () => {
       sale: true,
     });
 
-    localStorage.setItem(
+    preferenceStorage.setItem(
       'game-shelf:notifications:release:events',
       JSON.stringify({ set: false, changed: true, removed: false, day: true, sale: false })
     );
@@ -176,7 +207,7 @@ describe('NotificationService', () => {
       sale: false,
     });
 
-    localStorage.setItem('game-shelf:notifications:release:events', '{bad-json');
+    preferenceStorage.setItem('game-shelf:notifications:release:events', '{bad-json');
     expect(service.readReleaseEventPreferences()).toEqual({
       set: true,
       changed: true,
@@ -187,7 +218,7 @@ describe('NotificationService', () => {
   });
 
   it('coerces string and numeric falsey release event preferences to disabled', () => {
-    localStorage.setItem(
+    preferenceStorage.setItem(
       'game-shelf:notifications:release:events',
       JSON.stringify({
         set: 'false',
@@ -214,21 +245,21 @@ describe('NotificationService', () => {
     });
     const result = await service.enableReleaseNotifications();
     expect(result.ok).toBe(false);
-    expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
+    expect(preferenceStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
   });
 
   it('persists enabled state only after successful enable flow returns', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'false');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'false');
 
     const requestSpy = vi.spyOn(service, 'requestPermissionAndRegister').mockImplementation(() => {
-      expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
+      expect(preferenceStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
       return Promise.resolve({ ok: true, message: 'ok' });
     });
 
     const result = await service.enableReleaseNotifications();
     expect(result.ok).toBe(true);
     expect(requestSpy).toHaveBeenCalledOnce();
-    expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('true');
+    expect(preferenceStorage.getItem('game-shelf:notifications:release:enabled')).toBe('true');
   });
 
   it('returns success when disable flow unregisters cleanly', async () => {
@@ -238,11 +269,11 @@ describe('NotificationService', () => {
     });
     const result = await service.disableReleaseNotifications();
     expect(result.ok).toBe(true);
-    expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
+    expect(preferenceStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
   });
 
   it('does not persist disabled state when disable flow fails', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     vi.spyOn(service, 'unregisterCurrentDevice').mockResolvedValue({
       ok: false,
       message: 'failed',
@@ -250,11 +281,11 @@ describe('NotificationService', () => {
 
     const result = await service.disableReleaseNotifications();
     expect(result.ok).toBe(false);
-    expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('true');
+    expect(preferenceStorage.getItem('game-shelf:notifications:release:enabled')).toBe('true');
   });
 
   it('registerCurrentDeviceIfPermitted short-circuits when notifications are disabled', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'false');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'false');
 
     const result = await service.registerCurrentDeviceIfPermitted();
     expect(result.ok).toBe(false);
@@ -262,7 +293,7 @@ describe('NotificationService', () => {
   });
 
   it('registerCurrentDeviceIfPermitted registers when enabled and permission granted', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     const registerSpy = vi
       .spyOn(
         service as unknown as {
@@ -278,7 +309,7 @@ describe('NotificationService', () => {
   });
 
   it('registerCurrentDeviceIfPermitted returns failure when permission is not granted', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     checkPermissionsMock.mockResolvedValue({ receive: 'prompt' });
 
     const result = await service.registerCurrentDeviceIfPermitted();
@@ -287,8 +318,8 @@ describe('NotificationService', () => {
   });
 
   it('registerCurrentDeviceIfPermitted reports unsupported outside the native shell', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     isNativePlatformMock.mockReturnValue(false);
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
 
     const result = await service.registerCurrentDeviceIfPermitted();
     expect(result.ok).toBe(false);
@@ -329,7 +360,7 @@ describe('NotificationService', () => {
   });
 
   it('registers device during initialize when enabled and permission already granted', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     const registerSpy = vi
       .spyOn(
         service as unknown as {
@@ -384,7 +415,7 @@ describe('NotificationService', () => {
     checkPermissionsMock.mockResolvedValue({ receive: 'prompt' });
     expect(await service.shouldPromptForReleaseNotifications()).toBe(true);
 
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
   });
 
@@ -394,17 +425,17 @@ describe('NotificationService', () => {
   });
 
   it('returns warning outcome when backend unregister fails', async () => {
-    localStorage.setItem('game-shelf:notifications:fcm-token', 'token-1');
+    preferenceStorage.setItem('game-shelf:notifications:fcm-token', 'token-1');
     vi.spyOn(httpClient, 'post').mockReturnValue(throwError(() => new Error('backend down')));
 
     const result = await service.unregisterCurrentDevice();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('did not fully complete');
-    expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
+    expect(preferenceStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
   });
 
   it('returns warning outcome when firebase deleteToken fails', async () => {
-    localStorage.setItem('game-shelf:notifications:fcm-token', 'token-2');
+    preferenceStorage.setItem('game-shelf:notifications:fcm-token', 'token-2');
     vi.spyOn(httpClient, 'post').mockReturnValue(of({ ok: true }));
     deleteTokenMock.mockRejectedValueOnce(new Error('fcm delete failed'));
 
@@ -414,13 +445,13 @@ describe('NotificationService', () => {
   });
 
   it('unregisters cleanly when backend and plugin both succeed', async () => {
-    localStorage.setItem('game-shelf:notifications:fcm-token', 'token-3');
+    preferenceStorage.setItem('game-shelf:notifications:fcm-token', 'token-3');
     vi.spyOn(httpClient, 'post').mockReturnValue(of({ ok: true }));
 
     const result = await service.unregisterCurrentDevice();
     expect(result.ok).toBe(true);
     expect(deleteTokenMock).toHaveBeenCalledOnce();
-    expect(localStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
+    expect(preferenceStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
   });
 
   it('navigates with the router when a notification tap carries a route', async () => {
@@ -455,8 +486,8 @@ describe('NotificationService', () => {
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
-  it('handles localStorage read failures in stored-token lookup', () => {
-    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+  it('handles preference read failures in stored-token lookup', () => {
+    const getItemSpy = vi.spyOn(preferenceStorage, 'getItem').mockImplementation(() => {
       throw new Error('storage denied');
     });
     try {
@@ -471,8 +502,8 @@ describe('NotificationService', () => {
     }
   });
 
-  it('treats localStorage read failures as disabled release notifications', () => {
-    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+  it('treats preference read failures as disabled release notifications', () => {
+    const getItemSpy = vi.spyOn(preferenceStorage, 'getItem').mockImplementation(() => {
       throw new Error('storage denied');
     });
 
@@ -482,7 +513,7 @@ describe('NotificationService', () => {
   });
 
   it('registerCurrentDeviceIfPermitted reports registration failures', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     vi.spyOn(
       service as unknown as {
         registerCurrentDevice: () => Promise<{ ok: boolean; message?: string }>;
@@ -567,7 +598,7 @@ describe('NotificationService', () => {
   });
 
   it('reports token registration failures during permitted device registration', async () => {
-    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     getTokenMock.mockRejectedValueOnce(new Error('token failed'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 

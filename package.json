@@ -62,6 +62,7 @@
     "@capacitor/inappbrowser": "^4.0.0",
     "@capacitor/ios": "^8.4.0",
     "@capacitor/keyboard": "^8.0.3",
+    "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",

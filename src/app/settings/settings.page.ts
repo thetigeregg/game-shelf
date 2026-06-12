@@ -131,6 +131,7 @@ import {
 } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import {
   RECOMMENDATION_IGNORED_STORAGE_KEY,
   RecommendationIgnoreService,
@@ -356,6 +357,7 @@ export class SettingsPage {
   private readonly timePreferenceService = inject(TimePreferenceService);
   private readonly pricePreferenceService = inject(PricePreferenceService);
   private readonly gameRowReleaseDateDisplayService = inject(GameRowReleaseDateDisplayService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
@@ -3283,25 +3285,9 @@ export class SettingsPage {
   }
 
   private readExportableSettings(): Array<[string, string]> {
-    const entries: Array<[string, string]> = [];
-
-    try {
-      for (let i = 0; i < localStorage.length; i += 1) {
-        const key = localStorage.key(i);
-
-        if (!key || !key.startsWith('game-shelf') || key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
-          continue;
-        }
-
-        const value = localStorage.getItem(key);
-
-        if (typeof value === 'string') {
-          entries.push([key, value]);
-        }
-      }
-    } catch {
-      // Ignore storage read issues.
-    }
+    const entries = this.preferenceStorage
+      .entriesWithPrefix('game-shelf')
+      .filter(([key]) => key !== LEGACY_PRIMARY_COLOR_STORAGE_KEY);
 
     const colorSchemeKey = COLOR_SCHEME_STORAGE_KEY;
 
@@ -3330,7 +3316,7 @@ export class SettingsPage {
     for (const row of rows) {
       if (row.key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
         try {
-          localStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
+          this.preferenceStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
         } catch {
           // Ignore storage write failures.
         }
@@ -3342,7 +3328,7 @@ export class SettingsPage {
         row.key !== RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY
       ) {
         try {
-          localStorage.setItem(row.key, row.value);
+          this.preferenceStorage.setItem(row.key, row.value);
         } catch {
           // Ignore storage write failures.
         }
@@ -3407,7 +3393,7 @@ export class SettingsPage {
         }
 
         try {
-          localStorage.setItem(row.key, normalizedValue);
+          this.preferenceStorage.setItem(row.key, normalizedValue);
         } catch {
           // Ignore storage write failures.
         }
@@ -3423,7 +3409,7 @@ export class SettingsPage {
         const normalizedValue = String(normalizedTimePreference);
 
         try {
-          localStorage.setItem(row.key, normalizedValue);
+          this.preferenceStorage.setItem(row.key, normalizedValue);
         } catch {
           // Ignore storage write failures.
         }
@@ -3438,7 +3424,7 @@ export class SettingsPage {
         const normalizedValue = String(normalizedPricePreference);
 
         try {
-          localStorage.setItem(row.key, normalizedValue);
+          this.preferenceStorage.setItem(row.key, normalizedValue);
         } catch {
           // Ignore storage write failures.
         }
@@ -3468,14 +3454,14 @@ export class SettingsPage {
 
         if (typeof normalizedValue === 'string') {
           try {
-            localStorage.setItem(row.key, normalizedValue);
+            this.preferenceStorage.setItem(row.key, normalizedValue);
           } catch {
             // Ignore storage write failures.
           }
           this.queueSettingUpsert(row.key, normalizedValue);
         } else {
           try {
-            localStorage.removeItem(row.key);
+            this.preferenceStorage.removeItem(row.key);
           } catch {
             // Ignore storage write failures.
           }
@@ -3528,7 +3514,7 @@ export class SettingsPage {
     const value = JSON.stringify(this.releaseNotificationEvents);
 
     try {
-      localStorage.setItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
+      this.preferenceStorage.setItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
     } catch {
       // Ignore storage write failures.
     }

@@ -27,6 +27,7 @@ import { PlatformOrderService } from './platform-order.service';
 import { environment } from '../../../environments/environment';
 import { AppDb } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
   ClientWriteAuthService,
@@ -167,6 +168,7 @@ export class GameShelfService {
   private readonly db = inject(AppDb);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
@@ -2213,7 +2215,10 @@ export class GameShelfService {
 
   private isIgdbCoverMigrationComplete(): boolean {
     try {
-      return localStorage.getItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY) === '1';
+      return (
+        this.preferenceStorage.getItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY) ===
+        '1'
+      );
     } catch {
       return false;
     }
@@ -2221,7 +2226,7 @@ export class GameShelfService {
 
   private markIgdbCoverMigrationComplete(): void {
     try {
-      localStorage.setItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
+      this.preferenceStorage.setItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
     } catch {
       // Ignore storage failures.
     }
@@ -2230,8 +2235,9 @@ export class GameShelfService {
   private isLegacyCustomCoverMigrationComplete(): boolean {
     try {
       return (
-        localStorage.getItem(GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY) ===
-        '1'
+        this.preferenceStorage.getItem(
+          GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY
+        ) === '1'
       );
     } catch {
       return false;
@@ -2240,7 +2246,10 @@ export class GameShelfService {
 
   private markLegacyCustomCoverMigrationComplete(): void {
     try {
-      localStorage.setItem(GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
+      this.preferenceStorage.setItem(
+        GameShelfService.LEGACY_CUSTOM_COVER_MIGRATION_DONE_STORAGE_KEY,
+        '1'
+      );
     } catch {
       // Ignore storage failures.
     }

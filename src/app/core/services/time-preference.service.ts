@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const TIME_PREFERENCE_STORAGE_KEY = 'game-shelf:time-preference-v1';
 
@@ -8,6 +9,7 @@ export class TimePreferenceService {
   private static readonly DEFAULT_TIME_PREFERENCE = 15;
   private static readonly MIN_TIME_PREFERENCE = 5;
   private static readonly MAX_TIME_PREFERENCE = 100;
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly preferenceSubject = new BehaviorSubject(this.loadFromStorage());
   readonly timePreference$ = this.preferenceSubject.asObservable();
 
@@ -20,7 +22,7 @@ export class TimePreferenceService {
     this.preferenceSubject.next(normalized);
 
     try {
-      localStorage.setItem(TIME_PREFERENCE_STORAGE_KEY, String(normalized));
+      this.preferenceStorage.setItem(TIME_PREFERENCE_STORAGE_KEY, String(normalized));
     } catch {
       // Ignore storage failures.
     }
@@ -32,7 +34,7 @@ export class TimePreferenceService {
 
   private loadFromStorage(): number {
     try {
-      const raw = localStorage.getItem(TIME_PREFERENCE_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(TIME_PREFERENCE_STORAGE_KEY);
 
       if (raw === null) {
         return TimePreferenceService.DEFAULT_TIME_PREFERENCE;

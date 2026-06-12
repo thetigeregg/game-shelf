@@ -1,5 +1,18 @@
 import { createWorktreeContext, loadDevxConfig } from '@thetigeregg/dev-cli';
 
+export function parseWorktreeFrontendPortOutput(output) {
+  const raw = output.trim();
+  const port = Number(raw);
+
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(
+      `Invalid worktree FRONTEND_PORT ${JSON.stringify(raw)}. Expected a positive integer from resolve-worktree-frontend-port.mjs.`
+    );
+  }
+
+  return port;
+}
+
 export async function resolveWorktreeFrontendPort({
   cwd = process.cwd(),
   processEnv = process.env,

@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig, devices } from '@playwright/test';
 
+import { parseWorktreeFrontendPortOutput } from './scripts/resolve-worktree-frontend-port.mjs';
+
 const resolveFrontendPortScript = fileURLToPath(
   new URL('./scripts/resolve-worktree-frontend-port.mjs', import.meta.url)
 );
@@ -12,12 +14,12 @@ const playwrightEnv = {
   FEATURE_E2E_FIXTURES: 'true',
 };
 
-const frontendPort = Number(
-  execFileSync(process.execPath, [resolveFrontendPortScript], {
-    encoding: 'utf8',
-    env: playwrightEnv,
-  }).trim()
-);
+const frontendPortOutput = execFileSync(process.execPath, [resolveFrontendPortScript], {
+  encoding: 'utf8',
+  env: playwrightEnv,
+});
+
+const frontendPort = parseWorktreeFrontendPortOutput(frontendPortOutput);
 const baseURL = `http://127.0.0.1:${String(frontendPort)}`;
 
 export default defineConfig({

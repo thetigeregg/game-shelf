@@ -3622,3 +3622,9 @@
 - 891549bc Merge branch 'main' into feat/plug-one
 - 1854dbd8 refactor(ios): consolidate device commands under devx worktree ios
 - 136742cd feat(ios): add worktree-aware live reload for local device dev
+
+## v1.52.0 - 2026-06-12
+
+- a7dc440a Merge pull request #416 from thetigeregg/feat/http
+- ab57c791 Merge branch 'main' into feat/http
+- 03716abd feat(ios): enable CapacitorHttp native networking

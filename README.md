@@ -69,6 +69,14 @@ To start stack and auto-seed the DB only when empty:
 npx devx worktree stack up-seed
 ```
 
+To fully tear down and recreate the stack (for example after port or compose/env changes, or when containers are in a bad state), use:
+
+```bash
+npm run stack:recreate
+```
+
+For routine backend code changes, `npx devx worktree stack up` is usually enough (it rebuilds images). `npx devx worktree stack restart` only restarts existing containers and does not rebuild or rebind ports. Postgres data in `./nas-data/postgres` is preserved across recreate.
+
 5. (Optional) Follow stack logs:
 
 ```bash

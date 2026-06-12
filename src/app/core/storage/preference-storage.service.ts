@@ -135,6 +135,10 @@ export class PreferenceStorageService {
     const previousValue = this.cache.get(key);
     this.cache.set(key, value);
     void Preferences.set({ key, value }).catch(() => {
+      if (this.cache.get(key) !== value) {
+        return;
+      }
+
       if (previousValue === undefined) {
         this.cache.delete(key);
         return;
@@ -153,6 +157,10 @@ export class PreferenceStorageService {
     const previousValue = this.cache.get(key);
     this.cache.delete(key);
     void Preferences.remove({ key }).catch(() => {
+      if (this.cache.has(key)) {
+        return;
+      }
+
       if (previousValue !== undefined) {
         this.cache.set(key, previousValue);
       }
@@ -224,11 +232,11 @@ export class PreferenceStorageService {
       return;
     }
 
+    await Preferences.set({ key: PREFERENCE_STORAGE_MIGRATION_KEY, value: '1' });
+
     for (const key of migratedKeys) {
       removeWebStorageItem(key);
     }
-
-    await Preferences.set({ key: PREFERENCE_STORAGE_MIGRATION_KEY, value: '1' });
   }
 
   private async reclaimExcludedKeysFromPreferences(): Promise<void> {

@@ -134,7 +134,8 @@ npm run build
 The frontend ships as a native iOS app via Capacitor. The web deployment (edge) remains for browsers.
 
 Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
-See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
+See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide
+(Info.plist generation, Firebase plists, privacy manifest, and day-to-day commands).
 
 1. For local device testing against a worktree stack, start Docker and note the edge port:
 

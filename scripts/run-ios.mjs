@@ -96,6 +96,11 @@ function assertWebBuildOutput(cwd) {
   );
 }
 
+function parseShellCommand(command) {
+  const [binary, ...args] = command.trim().split(/\s+/);
+  return { binary, args };
+}
+
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -159,8 +164,9 @@ export async function runIosLive({
   const frontendPort = context.runtime.ports.FRONTEND_PORT;
   const lanHost = resolveLiveReloadHost(env);
 
-  log(`iOS live reload URL: http://${lanHost}:${frontendPort}`);
+  log(`iOS live reload frontend port: ${frontendPort}`);
   log('Ensure the worktree Docker stack is running (npx devx worktree stack up).');
+  log('Set IOS_LAN_HOST in .env if auto-detect fails; see npx devx worktree info for details.');
 
   ensureLocalEnvironmentFile(cwd, { log });
   assertWebBuildOutput(cwd);
@@ -171,11 +177,13 @@ export async function runIosLive({
   const frontendConfig = context.config.worktree.frontend ?? {};
 
   if (frontendConfig.prestartCommand) {
-    await runCommand('npm', ['run', 'prestart'], { env: sharedEnv, cwd });
+    const { binary, args } = parseShellCommand(frontendConfig.prestartCommand);
+    await runCommand(binary, args, { env: sharedEnv, cwd });
   }
 
-  const serveCommand = frontendConfig.serveCommand ?? 'npx ng serve';
-  const [serveBinary, ...servePrefixArgs] = serveCommand.split(' ');
+  const { binary: serveBinary, args: servePrefixArgs } = parseShellCommand(
+    frontendConfig.serveCommand ?? 'npx ng serve'
+  );
   const serveArgs = [...servePrefixArgs, ...buildNgServeArgs(context, proxyPath)];
 
   const devServer = await spawnDevServer(serveBinary, serveArgs, {

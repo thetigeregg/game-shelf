@@ -1,4 +1,25 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, devices } from '@playwright/test';
+
+const resolveFrontendPortScript = fileURLToPath(
+  new URL('./scripts/resolve-worktree-frontend-port.mjs', import.meta.url)
+);
+
+const playwrightEnv = {
+  ...process.env,
+  WORKTREE_PORT_OFFSET: process.env.WORKTREE_PORT_OFFSET ?? '0',
+  FEATURE_E2E_FIXTURES: 'true',
+};
+
+const frontendPort = Number(
+  execFileSync(process.execPath, [resolveFrontendPortScript], {
+    encoding: 'utf8',
+    env: playwrightEnv,
+  }).trim()
+);
+const baseURL = `http://127.0.0.1:${String(frontendPort)}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -6,17 +27,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:8100',
+    baseURL,
     trace: 'on-first-retry',
   },
   webServer: {
     command: 'npx devx worktree frontend',
-    env: {
-      ...process.env,
-      WORKTREE_PORT_OFFSET: process.env.WORKTREE_PORT_OFFSET ?? '0',
-      FEATURE_E2E_FIXTURES: 'true',
-    },
-    url: 'http://127.0.0.1:8100',
+    env: playwrightEnv,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

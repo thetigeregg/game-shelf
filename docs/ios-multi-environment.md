@@ -118,6 +118,26 @@ npm run generate:ios-info-plists
 `prebuild:ios` runs this automatically before each iOS build. Do not edit
 `Info.dev.plist` or `Info.prod.plist` directly — changes are overwritten on the next build.
 
+#### Privacy manifest
+
+Apple requires apps to declare **Required Reason APIs** in a privacy manifest
+(`PrivacyInfo.xcprivacy`). Game Shelf includes one at `App/PrivacyInfo.xcprivacy`, copied
+into both **App DEV** and **App PROD** bundles.
+
+It declares `NSPrivacyAccessedAPICategoryFileTimestamp` with reason `C617.1` because
+`@capacitor/filesystem` accesses file metadata when staging native exports (CSV, debug logs)
+to cache before opening the share sheet. The plugin does not ship its own manifest; the host
+app must declare this entry.
+
+Edit `App/PrivacyInfo.xcprivacy` directly when adding Capacitor plugins that use other
+Required Reason APIs (for example `UserDefaults` from `@capacitor/preferences`). Do not
+generate this file from the Info.plist script — dev and prod share the same declarations.
+
+Before App Store submission, inspect the built app's **Privacy Report** in Xcode (Product →
+Archive) and confirm the aggregated manifest includes the app-level `FileTimestamp` entry.
+See the [Capacitor privacy manifest docs](https://capacitorjs.com/docs/ios/privacy-manifest)
+for Apple's scanner and additional plugin requirements.
+
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
 
 `npm run run:ios:*` passes `--scheme "App DEV"` / `--scheme "App PROD"` so Capacitor deploys

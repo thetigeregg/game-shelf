@@ -1,4 +1,5 @@
 import { environment } from '../../../environments/environment';
+import { readPreference, writePreference } from '../storage/preference-storage.service';
 
 const PERSISTED_RUNTIME_CONFIG_STORAGE_KEY = 'game-shelf:runtime-config:v1';
 
@@ -104,7 +105,7 @@ function readPersistedRuntimeConfig(): RuntimeConfig | null {
   }
 
   try {
-    const raw = window.localStorage.getItem(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY);
+    const raw = readPreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY);
     if (typeof raw !== 'string' || raw.trim().length === 0) {
       return null;
     }
@@ -121,7 +122,7 @@ function writePersistedRuntimeConfig(config: RuntimeConfig): void {
   }
 
   try {
-    window.localStorage.setItem(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(config));
+    writePreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(config));
   } catch {
     // Ignore storage failures.
   }

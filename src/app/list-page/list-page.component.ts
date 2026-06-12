@@ -61,6 +61,7 @@ import {
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
+import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
@@ -231,6 +232,7 @@ export class ListPageComponent {
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
@@ -1070,7 +1072,7 @@ export class ListPageComponent {
   private restorePreferences(): void {
     try {
       const preferences = parseListPagePreferences(
-        localStorage.getItem(this.preferenceStorageKey),
+        this.preferenceStorage.getItem(this.preferenceStorageKey),
         this.noneTagFilterValue,
         { listType: this.listType }
       );
@@ -1088,7 +1090,7 @@ export class ListPageComponent {
 
   private persistPreferences(): void {
     try {
-      localStorage.setItem(
+      this.preferenceStorage.setItem(
         this.preferenceStorageKey,
         serializeListPagePreferences({
           filters: this.filters,

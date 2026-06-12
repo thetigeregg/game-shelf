@@ -1,5 +1,11 @@
+import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Style } from '@capacitor/status-bar';
+import {
+  PreferenceStorageService,
+  resetPreferenceStorageForTesting,
+} from '../storage/preference-storage.service';
+import { ThemeService } from './theme.service';
 
 const isNativePlatformMock = vi.fn<() => boolean>();
 const setStyleMock = vi.fn<() => Promise<void>>();
@@ -18,21 +24,26 @@ vi.mock('@capacitor/status-bar', () => ({
   },
 }));
 
-import { ThemeService } from './theme.service';
-
 describe('ThemeService', () => {
   let service: ThemeService;
+  let preferenceStorage: PreferenceStorageService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     document.documentElement.classList.remove('ion-palette-dark');
     isNativePlatformMock.mockReturnValue(false);
     setStyleMock.mockResolvedValue(undefined);
-    service = new ThemeService();
+    TestBed.configureTestingModule({
+      providers: [ThemeService, PreferenceStorageService],
+    });
+    preferenceStorage = TestBed.inject(PreferenceStorageService);
+    await preferenceStorage.initialize();
+    service = TestBed.inject(ThemeService);
   });
 
   afterEach(() => {
     localStorage.clear();
+    resetPreferenceStorageForTesting();
     document.documentElement.classList.remove('ion-palette-dark');
     vi.restoreAllMocks();
     isNativePlatformMock.mockReset();
@@ -56,15 +67,21 @@ describe('ThemeService', () => {
     expect(setStyleMock).toHaveBeenLastCalledWith({ style: Style.Light });
   });
 
-  it('reads stored color scheme preferences and ignores storage failures', () => {
-    localStorage.setItem('game-shelf-color-scheme', 'dark');
+  it('reads stored color scheme preferences and ignores storage failures', async () => {
+    preferenceStorage.setItem('game-shelf-color-scheme', 'dark');
     service.initialize();
     expect(service.getColorSchemePreference()).toBe('dark');
 
     const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('storage denied');
     });
-    const freshService = new ThemeService();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [ThemeService, PreferenceStorageService],
+    });
+    const freshPreferenceStorage = TestBed.inject(PreferenceStorageService);
+    await freshPreferenceStorage.initialize();
+    const freshService = TestBed.inject(ThemeService);
     freshService.initialize();
     expect(freshService.getColorSchemePreference()).toBe('system');
     getItemSpy.mockRestore();

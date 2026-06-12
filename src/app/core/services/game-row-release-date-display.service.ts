@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { GameRowReleaseDateDisplay, ListType } from '../models/game.models';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const COLLECTION_RELEASE_DATE_DISPLAY_STORAGE_KEY =
   'game-shelf:release-date-display:collection:v1';
@@ -10,6 +11,7 @@ export const WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY =
 @Injectable({ providedIn: 'root' })
 export class GameRowReleaseDateDisplayService {
   private static readonly DEFAULT_DISPLAY: GameRowReleaseDateDisplay = 'year';
+  private readonly preferenceStorage = inject(PreferenceStorageService);
 
   private readonly collectionPreferenceSubject = new BehaviorSubject<GameRowReleaseDateDisplay>(
     this.loadFromStorage('collection')
@@ -34,7 +36,7 @@ export class GameRowReleaseDateDisplayService {
     this.getSubject(listType).next(normalized);
 
     try {
-      localStorage.setItem(this.getStorageKey(listType), normalized);
+      this.preferenceStorage.setItem(this.getStorageKey(listType), normalized);
     } catch {
       // Ignore storage failures.
     }
@@ -58,7 +60,7 @@ export class GameRowReleaseDateDisplayService {
 
   private loadFromStorage(listType: ListType): GameRowReleaseDateDisplay {
     try {
-      return this.normalize(localStorage.getItem(this.getStorageKey(listType)));
+      return this.normalize(this.preferenceStorage.getItem(this.getStorageKey(listType)));
     } catch {
       return GameRowReleaseDateDisplayService.DEFAULT_DISPLAY;
     }

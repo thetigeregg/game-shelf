@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb, ImageCacheEntry } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { environment } from '../../../environments/environment';
 import {
   buildProxyImageUrl,
@@ -20,11 +21,12 @@ export class ImageCacheService {
 
   private readonly db = inject(AppDb);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly objectUrlsByCacheKey = new Map<string, string>();
   private imageDiagnosticsCount = 0;
 
   getLimitMb(): number {
-    const raw = localStorage.getItem(ImageCacheService.LIMIT_STORAGE_KEY);
+    const raw = this.preferenceStorage.getItem(ImageCacheService.LIMIT_STORAGE_KEY);
     const parsed = Number.parseInt(raw ?? '', 10);
 
     if (!Number.isFinite(parsed)) {
@@ -36,7 +38,7 @@ export class ImageCacheService {
 
   setLimitMb(limitMb: number): number {
     const normalized = this.clampLimitMb(limitMb);
-    localStorage.setItem(ImageCacheService.LIMIT_STORAGE_KEY, String(normalized));
+    this.preferenceStorage.setItem(ImageCacheService.LIMIT_STORAGE_KEY, String(normalized));
     void this.enforceLimitBytes(normalized * 1024 * 1024);
     return normalized;
   }

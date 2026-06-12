@@ -1,12 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { GameCatalogPlatformOption } from '../models/game.models';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const PLATFORM_ORDER_STORAGE_KEY = 'game-shelf:platform-display-order-v1';
 
 @Injectable({ providedIn: 'root' })
 export class PlatformOrderService {
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly orderSubject = new BehaviorSubject(this.loadOrderFromStorage());
   private readonly defaultOrder = [...PLATFORM_CATALOG]
     .sort((left, right) => {
@@ -42,7 +44,7 @@ export class PlatformOrderService {
     this.orderSubject.next([]);
 
     try {
-      localStorage.removeItem(PLATFORM_ORDER_STORAGE_KEY);
+      this.preferenceStorage.removeItem(PLATFORM_ORDER_STORAGE_KEY);
     } catch {
       // Ignore storage failures.
     }
@@ -145,7 +147,7 @@ export class PlatformOrderService {
 
   private loadOrderFromStorage(): string[] {
     try {
-      const raw = localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(PLATFORM_ORDER_STORAGE_KEY);
 
       if (!raw) {
         return [];
@@ -162,7 +164,7 @@ export class PlatformOrderService {
 
   private saveOrderToStorage(platformNames: string[]): void {
     try {
-      localStorage.setItem(PLATFORM_ORDER_STORAGE_KEY, JSON.stringify(platformNames));
+      this.preferenceStorage.setItem(PLATFORM_ORDER_STORAGE_KEY, JSON.stringify(platformNames));
     } catch {
       // Ignore storage failures.
     }

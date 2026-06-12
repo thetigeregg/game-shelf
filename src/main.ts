@@ -16,7 +16,8 @@ import { GAME_SEARCH_API } from './app/core/api/game-search-api';
 import { IgdbProxyService } from './app/core/api/igdb-proxy.service';
 import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
 import { GameSyncService } from './app/core/services/game-sync.service';
-import { provideZoneChangeDetection } from '@angular/core';
+import { inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
+import { PreferenceStorageService } from './app/core/storage/preference-storage.service';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
 import { register as registerSwiperElements } from 'swiper/element/bundle';
 
@@ -24,6 +25,10 @@ registerSwiperElements();
 
 bootstrapApplication(AppComponent, {
   providers: [
+    provideAppInitializer(() => {
+      const storage = inject(PreferenceStorageService);
+      return storage.initialize();
+    }),
     provideZoneChangeDetection(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },

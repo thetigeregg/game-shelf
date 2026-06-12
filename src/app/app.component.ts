@@ -18,6 +18,7 @@ import {
   RuntimeAvailabilityStatus,
 } from './core/services/runtime-availability.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
+import { PreferenceStorageService } from './core/storage/preference-storage.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 const MIN_SPLASH_VISIBLE_MS = 300;
@@ -38,6 +39,7 @@ export class AppComponent {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
   private connectionAlert:
     | (Awaited<ReturnType<AlertController['create']>> & {
@@ -137,7 +139,7 @@ export class AppComponent {
     }
 
     const currentVersion = getAppVersionInfo();
-    const previousVersion = window.localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
+    const previousVersion = this.preferenceStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY);
 
     if (currentVersion.source !== 'live' || currentVersion.isFallback) {
       return;
@@ -148,7 +150,7 @@ export class AppComponent {
     }
 
     if (previousVersion !== null) {
-      window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
+      this.preferenceStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
       return;
     }
 
@@ -159,7 +161,7 @@ export class AppComponent {
     });
 
     await alert.present();
-    window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
+    this.preferenceStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
 
   private async presentNotificationToast(

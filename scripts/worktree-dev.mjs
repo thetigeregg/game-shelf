@@ -416,8 +416,17 @@ export async function runWorktreeDev(argv) {
     printWorktreeInfo(context);
     printSuggestedIosLocalOrigin();
     ensureDependenciesInstalled(context, false);
-    await runIos(variant, { env: loadProjectEnv(), extraArgs });
-    process.exit(0);
+
+    try {
+      await runIos(variant, { env: loadProjectEnv(), extraArgs });
+      process.exit(0);
+    } catch (error) {
+      if (error?.name === 'RunIosInterruptedError') {
+        process.exit(error.signal === 'SIGTERM' ? 143 : 130);
+      }
+
+      throw error;
+    }
   }
 
   if (argv[0] === 'stack') {

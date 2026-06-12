@@ -97,42 +97,116 @@ function assertWebBuildOutput(cwd) {
   );
 }
 
-function parseShellCommand(command) {
-  const [binary, ...args] = command.trim().split(/\s+/);
-  return { binary, args };
+export function resolveConfiguredCommand(command) {
+  if (Array.isArray(command)) {
+    if (command.length === 0) {
+      throw new Error('Configured command array must include a binary.');
+    }
+
+    return { shell: false, command: command[0], args: command.slice(1) };
+  }
+
+  const trimmed = command.trim();
+  if (!trimmed) {
+    throw new Error('Configured command must not be empty.');
+  }
+
+  return { shell: true, command: trimmed, args: [] };
+}
+
+export function appendShellArgs(command, args) {
+  if (args.length === 0) {
+    return command;
+  }
+
+  const quoted = args.map((arg) => {
+    if (/^[A-Za-z0-9_./:=+-]+$/.test(arg)) {
+      return arg;
+    }
+
+    return `'${arg.replace(/'/g, `'\\''`)}'`;
+  });
+
+  return `${command} ${quoted.join(' ')}`;
+}
+
+function spawnChildProcess(command, args, options = {}) {
+  const {
+    onChild: _onChild,
+    isShuttingDown: _isShuttingDown,
+    label: _label,
+    ...spawnOptions
+  } = options;
+
+  return spawn(command, args, {
+    stdio: 'inherit',
+    shell: spawnOptions.shell ?? process.platform === 'win32',
+    ...spawnOptions,
+  });
 }
 
 function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      stdio: 'inherit',
-      shell: process.platform === 'win32',
-      ...options,
-    });
+  const { onChild, isShuttingDown = () => false, label = command } = options;
 
-    child.on('error', reject);
+  return new Promise((resolve, reject) => {
+    const child = spawnChildProcess(command, args, options);
+
+    onChild?.(child);
+
+    child.on('error', (error) => {
+      onChild?.(null);
+      reject(error);
+    });
     child.on('close', (code) => {
+      onChild?.(null);
+
+      if (isShuttingDown()) {
+        resolve();
+        return;
+      }
+
       if (code === 0) {
         resolve();
         return;
       }
 
-      reject(new Error(`${command} exited with code ${code}`));
+      reject(new Error(`${label} exited with code ${code}`));
     });
   });
 }
 
-function spawnDevServer(command, args, options = {}) {
-  const child = spawn(command, args, {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
+function runConfiguredCommand(configuredCommand, extraArgs = [], options = {}) {
+  const resolved = resolveConfiguredCommand(configuredCommand);
+
+  if (resolved.shell) {
+    const fullCommand = appendShellArgs(resolved.command, extraArgs);
+    return runCommand(fullCommand, [], { ...options, shell: true, label: fullCommand });
+  }
+
+  return runCommand(resolved.command, [...resolved.args, ...extraArgs], {
     ...options,
+    label: resolved.command,
   });
+}
+
+function spawnDevServer(command, args, options = {}) {
+  const child = spawnChildProcess(command, args, options);
 
   return new Promise((resolve, reject) => {
     child.on('error', reject);
     child.on('spawn', () => resolve(child));
   });
+}
+
+function spawnConfiguredDevServer(configuredCommand, extraArgs = [], options = {}) {
+  const resolved = resolveConfiguredCommand(configuredCommand);
+
+  if (resolved.shell) {
+    const fullCommand = appendShellArgs(resolved.command, extraArgs);
+    return spawnDevServer(fullCommand, [], { ...options, shell: true });
+  }
+
+  return spawnDevServer(resolved.command, [...resolved.args, ...extraArgs], options);
 }
 
 async function waitForDevServer(port, { maxAttempts = 60, delayMs = 500 } = {}) {
@@ -154,6 +228,14 @@ async function createLiveReloadContext(cwd = process.cwd()) {
   return createWorktreeContext({ cwd, config });
 }
 
+export class RunIosInterruptedError extends Error {
+  constructor(signal = 'SIGINT') {
+    super(`iOS live reload interrupted by ${signal}`);
+    this.name = 'RunIosInterruptedError';
+    this.signal = signal;
+  }
+}
+
 export async function runIosLive({
   cwd = process.cwd(),
   env = loadRunIosEnv(),
@@ -172,38 +254,41 @@ export async function runIosLive({
   ensureLocalEnvironmentFile(cwd, { log });
   assertWebBuildOutput(cwd);
 
-  await runCommand('npx', ['cap', 'sync', 'ios'], { env: sharedEnv, cwd });
+  let shuttingDown = false;
+  let interruptedSignal = null;
+  let activeChild = null;
+  let devServer = null;
 
-  const proxyPath = createFrontendProxyConfig(context);
-  const frontendConfig = context.config.worktree.frontend ?? {};
-
-  if (frontendConfig.prestartCommand) {
-    const { binary, args } = parseShellCommand(frontendConfig.prestartCommand);
-    await runCommand(binary, args, { env: sharedEnv, cwd });
-  }
-
-  const { binary: serveBinary, args: servePrefixArgs } = parseShellCommand(
-    frontendConfig.serveCommand ?? 'npx ng serve'
-  );
-  const bindHost = context.config.worktree.frontend?.externalHost ?? '0.0.0.0';
-  const serveArgs = [...servePrefixArgs, ...buildNgServeArgs(context, proxyPath)];
-
-  const devServer = await spawnDevServer(serveBinary, serveArgs, {
+  const commandOptions = {
     env: sharedEnv,
     cwd,
-  });
+    isShuttingDown: () => shuttingDown,
+    onChild: (child) => {
+      activeChild = child;
+    },
+  };
 
-  let shuttingDown = false;
+  const assertNotInterrupted = () => {
+    if (shuttingDown) {
+      throw new RunIosInterruptedError(interruptedSignal ?? 'SIGINT');
+    }
+  };
 
   const shutdown = (signal) => {
     if (shuttingDown) {
+      process.exit(signal === 'SIGINT' ? 130 : 143);
       return;
     }
 
     shuttingDown = true;
+    interruptedSignal = signal;
     log(`\nStopping iOS live reload (${signal})...`);
 
-    if (!devServer.killed) {
+    if (activeChild && !activeChild.killed) {
+      activeChild.kill('SIGTERM');
+    }
+
+    if (devServer && !devServer.killed) {
       devServer.kill('SIGTERM');
     }
   };
@@ -212,14 +297,39 @@ export async function runIosLive({
   process.once('SIGTERM', shutdown);
 
   try {
+    await runCommand('npx', ['cap', 'sync', 'ios'], commandOptions);
+    assertNotInterrupted();
+
+    const proxyPath = createFrontendProxyConfig(context);
+    const frontendConfig = context.config.worktree.frontend ?? {};
+
+    if (frontendConfig.prestartCommand) {
+      await runConfiguredCommand(frontendConfig.prestartCommand, [], commandOptions);
+      assertNotInterrupted();
+    }
+
+    const bindHost = context.config.worktree.frontend?.externalHost ?? '0.0.0.0';
+    const serveArgs = buildNgServeArgs(context, proxyPath);
+
+    devServer = await spawnConfiguredDevServer(
+      frontendConfig.serveCommand ?? 'npx ng serve',
+      serveArgs,
+      {
+        env: sharedEnv,
+        cwd,
+      }
+    );
+
     await waitForDevServer(frontendPort);
+    assertNotInterrupted();
     log(`Dev server ready on ${bindHost}:${frontendPort}. Deploying to device...`);
 
     await runCommand(
       'npx',
       ['cap', ...buildCapLiveReloadArgs({ env, frontendPort, lanHost, extraArgs })],
-      { env: sharedEnv, cwd }
+      commandOptions
     );
+    assertNotInterrupted();
 
     log('');
     log('App deployed with live reload enabled.');
@@ -234,11 +344,15 @@ export async function runIosLive({
 
       devServer.once('close', resolve);
     });
+
+    if (shuttingDown) {
+      throw new RunIosInterruptedError(interruptedSignal ?? 'SIGINT');
+    }
   } finally {
     process.removeListener('SIGINT', shutdown);
     process.removeListener('SIGTERM', shutdown);
 
-    if (!devServer.killed) {
+    if (devServer && !devServer.killed) {
       devServer.kill('SIGTERM');
     }
   }
@@ -312,6 +426,10 @@ export function describeRunIosFailure(error) {
     return ['iOS run command failed. See command output above for details.'];
   }
 
+  if (error.name === 'RunIosInterruptedError') {
+    return ['iOS live reload interrupted.'];
+  }
+
   return ['run-ios failed. See output above for details.'];
 }
 
@@ -332,6 +450,10 @@ if (isDirectExecution) {
   main().catch((error) => {
     for (const line of describeRunIosFailure(error)) {
       console.error(line);
+    }
+
+    if (error?.name === 'RunIosInterruptedError') {
+      process.exit(error.signal === 'SIGTERM' ? 143 : 130);
     }
 
     process.exit(1);

@@ -5,16 +5,42 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  appendShellArgs,
   buildCapLiveReloadArgs,
   buildCapRunArgs,
   buildNgServeArgs,
   describeRunIosFailure,
   ensureLocalEnvironmentFile,
   loadRunIosEnv,
+  resolveConfiguredCommand,
   resolveLiveReloadHost,
   resolveScheme,
   resolveVariant,
+  RunIosInterruptedError,
 } from './run-ios.mjs';
+
+test('resolveConfiguredCommand preserves string commands for shell execution', () => {
+  assert.deepEqual(resolveConfiguredCommand('npm run prestart'), {
+    shell: true,
+    command: 'npm run prestart',
+    args: [],
+  });
+});
+
+test('resolveConfiguredCommand supports explicit command arrays', () => {
+  assert.deepEqual(resolveConfiguredCommand(['npx', 'ng', 'serve']), {
+    shell: false,
+    command: 'npx',
+    args: ['ng', 'serve'],
+  });
+});
+
+test('appendShellArgs quotes arguments that contain spaces', () => {
+  assert.equal(
+    appendShellArgs('npx ng serve', ['--proxy-config', '/tmp/path with spaces.json']),
+    "npx ng serve --proxy-config '/tmp/path with spaces.json'"
+  );
+});
 
 test('describeRunIosFailure returns safe literal messages for known failures', () => {
   assert.deepEqual(
@@ -29,6 +55,9 @@ test('describeRunIosFailure returns safe literal messages for known failures', (
     'iOS run command failed. See command output above for details.',
   ]);
   assert.deepEqual(describeRunIosFailure('not-an-error'), ['run-ios failed.']);
+  assert.deepEqual(describeRunIosFailure(new RunIosInterruptedError('SIGINT')), [
+    'iOS live reload interrupted.',
+  ]);
 });
 
 test('resolveVariant accepts local, prod, and live', () => {

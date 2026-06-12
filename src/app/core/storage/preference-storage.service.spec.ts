@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { E2E_FIXTURE_STORAGE_KEY, DEBUG_LOGS_STORAGE_KEY } from './preference-keys';
 import {
   PreferenceStorageService,
+  readPreference,
   resetPreferenceStorageForTesting,
 } from './preference-storage.service';
 
@@ -503,5 +504,31 @@ describe('PreferenceStorageService', () => {
       key: 'game-shelf:theme',
       value: 'dark',
     });
+  });
+
+  it('readPreference does not resurrect stale localStorage after native init', async () => {
+    nativePlatformState.value = true;
+    localStorage.setItem('game-shelf:runtime-config:v1', '{"appVersion":"stale"}');
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1'],
+    });
+
+    await service.initialize();
+
+    expect(readPreference('game-shelf:runtime-config:v1')).toBeNull();
+  });
+
+  it('readPreference reads localStorage before the service initializes', () => {
+    localStorage.setItem('game-shelf:runtime-config:v1', '{"appVersion":"pre-init"}');
+
+    expect(readPreference('game-shelf:runtime-config:v1')).toBe('{"appVersion":"pre-init"}');
   });
 });

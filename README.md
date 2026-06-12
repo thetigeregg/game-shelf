@@ -183,7 +183,7 @@ npx devx worktree ios live
 
 Prerequisites:
 
-1. Copy `src/environments/environment.local.example.ts` to `src/environments/environment.local.ts`
+1. `environment.local.ts` is auto-created from `environment.local.example.ts` when missing
 2. Run `npm run sync:ios:local` once if `www/browser/` has never been built
 3. Set `IOS_TARGET_ID` in `.env` (or `IOS_TARGET_NAME`); use `npm run list:ios:targets` to discover values
 4. Set `IOS_LAN_HOST` in `.env` if auto-detect fails; iPhone must be on the same Wi‑Fi as your Mac

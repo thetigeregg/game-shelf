@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { copyFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -7,7 +7,6 @@ import {
   createWorktreeContext,
   isPortReachable,
   loadDevxConfig,
-  printWorktreeInfo,
 } from '@thetigeregg/dev-cli';
 
 import { VARIANTS, buildCapRunArgs, loadRunIosEnv, resolveVariant } from './ios-run-common.mjs';
@@ -25,6 +24,7 @@ export {
 const LIVE_RELOAD_SERVE_CONFIGURATION = 'ios-live';
 const LIVE_RELOAD_BIND_HOST = '0.0.0.0';
 const LOCAL_ENVIRONMENT_FILE = 'src/environments/environment.local.ts';
+const LOCAL_ENVIRONMENT_EXAMPLE_FILE = 'src/environments/environment.local.example.ts';
 const WEB_BUILD_ROOT = 'www/browser';
 
 export function resolveLiveReloadHost(envValues = {}, options = {}) {
@@ -64,15 +64,25 @@ export function buildCapLiveReloadArgs({
   });
 }
 
-function assertLocalEnvironmentFile(cwd) {
+export function ensureLocalEnvironmentFile(
+  cwd,
+  { log = console.log, copyFile = copyFileSync } = {}
+) {
   const localEnvironmentPath = path.resolve(cwd, LOCAL_ENVIRONMENT_FILE);
   if (existsSync(localEnvironmentPath)) {
     return localEnvironmentPath;
   }
 
-  throw new Error(
-    `Missing ${LOCAL_ENVIRONMENT_FILE}. Copy src/environments/environment.local.example.ts to ${LOCAL_ENVIRONMENT_FILE} before running live reload.`
-  );
+  const examplePath = path.resolve(cwd, LOCAL_ENVIRONMENT_EXAMPLE_FILE);
+  if (!existsSync(examplePath)) {
+    throw new Error(
+      `Missing ${LOCAL_ENVIRONMENT_FILE} and ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}. Create ${LOCAL_ENVIRONMENT_FILE} before running live reload.`
+    );
+  }
+
+  copyFile(examplePath, localEnvironmentPath);
+  log(`Created ${LOCAL_ENVIRONMENT_FILE} from ${LOCAL_ENVIRONMENT_EXAMPLE_FILE}.`);
+  return localEnvironmentPath;
 }
 
 function assertWebBuildOutput(cwd) {
@@ -149,11 +159,10 @@ export async function runIosLive({
   const frontendPort = context.runtime.ports.FRONTEND_PORT;
   const lanHost = resolveLiveReloadHost(env);
 
-  printWorktreeInfo(context);
   log(`iOS live reload URL: http://${lanHost}:${frontendPort}`);
   log('Ensure the worktree Docker stack is running (npx devx worktree stack up).');
 
-  assertLocalEnvironmentFile(cwd);
+  ensureLocalEnvironmentFile(cwd, { log });
   assertWebBuildOutput(cwd);
 
   await runCommand('npx', ['cap', 'sync', 'ios'], { env: sharedEnv, cwd });

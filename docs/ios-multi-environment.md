@@ -164,7 +164,7 @@ npx devx worktree ios live
 
 Prerequisites:
 
-1. `src/environments/environment.local.ts` exists (copy from `environment.local.example.ts`)
+1. `src/environments/environment.local.ts` exists (auto-created from `environment.local.example.ts` when missing)
 2. `npm run sync:ios:local` has been run at least once so `www/browser/` exists
 3. `IOS_TARGET_ID` (preferred) or `IOS_TARGET_NAME` in `.env`
 4. `IOS_LAN_HOST` in `.env` when auto-detect fails; phone on same Wi‑Fi as your Mac

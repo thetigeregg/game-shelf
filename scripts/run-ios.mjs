@@ -209,6 +209,7 @@ function runConfiguredCommand(configuredCommand, extraArgs = [], options = {}) {
 
   return runCommand(resolved.command, [...resolved.args, ...extraArgs], {
     ...options,
+    shell: resolved.shell,
     label: resolved.command,
   });
 }
@@ -230,7 +231,10 @@ function spawnConfiguredDevServer(configuredCommand, extraArgs = [], options = {
     return spawnDevServer(fullCommand, [], { ...options, shell: true });
   }
 
-  return spawnDevServer(resolved.command, [...resolved.args, ...extraArgs], options);
+  return spawnDevServer(resolved.command, [...resolved.args, ...extraArgs], {
+    ...options,
+    shell: resolved.shell,
+  });
 }
 
 export function resolveDevServerProbeHosts(bindHost, lanHost) {

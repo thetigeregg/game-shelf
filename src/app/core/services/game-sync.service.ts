@@ -27,6 +27,7 @@ import { normalizeHttpError } from '../utils/normalize-http-error';
 import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -71,6 +72,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -1512,7 +1514,7 @@ export class GameSyncService implements SyncOutboxWriter {
       }
 
       try {
-        localStorage.removeItem(key);
+        this.preferenceStorage.removeItem(key);
       } catch {
         // Ignore storage failures.
       }
@@ -1536,7 +1538,7 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     try {
-      localStorage.setItem(key, value);
+      this.preferenceStorage.setItem(key, value);
     } catch {
       // Ignore storage failures.
     }

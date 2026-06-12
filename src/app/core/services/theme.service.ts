@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { isNativePlatform } from '../utils/native-platform.util';
 
 export const COLOR_SCHEME_STORAGE_KEY = 'game-shelf-color-scheme';
@@ -11,6 +12,7 @@ export type ColorSchemePreference = 'system' | 'light' | 'dark';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private colorSchemePreference: ColorSchemePreference = DEFAULT_COLOR_SCHEME_PREFERENCE;
   private systemColorSchemeMediaQuery: MediaQueryList | null = null;
   private readonly onSystemColorSchemeChange = (event: MediaQueryListEvent) => {
@@ -93,7 +95,7 @@ export class ThemeService {
 
   private readStoredColorSchemePreference(): ColorSchemePreference | null {
     try {
-      const value = localStorage.getItem(COLOR_SCHEME_STORAGE_KEY);
+      const value = this.preferenceStorage.getItem(COLOR_SCHEME_STORAGE_KEY);
 
       if (value === 'system' || value === 'light' || value === 'dark') {
         return value;
@@ -107,7 +109,7 @@ export class ThemeService {
 
   private writeStoredColorSchemePreference(preference: ColorSchemePreference): void {
     try {
-      localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, preference);
+      this.preferenceStorage.setItem(COLOR_SCHEME_STORAGE_KEY, preference);
     } catch {
       // Ignore storage failures in constrained environments.
     }
@@ -115,7 +117,7 @@ export class ThemeService {
 
   private clearLegacyPrimaryColorSetting(): void {
     try {
-      localStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
+      this.preferenceStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
     } catch {
       // Ignore storage failures in constrained environments.
     }

@@ -1,11 +1,24 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import {
   CLIENT_WRITE_TOKEN_STORAGE_KEY,
   ClientWriteAuthService,
 } from './client-write-auth.service';
 
 describe('ClientWriteAuthService', () => {
-  const service = new ClientWriteAuthService();
+  let service: ClientWriteAuthService;
+  let preferenceStorage: PreferenceStorageService;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [ClientWriteAuthService, PreferenceStorageService],
+    });
+    preferenceStorage = TestBed.inject(PreferenceStorageService);
+    await preferenceStorage.initialize();
+    service = TestBed.inject(ClientWriteAuthService);
+  });
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -13,7 +26,7 @@ describe('ClientWriteAuthService', () => {
   });
 
   it('returns null when token is missing or blank', () => {
-    localStorage.setItem(CLIENT_WRITE_TOKEN_STORAGE_KEY, '   ');
+    preferenceStorage.setItem(CLIENT_WRITE_TOKEN_STORAGE_KEY, '   ');
     expect(service.getToken()).toBeNull();
     expect(service.hasToken()).toBe(false);
   });
@@ -21,7 +34,7 @@ describe('ClientWriteAuthService', () => {
   it('stores and returns a trimmed token', () => {
     service.setToken('  device-token-1  ');
 
-    expect(localStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY)).toBe('device-token-1');
+    expect(preferenceStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY)).toBe('device-token-1');
     expect(service.getToken()).toBe('device-token-1');
     expect(service.hasToken()).toBe(true);
   });
@@ -30,7 +43,7 @@ describe('ClientWriteAuthService', () => {
     service.setToken('device-token-2');
     service.setToken('   ');
 
-    expect(localStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(preferenceStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY)).toBeNull();
     expect(service.getToken()).toBeNull();
   });
 

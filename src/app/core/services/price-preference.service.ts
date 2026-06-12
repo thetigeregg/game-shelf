@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const PRICE_PREFERENCE_STORAGE_KEY = 'game-shelf:price-preference-v1';
 
@@ -8,6 +9,7 @@ export class PricePreferenceService {
   private static readonly DEFAULT_PRICE_PREFERENCE = 10;
   private static readonly MIN_PRICE_PREFERENCE = 5;
   private static readonly MAX_PRICE_PREFERENCE = 100;
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly preferenceSubject = new BehaviorSubject(this.loadFromStorage());
   readonly pricePreference$ = this.preferenceSubject.asObservable();
 
@@ -20,7 +22,7 @@ export class PricePreferenceService {
     this.preferenceSubject.next(normalized);
 
     try {
-      localStorage.setItem(PRICE_PREFERENCE_STORAGE_KEY, String(normalized));
+      this.preferenceStorage.setItem(PRICE_PREFERENCE_STORAGE_KEY, String(normalized));
     } catch {
       // Ignore storage failures.
     }
@@ -32,7 +34,7 @@ export class PricePreferenceService {
 
   private loadFromStorage(): number {
     try {
-      const raw = localStorage.getItem(PRICE_PREFERENCE_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(PRICE_PREFERENCE_STORAGE_KEY);
 
       if (raw === null) {
         return PricePreferenceService.DEFAULT_PRICE_PREFERENCE;

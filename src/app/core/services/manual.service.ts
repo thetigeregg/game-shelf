@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import { DebugLogService } from './debug-log.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 import {
   GameEntry,
@@ -38,6 +39,7 @@ export class ManualService {
     optional: true,
   });
   private readonly debugLogService = inject(DebugLogService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private readonly manualsBaseUrl = this.normalizeBaseUrl(environment.manualsBaseUrl);
   private readonly resolveManualUrl = `${this.apiBaseUrl}/v1/manuals/resolve`;
@@ -356,7 +358,7 @@ export class ManualService {
 
   private readOverridesFromStorage(): ManualOverrideMap {
     try {
-      const raw = localStorage.getItem(MANUAL_OVERRIDES_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(MANUAL_OVERRIDES_STORAGE_KEY);
 
       if (!raw) {
         return {};
@@ -398,7 +400,7 @@ export class ManualService {
 
     if (keys.length === 0) {
       try {
-        localStorage.removeItem(MANUAL_OVERRIDES_STORAGE_KEY);
+        this.preferenceStorage.removeItem(MANUAL_OVERRIDES_STORAGE_KEY);
       } catch {
         // Ignore storage failures.
       }
@@ -409,7 +411,7 @@ export class ManualService {
     const serialized = JSON.stringify(overrides);
 
     try {
-      localStorage.setItem(MANUAL_OVERRIDES_STORAGE_KEY, serialized);
+      this.preferenceStorage.setItem(MANUAL_OVERRIDES_STORAGE_KEY, serialized);
     } catch {
       // Ignore storage failures.
     }

@@ -31,6 +31,7 @@ import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 import { DebugLogService } from '../services/debug-log.service';
 import { PlatformCustomizationService } from '../services/platform-customization.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
@@ -175,6 +176,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private rateLimitCooldownUntilMs = 0;
   private mobyGamesNextSlotMs = 0;
 
@@ -3138,7 +3140,7 @@ export class IgdbProxyService implements GameSearchApi {
 
   private saveCachedPlatformList(items: GameCatalogPlatformOption[]): void {
     try {
-      localStorage.setItem(this.platformCacheStorageKey, JSON.stringify(items));
+      this.preferenceStorage.setItem(this.platformCacheStorageKey, JSON.stringify(items));
     } catch {
       // Ignore storage failures.
     }
@@ -3146,7 +3148,7 @@ export class IgdbProxyService implements GameSearchApi {
 
   private loadCachedPlatformList(): GameCatalogPlatformOption[] {
     try {
-      const raw = localStorage.getItem(this.platformCacheStorageKey);
+      const raw = this.preferenceStorage.getItem(this.platformCacheStorageKey);
 
       if (!raw) {
         return [];

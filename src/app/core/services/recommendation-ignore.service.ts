@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, map } from 'rxjs';
 import { SyncEventsService } from './sync-events.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 const RECOMMENDATION_IGNORED_PAYLOAD_VERSION = 1;
 
@@ -22,6 +23,7 @@ export const RECOMMENDATION_IGNORED_STORAGE_KEY = 'game-shelf:recommendation-ign
 @Injectable({ providedIn: 'root' })
 export class RecommendationIgnoreService {
   private readonly syncEvents = inject(SyncEventsService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true,
   });
@@ -104,7 +106,7 @@ export class RecommendationIgnoreService {
     const normalizedEntries = this.normalizeEntries(entries);
     if (normalizedEntries.length === 0) {
       try {
-        localStorage.removeItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
+        this.preferenceStorage.removeItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
       } catch {
         // Ignore storage failures.
       }
@@ -119,7 +121,7 @@ export class RecommendationIgnoreService {
     };
 
     try {
-      localStorage.setItem(RECOMMENDATION_IGNORED_STORAGE_KEY, JSON.stringify(payload));
+      this.preferenceStorage.setItem(RECOMMENDATION_IGNORED_STORAGE_KEY, JSON.stringify(payload));
     } catch {
       // Ignore storage failures.
     }
@@ -130,7 +132,7 @@ export class RecommendationIgnoreService {
 
   private readEntriesFromStorage(): RecommendationIgnoredEntry[] {
     try {
-      const raw = localStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
       if (typeof raw !== 'string' || raw.trim().length === 0) {
         return [];
       }

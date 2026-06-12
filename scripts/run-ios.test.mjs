@@ -11,8 +11,10 @@ import {
   buildNgServeArgs,
   describeRunIosFailure,
   ensureLocalEnvironmentFile,
+  formatDevServerReadyMessage,
   loadRunIosEnv,
   resolveConfiguredCommand,
+  resolveDevServerProbeHosts,
   resolveLiveReloadHost,
   resolveScheme,
   resolveVariant,
@@ -197,6 +199,40 @@ test('resolveLiveReloadHost throws when LAN host cannot be resolved', () => {
         }
       ),
     /Unable to resolve LAN host/
+  );
+});
+
+test('resolveDevServerProbeHosts uses loopback for wildcard bind hosts', () => {
+  assert.deepEqual(resolveDevServerProbeHosts('0.0.0.0', '192.168.0.21'), [
+    '127.0.0.1',
+    '192.168.0.21',
+  ]);
+});
+
+test('resolveDevServerProbeHosts probes explicit bind hosts and LAN host when different', () => {
+  assert.deepEqual(resolveDevServerProbeHosts('192.168.0.21', '192.168.0.21'), ['192.168.0.21']);
+  assert.deepEqual(resolveDevServerProbeHosts('192.168.0.10', '192.168.0.21'), [
+    '192.168.0.10',
+    '192.168.0.21',
+  ]);
+});
+
+test('formatDevServerReadyMessage shows LAN host for device reachability', () => {
+  assert.equal(
+    formatDevServerReadyMessage({
+      lanHost: '192.168.0.21',
+      frontendPort: 14146,
+      bindHost: '0.0.0.0',
+    }),
+    'Dev server ready at 192.168.0.21:14146. Deploying to device...'
+  );
+  assert.equal(
+    formatDevServerReadyMessage({
+      lanHost: '192.168.0.21',
+      frontendPort: 14146,
+      bindHost: '192.168.0.10',
+    }),
+    'Dev server ready at 192.168.0.21:14146 (bound to 192.168.0.10). Deploying to device...'
   );
 });
 

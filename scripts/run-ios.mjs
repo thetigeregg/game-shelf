@@ -209,10 +209,44 @@ function spawnConfiguredDevServer(configuredCommand, extraArgs = [], options = {
   return spawnDevServer(resolved.command, [...resolved.args, ...extraArgs], options);
 }
 
-async function waitForDevServer(port, { maxAttempts = 60, delayMs = 500 } = {}) {
+export function resolveDevServerProbeHosts(bindHost, lanHost) {
+  const hosts = new Set();
+
+  if (bindHost && bindHost !== '0.0.0.0') {
+    hosts.add(bindHost);
+  } else {
+    hosts.add('127.0.0.1');
+  }
+
+  if (lanHost && lanHost !== '127.0.0.1' && lanHost !== bindHost) {
+    hosts.add(lanHost);
+  }
+
+  return [...hosts];
+}
+
+export function formatDevServerReadyMessage({ lanHost, frontendPort, bindHost }) {
+  if (bindHost === '0.0.0.0') {
+    return `Dev server ready at ${lanHost}:${frontendPort}. Deploying to device...`;
+  }
+
+  return `Dev server ready at ${lanHost}:${frontendPort} (bound to ${bindHost}). Deploying to device...`;
+}
+
+async function waitForDevServer(
+  port,
+  {
+    hosts = ['127.0.0.1'],
+    maxAttempts = 60,
+    delayMs = 500,
+    isPortReachableFn = isPortReachable,
+  } = {}
+) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (await isPortReachable(port, '127.0.0.1')) {
-      return;
+    for (const host of hosts) {
+      if (await isPortReachableFn(port, host)) {
+        return;
+      }
     }
 
     await new Promise((resolve) => {
@@ -320,9 +354,11 @@ export async function runIosLive({
       }
     );
 
-    await waitForDevServer(frontendPort);
+    await waitForDevServer(frontendPort, {
+      hosts: resolveDevServerProbeHosts(bindHost, lanHost),
+    });
     assertNotInterrupted();
-    log(`Dev server ready on ${bindHost}:${frontendPort}. Deploying to device...`);
+    log(formatDevServerReadyMessage({ lanHost, frontendPort, bindHost }));
 
     await runCommand(
       'npx',

@@ -1,22 +1,98 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
-import { buildCapRunArgs, loadRunIosEnv, resolveScheme, resolveVariant } from './run-ios.mjs';
+import {
+  appendShellArgs,
+  buildCapLiveReloadArgs,
+  buildCapRunArgs,
+  buildNgServeArgs,
+  describeRunIosFailure,
+  ensureLocalEnvironmentFile,
+  formatDevServerReadyMessage,
+  loadRunIosEnv,
+  resolveConfiguredCommand,
+  resolveDevServerProbeHosts,
+  resolveLiveReloadHost,
+  resolveLiveReloadFrontendPaths,
+  resolveScheme,
+  resolveVariant,
+  RunIosInterruptedError,
+} from './run-ios.mjs';
 
-test('resolveVariant accepts local and prod', () => {
+test('resolveConfiguredCommand preserves string commands for shell execution', () => {
+  assert.deepEqual(resolveConfiguredCommand('npm run prestart'), {
+    shell: true,
+    command: 'npm run prestart',
+    args: [],
+  });
+});
+
+test('resolveConfiguredCommand supports explicit command arrays', () => {
+  assert.deepEqual(resolveConfiguredCommand(['npx', 'ng', 'serve']), {
+    shell: false,
+    command: 'npx',
+    args: ['ng', 'serve'],
+  });
+});
+
+test('resolveConfiguredCommand rejects non-string non-array values', () => {
+  assert.throws(
+    () => resolveConfiguredCommand(null),
+    /Configured command must be a non-empty string or a command array/
+  );
+  assert.throws(
+    () => resolveConfiguredCommand({ cmd: 'npm' }),
+    /Configured command must be a non-empty string or a command array/
+  );
+});
+
+test('appendShellArgs quotes arguments that contain spaces', () => {
+  assert.equal(
+    appendShellArgs('npx ng serve', ['--proxy-config', '/tmp/path with spaces.json']),
+    "npx ng serve --proxy-config '/tmp/path with spaces.json'"
+  );
+});
+
+test('describeRunIosFailure returns safe literal messages for known failures', () => {
+  assert.deepEqual(
+    describeRunIosFailure(new Error('Usage: node scripts/run-ios.mjs <local|prod|live>')),
+    ['Usage: node scripts/run-ios.mjs <local|prod|live> [cap run args...]']
+  );
+  assert.deepEqual(
+    describeRunIosFailure(new Error('Invalid iOS run variant "staging". Expected "local".')),
+    ['Invalid iOS run variant. Expected "local", "prod", or "live".']
+  );
+  assert.deepEqual(describeRunIosFailure(new Error('npm exited with code 1')), [
+    'iOS run command failed. See command output above for details.',
+  ]);
+  assert.deepEqual(describeRunIosFailure(new Error('npx cap sync exited due to signal SIGTERM')), [
+    'iOS run command failed. See command output above for details.',
+  ]);
+  assert.deepEqual(describeRunIosFailure('not-an-error'), ['run-ios failed.']);
+  assert.deepEqual(describeRunIosFailure(new RunIosInterruptedError('SIGINT')), [
+    'iOS live reload interrupted.',
+  ]);
+});
+
+test('resolveVariant accepts local, prod, and live', () => {
   assert.equal(resolveVariant('local'), 'local');
   assert.equal(resolveVariant('prod'), 'prod');
+  assert.equal(resolveVariant('live'), 'live');
   assert.equal(resolveVariant(' PROD '), 'prod');
 });
 
 test('resolveVariant rejects invalid values', () => {
-  assert.throws(() => resolveVariant('staging'), /Expected "local" or "prod"/);
-  assert.throws(() => resolveVariant(''), /Expected "local" or "prod"/);
+  assert.throws(() => resolveVariant('staging'), /Expected "local", "prod", or "live"/);
+  assert.throws(() => resolveVariant(''), /Expected "local", "prod", or "live"/);
 });
 
 test('resolveScheme maps variants to Xcode schemes', () => {
   assert.equal(resolveScheme('local'), 'App DEV');
   assert.equal(resolveScheme('prod'), 'App PROD');
+  assert.equal(resolveScheme('live'), 'App DEV');
 });
 
 test('buildCapRunArgs includes scheme and no-sync', () => {
@@ -87,4 +163,273 @@ test('buildCapRunArgs forwards extra cap run args', () => {
     'App DEV',
     '--live-reload',
   ]);
+});
+
+test('resolveLiveReloadFrontendPaths uses devx config with defaults', () => {
+  assert.deepEqual(resolveLiveReloadFrontendPaths(), {
+    localEnvironmentFile: 'src/environments/environment.local.ts',
+    localEnvironmentExampleFile: 'src/environments/environment.local.example.ts',
+    buildRoot: 'www/browser',
+  });
+});
+
+test('resolveLiveReloadFrontendPaths reads configured frontend paths', () => {
+  assert.deepEqual(
+    resolveLiveReloadFrontendPaths({
+      localEnvironmentFile: 'custom/environment.local.ts',
+      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+      buildRoot: 'dist/app',
+    }),
+    {
+      localEnvironmentFile: 'custom/environment.local.ts',
+      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+      buildRoot: 'dist/app',
+    }
+  );
+});
+
+test('resolveLiveReloadFrontendPaths derives example file from local environment file', () => {
+  assert.equal(
+    resolveLiveReloadFrontendPaths({
+      localEnvironmentFile: 'custom/environment.local.ts',
+    }).localEnvironmentExampleFile,
+    'custom/environment.local.example.ts'
+  );
+});
+
+test('ensureLocalEnvironmentFile returns existing local environment file', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+
+  try {
+    const envDir = path.join(cwd, 'src/environments');
+    const localPath = path.join(envDir, 'environment.local.ts');
+
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(localPath, 'export const environment = {};\n', 'utf8');
+
+    assert.equal(ensureLocalEnvironmentFile(cwd), localPath);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('ensureLocalEnvironmentFile bootstraps from example when missing', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+
+  try {
+    const envDir = path.join(cwd, 'src/environments');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
+    const lines = [];
+
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        log: (line) => lines.push(line),
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+    assert.match(lines[0], /Created src\/environments\/environment\.local\.ts/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('ensureLocalEnvironmentFile supports configured environment paths', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+
+  try {
+    const envDir = path.join(cwd, 'custom');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
+
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        localEnvironmentFile: 'custom/environment.local.ts',
+        localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('ensureLocalEnvironmentFile derives example path from configured local environment file', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+
+  try {
+    const envDir = path.join(cwd, 'custom');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
+
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        localEnvironmentFile: 'custom/environment.local.ts',
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('resolveLiveReloadHost prefers IOS_LAN_HOST', () => {
+  assert.equal(resolveLiveReloadHost({ IOS_LAN_HOST: '192.168.0.21' }), '192.168.0.21');
+});
+
+test('resolveLiveReloadHost throws when LAN host cannot be resolved', () => {
+  assert.throws(
+    () =>
+      resolveLiveReloadHost(
+        {},
+        {
+          networkInterfaces: () => ({
+            lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+          }),
+        }
+      ),
+    /Unable to resolve LAN host/
+  );
+});
+
+test('resolveDevServerProbeHosts uses loopback for wildcard bind hosts', () => {
+  assert.deepEqual(resolveDevServerProbeHosts('0.0.0.0', '192.168.0.21'), [
+    '127.0.0.1',
+    '192.168.0.21',
+  ]);
+});
+
+test('resolveDevServerProbeHosts probes explicit bind hosts and LAN host when different', () => {
+  assert.deepEqual(resolveDevServerProbeHosts('192.168.0.21', '192.168.0.21'), ['192.168.0.21']);
+  assert.deepEqual(resolveDevServerProbeHosts('192.168.0.10', '192.168.0.21'), [
+    '192.168.0.10',
+    '192.168.0.21',
+  ]);
+});
+
+test('formatDevServerReadyMessage omits env-derived host values from logs', () => {
+  assert.equal(
+    formatDevServerReadyMessage({
+      frontendPort: 14146,
+      bindHost: '0.0.0.0',
+    }),
+    'Dev server ready on port 14146. Deploying to device...'
+  );
+  assert.equal(
+    formatDevServerReadyMessage({
+      frontendPort: 14146,
+      bindHost: '192.168.0.10',
+    }),
+    'Dev server ready on port 14146 (bound to 192.168.0.10). Deploying to device...'
+  );
+});
+
+test('buildNgServeArgs uses worktree frontend port, external bind host, and ios-live configuration', () => {
+  const context = {
+    config: {
+      worktree: {
+        frontend: {
+          externalHost: '0.0.0.0',
+        },
+      },
+    },
+    runtime: {
+      ports: {
+        FRONTEND_PORT: 14146,
+      },
+    },
+  };
+
+  assert.deepEqual(buildNgServeArgs(context, '/tmp/proxy.worktree.feat-plug-one.json'), [
+    '--port',
+    '14146',
+    '--host',
+    '0.0.0.0',
+    '--proxy-config',
+    '/tmp/proxy.worktree.feat-plug-one.json',
+    '--configuration',
+    'ios-live',
+  ]);
+});
+
+test('buildCapLiveReloadArgs includes live reload flags and App DEV scheme', () => {
+  assert.deepEqual(
+    buildCapLiveReloadArgs({
+      env: { IOS_TARGET_ID: '00008110-ABCDEF' },
+      frontendPort: 14146,
+      lanHost: '192.168.0.21',
+    }),
+    [
+      'run',
+      'ios',
+      '--no-sync',
+      '--scheme',
+      'App DEV',
+      '--target',
+      '00008110-ABCDEF',
+      '--live-reload',
+      '--host',
+      '192.168.0.21',
+      '--port',
+      '14146',
+    ]
+  );
+});
+
+test('buildCapLiveReloadArgs prefers IOS_TARGET_ID over IOS_TARGET_NAME', () => {
+  const args = buildCapLiveReloadArgs({
+    env: {
+      IOS_TARGET_ID: '00008110-ABCDEF',
+      IOS_TARGET_NAME: 'Your iPhone',
+    },
+    frontendPort: 14146,
+    lanHost: '192.168.0.21',
+  });
+
+  assert.ok(args.includes('--target'));
+  assert.ok(args.includes('00008110-ABCDEF'));
+  assert.equal(args.includes('--target-name'), false);
+});
+
+test('buildCapLiveReloadArgs forwards extra cap run args', () => {
+  assert.deepEqual(
+    buildCapLiveReloadArgs({
+      env: {},
+      frontendPort: 14146,
+      lanHost: '192.168.0.21',
+      extraArgs: ['--configuration', 'Debug'],
+    }),
+    [
+      'run',
+      'ios',
+      '--no-sync',
+      '--scheme',
+      'App DEV',
+      '--live-reload',
+      '--host',
+      '192.168.0.21',
+      '--port',
+      '14146',
+      '--configuration',
+      'Debug',
+    ]
+  );
 });

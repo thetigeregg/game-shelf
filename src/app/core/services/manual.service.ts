@@ -7,6 +7,7 @@ import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
+import { resolveAssetCatalogUrl } from '../utils/resolve-asset-catalog-url.util';
 import {
   GameEntry,
   ManualCandidate,
@@ -306,8 +307,11 @@ export class ManualService {
         ? candidate['score']
         : 0;
     const score = Number(Math.max(0, Math.min(1, scoreValue)).toFixed(4));
-    const rawUrl = typeof candidate['url'] === 'string' ? candidate['url'].trim() : '';
-    const url = rawUrl.length > 0 ? rawUrl : this.buildManualUrl(relativePath);
+    const url = resolveAssetCatalogUrl(
+      relativePath,
+      typeof candidate['url'] === 'string' ? candidate['url'] : '',
+      (path) => this.buildManualUrl(path)
+    );
 
     if (
       !Number.isInteger(platformIgdbId) ||

@@ -117,65 +117,67 @@
       />
     </ion-list>
 
-    <ion-list lines="full">
-      <ion-list-header>
-        <ion-label>Notifications</ion-label>
-      </ion-list-header>
+    @if (pushNotificationsSupported) {
+      <ion-list lines="full">
+        <ion-list-header>
+          <ion-label>Notifications</ion-label>
+        </ion-list-header>
 
-      <ion-item>
-        <ion-label>Release Notifications</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled"
-          (ionChange)="onReleaseNotificationsEnabledChange($any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      <ion-item>
-        <ion-label>Date Set</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.set"
-          [disabled]="!releaseNotificationsEnabled"
-          (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      <ion-item>
-        <ion-label>Date Changed</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.changed"
-          [disabled]="!releaseNotificationsEnabled"
-          (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      <ion-item>
-        <ion-label>Date Removed</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.removed"
-          [disabled]="!releaseNotificationsEnabled"
-          (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      <ion-item>
-        <ion-label>Release Day</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.day"
-          [disabled]="!releaseNotificationsEnabled"
-          (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-      <ion-item>
-        <ion-label>Sale Alerts</ion-label>
-        <ion-toggle
-          slot="end"
-          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.sale"
-          [disabled]="!releaseNotificationsEnabled"
-          (ionChange)="onReleaseEventToggleChange('sale', $any($event).detail.checked)"
-        ></ion-toggle>
-      </ion-item>
-    </ion-list>
+        <ion-item>
+          <ion-label>Release Notifications</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled"
+            (ionChange)="onReleaseNotificationsEnabledChange($any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-label>Date Set</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled && releaseNotificationEvents.set"
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-label>Date Changed</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled && releaseNotificationEvents.changed"
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-label>Date Removed</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled && releaseNotificationEvents.removed"
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-label>Release Day</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled && releaseNotificationEvents.day"
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-label>Sale Alerts</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="releaseNotificationsEnabled && releaseNotificationEvents.sale"
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="onReleaseEventToggleChange('sale', $any($event).detail.checked)"
+          ></ion-toggle>
+        </ion-item>
+      </ion-list>
+    }
 
     <ion-list lines="full">
       <ion-list-header>

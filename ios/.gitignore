@@ -1,0 +1,20 @@
+App/build
+App/Pods
+App/output
+App/App/public
+DerivedData
+xcuserdata
+
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
+
+# Generated Config files
+App/App/capacitor.config.json
+App/App/config.xml
+
+# Firebase iOS config (download from the Firebase console; contains project keys)
+App/App/GoogleService-Info.plist
+App/App/GoogleService-Info.dev.plist
+App/App/GoogleService-Info.prod.plist
+App/App/Firebase/Prod/GoogleService-Info.plist
+App/App/Firebase/Dev/GoogleService-Info.plist

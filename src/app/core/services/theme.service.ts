@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { isNativePlatform } from '../utils/native-platform.util';
 
 export const COLOR_SCHEME_STORAGE_KEY = 'game-shelf-color-scheme';
 const DARK_CLASS_NAME = 'ion-palette-dark';
@@ -76,6 +78,17 @@ export class ThemeService {
 
   private applyDarkClass(isDarkMode: boolean): void {
     document.documentElement.classList.toggle(DARK_CLASS_NAME, isDarkMode);
+    this.syncNativeStatusBarStyle(isDarkMode);
+  }
+
+  private syncNativeStatusBarStyle(isDarkMode: boolean): void {
+    if (!isNativePlatform()) {
+      return;
+    }
+
+    void StatusBar.setStyle({ style: isDarkMode ? Style.Light : Style.Dark }).catch(
+      () => undefined
+    );
   }
 
   private readStoredColorSchemePreference(): ColorSchemePreference | null {

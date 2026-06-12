@@ -9,34 +9,6 @@ if [[ "${mode}" != "prod" && "${mode}" != "ci" ]]; then
   exit 1
 fi
 
-required=(
-  FIREBASE_API_KEY_PROD
-  FIREBASE_AUTH_DOMAIN_PROD
-  FIREBASE_PROJECT_ID_PROD
-  FIREBASE_STORAGE_BUCKET_PROD
-  FIREBASE_MESSAGING_SENDER_ID_PROD
-  FIREBASE_APP_ID_PROD
-  FIREBASE_VAPID_KEY_PROD
-)
-
-if [[ "${mode}" == "prod" ]]; then
-  for key in "${required[@]}"; do
-    if [[ -z "${!key:-}" ]]; then
-      echo "Missing required secret: ${key}" >&2
-      exit 1
-    fi
-  done
-fi
-
-fallback='ci-placeholder'
-firebase_api_key="${FIREBASE_API_KEY_PROD:-$fallback}"
-firebase_auth_domain="${FIREBASE_AUTH_DOMAIN_PROD:-$fallback}"
-firebase_project_id="${FIREBASE_PROJECT_ID_PROD:-$fallback}"
-firebase_storage_bucket="${FIREBASE_STORAGE_BUCKET_PROD:-$fallback}"
-firebase_messaging_sender_id="${FIREBASE_MESSAGING_SENDER_ID_PROD:-$fallback}"
-firebase_app_id="${FIREBASE_APP_ID_PROD:-$fallback}"
-firebase_vapid_key="${FIREBASE_VAPID_KEY_PROD:-$fallback}"
-
 # EmulatorJS: `environment.emulatorJsPathToData` is the HTTPS base URL passed through to the play
 # shell as EmulatorJS `EJS_pathtodata` (static hosting on GitHub Pages from `game-shelf-assets`).
 # Default comes from `EMULATORJS_DEFAULT_PATH_TO_DATA` in `emulatorjs.constants.ts`.
@@ -78,15 +50,6 @@ export const environment = {
   emulatorJsPathToData: '$(escape_ts_string "${emulatorjs_path_to_data}")',
   emulatorJsLoaderIntegrity: '$(escape_ts_string "${emulatorjs_loader_integrity}")',
   emulatorJsDebug: false,
-  firebase: {
-    apiKey: '$(escape_ts_string "${firebase_api_key}")',
-    authDomain: '$(escape_ts_string "${firebase_auth_domain}")',
-    projectId: '$(escape_ts_string "${firebase_project_id}")',
-    storageBucket: '$(escape_ts_string "${firebase_storage_bucket}")',
-    messagingSenderId: '$(escape_ts_string "${firebase_messaging_sender_id}")',
-    appId: '$(escape_ts_string "${firebase_app_id}")',
-  },
-  firebaseVapidKey: '$(escape_ts_string "${firebase_vapid_key}")',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

@@ -2,12 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Messaging } from '@angular/fire/messaging';
-import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messaging';
+import { FirebaseMessaging } from './firebase-messaging.client';
+import type { FirebaseNotificationListenerEvent } from './firebase-messaging.types';
 import { environment } from '../../../environments/environment';
-import { getAppVersion, getFirebaseVapidKey } from '../config/runtime-config';
+import { getAppVersion } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
+import { getNativePlatform, isNativePlatform } from '../utils/native-platform.util';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
@@ -21,17 +22,25 @@ export interface ReleaseNotificationEventsPreference {
   sale: boolean;
 }
 
+/**
+ * Release notifications are native push only (APNs via FCM through
+ * `@capacitor-firebase/messaging` on Capacitor iOS). The web app has no push support.
+ */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
   private readonly router = inject(Router);
-  private readonly messaging = inject(Messaging, { optional: true });
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true,
   });
   private initialized = false;
   private initializing: Promise<void> | null = null;
-  private foregroundMessageListenerAttached = false;
+  private nativeListenersAttached = false;
+
+  /** True only in the Capacitor native shell; the web app has no push support. */
+  isPushSupported(): boolean {
+    return isNativePlatform();
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -53,29 +62,19 @@ export class NotificationService {
   }
 
   private async initializeInternal(): Promise<void> {
-    if (!this.messaging) {
+    if (!this.isPushSupported()) {
       return;
     }
 
-    const supported = await isSupported().catch(() => false);
-
-    if (!supported) {
-      return;
-    }
-
-    if (!this.foregroundMessageListenerAttached) {
-      onMessage(this.messaging, (payload) => {
-        console.info('[notifications] foreground_message', payload);
-        this.showForegroundNotification(payload);
-      });
-      this.foregroundMessageListenerAttached = true;
-    }
+    await this.attachNativeListeners();
 
     if (!this.isReleaseNotificationsEnabled()) {
       return;
     }
 
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    const permission = await this.checkNativePermission();
+
+    if (permission === 'granted') {
       await this.registerCurrentDevice();
     }
   }
@@ -124,21 +123,16 @@ export class NotificationService {
   }
 
   async requestPermissionAndRegister(): Promise<{ ok: boolean; message: string }> {
-    if (!this.messaging) {
+    if (!this.isPushSupported()) {
       return { ok: false, message: 'Notifications are not supported on this device.' };
     }
 
-    const supported = await isSupported().catch(() => false);
-
-    if (!supported) {
-      return { ok: false, message: 'Notifications are not supported in this browser.' };
-    }
-
-    if (typeof Notification === 'undefined') {
-      return { ok: false, message: 'Notification API is unavailable.' };
-    }
-
-    const permission = await Notification.requestPermission();
+    const permission = await FirebaseMessaging.requestPermissions()
+      .then((status) => status.receive)
+      .catch((error: unknown) => {
+        console.error('[notifications] permission_request_failed', error);
+        return 'denied' as const;
+      });
 
     if (permission !== 'granted') {
       return { ok: false, message: 'Notification permission was not granted.' };
@@ -158,21 +152,12 @@ export class NotificationService {
       return false;
     }
 
-    if (!this.messaging) {
+    if (!this.isPushSupported()) {
       return false;
     }
 
-    const supported = await isSupported().catch(() => false);
-
-    if (!supported) {
-      return false;
-    }
-
-    if (typeof Notification === 'undefined') {
-      return false;
-    }
-
-    return Notification.permission === 'default';
+    const permission = await this.checkNativePermission();
+    return permission === 'prompt' || permission === 'prompt-with-rationale';
   }
 
   async enableReleaseNotifications(): Promise<{ ok: boolean; message: string }> {
@@ -193,17 +178,13 @@ export class NotificationService {
       return { ok: false, message: 'Release notifications are disabled.' };
     }
 
-    if (!this.messaging) {
+    if (!this.isPushSupported()) {
       return { ok: false, message: 'Notifications are not supported on this device.' };
     }
 
-    const supported = await isSupported().catch(() => false);
+    const permission = await this.checkNativePermission();
 
-    if (!supported) {
-      return { ok: false, message: 'Notifications are not supported in this browser.' };
-    }
-
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    if (permission !== 'granted') {
       return { ok: false, message: 'Notification permission has not been granted on this device.' };
     }
 
@@ -246,8 +227,8 @@ export class NotificationService {
           .catch(() => false)
       : true;
 
-    const firebaseDeleteOk = this.messaging
-      ? await deleteToken(this.messaging)
+    const firebaseDeleteOk = this.isPushSupported()
+      ? await FirebaseMessaging.deleteToken()
           .then(() => true)
           .catch(() => false)
       : true;
@@ -271,34 +252,22 @@ export class NotificationService {
   private async registerCurrentDevice(): Promise<
     { ok: true; token: string } | { ok: false; message: string }
   > {
-    if (!this.messaging) {
+    if (!this.isPushSupported()) {
       return { ok: false, message: 'Notifications are not available in this app session.' };
     }
 
-    const serviceWorkerRegistration = await this.resolveServiceWorkerRegistration();
-    const vapidKey = getFirebaseVapidKey().trim();
+    const token = await FirebaseMessaging.getToken()
+      .then((result) => result.token)
+      .catch((error: unknown) => {
+        console.error('[notifications] token_registration_failed', error);
+        return null;
+      });
 
-    if (!serviceWorkerRegistration) {
-      return { ok: false, message: 'Unable to register notification service worker.' };
-    }
-
-    if (vapidKey.length === 0) {
-      return { ok: false, message: 'Missing Firebase VAPID key in frontend environment config.' };
-    }
-
-    const token = await getToken(this.messaging, {
-      vapidKey,
-      serviceWorkerRegistration,
-    }).catch((error: unknown) => {
-      console.error('[notifications] token_registration_failed', error);
-      return null;
-    });
-
-    if (!token) {
+    if (!token || token.trim().length === 0) {
       return {
         ok: false,
         message:
-          'Unable to register the device for notifications. Check Firebase web config/VAPID values.',
+          'Unable to register the device for notifications. Check the Firebase iOS configuration.',
       };
     }
 
@@ -331,107 +300,64 @@ export class NotificationService {
     return { ok: true, token };
   }
 
-  private async resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
-    const workerUrl = this.buildFirebaseWorkerUrl();
+  private async checkNativePermission(): Promise<string> {
+    return FirebaseMessaging.checkPermissions()
+      .then((status) => status.receive)
+      .catch((error: unknown) => {
+        console.error('[notifications] permission_check_failed', error);
+        return 'denied';
+      });
+  }
 
-    try {
-      const existing = await navigator.serviceWorker.getRegistration(workerUrl);
-      if (existing) {
-        return existing;
+  private async attachNativeListeners(): Promise<void> {
+    if (this.nativeListenersAttached) {
+      return;
+    }
+
+    this.nativeListenersAttached = true;
+
+    // Foreground presentation is handled natively via the FirebaseMessaging
+    // `presentationOptions` in capacitor.config.ts; this listener is for diagnostics.
+    await FirebaseMessaging.addListener(
+      'notificationReceived',
+      (event: FirebaseNotificationListenerEvent) => {
+        console.info('[notifications] notification_received', event.notification);
       }
+    ).catch((error: unknown) => {
+      console.error('[notifications] listener_attach_failed', error);
+    });
 
-      return await navigator.serviceWorker.register(workerUrl);
-    } catch (error) {
-      console.error('[notifications] service_worker_register_failed', error);
+    await FirebaseMessaging.addListener(
+      'notificationActionPerformed',
+      (event: FirebaseNotificationListenerEvent) => {
+        const route = this.extractRoute(event.notification.data);
+        if (route !== null) {
+          void this.router.navigateByUrl(route).catch(() => {
+            window.location.assign(route);
+          });
+        }
+      }
+    ).catch((error: unknown) => {
+      console.error('[notifications] listener_attach_failed', error);
+    });
+  }
+
+  private extractRoute(data: unknown): string | null {
+    if (!data || typeof data !== 'object') {
       return null;
     }
+
+    const route = (data as Record<string, unknown>)['route'];
+    return typeof route === 'string' && route.startsWith('/') ? route : null;
   }
 
   private resolveDevicePlatform(): 'web' | 'android' | 'ios' {
-    const ua = navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(ua)) {
-      return 'ios';
-    }
-
-    if (/android/.test(ua)) {
-      return 'android';
+    const platform = getNativePlatform();
+    if (platform === 'ios' || platform === 'android') {
+      return platform;
     }
 
     return 'web';
-  }
-
-  private buildFirebaseWorkerUrl(): string {
-    return '/firebase-messaging-sw.js';
-  }
-
-  private showForegroundNotification(payload: {
-    notification?: { title?: string; body?: string };
-    data?: Record<string, string>;
-  }): void {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-      return;
-    }
-
-    const title = payload.notification?.title?.trim() || 'Game Shelf';
-    const body = payload.notification?.body?.trim() || '';
-    const data = payload.data ?? {};
-    const route = data['route'];
-    const normalizedRoute = typeof route === 'string' && route.startsWith('/') ? route : null;
-    const notificationData =
-      normalizedRoute === null ? { ...data } : { ...data, route: normalizedRoute };
-
-    const showWindowNotification = (): void => {
-      const notification = new Notification(title, {
-        body,
-        data: notificationData,
-      });
-
-      notification.onclick = () => {
-        window.focus();
-        if (normalizedRoute) {
-          void this.router.navigateByUrl(normalizedRoute).catch(() => {
-            window.location.assign(normalizedRoute);
-          });
-        }
-      };
-    };
-
-    const serviceWorkerApi = navigator.serviceWorker;
-    if (typeof serviceWorkerApi.getRegistration === 'function') {
-      const workerUrl = this.buildFirebaseWorkerUrl();
-      void serviceWorkerApi
-        .getRegistration(workerUrl)
-        .then((registration) => {
-          if (registration && typeof registration.showNotification === 'function') {
-            // In this path, click routing is handled by firebase-messaging-sw.js
-            // (service worker notificationclick + clients.openWindow), not Angular
-            // router callbacks in this tab. This intentionally matches background
-            // notification behavior; direct window Notification fallback below
-            // keeps in-tab router navigation.
-            return registration.showNotification(title, {
-              body,
-              data: notificationData,
-            });
-          }
-
-          showWindowNotification();
-          return undefined;
-        })
-        .catch((error: unknown) => {
-          try {
-            showWindowNotification();
-          } catch {
-            console.error('[notifications] foreground_notification_failed', error);
-          }
-        });
-      return;
-    }
-
-    try {
-      showWindowNotification();
-    } catch (error) {
-      console.error('[notifications] foreground_notification_failed', error);
-    }
   }
 
   private readStoredToken(): string | null {

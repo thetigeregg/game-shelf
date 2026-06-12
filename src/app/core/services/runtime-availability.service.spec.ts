@@ -1,11 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getAppVersion,
-  getFirebaseWebConfig,
-  getRuntimeConfigSource,
-} from '../config/runtime-config';
+import { getAppVersion, getRuntimeConfigSource } from '../config/runtime-config';
 import { RuntimeAvailabilityService } from './runtime-availability.service';
+
+const isNativePlatformMock = vi.fn<() => boolean>(() => false);
+
+vi.mock('../utils/native-platform.util', () => ({
+  isNativePlatform: () => isNativePlatformMock(),
+  getNativePlatform: () => (isNativePlatformMock() ? 'ios' : 'web'),
+}));
 
 describe('RuntimeAvailabilityService', () => {
   let service: RuntimeAvailabilityService;
@@ -14,6 +17,7 @@ describe('RuntimeAvailabilityService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    isNativePlatformMock.mockReturnValue(false);
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     originalFetch = globalThis.fetch;
     originalVisibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
@@ -109,37 +113,44 @@ describe('RuntimeAvailabilityService', () => {
     expect(getAppVersion()).toBe('2.3.4');
   });
 
-  it('parses quoted firebase keys from the generated runtime config asset', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue(`globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
-  {},
-  globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
-  {
-    appVersion: "2.3.4",
-    firebase: {
-      "apiKey": "runtime-api-key",
-      "projectId": "runtime-project",
-      "messagingSenderId": "runtime-sender",
-      "appId": "runtime-app"
-    },
-    featureFlags: {
-      tasEnabled: true,
-    },
-  },
-);`),
-    });
+  it('probes the API health endpoint instead of runtime config on native platforms', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    globalThis.fetch = fetchMock;
 
     await service.refresh();
 
-    expect(getFirebaseWebConfig()).toEqual(
-      expect.objectContaining({
-        apiKey: 'runtime-api-key',
-        projectId: 'runtime-project',
-        messagingSenderId: 'runtime-sender',
-        appId: 'runtime-app',
-      })
-    );
+    expect(service.status()).toBe('online');
+    const probedUrl = fetchMock.mock.calls[0]?.[0] as string;
+    expect(probedUrl).toContain('/v1/health');
+    expect(probedUrl).not.toContain('runtime-config.js');
+  });
+
+  it('marks native API health probe failures as service-unreachable', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
+
+    await service.refresh();
+
+    expect(service.status()).toBe('service-unreachable');
+  });
+
+  it('marks native API health probe network failures as service-unreachable', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network failed'));
+
+    await service.refresh();
+
+    expect(service.status()).toBe('service-unreachable');
+  });
+
+  it('marks the app offline when the browser offline event fires', () => {
+    service.initialize();
+    service.status.set('online');
+
+    window.dispatchEvent(new Event('offline'));
+
+    expect(service.status()).toBe('offline');
   });
 
   it('falls back to the raw matched string when JSON string parsing fails', async () => {

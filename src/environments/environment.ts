@@ -20,15 +20,6 @@ export const environment = {
   emulatorJsLoaderIntegrity: EMULATORJS_PINNED_LOADER_INTEGRITY,
   /** Enables EmulatorJS `EJS_DEBUG_XX` in the play iframe (verbose console, unminified scripts). */
   emulatorJsDebug: true,
-  firebase: {
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: '',
-  },
-  firebaseVapidKey: '',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

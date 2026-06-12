@@ -1,46 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const ENV_PATH = resolve(process.cwd(), '.env');
+import { loadProjectEnv } from './dotenv.mjs';
+
 const OUTPUT_PATH = resolve(process.cwd(), 'src/assets/runtime-config.js');
 const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
-const DEFAULT_FIREBASE_CDN_VERSION = '11.10.0';
-
-function parseDotEnv(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf('=');
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-
-    if (!key) {
-      continue;
-    }
-
-    const unquoted =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-        ? rawValue.slice(1, -1)
-        : rawValue;
-
-    values[key] = unquoted;
-  }
-
-  return values;
-}
 
 function parseBoolean(value, fallback = false) {
   if (typeof value === 'boolean') {
@@ -64,71 +28,28 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-function resolveFirebaseCdnVersion(rawVersion) {
-  if (typeof rawVersion !== 'string') {
-    return DEFAULT_FIREBASE_CDN_VERSION;
-  }
-
-  const trimmed = rawVersion.trim();
-  if (trimmed.length === 0) {
-    return DEFAULT_FIREBASE_CDN_VERSION;
-  }
-
-  const match = trimmed.match(/\d+\.\d+\.\d+/);
-  return match ? match[0] : DEFAULT_FIREBASE_CDN_VERSION;
-}
-
-let dotenvValues = {};
 let appVersion = '0.0.0';
-let firebaseCdnVersion = DEFAULT_FIREBASE_CDN_VERSION;
-
-try {
-  const envContent = readFileSync(ENV_PATH, 'utf8');
-  dotenvValues = parseDotEnv(envContent);
-} catch {
-  dotenvValues = {};
-}
 
 try {
   const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8'));
   if (typeof packageJson.version === 'string' && packageJson.version.trim().length > 0) {
     appVersion = packageJson.version.trim();
   }
-  firebaseCdnVersion = resolveFirebaseCdnVersion(
-    packageJson?.dependencies?.firebase ?? packageJson?.devDependencies?.firebase
-  );
 } catch {
   appVersion = '0.0.0';
-  firebaseCdnVersion = DEFAULT_FIREBASE_CDN_VERSION;
 }
 
-// Allow CI/e2e/runtime environment variables to override local .env values.
-const envValues = {
-  ...dotenvValues,
-  ...process.env,
-};
+const envValues = loadProjectEnv();
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
 const tasEnabled = parseBoolean(envValues.FEATURE_TAS, false);
-const firebaseWebConfig = {
-  apiKey: String(envValues.FIREBASE_WEB_API_KEY ?? ''),
-  authDomain: String(envValues.FIREBASE_WEB_AUTH_DOMAIN ?? ''),
-  projectId: String(envValues.FIREBASE_WEB_PROJECT_ID ?? ''),
-  storageBucket: String(envValues.FIREBASE_WEB_STORAGE_BUCKET ?? ''),
-  messagingSenderId: String(envValues.FIREBASE_WEB_MESSAGING_SENDER_ID ?? ''),
-  appId: String(envValues.FIREBASE_WEB_APP_ID ?? ''),
-};
-const firebaseVapidKey = String(envValues.FIREBASE_WEB_VAPID_KEY ?? '');
 
 const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
   globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
   {
     appVersion: ${JSON.stringify(appVersion)},
-    firebaseCdnVersion: ${JSON.stringify(firebaseCdnVersion)},
-    firebase: ${JSON.stringify(firebaseWebConfig, null, 4)},
-    firebaseVapidKey: ${JSON.stringify(firebaseVapidKey)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
       e2eFixtures: ${e2eFixtures},

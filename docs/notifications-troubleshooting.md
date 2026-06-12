@@ -1,18 +1,31 @@
 # Notifications Troubleshooting
 
-## 1. Browser/Device Preconditions
+Notifications are delivered as native push to the Capacitor iOS app (APNs via FCM,
+`@capacitor-firebase/messaging`). Browsers are not supported.
 
-- Confirm browser/site notification permission is `granted`.
-- Confirm OS-level notifications are enabled for the browser/app.
-- Confirm service worker is registered (`firebase-messaging-sw.js`).
+## Dev vs prod Firebase
 
-## 2. Frontend Registration Checks
+When running side-by-side dev and prod iOS apps (see [`ios-multi-environment.md`](ios-multi-environment.md)):
+
+- Each app bundles its own `GoogleService-Info.*.plist` from a **separate Firebase project**.
+- The API the app talks to must use the matching `FIREBASE_SERVICE_ACCOUNT_JSON` (dev Docker → dev project; prod NAS → prod project).
+- A mismatch (dev plist + prod server, or the reverse) causes `token_registration_failed` or silent send failures.
+- Test push against the API host that matches the app you are exercising (`sync:ios:local` + dev app → local `/api/v1/notifications/test`).
+
+## 1. Device Preconditions
+
+- Confirm iOS notification permission for the app is granted (Settings > Notifications).
+- Confirm `GoogleService-Info.plist` is bundled in the iOS app target.
+- Confirm the APNs auth key is uploaded in Firebase project settings > Cloud Messaging.
+- Confirm the app was built with the Push Notifications capability (`App.entitlements`)
+  and the `remote-notification` background mode.
+
+## 2. App Registration Checks
 
 - Open app settings and enable release notifications.
 - Verify token registration request succeeds:
   - `POST /v1/notifications/fcm/register`
-- In browser logs, verify no:
-  - `[notifications] service_worker_register_failed`
+- In the WebView console (Safari > Develop > device), verify no:
   - `[notifications] token_registration_failed`
   - `[notifications] backend_register_failed`
 

@@ -2,12 +2,52 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  createPwaStackEnv,
   createSharedEnv,
   ensureParentDirectories,
   isEntrypoint,
-  runPwa,
+  printSuggestedIosLocalOrigin,
+  waitForPostgresReady,
 } from './worktree-dev.mjs';
+
+test('printSuggestedIosLocalOrigin prints suggested local origin when LAN host is available', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { IOS_LAN_HOST: '192.168.0.21' },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
+  assert.match(lines[1], /IOS_LAN_HOST/);
+});
+
+test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exported', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { PATH: '/usr/bin' },
+    dotenvValues: { IOS_LAN_HOST: '192.168.0.55' },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
+});
+
+test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', () => {
+  const lines = [];
+
+  printSuggestedIosLocalOrigin({
+    processEnv: { PATH: '/usr/bin' },
+    dotenvValues: {
+      IOS_LAN_HOST: '192.168.0.55',
+      IOS_TARGET_ID: '00008140-0014444C1184801C',
+      IOS_TARGET_NAME: "Jake's iPhone",
+    },
+    log: (line) => lines.push(line),
+  });
+
+  assert.match(lines[3], /iOS run target \(from \.env\): IOS_TARGET_ID is set/);
+});
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
   const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });
@@ -25,16 +65,6 @@ test('createSharedEnv preserves an explicit secrets host dir from the provided e
   });
 
   assert.equal(env.SECRETS_HOST_DIR, '/tmp/custom-secrets');
-});
-
-test('createPwaStackEnv overrides manuals links to the local HTTPS proxy path', () => {
-  const env = createPwaStackEnv({
-    MANUALS_PUBLIC_BASE_URL: 'http://127.0.0.1:9999/manuals',
-    NODE_ENV: 'development',
-  });
-
-  assert.equal(env.MANUALS_PUBLIC_BASE_URL, '/manuals');
-  assert.equal(env.NODE_ENV, 'development');
 });
 
 test('ensureParentDirectories creates parent directories for each configured certificate output', () => {
@@ -75,137 +105,66 @@ test('isEntrypoint resolves relative script paths before comparing module urls',
   );
 });
 
-test('runPwa serve exits with guidance when the edge service is unreachable', async () => {
-  const errors = [];
-  const exitCodes = [];
-  const operations = [];
+test('waitForPostgresReady returns immediately when postgres is already accepting connections', () => {
+  let attempts = 0;
 
-  await runPwa('serve', {
-    isPortReachableFn: async () => false,
-    reconcilePwaStackManualsBaseUrlFn() {
-      operations.push('reconcile');
+  waitForPostgresReady({
+    runCommand: () => {
+      attempts += 1;
+      return { status: 0, stdout: Buffer.from(''), stderr: Buffer.from('') };
     },
-    runPwaServeFn() {
-      operations.push('serve');
+    sleep: () => {
+      throw new Error('sleep should not be called when postgres is ready');
     },
-    portsConfig: {
-      EDGE_HOST_PORT: 9080,
-      PWA_ROOT_CA_PORT: 9300,
-    },
-    exitFn(code) {
-      exitCodes.push(code);
-    },
-    logger: {
-      log() {},
-      error(message) {
-        errors.push(message);
-      },
+    log: () => undefined,
+    error: () => undefined,
+    exit: () => {
+      throw new Error('exit should not be called when postgres is ready');
     },
   });
 
-  assert.deepEqual(exitCodes, [1]);
-  assert.deepEqual(operations, []);
-  assert.match(errors[0], /edge service is unavailable at http:\/\/127\.0\.0\.1:9080/);
-  assert.match(errors[1], /npx devx worktree stack up/);
+  assert.equal(attempts, 1);
 });
 
-test('runPwa simulator reconciles the stack before building and serving', async () => {
-  const operations = [];
+test('waitForPostgresReady retries until postgres accepts connections', () => {
+  let attempts = 0;
+  const sleeps = [];
 
-  await runPwa('simulator', {
-    isPortReachableFn: async () => true,
-    reconcilePwaStackManualsBaseUrlFn() {
-      operations.push('reconcile');
+  waitForPostgresReady({
+    maxAttempts: 3,
+    delaySeconds: 1,
+    runCommand: () => {
+      attempts += 1;
+      return { status: attempts >= 2 ? 0 : 1, stdout: Buffer.from(''), stderr: Buffer.from('') };
     },
-    buildPwaFn() {
-      operations.push('build');
+    sleep: (seconds) => {
+      sleeps.push(seconds);
     },
-    runPwaServeFn() {
-      operations.push('serve');
+    log: () => undefined,
+    error: () => undefined,
+    exit: () => {
+      throw new Error('exit should not be called when postgres becomes ready');
     },
-    exitFn(code) {
-      throw new Error(`unexpected exit: ${String(code)}`);
-    },
-    logger: console,
   });
 
-  assert.deepEqual(operations, ['reconcile', 'build', 'serve']);
+  assert.equal(attempts, 2);
+  assert.deepEqual(sleeps, [1]);
 });
 
-test('runPwa certs-check prints setup guidance when cert files are not configured', async () => {
-  const exitCodes = [];
-  const errors = [];
-  const operations = [];
+test('waitForPostgresReady exits when postgres never becomes ready', () => {
+  let exitCode = null;
 
-  await runPwa('certs-check', {
-    getSimulatorCertificateStatusFn() {
-      return {
-        mkcertAvailable: true,
-        hasRootCa: true,
-        isConfigured: false,
-        certPath: '/tmp/localhost.pem',
-        keyPath: '/tmp/localhost-key.pem',
-        rootCaPath: '/tmp/rootCA.pem',
-      };
-    },
-    printMissingCertificateInstructionsFn() {
-      operations.push('print-missing-cert-instructions');
-    },
-    servePwaRootCertificateFn() {
-      operations.push('serve-root');
-    },
-    exitFn(code) {
-      exitCodes.push(code);
-    },
-    logger: {
-      log() {},
-      error(message) {
-        errors.push(message);
-      },
+  waitForPostgresReady({
+    maxAttempts: 2,
+    delaySeconds: 1,
+    runCommand: () => ({ status: 1, stdout: Buffer.from(''), stderr: Buffer.from('not ready') }),
+    sleep: () => undefined,
+    log: () => undefined,
+    error: () => undefined,
+    exit: (code) => {
+      exitCode = code;
     },
   });
 
-  assert.deepEqual(exitCodes, [1]);
-  assert.deepEqual(operations, ['print-missing-cert-instructions']);
-  assert.deepEqual(errors, []);
-});
-
-test('runPwa certs-check reports configured certificate paths', async () => {
-  const logs = [];
-  const exitCodes = [];
-
-  await runPwa('certs-check', {
-    getSimulatorCertificateStatusFn() {
-      return {
-        mkcertAvailable: true,
-        hasRootCa: true,
-        isConfigured: true,
-        certPath: '/tmp/localhost.pem',
-        keyPath: '/tmp/localhost-key.pem',
-        rootCaPath: '/tmp/rootCA.pem',
-      };
-    },
-    portsConfig: {
-      EDGE_HOST_PORT: 9080,
-      PWA_ROOT_CA_PORT: 9300,
-    },
-    exitFn(code) {
-      exitCodes.push(code);
-    },
-    logger: {
-      log(message) {
-        logs.push(message);
-      },
-      error(message) {
-        throw new Error(`unexpected error log: ${message}`);
-      },
-    },
-  });
-
-  assert.deepEqual(exitCodes, []);
-  assert.match(logs[0], /PWA HTTPS certificates are configured/);
-  assert.match(logs[1], /\/tmp\/localhost\.pem/);
-  assert.match(logs[2], /\/tmp\/localhost-key\.pem/);
-  assert.match(logs[3], /\/tmp\/rootCA\.pem/);
-  assert.match(logs[5], /http:\/\/localhost:9300\/rootCA\.pem/);
+  assert.equal(exitCode, 1);
 });

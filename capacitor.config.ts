@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
     ios: {
       spm: {
         packageOptions: {
-          '@capacitor-firebase/<package-name>': {
+          '@capacitor-firebase/messaging': {
             symlink: true,
           },
         },

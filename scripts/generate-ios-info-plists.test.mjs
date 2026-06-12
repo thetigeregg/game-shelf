@@ -98,6 +98,21 @@ test('generateIosInfoPlists writes outputs matching committed Info plists', () =
   writeFileSync(path.join(tempDir, 'done'), 'ok');
 });
 
+test('generateIosInfoPlists with write:false performs a dry run without writing', () => {
+  const writeCalls = [];
+
+  generateIosInfoPlists({
+    repoRoot: process.cwd(),
+    write: false,
+    writeFileSyncFn: (filePath) => {
+      writeCalls.push(filePath);
+    },
+    log: () => undefined,
+  });
+
+  assert.equal(writeCalls.length, 0);
+});
+
 test('generateIosInfoPlists --check passes when outputs are current', () => {
   assert.doesNotThrow(() => {
     generateIosInfoPlists({

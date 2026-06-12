@@ -8,6 +8,7 @@ import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer
 import { DebugLogService } from './debug-log.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
+import { resolveAssetCatalogUrl } from '../utils/resolve-asset-catalog-url.util';
 import { GameEntry, RomCandidate, RomOverrideMap, RomResolveResult } from '../models/game.models';
 
 interface ResolveRomApiResponse {
@@ -303,8 +304,11 @@ export class RomService {
         ? candidate['score']
         : 0;
     const score = Number(Math.max(0, Math.min(1, scoreValue)).toFixed(4));
-    const rawUrl = typeof candidate['url'] === 'string' ? candidate['url'].trim() : '';
-    const url = rawUrl.length > 0 ? rawUrl : this.buildRomUrl(relativePath);
+    const url = resolveAssetCatalogUrl(
+      relativePath,
+      typeof candidate['url'] === 'string' ? candidate['url'] : '',
+      (path) => this.buildRomUrl(path)
+    );
 
     if (
       !Number.isInteger(platformIgdbId) ||

@@ -41,6 +41,7 @@
     "sync:ios:prod": "npm run build:ios:prod && npx cap sync ios",
     "run:ios": "npm run run:ios:prod",
     "run:ios:local": "node scripts/run-ios.mjs local",
+    "run:ios:live": "node scripts/run-ios-live.mjs",
     "run:ios:prod": "node scripts/run-ios.mjs prod",
     "list:ios:targets": "npx cap run ios --list",
     "open:ios": "npx cap open ios"

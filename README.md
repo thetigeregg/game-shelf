@@ -89,6 +89,14 @@ For iPhone Simulator Safari testing, use:
 npx devx worktree simulator
 ```
 
+For Capacitor live reload on a physical iPhone (App DEV scheme), use:
+
+```bash
+npx devx worktree ios-live
+```
+
+Same command is available as `npm run run:ios:live`. See [iOS live reload](#ios-live-reload) below.
+
 When using `npx devx worktree ...` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
@@ -168,6 +176,28 @@ npm run sync:ios:prod    # build + sync only (alias: npm run sync:ios)
 npm run sync:ios:local
 npm run open:ios         # open Xcode (debugger, manual scheme/run)
 ```
+
+### iOS live reload
+
+For faster UI iteration on a physical iPhone without rebuilding on every change:
+
+```bash
+npx devx worktree stack up
+npx devx worktree ios-live    # alias: npm run run:ios:live
+```
+
+Prerequisites:
+
+1. Copy `src/environments/environment.local.example.ts` to `src/environments/environment.local.ts`
+2. Run `npm run sync:ios:local` once if `www/browser/` has never been built
+3. Set `IOS_TARGET_ID` in `.env` (or `IOS_TARGET_NAME`); use `npm run list:ios:targets` to discover values
+4. Set `IOS_LAN_HOST` in `.env` if auto-detect fails; iPhone must be on the same Wi‑Fi as your Mac
+
+Live reload serves the app from the worktree Angular dev server (`FRONTEND_PORT` from
+`npx devx worktree info`) and proxies `/v1`, `/manuals`, `/roms`, and `/bios` to the
+worktree backend on your Mac. Unlike `run:ios:local`, the phone does not need direct access
+to the Docker edge port — `EDGE_BIND_HOST=0.0.0.0` is not required for API calls during
+live reload.
 
 Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). Side-by-side dev + prod apps use **App DEV** and **App PROD** targets/schemes — see the multi-environment doc.
 

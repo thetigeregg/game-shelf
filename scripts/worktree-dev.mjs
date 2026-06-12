@@ -18,6 +18,7 @@ import {
 
 import { loadProjectEnv } from './dotenv.mjs';
 import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
+import { runIosLive } from './run-ios-live.mjs';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -307,7 +308,7 @@ export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.
 export async function runWorktreeDev(argv) {
   if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
     console.log(
-      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|stack|db> [action]'
+      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|ios-live|stack|db> [action]'
     );
     console.log('');
     console.log('Commands:');
@@ -318,6 +319,9 @@ export async function runWorktreeDev(argv) {
     console.log('  frontend                  Run Angular dev server for this worktree');
     console.log(
       '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
+    );
+    console.log(
+      '  ios-live                  Run Capacitor live reload on a physical iPhone (App DEV scheme)'
     );
     console.log('  stack up                  Start worktree-isolated docker stack');
     console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -377,6 +381,13 @@ export async function runWorktreeDev(argv) {
       external: true,
       host: config.worktree.frontend?.externalHost ?? '0.0.0.0',
     });
+    process.exit(0);
+  }
+
+  if (argv[0] === 'ios-live') {
+    printSuggestedIosLocalOrigin();
+    ensureDependenciesInstalled(context, false);
+    await runIosLive({ env: loadProjectEnv(), extraArgs: argv.slice(1) });
     process.exit(0);
   }
 

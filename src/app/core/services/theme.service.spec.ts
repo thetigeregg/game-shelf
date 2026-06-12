@@ -46,7 +46,7 @@ describe('ThemeService', () => {
     expect(setStyleMock).not.toHaveBeenCalled();
   });
 
-  it('uses light status bar content on dark UI in the native shell', () => {
+  it('matches native status bar style to the active color scheme', () => {
     isNativePlatformMock.mockReturnValue(true);
 
     service.setColorSchemePreference('dark');

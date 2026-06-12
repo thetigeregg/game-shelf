@@ -153,8 +153,8 @@ export function generateIosInfoPlists({
       variant,
       variants,
       readFileSyncFn,
-      writeFileSyncFn: check ? () => undefined : writeFileSyncFn,
-      write: !check,
+      writeFileSyncFn,
+      write: check ? false : write,
     });
 
     if (check) {

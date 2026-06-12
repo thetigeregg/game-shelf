@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PreferenceStorageService } from '../storage/preference-storage.service';
+import {
+  PreferenceStorageService,
+  resetPreferenceStorageForTesting,
+} from '../storage/preference-storage.service';
 import {
   CLIENT_WRITE_TOKEN_STORAGE_KEY,
   ClientWriteAuthService,
@@ -23,6 +26,7 @@ describe('ClientWriteAuthService', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    resetPreferenceStorageForTesting();
   });
 
   it('returns null when token is missing or blank', () => {

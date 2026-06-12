@@ -13,6 +13,11 @@ function setPreferenceStorageInstance(instance: PreferenceStorageService | null)
   preferenceStorageInstance = instance;
 }
 
+/** Clears the module-level singleton so Vitest suites do not leak storage state. */
+export function resetPreferenceStorageForTesting(): void {
+  setPreferenceStorageInstance(null);
+}
+
 export function readPreference(key: string): string | null {
   return preferenceStorageInstance?.getItem(key) ?? readWebStorageItem(key);
 }
@@ -89,11 +94,17 @@ export class PreferenceStorageService {
       return;
     }
 
+    let migratedKeys: string[] = [];
+    let migrationPending = false;
+
     try {
-      await this.migrateFromLocalStorageIfNeeded();
+      const migrationResult = await this.migrateFromLocalStorageIfNeeded();
+      migratedKeys = migrationResult.migratedKeys;
+      migrationPending = migrationResult.migrationPending;
       await this.reclaimExcludedKeysFromPreferences();
       await this.hydrateCacheFromPreferences();
       this.nativePreferencesEnabled = true;
+      await this.finalizeMigration(migratedKeys, migrationPending);
     } catch {
       this.nativePreferencesEnabled = false;
       this.cache.clear();
@@ -160,18 +171,21 @@ export class PreferenceStorageService {
     return entries;
   }
 
-  private async migrateFromLocalStorageIfNeeded(): Promise<void> {
+  private async migrateFromLocalStorageIfNeeded(): Promise<{
+    migratedKeys: string[];
+    migrationPending: boolean;
+  }> {
     const migrationResult = await Preferences.get({ key: PREFERENCE_STORAGE_MIGRATION_KEY });
 
     if (migrationResult.value === '1') {
-      return;
+      return { migratedKeys: [], migrationPending: false };
     }
 
     if (typeof window === 'undefined') {
-      await Preferences.set({ key: PREFERENCE_STORAGE_MIGRATION_KEY, value: '1' });
-      return;
+      return { migratedKeys: [], migrationPending: true };
     }
 
+    const migratedKeys: string[] = [];
     const keysToMigrate = this.readWebStorageKeys().filter(isPreferenceStorageKey);
 
     for (const key of keysToMigrate) {
@@ -182,6 +196,21 @@ export class PreferenceStorageService {
       }
 
       await Preferences.set({ key, value });
+      migratedKeys.push(key);
+    }
+
+    return { migratedKeys, migrationPending: true };
+  }
+
+  private async finalizeMigration(
+    migratedKeys: string[],
+    migrationPending: boolean
+  ): Promise<void> {
+    if (!migrationPending) {
+      return;
+    }
+
+    for (const key of migratedKeys) {
       removeWebStorageItem(key);
     }
 

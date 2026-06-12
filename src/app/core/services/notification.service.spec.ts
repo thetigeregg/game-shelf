@@ -5,7 +5,10 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
-import { PreferenceStorageService } from '../storage/preference-storage.service';
+import {
+  PreferenceStorageService,
+  resetPreferenceStorageForTesting,
+} from '../storage/preference-storage.service';
 
 const preferencesGet = vi.hoisted(() => vi.fn());
 const preferencesSet = vi.hoisted(() => vi.fn());
@@ -101,6 +104,7 @@ describe('NotificationService', () => {
 
   afterEach(() => {
     localStorage.clear();
+    resetPreferenceStorageForTesting();
     vi.restoreAllMocks();
     checkPermissionsMock.mockReset();
     requestPermissionsMock.mockReset();

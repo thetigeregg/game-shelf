@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { E2E_FIXTURE_STORAGE_KEY, DEBUG_LOGS_STORAGE_KEY } from './preference-keys';
-import { PreferenceStorageService } from './preference-storage.service';
+import {
+  PreferenceStorageService,
+  resetPreferenceStorageForTesting,
+} from './preference-storage.service';
 
 const nativePlatformState = vi.hoisted(() => ({ value: false }));
 const preferencesGet = vi.hoisted(() => vi.fn());
@@ -39,6 +42,7 @@ describe('PreferenceStorageService', () => {
   afterEach(() => {
     nativePlatformState.value = false;
     localStorage.clear();
+    resetPreferenceStorageForTesting();
   });
 
   it('delegates get/set/remove to localStorage on web', async () => {
@@ -246,5 +250,29 @@ describe('PreferenceStorageService', () => {
     expect(localStorage.getItem('game-shelf:theme')).toBe('dark');
     expect(service.getItem('game-shelf:theme')).toBe('dark');
     expect(preferencesSet).not.toHaveBeenCalled();
+  });
+
+  it('keeps localStorage copies when migration succeeds but cache hydration fails', async () => {
+    nativePlatformState.value = true;
+    localStorage.setItem('game-shelf:theme', 'dark');
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: null });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesSet.mockResolvedValue(undefined);
+    preferencesKeys.mockRejectedValue(new Error('keys unavailable'));
+
+    await service.initialize();
+
+    expect(localStorage.getItem('game-shelf:theme')).toBe('dark');
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+    expect(preferencesSet).toHaveBeenCalledWith({
+      key: 'game-shelf:theme',
+      value: 'dark',
+    });
   });
 });

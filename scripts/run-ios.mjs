@@ -106,6 +106,10 @@ export function resolveConfiguredCommand(command) {
     return { shell: false, command: command[0], args: command.slice(1) };
   }
 
+  if (typeof command !== 'string') {
+    throw new Error('Configured command must be a non-empty string or a command array.');
+  }
+
   const trimmed = command.trim();
   if (!trimmed) {
     throw new Error('Configured command must not be empty.');
@@ -157,7 +161,7 @@ function runCommand(command, args, options = {}) {
       onChild?.(null);
       reject(error);
     });
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       onChild?.(null);
 
       if (isShuttingDown()) {
@@ -167,6 +171,11 @@ function runCommand(command, args, options = {}) {
 
       if (code === 0) {
         resolve();
+        return;
+      }
+
+      if (code === null && signal) {
+        reject(new Error(`${label} exited due to signal ${signal}`));
         return;
       }
 
@@ -225,12 +234,12 @@ export function resolveDevServerProbeHosts(bindHost, lanHost) {
   return [...hosts];
 }
 
-export function formatDevServerReadyMessage({ lanHost, frontendPort, bindHost }) {
+export function formatDevServerReadyMessage({ frontendPort, bindHost }) {
   if (bindHost === '0.0.0.0') {
-    return `Dev server ready at ${lanHost}:${frontendPort}. Deploying to device...`;
+    return `Dev server ready on port ${frontendPort}. Deploying to device...`;
   }
 
-  return `Dev server ready at ${lanHost}:${frontendPort} (bound to ${bindHost}). Deploying to device...`;
+  return `Dev server ready on port ${frontendPort} (bound to ${bindHost}). Deploying to device...`;
 }
 
 async function waitForDevServer(
@@ -358,7 +367,7 @@ export async function runIosLive({
       hosts: resolveDevServerProbeHosts(bindHost, lanHost),
     });
     assertNotInterrupted();
-    log(formatDevServerReadyMessage({ lanHost, frontendPort, bindHost }));
+    log(formatDevServerReadyMessage({ frontendPort, bindHost }));
 
     await runCommand(
       'npx',
@@ -458,7 +467,7 @@ export function describeRunIosFailure(error) {
     ];
   }
 
-  if (/^(npm|npx) exited with code \d+$/.test(message)) {
+  if (/ exited (with code \d+|due to signal \S+)$/.test(message)) {
     return ['iOS run command failed. See command output above for details.'];
   }
 

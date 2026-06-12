@@ -23,7 +23,7 @@ import {
 } from './bootstrap-ios-firebase-plists.mjs';
 import { loadProjectEnv } from './dotenv.mjs';
 import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
-import { runIos } from './run-ios.mjs';
+import { describeRunIosFailure, runIos } from './run-ios.mjs';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -425,7 +425,10 @@ export async function runWorktreeDev(argv) {
         process.exit(error.signal === 'SIGTERM' ? 143 : 130);
       }
 
-      throw error;
+      for (const line of describeRunIosFailure(error)) {
+        console.error(line);
+      }
+      process.exit(1);
     }
   }
 

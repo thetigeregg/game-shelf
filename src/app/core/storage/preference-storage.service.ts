@@ -85,12 +85,17 @@ export class PreferenceStorageService {
     }
 
     await this.migrateFromLocalStorageIfNeeded();
+    await this.reclaimExcludedKeysFromPreferences();
     await this.hydrateCacheFromPreferences();
     this.initialized = true;
   }
 
+  private usesNativePreferences(key: string): boolean {
+    return isNativePlatform() && isPreferenceStorageKey(key);
+  }
+
   getItem(key: string): string | null {
-    if (!isNativePlatform()) {
+    if (!this.usesNativePreferences(key)) {
       return readWebStorageItem(key);
     }
 
@@ -98,7 +103,7 @@ export class PreferenceStorageService {
   }
 
   setItem(key: string, value: string): void {
-    if (!isNativePlatform()) {
+    if (!this.usesNativePreferences(key)) {
       writeWebStorageItem(key, value);
       return;
     }
@@ -108,7 +113,7 @@ export class PreferenceStorageService {
   }
 
   removeItem(key: string): void {
-    if (!isNativePlatform()) {
+    if (!this.usesNativePreferences(key)) {
       removeWebStorageItem(key);
       return;
     }
@@ -171,11 +176,33 @@ export class PreferenceStorageService {
     await Preferences.set({ key: PREFERENCE_STORAGE_MIGRATION_KEY, value: '1' });
   }
 
+  private async reclaimExcludedKeysFromPreferences(): Promise<void> {
+    const result = await Preferences.keys();
+
+    for (const key of result.keys) {
+      if (isPreferenceStorageKey(key)) {
+        continue;
+      }
+
+      const entry = await Preferences.get({ key });
+
+      if (typeof entry.value === 'string') {
+        writeWebStorageItem(key, entry.value);
+      }
+
+      await Preferences.remove({ key });
+    }
+  }
+
   private async hydrateCacheFromPreferences(): Promise<void> {
     const result = await Preferences.keys();
     const keys = result.keys;
 
     for (const key of keys) {
+      if (!isPreferenceStorageKey(key)) {
+        continue;
+      }
+
       const entry = await Preferences.get({ key });
       if (typeof entry.value === 'string') {
         this.cache.set(key, entry.value);

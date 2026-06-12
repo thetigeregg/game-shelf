@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { E2E_FIXTURE_STORAGE_KEY } from './preference-keys';
+import { E2E_FIXTURE_STORAGE_KEY, DEBUG_LOGS_STORAGE_KEY } from './preference-keys';
 import { PreferenceStorageService } from './preference-storage.service';
 
 const nativePlatformState = vi.hoisted(() => ({ value: false }));
@@ -139,5 +139,73 @@ describe('PreferenceStorageService', () => {
       key: 'game-shelf:price-preference-v1',
       value: '25',
     });
+  });
+
+  it('keeps large debug logs in localStorage on native', async () => {
+    nativePlatformState.value = true;
+    localStorage.setItem(DEBUG_LOGS_STORAGE_KEY, '[]');
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1'],
+    });
+    preferencesSet.mockResolvedValue(undefined);
+    preferencesRemove.mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    expect(preferencesSet).not.toHaveBeenCalledWith({
+      key: DEBUG_LOGS_STORAGE_KEY,
+      value: '[]',
+    });
+    expect(localStorage.getItem(DEBUG_LOGS_STORAGE_KEY)).toBe('[]');
+
+    service.setItem(DEBUG_LOGS_STORAGE_KEY, '[{"ts":"1","level":"info","message":"test"}]');
+    expect(localStorage.getItem(DEBUG_LOGS_STORAGE_KEY)).toBe(
+      '[{"ts":"1","level":"info","message":"test"}]'
+    );
+    expect(preferencesSet).not.toHaveBeenCalledWith({
+      key: DEBUG_LOGS_STORAGE_KEY,
+      value: '[{"ts":"1","level":"info","message":"test"}]',
+    });
+    expect(service.getItem(DEBUG_LOGS_STORAGE_KEY)).toBe(
+      '[{"ts":"1","level":"info","message":"test"}]'
+    );
+  });
+
+  it('reclaims excluded keys from Preferences back to localStorage on native', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === DEBUG_LOGS_STORAGE_KEY) {
+        return Promise.resolve({ value: '[{"ts":"1","level":"info","message":"legacy"}]' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', DEBUG_LOGS_STORAGE_KEY],
+    });
+    preferencesRemove.mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    expect(localStorage.getItem(DEBUG_LOGS_STORAGE_KEY)).toBe(
+      '[{"ts":"1","level":"info","message":"legacy"}]'
+    );
+    expect(preferencesRemove).toHaveBeenCalledWith({ key: DEBUG_LOGS_STORAGE_KEY });
+    expect(service.getItem(DEBUG_LOGS_STORAGE_KEY)).toBe(
+      '[{"ts":"1","level":"info","message":"legacy"}]'
+    );
   });
 });

@@ -131,6 +131,7 @@ import {
 } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import { isExportableSettingsKey } from '../core/storage/preference-keys';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import {
   RECOMMENDATION_IGNORED_STORAGE_KEY,
@@ -3287,7 +3288,7 @@ export class SettingsPage {
   private readExportableSettings(): Array<[string, string]> {
     const entries = this.preferenceStorage
       .entriesWithPrefix('game-shelf')
-      .filter(([key]) => key !== LEGACY_PRIMARY_COLOR_STORAGE_KEY);
+      .filter(([key]) => key !== LEGACY_PRIMARY_COLOR_STORAGE_KEY && isExportableSettingsKey(key));
 
     const colorSchemeKey = COLOR_SCHEME_STORAGE_KEY;
 

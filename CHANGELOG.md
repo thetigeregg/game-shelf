@@ -3592,3 +3592,12 @@
 - f0e7f07f feat(ios): update app icon assets and package dependencies
 - 4dc03f0f feat(ios): add new asset catalogs for development, production, and shared resources
 - 10ef5b66 chore: add @capacitor/assets package
+
+## v1.50.0 - 2026-06-12
+
+- dfb64be5 Merge pull request #415 from thetigeregg/feat/plist
+- b106d894 fix(ios): honor write option and rename status bar test
+- 60aae3b5 build(ios): add privacy manifest for capacitor filesystem
+- 64ed84d6 chore(dev): add stack:recreate npm script
+- a8e5bcae feat(ios): extract shared Info.plist config with merge script
+- b740aa8e fix(theme): correct inverted native status bar style mapping

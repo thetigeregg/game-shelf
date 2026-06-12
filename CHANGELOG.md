@@ -3601,3 +3601,24 @@
 - 64ed84d6 chore(dev): add stack:recreate npm script
 - a8e5bcae feat(ios): extract shared Info.plist config with merge script
 - b740aa8e fix(theme): correct inverted native status bar style mapping
+
+## v1.51.0 - 2026-06-12
+
+- 7e378c1e Merge pull request #414 from thetigeregg/feat/plug-one
+- ac0b0d81 test(scripts): clean up temp dirs in run-ios tests
+- da672955 fix(ios): address PR review feedback for live reload
+- c564bd5f fix(ios): pass shell option for array-based commands
+- e0290bf8 Merge branch 'main' into feat/plug-one
+- 7b96be19 fix(ios): align live reload with worktree config and env
+- a1ff22f7 fix(ios): address PR feedback for run-ios CLI errors
+- 384c050b fix(ios): probe bind host and log LAN address for live reload
+- 2876ea7c fix(ios): forward signals and validate worktree frontend port
+- f31822e7 feat(ios): enhance error handling in run-ios script with descriptive messages
+- 958588b4 fix(ios): address PR feedback for worktree ports and playwright config
+- 88d6b10c fix(ios): address PR feedback on live reload and e2e ports
+- 4f734b1d Merge branch 'main' into feat/plug-one
+- 9c999c8d fix(ios): update environment file handling and improve documentation
+- 840cbce4 refactor(ios): remove npm run aliases for iOS commands and update documentation
+- 891549bc Merge branch 'main' into feat/plug-one
+- 1854dbd8 refactor(ios): consolidate device commands under devx worktree ios
+- 136742cd feat(ios): add worktree-aware live reload for local device dev

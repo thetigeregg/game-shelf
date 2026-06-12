@@ -144,6 +144,22 @@
                 }
               ]
             },
+            "ios-live": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.local.ts"
+                },
+                {
+                  "replace": "src/app/core/services/firebase-messaging.client.ts",
+                  "with": "src/app/core/services/firebase-messaging.native.ts"
+                }
+              ]
+            },
             "ci": {
               "progress": false
             }
@@ -164,6 +180,9 @@
             },
             "local": {
               "buildTarget": "app:build:local"
+            },
+            "ios-live": {
+              "buildTarget": "app:build:ios-live"
             },
             "ci": {}
           },

@@ -19,7 +19,11 @@ export function resetPreferenceStorageForTesting(): void {
 }
 
 export function readPreference(key: string): string | null {
-  return preferenceStorageInstance?.getItem(key) ?? readWebStorageItem(key);
+  if (preferenceStorageInstance) {
+    return preferenceStorageInstance.getItem(key);
+  }
+
+  return readWebStorageItem(key);
 }
 
 export function writePreference(key: string, value: string): void {

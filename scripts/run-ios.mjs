@@ -81,23 +81,25 @@ export function ensureLocalEnvironmentFile(
     log = console.log,
     copyFile = copyFileSync,
     localEnvironmentFile = DEFAULT_LOCAL_ENVIRONMENT_FILE,
-    localEnvironmentExampleFile = DEFAULT_LOCAL_ENVIRONMENT_FILE.replace(/\.ts$/, '.example.ts'),
+    localEnvironmentExampleFile,
   } = {}
 ) {
+  const resolvedExampleFile =
+    localEnvironmentExampleFile ?? localEnvironmentFile.replace(/\.ts$/, '.example.ts');
   const localEnvironmentPath = path.resolve(cwd, localEnvironmentFile);
   if (existsSync(localEnvironmentPath)) {
     return localEnvironmentPath;
   }
 
-  const examplePath = path.resolve(cwd, localEnvironmentExampleFile);
+  const examplePath = path.resolve(cwd, resolvedExampleFile);
   if (!existsSync(examplePath)) {
     throw new Error(
-      `Missing ${localEnvironmentFile} and ${localEnvironmentExampleFile}. Create ${localEnvironmentFile} before running live reload.`
+      `Missing ${localEnvironmentFile} and ${resolvedExampleFile}. Create ${localEnvironmentFile} before running live reload.`
     );
   }
 
   copyFile(examplePath, localEnvironmentPath);
-  log(`Created ${localEnvironmentFile} from ${localEnvironmentExampleFile}.`);
+  log(`Created ${localEnvironmentFile} from ${resolvedExampleFile}.`);
   return localEnvironmentPath;
 }
 
@@ -261,12 +263,15 @@ export function formatDevServerReadyMessage({ frontendPort, bindHost }) {
   return `Dev server ready on port ${frontendPort} (bound to ${bindHost}). Deploying to device...`;
 }
 
+const DEV_SERVER_PROBE_DELAY_MS = 500;
+const DEV_SERVER_PROBE_MAX_ATTEMPTS = 240;
+
 async function waitForDevServer(
   port,
   {
     hosts = ['127.0.0.1'],
-    maxAttempts = 60,
-    delayMs = 500,
+    maxAttempts = DEV_SERVER_PROBE_MAX_ATTEMPTS,
+    delayMs = DEV_SERVER_PROBE_DELAY_MS,
     isPortReachableFn = isPortReachable,
   } = {}
 ) {

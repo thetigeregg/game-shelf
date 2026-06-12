@@ -335,6 +335,77 @@ describe('buildEmulatorJsPlayShellUrl', () => {
     ).toThrow(/Invalid loader integrity/);
   });
 
+  it('supports absolute HTTPS rom bases for the native shell', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'capacitor://localhost',
+      core: 'nes',
+      romUrl: 'https://backend.test/roms/folder/game.nes',
+      romBaseUrl: 'https://backend.test/roms',
+      pathToData: PINNED_DATA_PATH,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+
+    const parsed = new URL(href);
+    expect(parsed.searchParams.get('rom')).toBe('https://backend.test/roms/folder/game.nes');
+    expect(parsed.searchParams.get('rom_base')).toBe('https://backend.test/roms');
+  });
+
+  it('supports absolute HTTPS bios bases for the native shell', () => {
+    const biosUrl = 'https://backend.test/bios/psx/scph1001.bin';
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'capacitor://localhost',
+      core: 'psx',
+      romUrl: 'https://backend.test/roms/game.bin',
+      romBaseUrl: 'https://backend.test/roms',
+      pathToData: PINNED_DATA_PATH,
+      biosUrl,
+      biosBaseUrl: 'https://backend.test/bios',
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+
+    const parsed = new URL(href);
+    expect(parsed.searchParams.get('bios')).toBe(biosUrl);
+    expect(parsed.searchParams.get('bios_base')).toBe('https://backend.test/bios');
+  });
+
+  it('rejects non-https asset base URLs', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'capacitor://localhost',
+        core: 'nes',
+        romUrl: 'http://backend.test/roms/game.nes',
+        romBaseUrl: 'http://backend.test/roms',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS asset base URL/);
+  });
+
+  it('rejects malformed absolute asset base URLs', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'capacitor://localhost',
+        core: 'nes',
+        romUrl: 'https://backend.test/roms/game.nes',
+        romBaseUrl: 'https://user:pass@backend.test/roms',
+        pathToData: PINNED_DATA_PATH,
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS asset base URL/);
+  });
+
+  it('rejects malformed pathToData URLs that include a scheme', () => {
+    expect(() =>
+      buildEmulatorJsPlayShellUrl({
+        origin: 'https://example.com',
+        core: 'nes',
+        romUrl: '/roms/x.nes',
+        pathToData: 'https://[::1',
+        loaderIntegrity: VALID_LOADER_INTEGRITY,
+      })
+    ).toThrow(/Invalid EmulatorJS pathToData URL/);
+  });
+
   it('throws when ROM URL is not under /roms', () => {
     expect(() =>
       buildEmulatorJsPlayShellUrl({
@@ -369,6 +440,12 @@ describe('buildEmulatorJsBiosUrl', () => {
 
   it('returns null when bios base path contains dot segments', () => {
     expect(buildEmulatorJsBiosUrl('https://app.test', '/bios/../x', 'psx/scph1001.bin')).toBeNull();
+  });
+
+  it('returns null when absolute bios base URL parsing fails', () => {
+    expect(
+      buildEmulatorJsBiosUrl('capacitor://localhost', 'https://[::1/bios', 'psx/scph1001.bin')
+    ).toBeNull();
   });
 
   it('supports absolute HTTPS bios bases for the native shell', () => {

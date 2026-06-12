@@ -135,6 +135,24 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.status()).toBe('service-unreachable');
   });
 
+  it('marks native API health probe network failures as service-unreachable', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network failed'));
+
+    await service.refresh();
+
+    expect(service.status()).toBe('service-unreachable');
+  });
+
+  it('marks the app offline when the browser offline event fires', () => {
+    service.initialize();
+    service.status.set('online');
+
+    window.dispatchEvent(new Event('offline'));
+
+    expect(service.status()).toBe('offline');
+  });
+
   it('falls back to the raw matched string when JSON string parsing fails', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,

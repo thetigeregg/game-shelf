@@ -17,8 +17,8 @@ test('printSuggestedIosLocalOrigin prints suggested local origin when LAN host i
     log: (line) => lines.push(line),
   });
 
-  assert.match(lines[0], /iOS local origin \(suggested\): http:\/\/192\.168\.0\.21:\d+/);
-  assert.match(lines[1], /EDGE_BIND_HOST=0\.0\.0\.0/);
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
+  assert.match(lines[1], /IOS_LAN_HOST/);
 });
 
 test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exported', () => {
@@ -30,7 +30,7 @@ test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exporte
     log: (line) => lines.push(line),
   });
 
-  assert.match(lines[0], /iOS local origin \(suggested\): http:\/\/192\.168\.0\.55:\d+/);
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
 });
 
 test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', () => {
@@ -46,7 +46,7 @@ test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', 
     log: (line) => lines.push(line),
   });
 
-  assert.match(lines[2], /iOS run target \(from \.env\): 00008140-0014444C1184801C/);
+  assert.match(lines[3], /iOS run target \(from \.env\): IOS_TARGET_ID is set/);
 });
 
 test('createSharedEnv keeps the dev manuals origin absolute by default', () => {

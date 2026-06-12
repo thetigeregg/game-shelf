@@ -264,9 +264,7 @@ async function main() {
 
   try {
     const result = await writeEnvironmentIos(variant);
-    console.info(
-      `[write-environment-ios] Wrote ${result.outputPath} with origin ${result.backendOrigin}`
-    );
+    console.info(`[write-environment-ios] Wrote ${result.outputPath}`);
   } catch (error) {
     console.error(`[write-environment-ios] ${error instanceof Error ? error.message : error}`);
     process.exit(1);

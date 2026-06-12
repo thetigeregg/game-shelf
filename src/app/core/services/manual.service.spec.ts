@@ -2,8 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
+
+const isNativePlatformMock = vi.fn<() => boolean>();
+
+vi.mock('../utils/native-platform.util', () => ({
+  isNativePlatform: () => isNativePlatformMock(),
+}));
+
 import { ManualService, MANUAL_OVERRIDES_STORAGE_KEY } from './manual.service';
 
 class OutboxWriterMock implements SyncOutboxWriter {
@@ -25,6 +33,7 @@ describe('ManualService', () => {
   let outboxWriter: OutboxWriterMock;
 
   beforeEach(() => {
+    isNativePlatformMock.mockReturnValue(false);
     outboxWriter = new OutboxWriterMock();
     TestBed.configureTestingModule({
       providers: [
@@ -42,6 +51,50 @@ describe('ManualService', () => {
 
   afterEach(() => {
     httpMock.verify();
+    isNativePlatformMock.mockReset();
+  });
+
+  it('builds manual url from client base on native even when server returns loopback url', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+
+    const promise = firstValueFrom(
+      service.resolveManual({
+        igdbGameId: '100',
+        platformIgdbId: 8,
+        title: 'God of War II',
+      })
+    );
+
+    const req = httpMock.expectOne(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/manuals/resolve`
+    );
+    req.flush({
+      status: 'matched',
+      bestMatch: {
+        source: 'fuzzy',
+        platformIgdbId: 8,
+        fileName: 'God of War II.pdf',
+        relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+        score: 0.95,
+        url: 'http://127.0.0.1:10028/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
+      },
+      candidates: [],
+    });
+
+    await expect(promise).resolves.toEqual({
+      status: 'matched',
+      bestMatch: {
+        source: 'fuzzy',
+        platformIgdbId: 8,
+        fileName: 'God of War II.pdf',
+        relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
+        score: 0.95,
+        url: `${environment.manualsBaseUrl}/PlayStation%202__pid-8/God%20of%20War%20II.pdf`,
+      },
+      candidates: [],
+      unavailable: false,
+      reason: null,
+    });
   });
 
   it('calls resolve endpoint and preserves override preference path', async () => {

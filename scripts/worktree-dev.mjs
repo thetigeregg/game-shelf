@@ -22,7 +22,12 @@ import {
   loadFirebaseBootstrapOptions,
 } from './bootstrap-ios-firebase-plists.mjs';
 import { loadProjectEnv } from './dotenv.mjs';
-import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
+import {
+  formatSuggestedIosLocalOrigin,
+  resolveLanHost,
+  resolveManualsPublicBaseUrl,
+  resolveRomsPublicBaseUrl,
+} from './lan-host.mjs';
 import { describeRunIosFailure, runIos } from './run-ios.mjs';
 
 const cwd = process.cwd();
@@ -47,9 +52,25 @@ function shellEscape(value) {
 
 export function createSharedEnv({
   processEnv = process.env,
-  manualsPublicBaseUrl = `http://127.0.0.1:${context.runtime.ports.EDGE_HOST_PORT}/manuals`,
+  manualsPublicBaseUrl,
+  romsPublicBaseUrl,
+  dotenvValues,
+  envPath,
 } = {}) {
-  return context.createSharedEnv({ processEnv, manualsPublicBaseUrl });
+  const projectEnv = loadProjectEnv(processEnv, { dotenvValues, envPath });
+  const edgePort = context.runtime.ports.EDGE_HOST_PORT;
+  const resolvedManualsPublicBaseUrl =
+    manualsPublicBaseUrl ?? resolveManualsPublicBaseUrl(projectEnv, edgePort);
+  const resolvedRomsPublicBaseUrl =
+    romsPublicBaseUrl ?? resolveRomsPublicBaseUrl(projectEnv, edgePort);
+
+  return {
+    ...context.createSharedEnv({
+      processEnv,
+      manualsPublicBaseUrl: resolvedManualsPublicBaseUrl,
+    }),
+    ROMS_PUBLIC_BASE_URL: resolvedRomsPublicBaseUrl,
+  };
 }
 
 export function printSuggestedIosLocalOrigin({

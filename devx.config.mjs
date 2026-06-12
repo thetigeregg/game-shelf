@@ -100,5 +100,20 @@ export default {
       seedPathEnvVar: 'DEV_DB_SEED_PATH',
       defaultSeedPath: '~/.cache/game-shelf/dev-db-seed/latest.sql.gz',
     },
+    ios: {
+      firebase: {
+        sharedDir: '~/.config/game-shelf/ios',
+        plists: {
+          dev: {
+            sharedFile: 'GoogleService-Info.dev.plist',
+            destination: 'ios/App/App/Firebase/Dev/GoogleService-Info.plist',
+          },
+          prod: {
+            sharedFile: 'GoogleService-Info.prod.plist',
+            destination: 'ios/App/App/Firebase/Prod/GoogleService-Info.plist',
+          },
+        },
+      },
+    },
   },
 };

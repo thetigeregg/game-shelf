@@ -149,6 +149,7 @@ describe('AppComponent', () => {
 
   afterEach(() => {
     localStorage.clear();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -157,6 +158,13 @@ describe('AppComponent', () => {
     await Promise.resolve();
     await Promise.resolve();
     await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  async function flushAsyncWithFakeTimers(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
   }
 
   it('runs legacy cover migration even when the preferred-platform migration fails', async () => {
@@ -479,29 +487,29 @@ describe('AppComponent', () => {
   });
 
   it('hides the splash screen on native after startup with a fade-out', async () => {
+    vi.useFakeTimers();
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     vi.mocked(isNativePlatform).mockReturnValue(true);
 
     TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 350);
-    });
+    await flushAsyncWithFakeTimers();
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
 
     expect(splashHideMock).toHaveBeenCalledWith({ fadeOutDuration: 300 });
   });
 
   it('logs splash screen hide failures', async () => {
+    vi.useFakeTimers();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     vi.mocked(isNativePlatform).mockReturnValue(true);
     splashHideMock.mockRejectedValueOnce(new Error('splash hide failed'));
 
     TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 350);
-    });
+    await flushAsyncWithFakeTimers();
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
 
     expect(errorSpy).toHaveBeenCalledWith('[app] splash_screen_hide_failed', expect.any(Error));
   });

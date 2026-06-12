@@ -157,6 +157,13 @@ test('resolveLiveReloadHost throws when LAN host cannot be resolved', () => {
 
 test('buildNgServeArgs uses worktree frontend port, external bind host, and ios-live configuration', () => {
   const context = {
+    config: {
+      worktree: {
+        frontend: {
+          externalHost: '0.0.0.0',
+        },
+      },
+    },
     runtime: {
       ports: {
         FRONTEND_PORT: 14146,

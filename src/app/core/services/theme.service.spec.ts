@@ -50,10 +50,10 @@ describe('ThemeService', () => {
     isNativePlatformMock.mockReturnValue(true);
 
     service.setColorSchemePreference('dark');
-    expect(setStyleMock).toHaveBeenCalledWith({ style: Style.Light });
+    expect(setStyleMock).toHaveBeenCalledWith({ style: Style.Dark });
 
     service.setColorSchemePreference('light');
-    expect(setStyleMock).toHaveBeenLastCalledWith({ style: Style.Dark });
+    expect(setStyleMock).toHaveBeenLastCalledWith({ style: Style.Light });
   });
 
   it('reads stored color scheme preferences and ignores storage failures', () => {

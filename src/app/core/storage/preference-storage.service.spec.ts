@@ -145,6 +145,119 @@ describe('PreferenceStorageService', () => {
     });
   });
 
+  it('does not roll back cache when a stale Preferences.set fails after a newer write', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === 'game-shelf:theme') {
+        return Promise.resolve({ value: 'dark' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+
+    let rejectFirstWrite: (reason?: unknown) => void = () => {};
+    preferencesSet
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectFirstWrite = reject;
+          })
+      )
+      .mockResolvedValue(undefined);
+
+    await service.initialize();
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+
+    service.setItem('game-shelf:theme', 'light');
+    service.setItem('game-shelf:theme', 'neon');
+    rejectFirstWrite(new Error('write failed'));
+
+    await vi.waitFor(() => {
+      expect(service.getItem('game-shelf:theme')).toBe('neon');
+    });
+  });
+
+  it('does not restore cache when a stale Preferences.remove fails after a newer write', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === 'game-shelf:theme') {
+        return Promise.resolve({ value: 'dark' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+    preferencesSet.mockResolvedValue(undefined);
+
+    let rejectFirstRemove: (reason?: unknown) => void = () => {};
+    preferencesRemove
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectFirstRemove = reject;
+          })
+      )
+      .mockResolvedValue(undefined);
+
+    await service.initialize();
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+
+    service.removeItem('game-shelf:theme');
+    service.setItem('game-shelf:theme', 'neon');
+    rejectFirstRemove(new Error('remove failed'));
+
+    await vi.waitFor(() => {
+      expect(service.getItem('game-shelf:theme')).toBe('neon');
+    });
+  });
+
+  it('keeps localStorage copies when migration marker persistence fails', async () => {
+    nativePlatformState.value = true;
+    localStorage.setItem('game-shelf:theme', 'dark');
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: null });
+      }
+
+      if (key === 'game-shelf:theme') {
+        return Promise.resolve({ value: 'dark' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+    preferencesSet.mockImplementation(({ key }: { key: string; value: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.reject(new Error('marker write failed'));
+      }
+
+      return Promise.resolve(undefined);
+    });
+
+    await service.initialize();
+
+    expect(localStorage.getItem('game-shelf:theme')).toBe('dark');
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+  });
+
   it('restores cache when Preferences.set fails on native', async () => {
     nativePlatformState.value = true;
 

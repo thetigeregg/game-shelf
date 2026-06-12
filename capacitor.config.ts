@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+    SplashScreen: {
+      launchAutoHide: false,
+      launchFadeOutDuration: 300,
+    },
   },
 };
 

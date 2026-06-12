@@ -3571,3 +3571,24 @@
 - 8d756c72 feat(ios): bootstrap Firebase plists from shared config
 - d43df8c4 fix(ios): update symlink path for CapacitorFirebaseMessaging dependency
 - 7990675d fix(ios): update reference for Info.prod.plist in project configuration
+
+## v1.49.0 - 2026-06-12
+
+- 63e13b41 Merge pull request #413 from thetigeregg/feat/splash
+- 83d5949e test(app): use fake timers for splash screen tests
+- bca03696 test(app): cover native splash screen hide behavior
+- 3a5a07c4 fix(ios): reduce minimum splash screen visibility duration to improve user experience
+- acafeb0a feat(ios): keep splash visible until app startup completes
+- 846e62f8 fix(ios): repair launch screen splash layout
+- bd6db1a1 chore(assets): drop resources folder and refresh web icons
+- 9a1f1211 Merge branch 'main' into feat/splash
+- 6ea7155d fix(ios): update LaunchScreen storyboard to improve layout and compatibility with new device sizes
+- f4649724 fix(ios): update UILaunchStoryboardName in Info.plist files to remove .storyboard extension
+- 433ac362 refactor(ios): simplify splash screen asset configuration by removing redundant scale entries
+- b431c333 feat(ios): update splash screen image filename and add new splash image asset
+- 8764e880 fix(ios): update UILaunchStoryboardName to include .storyboard extension in Info.plist files
+- b37d1a85 feat(ios): update splash screen assets by replacing old images with a new design
+- 8bbfc88f refactor(ios): replace AppIcon-512@2x.png with AppIcon-1024.png in asset catalog
+- f0e7f07f feat(ios): update app icon assets and package dependencies
+- 4dc03f0f feat(ios): add new asset catalogs for development, production, and shared resources
+- 10ef5b66 chore: add @capacitor/assets package

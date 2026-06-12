@@ -251,6 +251,26 @@ test('ensureLocalEnvironmentFile supports configured environment paths', () => {
   );
 });
 
+test('ensureLocalEnvironmentFile derives example path from configured local environment file', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
+  const envDir = path.join(cwd, 'custom');
+  const examplePath = path.join(envDir, 'environment.local.example.ts');
+  const localPath = path.join(envDir, 'environment.local.ts');
+
+  mkdirSync(envDir, { recursive: true });
+  writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+  assert.equal(
+    ensureLocalEnvironmentFile(cwd, {
+      localEnvironmentFile: 'custom/environment.local.ts',
+      copyFile: (source, destination) => {
+        writeFileSync(destination, `copied:${source}`, 'utf8');
+      },
+    }),
+    localPath
+  );
+});
+
 test('resolveLiveReloadHost prefers IOS_LAN_HOST', () => {
   assert.equal(resolveLiveReloadHost({ IOS_LAN_HOST: '192.168.0.21' }), '192.168.0.21');
 });

@@ -152,6 +152,15 @@ function serializeEmulatorJsAssetBase(base: EmulatorJsAssetBase): string {
   return base.origin === null ? base.basePath : `${base.origin}${base.basePath}`;
 }
 
+/** True when the play shell runs in the Capacitor native WebView (`capacitor:` scheme). */
+function isCapacitorPageOrigin(pageOrigin: string): boolean {
+  try {
+    return new URL(pageOrigin.replace(/\/+$/, '') + '/').protocol === 'capacitor:';
+  } catch {
+    return false;
+  }
+}
+
 function containsDotSegments(pathname: string): boolean {
   const segments = pathname.split('/');
   for (let i = 0; i < segments.length; i += 1) {
@@ -338,6 +347,10 @@ function isAllowedEmulatorJsAssetUrl(
   try {
     base = splitEmulatorJsAssetBase(baseUrl, fallbackPath);
   } catch {
+    return false;
+  }
+
+  if (base.origin !== null && !isCapacitorPageOrigin(origin)) {
     return false;
   }
 

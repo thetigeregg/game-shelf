@@ -5,10 +5,11 @@ backend URLs, Firebase project, and bundle ID.
 
 ## Architecture
 
-| Variant  | Angular config | Env file                               | Backend                           | Firebase plist                  | Bundle ID                             |
-| -------- | -------------- | -------------------------------------- | --------------------------------- | ------------------------------- | ------------------------------------- |
-| **Dev**  | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Prod** | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`             | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
+| Variant               | Angular config | Env file                               | Backend                              | Firebase plist                  | Bundle ID                             |
+| --------------------- | -------------- | -------------------------------------- | ------------------------------------ | ------------------------------- | ------------------------------------- |
+| **Dev**               | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>`    | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Dev (live reload)** | `ios-live`     | `environment.local.ts` (manual copy)   | proxied via worktree `FRONTEND_PORT` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Prod**              | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`                | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
 
 Dev uses Docker edge on your Mac (worktree-specific port from `npx devx worktree info`),
 which serves `/api`, `/manuals`, `/roms`, and `/bios` on a single origin. Prod uses the
@@ -16,8 +17,14 @@ deployed HTTPS edge host.
 
 Web browser local dev (`npx devx worktree frontend` + dynamic proxy) is a separate
 mechanism — the dev server proxies on your Mac. `npx devx worktree simulator` serves the
-**web** app to Safari in Simulator; it does not configure the bundled Capacitor app on a
-physical device. The iOS app must call real URLs reachable from the phone.
+**web** app to Safari in Simulator; it does not configure the bundled Capacitor app.
+
+Static device builds (`npm run run:ios:local`) bake absolute backend URLs into
+`environment.ios.local.ts` so the phone calls the Docker edge directly. Live reload
+(`npx devx worktree ios-live` / `npm run run:ios:live`) instead loads the app from the
+worktree Angular dev server at `http://<mac-lan-ip>:<frontend-port>` and proxies API,
+manuals, roms, and bios requests on your Mac — the phone only needs reachability to
+`FRONTEND_PORT`, not the edge port.
 
 ## One-time setup
 
@@ -93,14 +100,15 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 
 ## Day-to-day workflow
 
-| Task               | Command                                     | Scheme       |
-| ------------------ | ------------------------------------------- | ------------ |
-| Run dev on device  | `npm run run:ios:local`                     | **App DEV**  |
-| Run prod on device | `npm run run:ios:prod` (alias: `run:ios`)   | **App PROD** |
-| Sync only (dev)    | `npm run sync:ios:local`                    | —            |
-| Sync only (prod)   | `npm run sync:ios:prod` (alias: `sync:ios`) | —            |
-| Open Xcode         | `npm run open:ios`                          | —            |
-| List run targets   | `npm run list:ios:targets`                  | —            |
+| Task                  | Command                                                      | Scheme       |
+| --------------------- | ------------------------------------------------------------ | ------------ |
+| Run dev on device     | `npm run run:ios:local`                                      | **App DEV**  |
+| Live reload on device | `npx devx worktree ios-live` (alias: `npm run run:ios:live`) | **App DEV**  |
+| Run prod on device    | `npm run run:ios:prod` (alias: `run:ios`)                    | **App PROD** |
+| Sync only (dev)       | `npm run sync:ios:local`                                     | —            |
+| Sync only (prod)      | `npm run sync:ios:prod` (alias: `sync:ios`)                  | —            |
+| Open Xcode            | `npm run open:ios`                                           | —            |
+| List run targets      | `npm run list:ios:targets`                                   | —            |
 
 `run:ios:*` runs the matching `sync:ios:*`, then `cap run ios --no-sync --scheme …`.
 `scripts/run-ios.mjs` loads `.env` for device targeting (shell exports still override).
@@ -113,6 +121,26 @@ when set in `.env`.
 
 Running `npx cap run ios` directly bypasses `run-ios.mjs`, so `.env` device targeting and
 the documented workflow do not apply.
+
+### Live reload on a physical device
+
+```bash
+npx devx worktree stack up
+npx devx worktree ios-live    # or: npm run run:ios:live
+```
+
+Prerequisites:
+
+1. `src/environments/environment.local.ts` exists (copy from `environment.local.example.ts`)
+2. `npm run sync:ios:local` has been run at least once so `www/browser/` exists
+3. `IOS_TARGET_ID` (preferred) or `IOS_TARGET_NAME` in `.env`
+4. `IOS_LAN_HOST` in `.env` when auto-detect fails; phone on same Wi‑Fi as your Mac
+
+`scripts/run-ios-live.mjs` resolves the worktree `FRONTEND_PORT`, starts `ng serve` on
+`0.0.0.0` with the worktree dynamic proxy (`.tmp/proxy.worktree.*.json`), then runs
+`cap run ios --live-reload --host <lan-ip> --port <frontend-port> --scheme "App DEV"`.
+Use `npx devx worktree info` to see derived ports. `EDGE_BIND_HOST=0.0.0.0` is not
+required for API access during live reload because requests are proxied on your Mac.
 
 **Critical:** `cap sync` overwrites `ios/App/App/public/`. Always run the matching
 `sync:ios:*` (or `run:ios:*`, which does this for you) before building the

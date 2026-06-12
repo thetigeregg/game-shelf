@@ -8,7 +8,7 @@ backend URLs, Firebase project, and bundle ID.
 | Variant               | Angular config | Env file                               | Backend                              | Firebase plist (worktree copy)                       | Bundle ID                             |
 | --------------------- | -------------- | -------------------------------------- | ------------------------------------ | ---------------------------------------------------- | ------------------------------------- |
 | **Dev**               | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>`    | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Dev (live reload)** | `ios-live`     | `environment.local.ts` (manual copy)   | proxied via worktree `FRONTEND_PORT` | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Dev (live reload)** | `ios-live`     | `environment.local.ts` (auto-created)  | proxied via worktree `FRONTEND_PORT` | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  | `io.github.thetigeregg.gameshelf.dev` |
 | **Prod**              | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`                | `ios/App/App/Firebase/Prod/GoogleService-Info.plist` | `io.github.thetigeregg.gameshelf`     |
 
 Dev uses Docker edge on your Mac (worktree-specific port from `npx devx worktree info`),

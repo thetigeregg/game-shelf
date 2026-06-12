@@ -37,6 +37,9 @@
 		3A940FA72FDC0C71004AFB7D /* Assets.shared.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.shared.xcassets; sourceTree = "<group>"; };
 		3A940FAA2FDC0C98004AFB7D /* Assets.prod.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.prod.xcassets; sourceTree = "<group>"; };
 		3A940FAD2FDC0D3C004AFB7D /* Info.prod.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.prod.plist; sourceTree = "<group>"; };
+		3A940FAE2FDC0E10004AFB7D /* Info.shared.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.shared.plist; sourceTree = "<group>"; };
+		3A940FAF2FDC0E20004AFB7D /* Info.dev.overlay.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.dev.overlay.plist; sourceTree = "<group>"; };
+		3A940FB02FDC0E30004AFB7D /* Info.prod.overlay.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.prod.overlay.plist; sourceTree = "<group>"; };
 		3ACE7BC62FDB3E5B009B15B6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		3ACE7BC82FDB4256009B15B6 /* App.prod.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.prod.entitlements; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -126,6 +129,9 @@
 				3A940FA72FDC0C71004AFB7D /* Assets.shared.xcassets */,
 				3A940FAA2FDC0C98004AFB7D /* Assets.prod.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
+				3A940FAE2FDC0E10004AFB7D /* Info.shared.plist */,
+				3A940FAF2FDC0E20004AFB7D /* Info.dev.overlay.plist */,
+				3A940FB02FDC0E30004AFB7D /* Info.prod.overlay.plist */,
 				3A0B10BF2FDB3B5C0015969E /* Info.dev.plist */,
 				3A940FAD2FDC0D3C004AFB7D /* Info.prod.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,

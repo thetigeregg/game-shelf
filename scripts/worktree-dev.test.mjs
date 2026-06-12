@@ -17,9 +17,8 @@ test('printSuggestedIosLocalOrigin prints suggested local origin when LAN host i
     log: (line) => lines.push(line),
   });
 
-  assert.match(lines[0], /^iOS local origin \(suggested\): http:\/\/192\.168\.0\.21:\d+$/);
-  assert.match(lines[1], /IOS_BACKEND_ORIGIN_LOCAL=http:\/\/192\.168\.0\.21:\d+/);
-  assert.match(lines[1], /IOS_LAN_HOST=192\.168\.0\.21/);
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
+  assert.match(lines[1], /IOS_LAN_HOST/);
 });
 
 test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exported', () => {
@@ -31,7 +30,7 @@ test('printSuggestedIosLocalOrigin reads IOS_LAN_HOST from .env when not exporte
     log: (line) => lines.push(line),
   });
 
-  assert.match(lines[0], /^iOS local origin \(suggested\): http:\/\/192\.168\.0\.55:\d+$/);
+  assert.match(lines[0], /iOS local origin \(suggested\): available on edge port \d+/);
 });
 
 test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', () => {

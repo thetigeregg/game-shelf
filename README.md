@@ -175,14 +175,19 @@ Signing uses automatic provisioning (team is configured in the Xcode project; ad
 
 Release notifications use native push via `@capacitor-firebase/messaging` (APNs through FCM).
 
-- **Prod app**: Firebase prod project, `GoogleService-Info.prod.plist`, bundle `io.github.thetigeregg.gameshelf`
-- **Dev app**: Firebase dev project, `GoogleService-Info.dev.plist`, bundle `io.github.thetigeregg.gameshelf.dev`
+- **Prod app**: Firebase prod project, bundle `io.github.thetigeregg.gameshelf`
+- **Dev app**: Firebase dev project, bundle `io.github.thetigeregg.gameshelf.dev`
 
 One-time setup per Firebase project:
 
-1. Add the iOS app with the matching bundle ID and download the plist (save as `.prod.plist` or `.dev.plist` under `ios/App/App/`).
+1. Add the iOS app with the matching bundle ID and download the plist. Save shared copies as
+   `~/.config/game-shelf/ios/GoogleService-Info.prod.plist` and
+   `~/.config/game-shelf/ios/GoogleService-Info.dev.plist`
+   (worktree bootstrap and `prebuild:ios` copy these into gitignored `ios/App/App/Firebase/` paths).
 2. Upload your **APNs Auth Key** in Firebase project settings > Cloud Messaging.
 3. In Xcode, enable Push Notifications and `remote-notification` background mode on each target (`App.entitlements`, `Info.plist` / `Info.dev.plist`).
+
+See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for migration from an existing checkout.
 
 Local Docker should use the **dev** Firebase service account; production uses **prod**. The plist in each app must match the Firebase project behind that app's API.
 

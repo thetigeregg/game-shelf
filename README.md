@@ -4,7 +4,8 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 ## Repository Structure
 
-- `src/`: Frontend app (Ionic/Angular PWA)
+- `src/`: Frontend app (Ionic/Angular, web + Capacitor iOS)
+- `ios/`: Capacitor iOS native project (Xcode)
 - `server/`: Fastify API (sync, image proxy/cache, manuals, metadata proxy)
 - `worker/`: Shared metadata logic/tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
@@ -16,9 +17,9 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 ## In-browser emulation (EmulatorJS)
 
-- The PWA can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
+- The app can launch EmulatorJS from a same-origin **play shell** (`src/assets/emulatorjs/play.html`). The shell sets EmulatorJS’s **`EJS_pathtodata`** to a **pinned absolute HTTPS URL** for the EmulatorJS **static distribution** hosted on **GitHub Pages** from the **`game-shelf-assets`** repository (not from the app bundle).
 - **`loader.js`** is loaded **cross-origin** from that base URL with **Subresource Integrity (SRI)** so only a hash-matched build executes. Defaults and pins are in `src/app/core/config/emulatorjs.constants.ts` (after each `game-shelf-assets` deploy, align pins with `EMULATORJS_ASSETS_MANIFEST_URL`); production injection is handled by `scripts/write-environment-prod.sh` when applicable.
-- **ROM** and **BIOS** files are still served **same-origin** from your deployment (`/roms`, `/bios`).
+- **ROM** and **BIOS** files are served from your deployment (`/roms`, `/bios`). On the web they are same-origin; the Capacitor iOS app loads them from the absolute backend host configured in `environment.ios.local.ts` or `environment.ios.prod.ts`.
 - **Supported platforms** are IGDB catalog entries mapped to documented `EJS_core` values ([EmulatorJS · Cores](https://emulatorjs.org/docs4devs/cores)); the map is `src/app/core/utils/emulatorjs-platform-map.ts`. **`Play in browser`** only appears when that map returns a core for the game’s canonical platform id.
 - **ROM folders** on disk use names ending in `__pid-<platformIgdbId>` (see **`ROM files`** and **`EmulatorJS: supported IGDB platforms (in-browser)`** in [`docs/nas-deployment.md`](docs/nas-deployment.md)). **BIOS** paths under `/bios/...` are fixed per core in `src/app/core/utils/emulatorjs-bios-path.ts`; the NAS guide lists every core for which the app sets `EJS_biosUrl`, zip vs single-file layout, and which supported platforms have no BIOS URL today.
 - Full operational layout (ROM layout, supported platform table with BIOS column, BIOS file table, `EJS_pathtodata`) lives in [`docs/nas-deployment.md`](docs/nas-deployment.md) under **ROM files**, **EmulatorJS: supported IGDB platforms (in-browser)**, **BIOS files**, and **EmulatorJS runtime (`EJS_pathtodata`)**.
@@ -82,42 +83,12 @@ npx devx worktree frontend
 
 Frontend dev server port is derived from worktree context (shown by `npx devx worktree info`).
 Manual URLs resolve through the worktree-local `edge` service during dev.
-For iPhone Simulator Safari testing without full PWA fidelity, use:
+For iPhone Simulator Safari testing, use:
 
 ```bash
 npx devx worktree simulator
 ```
 
-For installed-PWA simulator testing, use the required `mkcert` setup flow:
-
-```bash
-npx devx worktree pwa certs-setup
-npx devx worktree pwa certs-check
-```
-
-If Safari in iPhone Simulator still shows "This website is not secure", serve the `mkcert` root CA to the simulator and install/trust it there too:
-
-```bash
-npx devx worktree pwa certs-serve-root
-```
-
-Then in iPhone Simulator Safari open the printed `http://localhost:<port>/rootCA.pem` URL, install the downloaded profile, and enable full trust in `Settings > General > About > Certificate Trust Settings`.
-
-Then build and serve the production PWA over HTTPS:
-
-```bash
-npx devx worktree pwa simulator
-```
-
-Or run the steps separately:
-
-```bash
-npx devx worktree pwa build
-npx devx worktree pwa serve
-```
-
-The installed-PWA path proxies requests under `/api/` and `/manuals/` through the local HTTPS origin so the simulator exercises the production web configuration.
-`npx devx worktree pwa serve` and `npx devx worktree pwa simulator` also reconcile the running `api` and `edge` services with `MANUALS_PUBLIC_BASE_URL=/manuals`, so expect those commands to recreate the relevant containers if the stack was started with older dev env values.
 When using `npx devx worktree ...` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
@@ -149,6 +120,73 @@ For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-dep
 ```bash
 npm run build
 ```
+
+## iOS App (Capacitor)
+
+The frontend ships as a native iOS app via Capacitor. The web deployment (edge) remains for browsers.
+
+Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
+See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
+
+1. For local device testing against a worktree stack, start Docker and note the edge port:
+
+```bash
+npx devx worktree stack up
+npx devx worktree info   # shows edge port and suggested iOS local origin
+```
+
+Set in `.env` (or export in your shell):
+
+```bash
+EDGE_BIND_HOST=0.0.0.0              # required for physical iPhone access; restart stack after changing
+IOS_LAN_HOST=<mac-lan-ip>           # optional if auto-detect works
+IOS_TARGET_ID=<device-id>           # preferred for npm run run:ios:*
+IOS_BACKEND_ORIGIN_LOCAL=http://<mac-lan-ip>:<edge-port>   # optional override
+IOS_BACKEND_ORIGIN_PROD=https://<your-production-host>
+```
+
+`npm run build:ios:local` / `build:ios:prod` generate gitignored `environment.ios.*.ts` via
+`scripts/write-environment-ios.mjs`. Local builds auto-compose the origin from worktree edge
+port plus `IOS_LAN_HOST` (or auto-detected LAN IPv4) when `IOS_BACKEND_ORIGIN_LOCAL` is unset.
+
+2. Build, sync, and run on a connected device:
+
+```bash
+npm run run:ios:prod    # production backend (alias: npm run run:ios)
+npm run run:ios:local   # local Docker edge on your Mac (worktree-aware)
+```
+
+Connect and trust your iPhone first. `npm run run:ios:*` loads `.env` for `IOS_TARGET_ID` /
+`IOS_TARGET_NAME` (prefer ID). Use `npm run list:ios:targets` to discover values, or
+`npx devx worktree info` to see the configured target. First-time code signing may still
+require opening Xcode once.
+
+**Alternate workflows:**
+
+```bash
+npm run sync:ios:prod    # build + sync only (alias: npm run sync:ios)
+npm run sync:ios:local
+npm run open:ios         # open Xcode (debugger, manual scheme/run)
+```
+
+Signing uses automatic provisioning (team is configured in the Xcode project; adjust to your Apple Developer team if needed). Side-by-side dev + prod apps use **App DEV** and **App PROD** targets/schemes — see the multi-environment doc.
+
+### Push notifications (release notifications)
+
+Release notifications use native push via `@capacitor-firebase/messaging` (APNs through FCM).
+
+- **Prod app**: Firebase prod project, `GoogleService-Info.prod.plist`, bundle `io.github.thetigeregg.gameshelf`
+- **Dev app**: Firebase dev project, `GoogleService-Info.dev.plist`, bundle `io.github.thetigeregg.gameshelf.dev`
+
+One-time setup per Firebase project:
+
+1. Add the iOS app with the matching bundle ID and download the plist (save as `.prod.plist` or `.dev.plist` under `ios/App/App/`).
+2. Upload your **APNs Auth Key** in Firebase project settings > Cloud Messaging.
+3. In Xcode, enable Push Notifications and `remote-notification` background mode on each target (`App.entitlements`, `Info.plist` / `Info.dev.plist`).
+
+Local Docker should use the **dev** Firebase service account; production uses **prod**. The plist in each app must match the Firebase project behind that app's API.
+
+The backend contract is unchanged: tokens register via `POST /v1/notifications/fcm/register` and the server sends through `firebase-admin`. Web browsers do not support push notifications; use the iOS app.
 
 ## Pricing Metadata
 
@@ -249,6 +287,8 @@ Compose stacks use:
 - Local secrets should not be committed:
   - `src/environments/environment.local.ts` is ignored
   - use `src/environments/environment.local.example.ts` as template
+  - `src/environments/environment.ios.local.ts` and `environment.ios.prod.ts` are generated and ignored
+  - set `IOS_BACKEND_ORIGIN_LOCAL` / `IOS_BACKEND_ORIGIN_PROD` in `.env` (see `.env.example`)
 - Secret scanning:
   - `.gitleaks.toml`
   - `.github/workflows/secret-scan.yml`

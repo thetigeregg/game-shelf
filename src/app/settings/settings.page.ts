@@ -286,6 +286,7 @@ export class SettingsPage {
   selectedColorScheme: ColorSchemePreference = 'system';
   clientWriteTokenConfigured = false;
   verboseTracingEnabled = false;
+  pushNotificationsSupported = false;
   releaseNotificationsEnabled = false;
   releaseNotificationEvents: ReleaseNotificationEventsPreference = {
     set: true,
@@ -360,6 +361,7 @@ export class SettingsPage {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
     this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
     this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
+    this.pushNotificationsSupported = this.notificationService.isPushSupported();
     this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
     this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();

@@ -9,15 +9,15 @@ import {
   createWorktreeContext,
   ensureParentDirectories,
   ensureDependenciesInstalled,
-  getSimulatorCertificateStatus,
   loadDevxConfig,
-  printMissingCertificateInstructions,
   printWorktreeInfo,
   runComposeCommand,
   runFrontendDev,
-  runPwaCommand,
   runWorktreeBootstrap,
 } from '@thetigeregg/dev-cli';
+
+import { loadProjectEnv } from './dotenv.mjs';
+import { formatSuggestedIosLocalOrigin, resolveLanHost } from './lan-host.mjs';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -37,109 +37,37 @@ export function createSharedEnv({
   return context.createSharedEnv({ processEnv, manualsPublicBaseUrl });
 }
 
-export function createPwaStackEnv(baseEnv = createSharedEnv()) {
-  return {
-    ...baseEnv,
-    MANUALS_PUBLIC_BASE_URL: context.pwaManualsPublicBaseUrl,
-  };
-}
+export function printSuggestedIosLocalOrigin({
+  processEnv = process.env,
+  log = console.log,
+  dotenvValues,
+  envPath,
+} = {}) {
+  const env = loadProjectEnv(processEnv, { dotenvValues, envPath });
+  const edgePort = context.runtime.ports.EDGE_HOST_PORT;
+  const lanHost = resolveLanHost(env);
+  const suggestedOrigin = formatSuggestedIosLocalOrigin(lanHost, edgePort);
 
-function setupPwaCertificates() {
-  const certStatus = getSimulatorCertificateStatus(context);
-  if (!certStatus.mkcertAvailable) {
-    console.error('mkcert is required for the simulator PWA flow but was not found in PATH.');
-    process.exit(1);
+  if (!suggestedOrigin) {
+    log('iOS local origin (suggested): unavailable (set IOS_LAN_HOST in .env)');
+    log(
+      '  Set IOS_BACKEND_ORIGIN_LOCAL to override. Use EDGE_BIND_HOST=0.0.0.0 for device access.'
+    );
+    return;
   }
 
-  ensureParentDirectories([context.simulatorCertFile, context.simulatorKeyFile]);
-  context.run('mkcert', ['-install'], context.createSharedEnv());
-  context.run(
-    'mkcert',
-    [
-      '-cert-file',
-      context.simulatorCertFile,
-      '-key-file',
-      context.simulatorKeyFile,
-      'localhost',
-      '127.0.0.1',
-      '::1',
-    ],
-    context.createSharedEnv()
-  );
+  log(`iOS local origin (suggested): available on edge port ${edgePort}`);
+  log('  Set IOS_LAN_HOST and IOS_BACKEND_ORIGIN_LOCAL in .env for the full origin URL.');
+  log('  Use EDGE_BIND_HOST=0.0.0.0 for device access.');
 
-  const updatedStatus = getSimulatorCertificateStatus(context);
-  console.log('Simulator PWA certificates are ready.');
-  console.log(`Cert: ${updatedStatus.certPath}`);
-  console.log(`Key:  ${updatedStatus.keyPath}`);
-  if (updatedStatus.rootCaPath) {
-    console.log(`mkcert root CA: ${updatedStatus.rootCaPath}`);
+  const hasTargetId = Boolean(env.IOS_TARGET_ID?.trim());
+  const hasTargetName = Boolean(env.IOS_TARGET_NAME?.trim());
+
+  if (hasTargetId) {
+    log('iOS run target (from .env): IOS_TARGET_ID is set');
+  } else if (hasTargetName) {
+    log('iOS run target (from .env): IOS_TARGET_NAME is set');
   }
-  console.log(
-    'If you need to install the mkcert root CA in iPhone Simulator, run: npx devx worktree pwa certs-serve-root'
-  );
-}
-
-function reconcilePwaStackManualsBaseUrl() {
-  console.log('Ensuring installed-PWA manual links stay on the local HTTPS origin.');
-  console.log(
-    'Recreating api and edge services if needed so MANUALS_PUBLIC_BASE_URL=/manuals is applied.'
-  );
-  context.run(
-    'docker',
-    [...context.composeArgs, 'up', '-d', 'api', 'edge'],
-    createPwaStackEnv(context.createSharedEnv())
-  );
-}
-
-export async function runPwa(
-  command,
-  {
-    isPortReachableFn,
-    reconcilePwaStackManualsBaseUrlFn = reconcilePwaStackManualsBaseUrl,
-    buildPwaFn,
-    runPwaServeFn,
-    setupPwaCertificatesFn = setupPwaCertificates,
-    getSimulatorCertificateStatusFn,
-    printMissingCertificateInstructionsFn,
-    servePwaRootCertificateFn,
-    portsConfig,
-    exitFn,
-    logger,
-  } = {}
-) {
-  const effectiveContext = portsConfig
-    ? {
-        ...context,
-        runtime: {
-          ...context.runtime,
-          ports: {
-            ...context.runtime.ports,
-            ...portsConfig,
-          },
-        },
-      }
-    : context;
-
-  return runPwaCommand(effectiveContext, command, {
-    isPortReachableFn,
-    reconcilePwaStackFn: reconcilePwaStackManualsBaseUrlFn
-      ? () => reconcilePwaStackManualsBaseUrlFn()
-      : undefined,
-    buildPwaFn: buildPwaFn ? () => buildPwaFn() : undefined,
-    runPwaServeFn: runPwaServeFn ? () => runPwaServeFn() : undefined,
-    setupPwaCertificatesFn: setupPwaCertificatesFn ? () => setupPwaCertificatesFn() : undefined,
-    getSimulatorCertificateStatusFn: getSimulatorCertificateStatusFn
-      ? () => getSimulatorCertificateStatusFn()
-      : undefined,
-    printMissingCertificateInstructionsFn: printMissingCertificateInstructionsFn
-      ? () => printMissingCertificateInstructionsFn()
-      : () => printMissingCertificateInstructions(effectiveContext),
-    servePwaRootCertificateFn: servePwaRootCertificateFn
-      ? () => servePwaRootCertificateFn()
-      : undefined,
-    exitFn,
-    logger,
-  });
 }
 
 function runStack(action) {
@@ -157,14 +85,67 @@ function runStack(action) {
   }
 }
 
+function buildPostgresExecScript(innerScript) {
+  return `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; ${innerScript}`;
+}
+
+function buildPostgresExecCommand(innerScript) {
+  return `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    buildPostgresExecScript(innerScript)
+  )}`;
+}
+
+export function waitForPostgresReady({
+  maxAttempts = 30,
+  delaySeconds = 2,
+  runCommand = (command, env) =>
+    spawnSync('sh', ['-lc', command], {
+      cwd: context.cwd,
+      env,
+      stdio: 'pipe',
+    }),
+  sleep = (seconds) => {
+    spawnSync('sleep', [String(seconds)], { stdio: 'ignore' });
+  },
+  log = console.log,
+  error = console.error,
+  exit = (code) => {
+    process.exit(code);
+  },
+} = {}) {
+  const readinessCommand = buildPostgresExecCommand(
+    'pg_isready -h 127.0.0.1 -U "$user" -d "$db" >/dev/null 2>&1'
+  );
+  const env = context.createSharedEnv();
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = runCommand(readinessCommand, env);
+    if (result.status === 0) {
+      if (attempt > 1) {
+        log('Postgres is ready.');
+      }
+      return;
+    }
+
+    if (attempt < maxAttempts) {
+      log(`Waiting for postgres (${attempt}/${maxAttempts})...`);
+      sleep(delaySeconds);
+    }
+  }
+
+  error('Timed out waiting for postgres to accept connections.');
+  exit(1);
+}
+
 function ensurePostgresRunning() {
   context.run('docker', [...context.composeArgs, 'up', '-d', 'postgres']);
+  waitForPostgresReady();
 }
 
 function isCurrentDbEmpty() {
-  const query = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -Atq -U "$user" -d "$db" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
-  )}`;
+  const query = buildPostgresExecCommand(
+    `psql -Atq -U "$user" -d "$db" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
+  );
   const output = context.runShellCapture(query, context.createSharedEnv()).trim();
   const count = Number.parseInt(output || '0', 10);
   if (!Number.isInteger(count)) {
@@ -176,9 +157,9 @@ function isCurrentDbEmpty() {
 
 function reconcileGameSyncHistory() {
   console.log('Reconciling game sync history with current games table');
-  const reconcileCmd = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db" -c "BEGIN; DELETE FROM sync_events WHERE entity_type = 'game'; INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp) SELECT 'game', igdb_game_id || '::' || platform_igdb_id::text, 'upsert', payload, NOW() FROM games; COMMIT;"`
-  )}`;
+  const reconcileCmd = buildPostgresExecCommand(
+    `psql -v ON_ERROR_STOP=1 -U "$user" -d "$db" -c "BEGIN; DELETE FROM sync_events WHERE entity_type = 'game'; INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp) SELECT 'game', igdb_game_id || '::' || platform_igdb_id::text, 'upsert', payload, NOW() FROM games; COMMIT;"`
+  );
 
   context.runShell(reconcileCmd, context.createSharedEnv());
   console.log('Game sync history reconciliation complete.');
@@ -194,8 +175,8 @@ function dbSeedRefresh() {
   reconcileGameSyncHistory();
 
   console.log('Refreshing DB seed from current worktree postgres');
-  const dumpCommand = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
+  const dumpCommand = `${buildPostgresExecCommand(
+    `pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
   )} > ${shellEscape(tempSqlPath)}`;
   context.runShell(dumpCommand, context.createSharedEnv());
 
@@ -247,9 +228,7 @@ function dbSeedRestoreFromFile(seedPath) {
     ? `gzip -dc ${shellEscape(seedPath)}`
     : `cat ${shellEscape(seedPath)}`;
 
-  const restoreCmd = `docker ${context.composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"`
-  )}`;
+  const restoreCmd = buildPostgresExecCommand('psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"');
 
   context.runShell(`${sourceCmd} | ${restoreCmd}`, context.createSharedEnv());
 }
@@ -328,7 +307,7 @@ export function isEntrypoint({ argv1 = process.argv[1], moduleUrl = import.meta.
 export async function runWorktreeDev(argv) {
   if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
     console.log(
-      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|pwa|stack|db> [action]'
+      'Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|simulator|stack|db> [action]'
     );
     console.log('');
     console.log('Commands:');
@@ -339,22 +318,6 @@ export async function runWorktreeDev(argv) {
     console.log('  frontend                  Run Angular dev server for this worktree');
     console.log(
       '  simulator                 Run Angular dev server on all interfaces for Safari in Simulator'
-    );
-    console.log(
-      '  pwa build                 Build production frontend for installed-PWA simulator testing'
-    );
-    console.log(
-      '  pwa serve                 Serve built frontend over HTTPS with /api and /manuals proxying'
-    );
-    console.log('  pwa simulator             Build and serve installed-PWA simulator flow');
-    console.log(
-      '  pwa certs-setup           Generate required mkcert localhost certs for simulator PWA serving'
-    );
-    console.log(
-      '  pwa certs-check           Validate local HTTPS cert/key files for simulator PWA serving'
-    );
-    console.log(
-      '  pwa certs-serve-root      Serve the mkcert root CA so Simulator can install and trust it'
     );
     console.log('  stack up                  Start worktree-isolated docker stack');
     console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -374,17 +337,12 @@ export async function runWorktreeDev(argv) {
     );
     console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
     console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
-    console.log(
-      '  WORKTREE_PWA_CERT_FILE    Override local HTTPS cert path for simulator PWA serving'
-    );
-    console.log(
-      '  WORKTREE_PWA_KEY_FILE     Override local HTTPS key path for simulator PWA serving'
-    );
     process.exit(0);
   }
 
   if (argv[0] === 'info') {
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     process.exit(0);
   }
 
@@ -405,6 +363,7 @@ export async function runWorktreeDev(argv) {
   if (argv[0] === 'frontend') {
     context.createSharedEnv();
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     ensureDependenciesInstalled(context, false);
     runFrontendDev(context);
     process.exit(0);
@@ -412,6 +371,7 @@ export async function runWorktreeDev(argv) {
 
   if (argv[0] === 'simulator') {
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     ensureDependenciesInstalled(context, false);
     runFrontendDev(context, {
       external: true,
@@ -426,6 +386,7 @@ export async function runWorktreeDev(argv) {
       process.exit(1);
     }
     printWorktreeInfo(context);
+    printSuggestedIosLocalOrigin();
     runStack(argv[1]);
     process.exit(0);
   }
@@ -439,19 +400,6 @@ export async function runWorktreeDev(argv) {
     }
     printWorktreeInfo(context);
     runDb(argv[1], parseOptions(argv.slice(2)));
-    process.exit(0);
-  }
-
-  if (argv[0] === 'pwa') {
-    if (!argv[1]) {
-      console.error(
-        'Missing pwa action. Use: build | serve | simulator | certs-setup | certs-check | certs-serve-root'
-      );
-      process.exit(1);
-    }
-    printWorktreeInfo(context);
-    ensureDependenciesInstalled(context, false);
-    await runPwa(argv[1]);
     process.exit(0);
   }
 

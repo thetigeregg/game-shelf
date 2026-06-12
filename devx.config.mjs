@@ -34,8 +34,6 @@ export default {
       maxPortOffset: 10000,
       ports: {
         FRONTEND_PORT: 8100,
-        PWA_HOST_PORT: 8200,
-        PWA_ROOT_CA_PORT: 8300,
         EDGE_HOST_PORT: 8080,
         API_HOST_PORT: 3000,
         POSTGRES_HOST_PORT: 5432,
@@ -97,17 +95,6 @@ export default {
       },
       localEnvironmentFile: 'src/environments/environment.local.ts',
       buildRoot: 'www/browser',
-    },
-    pwa: {
-      prebuildCommand: 'npm run prebuild',
-      buildCommand: 'npx ng build --configuration production',
-      httpsServerScript: 'scripts/pwa-https-server.mjs',
-      rootCaServerScript: 'scripts/pwa-root-ca-server.mjs',
-      certDir: '.tmp/pwa-certs',
-      certFileEnvVar: 'WORKTREE_PWA_CERT_FILE',
-      keyFileEnvVar: 'WORKTREE_PWA_KEY_FILE',
-      manualsPublicBaseUrl: null,
-      pwaManualsPublicBaseUrl: '/manuals',
     },
     db: {
       seedPathEnvVar: 'DEV_DB_SEED_PATH',

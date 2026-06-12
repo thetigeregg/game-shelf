@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- EmulatorJS bootstrap: validates launch params, sets EJS_* globals, loads loader.js from EJS_pathtodata (HTTPS GitHub Pages game-shelf-assets only; SRI required). ROM/BIOS are same-origin under fixed `/roms/` and `/bios` (no query-string base overrides). Supported platforms + BIOS layout: docs/nas-deployment.md (ROM files, EmulatorJS sections). -->
+<!-- EmulatorJS bootstrap: validates launch params, sets EJS_* globals, loads loader.js from EJS_pathtodata (HTTPS GitHub Pages game-shelf-assets only; SRI required). ROM/BIOS are same-origin under `/roms/` and `/bios` on the web; in the Capacitor native shell (capacitor: scheme) `rom_base`/`bios_base` may point at an absolute HTTPS backend host. Supported platforms + BIOS layout: docs/nas-deployment.md (ROM files, EmulatorJS sections). -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -29,6 +29,10 @@
         var title = params.get('title') || '';
         var pathtodata = params.get('pathtodata');
         var biosBaseParam = params.get('bios_base');
+        var romBaseParam = params.get('rom_base');
+        /* Capacitor iOS serves the bundled app under the capacitor: scheme; only there are
+           cross-origin HTTPS ROM/BIOS bases (the configured backend host) accepted. */
+        var isNativeShell = window.location.protocol === 'capacitor:';
 
         function showError(message) {
           var text = message || 'Invalid launch parameters';
@@ -140,11 +144,41 @@
           return false;
         }
 
-        function normalizeBasePath(value, fallback) {
+        /* Parses an asset base param into { origin, basePath }. origin is null for same-origin
+           path bases. Absolute HTTPS bases are only accepted inside the native shell. */
+        function parseAssetBase(value, fallback) {
           if (typeof value !== 'string') {
             value = '';
           }
           var trimmed = value.trim();
+
+          if (/^https:\/\//i.test(trimmed)) {
+            if (!isNativeShell) {
+              return null;
+            }
+            var parsedBase;
+            try {
+              parsedBase = new URL(trimmed);
+            } catch (_error) {
+              return null;
+            }
+            if (parsedBase.username.length > 0 || parsedBase.password.length > 0) {
+              return null;
+            }
+            var remotePath = parsedBase.pathname.replace(/\/+$/, '');
+            if (containsDotSegments(remotePath)) {
+              return null;
+            }
+            return {
+              origin: parsedBase.origin,
+              basePath: remotePath.length > 0 ? remotePath : fallback,
+            };
+          }
+
+          if (trimmed.indexOf('://') !== -1) {
+            return null;
+          }
+
           var chosen = trimmed.length > 0 ? trimmed : fallback;
           var normalizedBase = chosen.replace(/\/+$/, '');
           var normalizedPath =
@@ -152,16 +186,16 @@
           if (containsDotSegments(normalizedPath)) {
             return null;
           }
-          return normalizedPath;
+          return { origin: null, basePath: normalizedPath };
         }
 
-        function isAllowedBiosUrl(url, origin, biosBasePath) {
+        function isAllowedAssetUrl(url, allowedOrigin, basePath) {
           return (
-            url.origin === origin &&
+            url.origin === allowedOrigin &&
             url.username.length === 0 &&
             url.password.length === 0 &&
             !containsDotSegments(url.pathname) &&
-            url.pathname.startsWith(biosBasePath + '/')
+            url.pathname.startsWith(basePath + '/')
           );
         }
 
@@ -179,23 +213,23 @@
           return;
         }
 
+        var pageOrigin = window.location.origin;
+        var romBase = parseAssetBase(romBaseParam, '/roms');
+        if (!romBase) {
+          showError('Invalid ROM base path.');
+          return;
+        }
+        var allowedRomOrigin = romBase.origin === null ? pageOrigin : romBase.origin;
+
         var romUrl;
         try {
-          romUrl = new URL(rom, window.location.origin);
+          romUrl = new URL(rom, allowedRomOrigin);
         } catch (_error) {
           showError('Invalid ROM URL.');
           return;
         }
 
-        var pageOrigin = window.location.origin;
-        var romBasePath = '/roms/';
-        if (
-          romUrl.origin !== pageOrigin ||
-          romUrl.username.length > 0 ||
-          romUrl.password.length > 0 ||
-          containsDotSegments(romUrl.pathname) ||
-          !romUrl.pathname.startsWith(romBasePath)
-        ) {
+        if (!isAllowedAssetUrl(romUrl, allowedRomOrigin, romBase.basePath)) {
           showError('ROM URL is not allowed.');
           return;
         }
@@ -207,16 +241,6 @@
           window.EJS_gameName = title;
         }
         window.EJS_pathtodata = normalizedPathToData;
-        var isStandaloneDisplayMode = false;
-        try {
-          isStandaloneDisplayMode =
-            (window.matchMedia &&
-              typeof window.matchMedia === 'function' &&
-              window.matchMedia('(display-mode: standalone)').matches) ||
-            window.navigator.standalone === true;
-        } catch (_error) {
-          isStandaloneDisplayMode = window.navigator.standalone === true;
-        }
         var userAgent = window.navigator.userAgent || '';
         var isClassicIosDevice = /iPad|iPhone|iPod/.test(userAgent);
         var isIpadOsDesktopUa =
@@ -224,8 +248,9 @@
           typeof window.navigator.maxTouchPoints === 'number' &&
           window.navigator.maxTouchPoints > 1;
         var isIosDevice = isClassicIosDevice || isIpadOsDesktopUa;
-        /* iOS standalone PWAs can reject EmulatorJS auto-start media init unless user-gesture driven. */
-        window.EJS_startOnLoaded = !(isStandaloneDisplayMode && isIosDevice);
+        /* The iOS native WKWebView shell can reject EmulatorJS auto-start media init unless
+           user-gesture driven, so require a tap to start there. */
+        window.EJS_startOnLoaded = !(isNativeShell && isIosDevice);
         /* Do not set EJS_fullscreenOnLoaded: requestFullscreen() must run from a user gesture;
            auto-fullscreen after ROM load is denied in iframes and EmulatorJS throws. */
         /* menu-bar-button: top-right control that toggles the bottom toolbar (EJS class ejs_virtualGamepad_open).
@@ -243,19 +268,20 @@
 
         var bios = params.get('bios');
         if (bios) {
-          var biosBasePath = normalizeBasePath(biosBaseParam, '/bios');
-          if (!biosBasePath) {
+          var biosBase = parseAssetBase(biosBaseParam, '/bios');
+          if (!biosBase) {
             showError('Invalid BIOS base path.');
             return;
           }
+          var allowedBiosOrigin = biosBase.origin === null ? pageOrigin : biosBase.origin;
           var biosUrl;
           try {
-            biosUrl = new URL(bios, window.location.origin);
+            biosUrl = new URL(bios, allowedBiosOrigin);
           } catch (_error) {
             showError('Invalid BIOS URL.');
             return;
           }
-          if (!isAllowedBiosUrl(biosUrl, window.location.origin, biosBasePath)) {
+          if (!isAllowedAssetUrl(biosUrl, allowedBiosOrigin, biosBase.basePath)) {
             showError('BIOS URL is not allowed.');
             return;
           }

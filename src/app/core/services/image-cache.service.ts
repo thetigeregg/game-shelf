@@ -108,25 +108,13 @@ export class ImageCacheService {
     }
 
     // Thumbnails are rendered in large volumes and have shown unreliable behavior
-    // when persisted as IndexedDB blobs on some clients (notably iOS/PWA contexts).
+    // when persisted as IndexedDB blobs on some clients (notably iOS WebKit contexts).
     // Use direct URL rendering for thumbs and reserve blob cache for detail art.
     if (variant === 'thumb') {
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,
         reason: 'thumb_variant',
-      });
-      return normalizedSourceUrl;
-    }
-
-    // In standalone PWA mode (especially iOS), blob/object URLs used for detail art
-    // can intermittently fail after first paint and trigger placeholder fallbacks.
-    // Prefer direct source URLs in that environment for rendering stability.
-    if (this.shouldBypassDetailBlobCache()) {
-      this.debugLogService.trace('image_cache.resolve_direct', {
-        gameKey,
-        variant,
-        reason: 'pwa_blob_bypass',
       });
       return normalizedSourceUrl;
     }
@@ -293,26 +281,6 @@ export class ImageCacheService {
 
   private buildCacheKey(gameKey: string, variant: ImageCacheVariant, sourceUrl: string): string {
     return `${gameKey}::${variant}::${sourceUrl}`;
-  }
-
-  private shouldBypassDetailBlobCache(): boolean {
-    if (
-      typeof window === 'undefined' ||
-      typeof navigator === 'undefined' ||
-      typeof window.matchMedia !== 'function'
-    ) {
-      return false;
-    }
-
-    const nav = navigator as Navigator & { standalone?: boolean };
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
-
-    if (!isStandalone) {
-      return false;
-    }
-
-    return true;
   }
 
   private clampLimitMb(value: number): number {

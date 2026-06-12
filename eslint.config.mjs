@@ -26,6 +26,9 @@ export default defineConfig([
     'worktrees/**/*',
     '.angular/**/*',
     'test-results/**/*',
+    'ios/DerivedData/**/*',
+    'ios/**/native-bridge.js',
+    'ios/App/App/public/**/*',
   ]),
 
   {

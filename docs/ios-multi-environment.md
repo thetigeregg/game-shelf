@@ -95,10 +95,28 @@ the corresponding API uses, or push token registration and delivery will fail.
 
 The repo ships two native targets and shared schemes:
 
-| Target       | Scheme       | Bundle ID                             | Info plist            |
-| ------------ | ------------ | ------------------------------------- | --------------------- |
-| **App DEV**  | **App DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`  |
-| **App PROD** | **App PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist` |
+| Target       | Scheme       | Bundle ID                             | Info plist (generated) |
+| ------------ | ------------ | ------------------------------------- | ---------------------- |
+| **App DEV**  | **App DEV**  | `io.github.thetigeregg.gameshelf.dev` | `App/Info.dev.plist`   |
+| **App PROD** | **App PROD** | `io.github.thetigeregg.gameshelf`     | `App/Info.prod.plist`  |
+
+`Info.dev.plist` and `Info.prod.plist` are **generated** from shared source plists. Edit
+the sources instead of the generated files:
+
+| Source file                   | Purpose                                                 |
+| ----------------------------- | ------------------------------------------------------- |
+| `App/Info.shared.plist`       | Keys shared by both targets                             |
+| `App/Info.dev.overlay.plist`  | Dev-only keys (`CFBundleDisplayName`, ATS for LAN HTTP) |
+| `App/Info.prod.overlay.plist` | Prod-only keys (`CFBundleDisplayName`)                  |
+
+After editing sources, regenerate committed outputs:
+
+```bash
+npm run generate:ios-info-plists
+```
+
+`prebuild:ios` runs this automatically before each iOS build. Do not edit
+`Info.dev.plist` or `Info.prod.plist` directly — changes are overwritten on the next build.
 
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
 

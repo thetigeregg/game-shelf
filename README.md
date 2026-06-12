@@ -181,7 +181,8 @@ Release notifications use native push via `@capacitor-firebase/messaging` (APNs 
 One-time setup per Firebase project:
 
 1. Add the iOS app with the matching bundle ID and download the plist. Save shared copies as
-   `~/.config/game-shelf/ios/GoogleService-Info.prod.plist` and `GoogleService-Info.dev.plist`
+   `~/.config/game-shelf/ios/GoogleService-Info.prod.plist` and
+   `~/.config/game-shelf/ios/GoogleService-Info.dev.plist`
    (worktree bootstrap and `prebuild:ios` copy these into gitignored `ios/App/App/Firebase/` paths).
 2. Upload your **APNs Auth Key** in Firebase project settings > Cloud Messaging.
 3. In Xcode, enable Push Notifications and `remote-notification` background mode on each target (`App.entitlements`, `Info.plist` / `Info.dev.plist`).

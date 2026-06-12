@@ -87,3 +87,27 @@ export function formatSuggestedIosLocalOrigin(host, edgePort) {
 
   return origin;
 }
+
+export function resolveManualsPublicBaseUrl(envValues = {}, edgePort, options = {}) {
+  const explicit =
+    typeof envValues.MANUALS_PUBLIC_BASE_URL === 'string'
+      ? envValues.MANUALS_PUBLIC_BASE_URL.trim()
+      : '';
+
+  if (/^https?:\/\//i.test(explicit)) {
+    return explicit.replace(/\/+$/, '');
+  }
+
+  const lanHost = resolveLanHost(envValues, options);
+  const origin = composeLocalBackendOrigin(lanHost, edgePort);
+  if (origin) {
+    return `${origin}/manuals`;
+  }
+
+  const port = Number.parseInt(String(edgePort), 10);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    return '/manuals';
+  }
+
+  return `http://127.0.0.1:${port}/manuals`;
+}

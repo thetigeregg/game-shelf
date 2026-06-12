@@ -49,11 +49,24 @@ test('printSuggestedIosLocalOrigin prints configured iOS run target from .env', 
   assert.match(lines[3], /iOS run target \(from \.env\): IOS_TARGET_ID is set/);
 });
 
-test('createSharedEnv keeps the dev manuals origin absolute by default', () => {
-  const env = createSharedEnv({ processEnv: { PATH: '/usr/bin' } });
+test('createSharedEnv uses LAN host for dev manuals origin by default', () => {
+  const env = createSharedEnv({
+    processEnv: { PATH: '/usr/bin', IOS_LAN_HOST: '192.168.0.21' },
+  });
 
-  assert.match(env.MANUALS_PUBLIC_BASE_URL, /^http:\/\/127\.0\.0\.1:\d+\/manuals$/);
+  assert.match(env.MANUALS_PUBLIC_BASE_URL, /^http:\/\/192\.168\.0\.21:\d+\/manuals$/);
   assert.equal(env.PATH, '/usr/bin');
+});
+
+test('createSharedEnv preserves an absolute MANUALS_PUBLIC_BASE_URL from env', () => {
+  const env = createSharedEnv({
+    processEnv: {
+      PATH: '/usr/bin',
+      MANUALS_PUBLIC_BASE_URL: 'http://192.168.0.99:12000/manuals/',
+    },
+  });
+
+  assert.equal(env.MANUALS_PUBLIC_BASE_URL, 'http://192.168.0.99:12000/manuals');
 });
 
 test('createSharedEnv preserves an explicit secrets host dir from the provided env', () => {

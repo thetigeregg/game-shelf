@@ -5,6 +5,7 @@ import {
   composeLocalBackendOrigin,
   formatSuggestedIosLocalOrigin,
   resolveLanHost,
+  resolveManualsPublicBaseUrl,
 } from './lan-host.mjs';
 
 test('resolveLanHost prefers IOS_LAN_HOST when set', () => {
@@ -60,4 +61,32 @@ test('composeLocalBackendOrigin builds http origin from host and edge port', () 
 
 test('formatSuggestedIosLocalOrigin mirrors composeLocalBackendOrigin', () => {
   assert.equal(formatSuggestedIosLocalOrigin('192.168.0.21', 11621), 'http://192.168.0.21:11621');
+});
+
+test('resolveManualsPublicBaseUrl prefers an absolute MANUALS_PUBLIC_BASE_URL override', () => {
+  assert.equal(
+    resolveManualsPublicBaseUrl(
+      { MANUALS_PUBLIC_BASE_URL: 'http://192.168.0.99:12000/manuals/' },
+      8080
+    ),
+    'http://192.168.0.99:12000/manuals'
+  );
+});
+
+test('resolveManualsPublicBaseUrl composes LAN manuals origin from IOS_LAN_HOST', () => {
+  assert.equal(
+    resolveManualsPublicBaseUrl({ IOS_LAN_HOST: '192.168.0.21' }, 10028),
+    'http://192.168.0.21:10028/manuals'
+  );
+});
+
+test('resolveManualsPublicBaseUrl falls back to localhost when LAN host is unavailable', () => {
+  assert.equal(
+    resolveManualsPublicBaseUrl({}, 10028, {
+      networkInterfaces: () => ({
+        lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      }),
+    }),
+    'http://127.0.0.1:10028/manuals'
+  );
 });

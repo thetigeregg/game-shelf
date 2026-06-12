@@ -3511,3 +3511,48 @@
 - ef1929e5 feat(config): add Angular package filtering to ncu configuration
 - 05d66f1e chore(deps): update dependencies in package.json and package-lock.json
 - 1ffac2fe chore(deps): update @google-cloud/storage to v7.21.0 and @grpc/grpc-js to v1.14.4
+
+## v1.47.0 - 2026-06-12
+
+- 19447ae9 Merge pull request #411 from thetigeregg/feat/cap
+- 22c3cbf1 fix(ios): address PR review on rom_base and env resolution
+- 31710ed7 fix(ios): update symlink configuration for Firebase messaging package
+- 42e46684 fix(ios): remove unnecessary completion handler call in remote notification
+- dd10c3ed feat(emulatorjs): add validation for absolute HTTPS URLs in web origins
+- 26b49c9c Revert "fix(ios): align EmulatorJS allowlist and print iOS origin"
+- d444a43c fix(ios): align EmulatorJS allowlist and print iOS origin
+- 92ccf2e3 fix(ios): address PR 411 CodeQL, review, and coverage gaps
+- cc10e0b4 build(lint): ignore iOS DerivedData and Capacitor build artifacts
+- 6772dac1 chore(husky): add psprices-scraper node_modules check in post-checkout script
+- 2b27c723 chore(env): consolidate EDGE_BIND_HOST in .env.example
+- 1b637c48 feat(ios): update Xcode schemes and documentation for App DEV and App PROD
+- de7da95d fix(ios): load .env consistently for run and worktree hints
+- c3cf7fe9 feat(ios): integrate local dev with worktree edge ports
+- fc0b2955 chore(pwa): remove orphaned assets and stale references
+- 477691d0 feat(ios): add run:ios CLI commands for device deploy
+- 7b3c5952 fix(dev): wait for postgres before db seed operations
+- 18a88c0e fix(build): stub Firebase messaging for web Docker builds
+- 6e9b5706 feat(ios): add production entitlements file and update project configuration
+- c9f20080 feat(ios): add development entitlements file and update project references
+- ce7b7add feat(ios): implement remote notification handling in AppDelegate
+- 03aef7e9 feat(ios): add Capacitor dependencies for Firebase Messaging, Filesystem, Inappbrowser, and Share
+- b3fda546 refactor(ios): rename application targets and update references for DEV and PROD configurations
+- f0611473 chore(ios): update Info.plist references and add PROD scheme for application configuration
+- dde0b08e fix(ios): update GoogleService-Info.plist references in project configuration
+- e8f824b5 feat(ios): update .gitignore to include Firebase configuration files for development and production
+- 492732a3 feat(ios): add GoogleService-Info.plist files for development and production environments
+- f2622d94 feat(ios): replace PROD.plist with Info.prod.plist for application configuration
+- 2b4e8363 refactor(ios): remove duplicate GoogleService-Info.plist entries from project configuration
+- 071a96f5 feat(ios): add DEV.plist and PROD.plist for application configuration
+- f69e3b60 refactor(ios): rename app target and update bundle identifier for development environment
+- a4f0ff63 feat(ios): add GoogleService-Info.plist files for development and production environments
+- 8c6d1cb1 feat(ios): add experimental SPM package options for Firebase integration
+- fd42bf08 refactor(ios): remove deprecated environment.ios.ts file
+- b54b687a feat(ios): generate iOS env files from BACKEND_ORIGIN env vars
+- 6e2fbb5e feat(ios): add ios-local and ios-prod multi-environment build pipelines
+- 6c9d0773 feat(ios): replace PWA with Capacitor iOS app and native FCM push
+- d79d2ed5 chore(ios): add DEVELOPMENT_TEAM to project settings
+- 90a693e4 chore(deps): add CapacitorApp dependency to Package.swift
+- 30428bdb chore(deps): update Capacitor dependencies in package.json and package-lock.json
+- 5ae36c91 feat(ios): initialize iOS project structure with Capacitor integration
+- 6305b02a chore(deps): add @capacitor/ios version 8.4.0 to package.json and package-lock.json

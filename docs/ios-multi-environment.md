@@ -255,12 +255,27 @@ Side-by-side installs require both targets so each app keeps its own embedded bu
 The repo ships both **App DEV** and **App PROD** targets; use the matching
 `npx devx worktree ios local|prod` command instead of swapping plists manually.
 
+## Native HTTP
+
+The iOS app enables CapacitorHttp in `capacitor.config.ts` (`CapacitorHttp.enabled: true`).
+On native builds, API traffic from Angular `HttpClient` and `fetch()` is routed through
+iOS `URLSession` instead of WKWebView XHR/fetch. This bypasses browser CORS in the
+Capacitor shell; it does **not** change web browser behavior.
+
+- **ATS still applies**: dev HTTP to your Mac LAN still requires `Info.dev.overlay.plist`
+  (`NSAllowsLocalNetworking`). Native HTTP does not exempt cleartext HTTP.
+- **IndexedDB image blobs**: detail-image blob caching quirks on iOS WebKit are unchanged.
+- **After config changes**: re-run `npm run sync:ios:local` or `npm run sync:ios:prod`
+  before testing on a device so the updated config is copied into the iOS bundle.
+
 ## Troubleshooting
 
 See [`notifications-troubleshooting.md`](notifications-troubleshooting.md) for push
 debugging. Common iOS multi-env issues:
 
 - **Connection unavailable on dev**: wrong LAN IP, phone not on same Wi‑Fi, wrong worktree edge port, or `EDGE_BIND_HOST` still at default `127.0.0.1`
+- **API works in Safari on the phone but not the Capacitor app**: check backend reachability
+  from the device (LAN IP, edge port, `EDGE_BIND_HOST`); this is not a CORS issue on native.
 - **ATS blocked HTTP**: dev target must use `Info.dev.plist`, not `Info.plist`
 - **Push works in one app only**: plist / service account mismatch with backend
 - **Wrong backend after sync**: you synced local but ran the prod scheme (or vice versa)

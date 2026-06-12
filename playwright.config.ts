@@ -10,9 +10,10 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run start -- --host 127.0.0.1 --port 8100',
+    command: 'npx devx worktree frontend',
     env: {
       ...process.env,
+      WORKTREE_PORT_OFFSET: process.env.WORKTREE_PORT_OFFSET ?? '0',
       FEATURE_E2E_FIXTURES: 'true',
     },
     url: 'http://127.0.0.1:8100',

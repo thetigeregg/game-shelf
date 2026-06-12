@@ -19,9 +19,9 @@ Web browser local dev (`npx devx worktree frontend` + dynamic proxy) is a separa
 mechanism — the dev server proxies on your Mac. `npx devx worktree simulator` serves the
 **web** app to Safari in Simulator; it does not configure the bundled Capacitor app.
 
-Static device builds (`npm run run:ios:local`) bake absolute backend URLs into
+Static device builds (`npx devx worktree ios local`) bake absolute backend URLs into
 `environment.ios.local.ts` so the phone calls the Docker edge directly. Live reload
-(`npx devx worktree ios-live` / `npm run run:ios:live`) instead loads the app from the
+(`npx devx worktree ios live`) instead loads the app from the
 worktree Angular dev server at `http://<mac-lan-ip>:<frontend-port>` and proxies API,
 manuals, roms, and bios requests on your Mac — the phone only needs reachability to
 `FRONTEND_PORT`, not the edge port.
@@ -80,9 +80,11 @@ The repo ships two native targets and shared schemes:
 
 Do **not** change `capacitor.config.ts` `appId` (stays prod).
 
-`npm run run:ios:*` passes `--scheme "App DEV"` / `--scheme "App PROD"` so Capacitor deploys
-the matching `App DEV.app` / `App PROD.app` bundle. Scheme names must match the built product
-name (`cap run` resolves the deploy path as `${scheme}.app`).
+`npx devx worktree ios <local|prod|live>` (aliases: `npm run run:ios:*`) passes
+`--scheme "App DEV"` / `--scheme "App PROD"` so Capacitor deploys the matching
+`App DEV.app` / `App PROD.app` bundle. Scheme names must match the built product name
+(`cap run` resolves the deploy path as `${scheme}.app`). Implementation lives in
+`scripts/run-ios.mjs`.
 
 #### Firebase plist per target
 
@@ -100,18 +102,21 @@ Register App ID `io.github.thetigeregg.gameshelf.dev` with Push Notifications.
 
 ## Day-to-day workflow
 
-| Task                  | Command                                                      | Scheme       |
-| --------------------- | ------------------------------------------------------------ | ------------ |
-| Run dev on device     | `npm run run:ios:local`                                      | **App DEV**  |
-| Live reload on device | `npx devx worktree ios-live` (alias: `npm run run:ios:live`) | **App DEV**  |
-| Run prod on device    | `npm run run:ios:prod` (alias: `run:ios`)                    | **App PROD** |
-| Sync only (dev)       | `npm run sync:ios:local`                                     | —            |
-| Sync only (prod)      | `npm run sync:ios:prod` (alias: `sync:ios`)                  | —            |
-| Open Xcode            | `npm run open:ios`                                           | —            |
-| List run targets      | `npm run list:ios:targets`                                   | —            |
+| Task                  | Command                                     | Scheme       |
+| --------------------- | ------------------------------------------- | ------------ |
+| Run dev on device     | `npx devx worktree ios local`               | **App DEV**  |
+| Live reload on device | `npx devx worktree ios live`                | **App DEV**  |
+| Run prod on device    | `npx devx worktree ios prod`                | **App PROD** |
+| Sync only (dev)       | `npm run sync:ios:local`                    | —            |
+| Sync only (prod)      | `npm run sync:ios:prod` (alias: `sync:ios`) | —            |
+| Open Xcode            | `npm run open:ios`                          | —            |
+| List run targets      | `npm run list:ios:targets`                  | —            |
 
-`run:ios:*` runs the matching `sync:ios:*`, then `cap run ios --no-sync --scheme …`.
-`scripts/run-ios.mjs` loads `.env` for device targeting (shell exports still override).
+`npx devx worktree ios local|prod` runs the matching `sync:ios:*`, then
+`cap run ios --no-sync --scheme …`. `npx devx worktree ios live` starts a worktree dev
+server and deploys with `cap run --live-reload`. `scripts/run-ios.mjs` loads `.env` for
+device targeting (shell exports still override). `npm run run:ios:*` are aliases for the
+worktree commands.
 
 Connect and trust your iPhone first. To target a specific device, set `IOS_TARGET_ID` or
 `IOS_TARGET_NAME` in `.env` (ID wins when both are set). Prefer `IOS_TARGET_ID` — device
@@ -126,7 +131,7 @@ the documented workflow do not apply.
 
 ```bash
 npx devx worktree stack up
-npx devx worktree ios-live    # or: npm run run:ios:live
+npx devx worktree ios live
 ```
 
 Prerequisites:
@@ -136,7 +141,7 @@ Prerequisites:
 3. `IOS_TARGET_ID` (preferred) or `IOS_TARGET_NAME` in `.env`
 4. `IOS_LAN_HOST` in `.env` when auto-detect fails; phone on same Wi‑Fi as your Mac
 
-`scripts/run-ios-live.mjs` resolves the worktree `FRONTEND_PORT`, starts `ng serve` on
+`scripts/run-ios.mjs` (live variant) resolves the worktree `FRONTEND_PORT`, starts `ng serve` on
 `0.0.0.0` with the worktree dynamic proxy (`.tmp/proxy.worktree.*.json`), then runs
 `cap run ios --live-reload --host <lan-ip> --port <frontend-port> --scheme "App DEV"`.
 Use `npx devx worktree info` to see derived ports. `EDGE_BIND_HOST=0.0.0.0` is not

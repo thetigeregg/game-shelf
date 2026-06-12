@@ -430,6 +430,21 @@ describe('buildEmulatorJsPlayShellUrl', () => {
       })
     ).toThrow(/Invalid ROM URL/);
   });
+
+  it('sets rom_base for custom same-origin rom base paths', () => {
+    const href = buildEmulatorJsPlayShellUrl({
+      origin: 'https://example.com',
+      core: 'nes',
+      romUrl: '/custom-roms/folder/game.nes',
+      romBaseUrl: '/custom-roms',
+      pathToData: PINNED_DATA_PATH,
+      loaderIntegrity: VALID_LOADER_INTEGRITY,
+    });
+
+    const parsed = new URL(href);
+    expect(parsed.searchParams.get('rom')).toBe('https://example.com/custom-roms/folder/game.nes');
+    expect(parsed.searchParams.get('rom_base')).toBe('/custom-roms');
+  });
 });
 
 describe('buildEmulatorJsBiosUrl', () => {

@@ -225,7 +225,7 @@ export function buildEmulatorJsPlayShellUrl(params: BuildEmulatorJsPlayShellUrlP
     throw new Error('Invalid ROM URL for EmulatorJS play shell');
   }
   pageUrl.searchParams.set('rom', resolvedRom.href);
-  if (romBase.origin !== null) {
+  if (romBase.origin !== null || romBase.basePath !== '/roms') {
     pageUrl.searchParams.set('rom_base', serializeEmulatorJsAssetBase(romBase));
   }
 

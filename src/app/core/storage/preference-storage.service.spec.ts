@@ -208,4 +208,43 @@ describe('PreferenceStorageService', () => {
       '[{"ts":"1","level":"info","message":"legacy"}]'
     );
   });
+
+  it('does not reclaim unrelated keys from Preferences on native', async () => {
+    nativePlatformState.value = true;
+
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+
+      if (key === 'other-plugin:key') {
+        return Promise.resolve({ value: 'keep-me' });
+      }
+
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'other-plugin:key'],
+    });
+    preferencesRemove.mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    expect(localStorage.getItem('other-plugin:key')).toBeNull();
+    expect(preferencesRemove).not.toHaveBeenCalledWith({ key: 'other-plugin:key' });
+  });
+
+  it('falls back to localStorage when native Preferences initialization fails', async () => {
+    nativePlatformState.value = true;
+    localStorage.setItem('game-shelf:theme', 'light');
+
+    preferencesGet.mockRejectedValue(new Error('plugin unavailable'));
+
+    await service.initialize();
+
+    service.setItem('game-shelf:theme', 'dark');
+    expect(localStorage.getItem('game-shelf:theme')).toBe('dark');
+    expect(service.getItem('game-shelf:theme')).toBe('dark');
+    expect(preferencesSet).not.toHaveBeenCalled();
+  });
 });

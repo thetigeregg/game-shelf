@@ -15,12 +15,10 @@
 		3A0B10B52FDB3A630015969E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		3A0B10B62FDB3A630015969E /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		3A0B10B72FDB3A630015969E /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
-		3A0B10C02FDB3B5C0015969E /* Info.dev.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10BF2FDB3B5C0015969E /* Info.dev.plist */; };
 		3A0B10CA2FDB3D1B0015969E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A0B10C52FDB3CDE0015969E /* GoogleService-Info.plist */; };
 		3A940FA82FDC0C71004AFB7D /* Assets.shared.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A940FA72FDC0C71004AFB7D /* Assets.shared.xcassets */; };
 		3A940FA92FDC0C71004AFB7D /* Assets.shared.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A940FA72FDC0C71004AFB7D /* Assets.shared.xcassets */; };
 		3A940FAC2FDC0C98004AFB7D /* Assets.prod.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A940FAA2FDC0C98004AFB7D /* Assets.prod.xcassets */; };
-		3A940FAE2FDC0D3C004AFB7D /* Info.prod.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3A940FAD2FDC0D3C004AFB7D /* Info.prod.plist */; };
 		3ACE7BC72FDB3E5B009B15B6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3ACE7BC62FDB3E5B009B15B6 /* GoogleService-Info.plist */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -222,7 +220,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3A940FAE2FDC0D3C004AFB7D /* Info.prod.plist in Resources */,
 				3A0B10B02FDB3A630015969E /* LaunchScreen.storyboard in Resources */,
 				3A0B10B12FDB3A630015969E /* public in Resources */,
 				3A940FA92FDC0C71004AFB7D /* Assets.shared.xcassets in Resources */,
@@ -239,7 +236,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
-				3A0B10C02FDB3B5C0015969E /* Info.dev.plist in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.dev.xcassets in Resources */,
 				3A940FA82FDC0C71004AFB7D /* Assets.shared.xcassets in Resources */,

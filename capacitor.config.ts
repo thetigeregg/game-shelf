@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appName: 'GameShelf',
   webDir: 'www/browser',
   plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
     FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },

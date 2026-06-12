@@ -20,7 +20,7 @@ import {
 import { isNativePlatform } from './core/utils/native-platform.util';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
-const MIN_SPLASH_VISIBLE_MS = 1200;
+const MIN_SPLASH_VISIBLE_MS = 300;
 
 @Component({
   selector: 'app-root',

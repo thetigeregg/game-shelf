@@ -11,18 +11,27 @@ export const VARIANTS = {
   },
 };
 
+export const RUN_VARIANTS = ['local', 'prod', 'live'];
+
 export function resolveVariant(variant) {
   const normalized = variant?.trim().toLowerCase();
 
-  if (!normalized || !(normalized in VARIANTS)) {
-    throw new Error(`Invalid iOS run variant "${variant ?? ''}". Expected "local" or "prod".`);
+  if (!normalized || !RUN_VARIANTS.includes(normalized)) {
+    throw new Error(
+      `Invalid iOS run variant "${variant ?? ''}". Expected "local", "prod", or "live".`
+    );
   }
 
   return normalized;
 }
 
 export function resolveScheme(variant) {
-  return VARIANTS[resolveVariant(variant)].scheme;
+  const resolved = resolveVariant(variant);
+  if (resolved === 'live') {
+    return VARIANTS.local.scheme;
+  }
+
+  return VARIANTS[resolved].scheme;
 }
 
 export function loadRunIosEnv(processEnv = process.env, options = {}) {
@@ -30,7 +39,8 @@ export function loadRunIosEnv(processEnv = process.env, options = {}) {
 }
 
 export function buildCapRunArgs({ variant, env = process.env, extraArgs = [] }) {
-  const { scheme } = VARIANTS[resolveVariant(variant)];
+  const resolved = resolveVariant(variant);
+  const scheme = resolved === 'live' ? VARIANTS.local.scheme : VARIANTS[resolved].scheme;
   const args = ['run', 'ios', '--no-sync', '--scheme', scheme];
 
   const targetId = env.IOS_TARGET_ID?.trim();

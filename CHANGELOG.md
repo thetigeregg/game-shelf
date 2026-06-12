@@ -3556,3 +3556,18 @@
 - 30428bdb chore(deps): update Capacitor dependencies in package.json and package-lock.json
 - 5ae36c91 feat(ios): initialize iOS project structure with Capacitor integration
 - 6305b02a chore(deps): add @capacitor/ios version 8.4.0 to package.json and package-lock.json
+
+## v1.48.0 - 2026-06-12
+
+- 05b007a9 Merge pull request #412 from thetigeregg/feat/conf
+- 51f8c3ca fix(ios): address PR feedback on Firebase plist bootstrap
+- 1fe8346a fix(scripts): resolve entrypoint path in firebase plist bootstrap
+- 0072db96 Revert "chore: add Firebase dependency and update package-lock.json"
+- bd28690c chore: add Firebase dependency and update package-lock.json
+- a0e83d7a fix(ios): address PR review feedback for Firebase plist bootstrap
+- 55af5267 chore(ios): update Package.resolved to reflect new dependency versions
+- f1042147 refactor(ios): remove experimental symlink configuration for CapacitorFirebaseMessaging
+- abd55862 fix(ios): use relative CapacitorFirebaseMessaging symlink
+- 8d756c72 feat(ios): bootstrap Firebase plists from shared config
+- d43df8c4 fix(ios): update symlink path for CapacitorFirebaseMessaging dependency
+- 7990675d fix(ios): update reference for Info.prod.plist in project configuration

@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import { DebugLogService } from './debug-log.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 import { resolveAssetCatalogUrl } from '../utils/resolve-asset-catalog-url.util';
 import { GameEntry, RomCandidate, RomOverrideMap, RomResolveResult } from '../models/game.models';
@@ -34,6 +35,7 @@ export class RomService {
     optional: true,
   });
   private readonly debugLogService = inject(DebugLogService);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private readonly romsBaseUrl = this.normalizeBaseUrl(environment.romsBaseUrl);
   private readonly resolveRomUrl = `${this.apiBaseUrl}/v1/roms/resolve`;
@@ -355,7 +357,7 @@ export class RomService {
 
   private readOverridesFromStorage(): RomOverrideMap {
     try {
-      const raw = localStorage.getItem(ROM_OVERRIDES_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(ROM_OVERRIDES_STORAGE_KEY);
 
       if (!raw) {
         return {};
@@ -397,7 +399,7 @@ export class RomService {
 
     if (keys.length === 0) {
       try {
-        localStorage.removeItem(ROM_OVERRIDES_STORAGE_KEY);
+        this.preferenceStorage.removeItem(ROM_OVERRIDES_STORAGE_KEY);
       } catch {
         // Ignore storage failures.
       }
@@ -408,7 +410,7 @@ export class RomService {
     const serialized = JSON.stringify(overrides);
 
     try {
-      localStorage.setItem(ROM_OVERRIDES_STORAGE_KEY, serialized);
+      this.preferenceStorage.setItem(ROM_OVERRIDES_STORAGE_KEY, serialized);
     } catch {
       // Ignore storage failures.
     }

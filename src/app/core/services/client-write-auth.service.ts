@@ -1,13 +1,16 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const CLIENT_WRITE_TOKEN_STORAGE_KEY = 'game-shelf:client-write-token';
 export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'X-Game-Shelf-Client-Token';
 
 @Injectable({ providedIn: 'root' })
 export class ClientWriteAuthService {
+  private readonly preferenceStorage = inject(PreferenceStorageService);
+
   getToken(): string | null {
     try {
-      const token = localStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY);
+      const token = this.preferenceStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY);
       const normalized = (token ?? '').trim();
       return normalized.length > 0 ? normalized : null;
     } catch {
@@ -28,7 +31,7 @@ export class ClientWriteAuthService {
     }
 
     try {
-      localStorage.setItem(CLIENT_WRITE_TOKEN_STORAGE_KEY, normalized);
+      this.preferenceStorage.setItem(CLIENT_WRITE_TOKEN_STORAGE_KEY, normalized);
     } catch {
       // Ignore local storage failures.
     }
@@ -36,7 +39,7 @@ export class ClientWriteAuthService {
 
   clearToken(): void {
     try {
-      localStorage.removeItem(CLIENT_WRITE_TOKEN_STORAGE_KEY);
+      this.preferenceStorage.removeItem(CLIENT_WRITE_TOKEN_STORAGE_KEY);
     } catch {
       // Ignore local storage failures.
     }

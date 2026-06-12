@@ -9,6 +9,7 @@ import { getAppVersion } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
 import { getNativePlatform, isNativePlatform } from '../utils/native-platform.util';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
@@ -30,6 +31,7 @@ export interface ReleaseNotificationEventsPreference {
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true,
   });
@@ -81,7 +83,7 @@ export class NotificationService {
 
   isReleaseNotificationsEnabled(): boolean {
     try {
-      const raw = localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY);
       if (raw === null) {
         return false;
       }
@@ -95,7 +97,7 @@ export class NotificationService {
 
   hasStoredReleaseNotificationsPreference(): boolean {
     try {
-      return localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) !== null;
+      return this.preferenceStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) !== null;
     } catch {
       return false;
     }
@@ -103,7 +105,7 @@ export class NotificationService {
 
   readReleaseEventPreferences(): ReleaseNotificationEventsPreference {
     try {
-      const raw = localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
 
       if (!raw) {
         return { set: true, changed: true, removed: true, day: true, sale: true };
@@ -207,7 +209,7 @@ export class NotificationService {
   setReleaseNotificationsEnabled(enabled: boolean): void {
     const value = enabled ? 'true' : 'false';
     try {
-      localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
+      this.preferenceStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
     } catch {
       // Ignore storage write failures.
     }
@@ -234,7 +236,7 @@ export class NotificationService {
       : true;
 
     try {
-      localStorage.removeItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
+      this.preferenceStorage.removeItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
     } catch {
       // Ignore storage failures.
     }
@@ -292,7 +294,7 @@ export class NotificationService {
     }
 
     try {
-      localStorage.setItem(FCM_DEVICE_TOKEN_STORAGE_KEY, token);
+      this.preferenceStorage.setItem(FCM_DEVICE_TOKEN_STORAGE_KEY, token);
     } catch {
       // Ignore storage failures.
     }
@@ -362,7 +364,7 @@ export class NotificationService {
 
   private readStoredToken(): string | null {
     try {
-      const raw = localStorage.getItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
       const normalized = typeof raw === 'string' ? raw.trim() : '';
       return normalized.length > 0 ? normalized : null;
     } catch {

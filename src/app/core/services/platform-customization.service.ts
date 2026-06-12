@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export const PLATFORM_DISPLAY_NAMES_STORAGE_KEY = 'game-shelf:platform-display-names-v1';
 
@@ -8,6 +9,7 @@ export type PlatformDisplayNameMap = Record<string, string>;
 
 @Injectable({ providedIn: 'root' })
 export class PlatformCustomizationService {
+  private readonly preferenceStorage = inject(PreferenceStorageService);
   private static readonly PLATFORM_DISPLAY_ALIAS_MAP: Record<string, string> = {
     'family computer': 'Nintendo Entertainment System',
     'family computer disk system': 'Nintendo Entertainment System',
@@ -256,7 +258,7 @@ export class PlatformCustomizationService {
     this.displayNamesSubject.next({});
 
     try {
-      localStorage.removeItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
+      this.preferenceStorage.removeItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
     } catch {
       // Ignore storage failures.
     }
@@ -359,7 +361,7 @@ export class PlatformCustomizationService {
 
   private loadFromStorage(): PlatformDisplayNameMap {
     try {
-      const raw = localStorage.getItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
+      const raw = this.preferenceStorage.getItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
 
       if (!raw) {
         return {};
@@ -373,7 +375,7 @@ export class PlatformCustomizationService {
 
   private saveToStorage(map: PlatformDisplayNameMap): void {
     try {
-      localStorage.setItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY, JSON.stringify(map));
+      this.preferenceStorage.setItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY, JSON.stringify(map));
     } catch {
       // Ignore storage failures.
     }

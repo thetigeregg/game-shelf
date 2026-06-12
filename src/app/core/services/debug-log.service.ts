@@ -7,6 +7,7 @@ import {
   Router,
 } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
 
 export type DebugLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -35,6 +36,7 @@ export class DebugLogService {
   private duplicateCount = 0;
   private verboseTracingEnabled = false;
   private readonly router = inject(Router, { optional: true });
+  private readonly preferenceStorage = inject(PreferenceStorageService);
 
   initialize(): void {
     if (this.initialized || typeof window === 'undefined') {
@@ -107,7 +109,7 @@ export class DebugLogService {
     this.verboseTracingEnabled = enabled;
 
     try {
-      localStorage.setItem(
+      this.preferenceStorage.setItem(
         DebugLogService.VERBOSE_TRACE_STORAGE_KEY,
         this.verboseTracingEnabled ? '1' : '0'
       );
@@ -125,9 +127,9 @@ export class DebugLogService {
     this.duplicateCount = 0;
 
     try {
-      localStorage.removeItem(DebugLogService.STORAGE_KEY);
+      this.preferenceStorage.removeItem(DebugLogService.STORAGE_KEY);
       DebugLogService.LEGACY_STORAGE_KEYS.forEach((key) => {
-        localStorage.removeItem(key);
+        this.preferenceStorage.removeItem(key);
       });
     } catch {
       // Ignore storage failures.
@@ -212,7 +214,7 @@ export class DebugLogService {
 
   private writeToStorage(): void {
     try {
-      localStorage.setItem(DebugLogService.STORAGE_KEY, JSON.stringify(this.entries));
+      this.preferenceStorage.setItem(DebugLogService.STORAGE_KEY, JSON.stringify(this.entries));
     } catch {
       // Ignore storage failures.
     }
@@ -222,7 +224,7 @@ export class DebugLogService {
     try {
       const keys = [DebugLogService.STORAGE_KEY, ...DebugLogService.LEGACY_STORAGE_KEYS];
       const raw = keys
-        .map((key) => localStorage.getItem(key))
+        .map((key) => this.preferenceStorage.getItem(key))
         .find((value) => typeof value === 'string' && value.length > 0);
 
       if (!raw) {
@@ -271,7 +273,7 @@ export class DebugLogService {
   private hydrateVerboseTracingPreference(): void {
     try {
       this.verboseTracingEnabled =
-        localStorage.getItem(DebugLogService.VERBOSE_TRACE_STORAGE_KEY) === '1';
+        this.preferenceStorage.getItem(DebugLogService.VERBOSE_TRACE_STORAGE_KEY) === '1';
     } catch {
       this.verboseTracingEnabled = false;
     }

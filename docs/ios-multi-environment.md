@@ -5,11 +5,11 @@ backend URLs, Firebase project, and bundle ID.
 
 ## Architecture
 
-| Variant               | Angular config | Env file                               | Backend                              | Firebase plist                  | Bundle ID                             |
-| --------------------- | -------------- | -------------------------------------- | ------------------------------------ | ------------------------------- | ------------------------------------- |
-| **Dev**               | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>`    | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Dev (live reload)** | `ios-live`     | `environment.local.ts` (manual copy)   | proxied via worktree `FRONTEND_PORT` | `GoogleService-Info.dev.plist`  | `io.github.thetigeregg.gameshelf.dev` |
-| **Prod**              | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`                | `GoogleService-Info.prod.plist` | `io.github.thetigeregg.gameshelf`     |
+| Variant               | Angular config | Env file                               | Backend                              | Firebase plist (worktree copy)                       | Bundle ID                             |
+| --------------------- | -------------- | -------------------------------------- | ------------------------------------ | ---------------------------------------------------- | ------------------------------------- |
+| **Dev**               | `ios-local`    | `environment.ios.local.ts` (generated) | `http://<mac-lan-ip>:<edge-port>`    | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Dev (live reload)** | `ios-live`     | `environment.local.ts` (manual copy)   | proxied via worktree `FRONTEND_PORT` | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  | `io.github.thetigeregg.gameshelf.dev` |
+| **Prod**              | `ios-prod`     | `environment.ios.prod.ts` (generated)  | `https://<prod-host>`                | `ios/App/App/Firebase/Prod/GoogleService-Info.plist` | `io.github.thetigeregg.gameshelf`     |
 
 Dev uses Docker edge on your Mac (worktree-specific port from `npx devx worktree info`),
 which serves `/api`, `/manuals`, `/roms`, and `/bios` on a single origin. Prod uses the
@@ -54,10 +54,39 @@ Shell exports override `.env` values.
 
 ### 2. Firebase (separate dev and prod projects)
 
-| Firebase project | Bundle ID                             | Save plist as                               |
-| ---------------- | ------------------------------------- | ------------------------------------------- |
-| Prod (existing)  | `io.github.thetigeregg.gameshelf`     | `ios/App/App/GoogleService-Info.prod.plist` |
-| Dev (new)        | `io.github.thetigeregg.gameshelf.dev` | `ios/App/App/GoogleService-Info.dev.plist`  |
+Firebase plists are gitignored and are **not** copied with git worktrees. Store canonical
+copies once per machine, then let bootstrap / iOS prebuild copy them into each worktree
+(mirrors `~/.config/game-shelf/worktree.env` for `.env`).
+
+| Firebase project | Bundle ID                             | Shared machine file (one-time)                           | Worktree destination (auto-copied)                   |
+| ---------------- | ------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Prod (existing)  | `io.github.thetigeregg.gameshelf`     | `~/.config/game-shelf/ios/GoogleService-Info.prod.plist` | `ios/App/App/Firebase/Prod/GoogleService-Info.plist` |
+| Dev (new)        | `io.github.thetigeregg.gameshelf.dev` | `~/.config/game-shelf/ios/GoogleService-Info.dev.plist`  | `ios/App/App/Firebase/Dev/GoogleService-Info.plist`  |
+
+One-time machine setup:
+
+```bash
+mkdir -p ~/.config/game-shelf/ios
+# Download each plist from Firebase Console and save with the shared filenames above.
+```
+
+If you already have plists in a primary checkout, migrate them once:
+
+```bash
+mkdir -p ~/.config/game-shelf/ios
+cp ios/App/App/Firebase/Dev/GoogleService-Info.plist ~/.config/game-shelf/ios/GoogleService-Info.dev.plist
+cp ios/App/App/Firebase/Prod/GoogleService-Info.plist ~/.config/game-shelf/ios/GoogleService-Info.prod.plist
+```
+
+Copy behavior:
+
+- `node scripts/worktree-dev.mjs bootstrap` (also run by `npx devx task start` and the
+  worktree post-checkout hook) copies missing worktree plists from the shared directory
+- `npm run prebuild:ios:*` requires shared plists and fails with setup instructions if missing
+- `bootstrap --force` overwrites existing worktree copies from shared templates
+- Override the shared directory with `WORKTREE_IOS_FIREBASE_DIR`
+
+Check status with `npx devx worktree info` (prints shared + worktree plist presence).
 
 Upload your APNs Auth Key (`.p8`) to **both** Firebase projects (Cloud Messaging).
 
@@ -88,11 +117,11 @@ Do **not** change `capacitor.config.ts` `appId` (stays prod).
 
 #### Firebase plist per target
 
-Each target's **Copy Bundle Resources** should include exactly one plist, built into
-the app as `GoogleService-Info.plist`:
+Each target's **Copy Bundle Resources** includes exactly one plist from
+`ios/App/App/Firebase/`, built into the app as `GoogleService-Info.plist`:
 
-- `GoogleService-Info.prod.plist` → **App PROD** target only
-- `GoogleService-Info.dev.plist` → **App DEV** target only
+- `Firebase/Prod/GoogleService-Info.plist` → **App PROD** target only
+- `Firebase/Dev/GoogleService-Info.plist` → **App DEV** target only
 
 Enable Push Notifications and `remote-notification` background mode on both targets.
 
@@ -185,14 +214,9 @@ Requires `NOTIFICATIONS_TEST_ENDPOINT_ENABLED=true` on the server.
 
 ## Single-target switching (without side-by-side)
 
-If you only have one Xcode target, swap env + plist manually before each sync:
-
-```bash
-npm run sync:ios:local   # or sync:ios:prod
-cp ios/App/App/GoogleService-Info.dev.plist ios/App/App/GoogleService-Info.plist   # or .prod.
-```
-
 Side-by-side installs require both targets so each app keeps its own embedded bundle.
+The repo ships both **App DEV** and **App PROD** targets; use the matching `run:ios:*`
+command instead of swapping plists manually.
 
 ## Troubleshooting
 
@@ -203,3 +227,5 @@ debugging. Common iOS multi-env issues:
 - **ATS blocked HTTP**: dev target must use `Info.dev.plist`, not `Info.plist`
 - **Push works in one app only**: plist / service account mismatch with backend
 - **Wrong backend after sync**: you synced local but ran the prod scheme (or vice versa)
+- **Missing Firebase plist in new worktree**: save shared copies under `~/.config/game-shelf/ios/`,
+  then run `node scripts/worktree-dev.mjs bootstrap` or any `npm run prebuild:ios:*` command

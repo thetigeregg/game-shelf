@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.47.0",
+  "version": "1.48.0",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -29,7 +29,7 @@
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
     "deps:angular:update": "ng update @angular/core @angular/cli",
     "deps:angular:ecosystem": "ng update @angular/cdk @angular-eslint/schematics",
-    "prebuild:ios": "node scripts/generate-runtime-config.mjs && node scripts/generate-metacritic-platform-artifacts.mjs && node scripts/generate-mobygames-platform-artifacts.mjs",
+    "prebuild:ios": "node scripts/bootstrap-ios-firebase-plists.mjs --required && node scripts/generate-runtime-config.mjs && node scripts/generate-metacritic-platform-artifacts.mjs && node scripts/generate-mobygames-platform-artifacts.mjs",
     "prebuild:ios:local": "node scripts/write-environment-ios.mjs local && npm run prebuild:ios",
     "prebuild:ios:prod": "node scripts/write-environment-ios.mjs prod && npm run prebuild:ios",
     "build:ios": "ng build --configuration ios-prod",

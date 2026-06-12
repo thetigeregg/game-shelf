@@ -69,6 +69,14 @@ To start stack and auto-seed the DB only when empty:
 npx devx worktree stack up-seed
 ```
 
+To fully tear down and recreate the stack (for example after port or compose/env changes, or when containers are in a bad state), use:
+
+```bash
+npm run stack:recreate
+```
+
+For routine backend code changes, `npx devx worktree stack up` is usually enough (it rebuilds images). `npx devx worktree stack restart` only restarts existing containers and does not rebuild or rebind ports. Postgres data in `./nas-data/postgres` is preserved across recreate.
+
 5. (Optional) Follow stack logs:
 
 ```bash
@@ -129,7 +137,8 @@ npm run build
 The frontend ships as a native iOS app via Capacitor. The web deployment (edge) remains for browsers.
 
 Prod and dev iOS variants are supported (side-by-side installs with separate bundle IDs).
-See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide.
+See [`docs/ios-multi-environment.md`](docs/ios-multi-environment.md) for the full guide
+(Info.plist generation, Firebase plists, privacy manifest, and day-to-day commands).
 
 1. For local device testing against a worktree stack, start Docker and note the edge port:
 

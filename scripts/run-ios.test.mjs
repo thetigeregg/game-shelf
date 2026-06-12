@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -199,76 +199,96 @@ test('resolveLiveReloadFrontendPaths derives example file from local environment
 
 test('ensureLocalEnvironmentFile returns existing local environment file', () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
-  const envDir = path.join(cwd, 'src/environments');
-  const localPath = path.join(envDir, 'environment.local.ts');
 
-  mkdirSync(envDir, { recursive: true });
-  writeFileSync(localPath, 'export const environment = {};\n', 'utf8');
+  try {
+    const envDir = path.join(cwd, 'src/environments');
+    const localPath = path.join(envDir, 'environment.local.ts');
 
-  assert.equal(ensureLocalEnvironmentFile(cwd), localPath);
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(localPath, 'export const environment = {};\n', 'utf8');
+
+    assert.equal(ensureLocalEnvironmentFile(cwd), localPath);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 test('ensureLocalEnvironmentFile bootstraps from example when missing', () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
-  const envDir = path.join(cwd, 'src/environments');
-  const examplePath = path.join(envDir, 'environment.local.example.ts');
-  const localPath = path.join(envDir, 'environment.local.ts');
-  const lines = [];
 
-  mkdirSync(envDir, { recursive: true });
-  writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+  try {
+    const envDir = path.join(cwd, 'src/environments');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
+    const lines = [];
 
-  assert.equal(
-    ensureLocalEnvironmentFile(cwd, {
-      log: (line) => lines.push(line),
-      copyFile: (source, destination) => {
-        writeFileSync(destination, `copied:${source}`, 'utf8');
-      },
-    }),
-    localPath
-  );
-  assert.match(lines[0], /Created src\/environments\/environment\.local\.ts/);
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        log: (line) => lines.push(line),
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+    assert.match(lines[0], /Created src\/environments\/environment\.local\.ts/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 test('ensureLocalEnvironmentFile supports configured environment paths', () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
-  const envDir = path.join(cwd, 'custom');
-  const examplePath = path.join(envDir, 'environment.local.example.ts');
-  const localPath = path.join(envDir, 'environment.local.ts');
 
-  mkdirSync(envDir, { recursive: true });
-  writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+  try {
+    const envDir = path.join(cwd, 'custom');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
 
-  assert.equal(
-    ensureLocalEnvironmentFile(cwd, {
-      localEnvironmentFile: 'custom/environment.local.ts',
-      localEnvironmentExampleFile: 'custom/environment.local.example.ts',
-      copyFile: (source, destination) => {
-        writeFileSync(destination, `copied:${source}`, 'utf8');
-      },
-    }),
-    localPath
-  );
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        localEnvironmentFile: 'custom/environment.local.ts',
+        localEnvironmentExampleFile: 'custom/environment.local.example.ts',
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 test('ensureLocalEnvironmentFile derives example path from configured local environment file', () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'run-ios-env-'));
-  const envDir = path.join(cwd, 'custom');
-  const examplePath = path.join(envDir, 'environment.local.example.ts');
-  const localPath = path.join(envDir, 'environment.local.ts');
 
-  mkdirSync(envDir, { recursive: true });
-  writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+  try {
+    const envDir = path.join(cwd, 'custom');
+    const examplePath = path.join(envDir, 'environment.local.example.ts');
+    const localPath = path.join(envDir, 'environment.local.ts');
 
-  assert.equal(
-    ensureLocalEnvironmentFile(cwd, {
-      localEnvironmentFile: 'custom/environment.local.ts',
-      copyFile: (source, destination) => {
-        writeFileSync(destination, `copied:${source}`, 'utf8');
-      },
-    }),
-    localPath
-  );
+    mkdirSync(envDir, { recursive: true });
+    writeFileSync(examplePath, 'export const environment = { bootstrapped: true };\n', 'utf8');
+
+    assert.equal(
+      ensureLocalEnvironmentFile(cwd, {
+        localEnvironmentFile: 'custom/environment.local.ts',
+        copyFile: (source, destination) => {
+          writeFileSync(destination, `copied:${source}`, 'utf8');
+        },
+      }),
+      localPath
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 test('resolveLiveReloadHost prefers IOS_LAN_HOST', () => {

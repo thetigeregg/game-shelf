@@ -31,7 +31,7 @@ export function openExternalUrl(url: string | null | undefined): void {
   }
 }
 
-function resolveOpenableUrl(url: string): URL | null {
+export function resolveOpenableUrl(url: string): URL | null {
   const trimmedUrl = url.trim();
 
   if (trimmedUrl.length === 0) {

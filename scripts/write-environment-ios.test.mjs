@@ -116,6 +116,20 @@ test('writeEnvironmentIos can skip writing to disk', async () => {
   assert.match(result.source, /production: true/);
 });
 
+test('writeEnvironmentIos resolves backend origin once for local variant', async () => {
+  const warnings = [];
+
+  const result = await writeEnvironmentIos('local', {
+    processEnv: { IOS_BACKEND_ORIGIN_LOCAL: 'http://192.168.0.21:8080' },
+    edgePort: 11621,
+    logWarning: (message) => warnings.push(message),
+    write: false,
+  });
+
+  assert.equal(result.backendOrigin, 'http://192.168.0.21:8080');
+  assert.equal(warnings.length, 1);
+});
+
 test('parseDotEnv ignores comments and parses quoted values', () => {
   assert.deepEqual(
     parseDotEnv(`

@@ -176,7 +176,10 @@ result = {
 
 export function buildEnvironmentIosSource(variant, envValues, options = {}) {
   const config = VARIANTS[variant];
-  const backendOrigin = resolveBackendOrigin(variant, envValues, options);
+  const backendOrigin =
+    options.resolvedBackendOrigin !== undefined
+      ? options.resolvedBackendOrigin
+      : resolveBackendOrigin(variant, envValues, options);
 
   if (backendOrigin === null) {
     const keys =
@@ -240,8 +243,11 @@ export async function writeEnvironmentIos(variant, options = {}) {
   }
 
   readEmulatorJsConstants();
-  const source = buildEnvironmentIosSource(variant, envValues, resolveOptions);
   const backendOrigin = resolveBackendOrigin(variant, envValues, resolveOptions);
+  const source = buildEnvironmentIosSource(variant, envValues, {
+    ...resolveOptions,
+    resolvedBackendOrigin: backendOrigin,
+  });
 
   if (options.write !== false) {
     writeFileSync(config.outputPath, source, 'utf8');

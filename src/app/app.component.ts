@@ -17,6 +17,7 @@ import {
   RuntimeAvailabilityService,
   RuntimeAvailabilityStatus,
 } from './core/services/runtime-availability.service';
+import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
 
@@ -41,6 +42,7 @@ export class AppComponent {
   private readonly notificationService = inject(NotificationService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
+  private readonly networkConnectivityService = inject(NetworkConnectivityService);
   private connectionAlert:
     | (Awaited<ReturnType<AlertController['create']>> & {
         dismiss?: () => Promise<boolean>;
@@ -60,6 +62,7 @@ export class AppComponent {
   }
 
   private async initializeApp(): Promise<void> {
+    this.networkConnectivityService.initialize();
     this.runtimeAvailabilityService.initialize();
     if (isE2eFixturesEnabled()) {
       await this.e2eFixtureService.applyFixtureFromStorage();

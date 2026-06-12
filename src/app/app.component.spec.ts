@@ -49,6 +49,7 @@ import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
+import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 
@@ -99,6 +100,9 @@ describe('AppComponent', () => {
     initialize: vi.fn(),
     status: signal<'checking' | 'online' | 'offline' | 'service-unreachable'>('online'),
   };
+  const networkConnectivityServiceMock = {
+    initialize: vi.fn(),
+  };
 
   beforeEach(() => {
     localStorage.clear();
@@ -130,6 +134,7 @@ describe('AppComponent', () => {
     });
     runtimeAvailabilityServiceMock.initialize.mockReturnValue(undefined);
     runtimeAvailabilityServiceMock.status.set('online');
+    networkConnectivityServiceMock.initialize.mockReturnValue(undefined);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -143,6 +148,7 @@ describe('AppComponent', () => {
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityServiceMock },
+        { provide: NetworkConnectivityService, useValue: networkConnectivityServiceMock },
       ],
     });
   });
@@ -176,9 +182,10 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(themeServiceMock.initialize).toHaveBeenCalledOnce();
-    expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
-    expect(debugLogServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(networkConnectivityServiceMock.initialize).toHaveBeenCalledOnce();
     expect(runtimeAvailabilityServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(debugLogServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
     expect(gameShelfServiceMock.migratePreferredPlatformCoversToIgdb).toHaveBeenCalledOnce();
     expect(gameShelfServiceMock.migrateLegacyPickerCoversToCustomCovers).toHaveBeenCalledOnce();
   });

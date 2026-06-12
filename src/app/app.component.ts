@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import {
   AlertController,
@@ -13,10 +13,7 @@ import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
-import {
-  RuntimeAvailabilityService,
-  RuntimeAvailabilityStatus,
-} from './core/services/runtime-availability.service';
+import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
@@ -43,21 +40,9 @@ export class AppComponent {
   private readonly preferenceStorage = inject(PreferenceStorageService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
   private readonly networkConnectivityService = inject(NetworkConnectivityService);
-  private connectionAlert:
-    | (Awaited<ReturnType<AlertController['create']>> & {
-        dismiss?: () => Promise<boolean>;
-        onDidDismiss?: () => Promise<unknown>;
-      })
-    | null = null;
   private readonly appStartedAt = Date.now();
 
   constructor() {
-    effect(() => {
-      void this.syncConnectionAlert(this.runtimeAvailabilityService.status()).catch(
-        this.logAsyncError('[app] sync_connection_alert_failed')
-      );
-    });
-
     void this.initializeApp();
   }
 
@@ -184,47 +169,5 @@ export class AppComponent {
   private async enableReleaseNotificationsFromPrompt(): Promise<void> {
     const result = await this.notificationService.enableReleaseNotifications();
     await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
-  }
-
-  private async syncConnectionAlert(status: RuntimeAvailabilityStatus): Promise<void> {
-    if (status === 'service-unreachable') {
-      if (this.connectionAlert !== null) {
-        return;
-      }
-
-      try {
-        const alert = await this.alertController.create({
-          header: 'Connection Unavailable',
-          message:
-            'Game Shelf cannot connect right now. Cached data is still available, but sync, search, manuals, and live metadata are currently unavailable.',
-          backdropDismiss: false,
-          buttons: ['OK'],
-        });
-
-        this.connectionAlert = alert;
-        await alert.present();
-        await alert.onDidDismiss();
-      } finally {
-        this.connectionAlert = null;
-      }
-
-      return;
-    }
-
-    if (this.connectionAlert === null) {
-      return;
-    }
-
-    const activeConnectionAlert = this.connectionAlert;
-    this.connectionAlert = null;
-    if (typeof activeConnectionAlert.dismiss === 'function') {
-      await activeConnectionAlert.dismiss();
-    }
-  }
-
-  private logAsyncError(message: string): (error: unknown) => void {
-    return (error: unknown) => {
-      console.error(message, error);
-    };
   }
 }

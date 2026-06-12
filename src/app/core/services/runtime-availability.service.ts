@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { setLiveRuntimeConfig } from '../config/runtime-config';
 import { isNativePlatform } from '../utils/native-platform.util';
@@ -13,6 +13,16 @@ export class RuntimeAvailabilityService {
   private probeTimerId: number | null = null;
 
   readonly status = signal<RuntimeAvailabilityStatus>('checking');
+  readonly bannerMessage = computed((): string | null => {
+    switch (this.status()) {
+      case 'offline':
+        return 'Offline. Cached library data is still available, but sync and live lookups are paused.';
+      case 'service-unreachable':
+        return 'Connection unavailable. Cached data is available, but sync, search, manuals, and live metadata are currently unavailable.';
+      default:
+        return null;
+    }
+  });
   private readonly networkConnectivity = inject(NetworkConnectivityService);
 
   initialize(): void {
@@ -50,17 +60,6 @@ export class RuntimeAvailabilityService {
     }, RuntimeAvailabilityService.PROBE_INTERVAL_MS);
 
     void this.refresh();
-  }
-
-  bannerMessage(): string | null {
-    switch (this.status()) {
-      case 'offline':
-        return 'Offline. Cached library data is still available, but sync and live lookups are paused.';
-      case 'service-unreachable':
-        return 'Connection unavailable. Cached data is available, but sync, search, manuals, and live metadata are currently unavailable.';
-      default:
-        return null;
-    }
   }
 
   async refresh(): Promise<void> {

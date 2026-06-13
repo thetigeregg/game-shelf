@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { AppDb, ImageCacheEntry } from '../data/app-db';
+import { ImageCacheRecord, STORAGE_ENGINE, isStorageConstraintError } from '../data/storage-engine';
+import { ImageFileStore } from '../data/image-file-store';
 import { DebugLogService } from './debug-log.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { environment } from '../../../environments/environment';
@@ -8,6 +9,7 @@ import {
   normalizeImageSourceUrl,
   withIgdbRetinaVariant,
 } from '../utils/image-url.utils';
+import { isNativePlatform } from '../utils/native-platform.util';
 
 export type ImageCacheVariant = 'thumb' | 'detail';
 
@@ -19,11 +21,19 @@ export class ImageCacheService {
   private static readonly LIMIT_STORAGE_KEY = 'game-shelf:image-cache-limit-mb';
   private static readonly IMAGE_DIAGNOSTIC_LIMIT = 120;
 
-  private readonly db = inject(AppDb);
+  private readonly engine = inject(STORAGE_ENGINE);
+  private readonly imageFileStore = inject(ImageFileStore);
   private readonly debugLogService = inject(DebugLogService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly objectUrlsByCacheKey = new Map<string, string>();
   private imageDiagnosticsCount = 0;
+
+  // Native stores cached image bytes as files (ImageFileStore) with metadata
+  // in the storage engine; web keeps blobs inline in IndexedDB records.
+  // Thumbs bypass the cache on all platforms and use direct URLs (see resolveImageUrl).
+  private get isNative(): boolean {
+    return isNativePlatform();
+  }
 
   getLimitMb(): number {
     const raw = this.preferenceStorage.getItem(ImageCacheService.LIMIT_STORAGE_KEY);
@@ -44,7 +54,7 @@ export class ImageCacheService {
   }
 
   async getUsageBytes(): Promise<number> {
-    const entries = await this.db.imageCache.toArray();
+    const entries = await this.engine.listImageCacheOrderedByLastAccessedAt();
     return entries.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
   }
 
@@ -57,7 +67,11 @@ export class ImageCacheService {
       }
     });
     this.objectUrlsByCacheKey.clear();
-    await this.db.imageCache.clear();
+    await this.engine.clearImageCache();
+
+    if (this.isNative) {
+      await this.imageFileStore.clear();
+    }
   }
 
   async purgeGameCache(gameKey: string): Promise<void> {
@@ -67,7 +81,7 @@ export class ImageCacheService {
       return;
     }
 
-    const entries = await this.db.imageCache.where('gameKey').equals(normalizedGameKey).toArray();
+    const entries = await this.engine.listImageCacheByGameKey(normalizedGameKey);
 
     entries.forEach((entry) => {
       const objectUrl = this.objectUrlsByCacheKey.get(entry.cacheKey);
@@ -85,7 +99,15 @@ export class ImageCacheService {
       this.objectUrlsByCacheKey.delete(entry.cacheKey);
     });
 
-    await this.db.imageCache.where('gameKey').equals(normalizedGameKey).delete();
+    if (this.isNative) {
+      for (const entry of entries) {
+        if (entry.filePath) {
+          await this.imageFileStore.deleteImage(entry.filePath);
+        }
+      }
+    }
+
+    await this.engine.deleteImageCacheByGameKey(normalizedGameKey);
   }
 
   async resolveImageUrl(
@@ -122,37 +144,20 @@ export class ImageCacheService {
     }
 
     const cacheKey = this.buildCacheKey(gameKey, variant, normalizedSourceUrl);
-    const existing = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
+    const existing = await this.engine.getImageCacheByCacheKey(cacheKey);
 
     if (existing) {
-      if (
-        !(existing.blob instanceof Blob) ||
-        existing.blob.size <= 0 ||
-        !(await this.isCacheableImageBlob(existing.blob))
-      ) {
-        this.logImageDiagnostic('image_cache_rejected_existing_blob', {
-          cacheKey,
-          gameKey,
-          variant,
-          blobType: existing.blob instanceof Blob ? existing.blob.type : null,
-          blobSize: existing.blob instanceof Blob ? existing.blob.size : null,
-        });
-        if (existing.id !== undefined) {
-          await this.db.imageCache.delete(existing.id);
-        }
-      } else {
-        this.debugLogService.trace('image_cache.resolve_hit', {
-          cacheKey,
-          gameKey,
-          variant,
-          blobSize: existing.blob.size,
-        });
-        await this.touchEntry(existing);
-        return this.toObjectUrl(existing);
+      const cachedUrl = this.isNative
+        ? await this.resolveNativeCachedUrl(existing, cacheKey, gameKey, variant)
+        : await this.resolveWebCachedUrl(existing, cacheKey, gameKey, variant);
+
+      if (cachedUrl) {
+        return cachedUrl;
       }
     }
     this.debugLogService.trace('image_cache.resolve_miss', { cacheKey, gameKey, variant });
 
+    let blob: Blob;
     try {
       const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
 
@@ -167,67 +172,13 @@ export class ImageCacheService {
         return normalizedSourceUrl;
       }
 
-      const blob = await response.blob();
-
-      if (!(blob instanceof Blob) || blob.size <= 0 || !(await this.isCacheableImageBlob(blob))) {
-        this.logImageDiagnostic('image_cache_rejected_fetched_blob', {
-          cacheKey,
-          gameKey,
-          variant,
-          blobType: blob instanceof Blob ? blob.type : null,
-          blobSize: blob instanceof Blob ? blob.size : null,
-        });
-        return normalizedSourceUrl;
-      }
-
-      const now = new Date().toISOString();
-      const entry: ImageCacheEntry = {
-        cacheKey,
-        gameKey,
-        variant,
-        sourceUrl: normalizedSourceUrl,
-        blob,
-        sizeBytes: blob.size,
-        updatedAt: now,
-        lastAccessedAt: now,
-      };
-
-      const limitBytes = this.getLimitMb() * 1024 * 1024;
-
-      if (entry.sizeBytes <= limitBytes) {
-        await this.db.imageCache.put(entry);
-        this.debugLogService.trace('image_cache.store_put', {
-          cacheKey,
-          gameKey,
-          variant,
-          sizeBytes: entry.sizeBytes,
-          limitBytes,
-        });
-        await this.enforceLimitBytes(limitBytes);
-        const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
-
-        if (stored && stored.blob instanceof Blob && stored.blob.size > 0) {
-          this.debugLogService.trace('image_cache.resolve_stored_hit', {
-            cacheKey,
-            gameKey,
-            variant,
-            blobSize: stored.blob.size,
-          });
-          return this.toObjectUrl(stored);
-        }
-      }
-
-      this.debugLogService.trace('image_cache.resolve_direct', {
-        gameKey,
-        variant,
-        reason: 'store_skipped_or_missing',
-      });
-      return normalizedSourceUrl;
-    } catch {
+      blob = await response.blob();
+    } catch (error) {
       this.logImageDiagnostic('image_cache_fetch_failed', {
         cacheKey,
         gameKey,
         variant,
+        message: error instanceof Error ? error.message : String(error),
       });
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
@@ -236,27 +187,280 @@ export class ImageCacheService {
       });
       return normalizedSourceUrl;
     }
+
+    if (!(blob instanceof Blob) || blob.size <= 0 || !(await this.isCacheableImageBlob(blob))) {
+      this.logImageDiagnostic('image_cache_rejected_fetched_blob', {
+        cacheKey,
+        gameKey,
+        variant,
+        blobType: blob instanceof Blob ? blob.type : null,
+        blobSize: blob instanceof Blob ? blob.size : null,
+      });
+      return normalizedSourceUrl;
+    }
+
+    const limitBytes = this.getLimitMb() * 1024 * 1024;
+
+    if (blob.size <= limitBytes) {
+      try {
+        const storedUrl = this.isNative
+          ? await this.storeNativeEntry(cacheKey, gameKey, variant, normalizedSourceUrl, blob)
+          : await this.storeWebEntry(cacheKey, gameKey, variant, normalizedSourceUrl, blob);
+
+        this.debugLogService.trace('image_cache.store_put', {
+          cacheKey,
+          gameKey,
+          variant,
+          sizeBytes: blob.size,
+          limitBytes,
+        });
+
+        if (storedUrl) {
+          return storedUrl;
+        }
+      } catch (error) {
+        if (isStorageConstraintError(error)) {
+          const racedUrl = await this.resolveStoredCacheUrl(cacheKey, gameKey, variant);
+
+          if (racedUrl) {
+            this.debugLogService.trace('image_cache.resolve_stored_hit', {
+              cacheKey,
+              gameKey,
+              variant,
+              reason: 'concurrent_store_race',
+            });
+            return racedUrl;
+          }
+        }
+
+        this.logImageDiagnostic('image_cache_store_failed', {
+          cacheKey,
+          gameKey,
+          variant,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    this.debugLogService.trace('image_cache.resolve_direct', {
+      gameKey,
+      variant,
+      reason: 'store_skipped_or_missing',
+    });
+    return normalizedSourceUrl;
   }
 
-  private async touchEntry(entry: ImageCacheEntry): Promise<void> {
+  private async resolveWebCachedUrl(
+    existing: ImageCacheRecord,
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant
+  ): Promise<string | null> {
+    if (
+      !(existing.blob instanceof Blob) ||
+      existing.blob.size <= 0 ||
+      !(await this.isCacheableImageBlob(existing.blob))
+    ) {
+      this.logImageDiagnostic('image_cache_rejected_existing_blob', {
+        cacheKey,
+        gameKey,
+        variant,
+        blobType: existing.blob instanceof Blob ? existing.blob.type : null,
+        blobSize: existing.blob instanceof Blob ? existing.blob.size : null,
+      });
+
+      if (existing.id !== undefined) {
+        await this.engine.deleteImageCache(existing.id);
+      }
+
+      return null;
+    }
+
+    this.debugLogService.trace('image_cache.resolve_hit', {
+      cacheKey,
+      gameKey,
+      variant,
+      blobSize: existing.blob.size,
+    });
+    await this.touchEntry(existing);
+    return this.toObjectUrl(cacheKey, existing.blob);
+  }
+
+  private async resolveNativeCachedUrl(
+    existing: ImageCacheRecord,
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant
+  ): Promise<string | null> {
+    const displayUrl = existing.filePath
+      ? await this.imageFileStore.getDisplayUrl(existing.filePath)
+      : null;
+
+    if (!displayUrl) {
+      // File evicted by the OS or metadata without a file; drop the stale
+      // record so the image is re-fetched below.
+      this.logImageDiagnostic('image_cache_native_file_missing', {
+        cacheKey,
+        gameKey,
+        variant,
+        filePath: existing.filePath ?? null,
+      });
+
+      if (existing.id !== undefined) {
+        await this.engine.deleteImageCache(existing.id);
+      }
+
+      return null;
+    }
+
+    this.debugLogService.trace('image_cache.resolve_hit', {
+      cacheKey,
+      gameKey,
+      variant,
+      filePath: existing.filePath,
+    });
+    await this.touchEntry(existing);
+    return displayUrl;
+  }
+
+  private async storeWebEntry(
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant,
+    sourceUrl: string,
+    blob: Blob
+  ): Promise<string | null> {
+    const now = new Date().toISOString();
+    await this.engine.putImageCache({
+      cacheKey,
+      gameKey,
+      variant,
+      sourceUrl,
+      blob,
+      sizeBytes: blob.size,
+      updatedAt: now,
+      lastAccessedAt: now,
+    });
+    await this.enforceLimitBytes(this.getLimitMb() * 1024 * 1024);
+    const stored = await this.engine.getImageCacheByCacheKey(cacheKey);
+
+    if (stored && stored.blob instanceof Blob && stored.blob.size > 0) {
+      this.debugLogService.trace('image_cache.resolve_stored_hit', {
+        cacheKey,
+        gameKey,
+        variant,
+        blobSize: stored.blob.size,
+      });
+      return this.toObjectUrl(cacheKey, stored.blob);
+    }
+
+    return null;
+  }
+
+  private async storeNativeEntry(
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant,
+    sourceUrl: string,
+    blob: Blob
+  ): Promise<string | null> {
+    let filePath: string;
+    let sizeBytes: number;
+
+    try {
+      ({ filePath, sizeBytes } = await this.imageFileStore.writeImage(cacheKey, blob));
+    } catch (error) {
+      this.logImageDiagnostic('image_cache_native_write_failed', {
+        cacheKey,
+        gameKey,
+        variant,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+
+    const now = new Date().toISOString();
+
+    try {
+      await this.engine.putImageCache({
+        cacheKey,
+        gameKey,
+        variant,
+        sourceUrl,
+        filePath,
+        sizeBytes,
+        updatedAt: now,
+        lastAccessedAt: now,
+      });
+      await this.enforceLimitBytes(this.getLimitMb() * 1024 * 1024);
+    } catch (error) {
+      await this.imageFileStore.deleteImage(filePath);
+
+      if (isStorageConstraintError(error)) {
+        return this.resolveStoredCacheUrl(cacheKey, gameKey, variant);
+      }
+
+      this.logImageDiagnostic('image_cache_native_metadata_write_failed', {
+        cacheKey,
+        gameKey,
+        variant,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+
+    const stored = await this.engine.getImageCacheByCacheKey(cacheKey);
+
+    if (stored?.filePath) {
+      const displayUrl = await this.imageFileStore.getDisplayUrl(stored.filePath);
+
+      if (displayUrl) {
+        this.debugLogService.trace('image_cache.resolve_stored_hit', {
+          cacheKey,
+          gameKey,
+          variant,
+          filePath: stored.filePath,
+        });
+        return displayUrl;
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveStoredCacheUrl(
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant
+  ): Promise<string | null> {
+    const stored = await this.engine.getImageCacheByCacheKey(cacheKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    return this.isNative
+      ? this.resolveNativeCachedUrl(stored, cacheKey, gameKey, variant)
+      : this.resolveWebCachedUrl(stored, cacheKey, gameKey, variant);
+  }
+
+  private async touchEntry(entry: ImageCacheRecord): Promise<void> {
     if (entry.id === undefined) {
       return;
     }
 
-    await this.db.imageCache.update(entry.id, {
-      lastAccessedAt: new Date().toISOString(),
-    });
+    await this.engine.updateImageCacheLastAccessedAt(entry.id, new Date().toISOString());
   }
 
-  private toObjectUrl(entry: ImageCacheEntry): string {
-    const existing = this.objectUrlsByCacheKey.get(entry.cacheKey);
+  private toObjectUrl(cacheKey: string, blob: Blob): string {
+    const existing = this.objectUrlsByCacheKey.get(cacheKey);
 
     if (existing) {
       return existing;
     }
 
-    const url = URL.createObjectURL(entry.blob);
-    this.objectUrlsByCacheKey.set(entry.cacheKey, url);
+    const url = URL.createObjectURL(blob);
+    this.objectUrlsByCacheKey.set(cacheKey, url);
     return url;
   }
 
@@ -382,7 +586,7 @@ export class ImageCacheService {
   }
 
   private async enforceLimitBytes(limitBytes: number): Promise<void> {
-    const entries = await this.db.imageCache.orderBy('lastAccessedAt').toArray();
+    const entries = await this.engine.listImageCacheOrderedByLastAccessedAt();
     let totalBytes = entries.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
 
     for (const entry of entries) {
@@ -394,7 +598,12 @@ export class ImageCacheService {
         continue;
       }
 
-      await this.db.imageCache.delete(entry.id);
+      await this.engine.deleteImageCache(entry.id);
+
+      if (this.isNative && entry.filePath) {
+        await this.imageFileStore.deleteImage(entry.filePath);
+      }
+
       totalBytes -= entry.sizeBytes || 0;
       // Keep active object URLs alive even after backing cache eviction.
       // Revoking here can break currently-rendered rows and force placeholder fallback.

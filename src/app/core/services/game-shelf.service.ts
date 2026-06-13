@@ -25,8 +25,8 @@ import {
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService } from './platform-order.service';
 import { environment } from '../../../environments/environment';
-import { AppDb } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
+import { ImageCacheService } from './image-cache.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
@@ -165,7 +165,7 @@ export class GameShelfService {
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
   private readonly platformOrderService = inject(PlatformOrderService);
-  private readonly db = inject(AppDb);
+  private readonly imageCacheService = inject(ImageCacheService);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
@@ -1547,7 +1547,7 @@ export class GameShelfService {
 
     for (const game of candidates) {
       const gameKey = `${game.igdbGameId}::${String(game.platformIgdbId)}`;
-      await this.db.imageCache.where('gameKey').equals(gameKey).delete();
+      await this.imageCacheService.purgeGameCache(gameKey);
 
       const staleUrl = normalizeTheGamesDbUrl(game.coverUrl);
 

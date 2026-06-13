@@ -87,6 +87,26 @@ describe('NetworkConnectivityService', () => {
     expect(listener).toHaveBeenNthCalledWith(2, true);
   });
 
+  it('seeds native connectivity from navigator.onLine before getStatus resolves', () => {
+    isNativePlatformMock.mockReturnValue(true);
+    Object.defineProperty(navigator, 'onLine', {
+      value: false,
+      configurable: true,
+    });
+    getStatusMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({ connected: true, connectionType: 'wifi' });
+          }, 100);
+        })
+    );
+
+    service.initialize();
+
+    expect(service.isConnected()).toBe(false);
+  });
+
   it('notifies listeners when native startup resolves connectivity status', async () => {
     isNativePlatformMock.mockReturnValue(true);
     getStatusMock.mockResolvedValue({ connected: false, connectionType: 'none' });

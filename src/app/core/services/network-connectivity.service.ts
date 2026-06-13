@@ -7,7 +7,7 @@ export type ConnectedChangeListener = (connected: boolean) => void;
 @Injectable({ providedIn: 'root' })
 export class NetworkConnectivityService {
   private initialized = false;
-  private connected = true;
+  private connected = false;
   private readonly listeners = new Set<ConnectedChangeListener>();
   private readonly webOnlineHandler = () => {
     this.setConnected(true);
@@ -22,6 +22,7 @@ export class NetworkConnectivityService {
     }
 
     this.initialized = true;
+    this.connected = this.readWebConnected();
 
     if (isNativePlatform()) {
       void this.initializeNative();

@@ -926,13 +926,13 @@ export class SettingsPage {
   }
 
   async importCsv(): Promise<void> {
-    const result = await pickCsvTextFile();
-
-    if (result.status === 'cancelled') {
-      return;
-    }
-
     try {
+      const result = await pickCsvTextFile();
+
+      if (result.status === 'cancelled') {
+        return;
+      }
+
       this.importPreviewRows = await this.parseImportCsv(result.text);
       this.isImportPreviewOpen = true;
     } catch {
@@ -978,13 +978,13 @@ export class SettingsPage {
       return;
     }
 
-    const result = await pickCsvTextFile();
-
-    if (result.status === 'cancelled') {
-      return;
-    }
-
     try {
+      const result = await pickCsvTextFile();
+
+      if (result.status === 'cancelled') {
+        return;
+      }
+
       const rows = await this.parseMgcCsv(result.text);
       this.debugLogService.info('mgc.import_file_parsed', { rows: rows.length, name: result.name });
       this.mgcRows = rows;
@@ -994,8 +994,8 @@ export class SettingsPage {
       this.isMgcImportOpen = true;
       this.isMgcResolverOpen = false;
       this.mgcResolverRowId = null;
-    } catch {
-      this.debugLogService.error('mgc.import_file_parse_failed');
+    } catch (error: unknown) {
+      this.debugLogService.error('mgc.import_file_parse_failed', error);
       await this.presentToast('Unable to parse MGC CSV file.', 'danger');
     }
   }

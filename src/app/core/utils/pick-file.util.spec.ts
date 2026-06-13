@@ -54,7 +54,7 @@ describe('pick-file.util', () => {
         return input;
       }
 
-      return document.createElement(tagName);
+      throw new Error(`Unexpected createElement call: ${tagName}`);
     });
     vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
     vi.spyOn(input, 'remove').mockImplementation(() => undefined);
@@ -219,5 +219,161 @@ describe('pick-file.util', () => {
 
     expect(pickImagesMock).not.toHaveBeenCalled();
     expect(result).toEqual({ status: 'picked', file });
+  });
+
+  it('returns a File from the web files image picker', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    const file = new File(['image-bytes'], 'cover.png', { type: 'image/png' });
+    mockWebFileInput(file);
+
+    const result = await pickImageFromFiles();
+
+    expect(pickFilesMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'picked', file });
+  });
+
+  it('returns cancelled when the web file input is dismissed for images', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    mockWebFileInput(null);
+
+    await expect(pickImageFromFiles()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when document is unavailable', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    vi.stubGlobal('document', undefined);
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('propagates web CSV read failures', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    const file = new File(['csv'], 'import.csv', { type: 'text/csv' });
+    vi.spyOn(file, 'text').mockRejectedValue(new Error('read failed'));
+    mockWebFileInput(file);
+
+    await expect(pickCsvTextFile()).rejects.toThrow('read failed');
+  });
+
+  it('throws when native CSV file cannot be converted', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickFilesMock.mockResolvedValue({
+      files: [{ name: 'import.csv', mimeType: 'text/csv' }],
+    });
+
+    await expect(pickCsvTextFile()).rejects.toThrow('Unable to read picked file');
+  });
+
+  it('rethrows unexpected native CSV picker failures', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickFilesMock.mockRejectedValue(new Error('picker failed'));
+
+    await expect(pickCsvTextFile()).rejects.toThrow('picker failed');
+  });
+
+  it('returns cancelled when native image pick returns no files', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickImagesMock.mockResolvedValue({ files: [] });
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when native image file cannot be converted', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg' }],
+    });
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns a File from a native picker blob result', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg', blob }],
+    });
+
+    const result = await pickImageFromPhotoLibrary();
+
+    expect(result.status).toBe('picked');
+    if (result.status === 'picked') {
+      expect(result.file.name).toBe('cover.jpg');
+      expect(result.file.type).toBe('image/jpeg');
+    }
+  });
+
+  it('returns cancelled when native file fetch is not ok', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg', path: '/picked/cover.jpg' }],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        blob: () => Promise.resolve(new Blob()),
+      })
+    );
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when native file fetch fails', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg', path: '/picked/cover.jpg' }],
+    });
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('uses blob mime type when picked mime type is missing', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', path: '/picked/cover.jpg' }],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['image-bytes'], { type: 'image/jpeg' })),
+      })
+    );
+
+    const result = await pickImageFromPhotoLibrary();
+
+    expect(result.status).toBe('picked');
+    if (result.status === 'picked') {
+      expect(result.file.type).toBe('image/jpeg');
+    }
+  });
+
+  it('returns cancelled when File constructor is unavailable', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg', blob }],
+    });
+    vi.stubGlobal('File', undefined);
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when File constructor throws', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', mimeType: 'image/jpeg', blob }],
+    });
+    vi.stubGlobal('File', function ThrowingFile() {
+      throw new Error('File not supported');
+    });
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
   });
 });

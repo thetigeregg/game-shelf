@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const isNativePlatformMock = vi.fn<() => boolean>();
-const pickFilesMock = vi.fn<() => Promise<{ files: unknown[] }>>();
-const pickImagesMock = vi.fn<() => Promise<{ files: unknown[] }>>();
+const pickFilesMock = vi.fn<(...args: unknown[]) => Promise<{ files: unknown[] }>>();
+const pickImagesMock = vi.fn<(...args: unknown[]) => Promise<{ files: unknown[] }>>();
 const convertFileSrcMock = vi.fn<(path: string) => string>();
 
 vi.mock('./native-platform.util', () => ({

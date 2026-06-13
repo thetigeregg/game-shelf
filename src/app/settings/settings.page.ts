@@ -92,7 +92,7 @@ import {
   serializeExportCsvRows,
 } from './settings-import-export.utils';
 import { presentShareFile } from '../core/utils/share-file.util';
-import { pickCsvTextFile } from '../core/utils/pick-file.util';
+import { pickCsvTextFile, type PickCsvTextOutcome } from '../core/utils/pick-file.util';
 import {
   getGameKey,
   hasHltbData,
@@ -978,7 +978,7 @@ export class SettingsPage {
       return;
     }
 
-    let result;
+    let result: PickCsvTextOutcome;
     try {
       result = await pickCsvTextFile();
     } catch (error: unknown) {

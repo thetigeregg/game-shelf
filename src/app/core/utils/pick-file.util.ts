@@ -109,7 +109,8 @@ async function pickNativeImage(
 
 async function pickedFileToFile(picked: PickedFile): Promise<File | null> {
   if (picked.blob) {
-    return tryCreateFile(picked.blob, picked.name, picked.mimeType);
+    const mimeType = picked.mimeType || picked.blob.type || 'application/octet-stream';
+    return tryCreateFile(picked.blob, picked.name, mimeType);
   }
 
   if (picked.path) {

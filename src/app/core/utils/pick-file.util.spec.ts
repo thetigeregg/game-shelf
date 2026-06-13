@@ -333,6 +333,21 @@ describe('pick-file.util', () => {
     }
   });
 
+  it('uses blob mime type when picked blob mime type is missing', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
+    pickImagesMock.mockResolvedValue({
+      files: [{ name: 'cover.jpg', blob }],
+    });
+
+    const result = await pickImageFromPhotoLibrary();
+
+    expect(result.status).toBe('picked');
+    if (result.status === 'picked') {
+      expect(result.file.type).toBe('image/jpeg');
+    }
+  });
+
   it('returns cancelled when native file fetch is not ok', async () => {
     isNativePlatformMock.mockReturnValue(true);
     convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');

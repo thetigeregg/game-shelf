@@ -97,7 +97,12 @@ async function pickNativeImage(
     const picked = result.files[0];
 
     const file = await pickedFileToFile(picked);
-    return file ? { status: 'picked', file } : { status: 'cancelled' };
+
+    if (!file) {
+      throw new Error('Unable to read picked file');
+    }
+
+    return { status: 'picked', file };
   } catch (error: unknown) {
     if (isPickCancelError(error)) {
       return { status: 'cancelled' };

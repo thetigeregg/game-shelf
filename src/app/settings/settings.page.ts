@@ -978,13 +978,20 @@ export class SettingsPage {
       return;
     }
 
+    let result;
     try {
-      const result = await pickCsvTextFile();
+      result = await pickCsvTextFile();
+    } catch (error: unknown) {
+      this.debugLogService.error('mgc.import_file_read_failed', error);
+      await this.presentToast('Unable to read MGC CSV file.', 'danger');
+      return;
+    }
 
-      if (result.status === 'cancelled') {
-        return;
-      }
+    if (result.status === 'cancelled') {
+      return;
+    }
 
+    try {
       const rows = await this.parseMgcCsv(result.text);
       this.debugLogService.info('mgc.import_file_parsed', { rows: rows.length, name: result.name });
       this.mgcRows = rows;

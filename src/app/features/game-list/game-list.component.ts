@@ -1918,12 +1918,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     if (!isNativePlatform()) {
-      const result = await pickImageFromPhotoLibrary();
-
-      if (result.status === 'picked') {
-        await this.applyCustomCoverFile(result.file);
-      }
-
+      await this.pickAndApplyCustomCover(() => pickImageFromPhotoLibrary());
       return;
     }
 
@@ -1953,18 +1948,25 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async pickAndApplyCustomCoverFromLibrary(): Promise<void> {
-    const result = await pickImageFromPhotoLibrary();
-
-    if (result.status === 'picked') {
-      await this.applyCustomCoverFile(result.file);
-    }
+    await this.pickAndApplyCustomCover(() => pickImageFromPhotoLibrary());
   }
 
   private async pickAndApplyCustomCoverFromFiles(): Promise<void> {
-    const result = await pickImageFromFiles();
+    await this.pickAndApplyCustomCover(() => pickImageFromFiles());
+  }
 
-    if (result.status === 'picked') {
-      await this.applyCustomCoverFile(result.file);
+  private async pickAndApplyCustomCover(
+    pick: () => Promise<{ status: 'cancelled' } | { status: 'picked'; file: File }>
+  ): Promise<void> {
+    try {
+      const result = await pick();
+
+      if (result.status === 'picked') {
+        await this.applyCustomCoverFile(result.file);
+      }
+    } catch (error: unknown) {
+      this.debugLogService.error('custom_cover.pick_failed', error);
+      await this.presentToast('Unable to pick image.', 'danger');
     }
   }
 

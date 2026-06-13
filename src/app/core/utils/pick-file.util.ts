@@ -131,6 +131,8 @@ async function pickedFileToFile(picked: PickedFile): Promise<File | null> {
   return null;
 }
 
+const WEB_FILE_INPUT_FOCUS_FALLBACK_MS = 500;
+
 function pickFileViaWebInput(accept: string): Promise<File | null> {
   if (typeof document === 'undefined') {
     return Promise.resolve(null);
@@ -142,21 +144,42 @@ function pickFileViaWebInput(accept: string): Promise<File | null> {
     input.accept = accept;
     input.style.display = 'none';
 
+    let settled = false;
+
+    const settle = (file: File | null) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      resolve(file);
+    };
+
+    const onWindowFocus = () => {
+      window.setTimeout(() => {
+        if (settled) {
+          return;
+        }
+
+        settle(input.files?.[0] ?? null);
+      }, WEB_FILE_INPUT_FOCUS_FALLBACK_MS);
+    };
+
     const cleanup = () => {
+      window.removeEventListener('focus', onWindowFocus);
       input.remove();
     };
 
     input.addEventListener('change', () => {
-      const file = input.files?.[0] ?? null;
-      cleanup();
-      resolve(file);
+      settle(input.files?.[0] ?? null);
     });
 
     input.addEventListener('cancel', () => {
-      cleanup();
-      resolve(null);
+      settle(null);
     });
 
+    window.addEventListener('focus', onWindowFocus);
     document.body.appendChild(input);
     input.click();
   });

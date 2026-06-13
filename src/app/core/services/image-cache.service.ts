@@ -30,7 +30,7 @@ export class ImageCacheService {
 
   // Native stores cached image bytes as files (ImageFileStore) with metadata
   // in the storage engine; web keeps blobs inline in IndexedDB records.
-  // Thumbs use direct URLs and are not persisted on native.
+  // Thumbs bypass the cache on all platforms and use direct URLs (see resolveImageUrl).
   private get isNative(): boolean {
     return isNativePlatform();
   }
@@ -369,11 +369,12 @@ export class ImageCacheService {
 
     try {
       ({ filePath, sizeBytes } = await this.imageFileStore.writeImage(cacheKey, blob));
-    } catch {
+    } catch (error) {
       this.logImageDiagnostic('image_cache_native_write_failed', {
         cacheKey,
         gameKey,
         variant,
+        message: error instanceof Error ? error.message : String(error),
       });
       return null;
     }
@@ -403,6 +404,7 @@ export class ImageCacheService {
         cacheKey,
         gameKey,
         variant,
+        message: error instanceof Error ? error.message : String(error),
       });
       return null;
     }

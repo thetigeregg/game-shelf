@@ -1,0 +1,223 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const isNativePlatformMock = vi.fn<() => boolean>();
+const pickFilesMock = vi.fn<() => Promise<{ files: unknown[] }>>();
+const pickImagesMock = vi.fn<() => Promise<{ files: unknown[] }>>();
+const convertFileSrcMock = vi.fn<(path: string) => string>();
+
+vi.mock('./native-platform.util', () => ({
+  isNativePlatform: () => isNativePlatformMock(),
+}));
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    convertFileSrc: (path: string) => convertFileSrcMock(path),
+  },
+}));
+
+vi.mock('@capawesome/capacitor-file-picker', () => ({
+  FilePicker: {
+    pickFiles: (...args: unknown[]) => pickFilesMock(...args),
+    pickImages: (...args: unknown[]) => pickImagesMock(...args),
+  },
+}));
+
+import { pickCsvTextFile, pickImageFromFiles, pickImageFromPhotoLibrary } from './pick-file.util';
+
+describe('pick-file.util', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    isNativePlatformMock.mockReset();
+    pickFilesMock.mockReset();
+    pickImagesMock.mockReset();
+    convertFileSrcMock.mockReset();
+  });
+
+  function mockWebFileInput(file: File | null): void {
+    const input = document.createElement('input');
+    const click = vi.fn(() => {
+      if (file) {
+        Object.defineProperty(input, 'files', {
+          configurable: true,
+          value: [file],
+        });
+        input.dispatchEvent(new Event('change'));
+      } else {
+        input.dispatchEvent(new Event('cancel'));
+      }
+    });
+
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      if (tagName === 'input') {
+        input.click = click;
+        return input;
+      }
+
+      return document.createElement(tagName);
+    });
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+    vi.spyOn(input, 'remove').mockImplementation(() => undefined);
+  }
+
+  it('returns CSV text from the native file picker', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/import.csv');
+    pickFilesMock.mockResolvedValue({
+      files: [
+        {
+          name: 'import.csv',
+          mimeType: 'text/csv',
+          path: '/picked/import.csv',
+        },
+      ],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: () =>
+          Promise.resolve(new Blob(['type,title\n"game","Example"'], { type: 'text/csv' })),
+      })
+    );
+
+    const result = await pickCsvTextFile();
+
+    expect(pickFilesMock).toHaveBeenCalledWith({
+      types: ['text/csv', 'text/comma-separated-values', 'text/plain'],
+      limit: 1,
+    });
+    expect(result).toEqual({
+      status: 'picked',
+      text: 'type,title\n"game","Example"',
+      name: 'import.csv',
+    });
+  });
+
+  it('returns cancelled when native CSV pick returns no files', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickFilesMock.mockResolvedValue({ files: [] });
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when native CSV pick is dismissed', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickFilesMock.mockRejectedValue(new DOMException('Picker canceled', 'AbortError'));
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns a File from the native photo library picker', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
+    pickImagesMock.mockResolvedValue({
+      files: [
+        {
+          name: 'cover.jpg',
+          mimeType: 'image/jpeg',
+          path: '/picked/cover.jpg',
+        },
+      ],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['image-bytes'], { type: 'image/jpeg' })),
+      })
+    );
+
+    const result = await pickImageFromPhotoLibrary();
+
+    expect(pickImagesMock).toHaveBeenCalledWith({ limit: 1 });
+    expect(result.status).toBe('picked');
+
+    if (result.status === 'picked') {
+      expect(result.file.name).toBe('cover.jpg');
+      expect(result.file.type).toBe('image/jpeg');
+    }
+  });
+
+  it('returns a File from the native files image picker', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.png');
+    pickFilesMock.mockResolvedValue({
+      files: [
+        {
+          name: 'cover.png',
+          mimeType: 'image/png',
+          path: '/picked/cover.png',
+        },
+      ],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['image-bytes'], { type: 'image/png' })),
+      })
+    );
+
+    const result = await pickImageFromFiles();
+
+    expect(pickFilesMock).toHaveBeenCalledWith({
+      types: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif'],
+      limit: 1,
+    });
+    expect(result.status).toBe('picked');
+
+    if (result.status === 'picked') {
+      expect(result.file.name).toBe('cover.png');
+      expect(result.file.type).toBe('image/png');
+    }
+  });
+
+  it('returns cancelled when native image pick is dismissed', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickImagesMock.mockRejectedValue(new Error('User canceled picker'));
+
+    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('rethrows unexpected native picker failures', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    pickFilesMock.mockRejectedValue(new Error('picker failed'));
+
+    await expect(pickImageFromFiles()).rejects.toThrow('picker failed');
+  });
+
+  it('returns CSV text from the web file input', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    mockWebFileInput(
+      new File(['type,title\n"game","Example"'], 'import.csv', { type: 'text/csv' })
+    );
+
+    const result = await pickCsvTextFile();
+
+    expect(pickFilesMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      status: 'picked',
+      text: 'type,title\n"game","Example"',
+      name: 'import.csv',
+    });
+  });
+
+  it('returns cancelled when the web file input is dismissed', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    mockWebFileInput(null);
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns a File from the web image input', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    const file = new File(['image-bytes'], 'cover.webp', { type: 'image/webp' });
+    mockWebFileInput(file);
+
+    const result = await pickImageFromPhotoLibrary();
+
+    expect(pickImagesMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'picked', file });
+  });
+});

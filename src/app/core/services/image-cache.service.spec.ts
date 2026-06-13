@@ -2,6 +2,8 @@ import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
 import Dexie from 'dexie';
 import { AppDb } from '../data/app-db';
+import { DexieStorageEngine } from '../data/dexie-storage-engine';
+import { STORAGE_ENGINE } from '../data/storage-engine';
 import { DebugLogService } from './debug-log.service';
 import { ImageCacheService } from './image-cache.service';
 
@@ -24,6 +26,7 @@ describe('ImageCacheService', () => {
       providers: [
         ImageCacheService,
         AppDb,
+        { provide: STORAGE_ENGINE, useExisting: DexieStorageEngine },
         { provide: DebugLogService, useValue: makeDebugLogStub() },
       ],
     });

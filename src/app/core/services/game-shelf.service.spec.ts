@@ -2,7 +2,6 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
-import { AppDb } from '../data/app-db';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameCatalogResult,
@@ -10,6 +9,7 @@ import {
   GameListView,
 } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
+import { ImageCacheService } from './image-cache.service';
 import { PlatformOrderService } from './platform-order.service';
 import { ClientWriteAuthService } from './client-write-auth.service';
 
@@ -20,10 +20,8 @@ describe('GameShelfService', () => {
   let searchApi: {
     [K in keyof GameSearchApi]: ReturnType<typeof vi.fn>;
   };
-  let appDb: {
-    imageCache: {
-      where: ReturnType<typeof vi.fn>;
-    };
+  let imageCacheService: {
+    purgeGameCache: ReturnType<typeof vi.fn>;
   };
   let service: GameShelfService;
   const migrationStorageKey = 'game-shelf:igdb-cover-migration:v3';
@@ -78,14 +76,8 @@ describe('GameShelfService', () => {
     searchApi.lookupReviewScore.mockReturnValue(of(null));
     searchApi.lookupReviewCandidates.mockReturnValue(of([]));
 
-    appDb = {
-      imageCache: {
-        where: vi.fn().mockReturnValue({
-          equals: vi.fn().mockReturnValue({
-            delete: vi.fn().mockResolvedValue(undefined),
-          }),
-        }),
-      },
+    imageCacheService = {
+      purgeGameCache: vi.fn().mockResolvedValue(undefined),
     };
 
     TestBed.configureTestingModule({
@@ -93,7 +85,7 @@ describe('GameShelfService', () => {
         GameShelfService,
         { provide: GAME_REPOSITORY, useValue: repository },
         { provide: GAME_SEARCH_API, useValue: searchApi },
-        { provide: AppDb, useValue: appDb },
+        { provide: ImageCacheService, useValue: imageCacheService },
       ],
     });
 
@@ -811,7 +803,7 @@ describe('GameShelfService', () => {
 
     await service.migratePreferredPlatformCoversToIgdb();
 
-    expect(appDb.imageCache.where).toHaveBeenCalledWith('gameKey');
+    expect(imageCacheService.purgeGameCache).toHaveBeenCalledWith('4512::167');
     expect(repository.updateCover).toHaveBeenCalledWith(
       '4512',
       167,

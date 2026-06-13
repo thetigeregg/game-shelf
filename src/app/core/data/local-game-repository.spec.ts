@@ -1,13 +1,17 @@
 import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
 import { AppDb } from './app-db';
-import { DexieGameRepository } from './dexie-game-repository';
+import { DexieStorageEngine } from './dexie-storage-engine';
+import { LocalGameRepository } from './local-game-repository';
+import { STORAGE_ENGINE } from './storage-engine';
 import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult } from '../models/game.models';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
-describe('DexieGameRepository', () => {
+const STORAGE_ENGINE_PROVIDER = { provide: STORAGE_ENGINE, useExisting: DexieStorageEngine };
+
+describe('LocalGameRepository', () => {
   let db: AppDb;
-  let repository: DexieGameRepository;
+  let repository: LocalGameRepository;
 
   const mario: GameCatalogResult = {
     igdbGameId: '101',
@@ -28,11 +32,11 @@ describe('DexieGameRepository', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, STORAGE_ENGINE_PROVIDER, LocalGameRepository],
     });
 
     db = TestBed.inject(AppDb);
-    repository = TestBed.inject(DexieGameRepository);
+    repository = TestBed.inject(LocalGameRepository);
   });
 
   afterEach(async () => {
@@ -979,11 +983,16 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+      providers: [
+        AppDb,
+        STORAGE_ENGINE_PROVIDER,
+        LocalGameRepository,
+        { provide: SYNC_OUTBOX_WRITER, useValue: writer },
+      ],
     });
 
     const queuedDb = TestBed.inject(AppDb);
-    const queuedRepository = TestBed.inject(DexieGameRepository);
+    const queuedRepository = TestBed.inject(LocalGameRepository);
 
     await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).resolves.toBeDefined();
     await expect(queuedRepository.remove('101', 18)).resolves.toBeUndefined();
@@ -1020,10 +1029,10 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, STORAGE_ENGINE_PROVIDER, LocalGameRepository],
     });
     db = TestBed.inject(AppDb);
-    repository = TestBed.inject(DexieGameRepository);
+    repository = TestBed.inject(LocalGameRepository);
   });
 
   it('rolls back game mutation when outbox enqueue fails', async () => {
@@ -1035,12 +1044,20 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+      providers: [
+        AppDb,
+        STORAGE_ENGINE_PROVIDER,
+        LocalGameRepository,
+        { provide: SYNC_OUTBOX_WRITER, useValue: writer },
+      ],
     });
 
     const queuedDb = TestBed.inject(AppDb);
-    const queuedRepository = TestBed.inject(DexieGameRepository);
-    const outboxPutSpy = vi.spyOn(queuedDb.outbox, 'put').mockRejectedValueOnce(new Error('boom'));
+    const queuedRepository = TestBed.inject(LocalGameRepository);
+    const queuedEngine = TestBed.inject(DexieStorageEngine);
+    const outboxPutSpy = vi
+      .spyOn(queuedEngine, 'putOutboxEntry')
+      .mockRejectedValueOnce(new Error('boom'));
 
     await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).rejects.toThrow('boom');
     const stored = await queuedRepository.exists('101', 18);
@@ -1051,10 +1068,10 @@ describe('DexieGameRepository', () => {
     await queuedDb.delete();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, STORAGE_ENGINE_PROVIDER, LocalGameRepository],
     });
     db = TestBed.inject(AppDb);
-    repository = TestBed.inject(DexieGameRepository);
+    repository = TestBed.inject(LocalGameRepository);
   });
 
   it('preserves incoming similarGameIgdbIds when updating an existing game', async () => {
@@ -1253,10 +1270,15 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+      providers: [
+        AppDb,
+        STORAGE_ENGINE_PROVIDER,
+        LocalGameRepository,
+        { provide: SYNC_OUTBOX_WRITER, useValue: writer },
+      ],
     });
 
-    const queuedRepository = TestBed.inject(DexieGameRepository) as unknown as {
+    const queuedRepository = TestBed.inject(LocalGameRepository) as unknown as {
       queueTagDelete: (id: number) => Promise<void>;
       queueViewUpsert: (view: {
         id: number;
@@ -1303,10 +1325,15 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: {} }],
+      providers: [
+        AppDb,
+        STORAGE_ENGINE_PROVIDER,
+        LocalGameRepository,
+        { provide: SYNC_OUTBOX_WRITER, useValue: {} },
+      ],
     });
 
-    const noSyncRepository = TestBed.inject(DexieGameRepository) as unknown as {
+    const noSyncRepository = TestBed.inject(LocalGameRepository) as unknown as {
       requestSyncNow: () => void;
     };
     expect(() => {
@@ -1315,9 +1342,9 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, STORAGE_ENGINE_PROVIDER, LocalGameRepository],
     });
     db = TestBed.inject(AppDb);
-    repository = TestBed.inject(DexieGameRepository);
+    repository = TestBed.inject(LocalGameRepository);
   });
 });

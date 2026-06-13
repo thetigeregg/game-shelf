@@ -2,6 +2,8 @@ export const PREFERENCE_KEY_PREFIXES = ['game-shelf', 'game_shelf_'] as const;
 
 export const PREFERENCE_STORAGE_MIGRATION_KEY = 'game-shelf:preference-storage-migration-v1';
 
+export const SQLITE_MIGRATION_KEY = 'game-shelf:sqlite-migration-v1';
+
 export const E2E_FIXTURE_STORAGE_KEY = 'game-shelf:e2e-fixture';
 
 export const DEBUG_LOGS_STORAGE_KEY = 'game-shelf:debug-logs:v2';
@@ -16,6 +18,7 @@ export const PREFERENCE_STORAGE_EXCLUDED_KEYS = [
 
 export const SETTINGS_EXPORT_EXCLUDED_KEYS = [
   PREFERENCE_STORAGE_MIGRATION_KEY,
+  SQLITE_MIGRATION_KEY,
   E2E_FIXTURE_STORAGE_KEY,
   DEBUG_LOGS_STORAGE_KEY,
   DEBUG_LOGS_LEGACY_STORAGE_KEY,

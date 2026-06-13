@@ -13,6 +13,13 @@ import {
   PlatformCustomizationService,
 } from './platform-customization.service';
 import { ClientSyncOperation, SyncChangeEvent } from '../models/game.models';
+import { NetworkConnectivityService } from './network-connectivity.service';
+
+const networkConnectivityMock = {
+  initialize: vi.fn(),
+  isConnected: vi.fn(() => true),
+  onConnectedChange: vi.fn(() => () => {}),
+};
 
 type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
@@ -88,6 +95,12 @@ describe('GameSyncService', () => {
   }
 
   beforeEach(() => {
+    networkConnectivityMock.initialize.mockReset();
+    networkConnectivityMock.isConnected.mockReset();
+    networkConnectivityMock.onConnectedChange.mockReset();
+    networkConnectivityMock.isConnected.mockReturnValue(true);
+    networkConnectivityMock.onConnectedChange.mockReturnValue(() => {});
+
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -97,6 +110,7 @@ describe('GameSyncService', () => {
         SyncEventsService,
         PlatformOrderService,
         PlatformCustomizationService,
+        { provide: NetworkConnectivityService, useValue: networkConnectivityMock },
       ],
     });
 
@@ -1680,26 +1694,15 @@ describe('GameSyncService', () => {
 
   it('covers online detection branch and operation id fallback path', () => {
     const cryptoSpy = vi.spyOn(globalThis, 'crypto', 'get').mockReturnValue({} as Crypto);
-    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
-      onLine: false,
-    } as Navigator);
+    networkConnectivityMock.isConnected.mockReturnValue(false);
 
     expect(servicePrivate.isOnline()).toBe(false);
     expect(servicePrivate.generateOperationId()).toMatch(/^\d+-[a-z0-9]+$/);
 
-    navigatorSpy.mockRestore();
     cryptoSpy.mockRestore();
   });
 
-  it('treats missing navigator as online and ignores persistent storage failures', async () => {
-    const missingNavigatorSpy = vi
-      .spyOn(globalThis, 'navigator', 'get')
-      .mockReturnValue(undefined as never);
-
-    expect(servicePrivate.isOnline()).toBe(true);
-
-    missingNavigatorSpy.mockRestore();
-
+  it('ignores persistent storage failures when requesting persistent storage', async () => {
     const persist = vi.fn().mockRejectedValue(new Error('persist failed'));
     const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
       storage: { persist },
@@ -2397,13 +2400,10 @@ describe('GameSyncService', () => {
     expect(pullSpy).not.toHaveBeenCalled();
 
     servicePrivate.syncInFlight = false;
-    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
-      onLine: false,
-    } as Navigator);
+    networkConnectivityMock.isConnected.mockReturnValue(false);
     await service.syncNow();
     expect(pushSpy).not.toHaveBeenCalled();
     expect(pullSpy).not.toHaveBeenCalled();
-    navigatorSpy.mockRestore();
   });
 
   it('reports pending reload work while sync state is active or outbox has entries', async () => {

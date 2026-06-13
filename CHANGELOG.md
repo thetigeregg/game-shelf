@@ -3665,3 +3665,21 @@
 
 - 73ef2841 Merge pull request #422 from thetigeregg/feat/bumpz
 - 178cddac chore(deps): update Angular and esbuild packages to latest versions
+
+## v1.56.0 - 2026-06-13
+
+- 8477c5d4 Merge pull request #421 from thetigeregg/feat/sqlite
+- e10e1b9b test(storage): drop brittle DOMException instanceof check
+- c3b38f15 fix(storage): wrap sqlite updateGame in transaction
+- e15c79a9 fix(image-cache): add error details to native cache diagnostics
+- 4a756aa4 fix(storage): address PR review on constraint errors and migration cursoring
+- 06bba53b fix(storage): handle sync throws in transaction zone helpers
+- 15fe4b20 fix(storage): handle cache races and use sql.js in SQLite tests
+- 2302156f fix(storage): address PR review on migration batching and tag index
+- bbcf898b fix(storage): serialize concurrent runInTransaction calls
+- 349e363e fix(storage): address PR review import and error logging feedback
+- 9d018246 fix(storage): address PR review feedback for native image cache and transactions
+- 5c4ef08c Merge branch 'main' into feat/sqlite
+- 61d083ab fix(storage): address PR review feedback for SQLite migration
+- c7d30c04 Merge branch 'main' into feat/sqlite
+- e5344ced feat(storage): add native SQLite engine and filesystem image cache

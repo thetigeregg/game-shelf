@@ -298,6 +298,11 @@ npm run test:backup:ops
   - Trigger: pushes to `main`
   - Bumps repo version, commits/tag release, publishes Docker images to GHCR
 
+- `iOS TestFlight` (`.github/workflows/ios-testflight.yml`)
+  - Trigger: semver tag push (`v*`) from release workflow, or manual dispatch
+  - Builds **App PROD** via Fastlane and uploads to TestFlight (not App Store)
+  - See `docs/ios-testflight-ci.md` for secrets and setup
+
 - `Secret Scan` (`.github/workflows/secret-scan.yml`)
   - Trigger: PRs to `main`, pushes to `main`, and manual dispatch
   - Runs gitleaks with repository config from `.gitleaks.toml`
@@ -311,6 +316,7 @@ npm run test:backup:ops
   - `CHANGELOG.md`
 - Creates and pushes git tag (for example `v0.0.5`)
 - Docker images are tagged with `main`, semver tags, major/minor variants, and short SHA
+- iOS TestFlight upload runs on the same semver tag via `ios-testflight.yml` (see `docs/ios-testflight-ci.md`)
 
 ## Timezone Defaults
 

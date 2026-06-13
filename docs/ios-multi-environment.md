@@ -281,3 +281,11 @@ debugging. Common iOS multi-env issues:
 - **Wrong backend after sync**: you synced local but ran the prod scheme (or vice versa)
 - **Missing Firebase plist in new worktree**: save shared copies under `~/.config/game-shelf/ios/`,
   then run `node scripts/worktree-dev.mjs bootstrap` or any `npm run prebuild:ios:*` command
+
+## TestFlight CI
+
+Production iOS builds are uploaded to TestFlight automatically when the release workflow
+pushes a semver tag. This uses the **App PROD** scheme only — not App Store release.
+
+See [`ios-testflight-ci.md`](ios-testflight-ci.md) for GitHub secrets, App Store Connect
+API key setup, and manual re-run instructions.

@@ -3660,3 +3660,8 @@
 - a86f5e0c fix(net): notify connectivity listeners on native startup
 - 5f5371d0 feat(net): consolidate debug connectivity logs and add availability banner
 - c4bbe31c feat(net): add Capacitor network connectivity service
+
+## v1.55.1 - 2026-06-13
+
+- 73ef2841 Merge pull request #422 from thetigeregg/feat/bumpz
+- 178cddac chore(deps): update Angular and esbuild packages to latest versions

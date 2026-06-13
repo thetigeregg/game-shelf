@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.56.0",
+  "version": "1.57.0",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -69,6 +69,7 @@
     "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@capawesome/capacitor-file-picker": "^8.0.2",
     "@ionic/angular": "^8.8.10",
     "@playwright/test": "^1.60.0",
     "@semantic-icons/simple-icons": "^0.58.0",

@@ -92,6 +92,7 @@ import {
   serializeExportCsvRows,
 } from './settings-import-export.utils';
 import { presentShareFile } from '../core/utils/share-file.util';
+import { pickCsvTextFile, type PickCsvTextOutcome } from '../core/utils/pick-file.util';
 import {
   getGameKey,
   hasHltbData,
@@ -924,22 +925,15 @@ export class SettingsPage {
     }
   }
 
-  triggerImport(fileInput: HTMLInputElement): void {
-    fileInput.value = '';
-    fileInput.click();
-  }
-
-  async onImportFileSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
+  async importCsv(): Promise<void> {
     try {
-      const text = await file.text();
-      this.importPreviewRows = await this.parseImportCsv(text);
+      const result = await pickCsvTextFile();
+
+      if (result.status === 'cancelled') {
+        return;
+      }
+
+      this.importPreviewRows = await this.parseImportCsv(result.text);
       this.isImportPreviewOpen = true;
     } catch {
       this.importPreviewRows = [];
@@ -979,13 +973,38 @@ export class SettingsPage {
     this.isImportPreviewOpen = false;
   }
 
-  triggerMgcImport(fileInput: HTMLInputElement): void {
+  async importMgcCsv(): Promise<void> {
     if (!this.isMgcImportFeatureEnabled) {
       return;
     }
 
-    fileInput.value = '';
-    fileInput.click();
+    let result: PickCsvTextOutcome;
+    try {
+      result = await pickCsvTextFile();
+    } catch (error: unknown) {
+      this.debugLogService.error('mgc.import_file_read_failed', error);
+      await this.presentToast('Unable to read MGC CSV file.', 'danger');
+      return;
+    }
+
+    if (result.status === 'cancelled') {
+      return;
+    }
+
+    try {
+      const rows = await this.parseMgcCsv(result.text);
+      this.debugLogService.info('mgc.import_file_parsed', { rows: rows.length, name: result.name });
+      this.mgcRows = rows;
+      this.mgcPageIndex = 0;
+      this.mgcPageSize = 50;
+      this.mgcTargetListType = null;
+      this.isMgcImportOpen = true;
+      this.isMgcResolverOpen = false;
+      this.mgcResolverRowId = null;
+    } catch (error: unknown) {
+      this.debugLogService.error('mgc.import_file_parse_failed', error);
+      await this.presentToast('Unable to parse MGC CSV file.', 'danger');
+    }
   }
 
   openMetadataValidator(): void {
@@ -998,35 +1017,6 @@ export class SettingsPage {
 
   openIgnoredRecommendations(): void {
     void this.router.navigateByUrl('/settings/ignored-recommendations');
-  }
-
-  async onMgcImportFileSelected(event: Event): Promise<void> {
-    if (!this.isMgcImportFeatureEnabled) {
-      return;
-    }
-
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const rows = await this.parseMgcCsv(text);
-      this.debugLogService.info('mgc.import_file_parsed', { rows: rows.length, name: file.name });
-      this.mgcRows = rows;
-      this.mgcPageIndex = 0;
-      this.mgcPageSize = 50;
-      this.mgcTargetListType = null;
-      this.isMgcImportOpen = true;
-      this.isMgcResolverOpen = false;
-      this.mgcResolverRowId = null;
-    } catch {
-      this.debugLogService.error('mgc.import_file_parse_failed');
-      await this.presentToast('Unable to parse MGC CSV file.', 'danger');
-    }
   }
 
   closeMgcImport(): void {

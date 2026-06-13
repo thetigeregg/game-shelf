@@ -3683,3 +3683,14 @@
 - 61d083ab fix(storage): address PR review feedback for SQLite migration
 - c7d30c04 Merge branch 'main' into feat/sqlite
 - e5344ced feat(storage): add native SQLite engine and filesystem image cache
+
+## v1.57.0 - 2026-06-13
+
+- 85ef7488 Merge pull request #423 from thetigeregg/feat/sharetoast
+- d4da192c fix(native): address PR review feedback for file picker
+- 311223c4 fix(settings): distinguish MGC import read vs parse errors
+- d43fba56 fix(native): throw on image conversion failure and use PickFileOutcome
+- 9265376d fix(native): fall back to blob type when picked mime type is missing
+- d16e4c09 fix(native): settle web file picker and handle cover pick errors
+- 35b06aab fix(native): address PR feedback for file picker error handling
+- 51299686 feat(ios): add native file picker for imports and cover uploads

@@ -28,12 +28,8 @@ export async function pickCsvTextFile(): Promise<PickCsvTextOutcome> {
       return { status: 'cancelled' };
     }
 
-    try {
-      const text = await file.text();
-      return { status: 'picked', text, name: file.name };
-    } catch {
-      return { status: 'cancelled' };
-    }
+    const text = await file.text();
+    return { status: 'picked', text, name: file.name };
   }
 
   try {
@@ -51,7 +47,7 @@ export async function pickCsvTextFile(): Promise<PickCsvTextOutcome> {
     const file = await pickedFileToFile(picked);
 
     if (!file) {
-      return { status: 'cancelled' };
+      throw new Error('Unable to read picked file');
     }
 
     const text = await file.text();

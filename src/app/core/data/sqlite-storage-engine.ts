@@ -36,6 +36,7 @@ function toConstraintError(error: unknown): Error {
  */
 export class SqliteStorageEngine implements StorageEngine {
   private transactionQueue: Promise<unknown> = Promise.resolve();
+  private transactionDepth = 0;
 
   constructor(private readonly connection: SqliteConnection) {}
 
@@ -47,10 +48,16 @@ export class SqliteStorageEngine implements StorageEngine {
 
   /**
    * Independent transactions are serialized on the single connection so each
-   * runInTransaction gets its own begin/commit/rollback boundary.
+   * runInTransaction gets its own begin/commit/rollback boundary. Nested calls
+   * join the active transaction instead of starting a new one.
    */
   runInTransaction<T>(_scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
+    if (this.transactionDepth > 0) {
+      return action();
+    }
+
     const run = async (): Promise<T> => {
+      this.transactionDepth += 1;
       await this.connection.beginTransaction();
 
       try {
@@ -64,6 +71,8 @@ export class SqliteStorageEngine implements StorageEngine {
           // Surface the original failure even if rollback also fails.
         }
         throw error;
+      } finally {
+        this.transactionDepth -= 1;
       }
     };
 

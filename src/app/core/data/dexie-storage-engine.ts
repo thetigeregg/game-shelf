@@ -40,6 +40,10 @@ export class DexieStorageEngine implements StorageEngine {
   }
 
   runInTransaction<T>(scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
+    if (this.activeTransaction) {
+      return action();
+    }
+
     return this.db.transaction('rw', this.tablesForScope(scope), (transaction) => {
       const previous = this.activeTransaction;
       this.activeTransaction = { transaction, scope: new Set(scope) };

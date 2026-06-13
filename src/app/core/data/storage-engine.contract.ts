@@ -456,6 +456,38 @@ export function describeStorageEngineContract(
 
         expect((await engine.getSyncMeta('cursor'))?.value).toBe('8');
       });
+
+      it('nested runInTransaction calls join the outer transaction', async () => {
+        await engine.runInTransaction(['games', 'outbox'], async () => {
+          await engine.addGame(makeContractGame({ igdbGameId: 'outer' }));
+
+          await engine.runInTransaction(['outbox'], async () => {
+            await engine.putOutboxEntry(makeContractOutboxEntry({ opId: 'nested' }));
+          });
+        });
+
+        expect((await engine.listAllGames()).map((game) => game.igdbGameId)).toEqual(['outer']);
+        expect(await engine.countOutbox()).toBe(1);
+        expect((await engine.getOutboxEntry('nested'))?.opId).toBe('nested');
+      });
+
+      it('rolls back nested writes when the inner action throws', async () => {
+        await engine.addGame(makeContractGame({ igdbGameId: 'keep' }));
+
+        await expect(
+          engine.runInTransaction(['games', 'outbox'], async () => {
+            await engine.addGame(makeContractGame({ igdbGameId: 'outer' }));
+
+            await engine.runInTransaction(['outbox'], async () => {
+              await engine.putOutboxEntry(makeContractOutboxEntry({ opId: 'nested' }));
+              throw new Error('inner boom');
+            });
+          })
+        ).rejects.toThrow('inner boom');
+
+        expect((await engine.listAllGames()).map((game) => game.igdbGameId)).toEqual(['keep']);
+        expect(await engine.countOutbox()).toBe(0);
+      });
     });
   });
 }

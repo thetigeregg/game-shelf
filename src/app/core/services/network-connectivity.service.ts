@@ -43,7 +43,7 @@ export class NetworkConnectivityService {
   }
 
   private initializeWeb(): void {
-    this.connected = this.readWebConnected();
+    this.setConnected(this.readWebConnected());
     window.addEventListener('online', this.webOnlineHandler);
     window.addEventListener('offline', this.webOfflineHandler);
   }
@@ -51,9 +51,9 @@ export class NetworkConnectivityService {
   private async initializeNative(): Promise<void> {
     try {
       const status = await Network.getStatus();
-      this.connected = status.connected;
+      this.setConnected(status.connected);
     } catch {
-      this.connected = this.readWebConnected();
+      this.setConnected(this.readWebConnected());
     }
 
     try {

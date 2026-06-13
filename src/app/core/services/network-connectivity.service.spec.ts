@@ -87,6 +87,21 @@ describe('NetworkConnectivityService', () => {
     expect(listener).toHaveBeenNthCalledWith(2, true);
   });
 
+  it('notifies listeners when native startup resolves connectivity status', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    getStatusMock.mockResolvedValue({ connected: false, connectionType: 'none' });
+    addListenerMock.mockResolvedValue({ remove: vi.fn(() => Promise.resolve(undefined)) });
+
+    const listener = vi.fn();
+    service.onConnectedChange(listener);
+    service.initialize();
+    await Promise.resolve();
+
+    expect(getStatusMock).toHaveBeenCalledOnce();
+    expect(service.isConnected()).toBe(false);
+    expect(listener).toHaveBeenCalledWith(false);
+  });
+
   it('initializes native connectivity from Network.getStatus and networkStatusChange', async () => {
     isNativePlatformMock.mockReturnValue(true);
     getStatusMock.mockResolvedValue({ connected: false, connectionType: 'none' });

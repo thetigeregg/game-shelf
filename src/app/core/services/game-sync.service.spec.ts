@@ -1702,9 +1702,7 @@ describe('GameSyncService', () => {
     cryptoSpy.mockRestore();
   });
 
-  it('treats disconnected connectivity as offline and ignores persistent storage failures', async () => {
-    networkConnectivityMock.isConnected.mockReturnValue(true);
-
+  it('ignores persistent storage failures when requesting persistent storage', async () => {
     const persist = vi.fn().mockRejectedValue(new Error('persist failed'));
     const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
       storage: { persist },

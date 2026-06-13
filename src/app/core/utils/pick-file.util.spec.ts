@@ -308,13 +308,13 @@ describe('pick-file.util', () => {
     await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
   });
 
-  it('returns cancelled when native image file cannot be converted', async () => {
+  it('throws when native image file cannot be converted', async () => {
     isNativePlatformMock.mockReturnValue(true);
     pickImagesMock.mockResolvedValue({
       files: [{ name: 'cover.jpg', mimeType: 'image/jpeg' }],
     });
 
-    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+    await expect(pickImageFromPhotoLibrary()).rejects.toThrow('Unable to read picked file');
   });
 
   it('returns a File from a native picker blob result', async () => {
@@ -348,7 +348,7 @@ describe('pick-file.util', () => {
     }
   });
 
-  it('returns cancelled when native file fetch is not ok', async () => {
+  it('throws when native file fetch is not ok', async () => {
     isNativePlatformMock.mockReturnValue(true);
     convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
     pickImagesMock.mockResolvedValue({
@@ -362,10 +362,10 @@ describe('pick-file.util', () => {
       })
     );
 
-    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+    await expect(pickImageFromPhotoLibrary()).rejects.toThrow('Unable to read picked file');
   });
 
-  it('returns cancelled when native file fetch fails', async () => {
+  it('throws when native file fetch fails', async () => {
     isNativePlatformMock.mockReturnValue(true);
     convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/cover.jpg');
     pickImagesMock.mockResolvedValue({
@@ -373,7 +373,7 @@ describe('pick-file.util', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
 
-    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+    await expect(pickImageFromPhotoLibrary()).rejects.toThrow('Unable to read picked file');
   });
 
   it('uses blob mime type when picked mime type is missing', async () => {
@@ -398,7 +398,7 @@ describe('pick-file.util', () => {
     }
   });
 
-  it('returns cancelled when File constructor is unavailable', async () => {
+  it('throws when File constructor is unavailable', async () => {
     isNativePlatformMock.mockReturnValue(true);
     const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
     pickImagesMock.mockResolvedValue({
@@ -406,10 +406,10 @@ describe('pick-file.util', () => {
     });
     vi.stubGlobal('File', undefined);
 
-    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+    await expect(pickImageFromPhotoLibrary()).rejects.toThrow('Unable to read picked file');
   });
 
-  it('returns cancelled when File constructor throws', async () => {
+  it('throws when File constructor throws', async () => {
     isNativePlatformMock.mockReturnValue(true);
     const blob = new Blob(['image-bytes'], { type: 'image/jpeg' });
     pickImagesMock.mockResolvedValue({
@@ -419,6 +419,6 @@ describe('pick-file.util', () => {
       throw new Error('File not supported');
     });
 
-    await expect(pickImageFromPhotoLibrary()).resolves.toEqual({ status: 'cancelled' });
+    await expect(pickImageFromPhotoLibrary()).rejects.toThrow('Unable to read picked file');
   });
 });

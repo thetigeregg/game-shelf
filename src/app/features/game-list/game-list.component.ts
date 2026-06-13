@@ -180,7 +180,11 @@ import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
 import { openDocumentUrl } from '../../core/utils/open-document-url.util';
 import { openExternalUrl } from '../../core/utils/open-external-url';
-import { pickImageFromFiles, pickImageFromPhotoLibrary } from '../../core/utils/pick-file.util';
+import {
+  pickImageFromFiles,
+  pickImageFromPhotoLibrary,
+  type PickFileOutcome,
+} from '../../core/utils/pick-file.util';
 import { isNativePlatform } from '../../core/utils/native-platform.util';
 import { addIcons } from 'ionicons';
 import {
@@ -1955,9 +1959,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.pickAndApplyCustomCover(() => pickImageFromFiles());
   }
 
-  private async pickAndApplyCustomCover(
-    pick: () => Promise<{ status: 'cancelled' } | { status: 'picked'; file: File }>
-  ): Promise<void> {
+  private async pickAndApplyCustomCover(pick: () => Promise<PickFileOutcome>): Promise<void> {
     try {
       const result = await pick();
 

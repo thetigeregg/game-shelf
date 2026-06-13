@@ -3,6 +3,7 @@ import { STORAGE_ENGINE } from '../data/storage-engine';
 import { CoverSource, GameEntry, ListType } from '../models/game.models';
 import { isE2eFixturesEnabled } from '../config/runtime-config';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
+import { ImageCacheService } from './image-cache.service';
 
 const E2E_FIXTURE_STORAGE_KEY = 'game-shelf:e2e-fixture';
 
@@ -23,6 +24,7 @@ interface E2eFixtureGame {
 @Injectable({ providedIn: 'root' })
 export class E2eFixtureService {
   private readonly engine = inject(STORAGE_ENGINE);
+  private readonly imageCacheService = inject(ImageCacheService);
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
 
   async applyFixtureFromStorage(): Promise<void> {
@@ -56,7 +58,7 @@ export class E2eFixtureService {
         this.engine.clearGames(),
         this.engine.clearTags(),
         this.engine.clearViews(),
-        this.engine.clearImageCache(),
+        this.imageCacheService.purgeLocalCache(),
         this.engine.clearOutbox(),
         this.engine.clearSyncMeta(),
       ]);

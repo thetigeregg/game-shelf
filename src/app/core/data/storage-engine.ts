@@ -32,7 +32,12 @@ export interface ImageCacheRecord {
  * SQLite engine maps SQLITE_CONSTRAINT failures to the same name.
  */
 export function isStorageConstraintError(error: unknown): boolean {
-  return error instanceof Error && (error.name === 'ConstraintError' || error.name === 'DataError');
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const name = (error as { name?: unknown }).name;
+  return name === 'ConstraintError' || name === 'DataError';
 }
 
 /**

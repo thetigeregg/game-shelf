@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import Dexie, { Table } from 'dexie';
+import Dexie, { IndexableType, Table } from 'dexie';
 import { AppDb } from './app-db';
 import { DebugLogService } from '../services/debug-log.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
@@ -85,13 +85,29 @@ export class StorageMigrationService {
   }
 
   private async *iterateTableBatches<T>(table: Table<T>, batchSize: number): AsyncGenerator<T[]> {
-    let offset = 0;
-    let batch = await table.offset(offset).limit(batchSize).toArray();
+    let lastKey: IndexableType | undefined;
+    let batch = await table.orderBy(':id').limit(batchSize).toArray();
 
     while (batch.length > 0) {
       yield batch;
-      offset += batch.length;
-      batch = await table.offset(offset).limit(batchSize).toArray();
+      lastKey = this.getRowPrimaryKey(table, batch[batch.length - 1]);
+      batch = await table.where(':id').above(lastKey).limit(batchSize).toArray();
     }
+  }
+
+  private getRowPrimaryKey<T>(table: Table<T>, row: T): IndexableType {
+    const keyPath = table.schema.primKey.keyPath;
+
+    if (typeof keyPath === 'string') {
+      return (row as Record<string, IndexableType>)[keyPath];
+    }
+
+    if (Array.isArray(keyPath)) {
+      return keyPath.map(
+        (segment) => (row as Record<string, IndexableType>)[segment]
+      ) as IndexableType;
+    }
+
+    throw new Error(`Table "${table.name}" has no primary key`);
   }
 }

@@ -140,7 +140,12 @@ async function pickedFileToFile(picked: PickedFile): Promise<File | null> {
 const WEB_FILE_INPUT_FOCUS_FALLBACK_MS = 500;
 
 function pickFileViaWebInput(accept: string): Promise<File | null> {
-  if (typeof document === 'undefined') {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return Promise.resolve(null);
+  }
+
+  const body = Reflect.get(document, 'body');
+  if (!(body instanceof HTMLElement)) {
     return Promise.resolve(null);
   }
 
@@ -186,7 +191,7 @@ function pickFileViaWebInput(accept: string): Promise<File | null> {
     });
 
     window.addEventListener('focus', onWindowFocus);
-    document.body.appendChild(input);
+    body.appendChild(input);
     input.click();
   });
 }

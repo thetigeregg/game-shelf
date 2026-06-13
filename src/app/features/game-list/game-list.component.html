@@ -843,14 +843,6 @@
   (dismiss)="closeEmulatorJsModal()"
 ></app-emulator-js-modal>
 
-<input
-  #customCoverFileInput
-  style="display: none"
-  type="file"
-  accept="image/*"
-  (change)="onCustomCoverFileSelected($event)"
-/>
-
 <ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
   <ng-template>
     <ion-header>

@@ -490,6 +490,38 @@ export function describeStorageEngineContract(
         expect((await engine.listAllGames()).map((game) => game.igdbGameId)).toEqual(['keep']);
         expect(await engine.countOutbox()).toBe(0);
       });
+
+      it('serializes concurrent independent transactions', async () => {
+        const events: string[] = [];
+
+        const firstTransaction = engine.runInTransaction(['games'], async () => {
+          events.push('tx1-start');
+          await engine.addGame(makeContractGame({ igdbGameId: 'tx1' }));
+
+          const holdUntil = Date.now() + 75;
+          while (Date.now() < holdUntil) {
+            await engine.getGameByIdentity('tx1', 18);
+          }
+
+          events.push('tx1-end');
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const secondTransaction = engine.runInTransaction(['games'], async () => {
+          events.push('tx2-start');
+          await engine.addGame(makeContractGame({ igdbGameId: 'tx2' }));
+          events.push('tx2-end');
+        });
+
+        await Promise.all([firstTransaction, secondTransaction]);
+
+        expect(events.indexOf('tx1-end')).toBeLessThan(events.indexOf('tx2-start'));
+        expect((await engine.listAllGames()).map((game) => game.igdbGameId).sort()).toEqual([
+          'tx1',
+          'tx2',
+        ]);
+      });
     });
   });
 }

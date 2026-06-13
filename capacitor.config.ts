@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
+    CapacitorSQLite: {
+      iosDatabaseLocation: 'Library/CapacitorDatabase',
+      iosIsEncryption: false,
+    },
     FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },

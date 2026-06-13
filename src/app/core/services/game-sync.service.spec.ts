@@ -4,6 +4,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
+import { DexieStorageEngine } from '../data/dexie-storage-engine';
+import { STORAGE_ENGINE } from '../data/storage-engine';
 import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
 import { DebugLogService } from './debug-log.service';
 import { SyncEventsService } from './sync-events.service';
@@ -93,6 +95,7 @@ describe('GameSyncService', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         AppDb,
+        { provide: STORAGE_ENGINE, useExisting: DexieStorageEngine },
         GameSyncService,
         SyncEventsService,
         PlatformOrderService,

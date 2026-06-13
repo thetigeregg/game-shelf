@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { AppDb, OutboxEntry, SyncMetaEntry } from '../data/app-db';
+import { OutboxEntry, SyncMetaEntry } from '../data/app-db';
+import { STORAGE_ENGINE, isStorageConstraintError } from '../data/storage-engine';
 import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import {
   ClientSyncOperation,
@@ -65,7 +66,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly RECENT_REPLAY_WINDOW_EVENTS = 5000;
   private static readonly RECENT_REPLAY_MAX_PAGES = 5;
 
-  private readonly db = inject(AppDb);
+  private readonly engine = inject(STORAGE_ENGINE);
   private readonly httpClient = inject(HttpClient);
   private readonly syncEvents = inject(SyncEventsService);
   private readonly platformOrderService = inject(PlatformOrderService);
@@ -136,17 +137,15 @@ export class GameSyncService implements SyncOutboxWriter {
           await this.activeSyncPromise;
         }
 
-        await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
-          const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
-
-          await syncMetaTable.put({
+        await this.engine.runInTransaction(['syncMeta'], async () => {
+          await this.engine.putSyncMeta({
             key: GameSyncService.META_CURSOR_KEY,
             value: '0',
             updatedAt: now,
           });
-          await syncMetaTable.delete(GameSyncService.META_LAST_SYNC_KEY);
-          await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
-          await syncMetaTable.delete(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
+          await this.engine.deleteSyncMeta(GameSyncService.META_LAST_SYNC_KEY);
+          await this.engine.deleteSyncMeta(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY);
+          await this.engine.deleteSyncMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY);
         });
 
         this.debugLogService.info('sync.local_state_reset');
@@ -162,7 +161,7 @@ export class GameSyncService implements SyncOutboxWriter {
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
-    await this.db.outbox.put(entry);
+    await this.engine.putOutboxEntry(entry);
     try {
       this.onOutboxEntryEnqueued(entry);
     } catch {
@@ -198,7 +197,7 @@ export class GameSyncService implements SyncOutboxWriter {
       return true;
     }
 
-    return (await this.db.outbox.count()) > 0;
+    return (await this.engine.countOutbox()) > 0;
   }
 
   async flushPendingSyncForReload(): Promise<boolean> {
@@ -216,7 +215,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
   async getReloadSummary(): Promise<SyncReloadSummary> {
     const [pendingOutboxCount, connectivity, lastSyncAt] = await Promise.all([
-      this.db.outbox.count(),
+      this.engine.countOutbox(),
       this.getMeta(GameSyncService.META_CONNECTIVITY_KEY),
       this.getMeta(GameSyncService.META_LAST_SYNC_KEY),
     ]);
@@ -283,7 +282,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async pushOutbox(): Promise<void> {
-    const entries = await this.db.outbox.orderBy('createdAt').toArray();
+    const entries = await this.engine.listOutboxOrderedByCreatedAt();
 
     if (entries.length === 0) {
       this.debugLogService.debug('sync.push.skipped_empty_outbox');
@@ -330,7 +329,7 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     if (ackedIds.size > 0) {
-      await this.db.outbox.bulkDelete([...ackedIds]);
+      await this.engine.bulkDeleteOutbox([...ackedIds]);
     }
     this.debugLogService.debug('sync.push.complete', {
       acked: ackedIds.size,
@@ -338,13 +337,13 @@ export class GameSyncService implements SyncOutboxWriter {
     });
 
     for (const failure of failedResults) {
-      const existing = await this.db.outbox.get(failure.opId);
+      const existing = await this.engine.getOutboxEntry(failure.opId);
 
       if (!existing) {
         continue;
       }
 
-      await this.db.outbox.put({
+      await this.engine.putOutboxEntry({
         ...existing,
         attemptCount: existing.attemptCount + 1,
         lastError: failure.message ?? 'Failed to push operation.',
@@ -458,7 +457,7 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const pendingOutboxCount = await this.db.outbox.count();
+    const pendingOutboxCount = await this.engine.countOutbox();
     if (pendingOutboxCount > 0) {
       this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
         pendingOutboxCount,
@@ -488,7 +487,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
     try {
       while (pagesPulled < GameSyncService.RECENT_REPLAY_MAX_PAGES) {
-        const pendingOutboxCountBeforeRequest = await this.db.outbox.count();
+        const pendingOutboxCountBeforeRequest = await this.engine.countOutbox();
         if (pendingOutboxCountBeforeRequest > 0) {
           this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
             pendingOutboxCount: pendingOutboxCountBeforeRequest,
@@ -532,7 +531,7 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const pendingOutboxCountBeforeApply = await this.db.outbox.count();
+      const pendingOutboxCountBeforeApply = await this.engine.countOutbox();
       if (pendingOutboxCountBeforeApply > 0) {
         this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
           pendingOutboxCount: pendingOutboxCountBeforeApply,
@@ -561,48 +560,41 @@ export class GameSyncService implements SyncOutboxWriter {
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
     let failedChanges = 0;
 
-    await this.db.transaction(
-      'rw',
-      this.db.games,
-      this.db.tags,
-      this.db.views,
-      this.db.outbox,
-      async () => {
-        const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
+    await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
+      const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
 
-        for (const change of changes) {
-          try {
-            if (change.entityType === 'game') {
-              await this.applyGameChange(change, pendingGameOutboxKeys);
-              continue;
-            }
-
-            if (change.entityType === 'tag') {
-              await this.applyTagChange(change);
-              continue;
-            }
-
-            if (change.entityType === 'view') {
-              await this.applyViewChange(change);
-              continue;
-            }
-
-            this.applySettingChange(change);
-          } catch (error: unknown) {
-            failedChanges += 1;
-            this.debugLogService.error('sync.pull.change_failed', {
-              eventId: change.eventId,
-              entityType: change.entityType,
-              operation: change.operation,
-              error: normalizeHttpError(error),
-            });
+      for (const change of changes) {
+        try {
+          if (change.entityType === 'game') {
+            await this.applyGameChange(change, pendingGameOutboxKeys);
+            continue;
           }
-        }
-        if (failedChanges > 0) {
-          throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
+
+          if (change.entityType === 'tag') {
+            await this.applyTagChange(change);
+            continue;
+          }
+
+          if (change.entityType === 'view') {
+            await this.applyViewChange(change);
+            continue;
+          }
+
+          this.applySettingChange(change);
+        } catch (error: unknown) {
+          failedChanges += 1;
+          this.debugLogService.error('sync.pull.change_failed', {
+            eventId: change.eventId,
+            entityType: change.entityType,
+            operation: change.operation,
+            error: normalizeHttpError(error),
+          });
         }
       }
-    );
+      if (failedChanges > 0) {
+        throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
+      }
+    });
   }
 
   private parsePositiveInteger(value: unknown): number | null {
@@ -661,13 +653,10 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const existing = await this.db.games
-        .where('[igdbGameId+platformIgdbId]')
-        .equals([igdbGameId, platformIgdbId])
-        .first();
+      const existing = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
 
       if (existing?.id !== undefined) {
-        await this.db.games.delete(existing.id);
+        await this.engine.deleteGame(existing.id);
       }
       return;
     }
@@ -698,21 +687,15 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const existingByIdentity = await this.db.games
-        .where('[igdbGameId+platformIgdbId]')
-        .equals([igdbGameId, platformIgdbId])
-        .first();
+      const existingByIdentity = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
 
       if (existingByIdentity?.id !== undefined) {
-        await this.db.games.delete(existingByIdentity.id);
+        await this.engine.deleteGame(existingByIdentity.id);
       }
       return;
     }
 
-    const existingByIdentity = await this.db.games
-      .where('[igdbGameId+platformIgdbId]')
-      .equals([igdbGameId, platformIgdbId])
-      .first();
+    const existingByIdentity = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
     const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
       igdbGameId,
       platformIgdbId,
@@ -774,7 +757,8 @@ export class GameSyncService implements SyncOutboxWriter {
         ? (explicitMetacriticUrl ?? normalizedReviewUrl)
         : explicitMetacriticUrl;
     const serverId = this.parsePositiveInteger(payload.id);
-    const existingByServerId = serverId !== null ? await this.db.games.get(serverId) : undefined;
+    const existingByServerId =
+      serverId !== null ? await this.engine.getGameById(serverId) : undefined;
     const serverIdCanBeReused =
       serverId !== null &&
       (existingByServerId === undefined ||
@@ -973,20 +957,19 @@ export class GameSyncService implements SyncOutboxWriter {
     };
 
     try {
-      await this.db.games.put(normalized);
+      await this.engine.putGame(normalized);
     } catch (error: unknown) {
       const shouldRetryWithoutServerId =
         existingByIdentity === undefined &&
         serverId !== null &&
         normalized.id === serverId &&
-        error instanceof Error &&
-        (error.name === 'ConstraintError' || error.name === 'DataError');
+        isStorageConstraintError(error);
 
       if (!shouldRetryWithoutServerId) {
         throw error;
       }
 
-      await this.db.games.put({
+      await this.engine.putGame({
         ...normalized,
         id: undefined,
       });
@@ -1422,9 +1405,9 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      await this.db.tags.delete(id);
+      await this.engine.deleteTag(id);
 
-      const games = await this.db.games.toArray();
+      const games = await this.engine.listAllGames();
       const now = new Date().toISOString();
 
       for (const game of games) {
@@ -1438,7 +1421,7 @@ export class GameSyncService implements SyncOutboxWriter {
           continue;
         }
 
-        await this.db.games.update(game.id, {
+        await this.engine.updateGame(game.id, {
           tagIds: nextTagIds,
           updatedAt: now,
         });
@@ -1470,7 +1453,7 @@ export class GameSyncService implements SyncOutboxWriter {
         typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
     };
 
-    await this.db.tags.put(normalized);
+    await this.engine.putTag(normalized);
   }
 
   private async applyViewChange(change: SyncChangeEvent): Promise<void> {
@@ -1479,7 +1462,7 @@ export class GameSyncService implements SyncOutboxWriter {
       const id = this.parsePositiveInteger(payload.id);
 
       if (id !== null) {
-        await this.db.views.delete(id);
+        await this.engine.deleteView(id);
       }
       return;
     }
@@ -1501,7 +1484,7 @@ export class GameSyncService implements SyncOutboxWriter {
         typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
     };
 
-    await this.db.views.put(normalized);
+    await this.engine.putView(normalized);
   }
 
   private applySettingChange(change: SyncChangeEvent): void {
@@ -1553,7 +1536,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async getMeta(key: string): Promise<string | null> {
-    const entry = await this.db.syncMeta.get(key);
+    const entry = await this.engine.getSyncMeta(key);
     return entry?.value ?? null;
   }
 
@@ -1571,7 +1554,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async loadPendingGameOutboxKeys(): Promise<Set<string>> {
-    const pendingGameOps = await this.db.outbox.where('entityType').equals('game').toArray();
+    const pendingGameOps = await this.engine.listOutboxByEntityType('game');
     const keys = new Set<string>();
 
     pendingGameOps.forEach((entry) => {
@@ -1608,7 +1591,7 @@ export class GameSyncService implements SyncOutboxWriter {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.db.syncMeta.put(entry);
+    await this.engine.putSyncMeta(entry);
   }
 
   private async runDiscoveryPollutionRemediationIfNeeded(): Promise<void> {
@@ -1619,15 +1602,13 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const now = new Date().toISOString();
-    await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
-      const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
-
-      await syncMetaTable.put({
+    await this.engine.runInTransaction(['syncMeta'], async () => {
+      await this.engine.putSyncMeta({
         key: GameSyncService.META_CURSOR_KEY,
         value: '0',
         updatedAt: now,
       });
-      await syncMetaTable.put({
+      await this.engine.putSyncMeta({
         key: DISCOVERY_POLLUTION_REMEDIATION_META_KEY,
         value: 'done',
         updatedAt: now,

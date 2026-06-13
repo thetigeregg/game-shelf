@@ -11,7 +11,9 @@ import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalo
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { GAME_REPOSITORY } from './app/core/data/game-repository';
-import { DexieGameRepository } from './app/core/data/dexie-game-repository';
+import { LocalGameRepository } from './app/core/data/local-game-repository';
+import { STORAGE_ENGINE } from './app/core/data/storage-engine';
+import { StorageEngineFactory } from './app/core/data/storage-engine.factory';
 import { GAME_SEARCH_API } from './app/core/api/game-search-api';
 import { IgdbProxyService } from './app/core/api/igdb-proxy.service';
 import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
@@ -27,12 +29,18 @@ bootstrapApplication(AppComponent, {
   providers: [
     provideAppInitializer(() => {
       const storage = inject(PreferenceStorageService);
-      return storage.initialize();
+      const engineFactory = inject(StorageEngineFactory);
+      return storage.initialize().then(() => engineFactory.initialize());
     }),
     provideZoneChangeDetection(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    { provide: GAME_REPOSITORY, useExisting: DexieGameRepository },
+    {
+      provide: STORAGE_ENGINE,
+      useFactory: (engineFactory: StorageEngineFactory) => engineFactory.getEngine(),
+      deps: [StorageEngineFactory],
+    },
+    { provide: GAME_REPOSITORY, useExisting: LocalGameRepository },
     { provide: GAME_SEARCH_API, useExisting: IgdbProxyService },
     { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
     { provide: HTTP_INTERCEPTORS, useClass: ClientWriteTokenInterceptor, multi: true },

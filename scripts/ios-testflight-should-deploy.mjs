@@ -1,7 +1,13 @@
-import { appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import {
+  listChangedFiles,
+  manifestDiffHasDependencyChanges,
+  readManifestDiff,
+  writeGithubOutput,
+} from './release-diff.mjs';
 
 export const NATIVE_SHELL_EXACT_PATHS = new Set([
   'capacitor.config.ts',
@@ -40,15 +46,7 @@ export function matchesNativeShellPath(filePath) {
 }
 
 export function manifestDiffHasNativeDependencyChanges(manifestDiff) {
-  if (typeof manifestDiff !== 'string' || manifestDiff.trim().length === 0) {
-    return false;
-  }
-
-  return manifestDiff
-    .split('\n')
-    .filter((line) => line.startsWith('+') || line.startsWith('-'))
-    .filter((line) => !line.startsWith('+++') && !line.startsWith('---'))
-    .some((line) => NATIVE_DEPENDENCY_PATTERN.test(line));
+  return manifestDiffHasDependencyChanges(manifestDiff, NATIVE_DEPENDENCY_PATTERN);
 }
 
 export function evaluateTestFlightDeploy({
@@ -102,55 +100,7 @@ export function evaluateTestFlightDeploy({
   };
 }
 
-export function listChangedFiles({
-  base,
-  head,
-  execFileSyncFn = execFileSync,
-  cwd = process.cwd(),
-}) {
-  const args = base ? ['diff', '--name-only', `${base}..${head}`] : ['diff', '--name-only', head];
-
-  const output = execFileSyncFn('git', args, {
-    cwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  return output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
-export function readManifestDiff({
-  base,
-  head,
-  execFileSyncFn = execFileSync,
-  cwd = process.cwd(),
-}) {
-  const args = base
-    ? ['diff', `${base}..${head}`, '--', 'package.json', 'package-lock.json']
-    : ['diff', head, '--', 'package.json', 'package-lock.json'];
-
-  try {
-    return execFileSyncFn('git', args, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (error) {
-    if (error && typeof error === 'object' && 'stdout' in error) {
-      return String(error.stdout ?? '');
-    }
-
-    throw error;
-  }
-}
-
-export function writeGithubOutput(outputPath, values) {
-  const lines = Object.entries(values).map(([key, value]) => `${key}=${value}`);
-  appendFileSync(outputPath, `${lines.join('\n')}\n`, 'utf8');
-}
+export { listChangedFiles, readManifestDiff, writeGithubOutput } from './release-diff.mjs';
 
 export function parseIosTestFlightShouldDeployArgs(argv) {
   const args = {
@@ -199,9 +149,13 @@ export function resolveTestFlightDeployDecision({
     listChangedFiles({ base: hasPreviousTag ? base : null, head, execFileSyncFn, cwd });
   const resolvedManifestDiff =
     manifestDiff ??
-    (hasPreviousTag
-      ? readManifestDiff({ base, head, execFileSyncFn, cwd })
-      : readManifestDiff({ base: null, head, execFileSyncFn, cwd }));
+    readManifestDiff({
+      base: hasPreviousTag ? base : null,
+      head,
+      paths: ['package.json', 'package-lock.json'],
+      execFileSyncFn,
+      cwd,
+    });
 
   return evaluateTestFlightDeploy({
     changedFiles: resolvedChangedFiles,

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -81,10 +82,69 @@ jobs:
           git push origin "${RELEASE_TAG}"
           echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+  detect_image_changes:
+    name: Detect image changes
+    needs:
+      - release
+    runs-on: ubuntu-latest
+    outputs:
+      publish_edge: ${{ steps.check.outputs.publish_edge }}
+      publish_api: ${{ steps.check.outputs.publish_api }}
+      publish_hltb: ${{ steps.check.outputs.publish_hltb }}
+      publish_metacritic: ${{ steps.check.outputs.publish_metacritic }}
+      publish_psprices: ${{ steps.check.outputs.publish_psprices }}
+      publish_backup: ${{ steps.check.outputs.publish_backup }}
+      skipped_images: ${{ steps.check.outputs.skipped_images }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Evaluate image publish scope
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/docker-publish-should-deploy.mjs \
+              --force-all \
+              --github-output "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="${{ needs.release.outputs.tag }}"
+          PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT_TAG" '$0==cur {getline; print; exit}')
+
+          node scripts/docker-publish-should-deploy.mjs \
+            --base "$PREV" \
+            --head "${{ needs.release.outputs.release_sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+  publish_skip_summary:
+    name: Publish skip summary
+    needs:
+      - detect_image_changes
+    if: needs.detect_image_changes.outputs.skipped_images != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write skip summary
+        run: |
+          {
+            echo "## Docker publish skipped images"
+            echo
+            echo "Skipped: \`${{ needs.detect_image_changes.outputs.skipped_images }}\`"
+            echo
+            echo "Unchanged images keep their existing \`:main\` digest on GHCR."
+            echo "Run **workflow_dispatch** on Release & Publish to force all images."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   publish_images:
     name: Publish Docker Images
     needs:
       - release
+      - detect_image_changes
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -93,33 +153,60 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image_name: game-shelf-edge
+          - id: edge
+            image_name: game-shelf-edge
             dockerfile: edge/Dockerfile
-          - image_name: game-shelf-api
+          - id: api
+            image_name: game-shelf-api
             dockerfile: server/Dockerfile
-          - image_name: game-shelf-hltb-scraper
+          - id: hltb
+            image_name: game-shelf-hltb-scraper
             dockerfile: hltb-scraper/Dockerfile
-          - image_name: game-shelf-metacritic-scraper
+          - id: metacritic
+            image_name: game-shelf-metacritic-scraper
             dockerfile: metacritic-scraper/Dockerfile
-          - image_name: game-shelf-psprices-scraper
+          - id: psprices
+            image_name: game-shelf-psprices-scraper
             dockerfile: psprices-scraper/Dockerfile
-          - image_name: game-shelf-backup
+          - id: backup
+            image_name: game-shelf-backup
             dockerfile: backup/Dockerfile
 
     steps:
       - name: Checkout
+        if: >-
+          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
+          (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
+          (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
+          (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
+          (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Write production environment
-        if: matrix.image_name == 'game-shelf-edge'
+        if: matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true'
         run: bash scripts/write-environment-prod.sh prod
 
       - name: Set up Docker Buildx
+        if: >-
+          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
+          (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
+          (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
+          (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
+          (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
+        if: >-
+          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
+          (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
+          (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
+          (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
+          (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -127,6 +214,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata
+        if: >-
+          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
+          (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
+          (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
+          (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
+          (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -140,6 +234,13 @@ jobs:
             type=sha,format=short
 
       - name: Build and push
+        if: >-
+          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
+          (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
+          (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
+          (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
+          (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
         uses: docker/build-push-action@v7
         with:
           context: .

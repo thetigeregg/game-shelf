@@ -60,6 +60,10 @@ node scripts/ios-testflight-should-deploy.mjs --base v1.55.0 --head v1.56.0
 When a tag is skipped, the workflow writes an Actions summary explaining why. Run
 **workflow_dispatch** to force a TestFlight upload without re-tagging.
 
+Docker image publishing uses the same diff-since-previous-tag pattern in
+[`release-publish.yml`](../.github/workflows/release-publish.yml) via
+[`scripts/docker-publish-should-deploy.mjs`](../scripts/docker-publish-should-deploy.mjs).
+
 ## One-time GitHub setup
 
 Configure these in the repository **production** environment (or repo-level secrets/vars if

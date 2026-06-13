@@ -1,9 +1,10 @@
 import BetterSqlite3 from 'better-sqlite3';
-import { vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SQLITE_UPGRADE_STATEMENTS } from './sqlite-connection';
 import type { SqliteConnection, SqliteRunResult, SqliteStatement } from './sqlite-connection';
 import { SqliteStorageEngine } from './sqlite-storage-engine';
-import { describeStorageEngineContract } from './storage-engine.contract';
+import { describeStorageEngineContract, makeContractTag } from './storage-engine.contract';
+import { isStorageConstraintError } from './storage-engine';
 
 vi.mock('./storage-transaction-context', () => import('./storage-transaction-context.node'));
 
@@ -95,5 +96,20 @@ describeStorageEngineContract('SqliteStorageEngine', () => {
   return Promise.resolve({
     engine,
     cleanup: () => connection.close(),
+  });
+});
+
+describe('SqliteStorageEngine schema', () => {
+  it('rejects tag names that differ only by case', async () => {
+    const connection = new InProcessSqliteConnection();
+    const engine = new SqliteStorageEngine(connection);
+
+    await engine.addTag(makeContractTag({ name: 'Backlog' }));
+
+    await expect(
+      engine.addTag(makeContractTag({ name: 'backlog', color: '#ff0000' }))
+    ).rejects.toSatisfy((error: unknown) => isStorageConstraintError(error));
+
+    await connection.close();
   });
 });

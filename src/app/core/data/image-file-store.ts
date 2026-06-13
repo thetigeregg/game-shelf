@@ -5,12 +5,12 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 const IMAGE_CACHE_DIR = 'image-cache';
 
 /**
- * Native-only file storage for cached detail images. Image bytes live as
- * files under Directory.Cache/image-cache/<sha256-of-cacheKey>, served to the
- * WebView via Capacitor.convertFileSrc. Metadata (cacheKey, size, LRU
- * timestamps) is tracked separately in the storage engine's image cache
- * store. The OS may evict Directory.Cache under storage pressure, which is
- * acceptable: entries repopulate on demand.
+ * Native-only file storage for cached images. Image bytes live as files under
+ * Directory.Cache/image-cache/<sha256-of-cacheKey>, served to the WebView via
+ * Capacitor.convertFileSrc. Metadata (cacheKey, size, LRU timestamps) is
+ * tracked separately in the storage engine's image cache store. The OS may
+ * evict Directory.Cache under storage pressure, which is acceptable: entries
+ * repopulate on demand.
  */
 @Injectable({ providedIn: 'root' })
 export class ImageFileStore {

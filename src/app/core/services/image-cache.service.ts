@@ -28,8 +28,9 @@ export class ImageCacheService {
   private readonly objectUrlsByCacheKey = new Map<string, string>();
   private imageDiagnosticsCount = 0;
 
-  // Native stores detail-image bytes as files (ImageFileStore) with metadata
+  // Native stores cached image bytes as files (ImageFileStore) with metadata
   // in the storage engine; web keeps blobs inline in IndexedDB records.
+  // Thumbs use direct URLs and are not persisted on native.
   private get isNative(): boolean {
     return isNativePlatform();
   }

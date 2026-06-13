@@ -60,6 +60,24 @@ describe('pick-file.util', () => {
     vi.spyOn(input, 'remove').mockImplementation(() => undefined);
   }
 
+  function mockWebFileInputDismissViaFocus(): void {
+    const input = document.createElement('input');
+    const click = vi.fn(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      if (tagName === 'input') {
+        input.click = click;
+        return input;
+      }
+
+      throw new Error(`Unexpected createElement call: ${tagName}`);
+    });
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+    vi.spyOn(input, 'remove').mockImplementation(() => undefined);
+  }
+
   it('returns CSV text from the native file picker', async () => {
     isNativePlatformMock.mockReturnValue(true);
     convertFileSrcMock.mockReturnValue('capacitor://localhost/_capacitor_file_/import.csv');
@@ -208,6 +226,18 @@ describe('pick-file.util', () => {
     mockWebFileInput(null);
 
     await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when the web file input is dismissed without a cancel event', async () => {
+    vi.useFakeTimers();
+    isNativePlatformMock.mockReturnValue(false);
+    mockWebFileInputDismissViaFocus();
+
+    const resultPromise = pickCsvTextFile();
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
+    vi.useRealTimers();
   });
 
   it('returns a File from the web image input', async () => {

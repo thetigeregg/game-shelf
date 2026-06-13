@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { ImageCacheRecord, STORAGE_ENGINE } from '../data/storage-engine';
+import { ImageCacheRecord, STORAGE_ENGINE, isStorageConstraintError } from '../data/storage-engine';
 import { ImageFileStore } from '../data/image-file-store';
 import { DebugLogService } from './debug-log.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
@@ -219,6 +219,20 @@ export class ImageCacheService {
           return storedUrl;
         }
       } catch (error) {
+        if (isStorageConstraintError(error)) {
+          const racedUrl = await this.resolveStoredCacheUrl(cacheKey, gameKey, variant);
+
+          if (racedUrl) {
+            this.debugLogService.trace('image_cache.resolve_stored_hit', {
+              cacheKey,
+              gameKey,
+              variant,
+              reason: 'concurrent_store_race',
+            });
+            return racedUrl;
+          }
+        }
+
         this.logImageDiagnostic('image_cache_store_failed', {
           cacheKey,
           gameKey,
@@ -378,8 +392,13 @@ export class ImageCacheService {
         lastAccessedAt: now,
       });
       await this.enforceLimitBytes(this.getLimitMb() * 1024 * 1024);
-    } catch {
+    } catch (error) {
       await this.imageFileStore.deleteImage(filePath);
+
+      if (isStorageConstraintError(error)) {
+        return this.resolveStoredCacheUrl(cacheKey, gameKey, variant);
+      }
+
       this.logImageDiagnostic('image_cache_native_metadata_write_failed', {
         cacheKey,
         gameKey,
@@ -405,6 +424,22 @@ export class ImageCacheService {
     }
 
     return null;
+  }
+
+  private async resolveStoredCacheUrl(
+    cacheKey: string,
+    gameKey: string,
+    variant: ImageCacheVariant
+  ): Promise<string | null> {
+    const stored = await this.engine.getImageCacheByCacheKey(cacheKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    return this.isNative
+      ? this.resolveNativeCachedUrl(stored, cacheKey, gameKey, variant)
+      : this.resolveWebCachedUrl(stored, cacheKey, gameKey, variant);
   }
 
   private async touchEntry(entry: ImageCacheRecord): Promise<void> {

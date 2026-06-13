@@ -1,0 +1,85 @@
+name: iOS TestFlight
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: game-shelf-ios-testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testflight:
+    name: Build and Upload App PROD
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Decode Firebase prod plist
+        env:
+          IOS_FIREBASE_PROD_PLIST_BASE64: ${{ secrets.IOS_FIREBASE_PROD_PLIST_BASE64 }}
+        run: |
+          if [ -z "$IOS_FIREBASE_PROD_PLIST_BASE64" ]; then
+            echo "IOS_FIREBASE_PROD_PLIST_BASE64 secret is required." >&2
+            exit 1
+          fi
+
+          PLIST_PATH="${RUNNER_TEMP}/GoogleService-Info.prod.plist"
+          echo "$IOS_FIREBASE_PROD_PLIST_BASE64" | base64 --decode > "$PLIST_PATH"
+          echo "IOS_FIREBASE_PROD_PLIST_PATH=$PLIST_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate iOS deploy configuration
+        env:
+          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          for required in \
+            IOS_BACKEND_ORIGIN_PROD \
+            APP_STORE_CONNECT_API_KEY_ID \
+            APP_STORE_CONNECT_API_ISSUER_ID \
+            APP_STORE_CONNECT_API_KEY
+          do
+            if [ -z "${!required}" ]; then
+              echo "$required is required for TestFlight deploy." >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload to TestFlight
+        working-directory: ios
+        env:
+          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bundle exec fastlane testflight

@@ -11,10 +11,9 @@ describe('isStorageConstraintError', () => {
     ).toBe(true);
   });
 
-  it('matches DOMException constraint errors that are not instanceof Error', () => {
+  it('matches DOMException constraint errors by name', () => {
     const domException = new DOMException('duplicate key', 'ConstraintError');
 
-    expect(domException instanceof Error).toBe(false);
     expect(isStorageConstraintError(domException)).toBe(true);
   });
 

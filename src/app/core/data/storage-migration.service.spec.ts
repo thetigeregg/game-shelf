@@ -21,6 +21,7 @@ interface MigrationTarget {
   bulkPutViews: Mock;
   bulkPutOutbox: Mock;
   putSyncMeta: Mock;
+  runInTransaction: Mock;
 }
 
 function makeTarget(): MigrationTarget {
@@ -30,6 +31,9 @@ function makeTarget(): MigrationTarget {
     bulkPutViews: vi.fn().mockResolvedValue(undefined),
     bulkPutOutbox: vi.fn().mockResolvedValue(undefined),
     putSyncMeta: vi.fn().mockResolvedValue(undefined),
+    runInTransaction: vi.fn((_scope: readonly unknown[], action: () => Promise<unknown>) =>
+      action()
+    ),
   };
 }
 
@@ -91,6 +95,10 @@ describe('StorageMigrationService', () => {
 
     await service.migrateIfNeeded(asEngine(target));
 
+    expect(target.runInTransaction).toHaveBeenCalledWith(
+      ['games', 'tags', 'views', 'outbox', 'syncMeta'],
+      expect.any(Function)
+    );
     expect(target.bulkPutGames).toHaveBeenCalledTimes(1);
     const migratedGames = target.bulkPutGames.mock.calls[0][0] as Array<{
       id?: number;

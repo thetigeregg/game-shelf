@@ -48,17 +48,19 @@ export class StorageMigrationService {
       this.dexieEngine.listAllSyncMeta(),
     ]);
 
-    for (let index = 0; index < games.length; index += MIGRATION_BATCH_SIZE) {
-      await target.bulkPutGames(games.slice(index, index + MIGRATION_BATCH_SIZE));
-    }
+    await target.runInTransaction(['games', 'tags', 'views', 'outbox', 'syncMeta'], async () => {
+      for (let index = 0; index < games.length; index += MIGRATION_BATCH_SIZE) {
+        await target.bulkPutGames(games.slice(index, index + MIGRATION_BATCH_SIZE));
+      }
 
-    await target.bulkPutTags(tags);
-    await target.bulkPutViews(views);
-    await target.bulkPutOutbox(outbox);
+      await target.bulkPutTags(tags);
+      await target.bulkPutViews(views);
+      await target.bulkPutOutbox(outbox);
 
-    for (const entry of syncMeta) {
-      await target.putSyncMeta(entry);
-    }
+      for (const entry of syncMeta) {
+        await target.putSyncMeta(entry);
+      }
+    });
 
     this.preferenceStorage.setItem(SQLITE_MIGRATION_KEY, '1');
     this.debugLogService.info('storage.sqlite_migration.completed', {

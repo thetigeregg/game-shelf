@@ -51,5 +51,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Game Shelf needs access to your photo library so you can choose a custom cover image.</string>
 </dict>
 </plist>

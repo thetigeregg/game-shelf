@@ -156,6 +156,7 @@ export class ImageCacheService {
     }
     this.debugLogService.trace('image_cache.resolve_miss', { cacheKey, gameKey, variant });
 
+    let blob: Blob;
     try {
       const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
 
@@ -170,22 +171,37 @@ export class ImageCacheService {
         return normalizedSourceUrl;
       }
 
-      const blob = await response.blob();
+      blob = await response.blob();
+    } catch (error) {
+      this.logImageDiagnostic('image_cache_fetch_failed', {
+        cacheKey,
+        gameKey,
+        variant,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      this.debugLogService.trace('image_cache.resolve_direct', {
+        gameKey,
+        variant,
+        reason: 'fetch_failed',
+      });
+      return normalizedSourceUrl;
+    }
 
-      if (!(blob instanceof Blob) || blob.size <= 0 || !(await this.isCacheableImageBlob(blob))) {
-        this.logImageDiagnostic('image_cache_rejected_fetched_blob', {
-          cacheKey,
-          gameKey,
-          variant,
-          blobType: blob instanceof Blob ? blob.type : null,
-          blobSize: blob instanceof Blob ? blob.size : null,
-        });
-        return normalizedSourceUrl;
-      }
+    if (!(blob instanceof Blob) || blob.size <= 0 || !(await this.isCacheableImageBlob(blob))) {
+      this.logImageDiagnostic('image_cache_rejected_fetched_blob', {
+        cacheKey,
+        gameKey,
+        variant,
+        blobType: blob instanceof Blob ? blob.type : null,
+        blobSize: blob instanceof Blob ? blob.size : null,
+      });
+      return normalizedSourceUrl;
+    }
 
-      const limitBytes = this.getLimitMb() * 1024 * 1024;
+    const limitBytes = this.getLimitMb() * 1024 * 1024;
 
-      if (blob.size <= limitBytes) {
+    if (blob.size <= limitBytes) {
+      try {
         const storedUrl = this.isNative
           ? await this.storeNativeEntry(cacheKey, gameKey, variant, normalizedSourceUrl, blob)
           : await this.storeWebEntry(cacheKey, gameKey, variant, normalizedSourceUrl, blob);
@@ -201,27 +217,22 @@ export class ImageCacheService {
         if (storedUrl) {
           return storedUrl;
         }
+      } catch (error) {
+        this.logImageDiagnostic('image_cache_store_failed', {
+          cacheKey,
+          gameKey,
+          variant,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
-
-      this.debugLogService.trace('image_cache.resolve_direct', {
-        gameKey,
-        variant,
-        reason: 'store_skipped_or_missing',
-      });
-      return normalizedSourceUrl;
-    } catch {
-      this.logImageDiagnostic('image_cache_fetch_failed', {
-        cacheKey,
-        gameKey,
-        variant,
-      });
-      this.debugLogService.trace('image_cache.resolve_direct', {
-        gameKey,
-        variant,
-        reason: 'fetch_failed',
-      });
-      return normalizedSourceUrl;
     }
+
+    this.debugLogService.trace('image_cache.resolve_direct', {
+      gameKey,
+      variant,
+      reason: 'store_skipped_or_missing',
+    });
+    return normalizedSourceUrl;
   }
 
   private async resolveWebCachedUrl(

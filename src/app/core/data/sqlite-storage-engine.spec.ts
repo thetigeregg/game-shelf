@@ -1,8 +1,11 @@
 import BetterSqlite3 from 'better-sqlite3';
+import { vi } from 'vitest';
 import { SQLITE_UPGRADE_STATEMENTS } from './sqlite-connection';
 import type { SqliteConnection, SqliteRunResult, SqliteStatement } from './sqlite-connection';
 import { SqliteStorageEngine } from './sqlite-storage-engine';
 import { describeStorageEngineContract } from './storage-engine.contract';
+
+vi.mock('./storage-transaction-context', () => import('./storage-transaction-context.node'));
 
 /**
  * In-process SqliteConnection used to exercise SqliteStorageEngine in vitest

@@ -2,6 +2,10 @@ import { GameEntry, GameListView, ListType, SyncEntityType, Tag } from '../model
 import { OutboxEntry, SyncMetaEntry } from './app-db';
 import { SqliteConnection, SqliteStatement } from './sqlite-connection';
 import { ImageCacheRecord, StorageEngine, StorageScope } from './storage-engine';
+import {
+  isInsideStorageTransaction,
+  runInsideStorageTransactionZone,
+} from './storage-transaction-context';
 
 const BULK_BATCH_SIZE = 500;
 
@@ -36,7 +40,6 @@ function toConstraintError(error: unknown): Error {
  */
 export class SqliteStorageEngine implements StorageEngine {
   private transactionQueue: Promise<unknown> = Promise.resolve();
-  private transactionDepth = 0;
 
   constructor(private readonly connection: SqliteConnection) {}
 
@@ -52,29 +55,27 @@ export class SqliteStorageEngine implements StorageEngine {
    * join the active transaction instead of starting a new one.
    */
   runInTransaction<T>(_scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
-    if (this.transactionDepth > 0) {
+    if (isInsideStorageTransaction()) {
       return action();
     }
 
-    const run = async (): Promise<T> => {
-      this.transactionDepth += 1;
-      await this.connection.beginTransaction();
+    const run = async (): Promise<T> =>
+      runInsideStorageTransactionZone(async () => {
+        await this.connection.beginTransaction();
 
-      try {
-        const result = await action();
-        await this.connection.commitTransaction();
-        return result;
-      } catch (error: unknown) {
         try {
-          await this.connection.rollbackTransaction();
-        } catch {
-          // Surface the original failure even if rollback also fails.
+          const result = await action();
+          await this.connection.commitTransaction();
+          return result;
+        } catch (error: unknown) {
+          try {
+            await this.connection.rollbackTransaction();
+          } catch {
+            // Surface the original failure even if rollback also fails.
+          }
+          throw error;
         }
-        throw error;
-      } finally {
-        this.transactionDepth -= 1;
-      }
-    };
+      });
 
     const queued = this.transactionQueue.then(run, run);
     this.transactionQueue = queued.catch(() => undefined);

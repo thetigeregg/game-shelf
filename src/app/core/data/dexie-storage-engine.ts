@@ -1,8 +1,12 @@
 import { Injectable, inject } from '@angular/core';
-import { Table, Transaction } from 'dexie';
+import Dexie, { Table, Transaction } from 'dexie';
 import { AppDb, ImageCacheEntry, OutboxEntry, SyncMetaEntry } from './app-db';
 import { GameEntry, GameListView, ListType, SyncEntityType, Tag } from '../models/game.models';
 import { ImageCacheRecord, StorageEngine, StorageScope } from './storage-engine';
+import {
+  isInsideStorageTransaction,
+  runInsideStorageTransactionZone,
+} from './storage-transaction-context';
 
 interface ActiveTransaction {
   transaction: Transaction;
@@ -33,6 +37,7 @@ const SCOPE_TABLE_NAMES: Record<StorageScope, string> = {
 export class DexieStorageEngine implements StorageEngine {
   private readonly db = inject(AppDb);
   private activeTransaction: ActiveTransaction | null = null;
+  private transactionQueue: Promise<unknown> = Promise.resolve();
 
   initialize(): Promise<void> {
     // Dexie opens lazily on first use; nothing to do here.
@@ -40,17 +45,22 @@ export class DexieStorageEngine implements StorageEngine {
   }
 
   runInTransaction<T>(scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
-    if (this.activeTransaction) {
+    if (this.isNestedTransactionCall()) {
       return action();
     }
 
-    return this.db.transaction('rw', this.tablesForScope(scope), (transaction) => {
-      const previous = this.activeTransaction;
-      this.activeTransaction = { transaction, scope: new Set(scope) };
-      return action().finally(() => {
-        this.activeTransaction = previous;
+    const run = (): Promise<T> =>
+      this.db.transaction('rw', this.tablesForScope(scope), (transaction) => {
+        const previous = this.activeTransaction;
+        this.activeTransaction = { transaction, scope: new Set(scope) };
+        return runInsideStorageTransactionZone(() => action()).finally(() => {
+          this.activeTransaction = previous;
+        });
       });
-    });
+
+    const queued = this.transactionQueue.then(run, run);
+    this.transactionQueue = queued.catch(() => undefined);
+    return queued;
   }
 
   getGameById(id: number): Promise<GameEntry | undefined> {
@@ -284,5 +294,15 @@ export class DexieStorageEngine implements StorageEngine {
 
   private tablesForScope(scope: readonly StorageScope[]): Table<unknown, unknown>[] {
     return scope.map((store) => this.db.table(SCOPE_TABLE_NAMES[store]));
+  }
+
+  private isNestedTransactionCall(): boolean {
+    const active = this.activeTransaction;
+    if (!active || !isInsideStorageTransaction()) {
+      return false;
+    }
+
+    const currentTransaction = Dexie.currentTransaction as Transaction | undefined;
+    return !currentTransaction || currentTransaction === active.transaction;
   }
 }

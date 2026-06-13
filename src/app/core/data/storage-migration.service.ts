@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import Dexie from 'dexie';
+import Dexie, { Table } from 'dexie';
 import { AppDb } from './app-db';
-import { DexieStorageEngine } from './dexie-storage-engine';
 import { DebugLogService } from '../services/debug-log.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { SQLITE_MIGRATION_KEY } from '../storage/preference-keys';
@@ -22,7 +21,6 @@ const MIGRATION_BATCH_SIZE = 500;
 @Injectable({ providedIn: 'root' })
 export class StorageMigrationService {
   private readonly db = inject(AppDb);
-  private readonly dexieEngine = inject(DexieStorageEngine);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly debugLogService = inject(DebugLogService);
 
@@ -40,35 +38,40 @@ export class StorageMigrationService {
     }
 
     const startedAt = Date.now();
-    const [games, tags, views, outbox, syncMeta] = await Promise.all([
-      this.dexieEngine.listAllGames(),
-      this.dexieEngine.listTagsSortedByName(),
-      this.dexieEngine.listAllViews(),
-      this.dexieEngine.listOutboxOrderedByCreatedAt(),
-      this.dexieEngine.listAllSyncMeta(),
-    ]);
+    const counts = { games: 0, tags: 0, views: 0, outbox: 0, syncMeta: 0 };
 
     await target.runInTransaction(['games', 'tags', 'views', 'outbox', 'syncMeta'], async () => {
-      for (let index = 0; index < games.length; index += MIGRATION_BATCH_SIZE) {
-        await target.bulkPutGames(games.slice(index, index + MIGRATION_BATCH_SIZE));
+      for await (const batch of this.iterateTableBatches(this.db.games, MIGRATION_BATCH_SIZE)) {
+        await target.bulkPutGames(batch);
+        counts.games += batch.length;
       }
 
-      await target.bulkPutTags(tags);
-      await target.bulkPutViews(views);
-      await target.bulkPutOutbox(outbox);
+      for await (const batch of this.iterateTableBatches(this.db.tags, MIGRATION_BATCH_SIZE)) {
+        await target.bulkPutTags(batch);
+        counts.tags += batch.length;
+      }
 
-      for (const entry of syncMeta) {
-        await target.putSyncMeta(entry);
+      for await (const batch of this.iterateTableBatches(this.db.views, MIGRATION_BATCH_SIZE)) {
+        await target.bulkPutViews(batch);
+        counts.views += batch.length;
+      }
+
+      for await (const batch of this.iterateTableBatches(this.db.outbox, MIGRATION_BATCH_SIZE)) {
+        await target.bulkPutOutbox(batch);
+        counts.outbox += batch.length;
+      }
+
+      for await (const batch of this.iterateTableBatches(this.db.syncMeta, MIGRATION_BATCH_SIZE)) {
+        for (const entry of batch) {
+          await target.putSyncMeta(entry);
+        }
+        counts.syncMeta += batch.length;
       }
     });
 
     this.preferenceStorage.setItem(SQLITE_MIGRATION_KEY, '1');
     this.debugLogService.info('storage.sqlite_migration.completed', {
-      games: games.length,
-      tags: tags.length,
-      views: views.length,
-      outbox: outbox.length,
-      syncMeta: syncMeta.length,
+      ...counts,
       durationMs: Date.now() - startedAt,
     });
 
@@ -78,6 +81,17 @@ export class StorageMigrationService {
       // The copy already succeeded; a failed Dexie cleanup is non-fatal and
       // will not rerun the migration because the flag is set.
       this.debugLogService.warn('storage.sqlite_migration.dexie_cleanup_failed');
+    }
+  }
+
+  private async *iterateTableBatches<T>(table: Table<T>, batchSize: number): AsyncGenerator<T[]> {
+    let offset = 0;
+    let batch = await table.offset(offset).limit(batchSize).toArray();
+
+    while (batch.length > 0) {
+      yield batch;
+      offset += batch.length;
+      batch = await table.offset(offset).limit(batchSize).toArray();
     }
   }
 }

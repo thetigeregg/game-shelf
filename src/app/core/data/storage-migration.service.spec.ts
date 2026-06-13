@@ -119,6 +119,27 @@ describe('StorageMigrationService', () => {
     expect(await Dexie.exists(db.name)).toBe(false);
   });
 
+  it('copies games in batches without loading the full library into memory first', async () => {
+    const games = Array.from({ length: 501 }, (_, index) =>
+      makeContractGame({
+        igdbGameId: String(1000 + index),
+        title: `Game ${String(index).padStart(3, '0')}`,
+      })
+    );
+
+    for (const game of games) {
+      await dexieEngine.addGame(game);
+    }
+
+    const target = makeTarget();
+
+    await service.migrateIfNeeded(asEngine(target));
+
+    expect(target.bulkPutGames).toHaveBeenCalledTimes(2);
+    expect(target.bulkPutGames.mock.calls[0][0]).toHaveLength(500);
+    expect(target.bulkPutGames.mock.calls[1][0]).toHaveLength(1);
+  });
+
   it('leaves the flag unset and the Dexie database intact when the copy fails', async () => {
     await dexieEngine.addGame(makeContractGame());
     const target = makeTarget();

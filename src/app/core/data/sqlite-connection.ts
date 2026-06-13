@@ -50,7 +50,7 @@ export const SQLITE_UPGRADE_STATEMENTS: { toVersion: number; statements: string[
         name TEXT NOT NULL,
         payload TEXT NOT NULL
       );`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name ON tags (name);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name ON tags (name COLLATE NOCASE);`,
       `CREATE TABLE IF NOT EXISTS views (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         list_type TEXT NOT NULL,

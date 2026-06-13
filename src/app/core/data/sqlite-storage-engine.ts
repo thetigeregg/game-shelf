@@ -35,7 +35,6 @@ function toConstraintError(error: unknown): Error {
  * version(n) chain).
  */
 export class SqliteStorageEngine implements StorageEngine {
-  private transactionDepth = 0;
   private transactionQueue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly connection: SqliteConnection) {}
@@ -47,21 +46,12 @@ export class SqliteStorageEngine implements StorageEngine {
   }
 
   /**
-   * Independent transactions are serialized on the single connection. A
-   * runInTransaction call made while another transaction is active on the
-   * same async flow joins it (matching Dexie nested-transaction semantics).
+   * Independent transactions are serialized on the single connection so each
+   * runInTransaction gets its own begin/commit/rollback boundary.
    */
   runInTransaction<T>(_scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
-    if (this.transactionDepth > 0) {
-      this.transactionDepth += 1;
-      return action().finally(() => {
-        this.transactionDepth -= 1;
-      });
-    }
-
     const run = async (): Promise<T> => {
       await this.connection.beginTransaction();
-      this.transactionDepth += 1;
 
       try {
         const result = await action();
@@ -74,8 +64,6 @@ export class SqliteStorageEngine implements StorageEngine {
           // Surface the original failure even if rollback also fails.
         }
         throw error;
-      } finally {
-        this.transactionDepth -= 1;
       }
     };
 

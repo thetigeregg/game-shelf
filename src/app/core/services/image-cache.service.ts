@@ -353,17 +353,29 @@ export class ImageCacheService {
     }
 
     const now = new Date().toISOString();
-    await this.engine.putImageCache({
-      cacheKey,
-      gameKey,
-      variant,
-      sourceUrl,
-      filePath,
-      sizeBytes,
-      updatedAt: now,
-      lastAccessedAt: now,
-    });
-    await this.enforceLimitBytes(this.getLimitMb() * 1024 * 1024);
+
+    try {
+      await this.engine.putImageCache({
+        cacheKey,
+        gameKey,
+        variant,
+        sourceUrl,
+        filePath,
+        sizeBytes,
+        updatedAt: now,
+        lastAccessedAt: now,
+      });
+      await this.enforceLimitBytes(this.getLimitMb() * 1024 * 1024);
+    } catch {
+      await this.imageFileStore.deleteImage(filePath);
+      this.logImageDiagnostic('image_cache_native_metadata_write_failed', {
+        cacheKey,
+        gameKey,
+        variant,
+      });
+      return null;
+    }
+
     const stored = await this.engine.getImageCacheByCacheKey(cacheKey);
 
     if (stored?.filePath) {

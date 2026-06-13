@@ -3,6 +3,7 @@ import { DexieStorageEngine } from './dexie-storage-engine';
 import { StorageMigrationService } from './storage-migration.service';
 import { DebugLogService } from '../services/debug-log.service';
 import { isNativePlatform } from '../utils/native-platform.util';
+import type { SqliteConnection } from './sqlite-connection';
 import { StorageEngine } from './storage-engine';
 
 /**
@@ -32,13 +33,15 @@ export class StorageEngineFactory {
       return;
     }
 
+    let connection: SqliteConnection | null = null;
+
     try {
       const [{ openCapacitorSqliteConnection }, { SqliteStorageEngine }] = await Promise.all([
         import('./sqlite-connection'),
         import('./sqlite-storage-engine'),
       ]);
 
-      const connection = await openCapacitorSqliteConnection();
+      connection = await openCapacitorSqliteConnection();
       const sqliteEngine = new SqliteStorageEngine(connection);
       await sqliteEngine.initialize();
       await this.migrationService.migrateIfNeeded(sqliteEngine);
@@ -46,6 +49,14 @@ export class StorageEngineFactory {
       this.engine = sqliteEngine;
       this.debugLogService.info('storage.engine.sqlite_active');
     } catch (error: unknown) {
+      if (connection) {
+        try {
+          await connection.close();
+        } catch {
+          // Best-effort cleanup before Dexie fallback.
+        }
+      }
+
       this.debugLogService.error('storage.engine.sqlite_unavailable_falling_back_to_dexie', {
         error: error instanceof Error ? error.message : String(error),
       });

@@ -1,5 +1,5 @@
-import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { computed, signal } from '@angular/core';
+import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@ionic/angular/standalone', () => {
@@ -49,8 +49,23 @@ import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
+import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
+
+const availabilityStatus = signal<'checking' | 'online' | 'offline' | 'service-unreachable'>(
+  'online'
+);
+const availabilityBannerMessage = computed((): string | null => {
+  switch (availabilityStatus()) {
+    case 'offline':
+      return 'Offline. Cached library data is still available, but sync and live lookups are paused.';
+    case 'service-unreachable':
+      return 'Connection unavailable. Cached data is available, but sync, search, manuals, and live metadata are currently unavailable.';
+    default:
+      return null;
+  }
+});
 
 describe('AppComponent', () => {
   function getPromptButtons(value: unknown): Array<{ handler?: () => void | Promise<void> }> {
@@ -97,7 +112,11 @@ describe('AppComponent', () => {
   };
   const runtimeAvailabilityServiceMock = {
     initialize: vi.fn(),
-    status: signal<'checking' | 'online' | 'offline' | 'service-unreachable'>('online'),
+    status: availabilityStatus,
+    bannerMessage: availabilityBannerMessage,
+  };
+  const networkConnectivityServiceMock = {
+    initialize: vi.fn(),
   };
 
   beforeEach(() => {
@@ -129,7 +148,8 @@ describe('AppComponent', () => {
       present: vi.fn().mockResolvedValue(undefined),
     });
     runtimeAvailabilityServiceMock.initialize.mockReturnValue(undefined);
-    runtimeAvailabilityServiceMock.status.set('online');
+    availabilityStatus.set('online');
+    networkConnectivityServiceMock.initialize.mockReturnValue(undefined);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -143,7 +163,19 @@ describe('AppComponent', () => {
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityServiceMock },
+        { provide: NetworkConnectivityService, useValue: networkConnectivityServiceMock },
       ],
+    });
+    TestBed.overrideComponent(AppComponent, {
+      set: {
+        template: `
+          @if (runtimeAvailabilityService.bannerMessage(); as message) {
+            <div class="availability-banner">{{ message }}</div>
+          }
+        `,
+        imports: [],
+        styleUrls: [],
+      },
     });
   });
 
@@ -167,6 +199,10 @@ describe('AppComponent', () => {
     await vi.advanceTimersByTimeAsync(0);
   }
 
+  function getFixtureRoot(fixture: ComponentFixture<AppComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
   it('runs legacy cover migration even when the preferred-platform migration fails', async () => {
     gameShelfServiceMock.migratePreferredPlatformCoversToIgdb.mockRejectedValue(
       new Error('preferred migration failed')
@@ -176,9 +212,10 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(themeServiceMock.initialize).toHaveBeenCalledOnce();
-    expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
-    expect(debugLogServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(networkConnectivityServiceMock.initialize).toHaveBeenCalledOnce();
     expect(runtimeAvailabilityServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(debugLogServiceMock.initialize).toHaveBeenCalledOnce();
+    expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
     expect(gameShelfServiceMock.migratePreferredPlatformCoversToIgdb).toHaveBeenCalledOnce();
     expect(gameShelfServiceMock.migrateLegacyPickerCoversToCustomCovers).toHaveBeenCalledOnce();
   });
@@ -190,6 +227,49 @@ describe('AppComponent', () => {
     await flushAsync();
 
     expect(e2eFixtureServiceMock.applyFixtureFromStorage).toHaveBeenCalledOnce();
+  });
+
+  it('renders an availability banner when the app is offline', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    availabilityStatus.set('offline');
+
+    const fixture: ComponentFixture<AppComponent> = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    await flushAsync();
+
+    const root = getFixtureRoot(fixture);
+    expect(root.textContent).toContain('Offline');
+    expect(root.querySelector('.availability-banner')).not.toBeNull();
+    expect(alertControllerMock.create).not.toHaveBeenCalled();
+  });
+
+  it('renders an availability banner when the backend is unreachable', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+    availabilityStatus.set('service-unreachable');
+
+    const fixture: ComponentFixture<AppComponent> = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    await flushAsync();
+
+    const root = getFixtureRoot(fixture);
+    expect(root.textContent).toContain('Connection unavailable');
+    expect(root.querySelector('.availability-banner')).not.toBeNull();
+    expect(alertControllerMock.create).not.toHaveBeenCalled();
+  });
+
+  it('hides the availability banner when the app is online or checking', async () => {
+    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+
+    const fixture: ComponentFixture<AppComponent> = TestBed.createComponent(AppComponent);
+    availabilityStatus.set('checking');
+    fixture.detectChanges();
+    expect(getFixtureRoot(fixture).querySelector('.availability-banner')).toBeNull();
+
+    availabilityStatus.set('online');
+    fixture.detectChanges();
+    await flushAsync();
+
+    expect(getFixtureRoot(fixture).querySelector('.availability-banner')).toBeNull();
   });
 
   it('presents a version alert and stores the current app version on first load', async () => {
@@ -211,116 +291,6 @@ describe('AppComponent', () => {
     );
     expect(present).toHaveBeenCalledOnce();
     expect(localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY)).toBe('1.27.1');
-  });
-
-  it('presents a connection alert when reachability changes to service-unreachable', async () => {
-    const present = vi.fn().mockResolvedValue(undefined);
-    const onDidDismiss = vi.fn().mockResolvedValue(undefined);
-    alertControllerMock.create.mockResolvedValue({
-      present,
-      onDidDismiss,
-    });
-    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-
-    expect(alertControllerMock.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        header: 'Connection Unavailable',
-      })
-    );
-    expect(present).toHaveBeenCalledOnce();
-  });
-
-  it('does not stack duplicate connection alerts while one is already active', async () => {
-    let resolveDismiss: (() => void) | undefined;
-    const present = vi.fn().mockResolvedValue(undefined);
-    const onDidDismiss = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveDismiss = resolve;
-        })
-    );
-    alertControllerMock.create.mockResolvedValue({
-      present,
-      onDidDismiss,
-    });
-    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-    runtimeAvailabilityServiceMock.status.set('offline');
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-
-    expect(alertControllerMock.create).toHaveBeenCalledTimes(1);
-
-    resolveDismiss?.();
-    await flushAsync();
-  });
-
-  it('dismisses only the tracked connection alert when availability recovers', async () => {
-    const dismissConnectionAlert = vi.fn().mockResolvedValue(true);
-    const connectionAlert = {
-      present: vi.fn().mockResolvedValue(undefined),
-      dismiss: dismissConnectionAlert,
-      onDidDismiss: vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            setTimeout(resolve, 5);
-          })
-      ),
-    };
-    const unrelatedTopAlert = {
-      dismiss: vi.fn().mockResolvedValue(true),
-    };
-
-    alertControllerMock.create.mockResolvedValue(connectionAlert);
-    alertControllerMock.getTop.mockResolvedValue(unrelatedTopAlert);
-    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-    runtimeAvailabilityServiceMock.status.set('online');
-    await flushAsync();
-
-    expect(dismissConnectionAlert).toHaveBeenCalledOnce();
-    expect(unrelatedTopAlert.dismiss).not.toHaveBeenCalled();
-  });
-
-  it('skips dismissing the tracked connection alert when no dismiss function is available', async () => {
-    const connectionAlert = {
-      present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            setTimeout(resolve, 5);
-          })
-      ),
-    };
-
-    alertControllerMock.create.mockResolvedValue(connectionAlert);
-    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-    runtimeAvailabilityServiceMock.status.set('online');
-    await flushAsync();
-
-    expect(connectionAlert.present).toHaveBeenCalledOnce();
   });
 
   it('skips the version alert when the current version was already seen', async () => {
@@ -449,20 +419,6 @@ describe('AppComponent', () => {
 
     expect(errorSpy).toHaveBeenCalledWith('[app] version_alert_failed', expect.any(Error));
     expect(notificationServiceMock.initialize).toHaveBeenCalledOnce();
-  });
-
-  it('logs connection alert sync failures from the availability effect', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    alertControllerMock.create.mockRejectedValue(new Error('alert create failed'));
-    localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    runtimeAvailabilityServiceMock.status.set('service-unreachable');
-    await flushAsync();
-
-    expect(errorSpy).toHaveBeenCalledWith('[app] sync_connection_alert_failed', expect.any(Error));
   });
 
   it('logs notification initialization failures', async () => {

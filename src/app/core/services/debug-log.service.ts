@@ -8,6 +8,7 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
+import { NetworkConnectivityService } from './network-connectivity.service';
 
 export type DebugLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -37,6 +38,7 @@ export class DebugLogService {
   private verboseTracingEnabled = false;
   private readonly router = inject(Router, { optional: true });
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly networkConnectivity = inject(NetworkConnectivityService);
 
   initialize(): void {
     if (this.initialized || typeof window === 'undefined') {
@@ -64,12 +66,15 @@ export class DebugLogService {
       this.error('window.unhandledrejection', this.normalizeUnknown(event.reason));
     });
 
-    window.addEventListener('online', () => {
-      this.info('network.online');
-    });
-    window.addEventListener('offline', () => {
+    this.networkConnectivity.onConnectedChange((connected) => {
+      if (connected) {
+        this.info('network.online');
+        return;
+      }
+
       this.warn('network.offline');
     });
+
     window.addEventListener('beforeunload', () => {
       this.persist(true);
     });

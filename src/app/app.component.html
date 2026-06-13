@@ -1,3 +1,6 @@
 <ion-app>
+  @if (runtimeAvailabilityService.bannerMessage(); as message) {
+    <div class="availability-banner" role="status">{{ message }}</div>
+  }
   <ion-router-outlet></ion-router-outlet>
 </ion-app>

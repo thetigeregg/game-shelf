@@ -29,6 +29,7 @@ import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../uti
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
+import { NetworkConnectivityService } from './network-connectivity.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -74,19 +75,13 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly debugLogService = inject(DebugLogService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly networkConnectivity = inject(NetworkConnectivityService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
   private activeSyncPromise: Promise<void> | null = null;
   private resetLocalSyncStatePromise: Promise<boolean> | null = null;
   private intervalId: number | null = null;
-  private readonly onlineHandler = () => {
-    void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
-    void this.syncNow();
-  };
-  private readonly offlineHandler = () => {
-    void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'offline');
-  };
 
   initialize(): void {
     if (this.initialized) {
@@ -100,9 +95,17 @@ export class GameSyncService implements SyncOutboxWriter {
       online: this.isOnline(),
     });
 
+    this.networkConnectivity.onConnectedChange((connected) => {
+      if (connected) {
+        void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
+        void this.syncNow();
+        return;
+      }
+
+      void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'offline');
+    });
+
     if (typeof window !== 'undefined') {
-      window.addEventListener('online', this.onlineHandler);
-      window.addEventListener('offline', this.offlineHandler);
       this.intervalId = window.setInterval(() => {
         void this.syncNow();
       }, GameSyncService.SYNC_INTERVAL_MS);
@@ -1628,11 +1631,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private isOnline(): boolean {
-    if (typeof navigator === 'undefined') {
-      return true;
-    }
-
-    return navigator.onLine;
+    return this.networkConnectivity.isConnected();
   }
 
   private normalizeBaseUrl(value: string | null | undefined): string {

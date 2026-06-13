@@ -13,5 +13,17 @@ export function isInsideStorageTransaction(): boolean {
 
 /** Runs action in async context so nested runInTransaction calls can detect it. */
 export function runInsideStorageTransactionZone<T>(action: () => Promise<T>): Promise<T> {
-  return Promise.resolve(storageTransactionContext.run(true, action));
+  try {
+    return Promise.resolve(
+      storageTransactionContext.run(true, () => {
+        try {
+          return action();
+        } catch (error: unknown) {
+          return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      })
+    );
+  } catch (error: unknown) {
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
 }

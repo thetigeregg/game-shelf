@@ -18,5 +18,11 @@ export function runInsideStorageTransactionZone<T>(action: () => Promise<T>): Pr
     },
   });
 
-  return zone.run(() => action());
+  return zone.run(() => {
+    try {
+      return action();
+    } catch (error: unknown) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }

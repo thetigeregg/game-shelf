@@ -1,6 +1,8 @@
-import { OutboxEntry, SyncMetaEntry } from './app-db';
-import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListView, Tag } from '../models/game.models';
-import { ImageCacheRecord, StorageEngine, isStorageConstraintError } from './storage-engine';
+import type { OutboxEntry, SyncMetaEntry } from './app-db';
+import { DEFAULT_GAME_LIST_FILTERS } from '../models/game.models';
+import type { GameEntry, GameListView, Tag } from '../models/game.models';
+import { isStorageConstraintError } from './storage-engine';
+import type { ImageCacheRecord, StorageEngine } from './storage-engine';
 
 export interface StorageEngineContractHarness {
   engine: StorageEngine;

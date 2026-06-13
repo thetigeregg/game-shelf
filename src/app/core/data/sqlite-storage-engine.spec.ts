@@ -1,10 +1,6 @@
 import BetterSqlite3 from 'better-sqlite3';
-import {
-  SQLITE_UPGRADE_STATEMENTS,
-  SqliteConnection,
-  SqliteRunResult,
-  SqliteStatement,
-} from './sqlite-connection';
+import { SQLITE_UPGRADE_STATEMENTS } from './sqlite-connection';
+import type { SqliteConnection, SqliteRunResult, SqliteStatement } from './sqlite-connection';
 import { SqliteStorageEngine } from './sqlite-storage-engine';
 import { describeStorageEngineContract } from './storage-engine.contract';
 

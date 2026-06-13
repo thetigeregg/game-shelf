@@ -1,9 +1,21 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAppVersion, getRuntimeConfigSource } from '../config/runtime-config';
+import { NetworkConnectivityService } from './network-connectivity.service';
 import { RuntimeAvailabilityService } from './runtime-availability.service';
 
 const isNativePlatformMock = vi.fn<() => boolean>(() => false);
+const connectivityListeners = new Set<(connected: boolean) => void>();
+const networkConnectivityMock = {
+  initialize: vi.fn(),
+  isConnected: vi.fn(() => true),
+  onConnectedChange: vi.fn((listener: (connected: boolean) => void) => {
+    connectivityListeners.add(listener);
+    return () => {
+      connectivityListeners.delete(listener);
+    };
+  }),
+};
 
 vi.mock('../utils/native-platform.util', () => ({
   isNativePlatform: () => isNativePlatformMock(),
@@ -17,17 +29,27 @@ describe('RuntimeAvailabilityService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    connectivityListeners.clear();
     isNativePlatformMock.mockReturnValue(false);
+    networkConnectivityMock.isConnected.mockReset();
+    networkConnectivityMock.onConnectedChange.mockReset();
+    networkConnectivityMock.isConnected.mockReturnValue(true);
+    networkConnectivityMock.onConnectedChange.mockImplementation(
+      (listener: (connected: boolean) => void) => {
+        connectivityListeners.add(listener);
+        return () => {
+          connectivityListeners.delete(listener);
+        };
+      }
+    );
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     originalFetch = globalThis.fetch;
     originalVisibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
-    Object.defineProperty(navigator, 'onLine', {
-      value: true,
-      configurable: true,
-    });
 
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [{ provide: NetworkConnectivityService, useValue: networkConnectivityMock }],
+    });
     service = TestBed.inject(RuntimeAvailabilityService);
   });
 
@@ -42,11 +64,8 @@ describe('RuntimeAvailabilityService', () => {
     vi.useRealTimers();
   });
 
-  it('marks the app as offline when the browser is offline', async () => {
-    Object.defineProperty(navigator, 'onLine', {
-      value: false,
-      configurable: true,
-    });
+  it('marks the app as offline when device connectivity is unavailable', async () => {
+    networkConnectivityMock.isConnected.mockReturnValue(false);
 
     await service.refresh();
 
@@ -144,11 +163,13 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.status()).toBe('service-unreachable');
   });
 
-  it('marks the app offline when the browser offline event fires', () => {
+  it('marks the app offline when connectivity reports disconnected', () => {
     service.initialize();
     service.status.set('online');
 
-    window.dispatchEvent(new Event('offline'));
+    connectivityListeners.forEach((listener) => {
+      listener(false);
+    });
 
     expect(service.status()).toBe('offline');
   });
@@ -180,7 +201,7 @@ describe('RuntimeAvailabilityService', () => {
     expect(getRuntimeConfigSource()).toBe('default');
   });
 
-  it('initializes once, sets online from existing live config, and refreshes on browser events', () => {
+  it('initializes once, sets online from existing live config, and refreshes on resume events', () => {
     vi.useFakeTimers();
     window.__GAME_SHELF_RUNTIME_CONFIG__ = { appVersion: '1.0.0' };
     const refreshSpy = vi.spyOn(service, 'refresh').mockResolvedValue(undefined);
@@ -191,7 +212,9 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.status()).toBe('online');
     expect(refreshSpy).toHaveBeenCalledTimes(1);
 
-    window.dispatchEvent(new Event('online'));
+    connectivityListeners.forEach((listener) => {
+      listener(true);
+    });
     window.dispatchEvent(new Event('focus'));
     window.dispatchEvent(new Event('pageshow'));
     document.dispatchEvent(new Event('visibilitychange'));
@@ -204,10 +227,7 @@ describe('RuntimeAvailabilityService', () => {
 
   it('initializes offline and skips timer refreshes while the document is hidden', () => {
     vi.useFakeTimers();
-    Object.defineProperty(navigator, 'onLine', {
-      value: false,
-      configurable: true,
-    });
+    networkConnectivityMock.isConnected.mockReturnValue(false);
     Object.defineProperty(document, 'visibilityState', {
       value: 'hidden',
       configurable: true,

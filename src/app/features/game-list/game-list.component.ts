@@ -180,6 +180,12 @@ import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
 import { openDocumentUrl } from '../../core/utils/open-document-url.util';
 import { openExternalUrl } from '../../core/utils/open-external-url';
+import {
+  pickImageFromFiles,
+  pickImageFromPhotoLibrary,
+  type PickFileOutcome,
+} from '../../core/utils/pick-file.util';
+import { isNativePlatform } from '../../core/utils/native-platform.util';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -547,7 +553,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
   @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;
-  @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('externalMetadataProviderSelect')
   private externalMetadataProviderSelect?: IonSelect;
   @ViewChild('gameDetailModal', { read: ElementRef })
@@ -1911,13 +1916,66 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  async onCustomCoverFileSelected(event: Event): Promise<void> {
-    const game = this.selectedGame;
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
+  async uploadCustomImageFromEditMetadata(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
 
-    if (!game || !file) {
+    if (!isNativePlatform()) {
+      await this.pickAndApplyCustomCover(() => pickImageFromPhotoLibrary());
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Choose Image Source',
+      buttons: [
+        {
+          text: 'Photo Library',
+          handler: () => {
+            void this.pickAndApplyCustomCoverFromLibrary();
+          },
+        },
+        {
+          text: 'Browse Files',
+          handler: () => {
+            void this.pickAndApplyCustomCoverFromFiles();
+          },
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+      ],
+    });
+
+    await alert.present();
+  }
+
+  private async pickAndApplyCustomCoverFromLibrary(): Promise<void> {
+    await this.pickAndApplyCustomCover(() => pickImageFromPhotoLibrary());
+  }
+
+  private async pickAndApplyCustomCoverFromFiles(): Promise<void> {
+    await this.pickAndApplyCustomCover(() => pickImageFromFiles());
+  }
+
+  private async pickAndApplyCustomCover(pick: () => Promise<PickFileOutcome>): Promise<void> {
+    try {
+      const result = await pick();
+
+      if (result.status === 'picked') {
+        await this.applyCustomCoverFile(result.file);
+      }
+    } catch (error: unknown) {
+      this.debugLogService.error('custom_cover.pick_failed', error);
+      await this.presentToast('Unable to pick image.', 'danger');
+    }
+  }
+
+  private async applyCustomCoverFile(file: File): Promise<void> {
+    const game = this.selectedGame;
+
+    if (!game) {
       return;
     }
 
@@ -2079,10 +2137,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   async openImagePickerFromPopover(): Promise<void> {
     await this.openImagePickerModal();
     await this.dismissDetailActionsPopover();
-  }
-
-  uploadCustomImageFromEditMetadata(): void {
-    this.customCoverFileInput?.nativeElement.click();
   }
 
   async resetCustomImageFromEditMetadata(): Promise<void> {

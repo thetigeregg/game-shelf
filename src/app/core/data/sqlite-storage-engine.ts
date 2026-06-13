@@ -140,14 +140,16 @@ export class SqliteStorageEngine implements StorageEngine {
     }
   }
 
-  async updateGame(id: number, changes: Partial<GameEntry>): Promise<void> {
-    const existing = await this.getGameById(id);
+  updateGame(id: number, changes: Partial<GameEntry>): Promise<void> {
+    return this.runInTransaction(['games'], async () => {
+      const existing = await this.getGameById(id);
 
-    if (!existing) {
-      return;
-    }
+      if (!existing) {
+        return;
+      }
 
-    await this.putGame({ ...existing, ...changes, id });
+      await this.putGame({ ...existing, ...changes, id });
+    });
   }
 
   async deleteGame(id: number): Promise<void> {

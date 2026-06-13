@@ -3652,3 +3652,11 @@
 - 6b7728bc fix(storage): exclude internal keys from export and native prefs
 - 768d4f1a Merge branch 'main' into feat/sqlite
 - 0cece3af feat(storage): migrate native prefs to Capacitor Preferences
+
+## v1.55.0 - 2026-06-13
+
+- 11d0aee0 Merge pull request #420 from thetigeregg/feat/net
+- ee88b9cd fix(net): seed connectivity synchronously on initialize
+- a86f5e0c fix(net): notify connectivity listeners on native startup
+- 5f5371d0 feat(net): consolidate debug connectivity logs and add availability banner
+- c4bbe31c feat(net): add Capacitor network connectivity service

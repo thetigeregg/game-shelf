@@ -3694,3 +3694,25 @@
 - d16e4c09 fix(native): settle web file picker and handle cover pick errors
 - 35b06aab fix(native): address PR feedback for file picker error handling
 - 51299686 feat(ios): add native file picker for imports and cover uploads
+
+## v1.58.0 - 2026-06-14
+
+- 975cc156 Merge pull request #424 from thetigeregg/feat/deploy
+- b394160f fix(ci): address PR review feedback for OTA signing and build validation
+- 0d30ef71 fix(ios): honor injected processEnv in OTA build step
+- d95cea6f fix(live-update): treat non-JSON manifest responses as invalid
+- b0347217 fix(ci): use macOS-compatible base64 decode in TestFlight workflow
+- 72144352 fix(ios): address PR review feedback for OTA gating and validation
+- fe15cae7 fix(deploy): address PR review feedback for release diff and OTA
+- cf26d690 fix(ios): address PR review feedback for OTA and live updates
+- 442f6373 fix(review): address PR 424 Copilot feedback on Dockerfile and markReady
+- 26cac7d4 fix(ios): address PR review on live update and sync script
+- ab801c47 fix(ios): address PR review feedback for OTA and tests
+- 57c7267a fix(ios): address PR feedback on OTA, Caddy, and tests
+- 0cc12fa0 test(ios): cover live-update logic edge cases
+- e8b20c12 fix(ci): align deploy gates and isolate OTA edge builds
+- ddb3a095 feat(ios): add self-hosted Capawesome live update OTA
+- 0e1c1f39 Merge branch 'main' into feat/deploy
+- e3a3cd67 ci(release): gate Docker publish on per-image changes
+- 629c736d ci(ios): gate TestFlight deploy on native-shell changes
+- eb589a1a ci(ios): add TestFlight deploy pipeline on release tags

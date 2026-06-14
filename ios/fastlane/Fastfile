@@ -105,7 +105,7 @@ end
 
 platform :ios do
   before_all do
-    setup_ci(require_create: true) if ENV['CI']
+    setup_ci if ENV['CI']
   end
 
   desc 'Verify App Store Connect app exists and API key can read build numbers'

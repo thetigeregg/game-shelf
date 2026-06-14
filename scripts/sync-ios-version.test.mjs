@@ -197,6 +197,26 @@ test('syncIosMarketingVersion writes all marketing versions from package.json', 
   assert.equal((written.match(/MARKETING_VERSION = 9\.9\.9;/g) ?? []).length, 3);
 });
 
+test('syncIosMarketingVersion reads package version via injected readFileSyncFn', () => {
+  let written = null;
+  const result = syncIosMarketingVersion({
+    pbxprojPath: '/tmp/project.pbxproj',
+    readFileSyncFn: (filePath) => {
+      if (filePath.endsWith('package.json')) {
+        return JSON.stringify({ version: '7.7.7' });
+      }
+
+      return SAMPLE_PBXPROJ;
+    },
+    writeFileSyncFn: (_path, content) => {
+      written = content;
+    },
+  });
+
+  assert.equal(result.marketingVersion, '7.7.7');
+  assert.equal((written.match(/MARKETING_VERSION = 7\.7\.7;/g) ?? []).length, 3);
+});
+
 test('parseSyncIosVersionArgs rejects --pbxproj without a path', () => {
   assert.throws(
     () => parseSyncIosVersionArgs(['--build-number', '42', '--pbxproj']),

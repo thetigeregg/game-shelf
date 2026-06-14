@@ -120,7 +120,8 @@ export function syncIosMarketingVersion({
   writeFileSyncFn = writeFileSync,
   readFileSyncFn = readFileSync,
 } = {}) {
-  const resolvedMarketingVersion = marketingVersion ?? readPackageVersion();
+  const resolvedMarketingVersion =
+    marketingVersion ?? readPackageVersion(DEFAULT_PACKAGE_JSON_PATH, readFileSyncFn);
   const content = readFileSyncFn(pbxprojPath, 'utf8');
   const updated = updateAllMarketingVersionsInPbxproj(content, {
     marketingVersion: resolvedMarketingVersion,
@@ -144,7 +145,8 @@ export function syncIosProdVersion({
   writeFileSyncFn = writeFileSync,
   readFileSyncFn = readFileSync,
 } = {}) {
-  const resolvedMarketingVersion = marketingVersion ?? readPackageVersion();
+  const resolvedMarketingVersion =
+    marketingVersion ?? readPackageVersion(DEFAULT_PACKAGE_JSON_PATH, readFileSyncFn);
   const content = readFileSyncFn(pbxprojPath, 'utf8');
   const updated = updateProdTargetVersionsInPbxproj(content, {
     marketingVersion: resolvedMarketingVersion,

@@ -127,3 +127,10 @@ test('parseSyncIosVersionArgs rejects --pbxproj without a path', () => {
     /--pbxproj requires a path/
   );
 });
+
+test('parseSyncIosVersionArgs defaults pbxproj path to repo root', () => {
+  const args = parseSyncIosVersionArgs(['--build-number', '42']);
+
+  assert.match(args.pbxprojPath, /ios\/App\/App\.xcodeproj\/project\.pbxproj$/);
+  assert.doesNotMatch(args.pbxprojPath, /fastlane\/ios/);
+});

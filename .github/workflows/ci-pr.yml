@@ -138,6 +138,30 @@ jobs:
             test-results
           if-no-files-found: ignore
 
+  ios_prod_build_validation:
+    name: iOS prod build validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate ios-prod Angular build
+        env:
+          IOS_BACKEND_ORIGIN_PROD: https://ci.example.test
+          IOS_FIREBASE_PROD_PLIST_PATH: ${{ github.workspace }}/test/fixtures/ios/GoogleService-Info.prod.plist
+        run: npm run build:ios:prod
+
   docker_build_validation:
     name: Docker Build Validation
     runs-on: ubuntu-latest

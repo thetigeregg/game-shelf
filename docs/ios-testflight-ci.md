@@ -127,6 +127,18 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
    - Archives **App PROD** (Release) with automatic signing
    - Uploads to TestFlight (does not wait for Apple processing)
 
+## Native dependencies
+
+`@capacitor-firebase/messaging` requires the `firebase` npm package as a peer dependency
+for ios-prod bundling (its web shim imports `firebase/messaging`). Web and Docker builds use
+a stub in [`firebase-messaging.client.ts`](../src/app/core/services/firebase-messaging.client.ts)
+instead; ios-prod swaps in the native plugin via [`angular.json`](../angular.json)
+`fileReplacements`.
+
+PR CI validates the ios-prod Angular build on Ubuntu via
+[`ci-pr.yml`](../.github/workflows/ci-pr.yml) (`ios_prod_build_validation` job) using the
+fixture plist at [`test/fixtures/ios/GoogleService-Info.prod.plist`](../test/fixtures/ios/GoogleService-Info.prod.plist).
+
 ## Local debugging
 
 iOS Fastlane tooling expects **Ruby 3.3** and **Bundler 2.5.x** (see [`ios/.ruby-version`](../ios/.ruby-version)).

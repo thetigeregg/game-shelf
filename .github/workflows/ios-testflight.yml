@@ -175,9 +175,16 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: bundle exec fastlane deploy_testflight
 
+      - name: Create GitHub App token
+        id: variable_sync_token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.AUTOCOMMIT_CLIENT_ID }}
+          private-key: ${{ secrets.AUTOCOMMIT_APP_PRIVATE_KEY }}
+
       - name: Sync IOS_OTA_NATIVE_BUILD_NUMBER
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.variable_sync_token.outputs.token }}
         run: |
           BUILD_NUMBER="${{ steps.testflight_upload.outputs.ios_native_build_number }}"
           if [ -z "$BUILD_NUMBER" ]; then

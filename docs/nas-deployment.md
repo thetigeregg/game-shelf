@@ -16,8 +16,9 @@ Use `docker-compose.portainer.yml` in Portainer (`Repository` or `Upload`), then
 
 Before first deploy, publish images from GitHub Actions:
 
-1. Push to `main` (or run `Publish Docker Images` workflow manually).
-2. Confirm images exist in GHCR:
+1. Push to `main` (release workflow publishes only images whose code changed since the previous tag).
+2. To force all images, run **Release & Publish** via `workflow_dispatch`.
+3. Confirm images exist in GHCR:
    - `ghcr.io/thetigeregg/game-shelf-edge:main`
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
@@ -26,7 +27,10 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
    - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
      Set `POSTGRES_IMAGE` only when you explicitly want to override this pin.
-3. In Portainer, add a registry credential for `ghcr.io`:
+
+Each service pulls its own `:main` tag. After a selective release, only rebuilt images get a new `:main` digest — unchanged services keep running the previous image until their component changes.
+
+4. In Portainer, add a registry credential for `ghcr.io`:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
 

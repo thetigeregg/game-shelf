@@ -17,6 +17,7 @@ import { RuntimeAvailabilityService } from './core/services/runtime-availability
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
+import { LiveUpdateService } from './core/services/live-update.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 const MIN_SPLASH_VISIBLE_MS = 300;
@@ -38,6 +39,7 @@ export class AppComponent {
   private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly liveUpdateService = inject(LiveUpdateService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
   private readonly networkConnectivityService = inject(NetworkConnectivityService);
   private readonly appStartedAt = Date.now();
@@ -62,6 +64,7 @@ export class AppComponent {
     await this.initializeNotifications().catch((error: unknown) => {
       console.error('[app] notifications_init_failed', error);
     });
+    await this.liveUpdateService.markReady();
     await this.hideSplashScreenWhenReady().catch((error: unknown) => {
       console.error('[app] splash_screen_hide_failed', error);
     });

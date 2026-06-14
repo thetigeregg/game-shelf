@@ -295,8 +295,13 @@ npm run test:backup:ops
   - Runs lint, frontend coverage tests, backend coverage tests, and UI tests
 
 - `Release & Publish` (`.github/workflows/release-publish.yml`)
-  - Trigger: pushes to `main`
-  - Bumps repo version, commits/tag release, publishes Docker images to GHCR
+  - Trigger: pushes to `main`, or manual `workflow_dispatch` (force all images)
+  - Bumps repo version, commits/tag release, publishes changed Docker images to GHCR
+
+- `iOS TestFlight` (`.github/workflows/ios-testflight.yml`)
+  - Trigger: semver tag push (`v*`) when native-shell files changed, or manual dispatch
+  - Builds **App PROD** via Fastlane and uploads to TestFlight (not App Store)
+  - See `docs/ios-testflight-ci.md` for secrets, gating rules, and setup
 
 - `Secret Scan` (`.github/workflows/secret-scan.yml`)
   - Trigger: PRs to `main`, pushes to `main`, and manual dispatch
@@ -310,7 +315,9 @@ npm run test:backup:ops
   - `package-lock.json`
   - `CHANGELOG.md`
 - Creates and pushes git tag (for example `v0.0.5`)
-- Docker images are tagged with `main`, semver tags, major/minor variants, and short SHA
+- Docker images are tagged with `main`, semver tags, major/minor variants, and short SHA when rebuilt
+- Only images with relevant code changes since the previous tag are rebuilt; unchanged services keep their existing `:main` digest
+- iOS TestFlight upload runs on semver tags when native-shell paths changed (see `docs/ios-testflight-ci.md`); use manual dispatch for src-only builds
 
 ## Timezone Defaults
 

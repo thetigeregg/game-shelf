@@ -266,6 +266,23 @@ describe('LiveUpdateService', () => {
     expect(liveUpdateGetNextBundleMock).not.toHaveBeenCalled();
   });
 
+  it('skips staging when manifest response is not valid JSON', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response('<html>error</html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      })
+    );
+
+    await service.checkAndStageUpdate(true);
+
+    expect(debugLogService.exportText()).toContain('live_update.manifest_invalid');
+    expect(debugLogService.exportText()).not.toContain('live_update.check_failed');
+    expect(liveUpdateDownloadBundleMock).not.toHaveBeenCalled();
+    expect(liveUpdateGetCurrentBundleMock).not.toHaveBeenCalled();
+    expect(liveUpdateGetNextBundleMock).not.toHaveBeenCalled();
+  });
+
   it('skips staging when manifest is already active or staged', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(validManifest), {

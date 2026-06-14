@@ -20,6 +20,7 @@ const RESUME_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 export class LiveUpdateService {
   private readonly debugLogService = inject(DebugLogService);
   private resumeListenerAttached = false;
+  private resumeListenerAttachInFlight = false;
   private lastCheckAt = 0;
   private checkInFlight: Promise<void> | null = null;
 
@@ -70,21 +71,28 @@ export class LiveUpdateService {
   }
 
   initializeResumeChecks(): void {
-    if (!this.isEnabled() || this.resumeListenerAttached) {
+    if (!this.isEnabled() || this.resumeListenerAttached || this.resumeListenerAttachInFlight) {
       return;
     }
 
-    this.resumeListenerAttached = true;
+    this.resumeListenerAttachInFlight = true;
 
     void App.addListener('appStateChange', (state) => {
       if (state.isActive) {
         void this.checkAndStageUpdate();
       }
-    }).catch((error: unknown) => {
-      this.debugLogService.error('live_update.resume_listener_failed', {
-        error: error instanceof Error ? error.message : String(error),
+    })
+      .then(() => {
+        this.resumeListenerAttached = true;
+      })
+      .catch((error: unknown) => {
+        this.debugLogService.error('live_update.resume_listener_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(() => {
+        this.resumeListenerAttachInFlight = false;
       });
-    });
   }
 
   private async runCheckAndStageUpdate(force: boolean): Promise<void> {

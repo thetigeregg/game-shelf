@@ -3758,3 +3758,11 @@
 - e5176a7b Merge pull request #430 from thetigeregg/feat/fix2
 - 0af4612f Merge branch 'main' into feat/fix2
 - 5e02590d fix(ios): add firebase peer dep for TestFlight builds
+
+## v1.59.2 - 2026-06-14
+
+- f97c0def Merge pull request #431 from thetigeregg/feat/fix
+- c19be681 fix(ios): address Fastfile review feedback for TestFlight CI
+- fb44a0fb fix(ios): address PR review feedback for TestFlight CI
+- 7a734ceb fix(ios): address TestFlight signing review feedback
+- d771eb68 fix(ios): pass ASC API auth to xcodebuild for TestFlight CI

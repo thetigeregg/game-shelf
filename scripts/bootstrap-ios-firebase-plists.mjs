@@ -40,18 +40,60 @@ export function resolveSharedFirebaseDir(processEnv = process.env, options = {})
   return expandUserPath(configured);
 }
 
+export const ENV_FIREBASE_PLIST_KEYS = {
+  dev: 'IOS_FIREBASE_DEV_PLIST_PATH',
+  prod: 'IOS_FIREBASE_PROD_PLIST_PATH',
+};
+
+export function resolveEnvFirebasePlistSources(processEnv = process.env) {
+  const sources = {};
+
+  for (const [variant, envKey] of Object.entries(ENV_FIREBASE_PLIST_KEYS)) {
+    const configuredPath = processEnv[envKey]?.trim();
+    if (configuredPath) {
+      sources[variant] = expandUserPath(configuredPath);
+    }
+  }
+
+  return sources;
+}
+
 export function resolveFirebasePlistMappings({
   sharedDir,
   repoRoot,
   plists = DEFAULT_FIREBASE_PLISTS,
+  envSources = {},
+  variants = null,
 }) {
-  return Object.entries(plists).map(([variant, config]) => ({
-    variant,
-    sharedFile: config.sharedFile,
-    destination: config.destination,
-    sharedPath: path.join(sharedDir, config.sharedFile),
-    destinationPath: path.resolve(repoRoot, config.destination),
-  }));
+  const selectedVariants =
+    variants ??
+    Object.keys(plists).filter((variant) => {
+      if (envSources[variant]) {
+        return true;
+      }
+
+      return Object.keys(envSources).length === 0;
+    });
+
+  return selectedVariants.map((variant) => {
+    const config = plists[variant];
+    if (!config) {
+      throw new Error(
+        `Unknown Firebase plist variant "${variant}". Expected one of: ${Object.keys(plists).join(', ')}`
+      );
+    }
+
+    const envSourcePath = envSources[variant] ?? null;
+
+    return {
+      variant,
+      sharedFile: config.sharedFile,
+      destination: config.destination,
+      sharedPath: envSourcePath ?? path.join(sharedDir, config.sharedFile),
+      destinationPath: path.resolve(repoRoot, config.destination),
+      source: envSourcePath ? 'env' : 'shared',
+    };
+  });
 }
 
 function shellQuotePath(value) {
@@ -100,19 +142,34 @@ export function bootstrapIosFirebasePlists({
   sharedDir,
   repoRoot = process.cwd(),
   plists = DEFAULT_FIREBASE_PLISTS,
+  envSources = {},
+  variants = null,
   force = false,
   failOnMissing = false,
+  requireEnvSources = false,
   existsSyncFn = existsSync,
   mkdirSyncFn = mkdirSync,
   copyFileSyncFn = copyFileSync,
   log = console.log,
   warn = console.warn,
 } = {}) {
-  if (!sharedDir) {
+  if (requireEnvSources && !envSources.prod) {
+    throw new Error(
+      `Missing ${ENV_FIREBASE_PLIST_KEYS.prod}. Set it to the prod Firebase plist path for CI builds.`
+    );
+  }
+
+  if (!sharedDir && Object.keys(envSources).length === 0) {
     throw new Error('Shared Firebase plist directory is not configured.');
   }
 
-  const mappings = resolveFirebasePlistMappings({ sharedDir, repoRoot, plists });
+  const mappings = resolveFirebasePlistMappings({
+    sharedDir,
+    repoRoot,
+    plists,
+    envSources,
+    variants,
+  });
   const result = { copied: [], skipped: [], missing: [] };
 
   for (const mapping of mappings) {
@@ -146,7 +203,8 @@ export function bootstrapIosFirebasePlists({
 
   for (const mapping of result.copied) {
     const action = mapping.replaced ? 'Replaced' : 'Bootstrapped';
-    log(`[bootstrap-ios-firebase-plists] ${action} ${mapping.destination} from shared template`);
+    const sourceLabel = mapping.source === 'env' ? 'env override' : 'shared template';
+    log(`[bootstrap-ios-firebase-plists] ${action} ${mapping.destination} from ${sourceLabel}`);
   }
 
   return result;
@@ -166,6 +224,7 @@ export async function loadFirebaseBootstrapOptions({
     }),
     repoRoot: resolvedConfig.repoRoot ?? cwd,
     plists: firebaseConfig.plists ?? DEFAULT_FIREBASE_PLISTS,
+    envSources: resolveEnvFirebasePlistSources(processEnv),
   };
 }
 
@@ -176,6 +235,8 @@ export async function bootstrapIosFirebasePlistsFromConfig(options = {}) {
     ...bootstrapOptions,
     force: options.force ?? false,
     failOnMissing: options.failOnMissing ?? false,
+    requireEnvSources: options.requireEnvSources ?? false,
+    variants: options.variants ?? null,
     existsSyncFn: options.existsSyncFn,
     mkdirSyncFn: options.mkdirSyncFn,
     copyFileSyncFn: options.copyFileSyncFn,
@@ -188,6 +249,7 @@ export function parseBootstrapFirebasePlistArgs(argv) {
   return {
     force: argv.includes('--force'),
     failOnMissing: argv.includes('--required'),
+    fromEnv: argv.includes('--from-env'),
   };
 }
 
@@ -198,6 +260,7 @@ async function main() {
     await bootstrapIosFirebasePlistsFromConfig({
       force: args.force,
       failOnMissing: args.failOnMissing,
+      requireEnvSources: args.fromEnv,
     });
   } catch (error) {
     console.error(

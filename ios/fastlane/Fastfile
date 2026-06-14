@@ -1,0 +1,100 @@
+# frozen_string_literal: true
+
+require 'json'
+
+default_platform(:ios)
+
+REPO_ROOT = File.expand_path('../..', __dir__)
+PBXPROJ_PATH = File.join(REPO_ROOT, 'ios/App/App.xcodeproj/project.pbxproj')
+XCODE_PROJECT = File.join(REPO_ROOT, 'ios/App/App.xcodeproj')
+APP_IDENTIFIER = 'io.github.thetigeregg.gameshelf'
+
+def load_app_store_connect_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
+    issuer_id: ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
+    key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY'),
+    is_key_content_base64: true
+  )
+end
+
+def read_package_version
+  package_json = File.read(File.join(REPO_ROOT, 'package.json'))
+  JSON.parse(package_json)['version']
+end
+
+def sync_ios_prod_version(build_number:)
+  version = read_package_version
+  sh(
+    'node',
+    File.join(REPO_ROOT, 'scripts/sync-ios-version.mjs'),
+    '--marketing-version', version,
+    '--build-number', build_number.to_s
+  )
+end
+
+def sync_capacitor_prod_assets
+  Dir.chdir(REPO_ROOT) do
+    sh('npm', 'run', 'sync:ios:prod')
+  end
+end
+
+platform :ios do
+  before_all do
+    setup_ci if ENV['CI']
+  end
+
+  desc 'Build App PROD and upload to TestFlight'
+  lane :testflight do
+    api_key = load_app_store_connect_api_key
+
+    latest_build = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0
+    )
+    next_build_number = latest_build + 1
+
+    UI.message("Syncing App PROD version to #{read_package_version} (#{next_build_number})")
+    sync_ios_prod_version(build_number: next_build_number)
+
+    UI.message('Building Capacitor web assets for ios-prod')
+    sync_capacitor_prod_assets
+
+    build_app(
+      project: XCODE_PROJECT,
+      scheme: 'App PROD',
+      configuration: 'Release',
+      export_method: 'app-store',
+      xcargs: '-allowProvisioningUpdates',
+      clean: true
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+
+    if ENV['GITHUB_OUTPUT']
+      File.open(ENV['GITHUB_OUTPUT'], 'a') do |file|
+        file.puts("ios_native_build_number=#{next_build_number}")
+      end
+    end
+  end
+
+  desc 'Archive App PROD without uploading (local debugging)'
+  lane :build_only do
+    sync_ios_prod_version(build_number: ENV.fetch('IOS_BUILD_NUMBER', '1'))
+    sync_capacitor_prod_assets
+
+    build_app(
+      project: XCODE_PROJECT,
+      scheme: 'App PROD',
+      configuration: 'Release',
+      export_method: 'app-store',
+      xcargs: '-allowProvisioningUpdates',
+      skip_archive: false,
+      clean: true
+    )
+  end
+end

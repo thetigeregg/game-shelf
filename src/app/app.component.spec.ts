@@ -50,6 +50,8 @@ import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
+import { LiveUpdateService } from './core/services/live-update.service';
+import { PreferenceStorageService } from './core/storage/preference-storage.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 
@@ -103,6 +105,9 @@ describe('AppComponent', () => {
   const e2eFixtureServiceMock = {
     applyFixtureFromStorage: vi.fn().mockResolvedValue(undefined),
   };
+  const liveUpdateServiceMock = {
+    markReady: vi.fn().mockResolvedValue(undefined),
+  };
   const alertControllerMock = {
     create: vi.fn(),
     getTop: vi.fn(),
@@ -139,6 +144,7 @@ describe('AppComponent', () => {
       ok: true,
       message: 'Enabled',
     });
+    liveUpdateServiceMock.markReady.mockResolvedValue(undefined);
     alertControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
       onDidDismiss: vi.fn().mockResolvedValue(undefined),
@@ -160,10 +166,12 @@ describe('AppComponent', () => {
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: NotificationService, useValue: notificationServiceMock },
         { provide: E2eFixtureService, useValue: e2eFixtureServiceMock },
+        { provide: LiveUpdateService, useValue: liveUpdateServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityServiceMock },
         { provide: NetworkConnectivityService, useValue: networkConnectivityServiceMock },
+        PreferenceStorageService,
       ],
     });
     TestBed.overrideComponent(AppComponent, {

@@ -1,0 +1,166 @@
+name: iOS TestFlight
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: game-shelf-ios-testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect_changes:
+    name: Detect native-shell changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      matched_paths: ${{ steps.check.outputs.matched_paths }}
+      skipped_reason: ${{ steps.check.outputs.skipped_reason }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Evaluate native-shell changes
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "matched_paths=workflow_dispatch" >> "$GITHUB_OUTPUT"
+            echo "skipped_reason=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT="${GITHUB_REF#refs/tags/}"
+          PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT" '$0==cur {getline; print; exit}')
+
+          node scripts/ios-testflight-should-deploy.mjs \
+            --base "$PREV" \
+            --head "$CURRENT" \
+            --github-output "$GITHUB_OUTPUT"
+
+  skip_summary:
+    name: Skip summary
+    needs:
+      - detect_changes
+    if: needs.detect_changes.outputs.should_deploy != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write skip summary
+        run: |
+          {
+            echo "## iOS TestFlight skipped"
+            echo
+            echo "No native-shell changes were detected for this release tag."
+            echo
+            if [ -n "${{ needs.detect_changes.outputs.skipped_reason }}" ]; then
+              echo "${{ needs.detect_changes.outputs.skipped_reason }}"
+            fi
+            echo
+            echo "Use **workflow_dispatch** on iOS TestFlight to force a build when needed (for example signing retries)."
+            echo
+            echo "For **src-only** fixes, TestFlight is skipped intentionally — the **edge** image publishes a signed iOS live-update bundle instead (see \`docs/ios-live-update.md\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  testflight:
+    name: Build and Upload App PROD
+    needs:
+      - detect_changes
+    if: needs.detect_changes.outputs.should_deploy == 'true'
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: read
+      actions: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Decode Firebase prod plist
+        env:
+          IOS_FIREBASE_PROD_PLIST_BASE64: ${{ secrets.IOS_FIREBASE_PROD_PLIST_BASE64 }}
+        run: |
+          if [ -z "$IOS_FIREBASE_PROD_PLIST_BASE64" ]; then
+            echo "IOS_FIREBASE_PROD_PLIST_BASE64 secret is required." >&2
+            exit 1
+          fi
+
+          PLIST_PATH="${RUNNER_TEMP}/GoogleService-Info.prod.plist"
+          echo "$IOS_FIREBASE_PROD_PLIST_BASE64" | base64 -D > "$PLIST_PATH"
+          echo "IOS_FIREBASE_PROD_PLIST_PATH=$PLIST_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate iOS deploy configuration
+        env:
+          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          for required in \
+            IOS_BACKEND_ORIGIN_PROD \
+            APP_STORE_CONNECT_API_KEY_ID \
+            APP_STORE_CONNECT_API_ISSUER_ID \
+            APP_STORE_CONNECT_API_KEY
+          do
+            if [ -z "${!required}" ]; then
+              echo "$required is required for TestFlight deploy." >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload to TestFlight
+        id: testflight_upload
+        working-directory: ios
+        env:
+          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bundle exec fastlane testflight
+
+      - name: Sync IOS_OTA_NATIVE_BUILD_NUMBER
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD_NUMBER="${{ steps.testflight_upload.outputs.ios_native_build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            echo "ios_native_build_number output missing; skipping variable sync." >&2
+            exit 1
+          fi
+
+          gh variable set IOS_OTA_NATIVE_BUILD_NUMBER --body "$BUILD_NUMBER"
+
+          {
+            echo "## iOS OTA build number synced"
+            echo
+            echo "Set \`IOS_OTA_NATIVE_BUILD_NUMBER\` to \`$BUILD_NUMBER\` for the next edge OTA publish."
+          } >> "$GITHUB_STEP_SUMMARY"

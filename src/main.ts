@@ -20,6 +20,7 @@ import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
 import { GameSyncService } from './app/core/services/game-sync.service';
 import { inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
 import { PreferenceStorageService } from './app/core/storage/preference-storage.service';
+import { LiveUpdateService } from './app/core/services/live-update.service';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
 import { register as registerSwiperElements } from 'swiper/element/bundle';
 
@@ -27,6 +28,11 @@ registerSwiperElements();
 
 bootstrapApplication(AppComponent, {
   providers: [
+    provideAppInitializer(() => {
+      const liveUpdateService = inject(LiveUpdateService);
+      liveUpdateService.initializeResumeChecks();
+      void liveUpdateService.checkAndStageUpdate(true);
+    }),
     provideAppInitializer(() => {
       const storage = inject(PreferenceStorageService);
       const engineFactory = inject(StorageEngineFactory);

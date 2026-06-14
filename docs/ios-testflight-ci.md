@@ -37,17 +37,17 @@ before the macOS build. TestFlight runs only when native-shell files changed.
 
 **Auto-deploy paths:**
 
-| Path                                                                                                                                                                                                          | Why                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `ios/**`                                                                                                                                                                                                      | Xcode project, entitlements, plists, Fastlane                                                                  |
-| `capacitor.config.ts`, `ionic.config.json`, `angular.json`                                                                                                                                                    | Capacitor / ios-prod build config                                                                              |
-| `scripts/write-environment-ios.mjs`, `scripts/bootstrap-ios-firebase-plists.mjs`, `scripts/generate-ios-info-plists.mjs`, `scripts/sync-ios-version.mjs`, `scripts/run-ios.mjs`, `scripts/ios-run-common.mjs` | iOS build and deploy scripts                                                                                   |
-| `.github/workflows/ios-testflight.yml`                                                                                                                                                                        | Pipeline itself                                                                                                |
-| `package.json` / `package-lock.json`                                                                                                                                                                          | Only when `@capacitor/*`, `@capacitor-community/*`, `@capacitor-firebase/*`, `@ionic/*`, or `ionicons` changed |
+| Path                                                                                                                                                                                                          | Why                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ios/**`                                                                                                                                                                                                      | Xcode project, entitlements, plists, Fastlane                                                                                   |
+| `capacitor.config.ts`, `ionic.config.json`, `angular.json`                                                                                                                                                    | Capacitor / ios-prod build config                                                                                               |
+| `scripts/write-environment-ios.mjs`, `scripts/bootstrap-ios-firebase-plists.mjs`, `scripts/generate-ios-info-plists.mjs`, `scripts/sync-ios-version.mjs`, `scripts/run-ios.mjs`, `scripts/ios-run-common.mjs` | iOS build and deploy scripts                                                                                                    |
+| `.github/workflows/ios-testflight.yml`                                                                                                                                                                        | Pipeline itself                                                                                                                 |
+| `package.json` / `package-lock.json`                                                                                                                                                                          | Only when `@capacitor/*`, `@capacitor-community/*`, `@capacitor-firebase/*`, `@capawesome/*`, `@ionic/*`, or `ionicons` changed |
 
 **Does not auto-deploy:**
 
-- `src/**` (bundled UI — use manual dispatch when testers need a new binary)
+- `src/**` (bundled UI — delivered via **iOS live update** on edge when native shell unchanged; see [`ios-live-update.md`](ios-live-update.md))
 - Backend / infra: `server/`, `worker/`, scrapers, `edge/`, Docker files
 - Release noise: `CHANGELOG.md`, semver-only `package.json` bumps
 

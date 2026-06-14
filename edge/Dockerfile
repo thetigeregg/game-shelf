@@ -11,6 +11,29 @@ COPY metacritic-scraper/src ./metacritic-scraper/src
 COPY src ./src
 RUN npm run build
 
+ARG BUILD_IOS_LIVE_UPDATE=false
+ARG IOS_BACKEND_ORIGIN_PROD
+ARG IOS_OTA_NATIVE_BUILD_NUMBER
+
+RUN --mount=type=secret,id=IOS_LIVE_UPDATE_PRIVATE_KEY,required=false \
+  if [ "$BUILD_IOS_LIVE_UPDATE" = "true" ]; then \
+    if [ -z "$IOS_BACKEND_ORIGIN_PROD" ] || [ -z "$IOS_OTA_NATIVE_BUILD_NUMBER" ]; then \
+      echo "IOS_BACKEND_ORIGIN_PROD and IOS_OTA_NATIVE_BUILD_NUMBER are required when BUILD_IOS_LIVE_UPDATE=true" >&2; \
+      exit 1; \
+    fi; \
+    if [ ! -f /run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY ]; then \
+      echo "IOS_LIVE_UPDATE_PRIVATE_KEY secret is required when BUILD_IOS_LIVE_UPDATE=true" >&2; \
+      exit 1; \
+    fi; \
+    apk add --no-cache zip; \
+    export IOS_BACKEND_ORIGIN_PROD="$IOS_BACKEND_ORIGIN_PROD"; \
+    export IOS_OTA_NATIVE_BUILD_NUMBER="$IOS_OTA_NATIVE_BUILD_NUMBER"; \
+    export IOS_LIVE_UPDATE_PRIVATE_KEY="$(cat /run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY)"; \
+    node scripts/build-ios-live-update-artifacts.mjs; \
+  else \
+    mkdir -p ota/ios; \
+  fi
+
 FROM caddy:2.11-alpine
 
 ENV TZ=Europe/Zurich
@@ -18,5 +41,6 @@ RUN apk add --no-cache tzdata
 
 COPY edge/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/www/browser /srv
+COPY --from=build /app/ota /ota
 
 EXPOSE 8080

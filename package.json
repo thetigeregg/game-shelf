@@ -70,6 +70,7 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@capawesome/capacitor-file-picker": "^8.0.2",
+    "@capawesome/capacitor-live-update": "^8.3.0",
     "@ionic/angular": "^8.8.10",
     "@playwright/test": "^1.60.0",
     "@semantic-icons/simple-icons": "^0.58.0",

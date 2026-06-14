@@ -25,7 +25,7 @@ export const NATIVE_SHELL_EXACT_PATHS = new Set([
 export const PACKAGE_MANIFEST_PATHS = new Set(['package.json', 'package-lock.json']);
 
 export const NATIVE_DEPENDENCY_PATTERN =
-  /@capacitor(?:-[a-z0-9-]+)?\/|@capacitor-community\/|@capacitor-firebase\/|@ionic\/|"ionicons"/;
+  /@capacitor(?:-[a-z0-9-]+)?\/|@capacitor-community\/|@capacitor-firebase\/|@capawesome\/|@ionic\/|"ionicons"/;
 
 export function matchesNativeShellPath(filePath) {
   if (typeof filePath !== 'string' || filePath.trim().length === 0) {

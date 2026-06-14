@@ -91,7 +91,7 @@ export function resolveBackendOriginFromGameApiBaseUrl(gameApiBaseUrl: string): 
 
   try {
     const parsed = new URL(gameApiBaseUrl.trim());
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    if (parsed.protocol !== 'https:') {
       return null;
     }
 

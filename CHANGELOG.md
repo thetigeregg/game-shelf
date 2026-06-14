@@ -3766,3 +3766,10 @@
 - fb44a0fb fix(ios): address PR review feedback for TestFlight CI
 - 7a734ceb fix(ios): address TestFlight signing review feedback
 - d771eb68 fix(ios): pass ASC API auth to xcodebuild for TestFlight CI
+
+## v1.59.3 - 2026-06-14
+
+- e6e4dee3 Merge pull request #432 from thetigeregg/feat/fix
+- 2483f3b1 fix(ios): use app-store export method and Helper.ci? for match
+- d1949d7e Merge branch 'main' into feat/fix
+- 45dad9e1 ci(ios): switch TestFlight signing to fastlane match

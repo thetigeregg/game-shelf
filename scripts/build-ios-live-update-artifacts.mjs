@@ -13,7 +13,13 @@ import { readPackageVersion } from './sync-ios-version.mjs';
 import { resolvePrivateKeyPem, signBundleFile } from './sign-ios-live-update-bundle.mjs';
 import { writeEnvironmentIos } from './write-environment-ios.mjs';
 
-export const DEFAULT_WEB_DIR = resolve(process.cwd(), 'www/browser');
+export const DEFAULT_EDGE_WEB_DIR = resolve(process.cwd(), 'www/browser');
+export const DEFAULT_OTA_OUTPUT_PATH = 'www/ios-ota';
+
+export function resolveDefaultOtaWebDir(cwd = process.cwd()) {
+  return resolve(cwd, DEFAULT_OTA_OUTPUT_PATH, 'browser');
+}
+
 export const DEFAULT_OUTPUT_ROOT = resolve(process.cwd(), 'ota/ios');
 
 export function resolveNativeBuildNumber(envValues = process.env) {
@@ -64,7 +70,7 @@ export function zipDirectory(sourceDir, zipPath, execFileSyncFn = execFileSync) 
 export async function buildIosLiveUpdateArtifacts(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const outputRoot = options.outputRoot ?? DEFAULT_OUTPUT_ROOT;
-  const webDir = options.webDir ?? DEFAULT_WEB_DIR;
+  const webDir = options.webDir ?? resolveDefaultOtaWebDir(cwd);
   const execFileSyncFn = options.execFileSyncFn ?? execFileSync;
   const writeFile = options.writeFileSyncFn ?? writeFileSync;
   const envValues = options.envValues ?? loadProjectEnv(options.processEnv ?? process.env);
@@ -78,7 +84,7 @@ export async function buildIosLiveUpdateArtifacts(options = {}) {
   }
 
   if (options.buildIosProd !== false) {
-    execFileSyncFn('npm', ['run', 'build:ios:prod'], {
+    execFileSyncFn('npm', ['run', 'build:ios:prod:ota'], {
       cwd,
       stdio: 'inherit',
       env: { ...process.env, ...envValues },

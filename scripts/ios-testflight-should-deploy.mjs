@@ -11,6 +11,7 @@ import {
 
 export const NATIVE_SHELL_EXACT_PATHS = new Set([
   'capacitor.config.ts',
+  'config/ios-live-update-public.pem',
   'ionic.config.json',
   'angular.json',
   'scripts/write-environment-ios.mjs',

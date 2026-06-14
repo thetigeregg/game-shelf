@@ -37,6 +37,7 @@
     "build:ios": "ng build --configuration ios-prod",
     "build:ios:local": "ng build --configuration ios-local",
     "build:ios:prod": "ng build --configuration ios-prod",
+    "build:ios:prod:ota": "npm run prebuild:ios:prod && ng build --configuration ios-prod --output-path www/ios-ota",
     "sync:ios": "npm run sync:ios:prod",
     "sync:ios:local": "npm run build:ios:local && npx cap sync ios",
     "sync:ios:prod": "npm run build:ios:prod && npx cap sync ios",

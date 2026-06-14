@@ -50,15 +50,18 @@ and loaded by [`capacitor.config.ts`](../capacitor.config.ts).
 
 ### 2. GitHub secrets and variables
 
-| Name                          | Type     | Description                                                              |
-| ----------------------------- | -------- | ------------------------------------------------------------------------ |
-| `IOS_LIVE_UPDATE_PRIVATE_KEY` | Secret   | Full PEM contents of the private key (used during edge Docker build)     |
-| `IOS_BACKEND_ORIGIN_PROD`     | Variable | HTTPS prod origin (same as TestFlight / ios-prod builds)                 |
-| `IOS_OTA_NATIVE_BUILD_NUMBER` | Variable | Latest App PROD `CFBundleVersion` in the field (TestFlight build number) |
+| Name                          | Type     | Description                                                          |
+| ----------------------------- | -------- | -------------------------------------------------------------------- |
+| `IOS_LIVE_UPDATE_PRIVATE_KEY` | Secret   | Full PEM contents of the private key (used during edge Docker build) |
+| `IOS_BACKEND_ORIGIN_PROD`     | Variable | HTTPS prod origin (same as TestFlight / ios-prod builds)             |
+| `IOS_OTA_NATIVE_BUILD_NUMBER` | Variable | Latest App PROD `CFBundleVersion` used for OTA manifest paths        |
 
-After each **TestFlight** upload that changes the native build number, update
-`IOS_OTA_NATIVE_BUILD_NUMBER` to match the new build. The TestFlight workflow writes
-`ios_native_build_number` to its step outputs for reference.
+After a successful **TestFlight** upload, CI auto-syncs `IOS_OTA_NATIVE_BUILD_NUMBER`
+from the uploaded build number. Use manual `gh variable set IOS_OTA_NATIVE_BUILD_NUMBER …`
+only for recovery if sync fails.
+
+Rotating the OTA signing key requires a **TestFlight** release (`config/ios-live-update-public.pem`
+is embedded in the native shell). OTA alone cannot deliver a new public key to devices.
 
 ### 3. Bootstrap TestFlight build
 
@@ -119,11 +122,13 @@ node scripts/ios-live-update-should-deploy.mjs --base v1.56.0 --head v1.57.0
 
 ## CI gating
 
-| Path                     | TestFlight | OTA (edge `/ota`) |
-| ------------------------ | ---------- | ----------------- |
-| `src/**` only            | Skip       | Publish           |
-| `ios/**`, Capacitor deps | Publish    | Skip (same tag)   |
-| Backend only             | Skip       | Skip              |
+| Path                                | TestFlight | OTA (edge `/ota`) |
+| ----------------------------------- | ---------- | ----------------- |
+| `src/**` only                       | Skip       | Publish           |
+| Root web deps (`@angular/*`, etc.)  | Skip       | Publish           |
+| `ios/**`, Capacitor deps            | Publish    | Skip (same tag)   |
+| `config/ios-live-update-public.pem` | Publish    | Skip (same tag)   |
+| Backend only                        | Skip       | Skip              |
 
 Scripts:
 

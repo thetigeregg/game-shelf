@@ -155,6 +155,28 @@ describe('LiveUpdateService', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it('waits for an in-flight check before starting a forced check', async () => {
+    let resolveResponse: ((value: Response) => void) | undefined;
+    const fetchPromise = new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+    });
+    const fetchMock = vi.fn(() => fetchPromise);
+    globalThis.fetch = fetchMock;
+
+    const inFlightCheck = service.checkAndStageUpdate();
+    const forcedCheck = service.checkAndStageUpdate(true);
+
+    resolveResponse?.(
+      new Response(JSON.stringify(validManifest), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    await Promise.all([inFlightCheck, forcedCheck]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('markReady logs success and failure paths', async () => {
     await service.markReady();
 

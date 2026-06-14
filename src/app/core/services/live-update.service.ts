@@ -32,15 +32,22 @@ export class LiveUpdateService {
       return;
     }
 
-    if (!force && this.checkInFlight !== null) {
-      return this.checkInFlight;
+    while (this.checkInFlight !== null) {
+      if (!force) {
+        return this.checkInFlight;
+      }
+
+      await this.checkInFlight.catch(() => undefined);
     }
 
-    this.checkInFlight = this.runCheckAndStageUpdate(force).finally(() => {
-      this.checkInFlight = null;
+    const checkPromise = this.runCheckAndStageUpdate(force).finally(() => {
+      if (this.checkInFlight === checkPromise) {
+        this.checkInFlight = null;
+      }
     });
+    this.checkInFlight = checkPromise;
 
-    return this.checkInFlight;
+    return checkPromise;
   }
 
   async markReady(): Promise<void> {

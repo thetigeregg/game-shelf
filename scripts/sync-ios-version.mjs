@@ -108,7 +108,12 @@ export function parseSyncIosVersionArgs(argv) {
     }
 
     if (value === '--pbxproj') {
-      args.pbxprojPath = resolve(process.cwd(), argv[index + 1]);
+      const pbxprojArg = argv[index + 1];
+      if (typeof pbxprojArg !== 'string' || pbxprojArg.trim().length === 0) {
+        throw new Error('--pbxproj requires a path');
+      }
+
+      args.pbxprojPath = resolve(process.cwd(), pbxprojArg);
       index += 1;
     }
   }
@@ -117,7 +122,13 @@ export function parseSyncIosVersionArgs(argv) {
 }
 
 function main() {
-  const args = parseSyncIosVersionArgs(process.argv.slice(2));
+  let args;
+  try {
+    args = parseSyncIosVersionArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(`[sync-ios-version] ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
+  }
 
   if (!args.buildNumber) {
     console.error('[sync-ios-version] --build-number is required');

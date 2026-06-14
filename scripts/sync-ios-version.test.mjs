@@ -5,7 +5,11 @@ import {
   resolveEnvFirebasePlistSources,
   resolveFirebasePlistMappings,
 } from './bootstrap-ios-firebase-plists.mjs';
-import { readPackageVersion, updateProdTargetVersionsInPbxproj } from './sync-ios-version.mjs';
+import {
+  parseSyncIosVersionArgs,
+  readPackageVersion,
+  updateProdTargetVersionsInPbxproj,
+} from './sync-ios-version.mjs';
 
 const SAMPLE_PBXPROJ = `\
 \t\t3A0B10B92FDB3A630015969E /* Debug */ = {
@@ -81,4 +85,11 @@ test('resolveFirebasePlistMappings prefers env source paths when configured', ()
 test('readPackageVersion returns package.json version', () => {
   const version = readPackageVersion(new URL('../package.json', import.meta.url));
   assert.match(version, /^\d+\.\d+\.\d+$/);
+});
+
+test('parseSyncIosVersionArgs rejects --pbxproj without a path', () => {
+  assert.throws(
+    () => parseSyncIosVersionArgs(['--build-number', '42', '--pbxproj']),
+    /--pbxproj requires a path/
+  );
 });

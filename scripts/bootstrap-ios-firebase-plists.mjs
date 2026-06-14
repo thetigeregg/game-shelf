@@ -77,6 +77,12 @@ export function resolveFirebasePlistMappings({
 
   return selectedVariants.map((variant) => {
     const config = plists[variant];
+    if (!config) {
+      throw new Error(
+        `Unknown Firebase plist variant "${variant}". Expected one of: ${Object.keys(plists).join(', ')}`
+      );
+    }
+
     const envSourcePath = envSources[variant] ?? null;
 
     return {

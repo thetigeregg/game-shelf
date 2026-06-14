@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+
 default_platform(:ios)
 
 REPO_ROOT = File.expand_path('../..', __dir__)

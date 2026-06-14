@@ -7,14 +7,61 @@ const PROD_BUNDLE_ID = 'io.github.thetigeregg.gameshelf';
 const DEFAULT_PBXPROJ_PATH = resolve(REPO_ROOT, 'ios/App/App.xcodeproj/project.pbxproj');
 const DEFAULT_PACKAGE_JSON_PATH = resolve(REPO_ROOT, 'package.json');
 
-export function readPackageVersion(packageJsonPath = DEFAULT_PACKAGE_JSON_PATH) {
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+export function readPackageVersion(
+  packageJsonPath = DEFAULT_PACKAGE_JSON_PATH,
+  readFileSyncFn = readFileSync
+) {
+  const packageJson = JSON.parse(readFileSyncFn(packageJsonPath, 'utf8'));
 
   if (typeof packageJson.version !== 'string' || packageJson.version.trim().length === 0) {
     throw new Error(`Missing version in ${packageJsonPath}`);
   }
 
   return packageJson.version.trim();
+}
+
+export function readPbxprojMarketingVersions(content) {
+  const matches = [...content.matchAll(/^\t\t\t\tMARKETING_VERSION = ([^;]+);$/gm)];
+  return [...new Set(matches.map((match) => match[1].trim()))];
+}
+
+export function updateAllMarketingVersionsInPbxproj(content, { marketingVersion } = {}) {
+  if (typeof marketingVersion !== 'string' || marketingVersion.trim().length === 0) {
+    throw new Error('marketingVersion is required');
+  }
+
+  const normalizedMarketingVersion = marketingVersion.trim();
+  const matches = content.match(/^\t\t\t\tMARKETING_VERSION = .*;$/gm);
+
+  if (!matches || matches.length === 0) {
+    throw new Error('No MARKETING_VERSION entries found in project.pbxproj');
+  }
+
+  return content.replace(
+    /^\t\t\t\tMARKETING_VERSION = .*;$/gm,
+    `\t\t\t\tMARKETING_VERSION = ${normalizedMarketingVersion};`
+  );
+}
+
+export function assertMarketingVersionsMatchPackage({
+  packageJsonPath = DEFAULT_PACKAGE_JSON_PATH,
+  pbxprojPath = DEFAULT_PBXPROJ_PATH,
+  readFileSyncFn = readFileSync,
+} = {}) {
+  const expectedVersion = readPackageVersion(packageJsonPath, readFileSyncFn);
+  const content = readFileSyncFn(pbxprojPath, 'utf8');
+  const actualVersions = readPbxprojMarketingVersions(content);
+
+  if (actualVersions.length === 0) {
+    throw new Error(`No MARKETING_VERSION entries found in ${pbxprojPath}`);
+  }
+
+  const mismatchedVersions = actualVersions.filter((value) => value !== expectedVersion);
+  if (mismatchedVersions.length > 0) {
+    throw new Error(
+      `MARKETING_VERSION mismatch in ${pbxprojPath}: expected ${expectedVersion}, found ${actualVersions.join(', ')}. Run: node scripts/sync-ios-version.mjs --marketing-only`
+    );
+  }
 }
 
 export function updateProdTargetVersionsInPbxproj(
@@ -67,6 +114,29 @@ export function updateProdTargetVersionsInPbxproj(
   return updated;
 }
 
+export function syncIosMarketingVersion({
+  marketingVersion,
+  pbxprojPath = DEFAULT_PBXPROJ_PATH,
+  writeFileSyncFn = writeFileSync,
+  readFileSyncFn = readFileSync,
+} = {}) {
+  const resolvedMarketingVersion = marketingVersion ?? readPackageVersion();
+  const content = readFileSyncFn(pbxprojPath, 'utf8');
+  const updated = updateAllMarketingVersionsInPbxproj(content, {
+    marketingVersion: resolvedMarketingVersion,
+  });
+
+  writeFileSyncFn(pbxprojPath, updated, 'utf8');
+
+  const updatedCount = (content.match(/^\t\t\t\tMARKETING_VERSION = .*;$/gm) ?? []).length;
+
+  return {
+    marketingVersion: resolvedMarketingVersion,
+    pbxprojPath,
+    updatedCount,
+  };
+}
+
 export function syncIosProdVersion({
   marketingVersion,
   buildNumber,
@@ -94,6 +164,8 @@ export function parseSyncIosVersionArgs(argv) {
   const args = {
     marketingVersion: null,
     buildNumber: null,
+    marketingOnly: false,
+    check: false,
     pbxprojPath: DEFAULT_PBXPROJ_PATH,
   };
 
@@ -109,6 +181,16 @@ export function parseSyncIosVersionArgs(argv) {
     if (value === '--build-number') {
       args.buildNumber = argv[index + 1];
       index += 1;
+      continue;
+    }
+
+    if (value === '--marketing-only') {
+      args.marketingOnly = true;
+      continue;
+    }
+
+    if (value === '--check') {
+      args.check = true;
       continue;
     }
 
@@ -133,6 +215,34 @@ function main() {
   } catch (error) {
     console.error(`[sync-ios-version] ${error instanceof Error ? error.message : error}`);
     process.exit(1);
+  }
+
+  if (args.check) {
+    try {
+      assertMarketingVersionsMatchPackage({ pbxprojPath: args.pbxprojPath });
+      console.log('[sync-ios-version] MARKETING_VERSION matches package.json');
+    } catch (error) {
+      console.error(`[sync-ios-version] ${error instanceof Error ? error.message : error}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (args.marketingOnly) {
+    try {
+      const result = syncIosMarketingVersion({
+        marketingVersion: args.marketingVersion ?? undefined,
+        pbxprojPath: args.pbxprojPath,
+      });
+
+      console.log(
+        `[sync-ios-version] Updated ${result.updatedCount} MARKETING_VERSION entries to ${result.marketingVersion}`
+      );
+    } catch (error) {
+      console.error(`[sync-ios-version] ${error instanceof Error ? error.message : error}`);
+      process.exit(1);
+    }
+    return;
   }
 
   if (!args.buildNumber) {

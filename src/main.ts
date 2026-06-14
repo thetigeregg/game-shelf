@@ -31,7 +31,7 @@ bootstrapApplication(AppComponent, {
     provideAppInitializer(() => {
       const liveUpdateService = inject(LiveUpdateService);
       liveUpdateService.initializeResumeChecks();
-      return liveUpdateService.checkAndStageUpdate(true);
+      void liveUpdateService.checkAndStageUpdate(true);
     }),
     provideAppInitializer(() => {
       const storage = inject(PreferenceStorageService);

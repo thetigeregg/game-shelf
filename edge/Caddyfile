@@ -40,7 +40,7 @@
     file_server
   }
 
-  handle /ota/ios/* {
+  handle_path /ota/ios/* {
     @capacitor_origin header Origin capacitor://localhost
     header @capacitor_origin Access-Control-Allow-Origin "capacitor://localhost"
     header Vary Origin

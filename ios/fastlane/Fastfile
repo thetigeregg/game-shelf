@@ -54,6 +54,18 @@ def sync_appstore_signing(api_key:, readonly:)
   )
 end
 
+def apply_prod_manual_signing
+  update_code_signing_settings(
+    use_automatic_signing: false,
+    path: XCODE_PROJECT,
+    targets: ['App PROD'],
+    code_sign_identity: 'Apple Distribution',
+    bundle_identifier: APP_IDENTIFIER,
+    profile_name: MATCH_PROFILE_NAME,
+    team_id: TEAM_ID
+  )
+end
+
 def app_store_export_options
   {
     method: 'app-store',
@@ -115,6 +127,7 @@ platform :ios do
 
     UI.message('Installing App Store signing assets via match')
     sync_appstore_signing(api_key: api_key, readonly: Helper.ci?)
+    apply_prod_manual_signing
 
     UI.message('Building Capacitor web assets for ios-prod')
     sync_capacitor_prod_assets
@@ -139,6 +152,7 @@ platform :ios do
 
     sync_ios_prod_version(build_number: ENV.fetch('IOS_BUILD_NUMBER', '1'))
     sync_appstore_signing(api_key: api_key, readonly: Helper.ci?)
+    apply_prod_manual_signing
     sync_capacitor_prod_assets
 
     prod_build_app

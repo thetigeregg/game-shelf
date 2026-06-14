@@ -44,9 +44,10 @@ describe('live-update.logic', () => {
     expect(resolveBackendOriginFromGameApiBaseUrl('https://games.example.com/api')).toBe(
       'https://games.example.com'
     );
-    expect(resolveBackendOriginFromGameApiBaseUrl('http://localhost:8080/api')).toBe(
-      'http://localhost:8080'
-    );
+  });
+
+  it('resolveBackendOriginFromGameApiBaseUrl rejects non-https origins', () => {
+    expect(resolveBackendOriginFromGameApiBaseUrl('http://localhost:8080/api')).toBeNull();
   });
 
   it('resolveBackendOriginFromGameApiBaseUrl rejects empty or invalid origins', () => {

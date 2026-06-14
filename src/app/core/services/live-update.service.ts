@@ -145,10 +145,20 @@ export class LiveUpdateService {
     nativeBuildNumber: string
   ): Promise<IosLiveUpdateManifest | null> {
     const manifestUrl = buildLiveUpdateManifestUrl(backendOrigin, nativeBuildNumber);
-    const response = await fetch(manifestUrl, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(MANIFEST_FETCH_TIMEOUT_MS),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, MANIFEST_FETCH_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(manifestUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       this.debugLogService.info('live_update.manifest_missing', {

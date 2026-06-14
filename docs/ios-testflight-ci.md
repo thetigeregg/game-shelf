@@ -104,7 +104,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 Encode match git auth (fine-grained PAT with repo access to `game-shelf-match-certs`):
 
 ```bash
-echo -n 'x-access-token:ghp_xxxxxxxx' | base64 | pbcopy
+echo -n 'x-access-token:github_pat_xxxxxxxx' | base64 | pbcopy
 ```
 
 ### Variables

@@ -101,7 +101,6 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version-file: ios/.ruby-version
           bundler: "2.5.23"
           bundler-cache: true
           working-directory: ios
@@ -138,6 +137,14 @@ jobs:
             fi
           done
 
+      - name: Validate App Store Connect app
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bundle exec fastlane validate_asc_app
+
       - name: Upload to TestFlight
         id: testflight_upload
         working-directory: ios
@@ -146,7 +153,7 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-        run: bundle exec fastlane testflight
+        run: bundle exec fastlane deploy_testflight
 
       - name: Sync IOS_OTA_NATIVE_BUILD_NUMBER
         env:

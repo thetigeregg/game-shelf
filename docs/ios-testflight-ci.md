@@ -104,7 +104,10 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 1. Create an App Store Connect API key with **App Manager** (or Admin) access.
 2. Ensure the key can manage **Certificates, Identifiers & Profiles** (required for
    automatic signing with `-allowProvisioningUpdates` on CI).
-3. Confirm the prod app ID `io.github.thetigeregg.gameshelf` has Push Notifications
+3. Create the App Store Connect app record (**Apps → + → New App**) with bundle ID
+   `io.github.thetigeregg.gameshelf` on team `6V392K7X46` (must match
+   [`ios/fastlane/Appfile`](../ios/fastlane/Appfile)).
+4. Confirm the prod app ID `io.github.thetigeregg.gameshelf` has Push Notifications
    enabled (see [`App.prod.entitlements`](../ios/App/App/App.prod.entitlements)).
 
 ## What the workflow does
@@ -114,7 +117,9 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 3. If gated off, writes a skip summary and exits without macOS minutes.
 4. Otherwise installs Node and Ruby/Fastlane dependencies.
 5. Decodes the Firebase prod plist into `IOS_FIREBASE_PROD_PLIST_PATH`.
-6. Runs `bundle exec fastlane testflight` from `ios/`, which:
+6. Validates required secrets and runs `bundle exec fastlane validate_asc_app` to confirm
+   the App Store Connect app exists before building.
+7. Runs `bundle exec fastlane deploy_testflight` from `ios/`, which:
    - Reads semver from root [`package.json`](../package.json)
    - Queries App Store Connect for the latest TestFlight build number and increments it
    - Updates **App PROD** `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in Xcode
@@ -151,7 +156,7 @@ export APP_STORE_CONNECT_API_ISSUER_ID=...
 export APP_STORE_CONNECT_API_KEY=...   # base64 p8
 export IOS_BACKEND_ORIGIN_PROD=https://your-prod-host
 export IOS_FIREBASE_PROD_PLIST_PATH=/path/to/GoogleService-Info.prod.plist
-bundle exec fastlane testflight
+bundle exec fastlane deploy_testflight
 ```
 
 ## Versioning
@@ -168,6 +173,7 @@ The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) upd
 
 | Symptom                                            | Likely cause                                                                                            |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Could not find an app on App Store Connect         | ASC app record not created yet, or bundle ID / team mismatch vs `ios/fastlane/Appfile`                  |
 | Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                       |
 | Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                |
 | Signing / provisioning failure                     | ASC API key lacks cert/profile access; first CI run may need Admin to approve profile creation          |

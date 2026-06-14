@@ -3728,3 +3728,9 @@
 - 24dc17d7 fix(ios): update iOS live update public key for OTA signing
 - 8fe3666a fix(ci): address release-publish deprecations and build warnings
 - 4777b29f fix(worktree): seed postgres before starting API on up-seed
+
+## v1.58.2 - 2026-06-14
+
+- e24af9b0 Merge pull request #426 from thetigeregg/feat/fix
+- 625a0234 Merge branch 'main' into feat/fix
+- a5bcd1ec fix(ci): update iOS Bundler to 2.5.23 for Ruby 3.3 compatibility

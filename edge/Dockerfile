@@ -21,8 +21,8 @@ RUN --mount=type=secret,id=IOS_LIVE_UPDATE_PRIVATE_KEY,required=false \
       echo "IOS_BACKEND_ORIGIN_PROD and IOS_OTA_NATIVE_BUILD_NUMBER are required when BUILD_IOS_LIVE_UPDATE=true" >&2; \
       exit 1; \
     fi; \
-    if [ ! -f /run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY ]; then \
-      echo "IOS_LIVE_UPDATE_PRIVATE_KEY secret is required when BUILD_IOS_LIVE_UPDATE=true" >&2; \
+    if [ ! -s /run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY ]; then \
+      echo "IOS_LIVE_UPDATE_PRIVATE_KEY secret must be a non-empty file when BUILD_IOS_LIVE_UPDATE=true" >&2; \
       exit 1; \
     fi; \
     apk add --no-cache zip; \

@@ -64,9 +64,7 @@ export class AppComponent {
     await this.initializeNotifications().catch((error: unknown) => {
       console.error('[app] notifications_init_failed', error);
     });
-    await this.liveUpdateService.markReady().catch((error: unknown) => {
-      console.error('[app] live_update_ready_failed', error);
-    });
+    await this.liveUpdateService.markReady();
     await this.hideSplashScreenWhenReady().catch((error: unknown) => {
       console.error('[app] splash_screen_hide_failed', error);
     });

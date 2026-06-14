@@ -256,10 +256,14 @@ describe('LiveUpdateService', () => {
 
     await service.checkAndStageUpdate(true);
     expect(debugLogService.exportText()).toContain('live_update.manifest_missing');
+    expect(liveUpdateGetCurrentBundleMock).not.toHaveBeenCalled();
+    expect(liveUpdateGetNextBundleMock).not.toHaveBeenCalled();
 
     await service.checkAndStageUpdate(true);
     expect(debugLogService.exportText()).toContain('live_update.manifest_invalid');
     expect(liveUpdateDownloadBundleMock).not.toHaveBeenCalled();
+    expect(liveUpdateGetCurrentBundleMock).not.toHaveBeenCalled();
+    expect(liveUpdateGetNextBundleMock).not.toHaveBeenCalled();
   });
 
   it('skips staging when manifest is already active or staged', async () => {

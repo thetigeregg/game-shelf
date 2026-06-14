@@ -34,7 +34,7 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.AUTOCOMMIT_APP_ID }}
+          client-id: ${{ vars.AUTOCOMMIT_CLIENT_ID }}
           private-key: ${{ secrets.AUTOCOMMIT_APP_PRIVATE_KEY }}
 
       - name: Checkout
@@ -310,9 +310,32 @@ jobs:
             type=raw,value=${{ needs.release.outputs.major }}
             type=sha,format=short
 
+      - name: Build and push (edge with iOS OTA)
+        if: >-
+          matrix.id == 'edge' &&
+          needs.detect_image_changes.outputs.publish_edge == 'true' &&
+          needs.detect_ios_live_update.outputs.should_deploy == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+          build-args: |
+            BUILD_IOS_LIVE_UPDATE=true
+            IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
+          secrets: |
+            IOS_LIVE_UPDATE_PRIVATE_KEY=${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
+            IOS_BACKEND_ORIGIN_PROD=${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
+
       - name: Build and push
         if: >-
-          (matrix.id == 'edge' && needs.detect_image_changes.outputs.publish_edge == 'true') ||
+          (matrix.id == 'edge' &&
+            needs.detect_image_changes.outputs.publish_edge == 'true' &&
+            needs.detect_ios_live_update.outputs.should_deploy != 'true') ||
           (matrix.id == 'api' && needs.detect_image_changes.outputs.publish_api == 'true') ||
           (matrix.id == 'hltb' && needs.detect_image_changes.outputs.publish_hltb == 'true') ||
           (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
@@ -328,8 +351,5 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
           build-args: |
-            BUILD_IOS_LIVE_UPDATE=${{ matrix.id == 'edge' && needs.detect_ios_live_update.outputs.should_deploy == 'true' && 'true' || 'false' }}
-            IOS_BACKEND_ORIGIN_PROD=${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+            BUILD_IOS_LIVE_UPDATE=false
             IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
-          secrets: |
-            IOS_LIVE_UPDATE_PRIVATE_KEY=${{ matrix.id == 'edge' && needs.detect_ios_live_update.outputs.should_deploy == 'true' && secrets.IOS_LIVE_UPDATE_PRIVATE_KEY || '' }}

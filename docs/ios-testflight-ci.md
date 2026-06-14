@@ -79,6 +79,7 @@ you prefer):
 | `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect issuer ID                                                                                            |
 | `APP_STORE_CONNECT_API_KEY`       | Base64-encoded `.p8` private key contents                                                                              |
 | `IOS_FIREBASE_PROD_PLIST_BASE64`  | Base64-encoded prod `GoogleService-Info.plist` (same file as `~/.config/game-shelf/ios/GoogleService-Info.prod.plist`) |
+| `IOS_BACKEND_ORIGIN_PROD`         | HTTPS production edge origin baked into `environment.ios.prod.ts` (same value as local `.env`)                         |
 
 Encode the Firebase plist locally:
 
@@ -94,9 +95,9 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 
 ### Variables
 
-| Name                      | Description                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------- |
-| `IOS_BACKEND_ORIGIN_PROD` | HTTPS production edge origin baked into `environment.ios.prod.ts` (same value as local `.env`) |
+| Name                          | Description                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `IOS_OTA_NATIVE_BUILD_NUMBER` | Latest App PROD `CFBundleVersion` used for OTA manifest paths (see OTA doc) |
 
 ## One-time Apple setup
 
@@ -164,7 +165,7 @@ The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) upd
 | Symptom                            | Likely cause                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Missing Firebase plist             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                              |
-| Missing backend origin             | `IOS_BACKEND_ORIGIN_PROD` variable not set                                                     |
+| Missing backend origin             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                       |
 | Signing / provisioning failure     | ASC API key lacks cert/profile access; first CI run may need Admin to approve profile creation |
 | Build number already used          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number     |
 | Wrong backend in app               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                   |

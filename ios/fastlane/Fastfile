@@ -2,6 +2,8 @@
 
 require 'json'
 
+opt_out_usage
+
 default_platform(:ios)
 
 REPO_ROOT = File.expand_path('../..', __dir__)
@@ -44,8 +46,18 @@ platform :ios do
     setup_ci if ENV['CI']
   end
 
+  desc 'Verify App Store Connect app exists and API key can read build numbers'
+  lane :validate_asc_app do
+    api_key = load_app_store_connect_api_key
+    latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0
+    )
+  end
+
   desc 'Build App PROD and upload to TestFlight'
-  lane :testflight do
+  lane :deploy_testflight do
     api_key = load_app_store_connect_api_key
 
     latest_build = latest_testflight_build_number(

@@ -314,6 +314,7 @@ npm run test:backup:ops
   - `package.json`
   - `package-lock.json`
   - `CHANGELOG.md`
+  - `ios/App/App.xcodeproj/project.pbxproj` (`MARKETING_VERSION` synced from `package.json`)
 - Creates and pushes git tag (for example `v0.0.5`)
 - Docker images are tagged with `main`, semver tags, major/minor variants, and short SHA when rebuilt
 - Only images with relevant code changes since the previous tag are rebuilt; unchanged services keep their existing `:main` digest

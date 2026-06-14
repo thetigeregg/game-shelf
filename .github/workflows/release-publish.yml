@@ -56,6 +56,9 @@ jobs:
         id: version
         run: npm exec -- devx release version
 
+      - name: Sync iOS marketing version
+        run: node scripts/sync-ios-version.mjs --marketing-only
+
       - name: Configure git author
         run: |
           git config user.name "github-actions[bot]"
@@ -66,7 +69,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          git add package.json package-lock.json CHANGELOG.md
+          git add package.json package-lock.json CHANGELOG.md ios/App/App.xcodeproj/project.pbxproj
           if git diff --cached --quiet; then
             echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             exit 0

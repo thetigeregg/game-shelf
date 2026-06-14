@@ -50,7 +50,7 @@ before the macOS build. TestFlight runs only when native-shell files changed.
 
 - `src/**` (bundled UI — delivered via **iOS live update** on edge when native shell unchanged; see [`ios-live-update.md`](ios-live-update.md))
 - Backend / infra: `server/`, `worker/`, scrapers, `edge/`, Docker files
-- Release noise: `CHANGELOG.md`, semver-only `package.json` bumps
+- Release noise: `CHANGELOG.md`, semver-only `package.json` bumps, marketing-only `project.pbxproj` bumps
 
 Inspect locally:
 
@@ -161,13 +161,21 @@ bundle exec fastlane deploy_testflight
 
 ## Versioning
 
-- **Marketing version** (`CFBundleShortVersionString`): repo-wide semver from `package.json`
-  at tag time.
+- **Marketing version** (`CFBundleShortVersionString`): repo-wide semver from `package.json`.
+  The release workflow syncs all `MARKETING_VERSION` entries in `project.pbxproj` (App PROD and
+  App DEV). `prebuild:ios` and Fastlane re-sync as a safety net before builds.
 - **Build number** (`CFBundleVersion`): next integer after the latest TestFlight build in App
-  Store Connect for `io.github.thetigeregg.gameshelf`.
+  Store Connect for `io.github.thetigeregg.gameshelf`. Set by Fastlane at TestFlight upload
+  time only — not tied to `package.json`.
 
-The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) updates only
-**App PROD** build settings (not App DEV).
+The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) supports:
+
+- `--marketing-only` — update all `MARKETING_VERSION` entries from `package.json`
+- `--build-number` — update App PROD `CURRENT_PROJECT_VERSION` (Fastlane / local archive)
+- `--check` — verify pbxproj marketing versions match `package.json`
+
+TestFlight gating ignores marketing-only `project.pbxproj` diffs so release version bumps do
+not force a native rebuild when no other shell files changed.
 
 ## Troubleshooting
 

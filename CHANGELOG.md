@@ -3740,3 +3740,9 @@
 - b2babae2 Merge pull request #427 from thetigeregg/feat/fix
 - 8b21c96b fix(ci): pin Ruby via setup-ruby ruby-version input
 - 20415a0d fix(ci): harden iOS TestFlight workflow and Fastlane lane
+
+## v1.58.4 - 2026-06-14
+
+- 8b2d6b81 Merge pull request #428 from thetigeregg/feat/fix
+- be5265b2 fix(ios): sync dev MARKETING_VERSION with package.json
+- 83fcd233 fix(ios): resolve sync-ios-version paths from repo root

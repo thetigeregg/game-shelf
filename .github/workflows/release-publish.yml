@@ -128,8 +128,8 @@ jobs:
       - detect_image_changes
     runs-on: ubuntu-latest
     outputs:
-      should_deploy: ${{ steps.check.outputs.should_deploy }}
-      skipped_reason: ${{ steps.check.outputs.skipped_reason }}
+      should_deploy: ${{ steps.live_update_check.outputs.should_deploy }}
+      skipped_reason: ${{ steps.live_update_check.outputs.skipped_reason }}
 
     steps:
       - name: Checkout
@@ -138,8 +138,22 @@ jobs:
           ref: ${{ needs.release.outputs.release_sha }}
           fetch-depth: 0
 
+      - name: Evaluate native-shell changes
+        id: native_check
+        if: >-
+          needs.detect_image_changes.outputs.publish_edge == 'true' &&
+          github.event_name != 'workflow_dispatch'
+        run: |
+          CURRENT_TAG="${{ needs.release.outputs.tag }}"
+          PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT_TAG" '$0==cur {getline; print; exit}')
+
+          node scripts/ios-testflight-should-deploy.mjs \
+            --base "$PREV" \
+            --head "${{ needs.release.outputs.release_sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Evaluate iOS live-update scope
-        id: check
+        id: live_update_check
         env:
           PUBLISH_EDGE: ${{ needs.detect_image_changes.outputs.publish_edge }}
         run: |
@@ -163,7 +177,7 @@ jobs:
           PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT_TAG" '$0==cur {getline; print; exit}')
 
           NATIVE_ARGS=""
-          if node scripts/ios-testflight-should-deploy.mjs --base "$PREV" --head "${{ needs.release.outputs.release_sha }}" | grep -q 'should_deploy=true'; then
+          if [ "${{ steps.native_check.outputs.should_deploy }}" = "true" ]; then
             NATIVE_ARGS="--native-shell-changed"
           fi
 
@@ -172,6 +186,25 @@ jobs:
             --head "${{ needs.release.outputs.release_sha }}" \
             $NATIVE_ARGS \
             --github-output "$GITHUB_OUTPUT"
+
+  ios_live_update_skip_summary:
+    name: iOS live-update skip summary
+    needs:
+      - detect_ios_live_update
+    if: >-
+      needs.detect_ios_live_update.outputs.should_deploy != 'true' &&
+      needs.detect_ios_live_update.outputs.skipped_reason != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write skip summary
+        run: |
+          {
+            echo "## iOS live update skipped"
+            echo
+            echo "${{ needs.detect_ios_live_update.outputs.skipped_reason }}"
+            echo
+            echo "See \`docs/ios-live-update.md\` for OTA gating and troubleshooting."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish_skip_summary:
     name: Publish skip summary

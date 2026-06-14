@@ -96,6 +96,16 @@ test('evaluateTestFlightDeploy deploys for capacitor.config.ts changes', () => {
   assert.equal(decision.shouldDeploy, true);
 });
 
+test('evaluateTestFlightDeploy deploys for OTA public key rotation', () => {
+  const decision = evaluateTestFlightDeploy({
+    changedFiles: ['config/ios-live-update-public.pem'],
+    hasPreviousTag: true,
+  });
+
+  assert.equal(decision.shouldDeploy, true);
+  assert.deepEqual(decision.matchedPaths, ['config/ios-live-update-public.pem']);
+});
+
 test('evaluateTestFlightDeploy deploys for Capacitor dependency bumps', () => {
   const decision = evaluateTestFlightDeploy({
     changedFiles: ['package.json', 'package-lock.json', 'CHANGELOG.md'],

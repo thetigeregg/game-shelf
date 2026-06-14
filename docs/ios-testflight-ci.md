@@ -25,10 +25,10 @@ Fastlane config: [`ios/fastlane/`](../ios/fastlane/)
 
 ## Triggers
 
-| Trigger             | When                                                                                                  |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| Tag push `v*`       | After `Release & Publish` pushes a tag, **only if native-shell paths changed** since the previous tag |
-| `workflow_dispatch` | Manual deploy (always runs macOS build — use for src-only fixes, signing retries, etc.)               |
+| Trigger             | When                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag push `v*`       | After `Release & Publish` pushes a tag, **only if native-shell paths changed** since the previous tag                                                               |
+| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md)) |
 
 ## Deploy gating (native shell only)
 
@@ -40,6 +40,7 @@ before the macOS build. TestFlight runs only when native-shell files changed.
 | Path                                                                                                                                                                                                          | Why                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `ios/**`                                                                                                                                                                                                      | Xcode project, entitlements, plists, Fastlane                                                                                   |
+| `config/ios-live-update-public.pem`                                                                                                                                                                           | OTA verification key embedded in native shell via `capacitor.config.ts`                                                         |
 | `capacitor.config.ts`, `ionic.config.json`, `angular.json`                                                                                                                                                    | Capacitor / ios-prod build config                                                                                               |
 | `scripts/write-environment-ios.mjs`, `scripts/bootstrap-ios-firebase-plists.mjs`, `scripts/generate-ios-info-plists.mjs`, `scripts/sync-ios-version.mjs`, `scripts/run-ios.mjs`, `scripts/ios-run-common.mjs` | iOS build and deploy scripts                                                                                                    |
 | `.github/workflows/ios-testflight.yml`                                                                                                                                                                        | Pipeline itself                                                                                                                 |
@@ -58,7 +59,8 @@ node scripts/ios-testflight-should-deploy.mjs --base v1.55.0 --head v1.56.0
 ```
 
 When a tag is skipped, the workflow writes an Actions summary explaining why. Run
-**workflow_dispatch** to force a TestFlight upload without re-tagging.
+**workflow_dispatch** to force a TestFlight upload without re-tagging (override only — src-only
+releases normally use OTA on edge; see [`ios-live-update.md`](ios-live-update.md)).
 
 Docker image publishing uses the same diff-since-previous-tag pattern in
 [`release-publish.yml`](../.github/workflows/release-publish.yml) via

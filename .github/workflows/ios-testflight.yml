@@ -81,6 +81,9 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     environment: production
+    permissions:
+      contents: read
+      actions: write
 
     steps:
       - name: Checkout
@@ -135,6 +138,7 @@ jobs:
           done
 
       - name: Upload to TestFlight
+        id: testflight_upload
         working-directory: ios
         env:
           IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
@@ -142,3 +146,21 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: bundle exec fastlane testflight
+
+      - name: Sync IOS_OTA_NATIVE_BUILD_NUMBER
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD_NUMBER="${{ steps.testflight_upload.outputs.ios_native_build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            echo "ios_native_build_number output missing; skipping variable sync." >&2
+            exit 1
+          fi
+
+          gh variable set IOS_OTA_NATIVE_BUILD_NUMBER --body "$BUILD_NUMBER"
+
+          {
+            echo "## iOS OTA build number synced"
+            echo
+            echo "Set \`IOS_OTA_NATIVE_BUILD_NUMBER\` to \`$BUILD_NUMBER\` for the next edge OTA publish."
+          } >> "$GITHUB_STEP_SUMMARY"

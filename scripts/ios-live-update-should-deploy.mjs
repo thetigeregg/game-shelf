@@ -2,12 +2,21 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { matchesImagePath } from './docker-publish-should-deploy.mjs';
+import {
+  MANIFEST_PATHS_BY_IMAGE,
+  manifestDiffTriggersImage,
+  matchesImagePath,
+} from './docker-publish-should-deploy.mjs';
 import { matchesNativeShellPath } from './ios-testflight-should-deploy.mjs';
 import { listChangedFiles, readManifestDiff, writeGithubOutput } from './release-diff.mjs';
 
+function normalizePath(filePath) {
+  return filePath.replace(/\\/g, '/');
+}
+
 export function evaluateIosLiveUpdateDeploy({
   changedFiles = [],
+  manifestDiff = '',
   hasPreviousTag = true,
   nativeShellChanged = false,
   force = false,
@@ -48,7 +57,23 @@ export function evaluateIosLiveUpdateDeploy({
 
   for (const filePath of changedFiles) {
     if (matchesImagePath('edge', filePath)) {
-      matchedPaths.push(filePath);
+      matchedPaths.push(normalizePath(filePath));
+    }
+  }
+
+  const edgeManifestPaths = MANIFEST_PATHS_BY_IMAGE.edge;
+  const manifestChanged = changedFiles.some((filePath) =>
+    edgeManifestPaths.includes(normalizePath(filePath))
+  );
+
+  if (manifestChanged && manifestDiffTriggersImage('edge', manifestDiff)) {
+    for (const manifestPath of edgeManifestPaths) {
+      if (
+        changedFiles.map(normalizePath).includes(manifestPath) &&
+        !matchedPaths.includes(manifestPath)
+      ) {
+        matchedPaths.push(manifestPath);
+      }
     }
   }
 
@@ -134,9 +159,17 @@ export function resolveIosLiveUpdateDeployDecision({
   const resolvedChangedFiles =
     changedFiles ??
     listChangedFiles({ base: hasPreviousTag ? base : null, head, execFileSyncFn, cwd });
+  const manifestDiff = readManifestDiff({
+    base: hasPreviousTag ? base : null,
+    head,
+    paths: MANIFEST_PATHS_BY_IMAGE.edge,
+    execFileSyncFn,
+    cwd,
+  });
 
   return evaluateIosLiveUpdateDeploy({
     changedFiles: resolvedChangedFiles,
+    manifestDiff,
     hasPreviousTag,
     nativeShellChanged,
   });

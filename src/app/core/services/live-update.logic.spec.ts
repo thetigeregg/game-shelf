@@ -28,6 +28,10 @@ describe('live-update.logic', () => {
     });
 
     expect(parseIosLiveUpdateManifest({ bundleId: 'only-id' })).toBeNull();
+    expect(parseIosLiveUpdateManifest(null)).toBeNull();
+    expect(parseIosLiveUpdateManifest(undefined)).toBeNull();
+    expect(parseIosLiveUpdateManifest('manifest')).toBeNull();
+    expect(parseIosLiveUpdateManifest(42)).toBeNull();
   });
 
   it('buildLiveUpdateManifestUrl targets per-native-build manifest path', () => {

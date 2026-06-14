@@ -326,10 +326,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
           build-args: |
             BUILD_IOS_LIVE_UPDATE=true
-            IOS_BACKEND_ORIGIN_PROD=${{ vars.IOS_BACKEND_ORIGIN_PROD }}
             IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
           secrets: |
             IOS_LIVE_UPDATE_PRIVATE_KEY=${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
+            IOS_BACKEND_ORIGIN_PROD=${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
 
       - name: Build and push
         if: >-
@@ -352,5 +352,4 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
           build-args: |
             BUILD_IOS_LIVE_UPDATE=false
-            IOS_BACKEND_ORIGIN_PROD=${{ vars.IOS_BACKEND_ORIGIN_PROD }}
             IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}

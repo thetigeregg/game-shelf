@@ -120,7 +120,7 @@ jobs:
 
       - name: Validate iOS deploy configuration
         env:
-          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          IOS_BACKEND_ORIGIN_PROD: ${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -141,7 +141,7 @@ jobs:
         id: testflight_upload
         working-directory: ios
         env:
-          IOS_BACKEND_ORIGIN_PROD: ${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+          IOS_BACKEND_ORIGIN_PROD: ${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}

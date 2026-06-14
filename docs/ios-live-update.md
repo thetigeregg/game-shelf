@@ -53,7 +53,7 @@ and loaded by [`capacitor.config.ts`](../capacitor.config.ts).
 | Name                          | Type     | Description                                                          |
 | ----------------------------- | -------- | -------------------------------------------------------------------- |
 | `IOS_LIVE_UPDATE_PRIVATE_KEY` | Secret   | Full PEM contents of the private key (used during edge Docker build) |
-| `IOS_BACKEND_ORIGIN_PROD`     | Variable | HTTPS prod origin (same as TestFlight / ios-prod builds)             |
+| `IOS_BACKEND_ORIGIN_PROD`     | Secret   | HTTPS prod origin (same as TestFlight / ios-prod builds)             |
 | `IOS_OTA_NATIVE_BUILD_NUMBER` | Variable | Latest App PROD `CFBundleVersion` used for OTA manifest paths        |
 
 After a successful **TestFlight** upload, CI auto-syncs `IOS_OTA_NATIVE_BUILD_NUMBER`

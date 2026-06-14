@@ -93,6 +93,17 @@ test('updateProdTargetVersionsInPbxproj rejects non-integer build numbers', () =
   );
 });
 
+test('updateProdTargetVersionsInPbxproj rejects zero build numbers', () => {
+  assert.throws(
+    () =>
+      updateProdTargetVersionsInPbxproj(SAMPLE_PBXPROJ, {
+        marketingVersion: '2.3.4',
+        buildNumber: 0,
+      }),
+    /buildNumber must be a positive integer/
+  );
+});
+
 test('resolveFirebasePlistMappings rejects unknown variant keys', () => {
   assert.throws(
     () =>

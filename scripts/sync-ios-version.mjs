@@ -33,7 +33,7 @@ export function updateProdTargetVersionsInPbxproj(
     throw new Error('buildNumber is required');
   }
 
-  if (!/^\d+$/.test(normalizedBuildNumber)) {
+  if (!/^\d+$/.test(normalizedBuildNumber) || Number(normalizedBuildNumber) < 1) {
     throw new Error(`buildNumber must be a positive integer, got "${normalizedBuildNumber}"`);
   }
 

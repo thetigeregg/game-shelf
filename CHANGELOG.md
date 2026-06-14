@@ -3734,3 +3734,9 @@
 - e24af9b0 Merge pull request #426 from thetigeregg/feat/fix
 - 625a0234 Merge branch 'main' into feat/fix
 - a5bcd1ec fix(ci): update iOS Bundler to 2.5.23 for Ruby 3.3 compatibility
+
+## v1.58.3 - 2026-06-14
+
+- b2babae2 Merge pull request #427 from thetigeregg/feat/fix
+- 8b21c96b fix(ci): pin Ruby via setup-ruby ruby-version input
+- 20415a0d fix(ci): harden iOS TestFlight workflow and Fastlane lane

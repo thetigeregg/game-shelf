@@ -140,9 +140,7 @@ jobs:
 
       - name: Evaluate native-shell changes
         id: native_check
-        if: >-
-          needs.detect_image_changes.outputs.publish_edge == 'true' &&
-          github.event_name != 'workflow_dispatch'
+        if: needs.detect_image_changes.outputs.publish_edge == 'true'
         run: |
           CURRENT_TAG="${{ needs.release.outputs.tag }}"
           PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT_TAG" '$0==cur {getline; print; exit}')
@@ -163,13 +161,6 @@ jobs:
               echo "skipped_reason=Edge image not publishing on this release."
               echo "matched_paths="
             } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            node scripts/ios-live-update-should-deploy.mjs \
-              --force \
-              --github-output "$GITHUB_OUTPUT"
             exit 0
           fi
 

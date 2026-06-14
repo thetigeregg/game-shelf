@@ -82,6 +82,29 @@ test('resolveFirebasePlistMappings prefers env source paths when configured', ()
   );
 });
 
+test('updateProdTargetVersionsInPbxproj rejects non-integer build numbers', () => {
+  assert.throws(
+    () =>
+      updateProdTargetVersionsInPbxproj(SAMPLE_PBXPROJ, {
+        marketingVersion: '2.3.4',
+        buildNumber: 'abc',
+      }),
+    /buildNumber must be a positive integer/
+  );
+});
+
+test('resolveFirebasePlistMappings rejects unknown variant keys', () => {
+  assert.throws(
+    () =>
+      resolveFirebasePlistMappings({
+        sharedDir: '/shared',
+        repoRoot: '/repo',
+        variants: ['staging'],
+      }),
+    /Unknown Firebase plist variant "staging"/
+  );
+});
+
 test('readPackageVersion returns package.json version', () => {
   const version = readPackageVersion(new URL('../package.json', import.meta.url));
   assert.match(version, /^\d+\.\d+\.\d+$/);

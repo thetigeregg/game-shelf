@@ -33,6 +33,10 @@ export function updateProdTargetVersionsInPbxproj(
     throw new Error('buildNumber is required');
   }
 
+  if (!/^\d+$/.test(normalizedBuildNumber)) {
+    throw new Error(`buildNumber must be a positive integer, got "${normalizedBuildNumber}"`);
+  }
+
   const blockRegex = /(\t\t\tbuildSettings = \{)([\s\S]*?)(\t\t\t\};)/g;
   let updatedBlocks = 0;
 

@@ -3716,3 +3716,15 @@
 - e3a3cd67 ci(release): gate Docker publish on per-image changes
 - 629c736d ci(ios): gate TestFlight deploy on native-shell changes
 - eb589a1a ci(ios): add TestFlight deploy pipeline on release tags
+
+## v1.58.1 - 2026-06-14
+
+- 7ed23155 Merge pull request #425 from thetigeregg/feat/fix
+- dcd898a9 fix(edge): strip CR/LF from IOS_BACKEND_ORIGIN_PROD secret
+- 7ad0790d chore(ios): restore capacitor-swift-pm 8.4.0 in Package.resolved
+- 996655a3 fix(dev): address PR feedback on up-seed and SwiftPM pins
+- 5f79282c chore(ios): update Package.resolved with new dependencies and version changes
+- 2656942d ci(ios): move IOS_BACKEND_ORIGIN_PROD from variable to secret
+- 24dc17d7 fix(ios): update iOS live update public key for OTA signing
+- 8fe3666a fix(ci): address release-publish deprecations and build warnings
+- 4777b29f fix(worktree): seed postgres before starting API on up-seed

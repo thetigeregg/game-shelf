@@ -115,7 +115,7 @@ jobs:
           fi
 
           PLIST_PATH="${RUNNER_TEMP}/GoogleService-Info.prod.plist"
-          echo "$IOS_FIREBASE_PROD_PLIST_BASE64" | base64 --decode > "$PLIST_PATH"
+          echo "$IOS_FIREBASE_PROD_PLIST_BASE64" | base64 -D > "$PLIST_PATH"
           echo "IOS_FIREBASE_PROD_PLIST_PATH=$PLIST_PATH" >> "$GITHUB_ENV"
 
       - name: Validate iOS deploy configuration

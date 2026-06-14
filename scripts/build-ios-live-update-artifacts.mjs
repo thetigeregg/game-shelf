@@ -84,10 +84,11 @@ export async function buildIosLiveUpdateArtifacts(options = {}) {
   }
 
   if (options.buildIosProd !== false) {
+    const processEnv = options.processEnv ?? process.env;
     execFileSyncFn('npm', ['run', 'build:ios:prod:ota'], {
       cwd,
       stdio: 'inherit',
-      env: { ...process.env, ...envValues },
+      env: { ...processEnv, ...envValues },
     });
   }
 

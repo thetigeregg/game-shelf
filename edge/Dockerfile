@@ -31,7 +31,7 @@ RUN --mount=type=secret,id=IOS_LIVE_UPDATE_PRIVATE_KEY,required=false \
       exit 1; \
     fi; \
     apk add --no-cache zip; \
-    export IOS_BACKEND_ORIGIN_PROD="$(cat /run/secrets/IOS_BACKEND_ORIGIN_PROD)"; \
+    export IOS_BACKEND_ORIGIN_PROD="$(tr -d '\r\n' < /run/secrets/IOS_BACKEND_ORIGIN_PROD)"; \
     export IOS_OTA_NATIVE_BUILD_NUMBER="$IOS_OTA_NATIVE_BUILD_NUMBER"; \
     export IOS_LIVE_UPDATE_PRIVATE_KEY_PATH="/run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY"; \
     node scripts/build-ios-live-update-artifacts.mjs; \

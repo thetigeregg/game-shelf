@@ -108,8 +108,11 @@ export function printSuggestedIosLocalOrigin({
 
 function runStack(action) {
   if (action === 'up-seed') {
-    runComposeCommand(context, 'up');
+    // Seed before starting API/workers so concurrent migrations cannot add
+    // constraints while pg_dump restore is still replaying schema statements.
+    ensurePostgresRunning();
     dbSeedApply(false);
+    runComposeCommand(context, 'up');
     return;
   }
 

@@ -3,11 +3,16 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
+  diffLines,
   listChangedFiles,
   manifestDiffHasDependencyChanges,
   readManifestDiff,
   writeGithubOutput,
 } from './release-diff.mjs';
+
+export const PBXPROJ_PATH = 'ios/App/App.xcodeproj/project.pbxproj';
+
+const MARKETING_VERSION_LINE = /^\t*MARKETING_VERSION = .+;$/;
 
 export const NATIVE_SHELL_EXACT_PATHS = new Set([
   'capacitor.config.ts',
@@ -50,9 +55,28 @@ export function manifestDiffHasNativeDependencyChanges(manifestDiff) {
   return manifestDiffHasDependencyChanges(manifestDiff, NATIVE_DEPENDENCY_PATTERN);
 }
 
+export function pbxprojDiffIsMarketingVersionOnly(diff) {
+  const lines = diffLines(diff);
+
+  if (lines.length === 0) {
+    return false;
+  }
+
+  return lines.every((line) => MARKETING_VERSION_LINE.test(line.slice(1)));
+}
+
+export function filterMarketingOnlyPbxprojChanges(matchedPaths, pbxprojDiff) {
+  if (!pbxprojDiffIsMarketingVersionOnly(pbxprojDiff)) {
+    return matchedPaths;
+  }
+
+  return matchedPaths.filter((filePath) => filePath.replace(/\\/g, '/') !== PBXPROJ_PATH);
+}
+
 export function evaluateTestFlightDeploy({
   changedFiles = [],
   manifestDiff = '',
+  pbxprojDiff = '',
   hasPreviousTag = true,
 } = {}) {
   if (!hasPreviousTag) {
@@ -84,10 +108,12 @@ export function evaluateTestFlightDeploy({
     }
   }
 
-  if (matchedPaths.length > 0) {
+  const filteredMatchedPaths = filterMarketingOnlyPbxprojChanges(matchedPaths, pbxprojDiff);
+
+  if (filteredMatchedPaths.length > 0) {
     return {
       shouldDeploy: true,
-      matchedPaths,
+      matchedPaths: filteredMatchedPaths,
       skippedReason: '',
       changedFiles,
     };
@@ -143,6 +169,7 @@ export function resolveTestFlightDeployDecision({
   cwd = process.cwd(),
   changedFiles = null,
   manifestDiff = null,
+  pbxprojDiff = null,
 } = {}) {
   const hasPreviousTag = typeof base === 'string' && base.trim().length > 0;
   const resolvedChangedFiles =
@@ -157,10 +184,25 @@ export function resolveTestFlightDeployDecision({
       execFileSyncFn,
       cwd,
     });
+  const pbxprojChanged = resolvedChangedFiles.some(
+    (filePath) => filePath.replace(/\\/g, '/') === PBXPROJ_PATH
+  );
+  const resolvedPbxprojDiff =
+    pbxprojDiff ??
+    (pbxprojChanged
+      ? readManifestDiff({
+          base: hasPreviousTag ? base : null,
+          head,
+          paths: [PBXPROJ_PATH],
+          execFileSyncFn,
+          cwd,
+        })
+      : '');
 
   return evaluateTestFlightDeploy({
     changedFiles: resolvedChangedFiles,
     manifestDiff: resolvedManifestDiff,
+    pbxprojDiff: resolvedPbxprojDiff,
     hasPreviousTag,
   });
 }

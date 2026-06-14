@@ -5,6 +5,7 @@ import {
   evaluateTestFlightDeploy,
   manifestDiffHasNativeDependencyChanges,
   matchesNativeShellPath,
+  pbxprojDiffIsMarketingVersionOnly,
 } from './ios-testflight-should-deploy.mjs';
 
 test('matchesNativeShellPath matches ios tree and exact native-shell files', () => {
@@ -76,15 +77,84 @@ test('evaluateTestFlightDeploy skips src-only changes', () => {
   assert.equal(decision.shouldDeploy, false);
 });
 
+test('pbxprojDiffIsMarketingVersionOnly detects marketing-only diffs', () => {
+  const marketingOnlyDiff = `
+--- a/ios/App/App.xcodeproj/project.pbxproj
++++ b/ios/App/App.xcodeproj/project.pbxproj
+@@
+-\t\t\t\tMARKETING_VERSION = 1.58.2;
++\t\t\t\tMARKETING_VERSION = 1.58.3;
+`;
+
+  const nativeDiff = `
+--- a/ios/App/App.xcodeproj/project.pbxproj
++++ b/ios/App/App.xcodeproj/project.pbxproj
+@@
+-\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf;
++\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf.dev;
+`;
+
+  assert.equal(pbxprojDiffIsMarketingVersionOnly(marketingOnlyDiff), true);
+  assert.equal(pbxprojDiffIsMarketingVersionOnly(nativeDiff), false);
+});
+
+test('evaluateTestFlightDeploy skips marketing-only pbxproj changes', () => {
+  const decision = evaluateTestFlightDeploy({
+    changedFiles: ['ios/App/App.xcodeproj/project.pbxproj', 'package.json', 'CHANGELOG.md'],
+    manifestDiff: `
+--- a/package.json
++++ b/package.json
+@@
+-  "version": "1.58.2",
++  "version": "1.58.3",
+`,
+    pbxprojDiff: `
+--- a/ios/App/App.xcodeproj/project.pbxproj
++++ b/ios/App/App.xcodeproj/project.pbxproj
+@@
+-\t\t\t\tMARKETING_VERSION = 1.58.2;
++\t\t\t\tMARKETING_VERSION = 1.58.3;
+`,
+    hasPreviousTag: true,
+  });
+
+  assert.equal(decision.shouldDeploy, false);
+  assert.match(decision.skippedReason, /native-shell/i);
+});
+
 test('evaluateTestFlightDeploy deploys for ios native changes', () => {
   const decision = evaluateTestFlightDeploy({
     changedFiles: ['ios/App/App.xcodeproj/project.pbxproj', 'CHANGELOG.md'],
+    pbxprojDiff: `
+--- a/ios/App/App.xcodeproj/project.pbxproj
++++ b/ios/App/App.xcodeproj/project.pbxproj
+@@
+-\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf;
++\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = io.github.thetigeregg.gameshelf.dev;
+`,
     manifestDiff: '',
     hasPreviousTag: true,
   });
 
   assert.equal(decision.shouldDeploy, true);
   assert.deepEqual(decision.matchedPaths, ['ios/App/App.xcodeproj/project.pbxproj']);
+});
+
+test('evaluateTestFlightDeploy deploys when marketing-only pbxproj changes with other native files', () => {
+  const decision = evaluateTestFlightDeploy({
+    changedFiles: ['ios/App/App.xcodeproj/project.pbxproj', 'ios/fastlane/Fastfile'],
+    pbxprojDiff: `
+--- a/ios/App/App.xcodeproj/project.pbxproj
++++ b/ios/App/App.xcodeproj/project.pbxproj
+@@
+-\t\t\t\tMARKETING_VERSION = 1.58.2;
++\t\t\t\tMARKETING_VERSION = 1.58.3;
+`,
+    hasPreviousTag: true,
+  });
+
+  assert.equal(decision.shouldDeploy, true);
+  assert.deepEqual(decision.matchedPaths, ['ios/fastlane/Fastfile']);
 });
 
 test('evaluateTestFlightDeploy deploys for capacitor.config.ts changes', () => {

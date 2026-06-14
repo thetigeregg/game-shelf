@@ -3746,3 +3746,9 @@
 - 8b2d6b81 Merge pull request #428 from thetigeregg/feat/fix
 - be5265b2 fix(ios): sync dev MARKETING_VERSION with package.json
 - 83fcd233 fix(ios): resolve sync-ios-version paths from repo root
+
+## v1.59.0 - 2026-06-14
+
+- da1dbabe Merge pull request #429 from thetigeregg/feat/fix
+- 03edbdef fix(ios): pass readFileSyncFn when resolving marketing version
+- ea96e544 feat(ios): sync MARKETING_VERSION with package.json on release

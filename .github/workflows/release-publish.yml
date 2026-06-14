@@ -121,6 +121,58 @@ jobs:
             --head "${{ needs.release.outputs.release_sha }}" \
             --github-output "$GITHUB_OUTPUT"
 
+  detect_ios_live_update:
+    name: Detect iOS live-update scope
+    needs:
+      - release
+      - detect_image_changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      skipped_reason: ${{ steps.check.outputs.skipped_reason }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Evaluate iOS live-update scope
+        id: check
+        env:
+          PUBLISH_EDGE: ${{ needs.detect_image_changes.outputs.publish_edge }}
+        run: |
+          if [ "$PUBLISH_EDGE" != "true" ]; then
+            {
+              echo "should_deploy=false"
+              echo "skipped_reason=Edge image not publishing on this release."
+              echo "matched_paths="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/ios-live-update-should-deploy.mjs \
+              --force \
+              --github-output "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="${{ needs.release.outputs.tag }}"
+          PREV=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$CURRENT_TAG" '$0==cur {getline; print; exit}')
+
+          NATIVE_ARGS=""
+          if node scripts/ios-testflight-should-deploy.mjs --base "$PREV" --head "${{ needs.release.outputs.release_sha }}" | grep -q 'should_deploy=true'; then
+            NATIVE_ARGS="--native-shell-changed"
+          fi
+
+          node scripts/ios-live-update-should-deploy.mjs \
+            --base "$PREV" \
+            --head "${{ needs.release.outputs.release_sha }}" \
+            $NATIVE_ARGS \
+            --github-output "$GITHUB_OUTPUT"
+
   publish_skip_summary:
     name: Publish skip summary
     needs:
@@ -145,6 +197,7 @@ jobs:
     needs:
       - release
       - detect_image_changes
+      - detect_ios_live_update
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -250,3 +303,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+          build-args: |
+            BUILD_IOS_LIVE_UPDATE=${{ matrix.id == 'edge' && needs.detect_ios_live_update.outputs.should_deploy == 'true' && 'true' || 'false' }}
+            IOS_BACKEND_ORIGIN_PROD=${{ vars.IOS_BACKEND_ORIGIN_PROD }}
+            IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
+          secrets: |
+            IOS_LIVE_UPDATE_PRIVATE_KEY=${{ matrix.id == 'edge' && needs.detect_ios_live_update.outputs.should_deploy == 'true' && secrets.IOS_LIVE_UPDATE_PRIVATE_KEY || '' }}

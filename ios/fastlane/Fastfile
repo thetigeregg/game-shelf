@@ -72,6 +72,12 @@ platform :ios do
       api_key: api_key,
       skip_waiting_for_build_processing: true
     )
+
+    if ENV['GITHUB_OUTPUT']
+      File.open(ENV['GITHUB_OUTPUT'], 'a') do |file|
+        file.puts("ios_native_build_number=#{next_build_number}")
+      end
+    end
   end
 
   desc 'Archive App PROD without uploading (local debugging)'

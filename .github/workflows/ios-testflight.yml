@@ -68,7 +68,9 @@ jobs:
               echo "${{ needs.detect_changes.outputs.skipped_reason }}"
             fi
             echo
-            echo "Use **workflow_dispatch** on iOS TestFlight to force a build when needed (for example src-only fixes or signing retries)."
+            echo "Use **workflow_dispatch** on iOS TestFlight to force a build when needed (for example signing retries)."
+            echo
+            echo "For **src-only** fixes, TestFlight is skipped intentionally — the **edge** image publishes a signed iOS live-update bundle instead (see \`docs/ios-live-update.md\`)."
           } >> "$GITHUB_STEP_SUMMARY"
 
   testflight:

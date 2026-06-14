@@ -40,6 +40,18 @@
     file_server
   }
 
+  handle /ota/ios/* {
+    @capacitor_origin header Origin capacitor://localhost
+    header @capacitor_origin Access-Control-Allow-Origin "capacitor://localhost"
+    header Vary Origin
+    @manifest path /ota/ios/*/manifest.json
+    header @manifest Cache-Control "no-store, no-cache, must-revalidate"
+    header @manifest Pragma "no-cache"
+    header @manifest Expires "0"
+    root * /ota
+    file_server
+  }
+
   handle {
     root * /srv
     try_files {path} /index.html

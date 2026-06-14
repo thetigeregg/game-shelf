@@ -37,6 +37,18 @@ test('manifestDiffHasNativeDependencyChanges detects Capacitor and Ionic depende
   assert.equal(manifestDiffHasNativeDependencyChanges(capacitorDiff), true);
 });
 
+test('manifestDiffHasNativeDependencyChanges detects Capawesome dependency bumps', () => {
+  const capawesomeDiff = `
+--- a/package.json
++++ b/package.json
+@@
+-    "@capawesome/capacitor-live-update": "8.3.0",
++    "@capawesome/capacitor-live-update": "8.4.0",
+`;
+
+  assert.equal(manifestDiffHasNativeDependencyChanges(capawesomeDiff), true);
+});
+
 test('evaluateTestFlightDeploy skips backend-only changes', () => {
   const decision = evaluateTestFlightDeploy({
     changedFiles: ['server/foo.ts', 'package.json', 'CHANGELOG.md'],

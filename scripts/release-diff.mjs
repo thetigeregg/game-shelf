@@ -7,7 +7,9 @@ export function listChangedFiles({
   execFileSyncFn = execFileSync,
   cwd = process.cwd(),
 }) {
-  const args = base ? ['diff', '--name-only', `${base}..${head}`] : ['diff', '--name-only', head];
+  const args = base
+    ? ['diff', '--name-only', `${base}..${head}`]
+    : ['diff', '--name-only', `${head}^..${head}`];
 
   const output = execFileSyncFn('git', args, {
     cwd,
@@ -28,7 +30,9 @@ export function readManifestDiff({
   execFileSyncFn = execFileSync,
   cwd = process.cwd(),
 }) {
-  const args = base ? ['diff', `${base}..${head}`, '--', ...paths] : ['diff', head, '--', ...paths];
+  const args = base
+    ? ['diff', `${base}..${head}`, '--', ...paths]
+    : ['diff', `${head}^..${head}`, '--', ...paths];
 
   try {
     return execFileSyncFn('git', args, {

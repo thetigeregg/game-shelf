@@ -117,6 +117,10 @@ export class LiveUpdateService {
       }
 
       const manifest = await this.fetchManifest(backendOrigin, versionCode);
+      if (manifest === null) {
+        return;
+      }
+
       const [{ bundleId: currentBundleId }, { bundleId: nextBundleId }] = await Promise.all([
         LiveUpdate.getCurrentBundle(),
         LiveUpdate.getNextBundle(),
@@ -129,7 +133,7 @@ export class LiveUpdateService {
         nextBundleId: nextBundleId ?? null,
       });
 
-      if (!decision.shouldStage || manifest === null) {
+      if (!decision.shouldStage) {
         this.debugLogService.info('live_update.skip', { reason: decision.reason });
         return;
       }

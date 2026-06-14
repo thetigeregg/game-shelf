@@ -102,7 +102,11 @@ describe('LiveUpdateService', () => {
   afterEach(() => {
     environment.production = originalProduction;
     environment.gameApiBaseUrl = originalGameApiBaseUrl;
-    globalThis.fetch = originalFetch ?? globalThis.fetch;
+    if (originalFetch === undefined) {
+      Reflect.deleteProperty(globalThis, 'fetch');
+    } else {
+      globalThis.fetch = originalFetch;
+    }
     vi.restoreAllMocks();
     vi.useRealTimers();
   });

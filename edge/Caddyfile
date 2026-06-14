@@ -44,7 +44,7 @@
     @capacitor_origin header Origin capacitor://localhost
     header @capacitor_origin Access-Control-Allow-Origin "capacitor://localhost"
     header Vary Origin
-    @manifest path */manifest.json
+    @manifest path /*/manifest.json
     header @manifest Cache-Control "no-store, no-cache, must-revalidate"
     header @manifest Pragma "no-cache"
     header @manifest Expires "0"

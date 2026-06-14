@@ -128,12 +128,16 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           for required in \
             IOS_BACKEND_ORIGIN_PROD \
             APP_STORE_CONNECT_API_KEY_ID \
             APP_STORE_CONNECT_API_ISSUER_ID \
-            APP_STORE_CONNECT_API_KEY
+            APP_STORE_CONNECT_API_KEY \
+            MATCH_PASSWORD \
+            MATCH_GIT_BASIC_AUTHORIZATION
           do
             if [ -z "${!required}" ]; then
               echo "$required is required for TestFlight deploy." >&2
@@ -149,6 +153,16 @@ jobs:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: bundle exec fastlane validate_asc_app
 
+      - name: Validate match signing assets
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+        run: bundle exec fastlane validate_match
+
       - name: Upload to TestFlight
         id: testflight_upload
         working-directory: ios
@@ -157,6 +171,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: bundle exec fastlane deploy_testflight
 
       - name: Sync IOS_OTA_NATIVE_BUILD_NUMBER

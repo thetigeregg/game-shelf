@@ -2,9 +2,6 @@
 
 require 'base64'
 require 'json'
-require 'shellwords'
-require 'tempfile'
-require 'tmpdir'
 
 opt_out_usage
 
@@ -15,15 +12,7 @@ PBXPROJ_PATH = File.join(REPO_ROOT, 'ios/App/App.xcodeproj/project.pbxproj')
 XCODE_PROJECT = File.join(REPO_ROOT, 'ios/App/App.xcodeproj')
 APP_IDENTIFIER = 'io.github.thetigeregg.gameshelf'
 TEAM_ID = '6V392K7X46'
-ASC_API_KEY_ENV_VARS = %w[
-  APP_STORE_CONNECT_API_KEY_ID
-  APP_STORE_CONNECT_API_ISSUER_ID
-  APP_STORE_CONNECT_API_KEY
-].freeze
-
-def app_store_connect_api_key_configured?
-  ASC_API_KEY_ENV_VARS.all? { |var| ENV[var] && !ENV[var].empty? }
-end
+MATCH_PROFILE_NAME = "match AppStore #{APP_IDENTIFIER}".freeze
 
 def load_app_store_connect_api_key
   app_store_connect_api_key(
@@ -56,37 +45,23 @@ def sync_capacitor_prod_assets
   end
 end
 
-def write_app_store_connect_api_key_file
-  @app_store_connect_api_key_path ||= begin
-    key_content = Base64.decode64(ENV.fetch('APP_STORE_CONNECT_API_KEY'))
-    key_file = Tempfile.new(['asc_api_key_', '.p8'], ENV.fetch('RUNNER_TEMP', Dir.tmpdir))
-    key_file.write(key_content)
-    key_file.chmod(0o600)
-    key_file.close
-    at_exit { key_file.unlink if key_file }
-    key_file.path
-  end
-end
-
-def xcode_automatic_signing_xcargs
-  args = ['-allowProvisioningUpdates']
-  if app_store_connect_api_key_configured?
-    key_path = write_app_store_connect_api_key_file
-    args.concat(
-      [
-        '-authenticationKeyIssuerID', ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
-        '-authenticationKeyID', ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
-        '-authenticationKeyPath', key_path
-      ]
-    )
-  end
-  args.map { |arg| Shellwords.escape(arg) }.join(' ')
+def sync_appstore_signing(api_key:, readonly:)
+  match(
+    type: 'appstore',
+    readonly: readonly,
+    api_key: api_key,
+    git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION']
+  )
 end
 
 def app_store_export_options
   {
-    signingStyle: 'automatic',
-    teamID: TEAM_ID
+    method: 'app-store',
+    signingStyle: 'manual',
+    teamID: TEAM_ID,
+    provisioningProfiles: {
+      APP_IDENTIFIER => MATCH_PROFILE_NAME
+    }
   }
 end
 
@@ -97,7 +72,6 @@ def prod_build_app(**extra)
     configuration: 'Release',
     export_method: 'app-store',
     export_options: app_store_export_options,
-    xcargs: xcode_automatic_signing_xcargs,
     clean: true
   }
   build_app(**defaults.merge(extra))
@@ -105,7 +79,7 @@ end
 
 platform :ios do
   before_all do
-    setup_ci if ENV['CI']
+    setup_ci(require_create: true) if ENV['CI']
   end
 
   desc 'Verify App Store Connect app exists and API key can read build numbers'
@@ -116,6 +90,13 @@ platform :ios do
       app_identifier: APP_IDENTIFIER,
       initial_build_number: 0
     )
+  end
+
+  desc 'Verify match can install App Store cert and profile from encrypted repo'
+  lane :validate_match do
+    api_key = load_app_store_connect_api_key
+    sync_appstore_signing(api_key: api_key, readonly: true)
+    UI.success("Installed profile #{MATCH_PROFILE_NAME}")
   end
 
   desc 'Build App PROD and upload to TestFlight'
@@ -131,6 +112,9 @@ platform :ios do
 
     UI.message("Syncing App PROD version to #{read_package_version} (#{next_build_number})")
     sync_ios_prod_version(build_number: next_build_number)
+
+    UI.message('Installing App Store signing assets via match')
+    sync_appstore_signing(api_key: api_key, readonly: Helper.ci?)
 
     UI.message('Building Capacitor web assets for ios-prod')
     sync_capacitor_prod_assets
@@ -151,7 +135,10 @@ platform :ios do
 
   desc 'Archive App PROD without uploading (local debugging)'
   lane :build_only do
+    api_key = load_app_store_connect_api_key
+
     sync_ios_prod_version(build_number: ENV.fetch('IOS_BUILD_NUMBER', '1'))
+    sync_appstore_signing(api_key: api_key, readonly: Helper.ci?)
     sync_capacitor_prod_assets
 
     prod_build_app

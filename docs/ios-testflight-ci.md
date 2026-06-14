@@ -124,11 +124,15 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 
 ## Local debugging
 
+iOS Fastlane tooling expects **Ruby 3.3** and **Bundler 2.5.x** (see [`ios/.ruby-version`](../ios/.ruby-version)).
+Use a version manager (rbenv, asdf, mise) if your system Ruby is older.
+
 Install Fastlane locally:
 
 ```bash
 cd ios
-bundle install
+gem install bundler -v 2.5.23
+bundle _2.5.23_ install
 ```
 
 Build without uploading (requires local signing setup):
@@ -162,14 +166,15 @@ The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) upd
 
 ## Troubleshooting
 
-| Symptom                            | Likely cause                                                                                   |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Missing Firebase plist             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                              |
-| Missing backend origin             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                       |
-| Signing / provisioning failure     | ASC API key lacks cert/profile access; first CI run may need Admin to approve profile creation |
-| Build number already used          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number     |
-| Wrong backend in app               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                   |
-| Tag pushed but no TestFlight build | Expected when only backend/src changed; run workflow_dispatch to force a build                 |
+| Symptom                                            | Likely cause                                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                       |
+| Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                |
+| Signing / provisioning failure                     | ASC API key lacks cert/profile access; first CI run may need Admin to approve profile creation          |
+| Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number              |
+| Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                            |
+| Tag pushed but no TestFlight build                 | Expected when only backend/src changed; run workflow_dispatch to force a build                          |
+| Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler` |
 
 See also [`ios-multi-environment.md`](ios-multi-environment.md) for local dev/prod side-by-side
 setup and [`notifications-troubleshooting.md`](notifications-troubleshooting.md) for push

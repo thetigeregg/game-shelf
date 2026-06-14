@@ -187,7 +187,14 @@ export class LiveUpdateService {
       return null;
     }
 
-    const payload: unknown = await response.json();
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      this.debugLogService.error('live_update.manifest_invalid', { manifestUrl });
+      return null;
+    }
+
     const manifest = parseIosLiveUpdateManifest(payload);
 
     if (manifest === null) {

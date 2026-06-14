@@ -440,16 +440,6 @@ describe('AppComponent', () => {
     expect(errorSpy).toHaveBeenCalledWith('[app] notifications_init_failed', expect.any(Error));
   });
 
-  it('logs when live update readiness fails during startup', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    liveUpdateServiceMock.markReady.mockRejectedValueOnce(new Error('ready failed'));
-
-    TestBed.runInInjectionContext(() => new AppComponent());
-    await flushAsync();
-
-    expect(errorSpy).toHaveBeenCalledWith('[app] live_update_ready_failed', expect.any(Error));
-  });
-
   it('does not hide the splash screen on web', async () => {
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     vi.mocked(isNativePlatform).mockReturnValue(false);

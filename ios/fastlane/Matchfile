@@ -1,0 +1,6 @@
+git_url("https://github.com/thetigeregg/game-shelf-match-certs.git")
+storage_mode("git")
+type("appstore")
+app_identifier(["io.github.thetigeregg.gameshelf"])
+team_id("6V392K7X46")
+clone_branch_directly(true)

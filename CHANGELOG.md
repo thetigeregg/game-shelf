@@ -3752,3 +3752,9 @@
 - da1dbabe Merge pull request #429 from thetigeregg/feat/fix
 - 03edbdef fix(ios): pass readFileSyncFn when resolving marketing version
 - ea96e544 feat(ios): sync MARKETING_VERSION with package.json on release
+
+## v1.59.1 - 2026-06-14
+
+- e5176a7b Merge pull request #430 from thetigeregg/feat/fix2
+- 0af4612f Merge branch 'main' into feat/fix2
+- 5e02590d fix(ios): add firebase peer dep for TestFlight builds

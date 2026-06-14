@@ -2,6 +2,7 @@ FROM node:24.14.0-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
+ENV HUSKY=0
 RUN npm ci --no-audit --no-fund
 
 COPY angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ionic.config.json capacitor.config.ts ./

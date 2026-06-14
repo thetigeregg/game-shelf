@@ -318,6 +318,7 @@ npm run test:backup:ops
 - Docker images are tagged with `main`, semver tags, major/minor variants, and short SHA when rebuilt
 - Only images with relevant code changes since the previous tag are rebuilt; unchanged services keep their existing `:main` digest
 - iOS TestFlight upload runs on semver tags when native-shell paths changed (see `docs/ios-testflight-ci.md`); use manual dispatch for src-only builds
+- Release workflow requires repository variable `AUTOCOMMIT_CLIENT_ID` (GitHub App **Client ID** from app settings; not the numeric App ID) and secret `AUTOCOMMIT_APP_PRIVATE_KEY`
 
 ## Timezone Defaults
 

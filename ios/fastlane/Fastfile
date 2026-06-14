@@ -31,7 +31,8 @@ def sync_ios_prod_version(build_number:)
     'node',
     File.join(REPO_ROOT, 'scripts/sync-ios-version.mjs'),
     '--marketing-version', version,
-    '--build-number', build_number.to_s
+    '--build-number', build_number.to_s,
+    '--pbxproj', PBXPROJ_PATH
   )
 end
 

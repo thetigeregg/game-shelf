@@ -180,6 +180,7 @@ The helper [`scripts/sync-ios-version.mjs`](../scripts/sync-ios-version.mjs) upd
 | Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number              |
 | Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                            |
 | Tag pushed but no TestFlight build                 | Expected when only backend/src changed; run workflow_dispatch to force a build                          |
+| `ENOENT .../ios/fastlane/ios/App/...`              | `sync-ios-version.mjs` resolved paths from fastlane cwd; fixed by repo-root defaults                    |
 | Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler` |
 
 See also [`ios-multi-environment.md`](ios-multi-environment.md) for local dev/prod side-by-side

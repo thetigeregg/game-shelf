@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROD_BUNDLE_ID = 'io.github.thetigeregg.gameshelf';
-const DEFAULT_PBXPROJ_PATH = resolve(process.cwd(), 'ios/App/App.xcodeproj/project.pbxproj');
-const DEFAULT_PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
+const DEFAULT_PBXPROJ_PATH = resolve(REPO_ROOT, 'ios/App/App.xcodeproj/project.pbxproj');
+const DEFAULT_PACKAGE_JSON_PATH = resolve(REPO_ROOT, 'package.json');
 
 export function readPackageVersion(packageJsonPath = DEFAULT_PACKAGE_JSON_PATH) {
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
@@ -117,7 +118,7 @@ export function parseSyncIosVersionArgs(argv) {
         throw new Error('--pbxproj requires a path');
       }
 
-      args.pbxprojPath = resolve(process.cwd(), pbxprojArg);
+      args.pbxprojPath = resolve(REPO_ROOT, pbxprojArg);
       index += 1;
     }
   }

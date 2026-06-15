@@ -20,6 +20,12 @@ export function normalizeImageSourceUrl(source: string | null | undefined): stri
     return normalized;
   }
 
+  // capacitor:// URLs are native file display URLs produced by Capacitor.convertFileSrc()
+  // and are valid for rendering inside the Capacitor WebView.
+  if (normalized.startsWith('capacitor://')) {
+    return normalized;
+  }
+
   if (normalized.startsWith('//') || /^https?:\/\//i.test(normalized)) {
     return sanitizeExternalHttpUrlString(normalized);
   }

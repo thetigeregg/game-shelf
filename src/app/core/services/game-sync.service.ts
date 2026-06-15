@@ -421,6 +421,7 @@ export class GameSyncService implements SyncOutboxWriter {
     let cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
     let pagesPulled = 0;
     let totalAppliedChanges = 0;
+    let totalGamesLoaded = 0;
     let caughtUp = false;
 
     try {
@@ -460,8 +461,10 @@ export class GameSyncService implements SyncOutboxWriter {
         await this.applyPulledChanges(changes);
 
         if (this.syncBootstrapProgress.progress().active) {
-          const gameCount = await this.engine.countGames();
-          this.syncBootstrapProgress.updateGamesLoaded(gameCount);
+          totalGamesLoaded += changes.filter(
+            (c) => c.entityType === 'game' && c.operation === 'upsert'
+          ).length;
+          this.syncBootstrapProgress.updateGamesLoaded(totalGamesLoaded);
         }
 
         const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;

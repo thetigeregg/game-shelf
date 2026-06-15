@@ -88,6 +88,7 @@ you prefer):
 | `MATCH_GIT_BASIC_AUTHORIZATION`   | Base64 of `x-access-token:<PAT>` for read access to `game-shelf-match-certs`                                           |
 | `IOS_FIREBASE_PROD_PLIST_BASE64`  | Base64-encoded prod `GoogleService-Info.plist` (same file as `~/.config/game-shelf/ios/GoogleService-Info.prod.plist`) |
 | `IOS_BACKEND_ORIGIN_PROD`         | HTTPS production edge origin baked into `environment.ios.prod.ts` (same value as local `.env`)                         |
+| `AUTOCOMMIT_APP_PRIVATE_KEY`      | GitHub App private key (PEM) used to mint a token that can update repository variables after TestFlight upload         |
 
 Encode the Firebase plist locally:
 
@@ -111,6 +112,7 @@ echo -n 'x-access-token:github_pat_xxxxxxxx' | base64 | pbcopy
 
 | Name                          | Description                                                                 |
 | ----------------------------- | --------------------------------------------------------------------------- |
+| `AUTOCOMMIT_CLIENT_ID`        | GitHub App **Client ID** (from app settings; not the numeric App ID)        |
 | `IOS_OTA_NATIVE_BUILD_NUMBER` | Latest App PROD `CFBundleVersion` used for OTA manifest paths (see OTA doc) |
 
 ## One-time Apple setup
@@ -166,10 +168,14 @@ Verify in the Developer portal:
    - Reads semver from root [`package.json`](../package.json)
    - Queries App Store Connect for the latest TestFlight build number and increments it
    - Updates **App PROD** `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in Xcode
-   - Runs `match appstore` (readonly on CI) to install signing assets
+   - Runs `match appstore` (readonly on CI) to install signing assets, then applies manual
+     signing settings for the **App PROD** target
    - Runs `npm run sync:ios:prod` (Angular ios-prod build + Capacitor sync)
    - Archives and exports **App PROD** (Release) with the match App Store profile
-   - Uploads to TestFlight (does not wait for Apple processing)
+   - Uploads to TestFlight with `uses_non_exempt_encryption: false` (does not wait for Apple
+     processing)
+8. Mints a GitHub App token and sets `IOS_OTA_NATIVE_BUILD_NUMBER` to the uploaded native build
+   number so edge OTA manifests stay aligned with the latest TestFlight shell.
 
 ## Native dependencies
 

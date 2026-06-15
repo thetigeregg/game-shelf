@@ -14,7 +14,7 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
   PlatformCustomizationService,
 } from './platform-customization.service';
-import { ClientSyncOperation, SyncChangeEvent } from '../models/game.models';
+import { ClientSyncOperation, GameEntry, SyncChangeEvent } from '../models/game.models';
 import { NetworkConnectivityService } from './network-connectivity.service';
 
 const networkConnectivityMock = {
@@ -27,9 +27,15 @@ type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
   applyGameChange(
     change: SyncChangeEvent,
-    pendingGameOutboxKeys?: ReadonlySet<string>
+    pendingGameOutboxKeys?: ReadonlySet<string>,
+    identityCache?: Map<string, GameEntry>
   ): Promise<void>;
-  applyTagChange(change: SyncChangeEvent): Promise<void>;
+  prepareGameUpsertFromChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys: ReadonlySet<string> | undefined,
+    identityCache: Map<string, GameEntry>
+  ): Promise<GameEntry | null>;
+  applyTagChange(change: SyncChangeEvent, identityCache?: Map<string, GameEntry>): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
   applySettingChange(change: SyncChangeEvent): Promise<void>;
   buildPushOperationBatches(
@@ -97,6 +103,7 @@ describe('GameSyncService', () => {
   }
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     networkConnectivityMock.initialize.mockReset();
     networkConnectivityMock.isConnected.mockReset();
     networkConnectivityMock.onConnectedChange.mockReset();
@@ -113,6 +120,7 @@ describe('GameSyncService', () => {
         SyncEventsService,
         PlatformOrderService,
         PlatformCustomizationService,
+        DebugLogService,
         { provide: NetworkConnectivityService, useValue: networkConnectivityMock },
       ],
     });
@@ -1718,7 +1726,27 @@ describe('GameSyncService', () => {
     navigatorSpy.mockRestore();
   });
 
+  it('skips discovery pollution cursor reset on fresh empty install', async () => {
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+
+    const cursor = await db.syncMeta.get('cursor');
+    const marker = await db.syncMeta.get(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
+    expect(cursor).toBeUndefined();
+    expect(marker?.value).toBe('done');
+  });
+
   it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {
+    await db.games.add({
+      igdbGameId: '1',
+      platformIgdbId: 10,
+      title: 'Existing',
+      platform: 'Switch',
+      listType: 'collection',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
     await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
 
     const cursor = await db.syncMeta.get('cursor');
@@ -2239,7 +2267,9 @@ describe('GameSyncService', () => {
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {
-    const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
+    const prepareSpy = vi
+      .spyOn(servicePrivate, 'prepareGameUpsertFromChange')
+      .mockResolvedValue(null);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
     const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
     const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockResolvedValue(undefined);
@@ -2275,8 +2305,8 @@ describe('GameSyncService', () => {
 
     await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
 
-    expect(gameSpy).toHaveBeenCalledWith(gameChange, expect.any(Set));
-    expect(tagSpy).toHaveBeenCalledWith(tagChange);
+    expect(prepareSpy).toHaveBeenCalledWith(gameChange, expect.any(Set), expect.any(Map));
+    expect(tagSpy).toHaveBeenCalledWith(tagChange, expect.any(Map));
     expect(viewSpy).toHaveBeenCalledWith(viewChange);
     expect(settingSpy).toHaveBeenCalledWith(settingChange);
   });
@@ -2319,12 +2349,8 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).not.toHaveBeenCalled();
   });
 
-  it('retries pulled game upsert without server id on constraint errors', async () => {
-    const constraintError = Object.assign(new Error('constraint'), { name: 'ConstraintError' });
-    const putSpy = vi
-      .spyOn(db.games, 'put')
-      .mockRejectedValueOnce(constraintError)
-      .mockResolvedValueOnce(123);
+  it('strips server id from fresh pulled game upserts before writing', async () => {
+    const putSpy = vi.spyOn(db.games, 'put').mockResolvedValueOnce(123);
 
     await servicePrivate.applyGameChange({
       eventId: '46',
@@ -2339,11 +2365,9 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z',
     });
 
-    expect(putSpy).toHaveBeenCalledTimes(2);
+    expect(putSpy).toHaveBeenCalledTimes(1);
     const firstArg = putSpy.mock.calls[0][0] as { id?: number };
-    const secondArg = putSpy.mock.calls[1][0] as { id?: number };
-    expect(firstArg.id).toBe(999);
-    expect(secondArg.id).toBeUndefined();
+    expect(firstArg.id).toBeUndefined();
   });
 
   it('rethrows non-retryable put errors during pulled game upsert', async () => {
@@ -2369,6 +2393,11 @@ describe('GameSyncService', () => {
   });
 
   it('syncNow marks connectivity degraded when push fails', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '1',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
     vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
 
@@ -2379,6 +2408,11 @@ describe('GameSyncService', () => {
   });
 
   it('syncNow keeps success path when replayRecentChangesIfDue fails', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '1',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
     vi.spyOn(servicePrivate, 'pushOutbox').mockResolvedValue(undefined);
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
     vi.spyOn(servicePrivate, 'replayRecentChangesIfDue').mockRejectedValue(
@@ -2504,5 +2538,126 @@ describe('GameSyncService', () => {
     await servicePrivate.pushOutbox();
 
     expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it('bootstraps empty install from snapshot and advances cursor', async () => {
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockImplementation((url: string) => {
+        if (url.endsWith('/v1/sync/snapshot')) {
+          return of({
+            games: [createBaseGame({ igdbGameId: '101', title: 'Bootstrapped' })],
+            gamesNextAfter: null,
+            tags: [
+              {
+                id: 1,
+                name: 'RPG',
+                color: '#ffffff',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+            views: [],
+            settings: [{ key: 'theme', value: 'dark' }],
+            latestEventId: '5000',
+          });
+        }
+
+        return of({ cursor: '5000', changes: [] });
+      });
+
+    await service.syncNow();
+
+    const games = await db.games.toArray();
+    expect(games).toHaveLength(1);
+    expect(games[0]?.title).toBe('Bootstrapped');
+    expect((await db.syncMeta.get('cursor'))?.value).toBe('5000');
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(postSpy).toHaveBeenCalledWith(
+      `${servicePrivate.baseUrl}/v1/sync/snapshot`,
+      expect.objectContaining({ gamesLimit: 500 })
+    );
+    expect(emitChangedSpy).toHaveBeenCalled();
+  });
+
+  it('paginates snapshot bootstrap across multiple game pages', async () => {
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockImplementation((url: string, body: unknown) => {
+        if (!url.endsWith('/v1/sync/snapshot')) {
+          return of({ cursor: '42', changes: [] });
+        }
+
+        const request = body as { gamesAfter?: string | null };
+        if (!request.gamesAfter) {
+          return of({
+            games: [createBaseGame({ igdbGameId: '1', title: 'Page One' })],
+            gamesNextAfter: '1::130',
+            tags: [],
+            views: [],
+            settings: [],
+            latestEventId: '42',
+          });
+        }
+
+        return of({
+          games: [createBaseGame({ igdbGameId: '2', title: 'Page Two' })],
+          gamesNextAfter: null,
+          tags: [],
+          views: [],
+          settings: [],
+          latestEventId: '42',
+        });
+      });
+
+    await service.syncNow();
+
+    const games = await db.games.toArray();
+    expect(games).toHaveLength(2);
+    expect(postSpy.mock.calls.filter(([url]) => url.endsWith('/v1/sync/snapshot'))).toHaveLength(2);
+  });
+
+  it('does not bootstrap when local games already exist', async () => {
+    await db.games.add({
+      igdbGameId: '9',
+      platformIgdbId: 130,
+      title: 'Existing',
+      platform: 'Switch',
+      listType: 'collection',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValue(of({ cursor: '0', changes: [] }));
+
+    await service.syncNow();
+
+    expect(postSpy.mock.calls.some(([url]) => url.endsWith('/v1/sync/snapshot'))).toBe(false);
+  });
+
+  it('does not bootstrap when outbox has pending operations', async () => {
+    await db.outbox.add({
+      opId: 'pending-op',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame(),
+      clientTimestamp: '2026-01-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      attemptCount: 0,
+      lastError: null,
+    });
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValue(of({ results: [], cursor: '0' }));
+
+    await service.syncNow();
+
+    expect(postSpy.mock.calls.some(([url]) => url.endsWith('/v1/sync/snapshot'))).toBe(false);
   });
 });

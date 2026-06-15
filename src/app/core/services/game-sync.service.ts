@@ -41,6 +41,22 @@ interface SyncPullResponse {
   changes: SyncChangeEvent[];
 }
 
+interface SyncSnapshotResponse {
+  games: unknown[];
+  gamesNextAfter: string | null;
+  tags: Partial<Tag>[];
+  views: Partial<GameListView>[];
+  settings: { key: string; value: string }[];
+  latestEventId: string;
+}
+
+interface PulledGameNormalizeContext {
+  existingByIdentity?: GameEntry;
+  hasPendingLocalWrite: boolean;
+  serverId: number | null;
+  serverIdCanBeReused: boolean;
+}
+
 export interface SyncReloadSummary {
   connectivity: string | null;
   isSyncInFlight: boolean;
@@ -59,6 +75,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly PUSH_BODY_PREFIX_BYTES = '{"operations":['.length;
   private static readonly PUSH_BODY_SUFFIX_BYTES = ']}'.length;
   private static readonly META_CURSOR_KEY = 'cursor';
+  private static readonly META_BOOTSTRAP_KEY = 'bootstrapV1';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
   private static readonly META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY = 'recentReplayLastAttemptAt';
@@ -264,6 +281,9 @@ export class GameSyncService implements SyncOutboxWriter {
   private async runSyncNow(): Promise<void> {
     try {
       await this.pushOutbox();
+      if (await this.shouldBootstrapSnapshot()) {
+        await this.bootstrapFromSnapshot();
+      }
       await this.pullChanges();
       await this.replayRecentChangesIfDue().catch((error: unknown) => {
         this.debugLogService.error('sync.pull.recent_replay_failed', {
@@ -565,16 +585,51 @@ export class GameSyncService implements SyncOutboxWriter {
 
     await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
+      const identityCache = new Map(
+        (await this.engine.listAllGames()).map((game) => [
+          this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId),
+          game,
+        ])
+      );
+      const pendingGameUpserts: GameEntry[] = [];
+
+      const flushGameUpserts = async (): Promise<void> => {
+        if (pendingGameUpserts.length === 0) {
+          return;
+        }
+
+        await this.engine.bulkPutGames(pendingGameUpserts);
+        for (const game of pendingGameUpserts) {
+          identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+        }
+        pendingGameUpserts.length = 0;
+      };
 
       for (const change of changes) {
         try {
           if (change.entityType === 'game') {
-            await this.applyGameChange(change, pendingGameOutboxKeys);
+            if (change.operation === 'upsert') {
+              const prepared = await this.prepareGameUpsertFromChange(
+                change,
+                pendingGameOutboxKeys,
+                identityCache
+              );
+
+              if (prepared) {
+                pendingGameUpserts.push(prepared);
+              }
+              continue;
+            }
+
+            await flushGameUpserts();
+            await this.applyGameChange(change, pendingGameOutboxKeys, identityCache);
             continue;
           }
 
+          await flushGameUpserts();
+
           if (change.entityType === 'tag') {
-            await this.applyTagChange(change);
+            await this.applyTagChange(change, identityCache);
             continue;
           }
 
@@ -594,6 +649,9 @@ export class GameSyncService implements SyncOutboxWriter {
           });
         }
       }
+
+      await flushGameUpserts();
+
       if (failedChanges > 0) {
         throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
       }
@@ -645,7 +703,8 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async applyGameChange(
     change: SyncChangeEvent,
-    pendingGameOutboxKeys?: ReadonlySet<string>
+    pendingGameOutboxKeys?: ReadonlySet<string>,
+    identityCache?: Map<string, GameEntry>
   ): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { igdbGameId?: unknown; platformIgdbId?: unknown };
@@ -656,10 +715,14 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const existing = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
+      const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+      const existing =
+        identityCache?.get(identityKey) ??
+        (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
 
       if (existing?.id !== undefined) {
         await this.engine.deleteGame(existing.id);
+        identityCache?.delete(identityKey);
       }
       return;
     }
@@ -690,75 +753,80 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const existingByIdentity = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
+      const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+      const existingByIdentity =
+        identityCache?.get(identityKey) ??
+        (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
 
       if (existingByIdentity?.id !== undefined) {
         await this.engine.deleteGame(existingByIdentity.id);
+        identityCache?.delete(identityKey);
       }
       return;
     }
 
-    const existingByIdentity = await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
+    const prepared = await this.prepareGameUpsertFromChange(
+      change,
+      pendingGameOutboxKeys,
+      identityCache ?? new Map<string, GameEntry>()
+    );
+
+    if (!prepared) {
+      return;
+    }
+
+    try {
+      await this.engine.putGame(prepared);
+    } catch (error: unknown) {
+      const serverId = this.parsePositiveInteger(payload.id);
+      const shouldRetryWithoutServerId =
+        serverId !== null && prepared.id === serverId && isStorageConstraintError(error);
+
+      if (!shouldRetryWithoutServerId) {
+        throw error;
+      }
+
+      await this.engine.putGame({
+        ...prepared,
+        id: undefined,
+      });
+    }
+  }
+
+  private async prepareGameUpsertFromChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys: ReadonlySet<string> | undefined,
+    identityCache: Map<string, GameEntry>
+  ): Promise<GameEntry | null> {
+    const rawPayload =
+      change.payload && typeof change.payload === 'object'
+        ? (change.payload as Record<string, unknown>)
+        : {};
+    const pulledListType =
+      typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
+
+    if (pulledListType === 'discovery') {
+      return null;
+    }
+
+    const payload = rawPayload as Partial<GameEntry>;
+    const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
+    const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
+
+    if (!igdbGameId || platformIgdbId === null) {
+      return null;
+    }
+
+    const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+    const existingByIdentity =
+      identityCache.get(identityKey) ??
+      (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
     const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
       igdbGameId,
       platformIgdbId,
       pendingGameOutboxKeys
     );
 
-    const title =
-      typeof payload.title === 'string' && payload.title.trim().length > 0
-        ? payload.title.trim()
-        : 'Unknown title';
-    const platform =
-      typeof payload.platform === 'string' && payload.platform.trim().length > 0
-        ? payload.platform.trim()
-        : 'Unknown platform';
-    const normalizedListType = pulledListType === 'wishlist' ? 'wishlist' : 'collection';
-    const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
-    const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
-    let enteredCollectionAt: string | null = null;
-
-    if (payload.enteredCollectionAt !== undefined) {
-      enteredCollectionAt = this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
-    } else if (normalizedListType === 'wishlist') {
-      enteredCollectionAt = null;
-    } else if (existingByIdentity?.enteredCollectionAt != null) {
-      enteredCollectionAt = existingByIdentity.enteredCollectionAt;
-    } else {
-      enteredCollectionAt = existingByIdentity?.createdAt ?? createdAt;
-    }
-    const normalizedReviewScore = this.normalizeReviewScore(
-      payload.reviewScore ?? payload.metacriticScore
-    );
-    const normalizedReviewUrl = this.normalizeExternalUrl(
-      payload.reviewUrl ?? payload.metacriticUrl
-    );
-    const normalizedReviewSource = this.normalizeReviewSource(
-      payload.reviewSource,
-      normalizedReviewScore,
-      normalizedReviewUrl
-    );
-    const mobyScoreRaw = this.normalizeMobyScore(payload.mobyScore);
-    // If source is MobyGames, convert reviewScore from 0–10 to 0–100 when needed.
-    // Use mobyScore as ground truth (it is always on the 0–10 scale) when available:
-    // if reviewScore matches mobyScore, it arrived on the 0–10 scale and must be
-    // scaled up. Fall back to the ≤10 heuristic when mobyScore is absent.
-    const effectiveReviewScore =
-      normalizedReviewSource === 'mobygames' &&
-      normalizedReviewScore !== null &&
-      (mobyScoreRaw !== null ? normalizedReviewScore === mobyScoreRaw : normalizedReviewScore <= 10)
-        ? this.normalizeReviewScore(normalizedReviewScore * 10)
-        : normalizedReviewScore;
-    const explicitMetacriticScore = this.normalizeMetacriticScore(payload.metacriticScore);
-    const explicitMetacriticUrl = this.normalizeExternalUrl(payload.metacriticUrl);
-    const normalizedMetacriticScore =
-      normalizedReviewSource === 'metacritic'
-        ? (explicitMetacriticScore ?? normalizedReviewScore)
-        : explicitMetacriticScore;
-    const normalizedMetacriticUrl =
-      normalizedReviewSource === 'metacritic'
-        ? (explicitMetacriticUrl ?? normalizedReviewUrl)
-        : explicitMetacriticUrl;
     const serverId = this.parsePositiveInteger(payload.id);
     const existingByServerId =
       serverId !== null ? await this.engine.getGameById(serverId) : undefined;
@@ -767,216 +835,22 @@ export class GameSyncService implements SyncOutboxWriter {
       (existingByServerId === undefined ||
         (existingByServerId.igdbGameId === igdbGameId &&
           existingByServerId.platformIgdbId === platformIgdbId));
-    const incomingCoverUrl = this.normalizeExternalUrl(payload.coverUrl);
-    const incomingCustomCoverUrl = this.normalizeCustomCoverUrl(payload.customCoverUrl);
-    const incomingCoverSource =
-      payload.coverSource === 'thegamesdb' ||
-      payload.coverSource === 'igdb' ||
-      payload.coverSource === 'none'
-        ? payload.coverSource
-        : 'none';
-    const coverUrl = hasPendingLocalWrite
-      ? existingByIdentity
-        ? existingByIdentity.coverUrl
-        : incomingCoverUrl
-      : incomingCoverUrl;
-    const customCoverUrl = hasPendingLocalWrite
-      ? existingByIdentity
-        ? existingByIdentity.customCoverUrl
-        : incomingCustomCoverUrl
-      : incomingCustomCoverUrl;
-    const coverSource = hasPendingLocalWrite
-      ? existingByIdentity
-        ? existingByIdentity.coverSource
-        : incomingCoverSource
-      : incomingCoverSource;
 
-    const normalized: GameEntry = {
-      id: existingByIdentity?.id ?? (serverIdCanBeReused ? serverId : undefined),
-      igdbGameId,
-      platformIgdbId,
-      title,
-      customTitle: this.normalizeCustomTitle(payload.customTitle, title),
-      coverUrl,
-      customCoverUrl,
-      coverSource,
-      storyline: this.normalizeOptionalText(payload.storyline),
-      summary: this.normalizeOptionalText(payload.summary),
-      gameType: this.normalizeGameType(payload.gameType),
-      hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
-      hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
-      hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
-      hltbMatchGameId:
-        payload.hltbMatchGameId === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.hltbMatchGameId)
-          : this.parsePositiveInteger(payload.hltbMatchGameId),
-      hltbMatchUrl:
-        payload.hltbMatchUrl === undefined
-          ? this.normalizeExternalUrl(existingByIdentity?.hltbMatchUrl)
-          : this.normalizeExternalUrl(payload.hltbMatchUrl),
-      hltbMatchQueryTitle:
-        payload.hltbMatchQueryTitle === undefined
-          ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryTitle)
-          : this.normalizeOptionalText(payload.hltbMatchQueryTitle),
-      hltbMatchQueryReleaseYear:
-        payload.hltbMatchQueryReleaseYear === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.hltbMatchQueryReleaseYear)
-          : this.parsePositiveInteger(payload.hltbMatchQueryReleaseYear),
-      hltbMatchQueryPlatform:
-        payload.hltbMatchQueryPlatform === undefined
-          ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryPlatform)
-          : this.normalizeOptionalText(payload.hltbMatchQueryPlatform),
-      hltbMatchLocked:
-        payload.hltbMatchLocked === undefined
-          ? this.normalizeOptionalBoolean(existingByIdentity?.hltbMatchLocked)
-          : this.normalizeOptionalBoolean(payload.hltbMatchLocked),
-      reviewScore: effectiveReviewScore,
-      reviewUrl: normalizedReviewUrl,
-      reviewSource: normalizedReviewSource,
-      mobyScore: mobyScoreRaw,
-      mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
-      reviewMatchQueryTitle:
-        payload.reviewMatchQueryTitle === undefined
-          ? this.normalizeOptionalText(existingByIdentity?.reviewMatchQueryTitle)
-          : this.normalizeOptionalText(payload.reviewMatchQueryTitle),
-      reviewMatchQueryReleaseYear:
-        payload.reviewMatchQueryReleaseYear === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchQueryReleaseYear)
-          : this.parsePositiveInteger(payload.reviewMatchQueryReleaseYear),
-      reviewMatchQueryPlatform:
-        payload.reviewMatchQueryPlatform === undefined
-          ? this.normalizeOptionalText(existingByIdentity?.reviewMatchQueryPlatform)
-          : this.normalizeOptionalText(payload.reviewMatchQueryPlatform),
-      reviewMatchPlatformIgdbId:
-        payload.reviewMatchPlatformIgdbId === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchPlatformIgdbId)
-          : this.parsePositiveInteger(payload.reviewMatchPlatformIgdbId),
-      reviewMatchMobygamesGameId:
-        payload.reviewMatchMobygamesGameId === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchMobygamesGameId)
-          : this.parsePositiveInteger(payload.reviewMatchMobygamesGameId),
-      reviewMatchLocked:
-        payload.reviewMatchLocked === undefined
-          ? this.normalizeOptionalBoolean(existingByIdentity?.reviewMatchLocked)
-          : this.normalizeOptionalBoolean(payload.reviewMatchLocked),
-      metacriticScore: normalizedMetacriticScore,
-      metacriticUrl: normalizedMetacriticUrl,
-      similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
-      collections: this.normalizeStringList(payload.collections),
-      developers: this.normalizeStringList(payload.developers),
-      franchises: this.normalizeStringList(payload.franchises),
-      genres: this.normalizeStringList(payload.genres),
-      themes:
-        payload.themes === undefined
-          ? this.normalizeStringList(existingByIdentity?.themes)
-          : this.normalizeStringList(payload.themes),
-      themeIds:
-        payload.themeIds === undefined
-          ? this.normalizePositiveIntegerList(existingByIdentity?.themeIds)
-          : this.normalizePositiveIntegerList(payload.themeIds),
-      keywords:
-        payload.keywords === undefined
-          ? this.normalizeStringList(existingByIdentity?.keywords)
-          : this.normalizeStringList(payload.keywords),
-      keywordIds:
-        payload.keywordIds === undefined
-          ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
-          : this.normalizePositiveIntegerList(payload.keywordIds),
-      websites:
-        payload.websites === undefined
-          ? this.normalizeWebsites(existingByIdentity?.websites)
-          : this.normalizeWebsites(payload.websites),
-      steamAppId:
-        payload.steamAppId === undefined
-          ? this.parsePositiveInteger(existingByIdentity?.steamAppId)
-          : this.parsePositiveInteger(payload.steamAppId),
-      priceSource:
-        payload.priceSource === undefined
-          ? this.normalizePriceSource(existingByIdentity?.priceSource)
-          : this.normalizePriceSource(payload.priceSource),
-      priceFetchedAt:
-        payload.priceFetchedAt === undefined
-          ? this.normalizePriceFetchedAt(existingByIdentity?.priceFetchedAt)
-          : this.normalizePriceFetchedAt(payload.priceFetchedAt),
-      priceAmount:
-        payload.priceAmount === undefined
-          ? this.normalizePriceAmount(existingByIdentity?.priceAmount)
-          : this.normalizePriceAmount(payload.priceAmount),
-      priceCurrency:
-        payload.priceCurrency === undefined
-          ? this.normalizePriceCurrency(existingByIdentity?.priceCurrency)
-          : this.normalizePriceCurrency(payload.priceCurrency),
-      priceRegularAmount:
-        payload.priceRegularAmount === undefined
-          ? this.normalizePriceAmount(existingByIdentity?.priceRegularAmount)
-          : this.normalizePriceAmount(payload.priceRegularAmount),
-      priceDiscountPercent:
-        payload.priceDiscountPercent === undefined
-          ? this.normalizePriceDiscountPercent(existingByIdentity?.priceDiscountPercent)
-          : this.normalizePriceDiscountPercent(payload.priceDiscountPercent),
-      priceIsFree:
-        payload.priceIsFree === undefined
-          ? this.normalizePriceIsFree(existingByIdentity?.priceIsFree)
-          : this.normalizePriceIsFree(payload.priceIsFree),
-      priceUrl:
-        payload.priceUrl === undefined
-          ? this.normalizePriceUrl(existingByIdentity?.priceUrl)
-          : this.normalizePriceUrl(payload.priceUrl),
-      psPricesMatchLocked:
-        payload.psPricesMatchLocked === undefined
-          ? this.normalizeOptionalBoolean(existingByIdentity?.psPricesMatchLocked)
-          : this.normalizeOptionalBoolean(payload.psPricesMatchLocked),
-      screenshots:
-        payload.screenshots === undefined
-          ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })
-          : normalizeGameScreenshots(payload.screenshots, { maxItems: 20 }),
-      videos:
-        payload.videos === undefined
-          ? normalizeGameVideos(existingByIdentity?.videos, { maxItems: 5 })
-          : normalizeGameVideos(payload.videos, { maxItems: 5 }),
-      publishers: this.normalizeStringList(payload.publishers),
-      platform,
-      customPlatform: this.normalizeCustomPlatform(
-        payload.customPlatform,
-        payload.customPlatformIgdbId,
-        payload.platform
-      ),
-      customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(
-        payload.customPlatformIgdbId,
-        payload.customPlatform,
-        payload.platformIgdbId,
-        payload.platform
-      ),
-      tagIds: this.normalizeTagIds(payload.tagIds),
-      releaseDate: this.normalizeReleaseDate(payload.releaseDate),
-      releaseYear: this.normalizeReleaseYear(payload.releaseYear),
-      status: this.normalizeStatus(payload.status),
-      rating: this.normalizeRating(payload.rating),
-      listType: normalizedListType,
-      enteredCollectionAt,
-      notes: this.normalizeNotes(payload.notes),
-      createdAt,
-      updatedAt,
-    };
+    const normalized = this.normalizePulledGamePayload(payload, pulledListType, {
+      existingByIdentity,
+      hasPendingLocalWrite,
+      serverId,
+      serverIdCanBeReused,
+    });
 
-    try {
-      await this.engine.putGame(normalized);
-    } catch (error: unknown) {
-      const shouldRetryWithoutServerId =
-        existingByIdentity === undefined &&
-        serverId !== null &&
-        normalized.id === serverId &&
-        isStorageConstraintError(error);
-
-      if (!shouldRetryWithoutServerId) {
-        throw error;
-      }
-
-      await this.engine.putGame({
+    if (existingByIdentity === undefined && serverId !== null && normalized.id === serverId) {
+      return {
         ...normalized,
         id: undefined,
-      });
+      };
     }
+
+    return normalized;
   }
 
   private normalizeCustomTitle(value: unknown, defaultTitle: string): string | null {
@@ -1399,7 +1273,10 @@ export class GameSyncService implements SyncOutboxWriter {
     return this.htmlSanitizer.sanitizeNotesOrNull(value);
   }
 
-  private async applyTagChange(change: SyncChangeEvent): Promise<void> {
+  private async applyTagChange(
+    change: SyncChangeEvent,
+    identityCache?: Map<string, GameEntry>
+  ): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { id?: unknown };
       const id = this.parsePositiveInteger(payload.id);
@@ -1412,6 +1289,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
       const games = await this.engine.listAllGames();
       const now = new Date().toISOString();
+      const gamesToUpdate: GameEntry[] = [];
 
       for (const game of games) {
         if (!Array.isArray(game.tagIds) || game.id === undefined) {
@@ -1424,10 +1302,20 @@ export class GameSyncService implements SyncOutboxWriter {
           continue;
         }
 
-        await this.engine.updateGame(game.id, {
+        const updatedGame: GameEntry = {
+          ...game,
           tagIds: nextTagIds,
           updatedAt: now,
-        });
+        };
+        gamesToUpdate.push(updatedGame);
+        identityCache?.set(
+          this.buildGameIdentityKey(updatedGame.igdbGameId, updatedGame.platformIgdbId),
+          updatedGame
+        );
+      }
+
+      if (gamesToUpdate.length > 0) {
+        await this.engine.bulkPutGames(gamesToUpdate);
       }
 
       return;
@@ -1604,6 +1492,12 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
+    if ((await this.engine.countGames()) === 0) {
+      await this.setMeta(DISCOVERY_POLLUTION_REMEDIATION_META_KEY, 'done');
+      this.debugLogService.info('sync.discovery_pollution_remediation_skipped_fresh_install');
+      return;
+    }
+
     const now = new Date().toISOString();
     await this.engine.runInTransaction(['syncMeta'], async () => {
       await this.engine.putSyncMeta({
@@ -1637,6 +1531,443 @@ export class GameSyncService implements SyncOutboxWriter {
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
+  }
+
+  private normalizePulledGamePayload(
+    payload: Partial<GameEntry>,
+    pulledListType: string,
+    context: PulledGameNormalizeContext
+  ): GameEntry {
+    const { existingByIdentity, hasPendingLocalWrite, serverId, serverIdCanBeReused } = context;
+    const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
+    const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId) ?? 0;
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title.trim()
+        : 'Unknown title';
+    const platform =
+      typeof payload.platform === 'string' && payload.platform.trim().length > 0
+        ? payload.platform.trim()
+        : 'Unknown platform';
+    const normalizedListType = pulledListType === 'wishlist' ? 'wishlist' : 'collection';
+    const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
+    const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
+    let enteredCollectionAt: string | null = null;
+
+    if (payload.enteredCollectionAt !== undefined) {
+      enteredCollectionAt = this.normalizeNullableIsoTimestamp(payload.enteredCollectionAt);
+    } else if (normalizedListType === 'wishlist') {
+      enteredCollectionAt = null;
+    } else if (existingByIdentity?.enteredCollectionAt != null) {
+      enteredCollectionAt = existingByIdentity.enteredCollectionAt;
+    } else {
+      enteredCollectionAt = existingByIdentity?.createdAt ?? createdAt;
+    }
+    const normalizedReviewScore = this.normalizeReviewScore(
+      payload.reviewScore ?? payload.metacriticScore
+    );
+    const normalizedReviewUrl = this.normalizeExternalUrl(
+      payload.reviewUrl ?? payload.metacriticUrl
+    );
+    const normalizedReviewSource = this.normalizeReviewSource(
+      payload.reviewSource,
+      normalizedReviewScore,
+      normalizedReviewUrl
+    );
+    const mobyScoreRaw = this.normalizeMobyScore(payload.mobyScore);
+    // If source is MobyGames, convert reviewScore from 0–10 to 0–100 when needed.
+    // Use mobyScore as ground truth (it is always on the 0–10 scale) when available:
+    // if reviewScore matches mobyScore, it arrived on the 0–10 scale and must be
+    // scaled up. Fall back to the ≤10 heuristic when mobyScore is absent.
+    const effectiveReviewScore =
+      normalizedReviewSource === 'mobygames' &&
+      normalizedReviewScore !== null &&
+      (mobyScoreRaw !== null ? normalizedReviewScore === mobyScoreRaw : normalizedReviewScore <= 10)
+        ? this.normalizeReviewScore(normalizedReviewScore * 10)
+        : normalizedReviewScore;
+    const explicitMetacriticScore = this.normalizeMetacriticScore(payload.metacriticScore);
+    const explicitMetacriticUrl = this.normalizeExternalUrl(payload.metacriticUrl);
+    const normalizedMetacriticScore =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticScore ?? normalizedReviewScore)
+        : explicitMetacriticScore;
+    const normalizedMetacriticUrl =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticUrl ?? normalizedReviewUrl)
+        : explicitMetacriticUrl;
+    const incomingCoverUrl = this.normalizeExternalUrl(payload.coverUrl);
+    const incomingCustomCoverUrl = this.normalizeCustomCoverUrl(payload.customCoverUrl);
+    const incomingCoverSource =
+      payload.coverSource === 'thegamesdb' ||
+      payload.coverSource === 'igdb' ||
+      payload.coverSource === 'none'
+        ? payload.coverSource
+        : 'none';
+    const coverUrl = hasPendingLocalWrite
+      ? existingByIdentity
+        ? existingByIdentity.coverUrl
+        : incomingCoverUrl
+      : incomingCoverUrl;
+    const customCoverUrl = hasPendingLocalWrite
+      ? existingByIdentity
+        ? existingByIdentity.customCoverUrl
+        : incomingCustomCoverUrl
+      : incomingCustomCoverUrl;
+    const coverSource = hasPendingLocalWrite
+      ? existingByIdentity
+        ? existingByIdentity.coverSource
+        : incomingCoverSource
+      : incomingCoverSource;
+
+    const normalized: GameEntry = {
+      id:
+        existingByIdentity?.id ?? (serverIdCanBeReused && serverId !== null ? serverId : undefined),
+      igdbGameId,
+      platformIgdbId,
+      title,
+      customTitle: this.normalizeCustomTitle(payload.customTitle, title),
+      coverUrl,
+      customCoverUrl,
+      coverSource,
+      storyline: this.normalizeOptionalText(payload.storyline),
+      summary: this.normalizeOptionalText(payload.summary),
+      gameType: this.normalizeGameType(payload.gameType),
+      hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
+      hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
+      hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
+      hltbMatchGameId:
+        payload.hltbMatchGameId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.hltbMatchGameId)
+          : this.parsePositiveInteger(payload.hltbMatchGameId),
+      hltbMatchUrl:
+        payload.hltbMatchUrl === undefined
+          ? this.normalizeExternalUrl(existingByIdentity?.hltbMatchUrl)
+          : this.normalizeExternalUrl(payload.hltbMatchUrl),
+      hltbMatchQueryTitle:
+        payload.hltbMatchQueryTitle === undefined
+          ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryTitle)
+          : this.normalizeOptionalText(payload.hltbMatchQueryTitle),
+      hltbMatchQueryReleaseYear:
+        payload.hltbMatchQueryReleaseYear === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.hltbMatchQueryReleaseYear)
+          : this.parsePositiveInteger(payload.hltbMatchQueryReleaseYear),
+      hltbMatchQueryPlatform:
+        payload.hltbMatchQueryPlatform === undefined
+          ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryPlatform)
+          : this.normalizeOptionalText(payload.hltbMatchQueryPlatform),
+      hltbMatchLocked:
+        payload.hltbMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.hltbMatchLocked)
+          : this.normalizeOptionalBoolean(payload.hltbMatchLocked),
+      reviewScore: effectiveReviewScore,
+      reviewUrl: normalizedReviewUrl,
+      reviewSource: normalizedReviewSource,
+      mobyScore: mobyScoreRaw,
+      mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
+      reviewMatchQueryTitle:
+        payload.reviewMatchQueryTitle === undefined
+          ? this.normalizeOptionalText(existingByIdentity?.reviewMatchQueryTitle)
+          : this.normalizeOptionalText(payload.reviewMatchQueryTitle),
+      reviewMatchQueryReleaseYear:
+        payload.reviewMatchQueryReleaseYear === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchQueryReleaseYear)
+          : this.parsePositiveInteger(payload.reviewMatchQueryReleaseYear),
+      reviewMatchQueryPlatform:
+        payload.reviewMatchQueryPlatform === undefined
+          ? this.normalizeOptionalText(existingByIdentity?.reviewMatchQueryPlatform)
+          : this.normalizeOptionalText(payload.reviewMatchQueryPlatform),
+      reviewMatchPlatformIgdbId:
+        payload.reviewMatchPlatformIgdbId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchPlatformIgdbId)
+          : this.parsePositiveInteger(payload.reviewMatchPlatformIgdbId),
+      reviewMatchMobygamesGameId:
+        payload.reviewMatchMobygamesGameId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.reviewMatchMobygamesGameId)
+          : this.parsePositiveInteger(payload.reviewMatchMobygamesGameId),
+      reviewMatchLocked:
+        payload.reviewMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.reviewMatchLocked)
+          : this.normalizeOptionalBoolean(payload.reviewMatchLocked),
+      metacriticScore: normalizedMetacriticScore,
+      metacriticUrl: normalizedMetacriticUrl,
+      similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
+      collections: this.normalizeStringList(payload.collections),
+      developers: this.normalizeStringList(payload.developers),
+      franchises: this.normalizeStringList(payload.franchises),
+      genres: this.normalizeStringList(payload.genres),
+      themes:
+        payload.themes === undefined
+          ? this.normalizeStringList(existingByIdentity?.themes)
+          : this.normalizeStringList(payload.themes),
+      themeIds:
+        payload.themeIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.themeIds)
+          : this.normalizePositiveIntegerList(payload.themeIds),
+      keywords:
+        payload.keywords === undefined
+          ? this.normalizeStringList(existingByIdentity?.keywords)
+          : this.normalizeStringList(payload.keywords),
+      keywordIds:
+        payload.keywordIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
+          : this.normalizePositiveIntegerList(payload.keywordIds),
+      websites:
+        payload.websites === undefined
+          ? this.normalizeWebsites(existingByIdentity?.websites)
+          : this.normalizeWebsites(payload.websites),
+      steamAppId:
+        payload.steamAppId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.steamAppId)
+          : this.parsePositiveInteger(payload.steamAppId),
+      priceSource:
+        payload.priceSource === undefined
+          ? this.normalizePriceSource(existingByIdentity?.priceSource)
+          : this.normalizePriceSource(payload.priceSource),
+      priceFetchedAt:
+        payload.priceFetchedAt === undefined
+          ? this.normalizePriceFetchedAt(existingByIdentity?.priceFetchedAt)
+          : this.normalizePriceFetchedAt(payload.priceFetchedAt),
+      priceAmount:
+        payload.priceAmount === undefined
+          ? this.normalizePriceAmount(existingByIdentity?.priceAmount)
+          : this.normalizePriceAmount(payload.priceAmount),
+      priceCurrency:
+        payload.priceCurrency === undefined
+          ? this.normalizePriceCurrency(existingByIdentity?.priceCurrency)
+          : this.normalizePriceCurrency(payload.priceCurrency),
+      priceRegularAmount:
+        payload.priceRegularAmount === undefined
+          ? this.normalizePriceAmount(existingByIdentity?.priceRegularAmount)
+          : this.normalizePriceAmount(payload.priceRegularAmount),
+      priceDiscountPercent:
+        payload.priceDiscountPercent === undefined
+          ? this.normalizePriceDiscountPercent(existingByIdentity?.priceDiscountPercent)
+          : this.normalizePriceDiscountPercent(payload.priceDiscountPercent),
+      priceIsFree:
+        payload.priceIsFree === undefined
+          ? this.normalizePriceIsFree(existingByIdentity?.priceIsFree)
+          : this.normalizePriceIsFree(payload.priceIsFree),
+      priceUrl:
+        payload.priceUrl === undefined
+          ? this.normalizePriceUrl(existingByIdentity?.priceUrl)
+          : this.normalizePriceUrl(payload.priceUrl),
+      psPricesMatchLocked:
+        payload.psPricesMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.psPricesMatchLocked)
+          : this.normalizeOptionalBoolean(payload.psPricesMatchLocked),
+      screenshots:
+        payload.screenshots === undefined
+          ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })
+          : normalizeGameScreenshots(payload.screenshots, { maxItems: 20 }),
+      videos:
+        payload.videos === undefined
+          ? normalizeGameVideos(existingByIdentity?.videos, { maxItems: 5 })
+          : normalizeGameVideos(payload.videos, { maxItems: 5 }),
+      publishers: this.normalizeStringList(payload.publishers),
+      platform,
+      customPlatform: this.normalizeCustomPlatform(
+        payload.customPlatform,
+        payload.customPlatformIgdbId,
+        payload.platform
+      ),
+      customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(
+        payload.customPlatformIgdbId,
+        payload.customPlatform,
+        payload.platformIgdbId,
+        payload.platform
+      ),
+      tagIds: this.normalizeTagIds(payload.tagIds),
+      releaseDate: this.normalizeReleaseDate(payload.releaseDate),
+      releaseYear: this.normalizeReleaseYear(payload.releaseYear),
+      status: this.normalizeStatus(payload.status),
+      rating: this.normalizeRating(payload.rating),
+      listType: normalizedListType,
+      enteredCollectionAt,
+      notes: this.normalizeNotes(payload.notes),
+      createdAt,
+      updatedAt,
+    };
+
+    return normalized;
+  }
+
+  private normalizeSnapshotGame(raw: unknown): GameEntry | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const payload = raw as Partial<GameEntry>;
+    const pulledListType = typeof payload.listType === 'string' ? payload.listType.trim() : '';
+
+    if (pulledListType === 'discovery') {
+      return null;
+    }
+
+    const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
+    const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
+
+    if (!igdbGameId || platformIgdbId === null) {
+      return null;
+    }
+
+    const serverId = this.parsePositiveInteger(payload.id);
+
+    return this.normalizePulledGamePayload(payload, pulledListType, {
+      hasPendingLocalWrite: false,
+      serverId,
+      serverIdCanBeReused: serverId !== null,
+    });
+  }
+
+  private async shouldBootstrapSnapshot(): Promise<boolean> {
+    const bootstrapMarker = await this.getMeta(GameSyncService.META_BOOTSTRAP_KEY);
+
+    if (bootstrapMarker === 'done') {
+      return false;
+    }
+
+    if ((await this.engine.countOutbox()) > 0) {
+      return false;
+    }
+
+    if ((await this.engine.countGames()) > 0) {
+      return false;
+    }
+
+    const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
+
+    if (cursor !== null) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private fetchSyncSnapshotPage(gamesAfter: string | null): Promise<SyncSnapshotResponse> {
+    return firstValueFrom(
+      this.httpClient.post<SyncSnapshotResponse>(`${this.baseUrl}/v1/sync/snapshot`, {
+        gamesAfter,
+        gamesLimit: 500,
+      })
+    );
+  }
+
+  private async bootstrapFromSnapshot(): Promise<void> {
+    const startedAt = Date.now();
+    let gamesAfter: string | null = null;
+    let totalGames = 0;
+    let latestEventId = '0';
+    let snapshotTags: Tag[] = [];
+    let snapshotViews: GameListView[] = [];
+    let snapshotSettings: { key: string; value: string }[] = [];
+    let hasMoreGames = true;
+
+    while (hasMoreGames) {
+      const response = await this.fetchSyncSnapshotPage(gamesAfter);
+
+      latestEventId = response.latestEventId;
+
+      if (gamesAfter === null) {
+        snapshotTags = response.tags
+          .map((tag) => this.normalizeSnapshotTag(tag))
+          .filter((tag): tag is Tag => tag !== null);
+        snapshotViews = response.views
+          .map((view) => this.normalizeSnapshotView(view))
+          .filter((view): view is GameListView => view !== null);
+        snapshotSettings = response.settings;
+      }
+
+      const normalizedGames = response.games
+        .map((game) => this.normalizeSnapshotGame(game))
+        .filter((game): game is GameEntry => game !== null);
+
+      if (normalizedGames.length > 0) {
+        await this.engine.runInTransaction(['games'], async () => {
+          await this.engine.bulkPutGames(normalizedGames);
+        });
+      }
+
+      totalGames += normalizedGames.length;
+
+      if (!response.gamesNextAfter) {
+        hasMoreGames = false;
+        continue;
+      }
+
+      gamesAfter = response.gamesNextAfter;
+    }
+
+    await this.engine.runInTransaction(['tags', 'views', 'syncMeta'], async () => {
+      if (snapshotTags.length > 0) {
+        await this.engine.bulkPutTags(snapshotTags);
+      }
+
+      if (snapshotViews.length > 0) {
+        await this.engine.bulkPutViews(snapshotViews);
+      }
+
+      for (const setting of snapshotSettings) {
+        this.applySettingChange({
+          eventId: 'snapshot',
+          entityType: 'setting',
+          operation: 'upsert',
+          payload: { key: setting.key, value: setting.value },
+          serverTimestamp: new Date().toISOString(),
+        });
+      }
+
+      await this.setMeta(GameSyncService.META_CURSOR_KEY, latestEventId);
+      await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
+    });
+
+    this.syncEvents.emitChanged();
+    this.debugLogService.info('sync.bootstrap.completed', {
+      games: totalGames,
+      tags: snapshotTags.length,
+      views: snapshotViews.length,
+      settings: snapshotSettings.length,
+      latestEventId,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
+  private normalizeSnapshotTag(raw: Partial<Tag>): Tag | null {
+    const id = this.parsePositiveInteger(raw.id);
+
+    if (id === null) {
+      return null;
+    }
+
+    return {
+      id,
+      name:
+        typeof raw.name === 'string' && raw.name.trim().length > 0
+          ? raw.name.trim()
+          : `Tag ${String(id)}`,
+      color:
+        typeof raw.color === 'string' && raw.color.trim().length > 0 ? raw.color.trim() : '#3880ff',
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+    };
+  }
+
+  private normalizeSnapshotView(raw: Partial<GameListView>): GameListView | null {
+    const id = this.parsePositiveInteger(raw.id);
+
+    if (id === null) {
+      return null;
+    }
+
+    return {
+      id,
+      name:
+        typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name.trim() : 'Saved View',
+      listType: raw.listType === 'wishlist' ? 'wishlist' : 'collection',
+      filters: raw.filters ?? { ...DEFAULT_GAME_LIST_FILTERS },
+      groupBy: raw.groupBy ?? 'none',
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+    };
   }
 
   private generateOperationId(): string {

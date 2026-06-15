@@ -2750,6 +2750,21 @@ describe('GameSyncService', () => {
     expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
   });
 
+  it('resumes initial load progress across syncNow calls when cursor is set mid-bootstrap', async () => {
+    // Simulate an app restart mid-bootstrap: marker is 'started' and a cursor is present
+    // (set by a prior pull page). isInitialLibraryLoadPending must treat 'started' as still
+    // pending rather than backfilling 'done' because the cursor exists.
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'started' });
+    await db.syncMeta.put({ key: 'cursor', value: '5', updatedAt: '2026-01-01T00:00:00.000Z' });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '6', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
+
   it('does not start initial load progress when local games already exist (upgraded user)', async () => {
     await db.syncMeta.delete('bootstrapV1');
     await db.games.add({

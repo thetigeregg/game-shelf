@@ -619,6 +619,11 @@ export class GameSyncService implements SyncOutboxWriter {
     await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
       const identityCache = new Map<string, GameEntry>();
+
+      for (const game of await this.engine.listAllGames()) {
+        identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+      }
+
       const pendingGameUpsertsByKey = new Map<string, GameEntry>();
 
       const flushGameUpserts = async (): Promise<void> => {
@@ -1839,6 +1844,7 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     if (await this.isInitialLibraryLoadPending()) {
+      await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'started');
       this.syncBootstrapProgress.start();
     }
   }
@@ -1848,6 +1854,12 @@ export class GameSyncService implements SyncOutboxWriter {
 
     if (bootstrapMarker === 'done') {
       return false;
+    }
+
+    // Bootstrap was explicitly started — keep pending until explicitly completed.
+    // A cursor set during the first pull page must not be conflated with "done".
+    if (bootstrapMarker === 'started') {
+      return true;
     }
 
     if ((await this.engine.countOutbox()) > 0) {

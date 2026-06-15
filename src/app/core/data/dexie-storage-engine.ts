@@ -82,6 +82,10 @@ export class DexieStorageEngine implements StorageEngine {
     return this.gamesTable.toArray();
   }
 
+  countGames(): Promise<number> {
+    return this.gamesTable.count();
+  }
+
   addGame(game: GameEntry): Promise<number> {
     return this.gamesTable.add(game);
   }

@@ -67,6 +67,7 @@ export interface StorageEngine {
   getGameByIdentity(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined>;
   listGamesByTypeSortedByTitle(listType: ListType): Promise<GameEntry[]>;
   listAllGames(): Promise<GameEntry[]>;
+  countGames(): Promise<number>;
   addGame(game: GameEntry): Promise<number>;
   putGame(game: GameEntry): Promise<number>;
   updateGame(id: number, changes: Partial<GameEntry>): Promise<void>;

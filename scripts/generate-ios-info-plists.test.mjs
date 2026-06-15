@@ -69,6 +69,7 @@ test('mergeInfoPlistVariant merges shared and overlay plists from repo', () => {
   });
 
   assert.equal(merged.CFBundleDisplayName, 'GameShelf Dev');
+  assert.equal(merged.ITSAppUsesNonExemptEncryption, false);
   assert.equal(merged.NSAppTransportSecurity.NSAllowsLocalNetworking, true);
   assert.equal(merged.CAPACITOR_DEBUG, '$(CAPACITOR_DEBUG)');
 });

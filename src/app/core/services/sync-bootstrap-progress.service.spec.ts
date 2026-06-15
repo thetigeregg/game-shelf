@@ -55,4 +55,45 @@ describe('SyncBootstrapProgressService', () => {
     service.finish();
     await expect(idlePromise).resolves.toBeUndefined();
   });
+
+  it('waitUntilIdle waits when armed even if not yet active', async () => {
+    service.arm();
+
+    let resolved = false;
+    const idlePromise = service.waitUntilIdle().then(() => {
+      resolved = true;
+    });
+
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    service.start();
+    service.finish();
+    await idlePromise;
+    expect(resolved).toBe(true);
+  });
+
+  it('waitUntilIdle resolves immediately after disarm without start', async () => {
+    service.arm();
+
+    let resolved = false;
+    const idlePromise = service.waitUntilIdle().then(() => {
+      resolved = true;
+    });
+
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    service.disarm();
+    await idlePromise;
+    expect(resolved).toBe(true);
+  });
+
+  it('arm is a no-op when already active', () => {
+    service.start();
+    service.arm();
+    service.finish();
+
+    expect(service.progress().active).toBe(false);
+  });
 });

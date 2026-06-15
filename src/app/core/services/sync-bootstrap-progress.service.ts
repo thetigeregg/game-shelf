@@ -18,6 +18,7 @@ const IDLE_STATE: SyncBootstrapProgressState = {
 export class SyncBootstrapProgressService {
   private readonly state = signal<SyncBootstrapProgressState>(IDLE_STATE);
   private readonly idleWaiters = new Set<() => void>();
+  private armed = false;
 
   readonly progress = this.state.asReadonly();
 
@@ -38,7 +39,19 @@ export class SyncBootstrapProgressService {
     return 'Loading library…';
   });
 
+  arm(): void {
+    if (!this.state().active) {
+      this.armed = true;
+    }
+  }
+
+  disarm(): void {
+    this.armed = false;
+    this.notifyWaiters();
+  }
+
   start(): void {
+    this.armed = false;
     this.state.set({
       active: true,
       phase: 'games',
@@ -60,20 +73,25 @@ export class SyncBootstrapProgressService {
   }
 
   finish(): void {
+    this.armed = false;
     this.state.set(IDLE_STATE);
-    this.idleWaiters.forEach((resolve) => {
-      resolve();
-    });
-    this.idleWaiters.clear();
+    this.notifyWaiters();
   }
 
   waitUntilIdle(): Promise<void> {
-    if (!this.state().active) {
+    if (!this.state().active && !this.armed) {
       return Promise.resolve();
     }
     return new Promise<void>((resolve) => {
       this.idleWaiters.add(resolve);
     });
+  }
+
+  private notifyWaiters(): void {
+    this.idleWaiters.forEach((resolve) => {
+      resolve();
+    });
+    this.idleWaiters.clear();
   }
 }
 

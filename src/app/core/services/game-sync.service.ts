@@ -95,7 +95,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private resetLocalSyncStatePromise: Promise<boolean> | null = null;
   private intervalId: number | null = null;
 
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.initialized) {
       this.debugLogService.debug('sync.initialize.skipped_already_initialized');
       return;
@@ -134,15 +134,18 @@ export class GameSyncService implements SyncOutboxWriter {
       GameSyncService.META_CONNECTIVITY_KEY,
       this.isOnline() ? 'online' : 'offline'
     );
-    void this.runDiscoveryPollutionRemediationIfNeeded()
-      .catch((error: unknown) => {
-        this.debugLogService.error('sync.discovery_pollution_remediation_failed', {
-          error: normalizeHttpError(error),
-        });
-      })
-      .finally(() => {
-        void this.syncNow();
+
+    await this.runDiscoveryPollutionRemediationIfNeeded().catch((error: unknown) => {
+      this.debugLogService.error('sync.discovery_pollution_remediation_failed', {
+        error: normalizeHttpError(error),
       });
+    });
+
+    if (await this.isInitialLibraryLoadPending()) {
+      this.syncBootstrapProgress.arm();
+    }
+
+    void this.syncNow();
   }
 
   async resetLocalSyncState(): Promise<boolean> {
@@ -416,6 +419,8 @@ export class GameSyncService implements SyncOutboxWriter {
     const trackInitialLoad = await this.shouldTrackInitialLoadProgress();
     if (trackInitialLoad) {
       await this.beginInitialLoadProgressIfNeeded();
+    } else {
+      this.syncBootstrapProgress.disarm();
     }
     let cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
     let pagesPulled = 0;
@@ -618,13 +623,6 @@ export class GameSyncService implements SyncOutboxWriter {
     await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
       const identityCache = new Map<string, GameEntry>();
-
-      if (changes.some((c) => c.entityType === 'game')) {
-        for (const game of await this.engine.listAllGames()) {
-          identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
-        }
-      }
-
       const pendingGameUpsertsByKey = new Map<string, GameEntry>();
 
       const flushGameUpserts = async (): Promise<void> => {
@@ -1847,6 +1845,8 @@ export class GameSyncService implements SyncOutboxWriter {
     if (await this.isInitialLibraryLoadPending()) {
       await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'started');
       this.syncBootstrapProgress.start();
+    } else {
+      this.syncBootstrapProgress.disarm();
     }
   }
 

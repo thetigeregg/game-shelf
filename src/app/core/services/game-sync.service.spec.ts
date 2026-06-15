@@ -2618,11 +2618,11 @@ describe('GameSyncService', () => {
     });
   });
 
-  it('initialize short-circuits when already initialized', () => {
+  it('initialize short-circuits when already initialized', async () => {
     servicePrivate.initialized = true;
     const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
 
-    service.initialize();
+    await service.initialize();
 
     expect(syncNowSpy).not.toHaveBeenCalled();
   });

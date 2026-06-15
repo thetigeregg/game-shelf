@@ -135,7 +135,7 @@ describe('AppComponent', () => {
     });
     vi.mocked(isE2eFixturesEnabled).mockReturnValue(false);
     themeServiceMock.initialize.mockReturnValue(undefined);
-    gameSyncServiceMock.initialize.mockReturnValue(undefined);
+    gameSyncServiceMock.initialize.mockResolvedValue(undefined);
     debugLogServiceMock.initialize.mockReturnValue(undefined);
     gameShelfServiceMock.migratePreferredPlatformCoversToIgdb.mockResolvedValue(undefined);
     gameShelfServiceMock.migrateLegacyPickerCoversToCustomCovers.mockResolvedValue(undefined);

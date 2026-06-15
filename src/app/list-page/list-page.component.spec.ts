@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-import { ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -80,7 +79,6 @@ import { serializeListPagePreferences } from './list-page-preferences';
 
 describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
-    watchList: vi.fn(() => of([])),
     findGameByIdentity: vi.fn(),
     getView: vi.fn(),
   };
@@ -107,7 +105,6 @@ describe('ListPageComponent', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    gameShelfServiceMock.watchList.mockReturnValue(of([]));
     gameShelfServiceMock.findGameByIdentity.mockResolvedValue(null);
     gameShelfServiceMock.getView.mockResolvedValue(null);
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
@@ -126,10 +123,6 @@ describe('ListPageComponent', () => {
         { provide: MenuController, useValue: { open: vi.fn() } },
         { provide: PopoverController, useValue: { dismiss: vi.fn().mockResolvedValue(undefined) } },
         { provide: ToastController, useValue: { create: vi.fn() } },
-        {
-          provide: ChangeDetectorRef,
-          useValue: { markForCheck: vi.fn(), detectChanges: vi.fn() },
-        },
       ],
     });
   });
@@ -158,6 +151,17 @@ describe('ListPageComponent', () => {
     await Promise.resolve();
     await Promise.resolve();
   }
+
+  it('dismisses initial list loading when game list reports displayed games', () => {
+    const component = createComponent();
+
+    expect(component.isInitialListLoading).toBe(true);
+
+    component.onDisplayedGamesChange([]);
+
+    expect(component.isInitialListLoading).toBe(false);
+    expect(component.displayedGames).toEqual([]);
+  });
 
   it('clears loading immediately when detail hydration fails before identity lookup resolves', async () => {
     const component = createComponent();

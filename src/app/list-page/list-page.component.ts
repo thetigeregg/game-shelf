@@ -1,9 +1,8 @@
-import { ChangeDetectorRef, Component, ViewChild, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
   MenuController,
@@ -197,7 +196,6 @@ export class ListPageComponent {
   genreOptions: string[] = [];
   tagOptions: string[] = [];
   displayedGames: GameEntry[] = [];
-  totalGamesCount = 0;
   listSearchQuery = '';
   listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
@@ -234,7 +232,6 @@ export class ListPageComponent {
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
-  private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
@@ -256,20 +253,6 @@ export class ListPageComponent {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
     });
-    this.gameShelfService
-      .watchList(this.listType)
-      .pipe(
-        takeUntilDestroyed(),
-        catchError(() => of([] as GameEntry[]))
-      )
-      .subscribe((games) => {
-        this.totalGamesCount = games.length;
-        if (!this.receivedInitialListSnapshot) {
-          this.receivedInitialListSnapshot = true;
-          this.isInitialListLoading = false;
-          this.changeDetectorRef.markForCheck();
-        }
-      });
     addIcons({
       close,
       filter,
@@ -521,6 +504,16 @@ export class ListPageComponent {
 
   onDisplayedGamesChange(games: GameEntry[]): void {
     this.displayedGames = games;
+    this.finishInitialListLoading();
+  }
+
+  private finishInitialListLoading(): void {
+    if (this.receivedInitialListSnapshot) {
+      return;
+    }
+
+    this.receivedInitialListSnapshot = true;
+    this.isInitialListLoading = false;
   }
 
   onSelectionStateChange(state: GameListSelectionState): void {

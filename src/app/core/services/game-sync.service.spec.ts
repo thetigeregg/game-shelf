@@ -2439,6 +2439,42 @@ describe('GameSyncService', () => {
     expect(remaining).toHaveLength(0);
   });
 
+  it('applyPulledChanges removes tag from freshly inserted game when tag delete follows in same batch', async () => {
+    const tagId = 42;
+    await db.tags.put({ id: tagId, name: 'RPG', payload: '{}' });
+
+    const changes = [
+      {
+        eventId: '300',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: 'fresh-game',
+          platformIgdbId: 6,
+          title: 'Fresh Game',
+          tagIds: [tagId],
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '301',
+        entityType: 'tag',
+        operation: 'delete',
+        payload: { id: tagId },
+        serverTimestamp: '2026-01-01T00:01:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['fresh-game', 6])
+      .first();
+    expect(stored).toBeDefined();
+    expect(stored?.tagIds ?? []).not.toContain(tagId);
+  });
+
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
     localStorage.removeItem('test-setting');
 

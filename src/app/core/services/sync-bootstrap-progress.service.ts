@@ -31,7 +31,8 @@ export class SyncBootstrapProgressService {
     const loadedLabel = formatCount(current.gamesLoaded);
 
     if (current.gamesLoaded > 0) {
-      return `Loading library… ${loadedLabel} games`;
+      const gameLabel = current.gamesLoaded === 1 ? 'game' : 'games';
+      return `Loading library… ${loadedLabel} ${gameLabel}`;
     }
 
     return 'Loading library…';

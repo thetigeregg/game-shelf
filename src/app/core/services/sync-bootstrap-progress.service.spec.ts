@@ -34,6 +34,13 @@ describe('SyncBootstrapProgressService', () => {
     expect(service.message()).toBe('Loading library… 750 games');
   });
 
+  it('uses singular "game" when exactly 1 game has loaded', () => {
+    service.start();
+    service.updateGamesLoaded(1);
+
+    expect(service.message()).toBe('Loading library… 1 game');
+  });
+
   it('waitUntilIdle resolves immediately when bootstrap is not active', async () => {
     await expect(service.waitUntilIdle()).resolves.toBeUndefined();
   });

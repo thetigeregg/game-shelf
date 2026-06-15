@@ -618,12 +618,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
     await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
-      const identityCache = new Map(
-        (await this.engine.listAllGames()).map((game) => [
-          this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId),
-          game,
-        ])
-      );
+      const identityCache = new Map<string, GameEntry>();
       const pendingGameUpsertsByKey = new Map<string, GameEntry>();
 
       const flushGameUpserts = async (): Promise<void> => {

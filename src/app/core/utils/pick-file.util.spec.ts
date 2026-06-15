@@ -148,7 +148,7 @@ describe('pick-file.util', () => {
 
     const result = await pickImageFromPhotoLibrary();
 
-    expect(pickImagesMock).toHaveBeenCalledWith({ limit: 1 });
+    expect(pickImagesMock).toHaveBeenCalledWith({ limit: 1, skipTranscoding: false });
     expect(result.status).toBe('picked');
 
     if (result.status === 'picked') {

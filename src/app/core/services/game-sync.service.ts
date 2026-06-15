@@ -493,8 +493,6 @@ export class GameSyncService implements SyncOutboxWriter {
       if (caughtUp) {
         await this.completeInitialLibraryLoadIfPending();
       }
-    } catch (error: unknown) {
-      throw error;
     } finally {
       if (caughtUp && this.syncBootstrapProgress.progress().active) {
         this.syncBootstrapProgress.finish();

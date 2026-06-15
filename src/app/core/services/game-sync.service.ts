@@ -649,6 +649,19 @@ export class GameSyncService implements SyncOutboxWriter {
         try {
           if (change.entityType === 'game') {
             if (change.operation === 'upsert') {
+              const rawPayload =
+                change.payload && typeof change.payload === 'object'
+                  ? (change.payload as Record<string, unknown>)
+                  : {};
+              const pulledListType =
+                typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
+
+              if (pulledListType === 'discovery') {
+                await flushGameUpserts();
+                await this.applyGameChange(change, pendingGameOutboxKeys, identityCache);
+                continue;
+              }
+
               const prepared = await this.prepareGameUpsertFromChange(
                 change,
                 pendingGameOutboxKeys,

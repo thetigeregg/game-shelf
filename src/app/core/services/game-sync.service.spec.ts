@@ -2406,6 +2406,39 @@ describe('GameSyncService', () => {
     expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/12345');
   });
 
+  it('applyPulledChanges removes polluted local discovery game when server sends discovery upsert', async () => {
+    await db.games.add({
+      igdbGameId: 'disc-game',
+      platformIgdbId: 6,
+      title: 'Polluted Discovery',
+      platform: 'PC',
+      listType: 'discovery',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyPulledChanges([
+      {
+        eventId: '500',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: 'disc-game',
+          platformIgdbId: 6,
+          listType: 'discovery',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[]);
+
+    const remaining = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['disc-game', 6])
+      .toArray();
+    expect(remaining).toHaveLength(0);
+  });
+
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
     localStorage.removeItem('test-setting');
 

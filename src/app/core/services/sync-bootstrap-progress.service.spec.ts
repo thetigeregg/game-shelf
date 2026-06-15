@@ -96,4 +96,15 @@ describe('SyncBootstrapProgressService', () => {
 
     expect(service.progress().active).toBe(false);
   });
+
+  it('disarm clears active state and resolves waiters when called while active', async () => {
+    service.start();
+    expect(service.progress().active).toBe(true);
+
+    const idlePromise = service.waitUntilIdle();
+    service.disarm();
+
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(service.progress().active).toBe(false);
+  });
 });

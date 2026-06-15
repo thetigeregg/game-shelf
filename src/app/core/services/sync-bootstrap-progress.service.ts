@@ -46,6 +46,10 @@ export class SyncBootstrapProgressService {
   }
 
   disarm(): void {
+    if (this.state().active) {
+      this.finish();
+      return;
+    }
     this.armed = false;
     this.notifyWaiters();
   }

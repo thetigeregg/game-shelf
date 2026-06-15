@@ -641,18 +641,19 @@ export class GameSyncService implements SyncOutboxWriter {
 
         const upserts = [...pendingGameUpsertsByKey.values()];
         await this.engine.bulkPutGames(upserts);
-        for (const game of upserts) {
-          const key = this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId);
-          if (game.id === undefined) {
-            const stored = await this.engine.getGameByIdentity(
-              game.igdbGameId,
-              game.platformIgdbId
+        if (upserts.some((game) => game.id === undefined)) {
+          for (const game of await this.engine.listAllGames()) {
+            identityCache.set(
+              this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId),
+              game
             );
-            if (stored) {
-              identityCache.set(key, stored);
-            }
-          } else {
-            identityCache.set(key, game);
+          }
+        } else {
+          for (const game of upserts) {
+            identityCache.set(
+              this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId),
+              game
+            );
           }
         }
         pendingGameUpsertsByKey.clear();

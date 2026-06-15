@@ -28,6 +28,7 @@ export const INFO_PLIST_KEY_ORDER = [
   'CFBundlePackageType',
   'CFBundleShortVersionString',
   'CFBundleVersion',
+  'ITSAppUsesNonExemptEncryption',
   'LSRequiresIPhoneOS',
   'NSAppTransportSecurity',
   'UIBackgroundModes',

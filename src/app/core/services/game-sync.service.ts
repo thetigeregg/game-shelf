@@ -286,8 +286,8 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async runSyncNow(): Promise<void> {
     try {
-      await this.beginInitialLoadProgressIfNeeded();
       await this.pushOutbox();
+      await this.beginInitialLoadProgressIfNeeded();
       await this.pullChanges();
       await this.replayRecentChangesIfDue().catch((error: unknown) => {
         this.debugLogService.error('sync.pull.recent_replay_failed', {

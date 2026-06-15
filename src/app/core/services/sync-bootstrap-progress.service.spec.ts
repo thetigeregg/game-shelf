@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { SyncBootstrapProgressService } from './sync-bootstrap-progress.service';
 
+const fmt = (n: number) => new Intl.NumberFormat().format(n);
+
 describe('SyncBootstrapProgressService', () => {
   let service: SyncBootstrapProgressService;
 
@@ -19,7 +21,7 @@ describe('SyncBootstrapProgressService', () => {
 
     service.setGamesTotal(3200);
     service.updateGamesLoaded(500);
-    expect(service.message()).toBe('Loading library… 500 / 3,200 games');
+    expect(service.message()).toBe(`Loading library… ${fmt(500)} / ${fmt(3200)} games`);
     expect(service.progressRatio()).toBeCloseTo(500 / 3200);
 
     service.startMetadataPhase();

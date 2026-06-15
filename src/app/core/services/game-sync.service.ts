@@ -461,9 +461,11 @@ export class GameSyncService implements SyncOutboxWriter {
         await this.applyPulledChanges(changes);
 
         if (this.syncBootstrapProgress.progress().active) {
-          totalGamesLoaded += changes.filter(
-            (c) => c.entityType === 'game' && c.operation === 'upsert'
-          ).length;
+          for (const c of changes) {
+            if (c.entityType === 'game' && c.operation === 'upsert') {
+              totalGamesLoaded += 1;
+            }
+          }
           this.syncBootstrapProgress.updateGamesLoaded(totalGamesLoaded);
         }
 

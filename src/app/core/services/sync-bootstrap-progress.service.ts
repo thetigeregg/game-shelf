@@ -76,6 +76,8 @@ export class SyncBootstrapProgressService {
   }
 }
 
+const COUNT_FORMATTER = new Intl.NumberFormat();
+
 function formatCount(value: number): string {
-  return new Intl.NumberFormat().format(value);
+  return COUNT_FORMATTER.format(value);
 }

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { merge, Observable, Subject, firstValueFrom, from, of } from 'rxjs';
-import { catchError, map, switchMap, startWith } from 'rxjs/operators';
+import { catchError, exhaustMap, map, startWith } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import {
@@ -173,21 +173,25 @@ export class GameShelfService {
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      switchMap(() => from(this.loadGamesWithTags(listType)))
+      exhaustMap(() =>
+        from(this.loadGamesWithTags(listType)).pipe(catchError(() => of([] as GameEntry[])))
+      )
     );
   }
 
   watchTags(): Observable<TagSummary[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      switchMap(() => from(this.loadTagSummaries()))
+      exhaustMap(() => from(this.loadTagSummaries()).pipe(catchError(() => of([] as TagSummary[]))))
     );
   }
 
   watchViews(listType: ListType): Observable<GameListView[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      switchMap(() => from(this.repository.listViews(listType)))
+      exhaustMap(() =>
+        from(this.repository.listViews(listType)).pipe(catchError(() => of([] as GameListView[])))
+      )
     );
   }
 

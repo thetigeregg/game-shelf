@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -125,6 +126,10 @@ describe('ListPageComponent', () => {
         { provide: MenuController, useValue: { open: vi.fn() } },
         { provide: PopoverController, useValue: { dismiss: vi.fn().mockResolvedValue(undefined) } },
         { provide: ToastController, useValue: { create: vi.fn() } },
+        {
+          provide: ChangeDetectorRef,
+          useValue: { markForCheck: vi.fn(), detectChanges: vi.fn() },
+        },
       ],
     });
   });

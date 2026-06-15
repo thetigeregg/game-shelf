@@ -1,8 +1,9 @@
-import { Component, ViewChild, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import {
   AlertController,
   MenuController,
@@ -233,6 +234,7 @@ export class ListPageComponent {
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
@@ -256,12 +258,16 @@ export class ListPageComponent {
     });
     this.gameShelfService
       .watchList(this.listType)
-      .pipe(takeUntilDestroyed())
+      .pipe(
+        takeUntilDestroyed(),
+        catchError(() => of([] as GameEntry[]))
+      )
       .subscribe((games) => {
         this.totalGamesCount = games.length;
         if (!this.receivedInitialListSnapshot) {
           this.receivedInitialListSnapshot = true;
           this.isInitialListLoading = false;
+          this.changeDetectorRef.markForCheck();
         }
       });
     addIcons({

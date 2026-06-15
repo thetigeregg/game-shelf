@@ -38,38 +38,9 @@ interface PullBody {
   cursor?: unknown;
 }
 
-interface SnapshotBody {
-  gamesAfter?: unknown;
-  gamesLimit?: unknown;
-}
-
-interface GameSnapshotRow {
-  igdb_game_id: string;
-  platform_igdb_id: number;
-  payload: Record<string, unknown>;
-}
-
-interface TagSnapshotRow {
-  id: number;
-  payload: Record<string, unknown>;
-}
-
-interface ViewSnapshotRow {
-  id: number;
-  payload: Record<string, unknown>;
-}
-
-interface SettingSnapshotRow {
-  setting_key: string;
-  setting_value: string;
-}
-
 interface LatestCursorRow {
   event_id: unknown;
 }
-
-const SNAPSHOT_GAMES_DEFAULT_LIMIT = 500;
-const SNAPSHOT_GAMES_MAX_LIMIT = 500;
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
   let latestKnownSyncEventId = 0;
@@ -201,82 +172,6 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       reply.send({
         cursor: String(effectiveCursor),
         changes: [],
-      });
-    },
-  });
-
-  app.route({
-    method: 'POST',
-    url: '/v1/sync/snapshot',
-    config: applyRouteRateLimit('sync_pull'),
-    handler: async (request, reply) => {
-      const body = (request.body ?? {}) as SnapshotBody;
-      const gamesAfter = parseGamesAfterCursor(body.gamesAfter);
-      const gamesLimit = normalizeSnapshotGamesLimit(body.gamesLimit);
-      const includeMetadata = gamesAfter === null;
-      const fetchLimit = gamesLimit + 1;
-
-      const gameParams: unknown[] = [fetchLimit];
-      let gamesSql = `
-      SELECT igdb_game_id, platform_igdb_id, payload
-      FROM games
-      WHERE COALESCE(payload->>'listType', '') <> 'discovery'
-      `;
-
-      if (gamesAfter !== null) {
-        gamesSql += `
-        AND (igdb_game_id, platform_igdb_id) > ($2, $3)
-        `;
-        gameParams.push(gamesAfter.igdbGameId, gamesAfter.platformIgdbId);
-      }
-
-      gamesSql += `
-      ORDER BY igdb_game_id ASC, platform_igdb_id ASC
-      LIMIT $1
-      `;
-
-      const [gamesResult, latestCursorResult, tagsResult, viewsResult, settingsResult] =
-        await Promise.all([
-          pool.query<GameSnapshotRow>(gamesSql, gameParams),
-          pool.query<LatestCursorRow>(
-            'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
-          ),
-          includeMetadata
-            ? pool.query<TagSnapshotRow>('SELECT id, payload FROM tags ORDER BY id ASC')
-            : Promise.resolve({ rows: [] as TagSnapshotRow[] }),
-          includeMetadata
-            ? pool.query<ViewSnapshotRow>('SELECT id, payload FROM views ORDER BY id ASC')
-            : Promise.resolve({ rows: [] as ViewSnapshotRow[] }),
-          includeMetadata
-            ? pool.query<SettingSnapshotRow>(
-                'SELECT setting_key, setting_value FROM settings ORDER BY setting_key ASC'
-              )
-            : Promise.resolve({ rows: [] as SettingSnapshotRow[] }),
-        ]);
-
-      const games = gamesResult.rows.slice(0, gamesLimit).map((row) => row.payload);
-      const pageRows = gamesResult.rows.slice(0, gamesLimit);
-      const hasMore = gamesResult.rows.length > gamesLimit;
-      const gamesNextAfter = hasMore
-        ? encodeGamesAfterCursor(
-            pageRows[pageRows.length - 1].igdb_game_id,
-            pageRows[pageRows.length - 1].platform_igdb_id
-          )
-        : null;
-      const latestEventId = String(
-        parseNonNegativeInteger(latestCursorResult.rows[0]?.event_id) ?? 0
-      );
-
-      reply.send({
-        games,
-        gamesNextAfter,
-        tags: tagsResult.rows.map((row) => ({ ...row.payload, id: row.id })),
-        views: viewsResult.rows.map((row) => ({ ...row.payload, id: row.id })),
-        settings: settingsResult.rows.map((row) => ({
-          key: row.setting_key,
-          value: row.setting_value,
-        })),
-        latestEventId,
       });
     },
   });
@@ -672,54 +567,6 @@ function normalizeCursor(value: unknown): number {
   }
 
   return 0;
-}
-
-function normalizeSnapshotGamesLimit(value: unknown): number {
-  if (value === undefined || value === null) {
-    return SNAPSHOT_GAMES_DEFAULT_LIMIT;
-  }
-
-  const parsed = parseInteger(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return SNAPSHOT_GAMES_DEFAULT_LIMIT;
-  }
-
-  return Math.min(parsed, SNAPSHOT_GAMES_MAX_LIMIT);
-}
-
-function parseGamesAfterCursor(
-  value: unknown
-): { igdbGameId: string; platformIgdbId: number } | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  const separatorIndex = trimmed.lastIndexOf('::');
-  if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 2) {
-    return null;
-  }
-
-  const igdbGameId = trimmed.slice(0, separatorIndex).trim();
-  const platformIgdbId = parseInteger(trimmed.slice(separatorIndex + 2));
-
-  if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
-    return null;
-  }
-
-  return { igdbGameId, platformIgdbId };
-}
-
-function encodeGamesAfterCursor(igdbGameId: string, platformIgdbId: number): string {
-  return `${igdbGameId}::${String(platformIgdbId)}`;
 }
 
 function parseNonNegativeInteger(value: unknown): number | null {

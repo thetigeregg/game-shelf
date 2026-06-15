@@ -167,13 +167,13 @@ export class SqliteStorageEngine implements StorageEngine {
 
   async bulkPutGames(games: GameEntry[]): Promise<void> {
     const statement = this.gameUpsertStatement();
-    const insertStatement = `INSERT INTO games (id, igdb_game_id, platform_igdb_id, list_type, title, created_at, updated_at, payload)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const identityUpsertStatement = this.gameIdentityUpsertStatement();
+    const dedupedGames = this.dedupeGamesByIdentity(games);
 
     try {
       await this.executeBatched(
-        games.map((game) => ({
-          statement: game.id === undefined ? insertStatement : statement,
+        dedupedGames.map((game) => ({
+          statement: game.id === undefined ? identityUpsertStatement : statement,
           values: this.gameValues(game),
         }))
       );
@@ -528,6 +528,27 @@ export class SqliteStorageEngine implements StorageEngine {
          created_at = excluded.created_at,
          updated_at = excluded.updated_at,
          payload = excluded.payload`;
+  }
+
+  private gameIdentityUpsertStatement(): string {
+    return `INSERT INTO games (id, igdb_game_id, platform_igdb_id, list_type, title, created_at, updated_at, payload)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(igdb_game_id, platform_igdb_id) DO UPDATE SET
+         list_type = excluded.list_type,
+         title = excluded.title,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at,
+         payload = excluded.payload`;
+  }
+
+  private dedupeGamesByIdentity(games: GameEntry[]): GameEntry[] {
+    const byIdentity = new Map<string, GameEntry>();
+
+    for (const game of games) {
+      byIdentity.set(`${game.igdbGameId}\0${String(game.platformIgdbId)}`, game);
+    }
+
+    return [...byIdentity.values()];
   }
 
   private gameValues(game: GameEntry): unknown[] {

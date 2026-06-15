@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -17,11 +18,20 @@ import {
 } from './platform-customization.service';
 import { ClientSyncOperation, GameEntry, SyncChangeEvent } from '../models/game.models';
 import { NetworkConnectivityService } from './network-connectivity.service';
+import { RuntimeAvailabilityService } from './runtime-availability.service';
 
 const networkConnectivityMock = {
   initialize: vi.fn(),
   isConnected: vi.fn(() => true),
   onConnectedChange: vi.fn(() => () => {}),
+};
+
+const runtimeAvailabilityStatus = signal<'online' | 'offline' | 'service-unreachable' | 'checking'>(
+  'online'
+);
+const runtimeAvailabilityMock = {
+  status: runtimeAvailabilityStatus.asReadonly(),
+  onStatusChange: vi.fn(() => () => {}),
 };
 
 type GameSyncServicePrivate = {
@@ -104,13 +114,16 @@ describe('GameSyncService', () => {
     };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     TestBed.resetTestingModule();
     networkConnectivityMock.initialize.mockReset();
     networkConnectivityMock.isConnected.mockReset();
     networkConnectivityMock.onConnectedChange.mockReset();
     networkConnectivityMock.isConnected.mockReturnValue(true);
     networkConnectivityMock.onConnectedChange.mockReturnValue(() => {});
+    runtimeAvailabilityStatus.set('online');
+    runtimeAvailabilityMock.onStatusChange.mockReset();
+    runtimeAvailabilityMock.onStatusChange.mockReturnValue(() => {});
 
     TestBed.configureTestingModule({
       providers: [
@@ -125,10 +138,12 @@ describe('GameSyncService', () => {
         PlatformCustomizationService,
         DebugLogService,
         { provide: NetworkConnectivityService, useValue: networkConnectivityMock },
+        { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityMock },
       ],
     });
 
     db = TestBed.inject(AppDb);
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'done' });
     service = TestBed.inject(GameSyncService);
     servicePrivate = service as unknown as GameSyncServicePrivate;
     platformOrderService = TestBed.inject(PlatformOrderService);
@@ -2315,6 +2330,46 @@ describe('GameSyncService', () => {
     expect(settingSpy).toHaveBeenCalledWith(settingChange);
   });
 
+  it('applyPulledChanges batches duplicate identity game upserts without constraint errors', async () => {
+    const changes = [
+      {
+        eventId: '100',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 531,
+          igdbGameId: '194558',
+          platformIgdbId: 6,
+          title: 'First',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '101',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 531,
+          igdbGameId: '194558',
+          platformIgdbId: 6,
+          title: 'Second',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const games = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .toArray();
+    expect(games).toHaveLength(1);
+    expect(games[0]?.title).toBe('Second');
+  });
+
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
     localStorage.removeItem('test-setting');
 
@@ -2544,148 +2599,91 @@ describe('GameSyncService', () => {
     expect(postSpy).not.toHaveBeenCalled();
   });
 
-  it('bootstraps empty install from snapshot and advances cursor', async () => {
-    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
-    const postSpy = vi
-      .spyOn(servicePrivate.httpClient, 'post')
-      .mockImplementation((url: string) => {
-        if (url.endsWith('/v1/sync/snapshot')) {
-          return of({
-            games: [createBaseGame({ igdbGameId: '101', title: 'Bootstrapped' })],
-            gamesNextAfter: null,
-            gamesTotal: 1,
-            tags: [
-              {
-                id: 1,
-                name: 'RPG',
-                color: '#ffffff',
-                createdAt: '2026-01-01T00:00:00.000Z',
-                updatedAt: '2026-01-01T00:00:00.000Z',
-              },
-            ],
-            views: [],
-            settings: [{ key: 'theme', value: 'dark' }],
-            latestEventId: '5000',
-          });
-        }
-
-        return of({ cursor: '5000', changes: [] });
-      });
-
-    await service.syncNow();
-
-    const games = await db.games.toArray();
-    expect(games).toHaveLength(1);
-    expect(games[0]?.title).toBe('Bootstrapped');
-    expect((await db.syncMeta.get('cursor'))?.value).toBe('5000');
-    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
-    expect(localStorage.getItem('theme')).toBe('dark');
-    expect(postSpy).toHaveBeenCalledWith(
-      `${servicePrivate.baseUrl}/v1/sync/snapshot`,
-      expect.objectContaining({ gamesLimit: 500 })
-    );
-    expect(emitChangedSpy).toHaveBeenCalled();
-    expect(syncBootstrapProgress.progress().active).toBe(false);
-  });
-
-  it('reports bootstrap download progress while paginating snapshot games', async () => {
-    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation((url: string, body: unknown) => {
-      if (!url.endsWith('/v1/sync/snapshot')) {
-        return of({ cursor: '42', changes: [] });
-      }
-
-      const request = body as { gamesAfter?: string | null };
-      if (!request.gamesAfter) {
-        expect(syncBootstrapProgress.message()).toBe('Downloading library…');
-        return of({
-          games: [createBaseGame({ igdbGameId: '1', title: 'Page One' })],
-          gamesNextAfter: '1::130',
-          gamesTotal: 2,
-          tags: [],
-          views: [],
-          settings: [],
-          latestEventId: '42',
-        });
-      }
-
-      expect(syncBootstrapProgress.message()).toBe('Downloading library… 1 / 2 games');
+  it('tracks initial load progress while replaying events on fresh install', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
       return of({
-        games: [createBaseGame({ igdbGameId: '2', title: 'Page Two' })],
-        gamesNextAfter: null,
-        gamesTotal: null,
-        tags: [],
-        views: [],
-        settings: [],
-        latestEventId: '42',
+        cursor: '2',
+        changes: [
+          {
+            eventId: '1',
+            entityType: 'game',
+            operation: 'upsert',
+            payload: createBaseGame({ igdbGameId: '10', title: 'Replayed One' }),
+            serverTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            eventId: '2',
+            entityType: 'game',
+            operation: 'upsert',
+            payload: createBaseGame({ igdbGameId: '11', title: 'Replayed Two' }),
+            serverTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+        ],
       });
     });
 
     await service.syncNow();
 
+    expect(await db.games.count()).toBe(2);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
     expect(syncBootstrapProgress.progress().active).toBe(false);
   });
 
-  it('paginates snapshot bootstrap across multiple game pages', async () => {
-    const postSpy = vi
-      .spyOn(servicePrivate.httpClient, 'post')
-      .mockImplementation((url: string, body: unknown) => {
-        if (!url.endsWith('/v1/sync/snapshot')) {
-          return of({ cursor: '42', changes: [] });
-        }
-
-        const request = body as { gamesAfter?: string | null };
-        if (!request.gamesAfter) {
-          return of({
-            games: [createBaseGame({ igdbGameId: '1', title: 'Page One' })],
-            gamesNextAfter: '1::130',
-            gamesTotal: 2,
-            tags: [],
-            views: [],
-            settings: [],
-            latestEventId: '42',
-          });
-        }
-
+  it('starts initial load progress before the first pull response on fresh install', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    let pullRequested = false;
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation((url: string) => {
+      if (url.endsWith('/v1/sync/pull')) {
+        pullRequested = true;
+        expect(syncBootstrapProgress.progress().active).toBe(true);
         return of({
-          games: [createBaseGame({ igdbGameId: '2', title: 'Page Two' })],
-          gamesNextAfter: null,
-          gamesTotal: null,
-          tags: [],
-          views: [],
-          settings: [],
-          latestEventId: '42',
+          cursor: '1',
+          changes: [
+            {
+              eventId: '1',
+              entityType: 'game',
+              operation: 'upsert',
+              payload: createBaseGame({ igdbGameId: '10', title: 'Replayed One' }),
+              serverTimestamp: '2026-01-01T00:00:00.000Z',
+            },
+          ],
         });
-      });
+      }
 
-    await service.syncNow();
-
-    const games = await db.games.toArray();
-    expect(games).toHaveLength(2);
-    expect(postSpy.mock.calls.filter(([url]) => url.endsWith('/v1/sync/snapshot'))).toHaveLength(2);
-  });
-
-  it('does not bootstrap when local games already exist', async () => {
-    await db.games.add({
-      igdbGameId: '9',
-      platformIgdbId: 130,
-      title: 'Existing',
-      platform: 'Switch',
-      listType: 'collection',
-      coverSource: 'none',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      throw new Error(`unexpected url: ${url}`);
     });
 
-    const postSpy = vi
-      .spyOn(servicePrivate.httpClient, 'post')
-      .mockReturnValue(of({ cursor: '0', changes: [] }));
-
     await service.syncNow();
 
-    expect(postSpy.mock.calls.some(([url]) => url.endsWith('/v1/sync/snapshot'))).toBe(false);
+    expect(pullRequested).toBe(true);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(syncBootstrapProgress.progress().active).toBe(false);
   });
 
-  it('does not bootstrap when outbox has pending operations', async () => {
+  it('keeps initial load progress active when pull fails so a retry can finish it', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
+      throw new Error('Local network prohibited');
+    });
+
+    await expect(servicePrivate.pullChanges()).rejects.toThrow('Local network prohibited');
+
+    expect(syncBootstrapProgress.progress().active).toBe(true);
+  });
+
+  it('skips sync when the API is not reachable yet', async () => {
+    runtimeAvailabilityStatus.set('service-unreachable');
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+
+    const started = await servicePrivate.startSyncNowIfPossible();
+
+    expect(started).toBe(false);
+    expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not start initial load progress when outbox has pending operations', async () => {
+    await db.syncMeta.delete('bootstrapV1');
     await db.outbox.add({
       opId: 'pending-op',
       entityType: 'game',
@@ -2697,12 +2695,10 @@ describe('GameSyncService', () => {
       lastError: null,
     });
 
-    const postSpy = vi
-      .spyOn(servicePrivate.httpClient, 'post')
-      .mockReturnValue(of({ results: [], cursor: '0' }));
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ results: [], cursor: '0' }));
 
     await service.syncNow();
 
-    expect(postSpy.mock.calls.some(([url]) => url.endsWith('/v1/sync/snapshot'))).toBe(false);
+    expect(syncBootstrapProgress.progress().active).toBe(false);
   });
 });

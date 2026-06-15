@@ -218,6 +218,18 @@ export function describeStorageEngineContract(
         await engine.clearGames();
         expect(await engine.listAllGames()).toEqual([]);
       });
+
+      it('bulkPutGames dedupes duplicate identities in one batch', async () => {
+        const base = makeContractGame({ igdbGameId: 'dup-game', platformIgdbId: 48 });
+        await engine.bulkPutGames([
+          { ...base, id: undefined, title: 'First' },
+          { ...base, id: 531, title: 'Second' },
+        ]);
+
+        const stored = await engine.getGameByIdentity('dup-game', 48);
+        expect(stored?.title).toBe('Second');
+        expect((await engine.listAllGames()).length).toBe(1);
+      });
     });
 
     describe('tags', () => {

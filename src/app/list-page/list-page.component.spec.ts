@@ -66,6 +66,7 @@ vi.mock('../features/game-detail/detail-websites-modal.component', () => ({
 import { ListPageComponent } from './list-page.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
+import { SyncEventsService } from '../core/services/sync-events.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
@@ -153,6 +154,18 @@ describe('ListPageComponent', () => {
     await Promise.resolve();
   }
 
+  it('dismisses initial list loading when sync reports library changes', () => {
+    const syncEvents = TestBed.inject(SyncEventsService);
+    const component = createComponent();
+
+    expect(component.showInitialListLoading).toBe(true);
+
+    syncEvents.emitChanged();
+
+    expect(component.showInitialListLoading).toBe(false);
+    expect(component.isInitialListLoading).toBe(false);
+  });
+
   it('dismisses initial list loading when game list reports displayed games', () => {
     const component = createComponent();
 
@@ -164,7 +177,7 @@ describe('ListPageComponent', () => {
     expect(component.displayedGames).toEqual([]);
   });
 
-  it('hides initial list loading while snapshot bootstrap progress is active', () => {
+  it('hides initial list loading while bootstrap progress is active', () => {
     const bootstrap = TestBed.inject(SyncBootstrapProgressService);
     bootstrap.start();
 
@@ -172,6 +185,23 @@ describe('ListPageComponent', () => {
 
     expect(component.isInitialListLoading).toBe(true);
     expect(component.showInitialListLoading).toBe(false);
+  });
+
+  it('dismisses initial list loading when initial load progress finishes', () => {
+    const bootstrap = TestBed.inject(SyncBootstrapProgressService);
+    const syncEvents = TestBed.inject(SyncEventsService);
+    const component = createComponent();
+
+    expect(component.showInitialListLoading).toBe(true);
+
+    bootstrap.start();
+    expect(component.showInitialListLoading).toBe(false);
+
+    bootstrap.finish();
+    syncEvents.emitChanged();
+
+    expect(component.showInitialListLoading).toBe(false);
+    expect(component.isInitialListLoading).toBe(false);
   });
 
   it('clears loading immediately when detail hydration fails before identity lookup resolves', async () => {

@@ -79,11 +79,9 @@
 }
 
 <ng-template #listPageContent>
-  <ion-loading
-    [isOpen]="showInitialListLoading"
-    message="Loading games..."
-    spinner="crescent"
-  ></ion-loading>
+  @if (showInitialListLoading) {
+    <ion-loading [isOpen]="true" message="Loading games..." spinner="crescent"></ion-loading>
+  }
 
   <ion-popover
     [isOpen]="isBulkActionsPopoverOpen"

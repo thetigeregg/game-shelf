@@ -175,7 +175,6 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'POST', path: '/v1/roms/refresh' },
     { method: 'POST', path: '/v1/sync/pull' },
     { method: 'POST', path: '/v1/sync/push' },
-    { method: 'POST', path: '/v1/sync/snapshot' },
   ];
 
   assert.deepEqual(uniqueSortedRoutes, expectedRoutes);

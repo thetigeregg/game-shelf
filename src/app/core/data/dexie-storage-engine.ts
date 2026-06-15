@@ -103,7 +103,18 @@ export class DexieStorageEngine implements StorageEngine {
   }
 
   bulkPutGames(games: GameEntry[]): Promise<void> {
-    return this.gamesTable.bulkPut(games).then(() => undefined);
+    const dedupedGames = this.dedupeGamesByIdentity(games);
+    return this.gamesTable.bulkPut(dedupedGames).then(() => undefined);
+  }
+
+  private dedupeGamesByIdentity(games: GameEntry[]): GameEntry[] {
+    const byIdentity = new Map<string, GameEntry>();
+
+    for (const game of games) {
+      byIdentity.set(`${game.igdbGameId}\0${String(game.platformIgdbId)}`, game);
+    }
+
+    return [...byIdentity.values()];
   }
 
   clearGames(): Promise<void> {

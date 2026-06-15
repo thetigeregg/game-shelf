@@ -73,6 +73,22 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.bannerMessage()).toContain('Offline');
   });
 
+  it('notifies listeners when availability status changes', async () => {
+    const listener = vi.fn();
+    const unsubscribe = service.onStatusChange(listener);
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () =>
+        Promise.resolve('window.__GAME_SHELF_RUNTIME_CONFIG__ = { appVersion: "1.0.0" };'),
+    });
+
+    await service.refresh();
+
+    expect(listener).toHaveBeenCalledWith('online');
+    unsubscribe();
+  });
+
   it('marks the app as service-unreachable when the runtime config probe fails', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('network failed'));
 

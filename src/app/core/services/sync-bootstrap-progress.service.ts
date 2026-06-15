@@ -36,14 +36,14 @@ export class SyncBootstrapProgressService {
     const loadedLabel = formatCount(current.gamesLoaded);
 
     if (current.gamesTotal !== null && current.gamesTotal > 0) {
-      return `Downloading library… ${loadedLabel} / ${formatCount(current.gamesTotal)} games`;
+      return `Loading library… ${loadedLabel} / ${formatCount(current.gamesTotal)} games`;
     }
 
     if (current.gamesLoaded > 0) {
-      return `Downloading library… ${loadedLabel} games`;
+      return `Loading library… ${loadedLabel} games`;
     }
 
-    return 'Downloading library…';
+    return 'Loading library…';
   });
 
   readonly progressRatio = computed((): number | null => {

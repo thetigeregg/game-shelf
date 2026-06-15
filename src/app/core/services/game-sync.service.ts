@@ -29,8 +29,9 @@ import { normalizeHttpError } from '../utils/normalize-http-error';
 import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
-import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { NetworkConnectivityService } from './network-connectivity.service';
+import { PreferenceStorageService } from '../storage/preference-storage.service';
+import { RuntimeAvailabilityService } from './runtime-availability.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -40,16 +41,6 @@ interface SyncPushResponse {
 interface SyncPullResponse {
   cursor: string;
   changes: SyncChangeEvent[];
-}
-
-interface SyncSnapshotResponse {
-  games: unknown[];
-  gamesNextAfter: string | null;
-  tags: Partial<Tag>[];
-  views: Partial<GameListView>[];
-  settings: { key: string; value: string }[];
-  latestEventId: string;
-  gamesTotal: number | null;
 }
 
 interface PulledGameNormalizeContext {
@@ -96,6 +87,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly debugLogService = inject(DebugLogService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly networkConnectivity = inject(NetworkConnectivityService);
+  private readonly runtimeAvailability = inject(RuntimeAvailabilityService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -125,6 +117,12 @@ export class GameSyncService implements SyncOutboxWriter {
       void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'offline');
     });
 
+    this.runtimeAvailability.onStatusChange((status) => {
+      if (status === 'online') {
+        void this.syncNow();
+      }
+    });
+
     if (typeof window !== 'undefined') {
       this.intervalId = window.setInterval(() => {
         void this.syncNow();
@@ -143,7 +141,7 @@ export class GameSyncService implements SyncOutboxWriter {
         });
       })
       .finally(() => {
-        void this.syncNow();
+        void this.beginInitialLoadProgressIfNeeded().then(() => this.syncNow());
       });
   }
 
@@ -274,6 +272,11 @@ export class GameSyncService implements SyncOutboxWriter {
       return false;
     }
 
+    if (!this.isApiReachable()) {
+      this.debugLogService.debug('sync.sync_now.skipped_unreachable');
+      return false;
+    }
+
     this.debugLogService.debug('sync.sync_now.start');
     this.syncInFlight = true;
 
@@ -283,10 +286,8 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async runSyncNow(): Promise<void> {
     try {
+      await this.beginInitialLoadProgressIfNeeded();
       await this.pushOutbox();
-      if (await this.shouldBootstrapSnapshot()) {
-        await this.bootstrapFromSnapshot();
-      }
       await this.pullChanges();
       await this.replayRecentChangesIfDue().catch((error: unknown) => {
         this.debugLogService.error('sync.pull.recent_replay_failed', {
@@ -413,65 +414,91 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async pullChanges(): Promise<void> {
+    const trackInitialLoad = await this.shouldTrackInitialLoadProgress();
+    if (trackInitialLoad) {
+      await this.beginInitialLoadProgressIfNeeded();
+    }
     let cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
     let pagesPulled = 0;
     let totalAppliedChanges = 0;
+    let caughtUp = false;
 
-    while (pagesPulled < GameSyncService.SYNC_PULL_MAX_PAGES_PER_RUN) {
-      this.debugLogService.debug('sync.pull.request', {
-        hasCursor: Boolean(cursor),
-        cursor,
-        pagesPulled,
-      });
-      const response = await firstValueFrom(
-        this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-          cursor: cursor ?? null,
-        })
-      );
-      const changes = Array.isArray(response.changes) ? response.changes : [];
-      const responseCursor =
-        typeof response.cursor === 'string' && response.cursor.trim().length > 0
-          ? response.cursor.trim()
-          : null;
+    try {
+      while (pagesPulled < GameSyncService.SYNC_PULL_MAX_PAGES_PER_RUN) {
+        this.debugLogService.debug('sync.pull.request', {
+          hasCursor: Boolean(cursor),
+          cursor,
+          pagesPulled,
+        });
+        const response = await firstValueFrom(
+          this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
+            cursor: cursor ?? null,
+          })
+        );
 
-      this.debugLogService.debug('sync.pull.response', {
-        changes: changes.length,
-        hasCursor: responseCursor !== null,
-        requestedCursor: cursor,
-        responseCursor,
-      });
+        const changes = Array.isArray(response.changes) ? response.changes : [];
+        const responseCursor =
+          typeof response.cursor === 'string' && response.cursor.trim().length > 0
+            ? response.cursor.trim()
+            : null;
 
-      if (changes.length === 0) {
-        if (responseCursor !== null) {
-          await this.setMeta(GameSyncService.META_CURSOR_KEY, responseCursor);
+        this.debugLogService.debug('sync.pull.response', {
+          changes: changes.length,
+          hasCursor: responseCursor !== null,
+          requestedCursor: cursor,
+          responseCursor,
+        });
+
+        if (changes.length === 0) {
+          if (responseCursor !== null) {
+            await this.setMeta(GameSyncService.META_CURSOR_KEY, responseCursor);
+          }
+          caughtUp = true;
+          break;
         }
-        break;
+
+        await this.applyPulledChanges(changes);
+
+        if (this.syncBootstrapProgress.progress().active) {
+          const gameCount = await this.engine.countGames();
+          this.syncBootstrapProgress.updateGamesLoaded(gameCount);
+        }
+
+        const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
+        await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
+        totalAppliedChanges += changes.length;
+        pagesPulled += 1;
+
+        if (changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
+          caughtUp = true;
+          break;
+        }
+
+        if (cursor === nextCursor) {
+          caughtUp = true;
+          break;
+        }
+
+        cursor = nextCursor;
       }
 
-      await this.applyPulledChanges(changes);
-
-      const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
-      await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
-      totalAppliedChanges += changes.length;
-      pagesPulled += 1;
-
-      if (changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
-        break;
+      if (totalAppliedChanges > 0) {
+        this.syncEvents.emitChanged();
+        this.debugLogService.debug('sync.pull.applied', {
+          changes: totalAppliedChanges,
+          pagesPulled,
+        });
       }
 
-      if (cursor === nextCursor) {
-        break;
+      if (caughtUp) {
+        await this.completeInitialLibraryLoadIfPending();
       }
-
-      cursor = nextCursor;
-    }
-
-    if (totalAppliedChanges > 0) {
-      this.syncEvents.emitChanged();
-      this.debugLogService.debug('sync.pull.applied', {
-        changes: totalAppliedChanges,
-        pagesPulled,
-      });
+    } catch (error: unknown) {
+      throw error;
+    } finally {
+      if (caughtUp && this.syncBootstrapProgress.progress().active) {
+        this.syncBootstrapProgress.finish();
+      }
     }
   }
 
@@ -619,7 +646,23 @@ export class GameSyncService implements SyncOutboxWriter {
               );
 
               if (prepared) {
-                pendingGameUpserts.push(prepared);
+                const preparedIdentityKey = this.buildGameIdentityKey(
+                  prepared.igdbGameId,
+                  prepared.platformIgdbId
+                );
+                const pendingIndex = pendingGameUpserts.findIndex(
+                  (game) =>
+                    this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId) ===
+                    preparedIdentityKey
+                );
+
+                if (pendingIndex >= 0) {
+                  pendingGameUpserts[pendingIndex] = prepared;
+                } else {
+                  pendingGameUpserts.push(prepared);
+                }
+
+                identityCache.set(preparedIdentityKey, prepared);
               }
               continue;
             }
@@ -846,7 +889,7 @@ export class GameSyncService implements SyncOutboxWriter {
       serverIdCanBeReused,
     });
 
-    if (existingByIdentity === undefined && serverId !== null && normalized.id === serverId) {
+    if (existingByIdentity?.id === undefined && normalized.id !== undefined) {
       return {
         ...normalized,
         id: undefined,
@@ -1531,6 +1574,10 @@ export class GameSyncService implements SyncOutboxWriter {
     return this.networkConnectivity.isConnected();
   }
 
+  private isApiReachable(): boolean {
+    return this.runtimeAvailability.status() === 'online';
+  }
+
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
@@ -1794,35 +1841,17 @@ export class GameSyncService implements SyncOutboxWriter {
     return normalized;
   }
 
-  private normalizeSnapshotGame(raw: unknown): GameEntry | null {
-    if (!raw || typeof raw !== 'object') {
-      return null;
+  private async beginInitialLoadProgressIfNeeded(): Promise<void> {
+    if (this.syncBootstrapProgress.progress().active) {
+      return;
     }
 
-    const payload = raw as Partial<GameEntry>;
-    const pulledListType = typeof payload.listType === 'string' ? payload.listType.trim() : '';
-
-    if (pulledListType === 'discovery') {
-      return null;
+    if (await this.isInitialLibraryLoadPending()) {
+      this.syncBootstrapProgress.start();
     }
-
-    const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
-    const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
-
-    if (!igdbGameId || platformIgdbId === null) {
-      return null;
-    }
-
-    const serverId = this.parsePositiveInteger(payload.id);
-
-    return this.normalizePulledGamePayload(payload, pulledListType, {
-      hasPendingLocalWrite: false,
-      serverId,
-      serverIdCanBeReused: serverId !== null,
-    });
   }
 
-  private async shouldBootstrapSnapshot(): Promise<boolean> {
+  private async isInitialLibraryLoadPending(): Promise<boolean> {
     const bootstrapMarker = await this.getMeta(GameSyncService.META_BOOTSTRAP_KEY);
 
     if (bootstrapMarker === 'done') {
@@ -1833,154 +1862,24 @@ export class GameSyncService implements SyncOutboxWriter {
       return false;
     }
 
-    if ((await this.engine.countGames()) > 0) {
-      return false;
-    }
-
-    const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
-
-    if (cursor !== null) {
-      return false;
-    }
-
     return true;
   }
 
-  private fetchSyncSnapshotPage(gamesAfter: string | null): Promise<SyncSnapshotResponse> {
-    return firstValueFrom(
-      this.httpClient.post<SyncSnapshotResponse>(`${this.baseUrl}/v1/sync/snapshot`, {
-        gamesAfter,
-        gamesLimit: 500,
-      })
-    );
-  }
-
-  private async bootstrapFromSnapshot(): Promise<void> {
-    const startedAt = Date.now();
-    let gamesAfter: string | null = null;
-    let totalGames = 0;
-    let latestEventId = '0';
-    let snapshotTags: Tag[] = [];
-    let snapshotViews: GameListView[] = [];
-    let snapshotSettings: { key: string; value: string }[] = [];
-    let hasMoreGames = true;
-
-    this.syncBootstrapProgress.start();
-
-    try {
-      while (hasMoreGames) {
-        const response = await this.fetchSyncSnapshotPage(gamesAfter);
-
-        latestEventId = response.latestEventId;
-
-        if (gamesAfter === null) {
-          this.syncBootstrapProgress.setGamesTotal(response.gamesTotal ?? null);
-          snapshotTags = response.tags
-            .map((tag) => this.normalizeSnapshotTag(tag))
-            .filter((tag): tag is Tag => tag !== null);
-          snapshotViews = response.views
-            .map((view) => this.normalizeSnapshotView(view))
-            .filter((view): view is GameListView => view !== null);
-          snapshotSettings = response.settings;
-        }
-
-        const normalizedGames = response.games
-          .map((game) => this.normalizeSnapshotGame(game))
-          .filter((game): game is GameEntry => game !== null);
-
-        if (normalizedGames.length > 0) {
-          await this.engine.runInTransaction(['games'], async () => {
-            await this.engine.bulkPutGames(normalizedGames);
-          });
-        }
-
-        totalGames += normalizedGames.length;
-        this.syncBootstrapProgress.updateGamesLoaded(totalGames);
-
-        if (!response.gamesNextAfter) {
-          hasMoreGames = false;
-          continue;
-        }
-
-        gamesAfter = response.gamesNextAfter;
-      }
-
-      this.syncBootstrapProgress.startMetadataPhase();
-
-      await this.engine.runInTransaction(['tags', 'views', 'syncMeta'], async () => {
-        if (snapshotTags.length > 0) {
-          await this.engine.bulkPutTags(snapshotTags);
-        }
-
-        if (snapshotViews.length > 0) {
-          await this.engine.bulkPutViews(snapshotViews);
-        }
-
-        for (const setting of snapshotSettings) {
-          this.applySettingChange({
-            eventId: 'snapshot',
-            entityType: 'setting',
-            operation: 'upsert',
-            payload: { key: setting.key, value: setting.value },
-            serverTimestamp: new Date().toISOString(),
-          });
-        }
-
-        await this.setMeta(GameSyncService.META_CURSOR_KEY, latestEventId);
-        await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
-      });
-
-      this.syncEvents.emitChanged();
-      this.debugLogService.info('sync.bootstrap.completed', {
-        games: totalGames,
-        tags: snapshotTags.length,
-        views: snapshotViews.length,
-        settings: snapshotSettings.length,
-        latestEventId,
-        durationMs: Date.now() - startedAt,
-      });
-    } finally {
-      this.syncBootstrapProgress.finish();
-    }
-  }
-
-  private normalizeSnapshotTag(raw: Partial<Tag>): Tag | null {
-    const id = this.parsePositiveInteger(raw.id);
-
-    if (id === null) {
-      return null;
+  private async shouldTrackInitialLoadProgress(): Promise<boolean> {
+    if (this.syncBootstrapProgress.progress().active) {
+      return true;
     }
 
-    return {
-      id,
-      name:
-        typeof raw.name === 'string' && raw.name.trim().length > 0
-          ? raw.name.trim()
-          : `Tag ${String(id)}`,
-      color:
-        typeof raw.color === 'string' && raw.color.trim().length > 0 ? raw.color.trim() : '#3880ff',
-      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
-      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
-    };
+    return this.isInitialLibraryLoadPending();
   }
 
-  private normalizeSnapshotView(raw: Partial<GameListView>): GameListView | null {
-    const id = this.parsePositiveInteger(raw.id);
-
-    if (id === null) {
-      return null;
+  private async completeInitialLibraryLoadIfPending(): Promise<void> {
+    if (!(await this.isInitialLibraryLoadPending())) {
+      return;
     }
 
-    return {
-      id,
-      name:
-        typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name.trim() : 'Saved View',
-      listType: raw.listType === 'wishlist' ? 'wishlist' : 'collection',
-      filters: raw.filters ?? { ...DEFAULT_GAME_LIST_FILTERS },
-      groupBy: raw.groupBy ?? 'none',
-      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
-      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
-    };
+    await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
+    this.syncEvents.emitChanged();
   }
 
   private generateOperationId(): string {

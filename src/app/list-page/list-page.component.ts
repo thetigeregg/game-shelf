@@ -1,7 +1,7 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
@@ -64,6 +64,7 @@ import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
+import { SyncEventsService } from '../core/services/sync-events.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
   normalizeGameRatingFilterList,
@@ -235,6 +236,7 @@ export class ListPageComponent {
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private receivedInitialListSnapshot = false;
+  private initialLoadProgressWasActive = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
@@ -255,6 +257,23 @@ export class ListPageComponent {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
     });
+    toObservable(this.syncBootstrapProgress.progress)
+      .pipe(takeUntilDestroyed())
+      .subscribe((progress) => {
+        if (progress.active) {
+          this.initialLoadProgressWasActive = true;
+          return;
+        }
+
+        if (this.initialLoadProgressWasActive) {
+          this.finishInitialListLoading();
+        }
+      });
+    inject(SyncEventsService)
+      .changed$.pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.finishInitialListLoading();
+      });
     addIcons({
       close,
       filter,
@@ -510,7 +529,11 @@ export class ListPageComponent {
   }
 
   get showInitialListLoading(): boolean {
-    return this.isInitialListLoading && !this.syncBootstrapProgress.progress().active;
+    if (this.syncBootstrapProgress.progress().active) {
+      return false;
+    }
+
+    return this.isInitialListLoading;
   }
 
   private finishInitialListLoading(): void {

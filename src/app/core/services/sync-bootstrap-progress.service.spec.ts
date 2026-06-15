@@ -15,11 +15,11 @@ describe('SyncBootstrapProgressService', () => {
 
     service.start();
     expect(service.progress().active).toBe(true);
-    expect(service.message()).toBe('Downloading library…');
+    expect(service.message()).toBe('Loading library…');
 
     service.setGamesTotal(3200);
     service.updateGamesLoaded(500);
-    expect(service.message()).toBe('Downloading library… 500 / 3,200 games');
+    expect(service.message()).toBe('Loading library… 500 / 3,200 games');
     expect(service.progressRatio()).toBeCloseTo(500 / 3200);
 
     service.startMetadataPhase();
@@ -35,7 +35,7 @@ describe('SyncBootstrapProgressService', () => {
     service.start();
     service.updateGamesLoaded(750);
 
-    expect(service.message()).toBe('Downloading library… 750 games');
+    expect(service.message()).toBe('Loading library… 750 games');
     expect(service.progressRatio()).toBeNull();
   });
 

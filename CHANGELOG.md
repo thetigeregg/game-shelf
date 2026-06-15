@@ -3784,3 +3784,11 @@
 - 135cba2d fix(ios): apply match manual signing before App PROD archive
 - 0f2a1c2d Merge branch 'main' into feat/fix
 - 725620f1 fix(ios): remove invalid require_create from setup_ci
+
+## v1.60.1 - 2026-06-15
+
+- 79301ddd Merge pull request #439 from thetigeregg/feat/fix
+- c853e814 Merge branch 'main' into feat/fix
+- 49bcb331 chore(deps): upgrade plist to v5.0.0 in package.json and package-lock.json
+- e129b330 chore(deps): update dompurify to v3.4.10, eslint to v10.5.0
+- e97c820b chore(deps): upgrade plist to v5

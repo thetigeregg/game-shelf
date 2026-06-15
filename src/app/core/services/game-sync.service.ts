@@ -1861,6 +1861,19 @@ export class GameSyncService implements SyncOutboxWriter {
       return false;
     }
 
+    // Upgraded users won't have bootstrapV1 yet. A cursor or local games means
+    // this is not a fresh install — backfill the marker to skip this check next time.
+    const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
+    if (cursor !== null) {
+      await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
+      return false;
+    }
+
+    if ((await this.engine.countGames()) > 0) {
+      await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
+      return false;
+    }
+
     return true;
   }
 

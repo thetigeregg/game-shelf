@@ -2701,4 +2701,37 @@ describe('GameSyncService', () => {
 
     expect(syncBootstrapProgress.progress().active).toBe(false);
   });
+
+  it('does not start initial load progress when an existing sync cursor is present (upgraded user)', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    await db.syncMeta.put({ key: 'cursor', value: '42', updatedAt: '2026-01-01T00:00:00.000Z' });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '43', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
+
+  it('does not start initial load progress when local games already exist (upgraded user)', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    await db.games.add({
+      igdbGameId: 'existing-1',
+      platformIgdbId: 6,
+      title: 'Pre-existing Game',
+      platform: 'PC',
+      listType: 'collection',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '1', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
 });

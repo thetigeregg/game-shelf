@@ -911,6 +911,14 @@
             Upload custom image
           </ion-button>
         </ion-item>
+        @if (editMetadataCustomCoverPreview) {
+          <ion-item lines="none">
+            <img
+              [src]="editMetadataCustomCoverPreview"
+              style="width: 33%; height: auto; display: block"
+            />
+          </ion-item>
+        }
         <ion-item lines="none">
           <ion-button
             expand="block"

@@ -476,6 +476,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   editMetadataTitle = '';
   editMetadataPlatformIgdbId: number | null = null;
   editMetadataPlatformOptions: GameCatalogPlatformOption[] = [];
+  editMetadataCustomCoverPreview: string | null = null;
   isManualPickerModalOpen = false;
   isManualPickerLoading = false;
   manualPickerQuery = '';
@@ -1993,6 +1994,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         normalizedImage.dataUrl
       );
       this.applyUpdatedGame(updated, { refreshCover: true });
+      this.editMetadataCustomCoverPreview = normalizedImage.dataUrl;
       await this.presentToast(
         normalizedImage.compressed
           ? 'Custom image compressed and updated.'
@@ -2242,6 +2244,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const displayPlatform = this.getGameDisplayPlatform(game);
     this.editMetadataTitle = this.getGameDisplayTitle(game);
     this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(displayPlatform.igdbId);
+    this.editMetadataCustomCoverPreview = null;
     this.isEditMetadataModalOpen = true;
     this.changeDetectorRef.markForCheck();
   }
@@ -2252,6 +2255,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.editMetadataTitle = '';
     this.editMetadataPlatformIgdbId = null;
     this.editMetadataPlatformOptions = [];
+    this.editMetadataCustomCoverPreview = null;
     this.changeDetectorRef.markForCheck();
   }
 

@@ -7,6 +7,7 @@ import { AppDb } from '../data/app-db';
 import { DexieStorageEngine } from '../data/dexie-storage-engine';
 import { STORAGE_ENGINE } from '../data/storage-engine';
 import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
+import { SyncBootstrapProgressService } from './sync-bootstrap-progress.service';
 import { DebugLogService } from './debug-log.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
@@ -85,6 +86,7 @@ describe('GameSyncService', () => {
   let servicePrivate: GameSyncServicePrivate;
   let platformOrderService: PlatformOrderService;
   let platformCustomizationService: PlatformCustomizationService;
+  let syncBootstrapProgress: SyncBootstrapProgressService;
 
   function createBaseGame(
     overrides: Partial<Record<string, unknown>> = {}
@@ -118,6 +120,7 @@ describe('GameSyncService', () => {
         { provide: STORAGE_ENGINE, useExisting: DexieStorageEngine },
         GameSyncService,
         SyncEventsService,
+        SyncBootstrapProgressService,
         PlatformOrderService,
         PlatformCustomizationService,
         DebugLogService,
@@ -130,6 +133,7 @@ describe('GameSyncService', () => {
     servicePrivate = service as unknown as GameSyncServicePrivate;
     platformOrderService = TestBed.inject(PlatformOrderService);
     platformCustomizationService = TestBed.inject(PlatformCustomizationService);
+    syncBootstrapProgress = TestBed.inject(SyncBootstrapProgressService);
   });
 
   afterEach(async () => {
@@ -2549,6 +2553,7 @@ describe('GameSyncService', () => {
           return of({
             games: [createBaseGame({ igdbGameId: '101', title: 'Bootstrapped' })],
             gamesNextAfter: null,
+            gamesTotal: 1,
             tags: [
               {
                 id: 1,
@@ -2580,6 +2585,44 @@ describe('GameSyncService', () => {
       expect.objectContaining({ gamesLimit: 500 })
     );
     expect(emitChangedSpy).toHaveBeenCalled();
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('reports bootstrap download progress while paginating snapshot games', async () => {
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation((url: string, body: unknown) => {
+      if (!url.endsWith('/v1/sync/snapshot')) {
+        return of({ cursor: '42', changes: [] });
+      }
+
+      const request = body as { gamesAfter?: string | null };
+      if (!request.gamesAfter) {
+        expect(syncBootstrapProgress.message()).toBe('Downloading library…');
+        return of({
+          games: [createBaseGame({ igdbGameId: '1', title: 'Page One' })],
+          gamesNextAfter: '1::130',
+          gamesTotal: 2,
+          tags: [],
+          views: [],
+          settings: [],
+          latestEventId: '42',
+        });
+      }
+
+      expect(syncBootstrapProgress.message()).toBe('Downloading library… 1 / 2 games');
+      return of({
+        games: [createBaseGame({ igdbGameId: '2', title: 'Page Two' })],
+        gamesNextAfter: null,
+        gamesTotal: null,
+        tags: [],
+        views: [],
+        settings: [],
+        latestEventId: '42',
+      });
+    });
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
   });
 
   it('paginates snapshot bootstrap across multiple game pages', async () => {
@@ -2595,6 +2638,7 @@ describe('GameSyncService', () => {
           return of({
             games: [createBaseGame({ igdbGameId: '1', title: 'Page One' })],
             gamesNextAfter: '1::130',
+            gamesTotal: 2,
             tags: [],
             views: [],
             settings: [],
@@ -2605,6 +2649,7 @@ describe('GameSyncService', () => {
         return of({
           games: [createBaseGame({ igdbGameId: '2', title: 'Page Two' })],
           gamesNextAfter: null,
+          gamesTotal: null,
           tags: [],
           views: [],
           settings: [],

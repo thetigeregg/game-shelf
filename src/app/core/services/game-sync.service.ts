@@ -17,6 +17,7 @@ import {
 } from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
+import { SyncBootstrapProgressService } from './sync-bootstrap-progress.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from './platform-order.service';
 import {
   PlatformCustomizationService,
@@ -48,6 +49,7 @@ interface SyncSnapshotResponse {
   views: Partial<GameListView>[];
   settings: { key: string; value: string }[];
   latestEventId: string;
+  gamesTotal: number | null;
 }
 
 interface PulledGameNormalizeContext {
@@ -87,6 +89,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly engine = inject(STORAGE_ENGINE);
   private readonly httpClient = inject(HttpClient);
   private readonly syncEvents = inject(SyncEventsService);
+  private readonly syncBootstrapProgress = inject(SyncBootstrapProgressService);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
@@ -1862,73 +1865,83 @@ export class GameSyncService implements SyncOutboxWriter {
     let snapshotSettings: { key: string; value: string }[] = [];
     let hasMoreGames = true;
 
-    while (hasMoreGames) {
-      const response = await this.fetchSyncSnapshotPage(gamesAfter);
+    this.syncBootstrapProgress.start();
 
-      latestEventId = response.latestEventId;
+    try {
+      while (hasMoreGames) {
+        const response = await this.fetchSyncSnapshotPage(gamesAfter);
 
-      if (gamesAfter === null) {
-        snapshotTags = response.tags
-          .map((tag) => this.normalizeSnapshotTag(tag))
-          .filter((tag): tag is Tag => tag !== null);
-        snapshotViews = response.views
-          .map((view) => this.normalizeSnapshotView(view))
-          .filter((view): view is GameListView => view !== null);
-        snapshotSettings = response.settings;
+        latestEventId = response.latestEventId;
+
+        if (gamesAfter === null) {
+          this.syncBootstrapProgress.setGamesTotal(response.gamesTotal ?? null);
+          snapshotTags = response.tags
+            .map((tag) => this.normalizeSnapshotTag(tag))
+            .filter((tag): tag is Tag => tag !== null);
+          snapshotViews = response.views
+            .map((view) => this.normalizeSnapshotView(view))
+            .filter((view): view is GameListView => view !== null);
+          snapshotSettings = response.settings;
+        }
+
+        const normalizedGames = response.games
+          .map((game) => this.normalizeSnapshotGame(game))
+          .filter((game): game is GameEntry => game !== null);
+
+        if (normalizedGames.length > 0) {
+          await this.engine.runInTransaction(['games'], async () => {
+            await this.engine.bulkPutGames(normalizedGames);
+          });
+        }
+
+        totalGames += normalizedGames.length;
+        this.syncBootstrapProgress.updateGamesLoaded(totalGames);
+
+        if (!response.gamesNextAfter) {
+          hasMoreGames = false;
+          continue;
+        }
+
+        gamesAfter = response.gamesNextAfter;
       }
 
-      const normalizedGames = response.games
-        .map((game) => this.normalizeSnapshotGame(game))
-        .filter((game): game is GameEntry => game !== null);
+      this.syncBootstrapProgress.startMetadataPhase();
 
-      if (normalizedGames.length > 0) {
-        await this.engine.runInTransaction(['games'], async () => {
-          await this.engine.bulkPutGames(normalizedGames);
-        });
-      }
+      await this.engine.runInTransaction(['tags', 'views', 'syncMeta'], async () => {
+        if (snapshotTags.length > 0) {
+          await this.engine.bulkPutTags(snapshotTags);
+        }
 
-      totalGames += normalizedGames.length;
+        if (snapshotViews.length > 0) {
+          await this.engine.bulkPutViews(snapshotViews);
+        }
 
-      if (!response.gamesNextAfter) {
-        hasMoreGames = false;
-        continue;
-      }
+        for (const setting of snapshotSettings) {
+          this.applySettingChange({
+            eventId: 'snapshot',
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key: setting.key, value: setting.value },
+            serverTimestamp: new Date().toISOString(),
+          });
+        }
 
-      gamesAfter = response.gamesNextAfter;
+        await this.setMeta(GameSyncService.META_CURSOR_KEY, latestEventId);
+        await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
+      });
+
+      this.syncEvents.emitChanged();
+      this.debugLogService.info('sync.bootstrap.completed', {
+        games: totalGames,
+        tags: snapshotTags.length,
+        views: snapshotViews.length,
+        settings: snapshotSettings.length,
+        latestEventId,
+        durationMs: Date.now() - startedAt,
+      });
+    } finally {
+      this.syncBootstrapProgress.finish();
     }
-
-    await this.engine.runInTransaction(['tags', 'views', 'syncMeta'], async () => {
-      if (snapshotTags.length > 0) {
-        await this.engine.bulkPutTags(snapshotTags);
-      }
-
-      if (snapshotViews.length > 0) {
-        await this.engine.bulkPutViews(snapshotViews);
-      }
-
-      for (const setting of snapshotSettings) {
-        this.applySettingChange({
-          eventId: 'snapshot',
-          entityType: 'setting',
-          operation: 'upsert',
-          payload: { key: setting.key, value: setting.value },
-          serverTimestamp: new Date().toISOString(),
-        });
-      }
-
-      await this.setMeta(GameSyncService.META_CURSOR_KEY, latestEventId);
-      await this.setMeta(GameSyncService.META_BOOTSTRAP_KEY, 'done');
-    });
-
-    this.syncEvents.emitChanged();
-    this.debugLogService.info('sync.bootstrap.completed', {
-      games: totalGames,
-      tags: snapshotTags.length,
-      views: snapshotViews.length,
-      settings: snapshotSettings.length,
-      latestEventId,
-      durationMs: Date.now() - startedAt,
-    });
   }
 
   private normalizeSnapshotTag(raw: Partial<Tag>): Tag | null {

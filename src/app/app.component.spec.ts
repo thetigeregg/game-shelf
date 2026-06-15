@@ -16,6 +16,7 @@ vi.mock('@ionic/angular/standalone', () => {
     ToastController: ToastControllerToken,
     IonApp: Dummy,
     IonRouterOutlet: Dummy,
+    IonProgressBar: Dummy,
   };
 });
 

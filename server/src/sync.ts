@@ -235,24 +235,39 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       LIMIT $1
       `;
 
-      const [gamesResult, latestCursorResult, tagsResult, viewsResult, settingsResult] =
-        await Promise.all([
-          pool.query<GameSnapshotRow>(gamesSql, gameParams),
-          pool.query<LatestCursorRow>(
-            'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
-          ),
-          includeMetadata
-            ? pool.query<TagSnapshotRow>('SELECT id, payload FROM tags ORDER BY id ASC')
-            : Promise.resolve({ rows: [] as TagSnapshotRow[] }),
-          includeMetadata
-            ? pool.query<ViewSnapshotRow>('SELECT id, payload FROM views ORDER BY id ASC')
-            : Promise.resolve({ rows: [] as ViewSnapshotRow[] }),
-          includeMetadata
-            ? pool.query<SettingSnapshotRow>(
-                'SELECT setting_key, setting_value FROM settings ORDER BY setting_key ASC'
-              )
-            : Promise.resolve({ rows: [] as SettingSnapshotRow[] }),
-        ]);
+      const [
+        gamesResult,
+        gamesTotalResult,
+        latestCursorResult,
+        tagsResult,
+        viewsResult,
+        settingsResult,
+      ] = await Promise.all([
+        pool.query<GameSnapshotRow>(gamesSql, gameParams),
+        includeMetadata
+          ? pool.query<{ count: number }>(
+              `
+              SELECT COUNT(*)::int AS count
+              FROM games
+              WHERE COALESCE(payload->>'listType', '') <> 'discovery'
+              `
+            )
+          : Promise.resolve({ rows: [] as { count: number }[] }),
+        pool.query<LatestCursorRow>(
+          'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
+        ),
+        includeMetadata
+          ? pool.query<TagSnapshotRow>('SELECT id, payload FROM tags ORDER BY id ASC')
+          : Promise.resolve({ rows: [] as TagSnapshotRow[] }),
+        includeMetadata
+          ? pool.query<ViewSnapshotRow>('SELECT id, payload FROM views ORDER BY id ASC')
+          : Promise.resolve({ rows: [] as ViewSnapshotRow[] }),
+        includeMetadata
+          ? pool.query<SettingSnapshotRow>(
+              'SELECT setting_key, setting_value FROM settings ORDER BY setting_key ASC'
+            )
+          : Promise.resolve({ rows: [] as SettingSnapshotRow[] }),
+      ]);
 
       const games = gamesResult.rows.slice(0, gamesLimit).map((row) => row.payload);
       const pageRows = gamesResult.rows.slice(0, gamesLimit);
@@ -266,10 +281,14 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       const latestEventId = String(
         parseNonNegativeInteger(latestCursorResult.rows[0]?.event_id) ?? 0
       );
+      const gamesTotal = includeMetadata
+        ? (parseNonNegativeInteger(gamesTotalResult.rows[0]?.count) ?? 0)
+        : null;
 
       reply.send({
         games,
         gamesNextAfter,
+        gamesTotal,
         tags: tagsResult.rows.map((row) => ({ ...row.payload, id: row.id })),
         views: viewsResult.rows.map((row) => ({ ...row.payload, id: row.id })),
         settings: settingsResult.rows.map((row) => ({

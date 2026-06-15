@@ -36,6 +36,7 @@ type SyncPullResponseBody = {
 type SyncSnapshotResponseBody = {
   games: Record<string, unknown>[];
   gamesNextAfter: string | null;
+  gamesTotal: number | null;
   tags: Record<string, unknown>[];
   views: Record<string, unknown>[];
   settings: { key: string; value: string }[];
@@ -198,6 +199,16 @@ class CoverageSyncPool {
 
     if (normalized.startsWith('select igdb_game_id, platform_igdb_id, payload from games')) {
       return Promise.resolve({ rows: this.listSnapshotGames(params) });
+    }
+
+    if (
+      normalized.startsWith('select count(*)::int as count from games') ||
+      normalized.startsWith('select count(*) as count from games')
+    ) {
+      const count = [...this.store.games.values()].filter(
+        (payload) => payload['listType'] !== 'discovery'
+      ).length;
+      return Promise.resolve({ rows: [{ count }] });
     }
 
     if (normalized.startsWith('select id, payload from tags order by id asc')) {
@@ -1048,6 +1059,7 @@ void test('sync snapshot returns empty library with latest event cursor', async 
   const body = parseJson(response.body) as SyncSnapshotResponseBody;
   assert.equal(body.games.length, 0);
   assert.equal(body.gamesNextAfter, null);
+  assert.equal(body.gamesTotal, 0);
   assert.equal(body.latestEventId, '42');
 
   await app.close();
@@ -1095,6 +1107,7 @@ void test('sync snapshot excludes discovery games and paginates by identity curs
   assert.equal(firstBody.games.length, 1);
   assert.equal(firstBody.games[0]?.title, 'Alpha');
   assert.equal(firstBody.gamesNextAfter, '1::10');
+  assert.equal(firstBody.gamesTotal, 2);
   assert.equal(firstBody.tags.length, 1);
   assert.equal(firstBody.views.length, 1);
   assert.equal(firstBody.settings.length, 1);
@@ -1110,6 +1123,7 @@ void test('sync snapshot excludes discovery games and paginates by identity curs
   assert.equal(secondBody.games.length, 1);
   assert.equal(secondBody.games[0]?.title, 'Beta');
   assert.equal(secondBody.gamesNextAfter, null);
+  assert.equal(secondBody.gamesTotal, null);
   assert.equal(secondBody.tags.length, 0);
   assert.equal(secondBody.views.length, 0);
   assert.equal(secondBody.settings.length, 0);
@@ -1138,6 +1152,7 @@ void test('sync snapshot returns empty library with latest event cursor', async 
   const body = parseJson(response.body) as SyncSnapshotResponseBody;
   assert.equal(body.games.length, 0);
   assert.equal(body.gamesNextAfter, null);
+  assert.equal(body.gamesTotal, 0);
   assert.equal(body.latestEventId, '42');
 
   await app.close();
@@ -1185,6 +1200,7 @@ void test('sync snapshot excludes discovery games and paginates by identity curs
   assert.equal(firstBody.games.length, 1);
   assert.equal(firstBody.games[0]?.title, 'Alpha');
   assert.equal(firstBody.gamesNextAfter, '1::10');
+  assert.equal(firstBody.gamesTotal, 2);
   assert.equal(firstBody.tags.length, 1);
   assert.equal(firstBody.views.length, 1);
   assert.equal(firstBody.settings.length, 1);
@@ -1200,6 +1216,7 @@ void test('sync snapshot excludes discovery games and paginates by identity curs
   assert.equal(secondBody.games.length, 1);
   assert.equal(secondBody.games[0]?.title, 'Beta');
   assert.equal(secondBody.gamesNextAfter, null);
+  assert.equal(secondBody.gamesTotal, null);
   assert.equal(secondBody.tags.length, 0);
   assert.equal(secondBody.views.length, 0);
   assert.equal(secondBody.settings.length, 0);

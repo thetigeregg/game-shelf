@@ -2787,6 +2787,30 @@ describe('GameSyncService', () => {
     expect(postSpy).not.toHaveBeenCalled();
   });
 
+  it('disarms bootstrap progress when sync is skipped offline and bootstrap was armed', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    networkConnectivityMock.isConnected.mockReturnValue(false);
+    syncBootstrapProgress.arm();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    await service.syncNow();
+
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('disarms bootstrap progress when sync is skipped because API is unreachable and bootstrap was armed', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    runtimeAvailabilityStatus.set('service-unreachable');
+    syncBootstrapProgress.arm();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    await service.syncNow();
+
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
   it('does not start initial load progress when outbox has pending operations', async () => {
     await db.syncMeta.delete('bootstrapV1');
     await db.outbox.add({

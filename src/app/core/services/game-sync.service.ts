@@ -272,11 +272,13 @@ export class GameSyncService implements SyncOutboxWriter {
 
     if (!this.isOnline()) {
       this.debugLogService.debug('sync.sync_now.skipped_offline');
+      this.syncBootstrapProgress.disarm();
       return false;
     }
 
     if (!this.isApiReachable()) {
       this.debugLogService.debug('sync.sync_now.skipped_unreachable');
+      this.syncBootstrapProgress.disarm();
       return false;
     }
 

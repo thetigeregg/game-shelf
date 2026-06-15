@@ -619,18 +619,19 @@ export class GameSyncService implements SyncOutboxWriter {
           game,
         ])
       );
-      const pendingGameUpserts: GameEntry[] = [];
+      const pendingGameUpsertsByKey = new Map<string, GameEntry>();
 
       const flushGameUpserts = async (): Promise<void> => {
-        if (pendingGameUpserts.length === 0) {
+        if (pendingGameUpsertsByKey.size === 0) {
           return;
         }
 
-        await this.engine.bulkPutGames(pendingGameUpserts);
-        for (const game of pendingGameUpserts) {
+        const upserts = [...pendingGameUpsertsByKey.values()];
+        await this.engine.bulkPutGames(upserts);
+        for (const game of upserts) {
           identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
         }
-        pendingGameUpserts.length = 0;
+        pendingGameUpsertsByKey.clear();
       };
 
       for (const change of changes) {
@@ -648,18 +649,7 @@ export class GameSyncService implements SyncOutboxWriter {
                   prepared.igdbGameId,
                   prepared.platformIgdbId
                 );
-                const pendingIndex = pendingGameUpserts.findIndex(
-                  (game) =>
-                    this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId) ===
-                    preparedIdentityKey
-                );
-
-                if (pendingIndex >= 0) {
-                  pendingGameUpserts[pendingIndex] = prepared;
-                } else {
-                  pendingGameUpserts.push(prepared);
-                }
-
+                pendingGameUpsertsByKey.set(preparedIdentityKey, prepared);
                 identityCache.set(preparedIdentityKey, prepared);
               }
               continue;

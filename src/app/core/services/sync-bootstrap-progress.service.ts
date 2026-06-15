@@ -17,6 +17,7 @@ const IDLE_STATE: SyncBootstrapProgressState = {
 @Injectable({ providedIn: 'root' })
 export class SyncBootstrapProgressService {
   private readonly state = signal<SyncBootstrapProgressState>(IDLE_STATE);
+  private readonly idleWaiters = new Set<() => void>();
 
   readonly progress = this.state.asReadonly();
 
@@ -59,14 +60,19 @@ export class SyncBootstrapProgressService {
 
   finish(): void {
     this.state.set(IDLE_STATE);
+    this.idleWaiters.forEach((resolve) => {
+      resolve();
+    });
+    this.idleWaiters.clear();
   }
 
-  async waitUntilIdle(): Promise<void> {
-    while (this.state().active) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 50);
-      });
+  waitUntilIdle(): Promise<void> {
+    if (!this.state().active) {
+      return Promise.resolve();
     }
+    return new Promise<void>((resolve) => {
+      this.idleWaiters.add(resolve);
+    });
   }
 }
 

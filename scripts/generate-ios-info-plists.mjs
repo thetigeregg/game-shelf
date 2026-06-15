@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import plist from 'plist';
+import { build, parse } from 'plist';
 
 export const SHARED_INFO_PLIST = 'ios/App/App/Info.shared.plist';
 
@@ -73,7 +73,7 @@ export function orderMergedPlistKeys(merged, keyOrder = INFO_PLIST_KEY_ORDER) {
 
 export function readPlistFile(filePath, readFileSyncFn = readFileSync) {
   const source = readFileSyncFn(filePath, 'utf8');
-  const parsed = plist.parse(source);
+  const parsed = parse(source);
 
   if (!isPlainObject(parsed)) {
     throw new Error(`Expected plist root dictionary at ${filePath}`);
@@ -83,7 +83,7 @@ export function readPlistFile(filePath, readFileSyncFn = readFileSync) {
 }
 
 export function buildInfoPlistXml(merged) {
-  return `${plist.build(merged, { indent: '\t', offset: -1 })}\n`;
+  return `${build(merged, { indent: '\t', offset: -1 })}\n`;
 }
 
 export function mergeInfoPlistVariant({ sharedPath, overlayPath, readFileSyncFn = readFileSync }) {

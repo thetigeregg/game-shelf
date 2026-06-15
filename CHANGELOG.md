@@ -3773,3 +3773,14 @@
 - 2483f3b1 fix(ios): use app-store export method and Helper.ci? for match
 - d1949d7e Merge branch 'main' into feat/fix
 - 45dad9e1 ci(ios): switch TestFlight signing to fastlane match
+
+## v1.60.0 - 2026-06-15
+
+- 91cd70cf Merge pull request #438 from thetigeregg/feat/fix
+- 4b04038d fix(ios): unblock TestFlight CI signing and export compliance
+- 7ab79717 feat(ios): add ITSAppUsesNonExemptEncryption key to Info.plist files and update Fastfile
+- 9aa22bb4 fix(ci): use GitHub App token to sync IOS_OTA_NATIVE_BUILD_NUMBER
+- 2904973d ci(ios): build TestFlight with Xcode 26 for iOS 26 SDK requirement
+- 135cba2d fix(ios): apply match manual signing before App PROD archive
+- 0f2a1c2d Merge branch 'main' into feat/fix
+- 725620f1 fix(ios): remove invalid require_create from setup_ci

@@ -182,7 +182,12 @@ export class GameShelfService {
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
       switchMap(() =>
-        from(this.loadGamesWithTags(listType)).pipe(catchError(() => of([] as GameEntry[])))
+        from(this.loadGamesWithTags(listType)).pipe(
+          catchError((error: unknown) => {
+            this.debugLogService.error('game-shelf.watch-list.load_failed', { listType, error });
+            return of([] as GameEntry[]);
+          })
+        )
       ),
       shareReplay({ bufferSize: 1, refCount: true })
     );
@@ -197,7 +202,14 @@ export class GameShelfService {
 
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      switchMap(() => from(this.loadTagSummaries()).pipe(catchError(() => of([] as TagSummary[])))),
+      switchMap(() =>
+        from(this.loadTagSummaries()).pipe(
+          catchError((error: unknown) => {
+            this.debugLogService.error('game-shelf.watch-tags.load_failed', { error });
+            return of([] as TagSummary[]);
+          })
+        )
+      ),
       shareReplay({ bufferSize: 1, refCount: true })
     );
     this.watchTagsCache.observable = observable;
@@ -213,7 +225,12 @@ export class GameShelfService {
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
       switchMap(() =>
-        from(this.repository.listViews(listType)).pipe(catchError(() => of([] as GameListView[])))
+        from(this.repository.listViews(listType)).pipe(
+          catchError((error: unknown) => {
+            this.debugLogService.error('game-shelf.watch-views.load_failed', { listType, error });
+            return of([] as GameListView[]);
+          })
+        )
       ),
       shareReplay({ bufferSize: 1, refCount: true })
     );

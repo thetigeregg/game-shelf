@@ -621,9 +621,14 @@ export class GameSyncService implements SyncOutboxWriter {
 
     await this.engine.runInTransaction(['games', 'tags', 'views', 'outbox'], async () => {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
+      const needsIdentityCache = changes.some(
+        (c) => c.entityType === 'game' || (c.entityType === 'tag' && c.operation === 'delete')
+      );
       const identityCache = new Map<string, GameEntry>();
-      for (const game of await this.engine.listAllGames()) {
-        identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+      if (needsIdentityCache) {
+        for (const game of await this.engine.listAllGames()) {
+          identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+        }
       }
       const pendingGameUpsertsByKey = new Map<string, GameEntry>();
 
@@ -1331,7 +1336,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
       await this.engine.deleteTag(id);
 
-      const games = await this.engine.listAllGames();
+      const games = identityCache ? [...identityCache.values()] : await this.engine.listAllGames();
       const now = new Date().toISOString();
       const gamesToUpdate: GameEntry[] = [];
 

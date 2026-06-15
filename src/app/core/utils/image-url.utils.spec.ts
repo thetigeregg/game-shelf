@@ -29,12 +29,17 @@ describe('image-url utils', () => {
     expect(normalizeImageSourceUrl('javascript:alert(1)')).toBeNull();
   });
 
-  it('passes capacitor:// native file URLs through unchanged', () => {
+  it('passes capacitor://localhost/_capacitor_file_/ URLs through unchanged', () => {
     const nativeUrl =
       'capacitor://localhost/_capacitor_file_/var/mobile/Containers/Data/Application/ABC/Library/Caches/image-cache/abc123';
     expect(normalizeImageSourceUrl(nativeUrl)).toBe(nativeUrl);
     // capacitor:// URLs are not proxy-eligible and should be returned as-is by buildProxyImageUrl
     expect(buildProxyImageUrl(nativeUrl, 'https://api.example.com')).toBe(nativeUrl);
+  });
+
+  it('rejects non-convertFileSrc capacitor:// URLs', () => {
+    expect(normalizeImageSourceUrl('capacitor://evil.example.com/path')).toBeNull();
+    expect(normalizeImageSourceUrl('capacitor://localhost/other')).toBeNull();
   });
 
   it('applies retina variants and proxy routing with shared eligibility rules', () => {

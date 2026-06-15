@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { merge, Observable, Subject, firstValueFrom, from, of } from 'rxjs';
-import { catchError, exhaustMap, map, shareReplay, startWith } from 'rxjs/operators';
+import { catchError, map, shareReplay, startWith, switchMap } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import {
@@ -181,7 +181,7 @@ export class GameShelfService {
 
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      exhaustMap(() =>
+      switchMap(() =>
         from(this.loadGamesWithTags(listType)).pipe(catchError(() => of([] as GameEntry[])))
       ),
       shareReplay({ bufferSize: 1, refCount: true })
@@ -197,9 +197,7 @@ export class GameShelfService {
 
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      exhaustMap(() =>
-        from(this.loadTagSummaries()).pipe(catchError(() => of([] as TagSummary[])))
-      ),
+      switchMap(() => from(this.loadTagSummaries()).pipe(catchError(() => of([] as TagSummary[])))),
       shareReplay({ bufferSize: 1, refCount: true })
     );
     this.watchTagsCache.observable = observable;
@@ -214,7 +212,7 @@ export class GameShelfService {
 
     const observable = merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      exhaustMap(() =>
+      switchMap(() =>
         from(this.repository.listViews(listType)).pipe(catchError(() => of([] as GameListView[])))
       ),
       shareReplay({ bufferSize: 1, refCount: true })

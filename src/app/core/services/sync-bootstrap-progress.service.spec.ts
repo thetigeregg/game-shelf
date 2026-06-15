@@ -12,33 +12,26 @@ describe('SyncBootstrapProgressService', () => {
     service = TestBed.inject(SyncBootstrapProgressService);
   });
 
-  it('starts idle and exposes progress messages for each phase', () => {
+  it('starts idle and tracks games-phase progress', () => {
     expect(service.progress().active).toBe(false);
 
     service.start();
     expect(service.progress().active).toBe(true);
     expect(service.message()).toBe('Loading library…');
 
-    service.setGamesTotal(3200);
     service.updateGamesLoaded(500);
-    expect(service.message()).toBe(`Loading library… ${fmt(500)} / ${fmt(3200)} games`);
-    expect(service.progressRatio()).toBeCloseTo(500 / 3200);
-
-    service.startMetadataPhase();
-    expect(service.message()).toBe('Applying tags, views, and settings…');
-    expect(service.progressRatio()).toBeNull();
+    expect(service.message()).toBe(`Loading library… ${fmt(500)} games`);
 
     service.finish();
     expect(service.progress().active).toBe(false);
     expect(service.message()).toBe('');
   });
 
-  it('shows loaded count without total when gamesTotal is unknown', () => {
+  it('shows loaded count when games have been loaded', () => {
     service.start();
     service.updateGamesLoaded(750);
 
     expect(service.message()).toBe('Loading library… 750 games');
-    expect(service.progressRatio()).toBeNull();
   });
 
   it('waitUntilIdle resolves immediately when bootstrap is not active', async () => {

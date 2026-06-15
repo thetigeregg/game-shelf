@@ -115,12 +115,13 @@ export class SqliteStorageEngine implements StorageEngine {
   }
 
   async countGames(): Promise<number> {
-    const rows = await this.connection.query<{ count: number }>(
+    const rows = await this.connection.query<{ count: number | string }>(
       'SELECT COUNT(*) AS count FROM games',
       []
     );
     const count = rows[0]?.count;
-    return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+    const numCount = Number(count);
+    return Number.isFinite(numCount) ? numCount : 0;
   }
 
   async addGame(game: GameEntry): Promise<number> {

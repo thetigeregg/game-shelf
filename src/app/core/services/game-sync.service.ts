@@ -141,7 +141,7 @@ export class GameSyncService implements SyncOutboxWriter {
         });
       })
       .finally(() => {
-        void this.beginInitialLoadProgressIfNeeded().then(() => this.syncNow());
+        void this.syncNow();
       });
   }
 

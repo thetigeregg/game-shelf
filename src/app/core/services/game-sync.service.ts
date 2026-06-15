@@ -760,9 +760,11 @@ export class GameSyncService implements SyncOutboxWriter {
       }
 
       const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+      const cachedForDelete = identityCache?.get(identityKey);
       const existing =
-        identityCache?.get(identityKey) ??
-        (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
+        cachedForDelete?.id !== undefined
+          ? cachedForDelete
+          : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
 
       if (existing?.id !== undefined) {
         await this.engine.deleteGame(existing.id);
@@ -798,9 +800,11 @@ export class GameSyncService implements SyncOutboxWriter {
       }
 
       const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+      const cachedForDiscovery = identityCache?.get(identityKey);
       const existingByIdentity =
-        identityCache?.get(identityKey) ??
-        (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
+        cachedForDiscovery?.id !== undefined
+          ? cachedForDiscovery
+          : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
 
       if (existingByIdentity?.id !== undefined) {
         await this.engine.deleteGame(existingByIdentity.id);
@@ -862,9 +866,11 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
+    const cachedExisting = identityCache.get(identityKey);
     const existingByIdentity =
-      identityCache.get(identityKey) ??
-      (await this.engine.getGameByIdentity(igdbGameId, platformIgdbId));
+      cachedExisting?.id !== undefined
+        ? cachedExisting
+        : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
     const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
       igdbGameId,
       platformIgdbId,

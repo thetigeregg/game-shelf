@@ -95,7 +95,11 @@ export class RuntimeAvailabilityService {
 
     this.status.set(status);
     this.statusListeners.forEach((listener) => {
-      listener(status);
+      try {
+        listener(status);
+      } catch {
+        // prevent one failing listener from breaking notification of others
+      }
     });
   }
 

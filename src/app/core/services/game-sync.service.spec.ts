@@ -2785,4 +2785,86 @@ describe('GameSyncService', () => {
     expect(syncBootstrapProgress.progress().active).toBe(false);
     expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
   });
+
+  it('pullChanges does not finish bootstrap when server returns a stalled cursor', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(index + 1),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `stall-k-${String(index)}`, value: 'v' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    }));
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({ cursor: '1000', changes: fullPage })
+    );
+
+    await servicePrivate.pullChanges();
+
+    // cursor advances to the response cursor but bootstrap is not marked done
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('1000');
+    expect(syncBootstrapProgress.progress().active).toBe(true);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).not.toBe('done');
+  });
+
+  it('replayRecentChangesIfDue exits loop immediately when server returns no changes', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValue(of({ cursor: '4001', changes: [] }));
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    const attemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(attemptMeta?.value).toBeTruthy();
+  });
+
+  it('replayRecentChangesIfDue skips apply when outbox gains pending ops between collection and apply', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const partialPage = [
+      {
+        eventId: '4001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'replay-pre-apply-skip', value: 'yes' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({ cursor: '4001', changes: partialPage })
+    );
+
+    const applySpy = vi.spyOn(servicePrivate, 'applyPulledChanges');
+
+    // First countOutbox call (replay gate) returns 0; second (pre-apply check) returns 1
+    const outboxCountSpy = vi
+      .spyOn(db.outbox, 'count')
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(outboxCountSpy).toHaveBeenCalledTimes(2);
+    expect(applySpy).not.toHaveBeenCalled();
+    expect(localStorage.getItem('replay-pre-apply-skip')).toBeNull();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    const attemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(attemptMeta?.value).toBeTruthy();
+  });
 });

@@ -484,7 +484,6 @@ export class GameSyncService implements SyncOutboxWriter {
         }
 
         if (cursor === nextCursor) {
-          caughtUp = true;
           break;
         }
 

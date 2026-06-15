@@ -287,7 +287,6 @@ export class GameSyncService implements SyncOutboxWriter {
   private async runSyncNow(): Promise<void> {
     try {
       await this.pushOutbox();
-      await this.beginInitialLoadProgressIfNeeded();
       await this.pullChanges();
       await this.replayRecentChangesIfDue().catch((error: unknown) => {
         this.debugLogService.error('sync.pull.recent_replay_failed', {
@@ -620,8 +619,10 @@ export class GameSyncService implements SyncOutboxWriter {
       const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
       const identityCache = new Map<string, GameEntry>();
 
-      for (const game of await this.engine.listAllGames()) {
-        identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+      if (changes.some((c) => c.entityType === 'game')) {
+        for (const game of await this.engine.listAllGames()) {
+          identityCache.set(this.buildGameIdentityKey(game.igdbGameId, game.platformIgdbId), game);
+        }
       }
 
       const pendingGameUpsertsByKey = new Map<string, GameEntry>();

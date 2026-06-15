@@ -2370,6 +2370,42 @@ describe('GameSyncService', () => {
     expect(games[0]?.title).toBe('Second');
   });
 
+  it('applyPulledChanges preserves fields from earlier in-batch upsert for same identity', async () => {
+    const changes = [
+      {
+        eventId: '200',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: '77777',
+          platformIgdbId: 6,
+          title: 'First Event',
+          hltbMatchUrl: 'https://howlongtobeat.com/game/12345',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '201',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: '77777',
+          platformIgdbId: 6,
+          title: 'Second Event',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['77777', 6]).first();
+    expect(stored?.title).toBe('Second Event');
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/12345');
+  });
+
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
     localStorage.removeItem('test-setting');
 

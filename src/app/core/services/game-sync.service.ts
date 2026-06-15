@@ -861,11 +861,9 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
-    const cachedExisting = identityCache.get(identityKey);
-    const existingByIdentity =
-      cachedExisting?.id !== undefined
-        ? cachedExisting
-        : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
+    const existingByIdentity = identityCache.has(identityKey)
+      ? identityCache.get(identityKey)
+      : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
     const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
       igdbGameId,
       platformIgdbId,

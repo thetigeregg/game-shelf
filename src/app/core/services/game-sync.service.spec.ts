@@ -2704,6 +2704,40 @@ describe('GameSyncService', () => {
     expect(postSpy).not.toHaveBeenCalled();
   });
 
+  it('initialize arms bootstrap progress when initial library load is pending', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    syncBootstrapProgress.disarm();
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncNowSpy).toHaveBeenCalled();
+  });
+
+  it('initialize does not arm bootstrap progress when initial library load is already done', async () => {
+    // beforeEach sets bootstrapV1 = 'done'
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    await expect(syncBootstrapProgress.waitUntilIdle()).resolves.toBeUndefined();
+    expect(syncNowSpy).toHaveBeenCalled();
+  });
+
+  it('shouldTrackInitialLoadProgress returns true immediately when bootstrap is already active', async () => {
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'started' });
+    syncBootstrapProgress.start();
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '2', changes: [] }));
+
+    await servicePrivate.pullChanges();
+
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
   it('tracks initial load progress while replaying events on fresh install', async () => {
     await db.syncMeta.delete('bootstrapV1');
     vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
@@ -2809,6 +2843,17 @@ describe('GameSyncService', () => {
 
     await expect(idlePromise).resolves.toBeUndefined();
     expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('keeps bootstrap progress armed when sync is skipped because availability is still checking', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    runtimeAvailabilityStatus.set('checking');
+    syncBootstrapProgress.arm();
+    const disarmSpy = vi.spyOn(syncBootstrapProgress, 'disarm');
+
+    await service.syncNow();
+
+    expect(disarmSpy).not.toHaveBeenCalled();
   });
 
   it('does not start initial load progress when outbox has pending operations', async () => {

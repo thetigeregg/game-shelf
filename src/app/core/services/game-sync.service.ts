@@ -278,7 +278,9 @@ export class GameSyncService implements SyncOutboxWriter {
 
     if (!this.isApiReachable()) {
       this.debugLogService.debug('sync.sync_now.skipped_unreachable');
-      this.syncBootstrapProgress.disarm();
+      if (this.runtimeAvailability.status() !== 'checking') {
+        this.syncBootstrapProgress.disarm();
+      }
       return false;
     }
 

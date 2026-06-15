@@ -65,6 +65,7 @@ vi.mock('../features/game-detail/detail-websites-modal.component', () => ({
 
 import { ListPageComponent } from './list-page.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
+import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
@@ -155,12 +156,22 @@ describe('ListPageComponent', () => {
   it('dismisses initial list loading when game list reports displayed games', () => {
     const component = createComponent();
 
-    expect(component.isInitialListLoading).toBe(true);
+    expect(component.showInitialListLoading).toBe(true);
 
     component.onDisplayedGamesChange([]);
 
-    expect(component.isInitialListLoading).toBe(false);
+    expect(component.showInitialListLoading).toBe(false);
     expect(component.displayedGames).toEqual([]);
+  });
+
+  it('hides initial list loading while snapshot bootstrap progress is active', () => {
+    const bootstrap = TestBed.inject(SyncBootstrapProgressService);
+    bootstrap.start();
+
+    const component = createComponent();
+
+    expect(component.isInitialListLoading).toBe(true);
+    expect(component.showInitialListLoading).toBe(false);
   });
 
   it('clears loading immediately when detail hydration fails before identity lookup resolves', async () => {

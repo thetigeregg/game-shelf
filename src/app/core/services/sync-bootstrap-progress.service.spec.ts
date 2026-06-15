@@ -38,4 +38,19 @@ describe('SyncBootstrapProgressService', () => {
     expect(service.message()).toBe('Downloading library… 750 games');
     expect(service.progressRatio()).toBeNull();
   });
+
+  it('waitUntilIdle resolves immediately when bootstrap is not active', async () => {
+    await expect(service.waitUntilIdle()).resolves.toBeUndefined();
+  });
+
+  it('waitUntilIdle resolves after bootstrap finishes', async () => {
+    service.start();
+
+    const idlePromise = service.waitUntilIdle();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(service.progress().active).toBe(true);
+    service.finish();
+    await expect(idlePromise).resolves.toBeUndefined();
+  });
 });

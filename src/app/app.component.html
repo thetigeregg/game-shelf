@@ -2,17 +2,17 @@
   @if (runtimeAvailabilityService.bannerMessage(); as message) {
     <div class="availability-banner" role="status">{{ message }}</div>
   }
-  @if (syncBootstrapProgress.progress().active) {
-    <div class="bootstrap-overlay" role="status" aria-live="polite" aria-busy="true">
-      <div class="bootstrap-card">
-        <p class="bootstrap-message">{{ syncBootstrapProgress.message() }}</p>
-        @if (syncBootstrapProgress.progressRatio(); as ratio) {
-          <ion-progress-bar [value]="ratio"></ion-progress-bar>
-        } @else {
-          <ion-progress-bar type="indeterminate"></ion-progress-bar>
-        }
-      </div>
-    </div>
-  }
   <ion-router-outlet></ion-router-outlet>
 </ion-app>
+@if (syncBootstrapProgress.progress().active) {
+  <div class="bootstrap-overlay" role="status" aria-live="polite" aria-busy="true">
+    <div class="bootstrap-card">
+      <p class="bootstrap-message">{{ syncBootstrapProgress.message() }}</p>
+      @if (syncBootstrapProgress.progressRatio(); as ratio) {
+        <ion-progress-bar [value]="ratio"></ion-progress-bar>
+      } @else {
+        <ion-progress-bar type="indeterminate"></ion-progress-bar>
+      }
+    </div>
+  </div>
+}

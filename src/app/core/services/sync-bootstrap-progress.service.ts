@@ -105,6 +105,14 @@ export class SyncBootstrapProgressService {
   finish(): void {
     this.state.set(IDLE_STATE);
   }
+
+  async waitUntilIdle(): Promise<void> {
+    while (this.state().active) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 50);
+      });
+    }
+  }
 }
 
 function formatCount(value: number): string {

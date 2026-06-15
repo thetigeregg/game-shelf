@@ -64,12 +64,13 @@ export class AppComponent {
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
       console.error('[app] version_alert_failed', error);
     });
-    await this.initializeNotifications().catch((error: unknown) => {
-      console.error('[app] notifications_init_failed', error);
-    });
     await this.liveUpdateService.markReady();
     await this.hideSplashScreenWhenReady().catch((error: unknown) => {
       console.error('[app] splash_screen_hide_failed', error);
+    });
+    await this.syncBootstrapProgress.waitUntilIdle();
+    await this.initializeNotifications().catch((error: unknown) => {
+      console.error('[app] notifications_init_failed', error);
     });
   }
 

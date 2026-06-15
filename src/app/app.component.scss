@@ -1,3 +1,7 @@
+:host {
+  display: block;
+}
+
 .availability-banner {
   background: var(--ion-color-warning);
   color: var(--ion-color-warning-contrast);
@@ -14,8 +18,9 @@
   inset: 0;
   justify-content: center;
   padding: 1.5rem;
+  pointer-events: auto;
   position: fixed;
-  z-index: 10000;
+  z-index: 200000;
 }
 
 .bootstrap-card {

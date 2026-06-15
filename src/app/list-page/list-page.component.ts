@@ -63,6 +63,7 @@ import {
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
   normalizeGameRatingFilterList,
@@ -228,6 +229,7 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  readonly syncBootstrapProgress = inject(SyncBootstrapProgressService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
@@ -505,6 +507,10 @@ export class ListPageComponent {
   onDisplayedGamesChange(games: GameEntry[]): void {
     this.displayedGames = games;
     this.finishInitialListLoading();
+  }
+
+  get showInitialListLoading(): boolean {
+    return this.isInitialListLoading && !this.syncBootstrapProgress.progress().active;
   }
 
   private finishInitialListLoading(): void {

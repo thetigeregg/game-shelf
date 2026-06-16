@@ -1,7 +1,7 @@
 # iOS TestFlight CI
 
 Game Shelf uploads the **App PROD** Capacitor build to TestFlight when the release workflow
-pushes a semver tag (`v*`) **and** native-shell files changed since the previous tag.
+completes successfully **and** native-shell files changed since the previous tag.
 Distribution is TestFlight-only — builds are not submitted to the public App Store.
 
 ## Pipeline overview
@@ -10,7 +10,8 @@ Distribution is TestFlight-only — builds are not submitted to the public App S
 flowchart TD
   MainPush[Push to main] --> ReleaseWF[release-publish.yml]
   ReleaseWF --> Tag["Tag vX.Y.Z"]
-  Tag --> Gate[ios-testflight detect_changes]
+  Tag --> WFRun["workflow_run: completed"]
+  WFRun --> Gate[ios-testflight detect_changes]
   Gate --> Diff{Native-shell<br/>changes?}
   Diff -->|yes| NodeBuild["npm run sync:ios:prod"]
   Diff -->|no| Skip[Skip macOS job]
@@ -33,13 +34,15 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 | Trigger             | When                                                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tag push `v*`       | After `Release & Publish` pushes a tag, **only if native-shell paths changed** since the previous tag                                                               |
+| `workflow_run`      | Fires when `Release & Publish` completes successfully — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag  |
 | `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md)) |
 
 ## Deploy gating (native shell only)
 
-Tag pushes always start the workflow, but a cheap Ubuntu job diffs `prev_tag..current_tag`
-before the macOS build. TestFlight runs only when native-shell files changed.
+`workflow_run` completion always starts the workflow (bypassing `[skip ci]`), but a cheap Ubuntu
+job diffs `prev_tag..current_tag` before the macOS build. TestFlight runs only when native-shell
+files changed. The current tag is resolved from the release commit SHA via `git describe --tags
+--exact-match`.
 
 **Auto-deploy paths:**
 
@@ -253,20 +256,20 @@ After renewal, commit to the match repo is automatic; no workflow changes needed
 
 ## Troubleshooting
 
-| Symptom                                            | Likely cause                                                                                            |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Could not find an app on App Store Connect         | ASC app record not created yet, or bundle ID / team mismatch vs `ios/fastlane/Appfile`                  |
-| Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                       |
-| Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                |
-| `validate_match` fails / cannot clone match repo   | `MATCH_GIT_BASIC_AUTHORIZATION` or `MATCH_PASSWORD` missing or wrong; PAT lacks repo access             |
-| `No signing certificate "iOS Distribution" found`  | Match not bootstrapped — run `fastlane match appstore` locally first                                    |
-| `No profile for io.github.thetigeregg.gameshelf`   | Match profile missing or name mismatch; re-run `match appstore`                                         |
-| Export fails after manual portal cert changes      | Revoke manual certs/profiles and let match regenerate; avoid mixing manual + match                      |
-| Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number              |
-| Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                            |
-| Tag pushed but no TestFlight build                 | Expected when only backend/src changed; run workflow_dispatch to force a build                          |
-| `ENOENT .../ios/fastlane/ios/App/...`              | `sync-ios-version.mjs` resolved paths from fastlane cwd; fixed by repo-root defaults                    |
-| Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler` |
+| Symptom                                            | Likely cause                                                                                                                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Could not find an app on App Store Connect         | ASC app record not created yet, or bundle ID / team mismatch vs `ios/fastlane/Appfile`                                                                                              |
+| Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                                                                                                   |
+| Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                                                                                            |
+| `validate_match` fails / cannot clone match repo   | `MATCH_GIT_BASIC_AUTHORIZATION` or `MATCH_PASSWORD` missing or wrong; PAT lacks repo access                                                                                         |
+| `No signing certificate "iOS Distribution" found`  | Match not bootstrapped — run `fastlane match appstore` locally first                                                                                                                |
+| `No profile for io.github.thetigeregg.gameshelf`   | Match profile missing or name mismatch; re-run `match appstore`                                                                                                                     |
+| Export fails after manual portal cert changes      | Revoke manual certs/profiles and let match regenerate; avoid mixing manual + match                                                                                                  |
+| Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number                                                                                          |
+| Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                                                                                                        |
+| Release published but no TestFlight build          | Expected when only backend/src changed; run workflow_dispatch to force a build. Also confirm `Release & Publish` concluded `success` — `workflow_run` does not fire for failed runs |
+| `ENOENT .../ios/fastlane/ios/App/...`              | `sync-ios-version.mjs` resolved paths from fastlane cwd; fixed by repo-root defaults                                                                                                |
+| Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler`                                                                             |
 
 See also [`ios-multi-environment.md`](ios-multi-environment.md) for local dev/prod side-by-side
 setup and [`notifications-troubleshooting.md`](notifications-troubleshooting.md) for push

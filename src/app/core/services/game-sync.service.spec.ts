@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -7,6 +8,7 @@ import { AppDb } from '../data/app-db';
 import { DexieStorageEngine } from '../data/dexie-storage-engine';
 import { STORAGE_ENGINE } from '../data/storage-engine';
 import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
+import { SyncBootstrapProgressService } from './sync-bootstrap-progress.service';
 import { DebugLogService } from './debug-log.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
@@ -14,8 +16,9 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
   PlatformCustomizationService,
 } from './platform-customization.service';
-import { ClientSyncOperation, SyncChangeEvent } from '../models/game.models';
+import { ClientSyncOperation, GameEntry, SyncChangeEvent } from '../models/game.models';
 import { NetworkConnectivityService } from './network-connectivity.service';
+import { RuntimeAvailabilityService } from './runtime-availability.service';
 
 const networkConnectivityMock = {
   initialize: vi.fn(),
@@ -23,13 +26,27 @@ const networkConnectivityMock = {
   onConnectedChange: vi.fn(() => () => {}),
 };
 
+const runtimeAvailabilityStatus = signal<'online' | 'offline' | 'service-unreachable' | 'checking'>(
+  'online'
+);
+const runtimeAvailabilityMock = {
+  status: runtimeAvailabilityStatus.asReadonly(),
+  onStatusChange: vi.fn(() => () => {}),
+};
+
 type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
   applyGameChange(
     change: SyncChangeEvent,
-    pendingGameOutboxKeys?: ReadonlySet<string>
+    pendingGameOutboxKeys?: ReadonlySet<string>,
+    identityCache?: Map<string, GameEntry>
   ): Promise<void>;
-  applyTagChange(change: SyncChangeEvent): Promise<void>;
+  prepareGameUpsertFromChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys: ReadonlySet<string> | undefined,
+    identityCache: Map<string, GameEntry> | undefined
+  ): Promise<GameEntry | null>;
+  applyTagChange(change: SyncChangeEvent, identityCache?: Map<string, GameEntry>): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
   applySettingChange(change: SyncChangeEvent): Promise<void>;
   buildPushOperationBatches(
@@ -79,6 +96,7 @@ describe('GameSyncService', () => {
   let servicePrivate: GameSyncServicePrivate;
   let platformOrderService: PlatformOrderService;
   let platformCustomizationService: PlatformCustomizationService;
+  let syncBootstrapProgress: SyncBootstrapProgressService;
 
   function createBaseGame(
     overrides: Partial<Record<string, unknown>> = {}
@@ -96,12 +114,16 @@ describe('GameSyncService', () => {
     };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    TestBed.resetTestingModule();
     networkConnectivityMock.initialize.mockReset();
     networkConnectivityMock.isConnected.mockReset();
     networkConnectivityMock.onConnectedChange.mockReset();
     networkConnectivityMock.isConnected.mockReturnValue(true);
     networkConnectivityMock.onConnectedChange.mockReturnValue(() => {});
+    runtimeAvailabilityStatus.set('online');
+    runtimeAvailabilityMock.onStatusChange.mockReset();
+    runtimeAvailabilityMock.onStatusChange.mockReturnValue(() => {});
 
     TestBed.configureTestingModule({
       providers: [
@@ -111,17 +133,22 @@ describe('GameSyncService', () => {
         { provide: STORAGE_ENGINE, useExisting: DexieStorageEngine },
         GameSyncService,
         SyncEventsService,
+        SyncBootstrapProgressService,
         PlatformOrderService,
         PlatformCustomizationService,
+        DebugLogService,
         { provide: NetworkConnectivityService, useValue: networkConnectivityMock },
+        { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityMock },
       ],
     });
 
     db = TestBed.inject(AppDb);
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'done' });
     service = TestBed.inject(GameSyncService);
     servicePrivate = service as unknown as GameSyncServicePrivate;
     platformOrderService = TestBed.inject(PlatformOrderService);
     platformCustomizationService = TestBed.inject(PlatformCustomizationService);
+    syncBootstrapProgress = TestBed.inject(SyncBootstrapProgressService);
   });
 
   afterEach(async () => {
@@ -1718,7 +1745,27 @@ describe('GameSyncService', () => {
     navigatorSpy.mockRestore();
   });
 
+  it('skips discovery pollution cursor reset on fresh empty install', async () => {
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+
+    const cursor = await db.syncMeta.get('cursor');
+    const marker = await db.syncMeta.get(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
+    expect(cursor).toBeUndefined();
+    expect(marker?.value).toBe('done');
+  });
+
   it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {
+    await db.games.add({
+      igdbGameId: '1',
+      platformIgdbId: 10,
+      title: 'Existing',
+      platform: 'Switch',
+      listType: 'collection',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
     await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
 
     const cursor = await db.syncMeta.get('cursor');
@@ -2239,7 +2286,9 @@ describe('GameSyncService', () => {
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {
-    const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
+    const prepareSpy = vi
+      .spyOn(servicePrivate, 'prepareGameUpsertFromChange')
+      .mockResolvedValue(null);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
     const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
     const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockResolvedValue(undefined);
@@ -2275,10 +2324,155 @@ describe('GameSyncService', () => {
 
     await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
 
-    expect(gameSpy).toHaveBeenCalledWith(gameChange, expect.any(Set));
-    expect(tagSpy).toHaveBeenCalledWith(tagChange);
+    expect(prepareSpy).toHaveBeenCalledWith(gameChange, expect.any(Set), expect.any(Map));
+    expect(tagSpy).toHaveBeenCalledWith(tagChange, expect.any(Map));
     expect(viewSpy).toHaveBeenCalledWith(viewChange);
     expect(settingSpy).toHaveBeenCalledWith(settingChange);
+  });
+
+  it('applyPulledChanges batches duplicate identity game upserts without constraint errors', async () => {
+    const changes = [
+      {
+        eventId: '100',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 531,
+          igdbGameId: '194558',
+          platformIgdbId: 6,
+          title: 'First',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '101',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 531,
+          igdbGameId: '194558',
+          platformIgdbId: 6,
+          title: 'Second',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const games = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .toArray();
+    expect(games).toHaveLength(1);
+    expect(games[0]?.title).toBe('Second');
+  });
+
+  it('applyPulledChanges preserves fields from earlier in-batch upsert for same identity', async () => {
+    const changes = [
+      {
+        eventId: '200',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: '77777',
+          platformIgdbId: 6,
+          title: 'First Event',
+          hltbMatchUrl: 'https://howlongtobeat.com/game/12345',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '201',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: '77777',
+          platformIgdbId: 6,
+          title: 'Second Event',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['77777', 6]).first();
+    expect(stored?.title).toBe('Second Event');
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/12345');
+  });
+
+  it('applyPulledChanges removes polluted local discovery game when server sends discovery upsert', async () => {
+    await db.games.add({
+      igdbGameId: 'disc-game',
+      platformIgdbId: 6,
+      title: 'Polluted Discovery',
+      platform: 'PC',
+      listType: 'discovery',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyPulledChanges([
+      {
+        eventId: '500',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: 'disc-game',
+          platformIgdbId: 6,
+          listType: 'discovery',
+        }),
+        serverTimestamp: '2026-01-02T00:00:00.000Z',
+      },
+    ] as SyncChangeEvent[]);
+
+    const remaining = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['disc-game', 6])
+      .toArray();
+    expect(remaining).toHaveLength(0);
+  });
+
+  it('applyPulledChanges removes tag from freshly inserted game when tag delete follows in same batch', async () => {
+    const tagId = 42;
+    await db.tags.put({ id: tagId, name: 'RPG', payload: '{}' });
+
+    const changes = [
+      {
+        eventId: '300',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: 'fresh-game',
+          platformIgdbId: 6,
+          title: 'Fresh Game',
+          tagIds: [tagId],
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        eventId: '301',
+        entityType: 'tag',
+        operation: 'delete',
+        payload: { id: tagId },
+        serverTimestamp: '2026-01-01T00:01:00.000Z',
+      },
+    ] as SyncChangeEvent[];
+
+    await servicePrivate.applyPulledChanges(changes);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['fresh-game', 6])
+      .first();
+    expect(stored).toBeDefined();
+    expect(stored?.tagIds ?? []).not.toContain(tagId);
   });
 
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
@@ -2319,12 +2513,8 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).not.toHaveBeenCalled();
   });
 
-  it('retries pulled game upsert without server id on constraint errors', async () => {
-    const constraintError = Object.assign(new Error('constraint'), { name: 'ConstraintError' });
-    const putSpy = vi
-      .spyOn(db.games, 'put')
-      .mockRejectedValueOnce(constraintError)
-      .mockResolvedValueOnce(123);
+  it('strips server id from fresh pulled game upserts before writing', async () => {
+    const putSpy = vi.spyOn(db.games, 'put').mockResolvedValueOnce(123);
 
     await servicePrivate.applyGameChange({
       eventId: '46',
@@ -2339,11 +2529,9 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z',
     });
 
-    expect(putSpy).toHaveBeenCalledTimes(2);
+    expect(putSpy).toHaveBeenCalledTimes(1);
     const firstArg = putSpy.mock.calls[0][0] as { id?: number };
-    const secondArg = putSpy.mock.calls[1][0] as { id?: number };
-    expect(firstArg.id).toBe(999);
-    expect(secondArg.id).toBeUndefined();
+    expect(firstArg.id).toBeUndefined();
   });
 
   it('rethrows non-retryable put errors during pulled game upsert', async () => {
@@ -2369,6 +2557,11 @@ describe('GameSyncService', () => {
   });
 
   it('syncNow marks connectivity degraded when push fails', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '1',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
     vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
 
@@ -2379,6 +2572,11 @@ describe('GameSyncService', () => {
   });
 
   it('syncNow keeps success path when replayRecentChangesIfDue fails', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '1',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
     vi.spyOn(servicePrivate, 'pushOutbox').mockResolvedValue(undefined);
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
     vi.spyOn(servicePrivate, 'replayRecentChangesIfDue').mockRejectedValue(
@@ -2489,11 +2687,11 @@ describe('GameSyncService', () => {
     });
   });
 
-  it('initialize short-circuits when already initialized', () => {
+  it('initialize short-circuits when already initialized', async () => {
     servicePrivate.initialized = true;
     const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
 
-    service.initialize();
+    await service.initialize();
 
     expect(syncNowSpy).not.toHaveBeenCalled();
   });
@@ -2504,5 +2702,307 @@ describe('GameSyncService', () => {
     await servicePrivate.pushOutbox();
 
     expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it('initialize arms bootstrap progress when initial library load is pending', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    syncBootstrapProgress.disarm();
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncNowSpy).toHaveBeenCalled();
+  });
+
+  it('initialize does not arm bootstrap progress when initial library load is already done', async () => {
+    // beforeEach sets bootstrapV1 = 'done'
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    await service.initialize();
+
+    await expect(syncBootstrapProgress.waitUntilIdle()).resolves.toBeUndefined();
+    expect(syncNowSpy).toHaveBeenCalled();
+  });
+
+  it('shouldTrackInitialLoadProgress returns true immediately when bootstrap is already active', async () => {
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'started' });
+    syncBootstrapProgress.start();
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '2', changes: [] }));
+
+    await servicePrivate.pullChanges();
+
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('tracks initial load progress while replaying events on fresh install', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
+      return of({
+        cursor: '2',
+        changes: [
+          {
+            eventId: '1',
+            entityType: 'game',
+            operation: 'upsert',
+            payload: createBaseGame({ igdbGameId: '10', title: 'Replayed One' }),
+            serverTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            eventId: '2',
+            entityType: 'game',
+            operation: 'upsert',
+            payload: createBaseGame({ igdbGameId: '11', title: 'Replayed Two' }),
+            serverTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      });
+    });
+
+    await service.syncNow();
+
+    expect(await db.games.count()).toBe(2);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('starts initial load progress before the first pull response on fresh install', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    let pullRequested = false;
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation((url: string) => {
+      if (url.endsWith('/v1/sync/pull')) {
+        pullRequested = true;
+        expect(syncBootstrapProgress.progress().active).toBe(true);
+        return of({
+          cursor: '1',
+          changes: [
+            {
+              eventId: '1',
+              entityType: 'game',
+              operation: 'upsert',
+              payload: createBaseGame({ igdbGameId: '10', title: 'Replayed One' }),
+              serverTimestamp: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+        });
+      }
+
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await service.syncNow();
+
+    expect(pullRequested).toBe(true);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('keeps initial load progress active when pull fails so a retry can finish it', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
+      throw new Error('Local network prohibited');
+    });
+
+    await expect(servicePrivate.pullChanges()).rejects.toThrow('Local network prohibited');
+
+    expect(syncBootstrapProgress.progress().active).toBe(true);
+  });
+
+  it('skips sync when the API is not reachable yet', async () => {
+    runtimeAvailabilityStatus.set('service-unreachable');
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+
+    const started = await servicePrivate.startSyncNowIfPossible();
+
+    expect(started).toBe(false);
+    expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it('disarms bootstrap progress when sync is skipped offline and bootstrap was armed', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    networkConnectivityMock.isConnected.mockReturnValue(false);
+    syncBootstrapProgress.arm();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    await service.syncNow();
+
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('disarms bootstrap progress when sync is skipped because API is unreachable and bootstrap was armed', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    runtimeAvailabilityStatus.set('service-unreachable');
+    syncBootstrapProgress.arm();
+
+    const idlePromise = syncBootstrapProgress.waitUntilIdle();
+    await service.syncNow();
+
+    await expect(idlePromise).resolves.toBeUndefined();
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('keeps bootstrap progress armed when sync is skipped because availability is still checking', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    runtimeAvailabilityStatus.set('checking');
+    syncBootstrapProgress.arm();
+    const disarmSpy = vi.spyOn(syncBootstrapProgress, 'disarm');
+
+    await service.syncNow();
+
+    expect(disarmSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not start initial load progress when outbox has pending operations', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    await db.outbox.add({
+      opId: 'pending-op',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame(),
+      clientTimestamp: '2026-01-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      attemptCount: 0,
+      lastError: null,
+    });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ results: [], cursor: '0' }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+  });
+
+  it('does not start initial load progress when an existing sync cursor is present (upgraded user)', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    await db.syncMeta.put({ key: 'cursor', value: '42', updatedAt: '2026-01-01T00:00:00.000Z' });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '43', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
+
+  it('resumes initial load progress across syncNow calls when cursor is set mid-bootstrap', async () => {
+    // Simulate an app restart mid-bootstrap: marker is 'started' and a cursor is present
+    // (set by a prior pull page). isInitialLibraryLoadPending must treat 'started' as still
+    // pending rather than backfilling 'done' because the cursor exists.
+    await db.syncMeta.put({ key: 'bootstrapV1', value: 'started' });
+    await db.syncMeta.put({ key: 'cursor', value: '5', updatedAt: '2026-01-01T00:00:00.000Z' });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '6', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
+
+  it('does not start initial load progress when local games already exist (upgraded user)', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+    await db.games.add({
+      igdbGameId: 'existing-1',
+      platformIgdbId: 6,
+      title: 'Pre-existing Game',
+      platform: 'PC',
+      listType: 'collection',
+      coverSource: 'none',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(of({ cursor: '1', changes: [] }));
+
+    await service.syncNow();
+
+    expect(syncBootstrapProgress.progress().active).toBe(false);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).toBe('done');
+  });
+
+  it('pullChanges does not finish bootstrap when server returns a stalled cursor', async () => {
+    await db.syncMeta.delete('bootstrapV1');
+
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(index + 1),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `stall-k-${String(index)}`, value: 'v' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    }));
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({ cursor: '1000', changes: fullPage })
+    );
+
+    await servicePrivate.pullChanges();
+
+    // cursor advances to the response cursor but bootstrap is not marked done
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('1000');
+    expect(syncBootstrapProgress.progress().active).toBe(true);
+    expect((await db.syncMeta.get('bootstrapV1'))?.value).not.toBe('done');
+  });
+
+  it('replayRecentChangesIfDue exits loop immediately when server returns no changes', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValue(of({ cursor: '4001', changes: [] }));
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    const attemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(attemptMeta?.value).toBeTruthy();
+  });
+
+  it('replayRecentChangesIfDue skips apply when outbox gains pending ops between collection and apply', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const partialPage = [
+      {
+        eventId: '4001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'replay-pre-apply-skip', value: 'yes' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({ cursor: '4001', changes: partialPage })
+    );
+
+    const applySpy = vi.spyOn(servicePrivate, 'applyPulledChanges');
+
+    // First countOutbox call (replay gate) returns 0; second (pre-apply check) returns 1
+    const outboxCountSpy = vi
+      .spyOn(db.outbox, 'count')
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(outboxCountSpy).toHaveBeenCalledTimes(2);
+    expect(applySpy).not.toHaveBeenCalled();
+    expect(localStorage.getItem('replay-pre-apply-skip')).toBeNull();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    const attemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(attemptMeta?.value).toBeTruthy();
   });
 });

@@ -20,6 +20,11 @@ export function normalizeImageSourceUrl(source: string | null | undefined): stri
     return normalized;
   }
 
+  // Only allow the specific form produced by Capacitor.convertFileSrc().
+  if (normalized.startsWith('capacitor://localhost/_capacitor_file_/')) {
+    return normalized;
+  }
+
   if (normalized.startsWith('//') || /^https?:\/\//i.test(normalized)) {
     return sanitizeExternalHttpUrlString(normalized);
   }

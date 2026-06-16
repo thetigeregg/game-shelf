@@ -71,6 +71,10 @@ test('mergeInfoPlistVariant merges shared and overlay plists from repo', () => {
   assert.equal(merged.CFBundleDisplayName, 'GameShelf Dev');
   assert.equal(merged.ITSAppUsesNonExemptEncryption, false);
   assert.equal(merged.NSAppTransportSecurity.NSAllowsLocalNetworking, true);
+  assert.equal(
+    merged.NSLocalNetworkUsageDescription,
+    'Game Shelf needs access to your local network to connect to the development server on your computer.'
+  );
   assert.equal(merged.CAPACITOR_DEBUG, '$(CAPACITOR_DEBUG)');
 });
 

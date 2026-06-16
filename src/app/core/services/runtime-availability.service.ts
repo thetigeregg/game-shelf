@@ -6,11 +6,14 @@ import { NetworkConnectivityService } from './network-connectivity.service';
 
 export type RuntimeAvailabilityStatus = 'checking' | 'online' | 'offline' | 'service-unreachable';
 
+export type RuntimeAvailabilityStatusListener = (status: RuntimeAvailabilityStatus) => void;
+
 @Injectable({ providedIn: 'root' })
 export class RuntimeAvailabilityService {
   private static readonly PROBE_INTERVAL_MS = 30_000;
   private initialized = false;
   private probeTimerId: number | null = null;
+  private readonly statusListeners = new Set<RuntimeAvailabilityStatusListener>();
 
   readonly status = signal<RuntimeAvailabilityStatus>('checking');
   readonly bannerMessage = computed((): string | null => {
@@ -25,6 +28,13 @@ export class RuntimeAvailabilityService {
   });
   private readonly networkConnectivity = inject(NetworkConnectivityService);
 
+  onStatusChange(listener: RuntimeAvailabilityStatusListener): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  }
+
   initialize(): void {
     if (this.initialized || typeof window === 'undefined') {
       return;
@@ -33,9 +43,9 @@ export class RuntimeAvailabilityService {
     this.initialized = true;
 
     if (!this.networkConnectivity.isConnected()) {
-      this.status.set('offline');
+      this.setStatus('offline');
     } else if (window.__GAME_SHELF_RUNTIME_CONFIG__) {
-      this.status.set('online');
+      this.setStatus('online');
     }
 
     this.networkConnectivity.onConnectedChange((connected) => {
@@ -44,7 +54,7 @@ export class RuntimeAvailabilityService {
         return;
       }
 
-      this.status.set('offline');
+      this.setStatus('offline');
     });
 
     window.addEventListener('focus', this.handleResumeLikeEvent);
@@ -68,14 +78,29 @@ export class RuntimeAvailabilityService {
     }
 
     if (!this.networkConnectivity.isConnected()) {
-      this.status.set('offline');
+      this.setStatus('offline');
       return;
     }
 
     const probeSucceeded = isNativePlatform()
       ? await this.probeApiHealth()
       : await this.probeRuntimeConfig();
-    this.status.set(probeSucceeded ? 'online' : 'service-unreachable');
+    this.setStatus(probeSucceeded ? 'online' : 'service-unreachable');
+  }
+
+  private setStatus(status: RuntimeAvailabilityStatus): void {
+    if (this.status() === status) {
+      return;
+    }
+
+    this.status.set(status);
+    this.statusListeners.forEach((listener) => {
+      try {
+        listener(status);
+      } catch {
+        // prevent one failing listener from breaking notification of others
+      }
+    });
   }
 
   private readonly handleResumeLikeEvent = () => {

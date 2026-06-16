@@ -4,3 +4,11 @@
   }
   <ion-router-outlet></ion-router-outlet>
 </ion-app>
+@if (syncBootstrapProgress.progress().active) {
+  <div class="bootstrap-overlay" role="status" aria-live="polite" aria-busy="true">
+    <div class="bootstrap-card">
+      <p class="bootstrap-message">{{ syncBootstrapProgress.message() }}</p>
+      <ion-progress-bar type="indeterminate"></ion-progress-bar>
+    </div>
+  </div>
+}

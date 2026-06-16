@@ -1,7 +1,7 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
@@ -63,6 +63,8 @@ import {
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
+import { SyncEventsService } from '../core/services/sync-events.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
   normalizeGameRatingFilterList,
@@ -196,7 +198,6 @@ export class ListPageComponent {
   genreOptions: string[] = [];
   tagOptions: string[] = [];
   displayedGames: GameEntry[] = [];
-  totalGamesCount = 0;
   listSearchQuery = '';
   listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
@@ -229,11 +230,13 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  readonly syncBootstrapProgress = inject(SyncBootstrapProgressService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private receivedInitialListSnapshot = false;
+  private initialLoadProgressWasActive = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
@@ -254,15 +257,22 @@ export class ListPageComponent {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
     });
-    this.gameShelfService
-      .watchList(this.listType)
+    toObservable(this.syncBootstrapProgress.progress)
       .pipe(takeUntilDestroyed())
-      .subscribe((games) => {
-        this.totalGamesCount = games.length;
-        if (!this.receivedInitialListSnapshot) {
-          this.receivedInitialListSnapshot = true;
-          this.isInitialListLoading = false;
+      .subscribe((progress) => {
+        if (progress.active) {
+          this.initialLoadProgressWasActive = true;
+          return;
         }
+
+        if (this.initialLoadProgressWasActive) {
+          this.finishInitialListLoading();
+        }
+      });
+    inject(SyncEventsService)
+      .changed$.pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.finishInitialListLoading();
       });
     addIcons({
       close,
@@ -515,6 +525,24 @@ export class ListPageComponent {
 
   onDisplayedGamesChange(games: GameEntry[]): void {
     this.displayedGames = games;
+    this.finishInitialListLoading();
+  }
+
+  get showInitialListLoading(): boolean {
+    if (this.syncBootstrapProgress.progress().active) {
+      return false;
+    }
+
+    return this.isInitialListLoading;
+  }
+
+  private finishInitialListLoading(): void {
+    if (this.receivedInitialListSnapshot) {
+      return;
+    }
+
+    this.receivedInitialListSnapshot = true;
+    this.isInitialListLoading = false;
   }
 
   onSelectionStateChange(state: GameListSelectionState): void {

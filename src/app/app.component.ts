@@ -3,6 +3,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import {
   AlertController,
   IonApp,
+  IonProgressBar,
   IonRouterOutlet,
   ToastController,
 } from '@ionic/angular/standalone';
@@ -18,6 +19,7 @@ import { NetworkConnectivityService } from './core/services/network-connectivity
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
 import { LiveUpdateService } from './core/services/live-update.service';
+import { SyncBootstrapProgressService } from './core/services/sync-bootstrap-progress.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 const MIN_SPLASH_VISIBLE_MS = 300;
@@ -27,7 +29,7 @@ const MIN_SPLASH_VISIBLE_MS = 300;
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss'],
   standalone: true,
-  imports: [IonApp, IonRouterOutlet],
+  imports: [IonApp, IonRouterOutlet, IonProgressBar],
 })
 export class AppComponent {
   private readonly themeService = inject(ThemeService);
@@ -41,6 +43,7 @@ export class AppComponent {
   private readonly preferenceStorage = inject(PreferenceStorageService);
   private readonly liveUpdateService = inject(LiveUpdateService);
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
+  readonly syncBootstrapProgress = inject(SyncBootstrapProgressService);
   private readonly networkConnectivityService = inject(NetworkConnectivityService);
   private readonly appStartedAt = Date.now();
 
@@ -56,17 +59,18 @@ export class AppComponent {
     }
     this.debugLogService.initialize();
     this.themeService.initialize();
-    this.gameSyncService.initialize();
+    await this.gameSyncService.initialize();
     void this.runStartupCoverMigrations();
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
       console.error('[app] version_alert_failed', error);
     });
-    await this.initializeNotifications().catch((error: unknown) => {
-      console.error('[app] notifications_init_failed', error);
-    });
     await this.liveUpdateService.markReady();
     await this.hideSplashScreenWhenReady().catch((error: unknown) => {
       console.error('[app] splash_screen_hide_failed', error);
+    });
+    await this.syncBootstrapProgress.waitUntilIdle();
+    await this.initializeNotifications().catch((error: unknown) => {
+      console.error('[app] notifications_init_failed', error);
     });
   }
 

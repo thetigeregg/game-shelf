@@ -16,6 +16,9 @@ class InMemorySyncStore {
   idempotency = new Map<string, SyncPushResult>();
   syncEvents: SyncEventRow[] = [];
   games = new Map<string, Record<string, unknown>>();
+  tags: { id: number; payload: Record<string, unknown> }[] = [];
+  views: { id: number; payload: Record<string, unknown> }[] = [];
+  settings: { setting_key: string; setting_value: string }[] = [];
   tagIdSeq = 100;
   viewIdSeq = 200;
 }

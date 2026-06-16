@@ -67,7 +67,7 @@ export async function pickImageFromPhotoLibrary(): Promise<PickFileOutcome> {
     return file ? { status: 'picked', file } : { status: 'cancelled' };
   }
 
-  return pickNativeImage(() => FilePicker.pickImages({ limit: 1 }));
+  return pickNativeImage(() => FilePicker.pickImages({ limit: 1, skipTranscoding: false }));
 }
 
 export async function pickImageFromFiles(): Promise<PickFileOutcome> {

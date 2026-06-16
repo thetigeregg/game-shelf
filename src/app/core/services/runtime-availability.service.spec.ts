@@ -73,6 +73,22 @@ describe('RuntimeAvailabilityService', () => {
     expect(service.bannerMessage()).toContain('Offline');
   });
 
+  it('notifies listeners when availability status changes', async () => {
+    const listener = vi.fn();
+    const unsubscribe = service.onStatusChange(listener);
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () =>
+        Promise.resolve('window.__GAME_SHELF_RUNTIME_CONFIG__ = { appVersion: "1.0.0" };'),
+    });
+
+    await service.refresh();
+
+    expect(listener).toHaveBeenCalledWith('online');
+    unsubscribe();
+  });
+
   it('marks the app as service-unreachable when the runtime config probe fails', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('network failed'));
 
@@ -243,6 +259,25 @@ describe('RuntimeAvailabilityService', () => {
     vi.advanceTimersByTime(30_000);
 
     expect(refreshSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify listeners when refresh resolves to the same status', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      text: vi.fn(),
+    });
+
+    await service.refresh();
+    expect(service.status()).toBe('service-unreachable');
+
+    const listener = vi.fn();
+    const unsubscribe = service.onStatusChange(listener);
+
+    await service.refresh();
+
+    expect(service.status()).toBe('service-unreachable');
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   it('returns early when refresh is invoked without a window object', async () => {

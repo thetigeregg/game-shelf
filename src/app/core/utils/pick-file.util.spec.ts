@@ -148,7 +148,7 @@ describe('pick-file.util', () => {
 
     const result = await pickImageFromPhotoLibrary();
 
-    expect(pickImagesMock).toHaveBeenCalledWith({ limit: 1 });
+    expect(pickImagesMock).toHaveBeenCalledWith({ limit: 1, skipTranscoding: false });
     expect(result.status).toBe('picked');
 
     if (result.status === 'picked') {
@@ -274,6 +274,46 @@ describe('pick-file.util', () => {
     vi.stubGlobal('document', undefined);
 
     await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('returns cancelled when document.body is not an HTMLElement', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    vi.stubGlobal('document', { body: null });
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('ignores a second settle call if already settled', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
+      this: HTMLInputElement
+    ) {
+      this.dispatchEvent(new Event('cancel'));
+      this.dispatchEvent(new Event('cancel'));
+    });
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+    vi.spyOn(HTMLInputElement.prototype, 'remove').mockImplementation(() => undefined);
+
+    await expect(pickCsvTextFile()).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('ignores the focus-fallback timer if already settled by a prior event', async () => {
+    vi.useFakeTimers();
+    isNativePlatformMock.mockReturnValue(false);
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
+      this: HTMLInputElement
+    ) {
+      window.dispatchEvent(new Event('focus'));
+      this.dispatchEvent(new Event('cancel'));
+    });
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+    vi.spyOn(HTMLInputElement.prototype, 'remove').mockImplementation(() => undefined);
+
+    const resultPromise = pickCsvTextFile();
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
+    vi.useRealTimers();
   });
 
   it('propagates web CSV read failures', async () => {

@@ -3831,3 +3831,19 @@
 - 1b435e32 feat(sync): bootstrap fresh installs from server snapshot
 - ae891eeb fix(list-page): dismiss loading when game list renders
 - d2a0c7a2 fix(ios): allow local network for dev and unblock list loading
+
+## v1.61.1 - 2026-06-16
+
+- 265bdf33 Merge pull request #442 from thetigeregg/feat/fix
+- 0a7e86d4 fix(ci): scope workflow_run to main and fix release tag resolution
+- d251f8e5 fix(ci): remove unsafe latest-tag fallback in testflight tag resolution
+- bc799d19 fix(ci): pin detect_changes and testflight checkouts to workflow_run head_sha
+- 97d283d8 fix(ci): drop head_sha fallback from testflight checkout ref
+- dcf9353b fix(ci): resolve release tag from HEAD instead of workflow_run.head_sha
+- 2a561bfd fix(ci): skip skip_summary job when upstream workflow_run fails
+- 19485021 docs(ios): fix workflow_run trigger model and tag resolution in testflight CI doc
+- 30dd4a55 ci(ios): scope tag resolution to head_sha; fix workflow_run docs accuracy
+- 543fff3e ci(ios): add ref fallback for checkout when release_tag is empty
+- 91c4b4db docs(ios): fix tag-resolution description in testflight CI doc
+- 0d7aeea2 ci(ios): trigger testflight via workflow_run instead of tag push
+- c8cc846d ci(ios): trigger testflight via workflow_run instead of tag push

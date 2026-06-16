@@ -41,9 +41,9 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 `workflow_run` completion always starts the workflow (bypassing `[skip ci]`), but a cheap Ubuntu
 job diffs `prev_tag..current_tag` before the macOS build. TestFlight runs only when native-shell
-files changed. Tag resolution is two-step: first `git tag --points-at <head_sha> --list 'v*' --sort=-v:refname | head -1`
-selects a `v*` tag pointing at the upstream run's `head_sha`; if none is found it falls back to
-`git tag --list 'v*' --sort=-v:refname | head -1` (latest semver tag by version order).
+files changed. Tag resolution is two-step: first `git tag --points-at HEAD --list 'v*' --sort=-v:refname | head -1`
+selects a `v*` tag on the checked-out `HEAD` (the release commit on `main` at the time `workflow_run` fires);
+if none is found it falls back to `git tag --list 'v*' --sort=-v:refname | head -1` (latest semver tag by version order).
 
 **Auto-deploy paths:**
 

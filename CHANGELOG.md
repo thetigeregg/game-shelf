@@ -3852,3 +3852,10 @@
 
 - d57e6253 Merge pull request #441 from thetigeregg/dependabot/npm_and_yarn/server/form-data-2.5.6
 - 738ce12d chore(deps): bump form-data from 2.5.5 to 2.5.6 in /server
+
+## v1.61.3 - 2026-06-16
+
+- ef81fbfd Merge pull request #443 from thetigeregg/feat/fix
+- 5f2f2944 test(list-page): fix disarm-path test and align flushAsync with app spec
+- 050ca9df fix(ui): replace ion-loading with @if overlay to fix stuck spinner
+- e4fa0b3d fix(list-page): convert isInitialListLoading to signal to fix stuck spinner

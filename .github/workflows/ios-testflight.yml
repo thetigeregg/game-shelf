@@ -6,6 +6,8 @@ on:
       - "Release & Publish"
     types:
       - completed
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -49,7 +51,7 @@ jobs:
             exit 0
           fi
 
-          CURRENT=$(git tag --points-at HEAD --list 'v*' --sort=-v:refname | head -1)
+          CURRENT=$(git tag --list 'v*' --sort=-v:refname | head -1)
           if [ -z "$CURRENT" ]; then
             echo "::warning::No release tag found; deploying unconditionally."
             echo "should_deploy=true" >> "$GITHUB_OUTPUT"

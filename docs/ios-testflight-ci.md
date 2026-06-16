@@ -32,16 +32,16 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 ## Triggers
 
-| Trigger             | When                                                                                                                                                                                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `workflow_run`      | Fires when `Release & Publish` completes (any conclusion); `detect_changes`, `skip_summary`, and `testflight` jobs run only when conclusion is `success` (job-level `if` guard) — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag |
-| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md))                                                                                                                          |
+| Trigger             | When                                                                                                                                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workflow_run`      | Fires when `Release & Publish` completes on `main` (any conclusion); `detect_changes`, `skip_summary`, and `testflight` jobs run only when conclusion is `success` (job-level `if` guard) — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag |
+| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md))                                                                                                                                    |
 
 ## Deploy gating (native shell only)
 
 `workflow_run` completion always starts the workflow (bypassing `[skip ci]`), but a cheap Ubuntu
 job diffs `prev_tag..current_tag` before the macOS build. TestFlight runs only when native-shell
-files changed. The `detect_changes` checkout is pinned to `github.event.workflow_run.head_sha` (falling back to `github.sha` for `workflow_dispatch`), so `HEAD` always refers to the exact commit the upstream run built. Tag resolution uses `git tag --points-at HEAD --list 'v*' --sort=-v:refname | head -1` to select a `v*` tag on that exact commit; if none is found, the workflow deploys unconditionally using the upstream SHA without resolving a `release_tag` (no fallback to an unrelated tag). The `testflight` checkout similarly uses `release_tag` when resolved, then `github.event.workflow_run.head_sha`, then `github.sha` as a last resort.
+files changed. The `detect_changes` checkout is pinned to `github.event.workflow_run.head_sha` (falling back to `github.sha` for `workflow_dispatch`). Tag resolution uses `git tag --list 'v*' --sort=-v:refname | head -1` to select the latest `v*` tag from all fetched refs — this correctly resolves the release tag even when it was pushed on a bump commit after the upstream `head_sha`. If no tag is found, the workflow deploys unconditionally using the upstream SHA without resolving a `release_tag`. The `testflight` checkout similarly uses `release_tag` when resolved, then `github.event.workflow_run.head_sha`, then `github.sha` as a last resort.
 
 **Auto-deploy paths:**
 

@@ -204,6 +204,21 @@ describe('ListPageComponent', () => {
     expect(component.isInitialListLoading).toBe(false);
   });
 
+  it('dismisses initial list loading when bootstrap finishes without a sync event (disarm path)', () => {
+    const bootstrap = TestBed.inject(SyncBootstrapProgressService);
+    const component = createComponent();
+
+    bootstrap.start();
+    TestBed.tick();
+    expect(component.showInitialListLoading).toBe(false);
+
+    bootstrap.finish();
+    TestBed.tick();
+
+    expect(component.showInitialListLoading).toBe(false);
+    expect(component.isInitialListLoading).toBe(false);
+  });
+
   it('clears loading immediately when detail hydration fails before identity lookup resolves', async () => {
     const component = createComponent();
     const result = makeResult();

@@ -10,7 +10,7 @@ Distribution is TestFlight-only — builds are not submitted to the public App S
 flowchart TD
   MainPush[Push to main] --> ReleaseWF[release-publish.yml]
   ReleaseWF --> Tag["Tag vX.Y.Z"]
-  Tag --> WFRun["workflow_run: completed"]
+  ReleaseWF --> WFRun["workflow_run: completed"]
   WFRun --> Gate[ios-testflight detect_changes]
   Gate --> Diff{Native-shell<br/>changes?}
   Diff -->|yes| NodeBuild["npm run sync:ios:prod"]
@@ -41,8 +41,9 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 `workflow_run` completion always starts the workflow (bypassing `[skip ci]`), but a cheap Ubuntu
 job diffs `prev_tag..current_tag` before the macOS build. TestFlight runs only when native-shell
-files changed. The current tag is resolved via `git tag --list 'v*' --sort=-v:refname | head -1`
-(latest semver tag by version order).
+files changed. Tag resolution is two-step: first `git tag --points-at <head_sha> --list 'v*' --sort=-v:refname | head -1`
+selects a `v*` tag pointing at the upstream run's `head_sha`; if none is found it falls back to
+`git tag --list 'v*' --sort=-v:refname | head -1` (latest semver tag by version order).
 
 **Auto-deploy paths:**
 

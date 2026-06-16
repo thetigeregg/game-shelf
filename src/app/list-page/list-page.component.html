@@ -1,3 +1,12 @@
+@if (showInitialListLoading) {
+  <div class="list-loading-backdrop" aria-busy="true" aria-label="Loading games...">
+    <div class="list-loading-box">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p class="list-loading-text">Loading games...</p>
+    </div>
+  </div>
+}
+
 <ion-header [translucent]="true" [class.selection-mode-header]="isSelectionMode">
   <ion-toolbar>
     @if (isSelectionMode) {
@@ -79,12 +88,6 @@
 }
 
 <ng-template #listPageContent>
-  <ion-loading
-    [isOpen]="showInitialListLoading"
-    message="Loading games..."
-    spinner="crescent"
-  ></ion-loading>
-
   <ion-popover
     [isOpen]="isBulkActionsPopoverOpen"
     [arrow]="false"

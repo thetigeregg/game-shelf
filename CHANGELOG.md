@@ -3859,3 +3859,8 @@
 - 5f2f2944 test(list-page): fix disarm-path test and align flushAsync with app spec
 - 050ca9df fix(ui): replace ion-loading with @if overlay to fix stuck spinner
 - e4fa0b3d fix(list-page): convert isInitialListLoading to signal to fix stuck spinner
+
+## v1.61.4 - 2026-06-16
+
+- 1d86d79b Merge pull request #444 from thetigeregg/dependabot/bundler/ios/aws-sdk-s3-1.208.0
+- 8a3bba15 chore(deps): bump aws-sdk-s3 from 1.188.0 to 1.208.0 in /ios

@@ -106,7 +106,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.detect_changes.outputs.release_tag }}
+          ref: ${{ needs.detect_changes.outputs.release_tag || github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

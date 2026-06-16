@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject } from '@angular/core';
+import { Component, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -22,6 +22,7 @@ import {
   IonModal,
   IonBadge,
   IonLoading,
+  IonSpinner,
   IonFab,
   IonFabButton,
   IonFabList,
@@ -162,6 +163,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonBadge,
     IonModal,
     IonLoading,
+    IonSpinner,
     IonFab,
     IonFabButton,
     IonFabList,
@@ -211,7 +213,7 @@ export class ListPageComponent {
   isAddGameVideosModalOpen = false;
   isAddGameWebsitesModalOpen = false;
   isSelectionMode = false;
-  isInitialListLoading = true;
+  private readonly _isInitialListLoading = signal(true);
   selectedGamesCount = 0;
   allDisplayedSelected = false;
   isBulkActionsPopoverOpen = false;
@@ -528,6 +530,10 @@ export class ListPageComponent {
     this.finishInitialListLoading();
   }
 
+  get isInitialListLoading(): boolean {
+    return this._isInitialListLoading();
+  }
+
   get showInitialListLoading(): boolean {
     if (this.syncBootstrapProgress.progress().active) {
       return false;
@@ -542,7 +548,7 @@ export class ListPageComponent {
     }
 
     this.receivedInitialListSnapshot = true;
-    this.isInitialListLoading = false;
+    this._isInitialListLoading.set(false);
   }
 
   onSelectionStateChange(state: GameListSelectionState): void {

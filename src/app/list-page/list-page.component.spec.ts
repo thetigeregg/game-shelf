@@ -37,6 +37,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonModal: Dummy,
     IonBadge: Dummy,
     IonLoading: Dummy,
+    IonSpinner: Dummy,
     IonFab: Dummy,
     IonFabButton: Dummy,
     IonFabList: Dummy,
@@ -152,6 +153,8 @@ describe('ListPageComponent', () => {
   async function flushAsync(): Promise<void> {
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   it('dismisses initial list loading when sync reports library changes', () => {
@@ -199,6 +202,21 @@ describe('ListPageComponent', () => {
 
     bootstrap.finish();
     syncEvents.emitChanged();
+
+    expect(component.showInitialListLoading).toBe(false);
+    expect(component.isInitialListLoading).toBe(false);
+  });
+
+  it('dismisses initial list loading when bootstrap finishes without a sync event (disarm path)', async () => {
+    const bootstrap = TestBed.inject(SyncBootstrapProgressService);
+    const component = createComponent();
+
+    bootstrap.start();
+    await flushAsync();
+    expect(component.showInitialListLoading).toBe(false);
+
+    bootstrap.finish();
+    await flushAsync();
 
     expect(component.showInitialListLoading).toBe(false);
     expect(component.isInitialListLoading).toBe(false);

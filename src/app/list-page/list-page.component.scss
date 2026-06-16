@@ -3,6 +3,33 @@ app-game-list {
   display: block;
 }
 
+.list-loading-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ion-z-index-overlay, 20000) + 5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--ion-backdrop-color-rgb, 0, 0, 0), var(--ion-backdrop-opacity, 0.32));
+}
+
+.list-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 32px;
+  border-radius: 12px;
+  background: var(--ion-background-color, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.list-loading-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ion-text-color, #000);
+}
+
 .list-page-split-pane {
   --side-width: 360px;
   --side-min-width: 360px;

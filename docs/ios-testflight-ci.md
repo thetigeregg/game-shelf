@@ -1,7 +1,7 @@
 # iOS TestFlight CI
 
 Game Shelf uploads the **App PROD** Capacitor build to TestFlight when the release workflow
-pushes a semver tag (`v*`) **and** native-shell files changed since the previous tag.
+completes successfully **and** native-shell files changed since the previous tag.
 Distribution is TestFlight-only — builds are not submitted to the public App Store.
 
 ## Pipeline overview
@@ -10,7 +10,8 @@ Distribution is TestFlight-only — builds are not submitted to the public App S
 flowchart TD
   MainPush[Push to main] --> ReleaseWF[release-publish.yml]
   ReleaseWF --> Tag["Tag vX.Y.Z"]
-  Tag --> Gate[ios-testflight detect_changes]
+  ReleaseWF --> WFRun["workflow_run: completed"]
+  WFRun --> Gate[ios-testflight detect_changes]
   Gate --> Diff{Native-shell<br/>changes?}
   Diff -->|yes| NodeBuild["npm run sync:ios:prod"]
   Diff -->|no| Skip[Skip macOS job]
@@ -31,15 +32,16 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 ## Triggers
 
-| Trigger             | When                                                                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tag push `v*`       | After `Release & Publish` pushes a tag, **only if native-shell paths changed** since the previous tag                                                               |
-| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md)) |
+| Trigger             | When                                                                                                                                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workflow_run`      | Fires when `Release & Publish` completes on `main` (any conclusion); `detect_changes`, `skip_summary`, and `testflight` jobs run only when conclusion is `success` (job-level `if` guard) — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag |
+| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md))                                                                                                                                    |
 
 ## Deploy gating (native shell only)
 
-Tag pushes always start the workflow, but a cheap Ubuntu job diffs `prev_tag..current_tag`
-before the macOS build. TestFlight runs only when native-shell files changed.
+`workflow_run` completion always starts the workflow (bypassing `[skip ci]`), but a cheap Ubuntu
+job diffs `prev_tag..current_tag` before the macOS build. TestFlight runs only when native-shell
+files changed. The `detect_changes` checkout is pinned to `github.event.workflow_run.head_sha` (falling back to `github.sha` for `workflow_dispatch`). Tag resolution uses `git tag --list 'v*' --sort=-v:refname | head -1` to select the latest `v*` tag from all fetched refs — this correctly resolves the release tag even when it was pushed on a bump commit after the upstream `head_sha`. If no tag is found, the workflow deploys unconditionally using the upstream SHA without resolving a `release_tag`. The `testflight` checkout similarly uses `release_tag` when resolved, then `github.event.workflow_run.head_sha`, then `github.sha` as a last resort.
 
 **Auto-deploy paths:**
 
@@ -253,20 +255,20 @@ After renewal, commit to the match repo is automatic; no workflow changes needed
 
 ## Troubleshooting
 
-| Symptom                                            | Likely cause                                                                                            |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Could not find an app on App Store Connect         | ASC app record not created yet, or bundle ID / team mismatch vs `ios/fastlane/Appfile`                  |
-| Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                       |
-| Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                |
-| `validate_match` fails / cannot clone match repo   | `MATCH_GIT_BASIC_AUTHORIZATION` or `MATCH_PASSWORD` missing or wrong; PAT lacks repo access             |
-| `No signing certificate "iOS Distribution" found`  | Match not bootstrapped — run `fastlane match appstore` locally first                                    |
-| `No profile for io.github.thetigeregg.gameshelf`   | Match profile missing or name mismatch; re-run `match appstore`                                         |
-| Export fails after manual portal cert changes      | Revoke manual certs/profiles and let match regenerate; avoid mixing manual + match                      |
-| Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number              |
-| Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                            |
-| Tag pushed but no TestFlight build                 | Expected when only backend/src changed; run workflow_dispatch to force a build                          |
-| `ENOENT .../ios/fastlane/ios/App/...`              | `sync-ios-version.mjs` resolved paths from fastlane cwd; fixed by repo-root defaults                    |
-| Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler` |
+| Symptom                                            | Likely cause                                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Could not find an app on App Store Connect         | ASC app record not created yet, or bundle ID / team mismatch vs `ios/fastlane/Appfile`                                                                                                                                                                                      |
+| Missing Firebase plist                             | `IOS_FIREBASE_PROD_PLIST_BASE64` secret not set or invalid base64                                                                                                                                                                                                           |
+| Missing backend origin                             | `IOS_BACKEND_ORIGIN_PROD` secret not set                                                                                                                                                                                                                                    |
+| `validate_match` fails / cannot clone match repo   | `MATCH_GIT_BASIC_AUTHORIZATION` or `MATCH_PASSWORD` missing or wrong; PAT lacks repo access                                                                                                                                                                                 |
+| `No signing certificate "iOS Distribution" found`  | Match not bootstrapped — run `fastlane match appstore` locally first                                                                                                                                                                                                        |
+| `No profile for io.github.thetigeregg.gameshelf`   | Match profile missing or name mismatch; re-run `match appstore`                                                                                                                                                                                                             |
+| Export fails after manual portal cert changes      | Revoke manual certs/profiles and let match regenerate; avoid mixing manual + match                                                                                                                                                                                          |
+| Build number already used                          | Re-run after a previous upload completed; Fastlane queries ASC for the latest build number                                                                                                                                                                                  |
+| Wrong backend in app                               | `IOS_BACKEND_ORIGIN_PROD` does not match production edge URL                                                                                                                                                                                                                |
+| Release published but no TestFlight build          | Expected when only backend/src changed; run workflow_dispatch to force a build. Also confirm `Release & Publish` concluded `success` — `workflow_run` fires on any completion but jobs are skipped via the `if: conclusion == 'success'` guard when the upstream run failed |
+| `ENOENT .../ios/fastlane/ios/App/...`              | `sync-ios-version.mjs` resolved paths from fastlane cwd; fixed by repo-root defaults                                                                                                                                                                                        |
+| Setup Ruby fails with `undefined method 'untaint'` | Stale `BUNDLED WITH 1.x` in `ios/Gemfile.lock`; regenerate with `bundle _2.5.23_ lock --update-bundler`                                                                                                                                                                     |
 
 See also [`ios-multi-environment.md`](ios-multi-environment.md) for local dev/prod side-by-side
 setup and [`notifications-troubleshooting.md`](notifications-troubleshooting.md) for push

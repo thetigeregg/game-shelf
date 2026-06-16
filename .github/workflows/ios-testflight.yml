@@ -77,9 +77,11 @@ jobs:
     name: Skip summary
     needs:
       - detect_changes
-    if: needs.detect_changes.outputs.should_deploy != 'true'
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success') &&
+      needs.detect_changes.outputs.should_deploy != 'true'
     runs-on: ubuntu-latest
-
     steps:
       - name: Write skip summary
         run: |

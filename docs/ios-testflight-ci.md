@@ -32,10 +32,10 @@ keychain before archive/export — similar to Azure DevOps secure files for cert
 
 ## Triggers
 
-| Trigger             | When                                                                                                                                                                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `workflow_run`      | Fires when `Release & Publish` completes (any conclusion); jobs run only when conclusion is `success` (job-level `if` guard) — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag |
-| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md))                                                                       |
+| Trigger             | When                                                                                                                                                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workflow_run`      | Fires when `Release & Publish` completes (any conclusion); `detect_changes`, `skip_summary`, and `testflight` jobs run only when conclusion is `success` (job-level `if` guard) — bypasses `[skip ci]` on the release commit — **only if native-shell paths changed** since the previous tag |
+| `workflow_dispatch` | Manual override (always runs macOS build — use for signing retries or emergencies, not normal src-only fixes; those ship via [iOS live update](ios-live-update.md))                                                                                                                          |
 
 ## Deploy gating (native shell only)
 

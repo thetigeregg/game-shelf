@@ -48,7 +48,14 @@ jobs:
             exit 0
           fi
 
-          CURRENT=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          CURRENT=""
+          if [ -n "$HEAD_SHA" ]; then
+            CURRENT=$(git tag --points-at "$HEAD_SHA" --list 'v*' --sort=-v:refname | head -1)
+          fi
+          if [ -z "$CURRENT" ]; then
+            CURRENT=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          fi
           if [ -z "$CURRENT" ]; then
             echo "::warning::No release tag found; deploying unconditionally."
             echo "should_deploy=true" >> "$GITHUB_OUTPUT"

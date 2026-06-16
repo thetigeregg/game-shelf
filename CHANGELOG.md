@@ -3847,3 +3847,8 @@
 - 91c4b4db docs(ios): fix tag-resolution description in testflight CI doc
 - 0d7aeea2 ci(ios): trigger testflight via workflow_run instead of tag push
 - c8cc846d ci(ios): trigger testflight via workflow_run instead of tag push
+
+## v1.61.2 - 2026-06-16
+
+- d57e6253 Merge pull request #441 from thetigeregg/dependabot/npm_and_yarn/server/form-data-2.5.6
+- 738ce12d chore(deps): bump form-data from 2.5.5 to 2.5.6 in /server

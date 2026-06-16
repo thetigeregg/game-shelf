@@ -3864,3 +3864,10 @@
 
 - 1d86d79b Merge pull request #444 from thetigeregg/dependabot/bundler/ios/aws-sdk-s3-1.208.0
 - 8a3bba15 chore(deps): bump aws-sdk-s3 from 1.188.0 to 1.208.0 in /ios
+
+## v1.61.5 - 2026-06-16
+
+- aaf4388a Merge pull request #445 from thetigeregg/feat/fix
+- 86de2346 Merge branch 'main' into feat/fix
+- f29cb3c3 refactor(build): extract prebuild:ios:web to eliminate drift in ota script
+- 64676a90 fix(edge): remove native ios prebuild steps from ota build

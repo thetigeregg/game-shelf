@@ -153,6 +153,8 @@ describe('ListPageComponent', () => {
   async function flushAsync(): Promise<void> {
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   it('dismisses initial list loading when sync reports library changes', () => {
@@ -205,16 +207,16 @@ describe('ListPageComponent', () => {
     expect(component.isInitialListLoading).toBe(false);
   });
 
-  it('dismisses initial list loading when bootstrap finishes without a sync event (disarm path)', () => {
+  it('dismisses initial list loading when bootstrap finishes without a sync event (disarm path)', async () => {
     const bootstrap = TestBed.inject(SyncBootstrapProgressService);
     const component = createComponent();
 
     bootstrap.start();
-    TestBed.tick();
+    await flushAsync();
     expect(component.showInitialListLoading).toBe(false);
 
     bootstrap.finish();
-    TestBed.tick();
+    await flushAsync();
 
     expect(component.showInitialListLoading).toBe(false);
     expect(component.isInitialListLoading).toBe(false);

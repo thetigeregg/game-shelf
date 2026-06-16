@@ -539,7 +539,7 @@ export class ListPageComponent {
       return false;
     }
 
-    return this._isInitialListLoading();
+    return this.isInitialListLoading;
   }
 
   private finishInitialListLoading(): void {

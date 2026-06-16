@@ -3792,3 +3792,42 @@
 - 49bcb331 chore(deps): upgrade plist to v5.0.0 in package.json and package-lock.json
 - e129b330 chore(deps): update dompurify to v3.4.10, eslint to v10.5.0
 - e97c820b chore(deps): upgrade plist to v5
+
+## v1.61.0 - 2026-06-16
+
+- e0b6ceb6 Merge pull request #440 from thetigeregg/feat/fix
+- 8cee4350 fix(sync): skip DB fallback in prepareGameUpsertFromChange when cache is authoritative
+- 13493939 fix(sync): keep bootstrap progress armed while runtime availability is checking
+- 9f94d163 fix(sync): fix disarm active-state race and flushGameUpserts N+1 query
+- 8988339e fix(sync): disarm bootstrap progress when sync skips offline or unreachable
+- c015b148 fix(sync): refresh identity cache with assigned IDs after flushing game upserts
+- 54ce24e8 fix(sync): restore discovery upsert cleanup in applyPulledChanges batch loop
+- b20e7aef fix(sync): log catchError fallbacks and skip identity preload on non-game batches
+- d0fd4abf fix(sync): seed identityCache from storage before applying pulled changes
+- 7f82d224 fix(sync): don't mark bootstrap done on stalled cursor and add coverage for replay paths
+- 3d48b2d8 fix(sync): fix bootstrap-overlay/notification race and remove O(n) identity preload
+- dba6900e perf(sync): lazy-load identity cache and remove redundant bootstrap call
+- a896e2be fix(sync): write started marker to guard bootstrap state against mid-pull cursor
+- 078625fb fix(sync): fix singular game count in bootstrap message and remove per-page identity scan
+- 72955a20 fix(sync): use cache presence check instead of id guard in prepareGameUpsertFromChange
+- 55531e37 fix(sync): guard initial load overlay against upgraded users with existing cursor or games
+- ba9f2d56 perf(sync): hoist NumberFormat and avoid filter allocation in pull loop
+- 55c193d3 perf(sync): track bootstrap game count incrementally instead of querying DB per page
+- a2125dc7 fix(sync): replace waitUntilIdle polling with waiter set, use Map for pending upserts
+- 1cb17ea7 fix(sync): switch to switchMap, restrict capacitor URL, remove dead bootstrap paths
+- 5e880776 fix(sync): guard identityCache undefined-id entries and harden listener notification
+- c292e996 fix(sync): address review feedback — gate overlay on push, fix locale-sensitive test
+- 15cc7d82 fix(sync): gate bootstrap overlay on reachability, coerce SQLite count, add img alt
+- 5672e9aa Merge branch 'main' into feat/fix
+- e0d5e678 feat(sync): initial library load overlay, bulk upsert dedup, and sync reliability fixes
+- d29c1e62 feat(ui): preview selected custom cover image in Customize modal
+- 19fb1ea7 fix(ui): transcode HEIC to JPEG when picking custom cover image
+- 1e47d213 fix(ios): pass capacitor:// cached image URLs through normalizeImageSourceUrl
+- 66e3613f refactor(sync): remove snapshot bootstrap in favor of event replay
+- 8d59097b fix(ui): raise bootstrap overlay and defer competing prompts
+- 850b3c64 feat(sync): show bootstrap download progress on fresh install
+- b05be403 feat(sync): bootstrap fresh installs from server snapshot
+- 800157af Revert "feat(sync): bootstrap fresh installs from server snapshot"
+- 1b435e32 feat(sync): bootstrap fresh installs from server snapshot
+- ae891eeb fix(list-page): dismiss loading when game list renders
+- d2a0c7a2 fix(ios): allow local network for dev and unblock list loading

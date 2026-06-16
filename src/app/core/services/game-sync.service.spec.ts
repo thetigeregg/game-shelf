@@ -44,7 +44,7 @@ type GameSyncServicePrivate = {
   prepareGameUpsertFromChange(
     change: SyncChangeEvent,
     pendingGameOutboxKeys: ReadonlySet<string> | undefined,
-    identityCache: Map<string, GameEntry>
+    identityCache: Map<string, GameEntry> | undefined
   ): Promise<GameEntry | null>;
   applyTagChange(change: SyncChangeEvent, identityCache?: Map<string, GameEntry>): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;

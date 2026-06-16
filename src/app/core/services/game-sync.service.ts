@@ -846,7 +846,7 @@ export class GameSyncService implements SyncOutboxWriter {
     const prepared = await this.prepareGameUpsertFromChange(
       change,
       pendingGameOutboxKeys,
-      identityCache ?? new Map<string, GameEntry>()
+      identityCache
     );
 
     if (!prepared) {
@@ -874,7 +874,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private async prepareGameUpsertFromChange(
     change: SyncChangeEvent,
     pendingGameOutboxKeys: ReadonlySet<string> | undefined,
-    identityCache: Map<string, GameEntry>
+    identityCache: Map<string, GameEntry> | undefined
   ): Promise<GameEntry | null> {
     const rawPayload =
       change.payload && typeof change.payload === 'object'
@@ -896,9 +896,10 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const identityKey = this.buildGameIdentityKey(igdbGameId, platformIgdbId);
-    const existingByIdentity = identityCache.has(identityKey)
-      ? identityCache.get(identityKey)
-      : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
+    const existingByIdentity =
+      identityCache !== undefined
+        ? identityCache.get(identityKey)
+        : await this.engine.getGameByIdentity(igdbGameId, platformIgdbId);
     const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
       igdbGameId,
       platformIgdbId,

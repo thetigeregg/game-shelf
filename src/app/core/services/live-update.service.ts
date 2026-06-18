@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { App } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
+import { Subject } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { DebugLogService } from './debug-log.service';
@@ -23,6 +24,8 @@ export class LiveUpdateService {
   private resumeListenerAttachInFlight = false;
   private lastCheckAt = 0;
   private checkInFlight: Promise<void> | null = null;
+
+  readonly staged$ = new Subject<{ semver: string }>();
 
   isEnabled(): boolean {
     return isNativePlatform() && environment.production;
@@ -95,6 +98,21 @@ export class LiveUpdateService {
       });
   }
 
+  async reload(): Promise<void> {
+    if (!this.isEnabled()) {
+      return;
+    }
+
+    try {
+      await LiveUpdate.reload();
+      this.debugLogService.info('live_update.reload');
+    } catch (error: unknown) {
+      this.debugLogService.error('live_update.reload_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   private async runCheckAndStageUpdate(force: boolean): Promise<void> {
     const now = Date.now();
     if (!force && now - this.lastCheckAt < RESUME_CHECK_INTERVAL_MS) {
@@ -146,6 +164,8 @@ export class LiveUpdateService {
       });
 
       await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
+
+      this.staged$.next({ semver: manifest.semver });
 
       this.debugLogService.info('live_update.staged', {
         bundleId: manifest.bundleId,

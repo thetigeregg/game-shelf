@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { SplashScreen } from '@capacitor/splash-screen';
 import {
   AlertController,
@@ -32,7 +33,7 @@ const MIN_SPLASH_VISIBLE_MS = 300;
   standalone: true,
   imports: [IonApp, IonRouterOutlet, IonProgressBar],
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   private readonly themeService = inject(ThemeService);
   private readonly gameSyncService = inject(GameSyncService);
   private readonly debugLogService = inject(DebugLogService);
@@ -48,12 +49,20 @@ export class AppComponent {
   private readonly networkConnectivityService = inject(NetworkConnectivityService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
   private readonly appStartedAt = Date.now();
+  private stagedSub: Subscription | null = null;
 
   constructor() {
     void this.initializeApp();
   }
 
+  ngOnDestroy(): void {
+    this.stagedSub?.unsubscribe();
+  }
+
   private async initializeApp(): Promise<void> {
+    this.stagedSub = this.liveUpdateService.staged$.subscribe(({ semver }) => {
+      void this.presentOtaUpdateAlert(semver);
+    });
     this.networkConnectivityService.initialize();
     this.runtimeAvailabilityService.initialize();
     if (isE2eFixturesEnabled()) {
@@ -205,6 +214,24 @@ export class AppComponent {
 
     await alert.present();
     this.preferenceStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
+  }
+
+  private async presentOtaUpdateAlert(semver: string): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Update Ready',
+      message: `Game Shelf v${semver} has been downloaded. Reload now to apply it.`,
+      buttons: [
+        { text: 'Later', role: 'cancel' },
+        {
+          text: 'Reload',
+          role: 'confirm',
+          handler: () => {
+            void this.liveUpdateService.reload();
+          },
+        },
+      ],
+    });
+    await alert.present();
   }
 
   private async presentNotificationToast(

@@ -18,6 +18,7 @@ const liveUpdateGetCurrentBundleMock = vi.fn<[], Promise<{ bundleId: string | nu
 const liveUpdateGetNextBundleMock = vi.fn<[], Promise<{ bundleId: string | null }>>();
 const liveUpdateDownloadBundleMock = vi.fn<[unknown], Promise<void>>();
 const liveUpdateSetNextBundleMock = vi.fn<[unknown], Promise<void>>();
+const liveUpdateReloadMock = vi.fn<[], Promise<void>>();
 const appAddListenerMock = vi.fn<
   [string, (state: { isActive: boolean }) => void],
   Promise<{ remove: () => void }>
@@ -35,6 +36,7 @@ vi.mock('@capawesome/capacitor-live-update', () => ({
     getNextBundle: () => liveUpdateGetNextBundleMock(),
     downloadBundle: (options: unknown) => liveUpdateDownloadBundleMock(options),
     setNextBundle: (options: unknown) => liveUpdateSetNextBundleMock(options),
+    reload: () => liveUpdateReloadMock(),
   },
 }));
 
@@ -76,6 +78,7 @@ describe('LiveUpdateService', () => {
     liveUpdateGetNextBundleMock.mockReset();
     liveUpdateDownloadBundleMock.mockReset();
     liveUpdateSetNextBundleMock.mockReset();
+    liveUpdateReloadMock.mockReset();
     appAddListenerMock.mockReset();
 
     liveUpdateReadyMock.mockResolvedValue({
@@ -88,6 +91,7 @@ describe('LiveUpdateService', () => {
     liveUpdateGetNextBundleMock.mockResolvedValue({ bundleId: null });
     liveUpdateDownloadBundleMock.mockResolvedValue(undefined);
     liveUpdateSetNextBundleMock.mockResolvedValue(undefined);
+    liveUpdateReloadMock.mockResolvedValue(undefined);
     appAddListenerMock.mockResolvedValue({ remove: () => undefined });
 
     TestBed.resetTestingModule();
@@ -343,5 +347,60 @@ describe('LiveUpdateService', () => {
 
     await expect(service.checkAndStageUpdate(true)).resolves.toBeUndefined();
     expect(debugLogService.exportText()).toContain('live_update.check_failed');
+  });
+
+  it('emits on staged$ when a bundle is staged', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(validManifest), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const emissions: { semver: string }[] = [];
+    service.staged$.subscribe((value) => emissions.push(value));
+
+    await service.checkAndStageUpdate(true);
+
+    expect(emissions).toEqual([{ semver: validManifest.semver }]);
+  });
+
+  it('does not emit on staged$ when staging is skipped', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(validManifest), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    liveUpdateGetCurrentBundleMock.mockResolvedValueOnce({ bundleId: validManifest.bundleId });
+
+    const emissions: { semver: string }[] = [];
+    service.staged$.subscribe((value) => emissions.push(value));
+
+    await service.checkAndStageUpdate(true);
+
+    expect(emissions).toHaveLength(0);
+  });
+
+  it('reload calls LiveUpdate.reload and logs success', async () => {
+    await service.reload();
+
+    expect(liveUpdateReloadMock).toHaveBeenCalledOnce();
+    expect(debugLogService.exportText()).toContain('live_update.reload');
+  });
+
+  it('reload is a no-op when disabled', async () => {
+    isNativePlatformMock.mockReturnValue(false);
+
+    await service.reload();
+
+    expect(liveUpdateReloadMock).not.toHaveBeenCalled();
+  });
+
+  it('reload logs failure without throwing', async () => {
+    liveUpdateReloadMock.mockRejectedValueOnce(new Error('reload failed'));
+
+    await expect(service.reload()).resolves.toBeUndefined();
+    expect(debugLogService.exportText()).toContain('live_update.reload_failed');
   });
 });

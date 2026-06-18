@@ -1,6 +1,7 @@
 import { computed, signal } from '@angular/core';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Subject } from 'rxjs';
 
 vi.mock('@ionic/angular/standalone', () => {
   const Dummy = () => null;
@@ -107,8 +108,14 @@ describe('AppComponent', () => {
   const e2eFixtureServiceMock = {
     applyFixtureFromStorage: vi.fn().mockResolvedValue(undefined),
   };
-  const liveUpdateServiceMock = {
+  const liveUpdateServiceMock: {
+    markReady: ReturnType<typeof vi.fn>;
+    reload: ReturnType<typeof vi.fn>;
+    staged$: Subject<{ semver: string }>;
+  } = {
     markReady: vi.fn().mockResolvedValue(undefined),
+    reload: vi.fn().mockResolvedValue(undefined),
+    staged$: new Subject<{ semver: string }>(),
   };
   const alertControllerMock = {
     create: vi.fn(),
@@ -151,6 +158,8 @@ describe('AppComponent', () => {
       message: 'Enabled',
     });
     liveUpdateServiceMock.markReady.mockResolvedValue(undefined);
+    liveUpdateServiceMock.reload.mockResolvedValue(undefined);
+    liveUpdateServiceMock.staged$ = new Subject<{ semver: string }>();
     alertControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
       onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel', data: undefined }),
@@ -487,6 +496,65 @@ describe('AppComponent', () => {
     await Promise.resolve();
 
     expect(errorSpy).toHaveBeenCalledWith('[app] splash_screen_hide_failed', expect.any(Error));
+  });
+
+  describe('OTA update alert', () => {
+    beforeEach(() => {
+      localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+      vi.mocked(isNativePlatform).mockReturnValue(false);
+    });
+
+    it('presents the OTA update alert when a bundle is staged', async () => {
+      const present = vi.fn().mockResolvedValue(undefined);
+      alertControllerMock.create.mockResolvedValueOnce({ present });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      liveUpdateServiceMock.staged$.next({ semver: '1.28.0' });
+      await flushAsync();
+
+      expect(alertControllerMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          header: 'Update Ready',
+          message: 'Game Shelf v1.28.0 has been downloaded. Reload now to apply it.',
+        })
+      );
+      expect(present).toHaveBeenCalledOnce();
+    });
+
+    it('calls reload when the Reload button is tapped', async () => {
+      const present = vi.fn().mockResolvedValue(undefined);
+      alertControllerMock.create.mockResolvedValueOnce({ present });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      liveUpdateServiceMock.staged$.next({ semver: '1.28.0' });
+      await flushAsync();
+
+      const otaAlertConfig = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
+      const buttons = getPromptButtons(otaAlertConfig);
+      void buttons[1]?.handler?.();
+
+      expect(liveUpdateServiceMock.reload).toHaveBeenCalledOnce();
+    });
+
+    it('does not call reload when Later is tapped', async () => {
+      const present = vi.fn().mockResolvedValue(undefined);
+      alertControllerMock.create.mockResolvedValueOnce({ present });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      liveUpdateServiceMock.staged$.next({ semver: '1.28.0' });
+      await flushAsync();
+
+      const otaAlertConfig = alertControllerMock.create.mock.calls[0]?.[0] as unknown;
+      const buttons = getPromptButtons(otaAlertConfig);
+      expect(buttons[0]).not.toHaveProperty('handler');
+      expect(liveUpdateServiceMock.reload).not.toHaveBeenCalled();
+    });
   });
 
   describe('promptForWriteTokenIfNeeded', () => {

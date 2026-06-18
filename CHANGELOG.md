@@ -3888,3 +3888,12 @@
 - a705ca9b fix(ci): allow publish_images when validate_ios_signing_key is skipped
 - ed7e71cb Merge branch 'main' into feat/fix
 - f02da703 fix(ci): fix iOS OTA signing key not reaching Docker build
+
+## v1.62.2 - 2026-06-18
+
+- e5f8b4dd Merge pull request #448 from thetigeregg/feat/fix
+- c82b49e9 test(spec): remove unused PopoverController mocks from list-page and explore specs
+- ebc6e199 test(explore): return Promise from navigateByUrl mock to match Router API
+- c3cbf6c3 Merge branch 'main' into feat/fix
+- 28693eff fix(explore): remove double-dismiss hang on iOS popover navigation
+- cca175f7 fix(list-page): remove double-dismiss hang blocking Views navigation on iOS

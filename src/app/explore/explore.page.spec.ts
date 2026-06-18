@@ -2371,6 +2371,7 @@ describe('ExplorePage explore modes UX', () => {
     let stateAfterClose: boolean | undefined;
     routerMock.navigateByUrl.mockImplementationOnce(() => {
       stateAfterClose = page.isHeaderActionsPopoverOpen;
+      return Promise.resolve(true);
     });
 
     await page.openSettingsFromPopover();

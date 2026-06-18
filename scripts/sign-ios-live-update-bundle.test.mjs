@@ -35,6 +35,21 @@ test('signBundleBuffer verifies with RSA-SHA256 public key', () => {
   );
 });
 
+test('signBundleBuffer accepts PKCS#8 PEM private key', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const buffer = Buffer.from('signed-bundle-contents');
+  const signature = signBundleBuffer(buffer, privateKey.export({ type: 'pkcs8', format: 'pem' }));
+
+  const verifier = createVerify('RSA-SHA256');
+  verifier.update(buffer);
+  verifier.end();
+
+  assert.equal(
+    verifier.verify(publicKey.export({ type: 'pkcs1', format: 'pem' }), signature, 'base64'),
+    true
+  );
+});
+
 test('signBundleFile returns checksum and signature for zip bytes', () => {
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const readFileSyncFn = () => Buffer.from('zip-bytes');

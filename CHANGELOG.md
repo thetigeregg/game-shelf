@@ -3871,3 +3871,11 @@
 - 86de2346 Merge branch 'main' into feat/fix
 - f29cb3c3 refactor(build): extract prebuild:ios:web to eliminate drift in ota script
 - 64676a90 fix(edge): remove native ios prebuild steps from ota build
+
+## v1.62.0 - 2026-06-18
+
+- ef61519d Merge pull request #446 from thetigeregg/feat/fix
+- 38bfe1e6 fix(ui): warn on empty write-token confirm and fix test timer leakage
+- 5bf5f4c7 fix(ui): hide splash before write-token alert and handle prompt errors
+- a8157397 Merge branch 'main' into feat/fix
+- d53806d1 feat(ui): prompt for write token on native iOS first launch

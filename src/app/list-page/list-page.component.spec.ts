@@ -11,9 +11,6 @@ vi.mock('@ionic/angular/standalone', () => {
   const MenuControllerToken = function MenuController() {
     return undefined;
   };
-  const PopoverControllerToken = function PopoverController() {
-    return undefined;
-  };
   const ToastControllerToken = function ToastController() {
     return undefined;
   };
@@ -21,7 +18,6 @@ vi.mock('@ionic/angular/standalone', () => {
   return {
     AlertController: AlertControllerToken,
     MenuController: MenuControllerToken,
-    PopoverController: PopoverControllerToken,
     ToastController: ToastControllerToken,
     IonHeader: Dummy,
     IonToolbar: Dummy,
@@ -72,12 +68,7 @@ import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { DEFAULT_GAME_LIST_FILTERS, type GameCatalogResult } from '../core/models/game.models';
-import {
-  AlertController,
-  MenuController,
-  PopoverController,
-  ToastController,
-} from '@ionic/angular/standalone';
+import { AlertController, MenuController, ToastController } from '@ionic/angular/standalone';
 import { serializeListPagePreferences } from './list-page-preferences';
 
 describe('ListPageComponent', () => {
@@ -124,7 +115,6 @@ describe('ListPageComponent', () => {
         { provide: AddToLibraryWorkflowService, useValue: addToLibraryWorkflowMock },
         { provide: AlertController, useValue: { create: vi.fn() } },
         { provide: MenuController, useValue: { open: vi.fn() } },
-        { provide: PopoverController, useValue: { dismiss: vi.fn().mockResolvedValue(undefined) } },
         { provide: ToastController, useValue: { create: vi.fn() } },
       ],
     });
@@ -693,22 +683,16 @@ describe('ListPageComponent', () => {
     expect(component.filters.collections).toEqual(['Prime']);
   });
 
-  it('closes popovers and tolerates dismiss failures', async () => {
+  it('closes popovers synchronously', () => {
     const component = createComponent();
-    const popoverController = (
-      component as unknown as {
-        popoverController: { dismiss: () => Promise<void> };
-      }
-    ).popoverController;
 
     component.bulkActionsPopoverEvent = new Event('click');
     component.isBulkActionsPopoverOpen = true;
     component.headerActionsPopoverEvent = new Event('click');
     component.isHeaderActionsPopoverOpen = true;
-    vi.spyOn(popoverController, 'dismiss').mockRejectedValueOnce(new Error('dismiss failed'));
 
     component.closeBulkActionsPopover();
-    await component.closeHeaderActionsPopover();
+    component.closeHeaderActionsPopover();
 
     expect(component.isBulkActionsPopoverOpen).toBe(false);
     expect(component.bulkActionsPopoverEvent).toBeUndefined();

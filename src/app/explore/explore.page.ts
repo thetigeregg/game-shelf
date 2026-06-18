@@ -4,7 +4,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
-  PopoverController,
   ToastController,
   IonContent,
   IonHeader,
@@ -273,7 +272,6 @@ export class ExplorePage implements OnInit {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly alertController = inject(AlertController);
-  private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
@@ -452,13 +450,12 @@ export class ExplorePage implements OnInit {
     this.headerActionsPopoverEvent = undefined;
   }
 
-  async closeHeaderActionsPopover(): Promise<void> {
+  closeHeaderActionsPopover(): void {
     this.onHeaderActionsPopoverDidDismiss();
-    await this.popoverController.dismiss().catch(() => undefined);
   }
 
   async openSettingsFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+    this.closeHeaderActionsPopover();
     await this.router.navigateByUrl('/settings');
   }
 

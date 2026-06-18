@@ -3902,3 +3902,11 @@
 
 - ddd027d7 Merge pull request #449 from thetigeregg/dependabot/npm_and_yarn/dompurify-3.4.11
 - 09e163fc chore(deps): bump dompurify from 3.4.10 to 3.4.11
+
+## v1.63.0 - 2026-06-18
+
+- a0c9e6ae Merge pull request #452 from thetigeregg/feat/fix
+- 624db0b2 fix(live-update): catch and log OTA alert presentation errors
+- c1a6da8d fix(live-update): use ReplaySubject(1) for staged$ to avoid subscription race
+- e651fad0 fix(live-update): encapsulate staged$ subject and escape semver in alert
+- 367fa6e6 feat(live-update): show OTA update alert with reload button when bundle is staged

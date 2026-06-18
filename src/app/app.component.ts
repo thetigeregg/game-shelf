@@ -61,7 +61,9 @@ export class AppComponent {
     }
     this.debugLogService.initialize();
     this.themeService.initialize();
-    await this.promptForWriteTokenIfNeeded();
+    await this.promptForWriteTokenIfNeeded().catch((error: unknown) => {
+      console.error('[app] write_token_prompt_failed', error);
+    });
     await this.gameSyncService.initialize();
     void this.runStartupCoverMigrations();
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
@@ -81,6 +83,10 @@ export class AppComponent {
     if (!isNativePlatform() || this.clientWriteAuthService.hasToken()) {
       return;
     }
+
+    await SplashScreen.hide({ fadeOutDuration: 300 }).catch((error: unknown) => {
+      console.error('[app] splash_screen_hide_failed', error);
+    });
 
     const alert = await this.alertController.create({
       header: 'Server Access',

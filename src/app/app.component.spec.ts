@@ -506,6 +506,7 @@ describe('AppComponent', () => {
       TestBed.runInInjectionContext(() => new AppComponent());
       await flushAsync();
 
+      expect(splashHideMock).toHaveBeenCalledWith({ fadeOutDuration: 300 });
       expect(alertControllerMock.create).toHaveBeenCalledWith(
         expect.objectContaining({
           header: 'Server Access',
@@ -513,6 +514,19 @@ describe('AppComponent', () => {
         })
       );
       expect(present).toHaveBeenCalledOnce();
+    });
+
+    it('logs write-token prompt failures and continues startup', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      alertControllerMock.create.mockRejectedValueOnce(new Error('alert create failed'));
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(errorSpy).toHaveBeenCalledWith('[app] write_token_prompt_failed', expect.any(Error));
+      expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
     });
 
     it('does not show the write-token alert on native when a token is already stored', async () => {

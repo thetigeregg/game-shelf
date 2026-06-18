@@ -3879,3 +3879,12 @@
 - 5bf5f4c7 fix(ui): hide splash before write-token alert and handle prompt errors
 - a8157397 Merge branch 'main' into feat/fix
 - d53806d1 feat(ui): prompt for write token on native iOS first launch
+
+## v1.62.1 - 2026-06-18
+
+- 5ae9dc95 Merge pull request #447 from thetigeregg/feat/fix
+- 3740f841 fix(ci): set umask 077 before writing iOS signing key to prevent transient
+- 718c34f6 fix(ci): use safe error coercion in iOS signing key validation catch block
+- a705ca9b fix(ci): allow publish_images when validate_ios_signing_key is skipped
+- ed7e71cb Merge branch 'main' into feat/fix
+- f02da703 fix(ci): fix iOS OTA signing key not reaching Docker build

@@ -693,22 +693,16 @@ describe('ListPageComponent', () => {
     expect(component.filters.collections).toEqual(['Prime']);
   });
 
-  it('closes popovers and tolerates dismiss failures', async () => {
+  it('closes popovers synchronously', () => {
     const component = createComponent();
-    const popoverController = (
-      component as unknown as {
-        popoverController: { dismiss: () => Promise<void> };
-      }
-    ).popoverController;
 
     component.bulkActionsPopoverEvent = new Event('click');
     component.isBulkActionsPopoverOpen = true;
     component.headerActionsPopoverEvent = new Event('click');
     component.isHeaderActionsPopoverOpen = true;
-    vi.spyOn(popoverController, 'dismiss').mockRejectedValueOnce(new Error('dismiss failed'));
 
     component.closeBulkActionsPopover();
-    await component.closeHeaderActionsPopover();
+    component.closeHeaderActionsPopover();
 
     expect(component.isBulkActionsPopoverOpen).toBe(false);
     expect(component.bulkActionsPopoverEvent).toBeUndefined();

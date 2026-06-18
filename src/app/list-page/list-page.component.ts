@@ -6,7 +6,6 @@ import { firstValueFrom } from 'rxjs';
 import {
   AlertController,
   MenuController,
-  PopoverController,
   ToastController,
   IonHeader,
   IonToolbar,
@@ -227,7 +226,6 @@ export class ListPageComponent {
   @ViewChild('headerSearchbar') private headerSearchbar?: IonSearchbar;
   private readonly menuController = inject(MenuController);
   private readonly alertController = inject(AlertController);
-  private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -760,7 +758,7 @@ export class ListPageComponent {
   }
 
   async pickRandomGameFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+    this.closeHeaderActionsPopover();
 
     if (this.displayedGames.length === 0) {
       await this.presentToast('No games available in current results.', 'warning');
@@ -773,17 +771,17 @@ export class ListPageComponent {
   }
 
   async openSettingsFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+    this.closeHeaderActionsPopover();
     await this.router.navigateByUrl('/settings');
   }
 
   async openTagsFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+    this.closeHeaderActionsPopover();
     await this.router.navigateByUrl('/tags');
   }
 
   async openViewsFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+    this.closeHeaderActionsPopover();
     await this.router.navigate(['/views'], {
       state: {
         listType: this.listType,
@@ -797,8 +795,8 @@ export class ListPageComponent {
     return buildDetailWebsiteSearchUrl(this.selectedAddGameDetail?.title, provider);
   }
 
-  async activateMultiSelectFromPopover(): Promise<void> {
-    await this.closeHeaderActionsPopover();
+  activateMultiSelectFromPopover(): void {
+    this.closeHeaderActionsPopover();
     this.gameListComponent?.activateSelectionMode();
   }
 
@@ -1066,10 +1064,9 @@ export class ListPageComponent {
     this.bulkActionsPopoverEvent = undefined;
   }
 
-  async closeHeaderActionsPopover(): Promise<void> {
+  closeHeaderActionsPopover(): void {
     this.isHeaderActionsPopoverOpen = false;
     this.headerActionsPopoverEvent = undefined;
-    await this.popoverController.dismiss().catch(() => undefined);
   }
 
   onGroupByChange(value: GameGroupByField | null | undefined): void {

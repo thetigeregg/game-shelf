@@ -219,12 +219,59 @@ jobs:
             echo "Run **workflow_dispatch** on Release & Publish to force all images."
           } >> "$GITHUB_STEP_SUMMARY"
 
+  validate_ios_signing_key:
+    name: Validate iOS signing key
+    needs:
+      - release
+      - detect_ios_live_update
+    if: needs.detect_ios_live_update.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.release_sha }}
+          sparse-checkout: .nvmrc
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Validate signing key
+        env:
+          IOS_LIVE_UPDATE_PRIVATE_KEY: ${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
+        run: |
+          node -e "
+            const { createPrivateKey, createSign } = require('node:crypto');
+            const pem = process.env.IOS_LIVE_UPDATE_PRIVATE_KEY?.trim();
+            if (!pem) { console.error('IOS_LIVE_UPDATE_PRIVATE_KEY is not set'); process.exit(1); }
+            try {
+              const key = createPrivateKey(pem);
+              if (key.asymmetricKeyType !== 'rsa') {
+                console.error('Expected RSA key, got: ' + key.asymmetricKeyType);
+                process.exit(1);
+              }
+              const signer = createSign('RSA-SHA256');
+              signer.update(Buffer.from('validate'));
+              signer.end();
+              signer.sign(key, 'base64');
+              const bits = key.asymmetricKeyDetails?.modulusLength ?? 'unknown';
+              console.log('Key OK: rsa-' + bits);
+            } catch (e) {
+              console.error('Key validation failed: ' + e.message);
+              process.exit(1);
+            }
+          "
+
   publish_images:
     name: Publish Docker Images
     needs:
       - release
       - detect_image_changes
       - detect_ios_live_update
+      - validate_ios_signing_key
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -313,6 +360,17 @@ jobs:
             type=raw,value=${{ needs.release.outputs.major }}
             type=sha,format=short
 
+      - name: Write iOS signing key to temp file
+        if: >-
+          matrix.id == 'edge' &&
+          needs.detect_image_changes.outputs.publish_edge == 'true' &&
+          needs.detect_ios_live_update.outputs.should_deploy == 'true'
+        env:
+          IOS_LIVE_UPDATE_PRIVATE_KEY: ${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$IOS_LIVE_UPDATE_PRIVATE_KEY" > "$RUNNER_TEMP/ios-signing-key.pem"
+          chmod 600 "$RUNNER_TEMP/ios-signing-key.pem"
+
       - name: Build and push (edge with iOS OTA)
         if: >-
           matrix.id == 'edge' &&
@@ -331,8 +389,9 @@ jobs:
             BUILD_IOS_LIVE_UPDATE=true
             IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
           secrets: |
-            IOS_LIVE_UPDATE_PRIVATE_KEY=${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
             IOS_BACKEND_ORIGIN_PROD=${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
+          secret-files: |
+            IOS_LIVE_UPDATE_PRIVATE_KEY=${{ runner.temp }}/ios-signing-key.pem
 
       - name: Build and push
         if: >-

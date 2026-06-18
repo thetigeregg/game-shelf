@@ -1,4 +1,4 @@
-import { createHash, createSign } from 'node:crypto';
+import { createHash, createPrivateKey, createSign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 /**
@@ -13,10 +13,11 @@ export function computeBundleChecksum(buffer) {
  * Matches @capawesome/capacitor-live-update verifySignatureForFile (SHA256withRSA over file).
  */
 export function signBundleBuffer(buffer, privateKeyPem) {
+  const key = createPrivateKey(privateKeyPem);
   const signer = createSign('RSA-SHA256');
   signer.update(buffer);
   signer.end();
-  return signer.sign(privateKeyPem, 'base64');
+  return signer.sign(key, 'base64');
 }
 
 export function signBundleFile(filePath, privateKeyPem, readFileSyncFn = readFileSync) {

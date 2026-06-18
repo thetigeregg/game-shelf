@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { App } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
-import { Observable, Subject } from 'rxjs';
+import { Observable, ReplaySubject } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { DebugLogService } from './debug-log.service';
@@ -25,7 +25,7 @@ export class LiveUpdateService {
   private lastCheckAt = 0;
   private checkInFlight: Promise<void> | null = null;
 
-  private readonly stagedSubject = new Subject<{ semver: string }>();
+  private readonly stagedSubject = new ReplaySubject<{ semver: string }>(1);
   readonly staged$: Observable<{ semver: string }> = this.stagedSubject.asObservable();
 
   isEnabled(): boolean {

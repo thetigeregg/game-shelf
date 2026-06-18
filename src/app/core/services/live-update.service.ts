@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { App } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { DebugLogService } from './debug-log.service';
@@ -25,7 +25,8 @@ export class LiveUpdateService {
   private lastCheckAt = 0;
   private checkInFlight: Promise<void> | null = null;
 
-  readonly staged$ = new Subject<{ semver: string }>();
+  private readonly stagedSubject = new Subject<{ semver: string }>();
+  readonly staged$: Observable<{ semver: string }> = this.stagedSubject.asObservable();
 
   isEnabled(): boolean {
     return isNativePlatform() && environment.production;
@@ -165,7 +166,7 @@ export class LiveUpdateService {
 
       await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
 
-      this.staged$.next({ semver: manifest.semver });
+      this.stagedSubject.next({ semver: manifest.semver });
 
       this.debugLogService.info('live_update.staged', {
         bundleId: manifest.bundleId,

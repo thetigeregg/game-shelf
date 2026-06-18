@@ -217,9 +217,10 @@ export class AppComponent implements OnDestroy {
   }
 
   private async presentOtaUpdateAlert(semver: string): Promise<void> {
+    const safeSemver = semver.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const alert = await this.alertController.create({
       header: 'Update Ready',
-      message: `Game Shelf v${semver} has been downloaded. Reload now to apply it.`,
+      message: `Game Shelf v${safeSemver} has been downloaded. Reload now to apply it.`,
       buttons: [
         { text: 'Later', role: 'cancel' },
         {

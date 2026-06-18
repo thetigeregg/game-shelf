@@ -18,6 +18,7 @@ import { RuntimeAvailabilityService } from './core/services/runtime-availability
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
+import { ClientWriteAuthService } from './core/services/client-write-auth.service';
 import { LiveUpdateService } from './core/services/live-update.service';
 import { SyncBootstrapProgressService } from './core/services/sync-bootstrap-progress.service';
 
@@ -45,6 +46,7 @@ export class AppComponent {
   readonly runtimeAvailabilityService = inject(RuntimeAvailabilityService);
   readonly syncBootstrapProgress = inject(SyncBootstrapProgressService);
   private readonly networkConnectivityService = inject(NetworkConnectivityService);
+  private readonly clientWriteAuthService = inject(ClientWriteAuthService);
   private readonly appStartedAt = Date.now();
 
   constructor() {
@@ -59,6 +61,7 @@ export class AppComponent {
     }
     this.debugLogService.initialize();
     this.themeService.initialize();
+    await this.promptForWriteTokenIfNeeded();
     await this.gameSyncService.initialize();
     void this.runStartupCoverMigrations();
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
@@ -72,6 +75,43 @@ export class AppComponent {
     await this.initializeNotifications().catch((error: unknown) => {
       console.error('[app] notifications_init_failed', error);
     });
+  }
+
+  private async promptForWriteTokenIfNeeded(): Promise<void> {
+    if (!isNativePlatform() || this.clientWriteAuthService.hasToken()) {
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Server Access',
+      message:
+        'Enter your write token to sync your library. You can find this in your server settings.',
+      backdropDismiss: false,
+      inputs: [
+        {
+          name: 'token',
+          type: 'password',
+          placeholder: 'Write token',
+        },
+      ],
+      buttons: [
+        { text: 'Skip', role: 'cancel' },
+        { text: 'Connect', role: 'confirm' },
+      ],
+    });
+
+    await alert.present();
+    const { role, data } = await alert.onDidDismiss<{ values?: { token?: unknown } }>();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    const token = typeof data?.values?.token === 'string' ? data.values.token.trim() : '';
+
+    if (token.length > 0) {
+      this.clientWriteAuthService.setToken(token);
+    }
   }
 
   private async hideSplashScreenWhenReady(): Promise<void> {

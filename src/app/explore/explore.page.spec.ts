@@ -2345,39 +2345,19 @@ describe('ExplorePage explore modes UX', () => {
       openSettingsFromPopover: () => Promise<void>;
     };
     const event = { type: 'click' } as unknown as Event;
-    let resolveDismiss: ((value: boolean) => void) | undefined;
-
-    popoverControllerMock.dismiss.mockImplementationOnce(
-      () =>
-        new Promise<boolean>((resolve) => {
-          resolveDismiss = resolve;
-        })
-    );
 
     page.openHeaderActionsPopover(event);
     expect(page.isHeaderActionsPopoverOpen).toBe(true);
     expect(page.headerActionsPopoverEvent).toBe(event);
 
-    const openSettingsPromise = page.openSettingsFromPopover();
+    await page.openSettingsFromPopover();
 
-    await Promise.resolve();
-
-    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
-    expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
-
-    resolveDismiss?.(true);
-    await openSettingsPromise;
-
-    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
-    expect(popoverControllerMock.dismiss.mock.invocationCallOrder[0]).toBeLessThan(
-      routerMock.navigateByUrl.mock.invocationCallOrder[0]
-    );
     expect(page.isHeaderActionsPopoverOpen).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();
   });
 
-  it('routes settings even when header popover dismissal rejects', async () => {
+  it('closes header popover state synchronously before navigating to settings', async () => {
     const page = createPage() as unknown as {
       isHeaderActionsPopoverOpen: boolean;
       headerActionsPopoverEvent: Event | undefined;
@@ -2386,14 +2366,16 @@ describe('ExplorePage explore modes UX', () => {
     };
     const event = { type: 'click' } as unknown as Event;
 
-    popoverControllerMock.dismiss.mockRejectedValueOnce(new Error('dismiss failed'));
-
     page.openHeaderActionsPopover(event);
+
+    let stateAfterClose: boolean | undefined;
+    routerMock.navigateByUrl.mockImplementationOnce(() => {
+      stateAfterClose = page.isHeaderActionsPopoverOpen;
+    });
+
     await page.openSettingsFromPopover();
 
-    expect(popoverControllerMock.dismiss).toHaveBeenCalled();
-    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
-    expect(page.isHeaderActionsPopoverOpen).toBe(false);
+    expect(stateAfterClose).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();
   });
 

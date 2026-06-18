@@ -3897,3 +3897,8 @@
 - c3cbf6c3 Merge branch 'main' into feat/fix
 - 28693eff fix(explore): remove double-dismiss hang on iOS popover navigation
 - cca175f7 fix(list-page): remove double-dismiss hang blocking Views navigation on iOS
+
+## v1.62.3 - 2026-06-18
+
+- ddd027d7 Merge pull request #449 from thetigeregg/dependabot/npm_and_yarn/dompurify-3.4.11
+- 09e163fc chore(deps): bump dompurify from 3.4.10 to 3.4.11

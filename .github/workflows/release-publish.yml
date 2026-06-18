@@ -375,8 +375,7 @@ jobs:
         env:
           IOS_LIVE_UPDATE_PRIVATE_KEY: ${{ secrets.IOS_LIVE_UPDATE_PRIVATE_KEY }}
         run: |
-          printf '%s' "$IOS_LIVE_UPDATE_PRIVATE_KEY" > "$RUNNER_TEMP/ios-signing-key.pem"
-          chmod 600 "$RUNNER_TEMP/ios-signing-key.pem"
+          (umask 077; printf '%s' "$IOS_LIVE_UPDATE_PRIVATE_KEY" > "$RUNNER_TEMP/ios-signing-key.pem")
 
       - name: Build and push (edge with iOS OTA)
         if: >-

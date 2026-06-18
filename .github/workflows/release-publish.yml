@@ -260,7 +260,7 @@ jobs:
               const bits = key.asymmetricKeyDetails?.modulusLength ?? 'unknown';
               console.log('Key OK: rsa-' + bits);
             } catch (e) {
-              console.error('Key validation failed: ' + e.message);
+              console.error('Key validation failed: ' + (e instanceof Error ? e.message : String(e)));
               process.exit(1);
             }
           "

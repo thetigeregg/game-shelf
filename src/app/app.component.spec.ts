@@ -492,6 +492,12 @@ describe('AppComponent', () => {
   describe('promptForWriteTokenIfNeeded', () => {
     beforeEach(() => {
       localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+      // Stub Date.now so hideSplashScreenWhenReady sees remainingVisibleMs <= 0,
+      // preventing a real 300ms timer from leaking into subsequent tests.
+      const fakeNow = Date.now();
+      vi.spyOn(Date, 'now')
+        .mockReturnValueOnce(fakeNow) // appStartedAt (field initializer)
+        .mockReturnValue(fakeNow + 400); // hideSplashScreenWhenReady: 300 - 400 = -100 <= 0
     });
 
     it('shows the write-token alert on native when no token is stored', async () => {
@@ -566,9 +572,11 @@ describe('AppComponent', () => {
       expect(clientWriteAuthServiceMock.setToken).toHaveBeenCalledWith('my-secret-token');
     });
 
-    it('does not store the token when the user confirms with an empty value', async () => {
+    it('shows a warning toast and does not store the token when the user confirms with an empty value', async () => {
       vi.mocked(isNativePlatform).mockReturnValue(true);
       clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      const presentToast = vi.fn().mockResolvedValue(undefined);
+      toastControllerMock.create.mockResolvedValueOnce({ present: presentToast });
       alertControllerMock.create.mockResolvedValueOnce({
         present: vi.fn().mockResolvedValue(undefined),
         onDidDismiss: vi.fn().mockResolvedValue({
@@ -581,6 +589,13 @@ describe('AppComponent', () => {
       await flushAsync();
 
       expect(clientWriteAuthServiceMock.setToken).not.toHaveBeenCalled();
+      expect(toastControllerMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Write token cannot be empty.',
+          color: 'warning',
+        })
+      );
+      expect(presentToast).toHaveBeenCalledOnce();
     });
 
     it('does not store the token when the user skips', async () => {

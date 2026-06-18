@@ -117,6 +117,8 @@ export class AppComponent {
 
     if (token.length > 0) {
       this.clientWriteAuthService.setToken(token);
+    } else {
+      await this.presentNotificationToast('Write token cannot be empty.', 'warning');
     }
   }
 

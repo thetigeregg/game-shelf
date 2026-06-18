@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
-import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import type { GameCatalogResult } from '../core/models/game.models';
@@ -23,13 +23,9 @@ vi.mock('@ionic/angular/standalone', () => {
   const ToastControllerToken = function ToastController() {
     return undefined;
   };
-  const PopoverControllerToken = function PopoverController() {
-    return undefined;
-  };
   return {
     AlertController: AlertControllerToken,
     ToastController: ToastControllerToken,
-    PopoverController: PopoverControllerToken,
     IonContent: Dummy,
     IonHeader: Dummy,
     IonGrid: Dummy,
@@ -456,9 +452,6 @@ describe('ExplorePage explore modes UX', () => {
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
   };
-  const popoverControllerMock = {
-    dismiss: vi.fn().mockResolvedValue(true),
-  };
   const routerMock = {
     navigateByUrl: vi.fn().mockResolvedValue(true),
   };
@@ -483,7 +476,6 @@ describe('ExplorePage explore modes UX', () => {
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
     igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
-    popoverControllerMock.dismiss.mockResolvedValue(true);
     routerMock.navigateByUrl.mockResolvedValue(true);
     debugLogServiceMock.trace.mockReset();
 
@@ -496,7 +488,6 @@ describe('ExplorePage explore modes UX', () => {
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
-        { provide: PopoverController, useValue: popoverControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
         { provide: Router, useValue: routerMock },
       ],

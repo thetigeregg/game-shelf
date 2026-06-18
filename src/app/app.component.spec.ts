@@ -53,6 +53,7 @@ import { RuntimeAvailabilityService } from './core/services/runtime-availability
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { LiveUpdateService } from './core/services/live-update.service';
 import { PreferenceStorageService } from './core/storage/preference-storage.service';
+import { ClientWriteAuthService } from './core/services/client-write-auth.service';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 
@@ -124,6 +125,10 @@ describe('AppComponent', () => {
   const networkConnectivityServiceMock = {
     initialize: vi.fn(),
   };
+  const clientWriteAuthServiceMock = {
+    hasToken: vi.fn(() => false),
+    setToken: vi.fn(),
+  };
 
   beforeEach(() => {
     localStorage.clear();
@@ -148,9 +153,11 @@ describe('AppComponent', () => {
     liveUpdateServiceMock.markReady.mockResolvedValue(undefined);
     alertControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel', data: undefined }),
     });
     alertControllerMock.getTop.mockResolvedValue(null);
+    clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+    clientWriteAuthServiceMock.setToken.mockReset();
     toastControllerMock.create.mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
     });
@@ -172,6 +179,7 @@ describe('AppComponent', () => {
         { provide: ToastController, useValue: toastControllerMock },
         { provide: RuntimeAvailabilityService, useValue: runtimeAvailabilityServiceMock },
         { provide: NetworkConnectivityService, useValue: networkConnectivityServiceMock },
+        { provide: ClientWriteAuthService, useValue: clientWriteAuthServiceMock },
         PreferenceStorageService,
       ],
     });
@@ -455,6 +463,7 @@ describe('AppComponent', () => {
     vi.useFakeTimers();
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     vi.mocked(isNativePlatform).mockReturnValue(true);
+    clientWriteAuthServiceMock.hasToken.mockReturnValue(true);
 
     TestBed.runInInjectionContext(() => new AppComponent());
     await flushAsyncWithFakeTimers();
@@ -469,6 +478,7 @@ describe('AppComponent', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
     vi.mocked(isNativePlatform).mockReturnValue(true);
+    clientWriteAuthServiceMock.hasToken.mockReturnValue(true);
     splashHideMock.mockRejectedValueOnce(new Error('splash hide failed'));
 
     TestBed.runInInjectionContext(() => new AppComponent());
@@ -477,5 +487,129 @@ describe('AppComponent', () => {
     await Promise.resolve();
 
     expect(errorSpy).toHaveBeenCalledWith('[app] splash_screen_hide_failed', expect.any(Error));
+  });
+
+  describe('promptForWriteTokenIfNeeded', () => {
+    beforeEach(() => {
+      localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, '1.27.1');
+      // Stub Date.now so hideSplashScreenWhenReady sees remainingVisibleMs <= 0,
+      // preventing a real 300ms timer from leaking into subsequent tests.
+      const fakeNow = Date.now();
+      vi.spyOn(Date, 'now')
+        .mockReturnValueOnce(fakeNow) // appStartedAt (field initializer)
+        .mockReturnValue(fakeNow + 400); // hideSplashScreenWhenReady: 300 - 400 = -100 <= 0
+    });
+
+    it('shows the write-token alert on native when no token is stored', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      const present = vi.fn().mockResolvedValue(undefined);
+      alertControllerMock.create.mockResolvedValueOnce({
+        present,
+        onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel', data: undefined }),
+      });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(splashHideMock).toHaveBeenCalledWith({ fadeOutDuration: 300 });
+      expect(alertControllerMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          header: 'Server Access',
+          backdropDismiss: false,
+        })
+      );
+      expect(present).toHaveBeenCalledOnce();
+    });
+
+    it('logs write-token prompt failures and continues startup', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      alertControllerMock.create.mockRejectedValueOnce(new Error('alert create failed'));
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(errorSpy).toHaveBeenCalledWith('[app] write_token_prompt_failed', expect.any(Error));
+      expect(gameSyncServiceMock.initialize).toHaveBeenCalledOnce();
+    });
+
+    it('does not show the write-token alert on native when a token is already stored', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(true);
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(alertControllerMock.create).not.toHaveBeenCalled();
+    });
+
+    it('does not show the write-token alert on web even when no token is stored', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(false);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(alertControllerMock.create).not.toHaveBeenCalled();
+    });
+
+    it('stores the token when the user confirms with a non-empty value', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      alertControllerMock.create.mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue({
+          role: 'confirm',
+          data: { values: { token: 'my-secret-token' } },
+        }),
+      });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(clientWriteAuthServiceMock.setToken).toHaveBeenCalledWith('my-secret-token');
+    });
+
+    it('shows a warning toast and does not store the token when the user confirms with an empty value', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      const presentToast = vi.fn().mockResolvedValue(undefined);
+      toastControllerMock.create.mockResolvedValueOnce({ present: presentToast });
+      alertControllerMock.create.mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue({
+          role: 'confirm',
+          data: { values: { token: '   ' } },
+        }),
+      });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(clientWriteAuthServiceMock.setToken).not.toHaveBeenCalled();
+      expect(toastControllerMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Write token cannot be empty.',
+          color: 'warning',
+        })
+      );
+      expect(presentToast).toHaveBeenCalledOnce();
+    });
+
+    it('does not store the token when the user skips', async () => {
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+      alertControllerMock.create.mockResolvedValueOnce({
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel', data: undefined }),
+      });
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(clientWriteAuthServiceMock.setToken).not.toHaveBeenCalled();
+    });
   });
 });

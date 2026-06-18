@@ -3910,3 +3910,8 @@
 - c1a6da8d fix(live-update): use ReplaySubject(1) for staged$ to avoid subscription race
 - e651fad0 fix(live-update): encapsulate staged$ subject and escape semver in alert
 - 367fa6e6 feat(live-update): show OTA update alert with reload button when bundle is staged
+
+## v1.63.1 - 2026-06-18
+
+- b0284840 Merge pull request #451 from thetigeregg/dependabot/npm_and_yarn/undici-6.27.0
+- 42e4fe80 chore(deps): bump undici from 6.26.0 to 6.27.0

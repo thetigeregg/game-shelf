@@ -61,7 +61,9 @@ export class AppComponent implements OnDestroy {
 
   private async initializeApp(): Promise<void> {
     this.stagedSub = this.liveUpdateService.staged$.subscribe(({ semver }) => {
-      void this.presentOtaUpdateAlert(semver);
+      this.presentOtaUpdateAlert(semver).catch((error: unknown) => {
+        console.error('[app] ota_alert_failed', error);
+      });
     });
     this.networkConnectivityService.initialize();
     this.runtimeAvailabilityService.initialize();

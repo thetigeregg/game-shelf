@@ -555,6 +555,19 @@ describe('AppComponent', () => {
       expect(buttons[0]).not.toHaveProperty('handler');
       expect(liveUpdateServiceMock.reload).not.toHaveBeenCalled();
     });
+
+    it('logs an error when alert creation fails', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      alertControllerMock.create.mockRejectedValueOnce(new Error('overlay error'));
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      liveUpdateServiceMock.staged$.next({ semver: '1.28.0' });
+      await flushAsync();
+
+      expect(errorSpy).toHaveBeenCalledWith('[app] ota_alert_failed', expect.any(Error));
+    });
   });
 
   describe('promptForWriteTokenIfNeeded', () => {

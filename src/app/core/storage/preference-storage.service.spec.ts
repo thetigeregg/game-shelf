@@ -4,6 +4,8 @@ import { E2E_FIXTURE_STORAGE_KEY, DEBUG_LOGS_STORAGE_KEY } from './preference-ke
 import {
   PreferenceStorageService,
   readPreference,
+  writePreference,
+  removePreference,
   resetPreferenceStorageForTesting,
 } from './preference-storage.service';
 
@@ -530,5 +532,42 @@ describe('PreferenceStorageService', () => {
     localStorage.setItem('game-shelf:runtime-config:v1', '{"appVersion":"pre-init"}');
 
     expect(readPreference('game-shelf:runtime-config:v1')).toBe('{"appVersion":"pre-init"}');
+  });
+
+  it('initialize is idempotent when called twice', async () => {
+    await service.initialize();
+    await service.initialize();
+
+    expect(service.getItem('game-shelf:test')).toBeNull();
+  });
+
+  it('writePreference delegates to the service instance after initialization', async () => {
+    await service.initialize();
+
+    writePreference('game-shelf:test-key', 'test-value');
+    expect(service.getItem('game-shelf:test-key')).toBe('test-value');
+  });
+
+  it('removePreference delegates to the service instance after initialization', async () => {
+    await service.initialize();
+    service.setItem('game-shelf:test-key', 'some-value');
+
+    removePreference('game-shelf:test-key');
+    expect(service.getItem('game-shelf:test-key')).toBeNull();
+  });
+
+  it('falls back to localStorage when native preferences initialization fails', async () => {
+    nativePlatformState.value = true;
+    preferencesGet.mockRejectedValue(new Error('native unavailable'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await service.initialize();
+
+    service.setItem('game-shelf:fallback-key', 'fallback-value');
+    expect(localStorage.getItem('game-shelf:fallback-key')).toBe('fallback-value');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[preference-storage] native_preferences_init_failed, falling back to localStorage',
+      expect.objectContaining({ error: 'native unavailable' })
+    );
   });
 });

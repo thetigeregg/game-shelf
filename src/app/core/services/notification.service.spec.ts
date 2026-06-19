@@ -5,6 +5,15 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { DebugLogService } from './debug-log.service';
+
+function makeDebugLogStub(): DebugLogService {
+  return {
+    trace: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } as unknown as DebugLogService;
+}
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import {
   PreferenceStorageService,
@@ -88,6 +97,7 @@ describe('NotificationService', () => {
           },
         },
         { provide: SYNC_OUTBOX_WRITER, useValue: null },
+        { provide: DebugLogService, useValue: makeDebugLogStub() },
       ],
     });
 
@@ -631,6 +641,38 @@ describe('NotificationService', () => {
     );
   });
 
+  it('registerCurrentDevice returns unsupported when push becomes unavailable before token fetch', async () => {
+    vi.spyOn(service, 'isPushSupported').mockReturnValueOnce(true).mockReturnValue(false);
+
+    const result = await service.requestPermissionAndRegister();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('not available');
+  });
+
+  it('initialize is idempotent and does not re-attach listeners on subsequent calls', async () => {
+    await service.initialize();
+    await service.initialize();
+
+    expect(addListenerMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs notificationActionPerformed listener attach failure without aborting initialization', async () => {
+    addListenerMock
+      .mockResolvedValueOnce({ remove: () => undefined })
+      .mockRejectedValueOnce(new Error('action listener failed'));
+    const errorSpy = vi.spyOn(debugLogService, 'error');
+
+    await service.initialize();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'notifications.listener_attach_failed',
+      expect.objectContaining({
+        listener: 'notificationActionPerformed',
+        error: 'action listener failed',
+      })
+    );
+  });
+
   it('enqueues settings upserts when outbox writer is configured', () => {
     const enqueueOperation = vi.fn();
     const serviceWithOutbox = createService({ enqueueOperation });
@@ -666,6 +708,7 @@ function createService(outboxWriter: {
         },
       },
       { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter },
+      { provide: DebugLogService, useValue: makeDebugLogStub() },
     ],
   });
 

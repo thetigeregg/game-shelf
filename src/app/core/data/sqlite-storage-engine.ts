@@ -58,14 +58,14 @@ export class SqliteStorageEngine implements StorageEngine {
    * runInTransaction gets its own begin/commit/rollback boundary. Nested calls
    * join the active transaction instead of starting a new one.
    */
-  runInTransaction<T>(_scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
+  runInTransaction<T>(scope: readonly StorageScope[], action: () => Promise<T>): Promise<T> {
     if (isInsideStorageTransaction()) {
       return action();
     }
 
     const run = async (): Promise<T> =>
       runInsideStorageTransactionZone(async () => {
-        this.debugLogService?.trace('sqlite.transaction.begin', { scope: _scope });
+        this.debugLogService?.trace('sqlite.transaction.begin', { scope });
         await this.connection.beginTransaction();
 
         try {

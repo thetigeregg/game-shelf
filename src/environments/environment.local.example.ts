@@ -20,6 +20,5 @@ export const environment = {
     e2eFixtures: false,
     recommendationsExploreEnabled: true,
     tasEnabled: false,
-    requireAuth: true,
   },
 };

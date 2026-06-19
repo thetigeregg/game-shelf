@@ -242,10 +242,5 @@ export function isTasFeatureEnabled(): boolean {
 
 export function isAuthRequired(): boolean {
   const runtimeValue = parseBoolean(resolveRuntimeConfig().config?.featureFlags?.requireAuth);
-
-  if (runtimeValue !== null) {
-    return runtimeValue;
-  }
-
-  return environment.featureFlags.requireAuth;
+  return runtimeValue ?? true;
 }

@@ -1,5 +1,6 @@
 import { GameEntry, GameListView, ListType, SyncEntityType, Tag } from '../models/game.models';
 import { OutboxEntry, SyncMetaEntry } from './app-db';
+import type { DebugLogService } from '../services/debug-log.service';
 import { SqliteConnection, SqliteStatement } from './sqlite-connection';
 import { ImageCacheRecord, StorageEngine, StorageScope } from './storage-engine';
 import {
@@ -41,7 +42,10 @@ function toConstraintError(error: unknown): Error {
 export class SqliteStorageEngine implements StorageEngine {
   private transactionQueue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly connection: SqliteConnection) {}
+  constructor(
+    private readonly connection: SqliteConnection,
+    private readonly debugLogService?: DebugLogService | null
+  ) {}
 
   initialize(): Promise<void> {
     // The connection factory opens and migrates the database before the
@@ -61,17 +65,22 @@ export class SqliteStorageEngine implements StorageEngine {
 
     const run = async (): Promise<T> =>
       runInsideStorageTransactionZone(async () => {
+        this.debugLogService?.trace('sqlite.transaction.begin', { scope: _scope });
         await this.connection.beginTransaction();
 
         try {
           const result = await action();
           await this.connection.commitTransaction();
+          this.debugLogService?.trace('sqlite.transaction.committed');
           return result;
         } catch (error: unknown) {
           try {
             await this.connection.rollbackTransaction();
-          } catch {
-            // Surface the original failure even if rollback also fails.
+            this.debugLogService?.trace('sqlite.transaction.rolled_back');
+          } catch (rollbackError: unknown) {
+            this.debugLogService?.warn('sqlite.transaction.rollback_failed', {
+              error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+            });
           }
           throw error;
         }

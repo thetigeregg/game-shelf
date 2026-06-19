@@ -10,6 +10,7 @@ import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer
 import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
 import { getNativePlatform, isNativePlatform } from '../utils/native-platform.util';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
+import { DebugLogService } from './debug-log.service';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
@@ -32,6 +33,7 @@ export class NotificationService {
   private readonly httpClient = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly debugLogService = inject(DebugLogService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true,
   });
@@ -64,17 +66,24 @@ export class NotificationService {
   }
 
   private async initializeInternal(): Promise<void> {
+    this.debugLogService.trace('notifications.init.start');
+
     if (!this.isPushSupported()) {
+      this.debugLogService.trace('notifications.init.push_not_supported');
       return;
     }
 
     await this.attachNativeListeners();
 
-    if (!this.isReleaseNotificationsEnabled()) {
+    const releaseEnabled = this.isReleaseNotificationsEnabled();
+    this.debugLogService.trace('notifications.init.release_enabled', { releaseEnabled });
+
+    if (!releaseEnabled) {
       return;
     }
 
     const permission = await this.checkNativePermission();
+    this.debugLogService.trace('notifications.init.permission_state', { permission });
 
     if (permission === 'granted') {
       await this.registerCurrentDevice();
@@ -129,12 +138,18 @@ export class NotificationService {
       return { ok: false, message: 'Notifications are not supported on this device.' };
     }
 
+    this.debugLogService.trace('notifications.permission_request.start');
+
     const permission = await FirebaseMessaging.requestPermissions()
       .then((status) => status.receive)
       .catch((error: unknown) => {
-        console.error('[notifications] permission_request_failed', error);
+        this.debugLogService.error('notifications.permission_request_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         return 'denied' as const;
       });
+
+    this.debugLogService.trace('notifications.permission_request.result', { permission });
 
     if (permission !== 'granted') {
       return { ok: false, message: 'Notification permission was not granted.' };
@@ -219,6 +234,10 @@ export class NotificationService {
 
   async unregisterCurrentDevice(): Promise<{ ok: boolean; message: string }> {
     const storedToken = this.readStoredToken();
+    this.debugLogService.trace('notifications.unregister.start', {
+      hasToken: storedToken !== null,
+    });
+
     const backendUnregisterOk = storedToken
       ? await firstValueFrom(
           this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`, {
@@ -229,11 +248,17 @@ export class NotificationService {
           .catch(() => false)
       : true;
 
+    this.debugLogService.trace('notifications.unregister.backend_result', { backendUnregisterOk });
+
     const firebaseDeleteOk = this.isPushSupported()
       ? await FirebaseMessaging.deleteToken()
           .then(() => true)
           .catch(() => false)
       : true;
+
+    this.debugLogService.trace('notifications.unregister.firebase_delete_result', {
+      firebaseDeleteOk,
+    });
 
     try {
       this.preferenceStorage.removeItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
@@ -258,20 +283,29 @@ export class NotificationService {
       return { ok: false, message: 'Notifications are not available in this app session.' };
     }
 
+    this.debugLogService.trace('notifications.register_device.fetching_token');
+
     const token = await FirebaseMessaging.getToken()
       .then((result) => result.token)
       .catch((error: unknown) => {
-        console.error('[notifications] token_registration_failed', error);
+        this.debugLogService.error('notifications.token_fetch_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         return null;
       });
 
     if (!token || token.trim().length === 0) {
+      this.debugLogService.warn('notifications.register_device.token_empty');
       return {
         ok: false,
         message:
           'Unable to register the device for notifications. Check the Firebase iOS configuration.',
       };
     }
+
+    this.debugLogService.trace('notifications.register_device.token_fetched', {
+      tokenPrefix: token.slice(0, 8),
+    });
 
     const registeredOnBackend = await firstValueFrom(
       this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/register`, {
@@ -282,7 +316,9 @@ export class NotificationService {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
     ).catch((error: unknown) => {
-      console.error('[notifications] backend_register_failed', error);
+      this.debugLogService.error('notifications.backend_register_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     });
 
@@ -293,8 +329,11 @@ export class NotificationService {
       };
     }
 
+    this.debugLogService.trace('notifications.register_device.backend_registered');
+
     try {
       this.preferenceStorage.setItem(FCM_DEVICE_TOKEN_STORAGE_KEY, token);
+      this.debugLogService.trace('notifications.register_device.token_stored');
     } catch {
       // Ignore storage failures.
     }
@@ -304,9 +343,16 @@ export class NotificationService {
 
   private async checkNativePermission(): Promise<string> {
     return FirebaseMessaging.checkPermissions()
-      .then((status) => status.receive)
+      .then((status) => {
+        this.debugLogService.trace('notifications.permission_check.result', {
+          permission: status.receive,
+        });
+        return status.receive;
+      })
       .catch((error: unknown) => {
-        console.error('[notifications] permission_check_failed', error);
+        this.debugLogService.error('notifications.permission_check_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         return 'denied';
       });
   }
@@ -317,22 +363,32 @@ export class NotificationService {
     }
 
     this.nativeListenersAttached = true;
+    this.debugLogService.trace('notifications.listeners.attaching');
 
     // Foreground presentation is handled natively via the FirebaseMessaging
     // `presentationOptions` in capacitor.config.ts; this listener is for diagnostics.
     await FirebaseMessaging.addListener(
       'notificationReceived',
       (event: FirebaseNotificationListenerEvent) => {
-        console.info('[notifications] notification_received', event.notification);
+        this.debugLogService.info('notifications.notification_received', {
+          title: event.notification.title,
+        });
       }
     ).catch((error: unknown) => {
-      console.error('[notifications] listener_attach_failed', error);
+      this.debugLogService.error('notifications.listener_attach_failed', {
+        listener: 'notificationReceived',
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 
     await FirebaseMessaging.addListener(
       'notificationActionPerformed',
       (event: FirebaseNotificationListenerEvent) => {
         const route = this.extractRoute(event.notification.data);
+        this.debugLogService.trace('notifications.action_performed', {
+          hasRoute: route !== null,
+          route,
+        });
         if (route !== null) {
           void this.router.navigateByUrl(route).catch(() => {
             window.location.assign(route);
@@ -340,8 +396,13 @@ export class NotificationService {
         }
       }
     ).catch((error: unknown) => {
-      console.error('[notifications] listener_attach_failed', error);
+      this.debugLogService.error('notifications.listener_attach_failed', {
+        listener: 'notificationActionPerformed',
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
+
+    this.debugLogService.trace('notifications.listeners.attached');
   }
 
   private extractRoute(data: unknown): string | null {

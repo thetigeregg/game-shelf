@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
+import { DebugLogService } from '../services/debug-log.service';
 
 const IMAGE_CACHE_DIR = 'image-cache';
 
@@ -14,9 +15,13 @@ const IMAGE_CACHE_DIR = 'image-cache';
  */
 @Injectable({ providedIn: 'root' })
 export class ImageFileStore {
+  private readonly debugLogService = inject(DebugLogService);
+
   async writeImage(cacheKey: string, blob: Blob): Promise<{ filePath: string; sizeBytes: number }> {
     const filePath = `${IMAGE_CACHE_DIR}/${await this.hashCacheKey(cacheKey)}`;
     const data = await this.blobToBase64(blob);
+
+    this.debugLogService.trace('image_store.write', { filePath, sizeBytes: blob.size });
 
     await Filesystem.writeFile({
       path: filePath,
@@ -24,6 +29,8 @@ export class ImageFileStore {
       directory: Directory.Cache,
       recursive: true,
     });
+
+    this.debugLogService.trace('image_store.write_complete', { filePath });
 
     return { filePath, sizeBytes: blob.size };
   }
@@ -33,28 +40,37 @@ export class ImageFileStore {
     try {
       await Filesystem.stat({ path: filePath, directory: Directory.Cache });
     } catch {
+      this.debugLogService.trace('image_store.file_missing', { filePath });
       return null;
     }
 
     const { uri } = await Filesystem.getUri({ path: filePath, directory: Directory.Cache });
-    return Capacitor.convertFileSrc(uri);
+    const displayUrl = Capacitor.convertFileSrc(uri);
+    this.debugLogService.trace('image_store.display_url_resolved', { filePath, displayUrl });
+    return displayUrl;
   }
 
   async deleteImage(filePath: string): Promise<void> {
     try {
       await Filesystem.deleteFile({ path: filePath, directory: Directory.Cache });
-    } catch {
-      // Already gone (e.g. evicted by the OS) — nothing to clean up.
+      this.debugLogService.trace('image_store.deleted', { filePath });
+    } catch (error: unknown) {
+      this.debugLogService.warn('image_store.delete_failed', {
+        filePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   async clear(): Promise<void> {
+    this.debugLogService.trace('image_store.clearing_cache_dir');
     try {
       await Filesystem.rmdir({
         path: IMAGE_CACHE_DIR,
         directory: Directory.Cache,
         recursive: true,
       });
+      this.debugLogService.trace('image_store.cache_dir_cleared');
     } catch {
       // Directory may not exist yet.
     }

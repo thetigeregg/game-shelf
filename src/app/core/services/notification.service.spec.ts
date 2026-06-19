@@ -4,6 +4,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
+import { DebugLogService } from './debug-log.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import {
   PreferenceStorageService,
@@ -55,6 +56,7 @@ vi.mock('@capacitor/preferences', () => ({
 describe('NotificationService', () => {
   let service: NotificationService;
   let preferenceStorage: PreferenceStorageService;
+  let debugLogService: DebugLogService;
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
   let httpClient: HttpClient;
 
@@ -92,6 +94,7 @@ describe('NotificationService', () => {
     preferenceStorage = TestBed.inject(PreferenceStorageService);
     await preferenceStorage.initialize();
     service = TestBed.inject(NotificationService);
+    debugLogService = TestBed.inject(DebugLogService);
     router = TestBed.inject(Router) as unknown as { navigateByUrl: ReturnType<typeof vi.fn> };
     httpClient = TestBed.inject(HttpClient);
 
@@ -144,12 +147,15 @@ describe('NotificationService', () => {
 
   it('treats permission request failures as denied', async () => {
     requestPermissionsMock.mockRejectedValue(new Error('plugin unavailable'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
 
     const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not granted');
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'notifications.permission_request_failed',
+      expect.objectContaining({ error: 'plugin unavailable' })
+    );
   });
 
   it('fails registration when the plugin returns no token', async () => {
@@ -162,13 +168,16 @@ describe('NotificationService', () => {
 
   it('fails registration when backend token save fails', async () => {
     vi.spyOn(httpClient, 'post').mockReturnValue(throwError(() => new Error('backend down')));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
 
     const result = await service.requestPermissionAndRegister();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('server');
     expect(preferenceStorage.getItem('game-shelf:notifications:fcm-token')).toBeNull();
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'notifications.backend_register_failed',
+      expect.objectContaining({ error: 'backend down' })
+    );
   });
 
   it('stores token when backend registration succeeds', async () => {
@@ -536,14 +545,17 @@ describe('NotificationService', () => {
 
   it('treats permission check failures as denied', async () => {
     checkPermissionsMock.mockRejectedValue(new Error('plugin unavailable'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
 
     expect(await service.shouldPromptForReleaseNotifications()).toBe(false);
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'notifications.permission_check_failed',
+      expect.objectContaining({ error: 'plugin unavailable' })
+    );
   });
 
   it('logs foreground notification diagnostics from the native listener', async () => {
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const infoSpy = vi.spyOn(debugLogService, 'info');
     await service.initialize();
 
     const receivedListener = addListenerMock.mock.calls.find(
@@ -556,7 +568,7 @@ describe('NotificationService', () => {
     });
 
     expect(infoSpy).toHaveBeenCalledWith(
-      '[notifications] notification_received',
+      'notifications.notification_received',
       expect.objectContaining({ title: 'Release' })
     );
   });
@@ -595,27 +607,27 @@ describe('NotificationService', () => {
     addListenerMock
       .mockRejectedValueOnce(new Error('listener failed'))
       .mockResolvedValueOnce({ remove: () => undefined });
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
 
     await service.initialize();
 
     expect(errorSpy).toHaveBeenCalledWith(
-      '[notifications] listener_attach_failed',
-      expect.any(Error)
+      'notifications.listener_attach_failed',
+      expect.objectContaining({ error: 'listener failed' })
     );
   });
 
   it('reports token registration failures during permitted device registration', async () => {
     preferenceStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     getTokenMock.mockRejectedValueOnce(new Error('token failed'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
 
     const result = await service.registerCurrentDeviceIfPermitted();
 
     expect(result.ok).toBe(false);
     expect(errorSpy).toHaveBeenCalledWith(
-      '[notifications] token_registration_failed',
-      expect.any(Error)
+      'notifications.token_fetch_failed',
+      expect.objectContaining({ error: 'token failed' })
     );
   });
 

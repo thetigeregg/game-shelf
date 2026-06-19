@@ -27,7 +27,11 @@ export class StorageEngineFactory {
       return;
     }
 
-    if (!isNativePlatform()) {
+    const native = isNativePlatform();
+    this.debugLogService.trace('storage.engine.initializing', { native });
+
+    if (!native) {
+      this.debugLogService.trace('storage.engine.using_dexie');
       await this.dexieEngine.initialize();
       this.engine = this.dexieEngine;
       return;
@@ -36,14 +40,22 @@ export class StorageEngineFactory {
     let connection: SqliteConnection | null = null;
 
     try {
+      this.debugLogService.trace('storage.engine.loading_sqlite_modules');
       const [{ openCapacitorSqliteConnection }, { SqliteStorageEngine }] = await Promise.all([
         import('./sqlite-connection'),
         import('./sqlite-storage-engine'),
       ]);
+      this.debugLogService.trace('storage.engine.sqlite_modules_loaded');
 
-      connection = await openCapacitorSqliteConnection();
-      const sqliteEngine = new SqliteStorageEngine(connection);
+      this.debugLogService.trace('storage.engine.opening_sqlite_connection');
+      connection = await openCapacitorSqliteConnection(this.debugLogService);
+
+      const sqliteEngine = new SqliteStorageEngine(connection, this.debugLogService);
+
+      this.debugLogService.trace('storage.engine.initializing_sqlite_engine');
       await sqliteEngine.initialize();
+
+      this.debugLogService.trace('storage.engine.running_migration_check');
       await this.migrationService.migrateIfNeeded(sqliteEngine);
 
       this.engine = sqliteEngine;
@@ -60,6 +72,7 @@ export class StorageEngineFactory {
       this.debugLogService.error('storage.engine.sqlite_unavailable_falling_back_to_dexie', {
         error: error instanceof Error ? error.message : String(error),
       });
+      this.debugLogService.trace('storage.engine.initializing_dexie_fallback');
       await this.dexieEngine.initialize();
       this.engine = this.dexieEngine;
     }

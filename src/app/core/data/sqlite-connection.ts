@@ -1,4 +1,5 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
+import type { DebugLogService } from '../services/debug-log.service';
 
 export interface SqliteStatement {
   statement: string;
@@ -136,7 +137,9 @@ class CapacitorSqliteConnection implements SqliteConnection {
  * Opens (and migrates) the native SQLite database via the Capacitor plugin.
  * Only call on native platforms.
  */
-export async function openCapacitorSqliteConnection(): Promise<SqliteConnection> {
+export async function openCapacitorSqliteConnection(
+  debugLogService?: DebugLogService | null
+): Promise<SqliteConnection> {
   const sqlite = new SQLiteConnection(CapacitorSQLite);
 
   await sqlite.addUpgradeStatement(SQLITE_DB_NAME, SQLITE_UPGRADE_STATEMENTS);
@@ -144,18 +147,36 @@ export async function openCapacitorSqliteConnection(): Promise<SqliteConnection>
   const consistency = await sqlite.checkConnectionsConsistency();
   const isConnected = (await sqlite.isConnection(SQLITE_DB_NAME, false)).result ?? false;
 
-  const db =
-    consistency.result && isConnected
-      ? await sqlite.retrieveConnection(SQLITE_DB_NAME, false)
-      : await sqlite.createConnection(
-          SQLITE_DB_NAME,
-          false,
-          'no-encryption',
-          SQLITE_SCHEMA_VERSION,
-          false
-        );
+  debugLogService?.trace('sqlite.connection.consistency_check', {
+    consistent: consistency.result,
+    isConnected,
+    dbName: SQLITE_DB_NAME,
+  });
 
+  let db: SQLiteDBConnection;
+
+  if (consistency.result && isConnected) {
+    debugLogService?.trace('sqlite.connection.retrieving_existing');
+    db = await sqlite.retrieveConnection(SQLITE_DB_NAME, false);
+  } else {
+    debugLogService?.trace('sqlite.connection.creating_new', {
+      schemaVersion: SQLITE_SCHEMA_VERSION,
+    });
+    db = await sqlite.createConnection(
+      SQLITE_DB_NAME,
+      false,
+      'no-encryption',
+      SQLITE_SCHEMA_VERSION,
+      false
+    );
+  }
+
+  debugLogService?.trace('sqlite.connection.opening_db');
   await db.open();
+  debugLogService?.trace('sqlite.connection.ready', {
+    dbName: SQLITE_DB_NAME,
+    schemaVersion: SQLITE_SCHEMA_VERSION,
+  });
 
   return new CapacitorSqliteConnection(sqlite, db, SQLITE_DB_NAME);
 }

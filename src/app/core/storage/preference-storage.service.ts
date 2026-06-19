@@ -99,6 +99,8 @@ export class PreferenceStorageService {
       return;
     }
 
+    console.info('[preference-storage] initializing native preferences');
+
     let migratedKeys: string[] = [];
     let migrationPending = false;
 
@@ -106,13 +108,32 @@ export class PreferenceStorageService {
       const migrationResult = await this.migrateFromLocalStorageIfNeeded();
       migratedKeys = migrationResult.migratedKeys;
       migrationPending = migrationResult.migrationPending;
+
+      if (migrationResult.migrationPending) {
+        console.info('[preference-storage] migrating_from_localstorage', {
+          keyCount: migratedKeys.length,
+        });
+      }
+
       await this.reclaimExcludedKeysFromPreferences();
       await this.hydrateCacheFromPreferences();
       this.nativePreferencesEnabled = true;
+
+      console.info('[preference-storage] native_preferences_ready', {
+        cachedKeyCount: this.cache.size,
+        migrationPending,
+      });
+
       await this.finalizeMigration(migratedKeys, migrationPending);
-    } catch {
+    } catch (error: unknown) {
       this.nativePreferencesEnabled = false;
       this.cache.clear();
+      console.warn(
+        '[preference-storage] native_preferences_init_failed, falling back to localStorage',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
     }
 
     this.initialized = true;

@@ -656,6 +656,16 @@ describe('NotificationService', () => {
     expect(addListenerMock).toHaveBeenCalledTimes(2);
   });
 
+  it('attachNativeListeners skips listener registration when already attached', async () => {
+    await service.initialize();
+
+    await (
+      service as unknown as { attachNativeListeners(): Promise<void> }
+    ).attachNativeListeners();
+
+    expect(addListenerMock).toHaveBeenCalledTimes(2);
+  });
+
   it('logs notificationActionPerformed listener attach failure without aborting initialization', async () => {
     addListenerMock
       .mockResolvedValueOnce({ remove: () => undefined })

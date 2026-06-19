@@ -46,7 +46,7 @@ export class ImageFileStore {
 
     const { uri } = await Filesystem.getUri({ path: filePath, directory: Directory.Cache });
     const displayUrl = Capacitor.convertFileSrc(uri);
-    this.debugLogService.trace('image_store.display_url_resolved', { filePath, displayUrl });
+    this.debugLogService.trace('image_store.display_url_resolved', { filePath });
     return displayUrl;
   }
 

@@ -46,6 +46,7 @@ describe('PreferenceStorageService', () => {
     nativePlatformState.value = false;
     localStorage.clear();
     resetPreferenceStorageForTesting();
+    vi.restoreAllMocks();
   });
 
   it('delegates get/set/remove to localStorage on web', async () => {
@@ -569,5 +570,36 @@ describe('PreferenceStorageService', () => {
       '[preference-storage] native_preferences_init_failed, falling back to localStorage',
       expect.objectContaining({ error: 'native unavailable' })
     );
+  });
+
+  it('removePreference falls back to localStorage when service is not initialized', () => {
+    localStorage.setItem('game-shelf:test-key', 'stored-value');
+
+    removePreference('game-shelf:test-key');
+
+    expect(localStorage.getItem('game-shelf:test-key')).toBeNull();
+  });
+
+  it('keys returns from cache when native preferences are enabled', async () => {
+    nativePlatformState.value = true;
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:preference-storage-migration-v1') {
+        return Promise.resolve({ value: '1' });
+      }
+      return Promise.resolve({ value: null });
+    });
+    preferencesKeys.mockResolvedValue({
+      keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
+    });
+    preferencesGet.mockImplementation(({ key }: { key: string }) => {
+      if (key === 'game-shelf:theme') return Promise.resolve({ value: 'dark' });
+      if (key === 'game-shelf:preference-storage-migration-v1')
+        return Promise.resolve({ value: '1' });
+      return Promise.resolve({ value: null });
+    });
+
+    await service.initialize();
+
+    expect(service.keys()).toContain('game-shelf:theme');
   });
 });

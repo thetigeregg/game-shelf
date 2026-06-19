@@ -387,7 +387,7 @@ export class NotificationService {
         const route = this.extractRoute(event.notification.data);
         this.debugLogService.trace('notifications.action_performed', {
           hasRoute: route !== null,
-          route,
+          route: route?.replace(/[?#].*$/, '') ?? null,
         });
         if (route !== null) {
           void this.router.navigateByUrl(route).catch(() => {

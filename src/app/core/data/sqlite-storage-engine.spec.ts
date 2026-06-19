@@ -7,6 +7,7 @@ import type { SqliteConnection, SqliteRunResult, SqliteStatement } from './sqlit
 import { SqliteStorageEngine } from './sqlite-storage-engine';
 import { describeStorageEngineContract, makeContractTag } from './storage-engine.contract';
 import { isStorageConstraintError } from './storage-engine';
+import type { DebugLogService } from '../services/debug-log.service';
 
 vi.mock('./storage-transaction-context', () => import('./storage-transaction-context.node'));
 
@@ -143,6 +144,71 @@ describe('SqliteStorageEngine schema', () => {
     await expect(
       engine.addTag(makeContractTag({ name: 'backlog', color: '#ff0000' }))
     ).rejects.toSatisfy((error: unknown) => isStorageConstraintError(error));
+
+    await connection.close();
+  });
+});
+
+describe('SqliteStorageEngine transaction logging', () => {
+  it('traces begin and committed when a transaction succeeds', async () => {
+    const traceSpy = vi.fn();
+    const debugLog = {
+      trace: traceSpy,
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } as unknown as DebugLogService;
+    const connection = await InProcessSqliteConnection.create();
+    const engine = new SqliteStorageEngine(connection, debugLog);
+
+    await engine.runInTransaction(['games'], () => Promise.resolve());
+
+    expect(traceSpy).toHaveBeenCalledWith('sqlite.transaction.begin', expect.any(Object));
+    expect(traceSpy).toHaveBeenCalledWith('sqlite.transaction.committed');
+
+    await connection.close();
+  });
+
+  it('traces rolled_back when the action throws', async () => {
+    const traceSpy = vi.fn();
+    const debugLog = {
+      trace: traceSpy,
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } as unknown as DebugLogService;
+    const connection = await InProcessSqliteConnection.create();
+    const engine = new SqliteStorageEngine(connection, debugLog);
+
+    await expect(
+      engine.runInTransaction(['games'], () => Promise.reject(new Error('action failed')))
+    ).rejects.toThrow('action failed');
+
+    expect(traceSpy).toHaveBeenCalledWith('sqlite.transaction.rolled_back');
+
+    await connection.close();
+  });
+
+  it('warns when rollback itself fails after an action error', async () => {
+    const warnSpy = vi.fn();
+    const debugLog = {
+      trace: vi.fn(),
+      info: vi.fn(),
+      warn: warnSpy,
+      error: vi.fn(),
+    } as unknown as DebugLogService;
+    const connection = await InProcessSqliteConnection.create();
+    vi.spyOn(connection, 'rollbackTransaction').mockRejectedValueOnce(new Error('rollback failed'));
+    const engine = new SqliteStorageEngine(connection, debugLog);
+
+    await expect(
+      engine.runInTransaction(['games'], () => Promise.reject(new Error('action failed')))
+    ).rejects.toThrow('action failed');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'sqlite.transaction.rollback_failed',
+      expect.objectContaining({ error: 'rollback failed' })
+    );
 
     await connection.close();
   });

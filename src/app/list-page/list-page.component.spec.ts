@@ -84,6 +84,7 @@ describe('ListPageComponent', () => {
   };
   const routerMock = {
     navigate: vi.fn().mockResolvedValue(true),
+    navigateByUrl: vi.fn().mockResolvedValue(true),
   };
   const routeMock = {
     snapshot: { data: { listType: 'collection' } },
@@ -698,6 +699,67 @@ describe('ListPageComponent', () => {
     expect(component.bulkActionsPopoverEvent).toBeUndefined();
     expect(component.isHeaderActionsPopoverOpen).toBe(false);
     expect(component.headerActionsPopoverEvent).toBeUndefined();
+  });
+
+  it('openViewsFromPopover closes popover and defers navigation to didDismiss', () => {
+    const component = createComponent();
+    const navigateSpy = vi.spyOn(routerMock, 'navigate');
+    component.isHeaderActionsPopoverOpen = true;
+
+    component.openViewsFromPopover();
+
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+    expect(navigateSpy).not.toHaveBeenCalled();
+
+    component.onHeaderActionsPopoverDidDismiss();
+
+    expect(navigateSpy).toHaveBeenCalledOnce();
+    const [path, extras] = navigateSpy.mock.calls[0] as [string[], { state: { listType: string } }];
+    expect(path).toEqual(['/views']);
+    expect(extras.state.listType).toBe('collection');
+  });
+
+  it('openTagsFromPopover closes popover and defers navigation to didDismiss', () => {
+    const component = createComponent();
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+    component.isHeaderActionsPopoverOpen = true;
+
+    component.openTagsFromPopover();
+
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
+
+    component.onHeaderActionsPopoverDidDismiss();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/tags');
+  });
+
+  it('openSettingsFromPopover closes popover and defers navigation to didDismiss', () => {
+    const component = createComponent();
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+    component.isHeaderActionsPopoverOpen = true;
+
+    component.openSettingsFromPopover();
+
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
+
+    component.onHeaderActionsPopoverDidDismiss();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/settings');
+  });
+
+  it('onHeaderActionsPopoverDidDismiss without pending action only closes popover', () => {
+    const component = createComponent();
+    const navigateSpy = vi.spyOn(routerMock, 'navigate');
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+    component.isHeaderActionsPopoverOpen = true;
+
+    component.onHeaderActionsPopoverDidDismiss();
+
+    expect(component.isHeaderActionsPopoverOpen).toBe(false);
+    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
   });
 
   it('exportSelectedGamesFromPopover closes bulk menu and exports selected games', async () => {

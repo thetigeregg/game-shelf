@@ -3923,3 +3923,16 @@
 - 4e8a0a99 fix(logging): sanitize route/url in debug traces and fix test spy leak
 - 9443d24f test(services): resolve review feedback on logging refactor PR
 - e6386373 feat(core): add verbose iOS Capacitor debug logging
+
+## v1.65.0 - 2026-06-19
+
+- 68cbe58a Merge pull request #454 from thetigeregg/feat/fix
+- 30551826 fix(auth,config): add requireAuth to write-environment-prod.sh
+- 98e31345 fix(auth,config): parse requireAuth in web runtime config refresh; add to ios-local env
+- 5270dcb7 feat(auth): skip write-token prompt when REQUIRE_AUTH env var is false
+- 04110e12 Revert "feat(auth): skip write-token prompt when requireAuth runtime flag is false"
+- 1729d737 feat(auth): skip write-token prompt when requireAuth runtime flag is false
+- e886f67f Revert "feat(auth): skip write-token prompt when requireAuth runtime flag is false"
+- 443084de feat(auth): skip write-token prompt when requireAuth runtime flag is false
+- a7580be1 feat(auth): skip write-token prompt when requireAuth runtime flag is false
+- 0fa18ce1 fix(list-page): defer popover navigation to didDismiss to fix iOS freeze

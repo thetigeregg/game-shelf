@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAppVersion, getRuntimeConfigSource } from '../config/runtime-config';
+import { getAppVersion, getRuntimeConfigSource, isAuthRequired } from '../config/runtime-config';
 import { NetworkConnectivityService } from './network-connectivity.service';
 import { RuntimeAvailabilityService } from './runtime-availability.service';
 
@@ -146,6 +146,21 @@ describe('RuntimeAvailabilityService', () => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     expect(getRuntimeConfigSource()).toBe('persisted');
     expect(getAppVersion()).toBe('2.3.4');
+  });
+
+  it('parses requireAuth from the runtime config script', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi
+        .fn()
+        .mockResolvedValue(
+          `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { requireAuth: false } };`
+        ),
+    });
+
+    await service.refresh();
+
+    expect(isAuthRequired()).toBe(false);
   });
 
   it('probes the API health endpoint instead of runtime config on native platforms', async () => {

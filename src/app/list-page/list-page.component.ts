@@ -219,6 +219,7 @@ export class ListPageComponent {
   bulkActionsPopoverEvent: Event | undefined = undefined;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
+  private _pendingHeaderAction: (() => void) | null = null;
   isDesktop = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
@@ -770,25 +771,26 @@ export class ListPageComponent {
     this.gameListComponent?.openGameDetail(randomGame);
   }
 
-  async openSettingsFromPopover(): Promise<void> {
+  openSettingsFromPopover(): void {
+    this._pendingHeaderAction = () => void this.router.navigateByUrl('/settings');
     this.closeHeaderActionsPopover();
-    await this.router.navigateByUrl('/settings');
   }
 
-  async openTagsFromPopover(): Promise<void> {
+  openTagsFromPopover(): void {
+    this._pendingHeaderAction = () => void this.router.navigateByUrl('/tags');
     this.closeHeaderActionsPopover();
-    await this.router.navigateByUrl('/tags');
   }
 
-  async openViewsFromPopover(): Promise<void> {
+  openViewsFromPopover(): void {
+    this._pendingHeaderAction = () =>
+      void this.router.navigate(['/views'], {
+        state: {
+          listType: this.listType,
+          filters: this.filters,
+          groupBy: this.groupBy,
+        },
+      });
     this.closeHeaderActionsPopover();
-    await this.router.navigate(['/views'], {
-      state: {
-        listType: this.listType,
-        filters: this.filters,
-        groupBy: this.groupBy,
-      },
-    });
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
@@ -1067,6 +1069,13 @@ export class ListPageComponent {
   closeHeaderActionsPopover(): void {
     this.isHeaderActionsPopoverOpen = false;
     this.headerActionsPopoverEvent = undefined;
+  }
+
+  onHeaderActionsPopoverDidDismiss(): void {
+    this.closeHeaderActionsPopover();
+    const action = this._pendingHeaderAction;
+    this._pendingHeaderAction = null;
+    action?.();
   }
 
   onGroupByChange(value: GameGroupByField | null | undefined): void {

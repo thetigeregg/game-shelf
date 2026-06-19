@@ -14,7 +14,11 @@ import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
 import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
-import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
+import {
+  getAppVersionInfo,
+  isAuthRequired,
+  isE2eFixturesEnabled,
+} from './core/config/runtime-config';
 import { RuntimeAvailabilityService } from './core/services/runtime-availability.service';
 import { NetworkConnectivityService } from './core/services/network-connectivity.service';
 import { isNativePlatform } from './core/utils/native-platform.util';
@@ -91,7 +95,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private async promptForWriteTokenIfNeeded(): Promise<void> {
-    if (!isNativePlatform() || this.clientWriteAuthService.hasToken()) {
+    if (!isNativePlatform() || !isAuthRequired() || this.clientWriteAuthService.hasToken()) {
       return;
     }
 

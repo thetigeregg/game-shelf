@@ -174,13 +174,15 @@ export class RuntimeAvailabilityService {
       'recommendationsExploreEnabled'
     );
     const tasEnabled = this.matchLastBoolean(script, 'tasEnabled');
+    const requireAuth = this.matchLastBoolean(script, 'requireAuth');
 
     if (
       appVersion === null &&
       showMgcImport === null &&
       e2eFixtures === null &&
       recommendationsExploreEnabled === null &&
-      tasEnabled === null
+      tasEnabled === null &&
+      requireAuth === null
     ) {
       return null;
     }
@@ -190,13 +192,15 @@ export class RuntimeAvailabilityService {
       ...(showMgcImport !== null ||
       e2eFixtures !== null ||
       recommendationsExploreEnabled !== null ||
-      tasEnabled !== null
+      tasEnabled !== null ||
+      requireAuth !== null
         ? {
             featureFlags: {
               ...(showMgcImport !== null ? { showMgcImport } : {}),
               ...(e2eFixtures !== null ? { e2eFixtures } : {}),
               ...(recommendationsExploreEnabled !== null ? { recommendationsExploreEnabled } : {}),
               ...(tasEnabled !== null ? { tasEnabled } : {}),
+              ...(requireAuth !== null ? { requireAuth } : {}),
             },
           }
         : {}),

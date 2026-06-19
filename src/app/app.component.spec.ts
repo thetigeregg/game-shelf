@@ -24,6 +24,7 @@ vi.mock('@ionic/angular/standalone', () => {
 vi.mock('./core/config/runtime-config', () => ({
   getAppVersionInfo: vi.fn(() => ({ value: '1.27.1', source: 'live', isFallback: false })),
   isE2eFixturesEnabled: vi.fn(() => false),
+  isAuthRequired: vi.fn(() => true),
 }));
 
 const { splashHideMock } = vi.hoisted(() => ({
@@ -42,7 +43,11 @@ vi.mock('./core/utils/native-platform.util', () => ({
 
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { AppComponent } from './app.component';
-import { getAppVersionInfo, isE2eFixturesEnabled } from './core/config/runtime-config';
+import {
+  getAppVersionInfo,
+  isAuthRequired,
+  isE2eFixturesEnabled,
+} from './core/config/runtime-config';
 import { isNativePlatform } from './core/utils/native-platform.util';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
@@ -691,6 +696,17 @@ describe('AppComponent', () => {
       await flushAsync();
 
       expect(clientWriteAuthServiceMock.setToken).not.toHaveBeenCalled();
+    });
+
+    it('does not show the write-token alert when auth is not required', async () => {
+      vi.mocked(isAuthRequired).mockReturnValue(false);
+      vi.mocked(isNativePlatform).mockReturnValue(true);
+      clientWriteAuthServiceMock.hasToken.mockReturnValue(false);
+
+      TestBed.runInInjectionContext(() => new AppComponent());
+      await flushAsync();
+
+      expect(alertControllerMock.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -55,7 +55,7 @@ export class ImageFileStore {
       await Filesystem.deleteFile({ path: filePath, directory: Directory.Cache });
       this.debugLogService.trace('image_store.deleted', { filePath });
     } catch (error: unknown) {
-      this.debugLogService.warn('image_store.delete_failed', {
+      this.debugLogService.trace('image_store.delete_failed', {
         filePath,
         error: error instanceof Error ? error.message : String(error),
       });

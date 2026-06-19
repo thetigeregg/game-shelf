@@ -582,12 +582,6 @@ describe('PreferenceStorageService', () => {
 
   it('keys returns from cache when native preferences are enabled', async () => {
     nativePlatformState.value = true;
-    preferencesGet.mockImplementation(({ key }: { key: string }) => {
-      if (key === 'game-shelf:preference-storage-migration-v1') {
-        return Promise.resolve({ value: '1' });
-      }
-      return Promise.resolve({ value: null });
-    });
     preferencesKeys.mockResolvedValue({
       keys: ['game-shelf:preference-storage-migration-v1', 'game-shelf:theme'],
     });

@@ -4,6 +4,7 @@ import {
   getAppVersionInfo,
   getRuntimeConfigSource,
   hasLiveRuntimeConfig,
+  isAuthRequired,
   isE2eFixturesEnabled,
   isMgcImportFeatureEnabled,
   isRecommendationsExploreEnabled,
@@ -212,6 +213,38 @@ describe('runtime-config', () => {
       };
 
       expect(isRecommendationsExploreEnabled()).toBe(true);
+    });
+  });
+
+  describe('isAuthRequired()', () => {
+    it('returns the environment default (true) when no runtime config is set', () => {
+      expect(isAuthRequired()).toBe(true);
+    });
+
+    it('returns false when runtime config sets requireAuth to boolean false', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { requireAuth: false } };
+      expect(isAuthRequired()).toBe(false);
+    });
+
+    it('returns true when runtime config sets requireAuth to boolean true', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { requireAuth: true } };
+      expect(isAuthRequired()).toBe(true);
+    });
+
+    it('parses "false" and "0" string values as false', () => {
+      for (const val of ['false', '0', 'no', 'off']) {
+        window.__GAME_SHELF_RUNTIME_CONFIG__ = {
+          featureFlags: { requireAuth: val as unknown as boolean },
+        };
+        expect(isAuthRequired()).toBe(false);
+      }
+    });
+
+    it('falls back to environment default for non-boolean, non-string values', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = {
+        featureFlags: { requireAuth: 42 as unknown as boolean },
+      };
+      expect(isAuthRequired()).toBe(true);
     });
   });
 

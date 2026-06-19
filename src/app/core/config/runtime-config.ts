@@ -8,6 +8,7 @@ interface RuntimeFeatureFlags {
   e2eFixtures?: boolean;
   recommendationsExploreEnabled?: boolean;
   tasEnabled?: boolean;
+  requireAuth?: boolean;
 }
 
 interface RuntimeConfig {
@@ -85,6 +86,9 @@ function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
             : {}),
           ...(parseBoolean(featureFlagsCandidate.tasEnabled) !== null
             ? { tasEnabled: parseBoolean(featureFlagsCandidate.tasEnabled) ?? undefined }
+            : {}),
+          ...(parseBoolean(featureFlagsCandidate.requireAuth) !== null
+            ? { requireAuth: parseBoolean(featureFlagsCandidate.requireAuth) ?? undefined }
             : {}),
         }
       : undefined;
@@ -234,4 +238,14 @@ export function isTasFeatureEnabled(): boolean {
   }
 
   return environment.featureFlags.tasEnabled;
+}
+
+export function isAuthRequired(): boolean {
+  const runtimeValue = parseBoolean(resolveRuntimeConfig().config?.featureFlags?.requireAuth);
+
+  if (runtimeValue !== null) {
+    return runtimeValue;
+  }
+
+  return environment.featureFlags.requireAuth;
 }

@@ -44,6 +44,7 @@ const envValues = loadProjectEnv();
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
 const tasEnabled = parseBoolean(envValues.FEATURE_TAS, false);
+const requireAuth = parseBoolean(envValues.REQUIRE_AUTH, true);
 
 const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
@@ -54,6 +55,7 @@ const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
       showMgcImport: ${showMgcImport},
       e2eFixtures: ${e2eFixtures},
       tasEnabled: ${tasEnabled},
+      requireAuth: ${requireAuth},
     },
   },
 );

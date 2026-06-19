@@ -140,6 +140,15 @@ export function resolveBackendOrigin(variant, envValues, options = {}) {
   return null;
 }
 
+function parseBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return fallback;
+  const n = value.trim().toLowerCase();
+  if (n === '1' || n === 'true' || n === 'yes' || n === 'on') return true;
+  if (n === '0' || n === 'false' || n === 'no' || n === 'off') return false;
+  return fallback;
+}
+
 function escapeTsString(value) {
   return value
     .replace(/\\/g, '\\\\')
@@ -191,6 +200,8 @@ export function buildEnvironmentIosSource(variant, envValues, options = {}) {
     );
   }
 
+  const requireAuth = parseBoolean(envValues.REQUIRE_AUTH, true);
+
   return `import {
   EMULATORJS_DEFAULT_PATH_TO_DATA,
   EMULATORJS_PINNED_LOADER_INTEGRITY,
@@ -215,6 +226,7 @@ export const environment = {
     e2eFixtures: false,
     recommendationsExploreEnabled: true,
     tasEnabled: false,
+    requireAuth: ${requireAuth},
   },
 };
 `;

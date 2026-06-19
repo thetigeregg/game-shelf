@@ -3915,3 +3915,11 @@
 
 - b0284840 Merge pull request #451 from thetigeregg/dependabot/npm_and_yarn/undici-6.27.0
 - 42e4fe80 chore(deps): bump undici from 6.26.0 to 6.27.0
+
+## v1.64.0 - 2026-06-19
+
+- c9cbd392 Merge pull request #453 from thetigeregg/feat/fix
+- a965c270 test(data): add image-file-store spec and sqlite-engine coverage; fix delete log level and dead mock
+- 4e8a0a99 fix(logging): sanitize route/url in debug traces and fix test spy leak
+- 9443d24f test(services): resolve review feedback on logging refactor PR
+- e6386373 feat(core): add verbose iOS Capacitor debug logging

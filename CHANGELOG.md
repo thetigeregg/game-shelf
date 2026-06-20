@@ -3957,3 +3957,19 @@
 - 58db6765 feat(debug): add comprehensive trace logging for app lifecycle, UI events, and plugin calls
 - 1b18c434 fix(list-page): log popover open and all item taps for freeze diagnosis
 - 47afd210 fix(list-page): await popover dismiss before navigating to fix iOS race condition
+
+## v1.67.0 - 2026-06-20
+
+- 52ada04b Merge pull request #457 from thetigeregg/feat/fix
+- 88e40776 test(list-page): assert ViewsContextService.set called in openViewsFromPopover
+- 300473b2 fix(native): call super.capacitorDidLoad() before registering plugin instance
+- 24723e59 fix(native): address review feedback on flush ordering, formatter caching, and lockfile
+- a94e2bbc fix(views): resolve review feedback on context guard, SPM pin, and flush error handling
+- 3bb5661a feat: fix
+- f83320ad fix(app): hide splash before version alert and register native logger plugin
+- 59ca9c2d fix(app): hide splash before version alert to prevent iOS deadlock
+- 8a2c87d3 fix(native-logger): remove MainViewController, use CAPBridgedPlugin auto-discovery
+- db21de65 Merge branch 'main' into feat/fix
+- e6ca3098 feat(native-logger): add native iOS log capture plugin with lifecycle events
+- 404f7a63 fix(list-page): replace history.pushState state with service to fix iOS WKWebView crash
+- a5cc18f8 fix(list-page): move popovers to root level to fix iOS backdrop freeze

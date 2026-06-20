@@ -8,6 +8,7 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { getAppVersionInfo } from '../config/runtime-config';
+import { NativeLogger } from '../plugins/native-logger.plugin';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { isNativePlatform } from '../utils/native-platform.util';
 import { NetworkConnectivityService } from './network-connectivity.service';
@@ -141,6 +142,9 @@ export class DebugLogService {
 
   flush(): void {
     this.persist(true);
+    if (isNativePlatform()) {
+      void NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' });
+    }
   }
 
   clear(): void {

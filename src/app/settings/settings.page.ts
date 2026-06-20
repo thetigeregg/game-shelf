@@ -119,6 +119,8 @@ import {
   resolveTransientRetryDelayMs,
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { NativeLogger } from '../core/plugins/native-logger.plugin';
+import { isNativePlatform } from '../core/utils/native-platform.util';
 import {
   NotificationService,
   RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
@@ -855,7 +857,22 @@ export class SettingsPage {
   async exportDebugLogs(): Promise<void> {
     try {
       this.debugLogService.info('settings.export_debug_logs_requested');
-      const content = this.debugLogService.exportText();
+      this.debugLogService.flush();
+      const jsContent = this.debugLogService.exportText();
+
+      let nativeSection = '';
+      if (isNativePlatform()) {
+        try {
+          const { content } = await NativeLogger.exportLogs();
+          if (content.trim().length > 0) {
+            nativeSection = '\n\n--- NATIVE EVENTS ---\n' + content;
+          }
+        } catch {
+          nativeSection = '\n\n--- NATIVE EVENTS ---\n(export failed)\n';
+        }
+      }
+
+      const content = jsContent + nativeSection;
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `game-shelf-debug-${timestamp}.log`;
       await presentShareFile({
@@ -888,6 +905,13 @@ export class SettingsPage {
     }
 
     this.debugLogService.clear();
+    if (isNativePlatform()) {
+      try {
+        await NativeLogger.clearLogs();
+      } catch {
+        // best-effort
+      }
+    }
     await this.presentToast('Debug logs cleared.');
   }
 

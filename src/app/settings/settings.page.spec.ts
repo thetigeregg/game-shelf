@@ -64,6 +64,28 @@ vi.mock('ionicons/icons', () => ({
   gameController: {},
 }));
 
+const { nativeExportLogsSpy, nativeClearLogsSpy } = vi.hoisted(() => ({
+  nativeExportLogsSpy: vi.fn().mockResolvedValue({ content: '' }),
+  nativeClearLogsSpy: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../core/plugins/native-logger.plugin', () => ({
+  NativeLogger: {
+    log: vi.fn().mockResolvedValue(undefined),
+    exportLogs: nativeExportLogsSpy,
+    clearLogs: nativeClearLogsSpy,
+  },
+}));
+
+vi.mock('../core/utils/native-platform.util', () => ({
+  isNativePlatform: vi.fn().mockReturnValue(false),
+  getNativePlatform: vi.fn().mockReturnValue('web'),
+}));
+
+vi.mock('../core/utils/share-file.util', () => ({
+  presentShareFile: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { SettingsPage } from './settings.page';
 import { GAME_REPOSITORY } from '../core/data/game-repository';
@@ -95,6 +117,8 @@ import {
   WISHLIST_RELEASE_DATE_DISPLAY_STORAGE_KEY,
 } from '../core/services/game-row-release-date-display.service';
 import { RECOMMENDATION_IGNORED_STORAGE_KEY } from '../core/services/recommendation-ignore.service';
+import { isNativePlatform } from '../core/utils/native-platform.util';
+import { presentShareFile } from '../core/utils/share-file.util';
 
 type PrivateSettingsPage = SettingsPage & Record<string, (...args: unknown[]) => unknown>;
 
@@ -183,6 +207,16 @@ describe('SettingsPage CSV review fields', () => {
   };
   let gameSyncServiceMock: {
     resetLocalSyncState: ReturnType<typeof vi.fn>;
+  };
+  let debugLogServiceMock: {
+    isVerboseTracingEnabled: ReturnType<typeof vi.fn>;
+    setVerboseTracingEnabled: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+    trace: ReturnType<typeof vi.fn>;
+    flush: ReturnType<typeof vi.fn>;
+    exportText: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -289,6 +323,21 @@ describe('SettingsPage CSV review fields', () => {
     gameSyncServiceMock = {
       resetLocalSyncState: vi.fn().mockResolvedValue(true),
     };
+    debugLogServiceMock = {
+      isVerboseTracingEnabled: vi.fn().mockReturnValue(false),
+      setVerboseTracingEnabled: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+      flush: vi.fn(),
+      exportText: vi.fn().mockReturnValue('Game Shelf Debug Logs\n'),
+      clear: vi.fn(),
+    };
+    nativeExportLogsSpy.mockReset();
+    nativeExportLogsSpy.mockResolvedValue({ content: '' });
+    nativeClearLogsSpy.mockReset();
+    nativeClearLogsSpy.mockResolvedValue(undefined);
+    vi.mocked(presentShareFile).mockClear();
 
     TestBed.configureTestingModule({
       providers: [
@@ -347,13 +396,7 @@ describe('SettingsPage CSV review fields', () => {
         },
         {
           provide: DebugLogService,
-          useValue: {
-            isVerboseTracingEnabled: vi.fn().mockReturnValue(false),
-            setVerboseTracingEnabled: vi.fn(),
-            info: vi.fn(),
-            error: vi.fn(),
-            trace: vi.fn(),
-          },
+          useValue: debugLogServiceMock,
         },
         {
           provide: ClientWriteAuthService,
@@ -1451,5 +1494,101 @@ describe('SettingsPage CSV review fields', () => {
     expect(disableSpy).toHaveBeenCalledOnce();
     expect(page.releaseNotificationsEnabled).toBe(true);
     expect(setEnabledSpy).not.toHaveBeenCalled();
+  });
+
+  it('exportDebugLogs flushes JS logs and shares JS-only content on web', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(false);
+    debugLogServiceMock.exportText.mockReturnValue('JS log content');
+    const page = createPage();
+
+    await page.exportDebugLogs();
+
+    expect(debugLogServiceMock.flush).toHaveBeenCalledOnce();
+    expect(presentShareFile).toHaveBeenCalledOnce();
+    const call = vi.mocked(presentShareFile).mock.calls[0][0];
+    expect(call.content).toBe('JS log content');
+    expect(call.content).not.toContain('NATIVE EVENTS');
+  });
+
+  it('exportDebugLogs appends native section when on native and exportLogs returns content', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    nativeExportLogsSpy.mockResolvedValue({ content: 'native event line\n' });
+    debugLogServiceMock.exportText.mockReturnValue('JS log content');
+    const page = createPage();
+
+    await page.exportDebugLogs();
+
+    const call = vi.mocked(presentShareFile).mock.calls[0][0];
+    expect(call.content).toContain('JS log content');
+    expect(call.content).toContain('--- NATIVE EVENTS ---');
+    expect(call.content).toContain('native event line');
+  });
+
+  it('exportDebugLogs omits native section when exportLogs returns empty content', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    nativeExportLogsSpy.mockResolvedValue({ content: '   ' });
+    debugLogServiceMock.exportText.mockReturnValue('JS log content');
+    const page = createPage();
+
+    await page.exportDebugLogs();
+
+    const call = vi.mocked(presentShareFile).mock.calls[0][0];
+    expect(call.content).not.toContain('NATIVE EVENTS');
+  });
+
+  it('exportDebugLogs includes fallback section when native exportLogs rejects', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    nativeExportLogsSpy.mockRejectedValue(new Error('bridge error'));
+    debugLogServiceMock.exportText.mockReturnValue('JS log content');
+    const page = createPage();
+
+    await page.exportDebugLogs();
+
+    const call = vi.mocked(presentShareFile).mock.calls[0][0];
+    expect(call.content).toContain('--- NATIVE EVENTS ---');
+    expect(call.content).toContain('(export failed)');
+  });
+
+  it('clearDebugLogs calls NativeLogger.clearLogs on native after confirm', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    const page = createPage();
+    const alertCreateSpy = vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    } as never);
+
+    await page.clearDebugLogs();
+
+    expect(alertCreateSpy).toHaveBeenCalledOnce();
+    expect(debugLogServiceMock.clear).toHaveBeenCalledOnce();
+    expect(nativeClearLogsSpy).toHaveBeenCalledOnce();
+  });
+
+  it('clearDebugLogs does not call NativeLogger.clearLogs on web', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(false);
+    const page = createPage();
+    vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    } as never);
+
+    await page.clearDebugLogs();
+
+    expect(debugLogServiceMock.clear).toHaveBeenCalledOnce();
+    expect(nativeClearLogsSpy).not.toHaveBeenCalled();
+  });
+
+  it('clearDebugLogs does not clear when user cancels', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    const page = createPage();
+    vi.spyOn(TestBed.inject(AlertController), 'create').mockResolvedValue({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
+    } as never);
+
+    await page.clearDebugLogs();
+
+    expect(debugLogServiceMock.clear).not.toHaveBeenCalled();
+    expect(nativeClearLogsSpy).not.toHaveBeenCalled();
   });
 });

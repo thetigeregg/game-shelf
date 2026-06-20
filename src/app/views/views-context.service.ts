@@ -20,15 +20,16 @@ export class ViewsContextService {
     this.context = context;
   }
 
-  consume(): ViewsNavigationContext {
+  consume(): { context: ViewsNavigationContext; hasContext: boolean } {
     const ctx = this.context;
     this.context = null;
-    return (
-      ctx ?? {
+    return {
+      hasContext: ctx !== null,
+      context: ctx ?? {
         listType: 'collection',
         filters: { ...DEFAULT_GAME_LIST_FILTERS },
         groupBy: 'none',
-      }
-    );
+      },
+    };
   }
 }

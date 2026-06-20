@@ -143,7 +143,9 @@ export class DebugLogService {
   flush(): void {
     this.persist(true);
     if (isNativePlatform()) {
-      void NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' });
+      NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' }).catch(() => {
+        // best-effort; ignore failures
+      });
     }
   }
 

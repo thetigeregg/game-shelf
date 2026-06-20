@@ -11,24 +11,27 @@ describe('ViewsContextService', () => {
     service = TestBed.inject(ViewsContextService);
   });
 
-  it('consume returns default context when nothing was set', () => {
-    const ctx = service.consume();
-    expect(ctx.listType).toBe('collection');
-    expect(ctx.groupBy).toBe('none');
-    expect(ctx.filters).toEqual(DEFAULT_GAME_LIST_FILTERS);
+  it('consume returns default context and hasContext=false when nothing was set', () => {
+    const { context, hasContext } = service.consume();
+    expect(hasContext).toBe(false);
+    expect(context.listType).toBe('collection');
+    expect(context.groupBy).toBe('none');
+    expect(context.filters).toEqual(DEFAULT_GAME_LIST_FILTERS);
   });
 
-  it('consume returns set context and clears it', () => {
+  it('consume returns set context with hasContext=true and clears it', () => {
     service.set({
       listType: 'wishlist',
       filters: { ...DEFAULT_GAME_LIST_FILTERS },
       groupBy: 'status',
     });
-    const first = service.consume();
+    const { context: first, hasContext: firstHas } = service.consume();
+    expect(firstHas).toBe(true);
     expect(first.listType).toBe('wishlist');
     expect(first.groupBy).toBe('status');
 
-    const second = service.consume();
+    const { context: second, hasContext: secondHas } = service.consume();
+    expect(secondHas).toBe(false);
     expect(second.listType).toBe('collection');
   });
 });

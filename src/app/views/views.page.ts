@@ -87,11 +87,11 @@ export class ViewsPage implements OnInit {
   private readonly viewsContextService = inject(ViewsContextService);
 
   ngOnInit(): void {
-    const ctx = this.viewsContextService.consume();
+    const { context: ctx, hasContext } = this.viewsContextService.consume();
     this.listType = ctx.listType;
     this.currentFilters = { ...DEFAULT_GAME_LIST_FILTERS, ...ctx.filters };
     this.currentGroupBy = this.normalizeGroupBy(ctx.groupBy);
-    this.hasCurrentConfiguration = true;
+    this.hasCurrentConfiguration = hasContext;
     this.views$ = this.gameShelfService.watchViews(this.listType);
   }
 

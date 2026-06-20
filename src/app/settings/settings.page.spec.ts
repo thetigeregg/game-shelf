@@ -352,6 +352,7 @@ describe('SettingsPage CSV review fields', () => {
             setVerboseTracingEnabled: vi.fn(),
             info: vi.fn(),
             error: vi.fn(),
+            trace: vi.fn(),
           },
         },
         {

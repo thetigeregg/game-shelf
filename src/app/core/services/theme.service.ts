@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { isNativePlatform } from '../utils/native-platform.util';
+import { DebugLogService } from './debug-log.service';
 
 export const COLOR_SCHEME_STORAGE_KEY = 'game-shelf-color-scheme';
 const DARK_CLASS_NAME = 'ion-palette-dark';
@@ -13,6 +14,7 @@ export type ColorSchemePreference = 'system' | 'light' | 'dark';
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private readonly preferenceStorage = inject(PreferenceStorageService);
+  private readonly debugLogService = inject(DebugLogService);
   private colorSchemePreference: ColorSchemePreference = DEFAULT_COLOR_SCHEME_PREFERENCE;
   private systemColorSchemeMediaQuery: MediaQueryList | null = null;
   private readonly onSystemColorSchemeChange = (event: MediaQueryListEvent) => {
@@ -26,6 +28,10 @@ export class ThemeService {
     this.initializeSystemColorSchemeListener();
 
     const storedColorSchemePreference = this.readStoredColorSchemePreference();
+    // verboseTracingEnabled is hydrated from preferences during DebugLogService.initialize(),
+    // which runs before ThemeService.initialize(). Traces here only fire if the user had
+    // verbose tracing enabled in a prior session.
+    this.debugLogService.trace('theme.init', { storedPreference: storedColorSchemePreference });
     this.applyColorSchemePreference(
       storedColorSchemePreference ?? DEFAULT_COLOR_SCHEME_PREFERENCE,
       false
@@ -43,13 +49,11 @@ export class ThemeService {
   private applyColorSchemePreference(preference: ColorSchemePreference, persist: boolean): void {
     this.colorSchemePreference = preference;
 
-    if (preference === 'dark') {
-      this.applyDarkClass(true);
-    } else if (preference === 'light') {
-      this.applyDarkClass(false);
-    } else {
-      this.applyDarkClass(this.prefersSystemDarkMode());
-    }
+    const isDarkMode =
+      preference === 'dark' ? true : preference === 'light' ? false : this.prefersSystemDarkMode();
+    this.debugLogService.trace('theme.preference_applied', { preference, isDarkMode, persist });
+
+    this.applyDarkClass(isDarkMode);
 
     if (persist) {
       this.writeStoredColorSchemePreference(preference);
@@ -88,9 +92,9 @@ export class ThemeService {
       return;
     }
 
-    void StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light }).catch(
-      () => undefined
-    );
+    const style = isDarkMode ? Style.Dark : Style.Light;
+    this.debugLogService.trace('theme.status_bar_style_set', { style });
+    void StatusBar.setStyle({ style }).catch(() => undefined);
   }
 
   private readStoredColorSchemePreference(): ColorSchemePreference | null {

@@ -45,6 +45,7 @@ function makeHarness(overrides?: Partial<Record<string, unknown>>): Record<strin
     changeDetectorRef,
     emulatorJsLaunchUrl: null,
     isEmulatorJsModalOpen: false,
+    debugLogService: { trace: vi.fn() },
     ...overrides,
   };
 }

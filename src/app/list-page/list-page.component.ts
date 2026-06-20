@@ -220,12 +220,12 @@ export class ListPageComponent {
   bulkActionsPopoverEvent: Event | undefined = undefined;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
-  private _pendingHeaderAction: (() => void) | null = null;
   isDesktop = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
   @ViewChild('pageContent') private pageContent?: IonContent;
   @ViewChild('headerSearchbar') private headerSearchbar?: IonSearchbar;
+  @ViewChild('headerActionsPopover') private headerActionsPopover?: IonPopover;
   private readonly menuController = inject(MenuController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
@@ -773,38 +773,38 @@ export class ListPageComponent {
     this.gameListComponent?.openGameDetail(randomGame);
   }
 
-  openSettingsFromPopover(): void {
-    this._pendingHeaderAction = () => void this.router.navigateByUrl('/settings');
-    this.closeHeaderActionsPopover();
+  async openSettingsFromPopover(): Promise<void> {
+    this.debugLogService.info('header_actions.settings_tapped');
+    await this.headerActionsPopover?.dismiss();
+    void this.router.navigateByUrl('/settings');
   }
 
-  openTagsFromPopover(): void {
-    this._pendingHeaderAction = () => void this.router.navigateByUrl('/tags');
-    this.closeHeaderActionsPopover();
+  async openTagsFromPopover(): Promise<void> {
+    this.debugLogService.info('header_actions.tags_tapped');
+    await this.headerActionsPopover?.dismiss();
+    void this.router.navigateByUrl('/tags');
   }
 
-  openViewsFromPopover(): void {
+  async openViewsFromPopover(): Promise<void> {
     this.debugLogService.info('views.popover_item_tapped');
-    this._pendingHeaderAction = () => {
-      this.debugLogService.info('views.navigate_called');
-      const promise = this.router.navigate(['/views'], {
-        state: {
-          listType: this.listType,
-          filters: this.filters,
-          groupBy: this.groupBy,
-        },
-      });
-      this.debugLogService.info('views.navigate_returned');
-      void promise.then(
-        (result) => {
-          this.debugLogService.info('views.navigate_resolved', { result });
-        },
-        (err: unknown) => {
-          this.debugLogService.error('views.navigate_rejected', err);
-        }
-      );
-    };
-    this.closeHeaderActionsPopover();
+    await this.headerActionsPopover?.dismiss();
+    this.debugLogService.info('views.navigate_called');
+    const promise = this.router.navigate(['/views'], {
+      state: {
+        listType: this.listType,
+        filters: this.filters,
+        groupBy: this.groupBy,
+      },
+    });
+    this.debugLogService.info('views.navigate_returned');
+    void promise.then(
+      (result) => {
+        this.debugLogService.info('views.navigate_resolved', { result });
+      },
+      (err: unknown) => {
+        this.debugLogService.error('views.navigate_rejected', err);
+      }
+    );
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {
@@ -1071,6 +1071,7 @@ export class ListPageComponent {
   }
 
   openHeaderActionsPopover(event: Event): void {
+    this.debugLogService.info('header_actions.popover_opened');
     this.headerActionsPopoverEvent = event;
     this.isHeaderActionsPopoverOpen = true;
   }
@@ -1087,12 +1088,7 @@ export class ListPageComponent {
 
   onHeaderActionsPopoverDidDismiss(): void {
     this.closeHeaderActionsPopover();
-    this.debugLogService.info('header_actions.did_dismiss_fired', {
-      hasPendingAction: this._pendingHeaderAction !== null,
-    });
-    const action = this._pendingHeaderAction;
-    this._pendingHeaderAction = null;
-    action?.();
+    this.debugLogService.info('header_actions.did_dismiss_fired');
   }
 
   onGroupByChange(value: GameGroupByField | null | undefined): void {

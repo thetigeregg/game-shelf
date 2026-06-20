@@ -1,5 +1,6 @@
 import type { LoadingController } from '@ionic/angular/standalone';
 import { GameEntry } from '../../core/models/game.models';
+import type { DebugLogService } from '../../core/services/debug-log.service';
 import {
   extractRetryAfterSeconds,
   isRateLimitedMessage,
@@ -33,12 +34,17 @@ export async function runBulkActionWithRetry<T>(params: {
   retryConfig: BulkActionRetryConfig;
   action: (game: GameEntry) => Promise<T>;
   delay: (ms: number) => Promise<void>;
+  debugLogService?: DebugLogService;
 }): Promise<BulkActionResult<T>[]> {
   const { loadingController, games, options, retryConfig, action, delay } = params;
   const loading = await loadingController.create({
     message: `${options.loadingPrefix} 0/${String(games.length)}...`,
     spinner: 'crescent',
     backdropDismiss: false,
+  });
+  params.debugLogService?.trace('bulk_action.loading.presented', {
+    gameCount: games.length,
+    prefix: options.loadingPrefix,
   });
   await loading.present();
 
@@ -84,10 +90,21 @@ export async function runBulkActionWithRetry<T>(params: {
 
   await Promise.all(workers);
   await loading.dismiss().catch(() => undefined);
+  params.debugLogService?.trace('bulk_action.loading.dismissed');
   if (results.some((result) => result === undefined)) {
     throw new Error('Bulk action did not complete for all items.');
   }
-  return results as BulkActionResult<T>[];
+  const finalResults = results as BulkActionResult<T>[];
+  const succeeded = finalResults.filter((r) => r.ok).length;
+  const rateLimited = finalResults.filter((r) => r.errorReason === 'rate_limit').length;
+  const failed = finalResults.filter((r) => !r.ok).length;
+  params.debugLogService?.trace('bulk_action.complete', {
+    total: games.length,
+    succeeded,
+    rateLimited,
+    failed,
+  });
+  return finalResults;
 }
 
 async function executeBulkActionWithRetry<T>(

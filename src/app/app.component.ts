@@ -231,6 +231,12 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
+    if (isNativePlatform()) {
+      await SplashScreen.hide({ fadeOutDuration: 300 }).catch((error: unknown) => {
+        console.error('[app] splash_screen_hide_failed', error);
+      });
+    }
+
     const alert = await this.alertController.create({
       header: 'App Updated',
       message: `Welcome to Game Shelf v${currentVersion.value}.`,

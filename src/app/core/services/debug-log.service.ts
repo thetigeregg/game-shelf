@@ -8,6 +8,7 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { getAppVersionInfo } from '../config/runtime-config';
+import { NativeLogger } from '../plugins/native-logger.plugin';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { isNativePlatform } from '../utils/native-platform.util';
 import { NetworkConnectivityService } from './network-connectivity.service';
@@ -137,6 +138,15 @@ export class DebugLogService {
     }
 
     this.info('debug.verbose_tracing_updated', { enabled: this.verboseTracingEnabled });
+  }
+
+  async flush(): Promise<void> {
+    this.persist(true);
+    if (isNativePlatform()) {
+      await NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' }).catch(() => {
+        // best-effort; ignore failures
+      });
+    }
   }
 
   clear(): void {

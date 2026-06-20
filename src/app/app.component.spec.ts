@@ -147,6 +147,8 @@ describe('AppComponent', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.mocked(isNativePlatform).mockReturnValue(false);
+    splashHideMock.mockResolvedValue(undefined);
     vi.mocked(getAppVersionInfo).mockReturnValue({
       value: '1.27.1',
       source: 'live',
@@ -324,6 +326,26 @@ describe('AppComponent', () => {
     );
     expect(present).toHaveBeenCalledOnce();
     expect(localStorage.getItem(LAST_SEEN_APP_VERSION_STORAGE_KEY)).toBe('1.27.1');
+  });
+
+  it('hides splash before version alert on native to prevent deadlock on first install', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    clientWriteAuthServiceMock.hasToken.mockReturnValue(true); // skip write-token prompt
+    const present = vi.fn().mockResolvedValue(undefined);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present,
+      onDidDismiss: vi.fn().mockResolvedValue(undefined),
+    });
+
+    TestBed.runInInjectionContext(() => new AppComponent());
+    await flushAsync();
+
+    // splash.hide must have been called before alert.present
+    const splashOrder = splashHideMock.mock.invocationCallOrder[0] ?? Infinity;
+    const presentOrder = present.mock.invocationCallOrder[0] ?? Infinity;
+    expect(splashHideMock).toHaveBeenCalled();
+    expect(present).toHaveBeenCalled();
+    expect(splashOrder).toBeLessThan(presentOrder);
   });
 
   it('skips the version alert when the current version was already seen', async () => {

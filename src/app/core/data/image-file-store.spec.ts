@@ -22,7 +22,9 @@ vi.mock('@capacitor/filesystem', () => ({
 vi.mock('@capacitor/core', () => ({
   Capacitor: {
     convertFileSrc: (path: string) => convertFileSrcMock(path),
+    isNativePlatform: () => false,
   },
+  registerPlugin: vi.fn().mockReturnValue({}),
 }));
 
 import { ImageFileStore } from './image-file-store';

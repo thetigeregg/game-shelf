@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import CapApp_SPM
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        if NativeLogStore.shared.didPreviousSessionEndAbnormally() {
+            NativeLogStore.shared.write("[WARN] native.previous_session_may_have_crashed")
+        }
+        NativeLogStore.shared.write("[INFO] native.app_launched")
         return true
     }
 

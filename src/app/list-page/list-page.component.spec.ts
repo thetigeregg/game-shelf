@@ -70,6 +70,7 @@ import { AddToLibraryWorkflowService } from '../features/game-search/add-to-libr
 import { DEFAULT_GAME_LIST_FILTERS, type GameCatalogResult } from '../core/models/game.models';
 import { AlertController, MenuController, ToastController } from '@ionic/angular/standalone';
 import { serializeListPagePreferences } from './list-page-preferences';
+import { ViewsContextService } from '../views/views-context.service';
 
 describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
@@ -701,9 +702,11 @@ describe('ListPageComponent', () => {
     expect(component.headerActionsPopoverEvent).toBeUndefined();
   });
 
-  it('openViewsFromPopover awaits dismiss then navigates to /views', async () => {
+  it('openViewsFromPopover sets context, awaits dismiss, then navigates to /views', async () => {
     const component = createComponent();
-    const navigateSpy = vi.spyOn(routerMock, 'navigate');
+    const viewsContextService = TestBed.inject(ViewsContextService);
+    const setContextSpy = vi.spyOn(viewsContextService, 'set');
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
     const dismissMock = vi.fn().mockResolvedValue(true);
     (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
       dismiss: dismissMock,
@@ -711,11 +714,10 @@ describe('ListPageComponent', () => {
 
     await component.openViewsFromPopover();
 
+    expect(setContextSpy).toHaveBeenCalledOnce();
+    expect(setContextSpy).toHaveBeenCalledWith(expect.objectContaining({ listType: 'collection' }));
     expect(dismissMock).toHaveBeenCalledOnce();
-    expect(navigateSpy).toHaveBeenCalledOnce();
-    const [path, extras] = navigateSpy.mock.calls[0] as [string[], { state: { listType: string } }];
-    expect(path).toEqual(['/views']);
-    expect(extras.state.listType).toBe('collection');
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });
 
   it('openTagsFromPopover awaits dismiss then navigates to /tags', async () => {

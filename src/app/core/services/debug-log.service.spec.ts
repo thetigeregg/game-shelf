@@ -2,6 +2,24 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugLogService } from './debug-log.service';
 import { NetworkConnectivityService } from './network-connectivity.service';
+import { isNativePlatform } from '../utils/native-platform.util';
+
+const { nativeLogSpy } = vi.hoisted(() => ({
+  nativeLogSpy: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../plugins/native-logger.plugin', () => ({
+  NativeLogger: {
+    log: nativeLogSpy,
+    exportLogs: vi.fn().mockResolvedValue({ content: '' }),
+    clearLogs: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock('../utils/native-platform.util', () => ({
+  isNativePlatform: vi.fn().mockReturnValue(false),
+  getNativePlatform: vi.fn().mockReturnValue('web'),
+}));
 
 const connectivityListeners = new Set<(connected: boolean) => void>();
 const networkConnectivityMock = {
@@ -44,6 +62,7 @@ describe('DebugLogService', () => {
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    nativeLogSpy.mockClear();
   });
 
   it('logs network.online when connectivity reports connected', () => {
@@ -71,5 +90,23 @@ describe('DebugLogService', () => {
     service.initialize();
 
     expect(networkConnectivityMock.onConnectedChange).toHaveBeenCalledOnce();
+  });
+
+  it('flush calls NativeLogger.log with js.flush_checkpoint when on native', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(true);
+    service.initialize();
+
+    await service.flush();
+
+    expect(nativeLogSpy).toHaveBeenCalledWith({ level: 'info', message: 'js.flush_checkpoint' });
+  });
+
+  it('flush does not call NativeLogger.log when not on native', async () => {
+    vi.mocked(isNativePlatform).mockReturnValue(false);
+    service.initialize();
+
+    await service.flush();
+
+    expect(nativeLogSpy).not.toHaveBeenCalled();
   });
 });

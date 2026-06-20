@@ -774,11 +774,13 @@ export class ListPageComponent {
   }
 
   async openSettingsFromPopover(): Promise<void> {
+    this.debugLogService.info('header_actions.settings_tapped');
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/settings');
   }
 
   async openTagsFromPopover(): Promise<void> {
+    this.debugLogService.info('header_actions.tags_tapped');
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/tags');
   }
@@ -1069,6 +1071,7 @@ export class ListPageComponent {
   }
 
   openHeaderActionsPopover(event: Event): void {
+    this.debugLogService.info('header_actions.popover_opened');
     this.headerActionsPopoverEvent = event;
     this.isHeaderActionsPopoverOpen = true;
   }

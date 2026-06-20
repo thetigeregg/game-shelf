@@ -787,14 +787,22 @@ export class ListPageComponent {
     this.debugLogService.info('views.popover_item_tapped');
     this._pendingHeaderAction = () => {
       this.debugLogService.info('views.navigate_called');
-      void this.router.navigate(['/views'], {
-        state: {
-          listType: this.listType,
-          filters: this.filters,
-          groupBy: this.groupBy,
-        },
-      });
-      this.debugLogService.info('views.navigate_returned');
+      this.router
+        .navigate(['/views'], {
+          state: {
+            listType: this.listType,
+            filters: this.filters,
+            groupBy: this.groupBy,
+          },
+        })
+        .then(
+          (result) => {
+            this.debugLogService.info('views.navigate_resolved', { result });
+          },
+          (err: unknown) => {
+            this.debugLogService.info('views.navigate_rejected', { err });
+          }
+        );
     };
     this.closeHeaderActionsPopover();
   }

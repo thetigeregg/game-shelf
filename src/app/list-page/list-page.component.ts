@@ -64,6 +64,7 @@ import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { ViewsContextService } from '../views/views-context.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { SyncEventsService } from '../core/services/sync-events.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
@@ -230,6 +231,7 @@ export class ListPageComponent {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly viewsContextService = inject(ViewsContextService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
@@ -775,36 +777,28 @@ export class ListPageComponent {
 
   async openSettingsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.settings_tapped');
+    this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/settings');
   }
 
   async openTagsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.tags_tapped');
+    this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/tags');
   }
 
   async openViewsFromPopover(): Promise<void> {
-    this.debugLogService.info('views.popover_item_tapped');
-    await this.headerActionsPopover?.dismiss();
-    this.debugLogService.info('views.navigate_called');
-    const promise = this.router.navigate(['/views'], {
-      state: {
-        listType: this.listType,
-        filters: this.filters,
-        groupBy: this.groupBy,
-      },
+    this.debugLogService.info('header_actions.views_tapped');
+    this.viewsContextService.set({
+      listType: this.listType,
+      filters: this.filters,
+      groupBy: this.groupBy,
     });
-    this.debugLogService.info('views.navigate_returned');
-    void promise.then(
-      (result) => {
-        this.debugLogService.info('views.navigate_resolved', { result });
-      },
-      (err: unknown) => {
-        this.debugLogService.error('views.navigate_rejected', err);
-      }
-    );
+    this.debugLogService.flush();
+    await this.headerActionsPopover?.dismiss();
+    void this.router.navigateByUrl('/views');
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {

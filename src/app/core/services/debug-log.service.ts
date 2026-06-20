@@ -139,6 +139,10 @@ export class DebugLogService {
     this.info('debug.verbose_tracing_updated', { enabled: this.verboseTracingEnabled });
   }
 
+  flush(): void {
+    this.persist(true);
+  }
+
   clear(): void {
     this.entries.length = 0;
     this.lastEntryFingerprint = null;

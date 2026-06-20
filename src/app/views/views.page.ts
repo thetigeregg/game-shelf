@@ -34,6 +34,7 @@ import {
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { ViewsContextService } from './views-context.service';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
@@ -83,31 +84,14 @@ export class ViewsPage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly viewsContextService = inject(ViewsContextService);
 
   ngOnInit(): void {
-    const state = window.history.state as Partial<{
-      listType: ListType;
-      filters: GameListFilters;
-      groupBy: GameGroupByField;
-    }>;
-
-    if (state.listType === 'collection' || state.listType === 'wishlist') {
-      this.listType = state.listType;
-    }
-
-    if (state.filters) {
-      this.currentFilters = {
-        ...DEFAULT_GAME_LIST_FILTERS,
-        ...state.filters,
-      };
-      this.hasCurrentConfiguration = true;
-    }
-
-    if (state.groupBy) {
-      this.currentGroupBy = this.normalizeGroupBy(state.groupBy);
-      this.hasCurrentConfiguration = true;
-    }
-
+    const ctx = this.viewsContextService.consume();
+    this.listType = ctx.listType;
+    this.currentFilters = { ...DEFAULT_GAME_LIST_FILTERS, ...ctx.filters };
+    this.currentGroupBy = this.normalizeGroupBy(ctx.groupBy);
+    this.hasCurrentConfiguration = true;
     this.views$ = this.gameShelfService.watchViews(this.listType);
   }
 

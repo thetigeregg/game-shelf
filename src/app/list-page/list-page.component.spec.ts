@@ -701,9 +701,9 @@ describe('ListPageComponent', () => {
     expect(component.headerActionsPopoverEvent).toBeUndefined();
   });
 
-  it('openViewsFromPopover awaits dismiss then navigates to /views', async () => {
+  it('openViewsFromPopover sets context, awaits dismiss, then navigates to /views', async () => {
     const component = createComponent();
-    const navigateSpy = vi.spyOn(routerMock, 'navigate');
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
     const dismissMock = vi.fn().mockResolvedValue(true);
     (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
       dismiss: dismissMock,
@@ -712,10 +712,7 @@ describe('ListPageComponent', () => {
     await component.openViewsFromPopover();
 
     expect(dismissMock).toHaveBeenCalledOnce();
-    expect(navigateSpy).toHaveBeenCalledOnce();
-    const [path, extras] = navigateSpy.mock.calls[0] as [string[], { state: { listType: string } }];
-    expect(path).toEqual(['/views']);
-    expect(extras.state.listType).toBe('collection');
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });
 
   it('openTagsFromPopover awaits dismiss then navigates to /tags', async () => {

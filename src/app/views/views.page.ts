@@ -33,6 +33,7 @@ import {
   ListType,
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
@@ -81,6 +82,7 @@ export class ViewsPage implements OnInit {
   private readonly popoverController = inject(PopoverController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
+  private readonly debugLogService = inject(DebugLogService);
 
   ngOnInit(): void {
     const state = window.history.state as Partial<{
@@ -238,8 +240,10 @@ export class ViewsPage implements OnInit {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'view_delete_confirm' });
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'view_delete_confirm', role });
 
     if (role !== 'confirm') {
       return;
@@ -342,6 +346,7 @@ export class ViewsPage implements OnInit {
     message: string,
     color: 'primary' | 'warning' = 'primary'
   ): Promise<void> {
+    this.debugLogService.trace('ui.toast.presented', { message, color });
     const toast = await this.toastController.create({
       message,
       duration: 1600,

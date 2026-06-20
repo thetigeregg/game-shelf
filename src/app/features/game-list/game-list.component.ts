@@ -801,11 +801,21 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async moveGameFromPopover(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('game_action.move_requested', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     await this.moveGame(game);
     await this.popoverController.dismiss();
   }
 
   async removeGameFromPopover(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('game_action.remove_requested', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     await this.popoverController.dismiss();
 
     const confirmed = await this.confirmDelete({
@@ -822,16 +832,31 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async openTagsForGameFromPopover(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('game_action.tags_requested', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     await this.popoverController.dismiss();
     await this.openTagsPicker(game);
   }
 
   async openStatusForGameFromPopover(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('game_action.status_requested', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     await this.popoverController.dismiss();
     await this.openStatusPicker(game);
   }
 
   async openRatingForGameFromPopover(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('game_action.rating_requested', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     await this.popoverController.dismiss();
     this.openRatingPicker(game);
   }
@@ -980,6 +1005,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     let nextStatus: GameStatus | null = null;
+    this.debugLogService.trace('ui.alert.presented', { type: 'status_select' });
     const alert = await this.alertController.create({
       header: 'Set Status',
       message: `Apply status to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
@@ -1010,6 +1036,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'status_select', role });
 
     if (role !== 'confirm' && role !== 'destructive') {
       return;
@@ -1041,6 +1068,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     let nextTagIds: number[] = [];
+    this.debugLogService.trace('ui.alert.presented', { type: 'tags_select' });
     const alert = await this.alertController.create({
       header: 'Set Tags',
       message: `Apply tags to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
@@ -1059,6 +1087,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'tags_select', role });
 
     if (role !== 'confirm') {
       return;
@@ -1342,6 +1371,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
     });
     this.isNoteDirty = false;
     this.isNotesOpen = true;
+    if (!this.isDesktopDetailLayout) {
+      this.debugLogService.trace('modal.notes.opened', {
+        igdbGameId: this.selectedGame.igdbGameId,
+        platformIgdbId: this.selectedGame.platformIgdbId,
+        title: this.selectedGame.title,
+      });
+    }
     this.isNotesModalOpen = !this.isDesktopDetailLayout;
     this.changeDetectorRef.markForCheck();
   }
@@ -1370,6 +1406,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   onNotesModalDidDismiss(): void {
+    this.debugLogService.trace('modal.notes.did_dismiss');
     this.isNotesModalOpen = false;
     this.isNotesOpen = false;
     this.changeDetectorRef.markForCheck();
@@ -1488,6 +1525,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
+    this.debugLogService.trace('modal.game_detail.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isGameDetailModalOpen = true;
     this.cancelGameDetailFabEntrance();
     this.isGameDetailFabVisible = false;
@@ -1617,6 +1659,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   onGameDetailModalDidPresent(): void {
+    this.debugLogService.trace('modal.game_detail.did_present', {
+      igdbGameId: this.selectedGame?.igdbGameId,
+      platformIgdbId: this.selectedGame?.platformIgdbId,
+      title: this.selectedGame?.title,
+    });
     this.cancelGameDetailFabEntrance();
     this.isGameDetailFabVisible = true;
     this.isGameDetailFabEntered = false;
@@ -1639,6 +1686,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   onGameDetailModalDidDismiss(): void {
+    this.debugLogService.trace('modal.game_detail.did_dismiss', {
+      igdbGameId: this.selectedGame?.igdbGameId,
+      platformIgdbId: this.selectedGame?.platformIgdbId,
+      title: this.selectedGame?.title,
+    });
     this.closeGameDetailModalInternal();
   }
 
@@ -1927,24 +1979,39 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'image_source_select' });
     const alert = await this.alertController.create({
       header: 'Choose Image Source',
       buttons: [
         {
           text: 'Photo Library',
           handler: () => {
+            this.debugLogService.trace('ui.alert.dismissed', {
+              type: 'image_source_select',
+              role: 'photo_library',
+            });
             void this.pickAndApplyCustomCoverFromLibrary();
           },
         },
         {
           text: 'Browse Files',
           handler: () => {
+            this.debugLogService.trace('ui.alert.dismissed', {
+              type: 'image_source_select',
+              role: 'browse_files',
+            });
             void this.pickAndApplyCustomCoverFromFiles();
           },
         },
         {
           text: 'Cancel',
           role: 'cancel',
+          handler: () => {
+            this.debugLogService.trace('ui.alert.dismissed', {
+              type: 'image_source_select',
+              role: 'cancel',
+            });
+          },
         },
       ],
     });
@@ -1961,8 +2028,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async pickAndApplyCustomCover(pick: () => Promise<PickFileOutcome>): Promise<void> {
+    this.debugLogService.trace('file_picker.image.start');
     try {
       const result = await pick();
+      this.debugLogService.trace('file_picker.image.result', { status: result.status });
 
       if (result.status === 'picked') {
         await this.applyCustomCoverFile(result.file);
@@ -2010,6 +2079,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.rowActionsGame = game;
     this.rowActionsPopoverEvent = event;
     this.rowActionsSlidingItem = slidingItem;
+    this.debugLogService.trace('popover.row_actions.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isRowActionsPopoverOpen = true;
   }
 
@@ -2017,10 +2091,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.rowActionsGame = game;
     this.rowActionsPopoverEvent = this.resolveRowActionsPopoverEvent(event, slidingItem);
     this.rowActionsSlidingItem = slidingItem;
+    this.debugLogService.trace('popover.row_actions.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isRowActionsPopoverOpen = true;
   }
 
   onRowActionsPopoverDismiss(): void {
+    this.debugLogService.trace('popover.row_actions.dismissed');
     this.isRowActionsPopoverOpen = false;
     this.rowActionsPopoverEvent = undefined;
     this.rowActionsGame = null;
@@ -2212,6 +2292,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     this.fixMatchInitialQuery = this.selectedGame.title;
     this.fixMatchInitialPlatformIgdbId = this.selectedGame.platformIgdbId;
+    this.debugLogService.trace('modal.fix_match.opened', {
+      igdbGameId: this.selectedGame.igdbGameId,
+      platformIgdbId: this.selectedGame.platformIgdbId,
+      title: this.selectedGame.title,
+    });
     this.isFixMatchModalOpen = true;
     this.changeDetectorRef.markForCheck();
   }
@@ -2245,6 +2330,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.editMetadataTitle = this.getGameDisplayTitle(game);
     this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(displayPlatform.igdbId);
     this.editMetadataCustomCoverPreview = null;
+    this.debugLogService.trace('modal.edit_metadata.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isEditMetadataModalOpen = true;
     this.changeDetectorRef.markForCheck();
   }
@@ -3188,6 +3278,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('modal.videos.opened', {
+      igdbGameId: this.selectedGame?.igdbGameId,
+      platformIgdbId: this.selectedGame?.platformIgdbId,
+      title: this.selectedGame?.title,
+    });
     this.isVideosModalOpen = true;
   }
 
@@ -3200,6 +3295,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('modal.websites.opened', {
+      igdbGameId: this.selectedGame?.igdbGameId,
+      platformIgdbId: this.selectedGame?.platformIgdbId,
+      title: this.selectedGame?.title,
+    });
     this.isWebsitesModalOpen = true;
   }
 
@@ -3267,6 +3367,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('browser.open_document_url', { url });
     try {
       await openDocumentUrl(url);
     } catch (error: unknown) {
@@ -3350,6 +3451,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.emulatorJsLaunchUrl = launchUrl;
+    this.debugLogService.trace('modal.emulator_js.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isEmulatorJsModalOpen = true;
     this.changeDetectorRef.markForCheck();
   }
@@ -3378,6 +3484,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openCatalogPickerModal(
       blockReason,
       (query) => {
+        this.debugLogService.trace('modal.manual_picker.opened', {
+          igdbGameId: this.selectedGame?.igdbGameId,
+          platformIgdbId: this.selectedGame?.platformIgdbId,
+          title: this.selectedGame?.title,
+        });
         this.isManualPickerModalOpen = true;
         this.manualPickerQuery = query;
         this.manualPickerResults = [];
@@ -3501,6 +3612,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openCatalogPickerModal(
       blockReason,
       (query) => {
+        this.debugLogService.trace('modal.rom_picker.opened', {
+          igdbGameId: this.selectedGame?.igdbGameId,
+          platformIgdbId: this.selectedGame?.platformIgdbId,
+          title: this.selectedGame?.title,
+        });
         this.isRomPickerModalOpen = true;
         this.romPickerQuery = query;
         this.romPickerResults = [];
@@ -3952,6 +4068,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openExternalUrl(url: string): void {
+    this.debugLogService.trace('browser.open_url', { url });
     openExternalUrl(url);
   }
 
@@ -4102,6 +4219,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       },
       action,
       delay: (ms: number) => this.delay(ms),
+      debugLogService: this.debugLogService,
     });
   }
 
@@ -4121,6 +4239,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'metadata_filter_select', kind });
     const alert = await this.alertController.create({
       header: title,
       inputs: options.map((option, index) => ({
@@ -4133,10 +4252,20 @@ export class GameListComponent implements OnChanges, OnDestroy {
         {
           text: 'Cancel',
           role: 'cancel',
+          handler: () => {
+            this.debugLogService.trace('ui.alert.dismissed', {
+              type: 'metadata_filter_select',
+              role: 'cancel',
+            });
+          },
         },
         {
           text: 'Apply',
           handler: (selectedValue: string | undefined) => {
+            this.debugLogService.trace('ui.alert.dismissed', {
+              type: 'metadata_filter_select',
+              role: 'apply',
+            });
             if (typeof selectedValue === 'string' && selectedValue.trim().length > 0) {
               this.applyMetadataFilterSelection(kind, selectedValue);
             }
@@ -4401,6 +4530,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('modal.similar_discovery.opened', {
+      igdbGameId: row.igdbGameId,
+      title: row.title,
+    });
     this.isSimilarDiscoveryDetailModalOpen = true;
     this.isSimilarDiscoveryDetailLoading = true;
     this.similarDiscoveryDetailErrorMessage = '';
@@ -4760,6 +4893,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private async pickListTypeForAdd(): Promise<ListType | null> {
     let selected: ListType = 'collection';
+    this.debugLogService.trace('ui.alert.presented', { type: 'add_to_library' });
     const alert = await this.alertController.create({
       header: 'Add to Library',
       message: 'Choose where to save this game.',
@@ -4780,6 +4914,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'add_to_library', role });
     return role === 'cancel' ? null : selected;
   }
 
@@ -4929,6 +5064,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     message: string,
     color: 'primary' | 'danger' | 'warning' = 'primary'
   ): Promise<void> {
+    this.debugLogService.trace('ui.toast.presented', { message, color });
     const toast = await this.toastController.create({
       message,
       duration: 1600,
@@ -4944,6 +5080,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.debugLogService.trace('modal.image_picker.opened', {
+      igdbGameId: this.selectedGame.igdbGameId,
+      platformIgdbId: this.selectedGame.platformIgdbId,
+      title: this.selectedGame.title,
+    });
     const nextState = createOpenedImagePickerState(
       this.imagePickerSearchRequestId,
       this.selectedGame.title
@@ -5031,6 +5172,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     let nextTagIds = normalizeTagIds(game.tagIds);
+    this.debugLogService.trace('ui.alert.presented', { type: 'game_tags_select' });
     const alert = await this.alertController.create({
       header: 'Game Tags',
       message: `Select tags for ${this.getGameDisplayTitle(game)}.`,
@@ -5052,6 +5194,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'game_tags_select', role });
 
     if (role !== 'confirm' && role !== 'destructive') {
       return;
@@ -5143,6 +5286,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async openHltbPickerModal(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('modal.hltb_picker.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     const nextState = createOpenedHltbPickerState(game);
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
     this.isHltbPickerLoading = nextState.isHltbPickerLoading;
@@ -5156,6 +5304,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async openReviewPickerModal(game: GameEntry): Promise<void> {
+    this.debugLogService.trace('modal.review_picker.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     const nextState = createOpenedReviewPickerState(game);
     this.isReviewPickerModalOpen = nextState.isReviewPickerModalOpen;
     this.isReviewPickerLoading = nextState.isReviewPickerLoading;
@@ -5169,6 +5322,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openPricingPickerModal(game: GameEntry): void {
+    this.debugLogService.trace('modal.pricing_picker.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isPricingPickerModalOpen = true;
     this.isPricingPickerLoading = false;
     this.hasPricingPickerSearched = false;
@@ -5455,6 +5613,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async confirmManualOverrideRemoval(game: GameEntry): Promise<boolean> {
+    this.debugLogService.trace('ui.alert.presented', { type: 'manual_override_removal_confirm' });
     const alert = await this.alertController.create({
       header: 'Manual Not Found',
       message: `Your saved manual match for ${this.getGameDisplayTitle(game)} is no longer available. Remove the custom match and retry auto-match?`,
@@ -5472,10 +5631,15 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', {
+      type: 'manual_override_removal_confirm',
+      role,
+    });
     return role === 'confirm';
   }
 
   private async confirmRomOverrideRemoval(game: GameEntry): Promise<boolean> {
+    this.debugLogService.trace('ui.alert.presented', { type: 'rom_override_removal_confirm' });
     const alert = await this.alertController.create({
       header: 'ROM Not Found',
       message: `Your saved ROM match for ${this.getGameDisplayTitle(game)} is no longer available. Remove the custom match and retry auto-match?`,
@@ -5493,6 +5657,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', {
+      type: 'rom_override_removal_confirm',
+      role,
+    });
     return role === 'confirm';
   }
 
@@ -5500,6 +5668,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const currentStatus = normalizeGameStatus(game.status);
     let nextStatus = currentStatus;
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'game_status_select' });
     const alert = await this.alertController.create({
       header: 'Set Status',
       message: `Choose a status for ${this.getGameDisplayTitle(game)}.`,
@@ -5535,6 +5704,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'game_status_select', role });
 
     if (role !== 'confirm' && role !== 'destructive') {
       return;
@@ -5732,6 +5902,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return false;
     }
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'discard_notes_confirm' });
     const alert = await this.alertController.create({
       header: 'Discard unsaved notes?',
       message:
@@ -5744,6 +5915,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'discard_notes_confirm', role });
     return role === 'destructive';
   }
 
@@ -5815,6 +5987,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.ratingTargetGame = game;
     this.ratingDraft = currentRating ?? 3;
     this.clearRatingOnSave = false;
+    this.debugLogService.trace('modal.rating.opened', {
+      igdbGameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+    });
     this.isRatingModalOpen = true;
   }
 
@@ -5839,8 +6016,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', {
+      type: 'delete_confirm',
+      header: options.header,
+    });
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'delete_confirm', role });
     return role === 'confirm';
   }
 

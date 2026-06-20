@@ -99,6 +99,8 @@ describe('AppComponent', () => {
   };
   const debugLogServiceMock = {
     initialize: vi.fn(),
+    trace: vi.fn(),
+    info: vi.fn(),
   };
   const gameShelfServiceMock = {
     migratePreferredPlatformCoversToIgdb: vi.fn(),

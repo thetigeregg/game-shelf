@@ -491,6 +491,7 @@ describe('game-list review actions', () => {
       alertController,
       clearSelectionMode,
       presentToast,
+      debugLogService: { trace: vi.fn() },
     });
 
     await (
@@ -560,6 +561,7 @@ describe('game-list review actions', () => {
       alertController,
       clearSelectionMode,
       presentToast,
+      debugLogService: { trace: vi.fn() },
     });
 
     await (

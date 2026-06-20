@@ -402,6 +402,7 @@ export class SettingsPage {
 
     this.selectedColorScheme = value;
     this.themeService.setColorSchemePreference(value);
+    this.debugLogService.trace('settings.theme_changed', { preference: value });
   }
 
   onImageCacheLimitChange(value: number | string | null | undefined): void {
@@ -3604,6 +3605,7 @@ export class SettingsPage {
     message: string,
     color: 'primary' | 'danger' | 'warning' = 'primary'
   ): Promise<void> {
+    this.debugLogService.trace('ui.toast.presented', { message, color });
     const toast = await this.toastController.create({
       message,
       duration: 1800,

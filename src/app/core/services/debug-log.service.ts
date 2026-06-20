@@ -7,7 +7,9 @@ import {
   Router,
 } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { getAppVersionInfo } from '../config/runtime-config';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
+import { isNativePlatform } from '../utils/native-platform.util';
 import { NetworkConnectivityService } from './network-connectivity.service';
 
 export type DebugLogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -80,6 +82,18 @@ export class DebugLogService {
     });
 
     this.info('debug_logger_initialized');
+
+    const versionInfo = getAppVersionInfo();
+    this.info('app.startup_metadata', {
+      appVersion: versionInfo.value,
+      appVersionSource: versionInfo.source,
+      isNative: isNativePlatform(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      screenWidth: typeof window !== 'undefined' ? window.screen.width : null,
+      screenHeight: typeof window !== 'undefined' ? window.screen.height : null,
+    });
+
+    this.info('network.initial_state', { connected: this.networkConnectivity.isConnected() });
   }
 
   debug(message: string, payload?: unknown): void {

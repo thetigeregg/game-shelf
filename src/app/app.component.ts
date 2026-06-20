@@ -75,27 +75,39 @@ export class AppComponent implements OnDestroy {
       await this.e2eFixtureService.applyFixtureFromStorage();
     }
     this.debugLogService.initialize();
+    this.debugLogService.trace('app.init.start', { startedAt: this.appStartedAt });
     this.themeService.initialize();
+    this.debugLogService.trace('app.init.theme_initialized');
     await this.promptForWriteTokenIfNeeded().catch((error: unknown) => {
       console.error('[app] write_token_prompt_failed', error);
     });
+    this.debugLogService.trace('app.init.sync_started');
     await this.gameSyncService.initialize();
     void this.runStartupCoverMigrations();
     await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
       console.error('[app] version_alert_failed', error);
     });
     await this.liveUpdateService.markReady();
+    this.debugLogService.trace('app.init.live_update_ready');
     await this.hideSplashScreenWhenReady().catch((error: unknown) => {
       console.error('[app] splash_screen_hide_failed', error);
     });
     await this.syncBootstrapProgress.waitUntilIdle();
+    this.debugLogService.trace('app.init.notifications_started');
     await this.initializeNotifications().catch((error: unknown) => {
       console.error('[app] notifications_init_failed', error);
     });
+    this.debugLogService.trace('app.init.complete', { durationMs: Date.now() - this.appStartedAt });
   }
 
   private async promptForWriteTokenIfNeeded(): Promise<void> {
+    this.debugLogService.trace('app.write_token_check.start');
     if (!isNativePlatform() || !isAuthRequired() || this.clientWriteAuthService.hasToken()) {
+      this.debugLogService.trace('app.write_token_check.skip', {
+        isNative: isNativePlatform(),
+        authRequired: isAuthRequired(),
+        hasToken: this.clientWriteAuthService.hasToken(),
+      });
       return;
     }
 
@@ -121,8 +133,10 @@ export class AppComponent implements OnDestroy {
       ],
     });
 
+    this.debugLogService.trace('app.write_token_alert.presented');
     await alert.present();
     const { role, data } = await alert.onDidDismiss<{ values?: { token?: unknown } }>();
+    this.debugLogService.trace('app.write_token_alert.dismissed', { role });
 
     if (role !== 'confirm') {
       return;
@@ -143,6 +157,7 @@ export class AppComponent implements OnDestroy {
     }
 
     const remainingVisibleMs = MIN_SPLASH_VISIBLE_MS - (Date.now() - this.appStartedAt);
+    this.debugLogService.trace('app.splash_screen.hiding', { remainingMs: remainingVisibleMs });
 
     if (remainingVisibleMs > 0) {
       await new Promise<void>((resolve) => {
@@ -151,6 +166,7 @@ export class AppComponent implements OnDestroy {
     }
 
     await SplashScreen.hide({ fadeOutDuration: 300 });
+    this.debugLogService.trace('app.splash_screen.hidden');
   }
 
   private async initializeNotifications(): Promise<void> {
@@ -170,6 +186,7 @@ export class AppComponent implements OnDestroy {
           text: 'Not now',
           role: 'cancel',
           handler: () => {
+            this.debugLogService.trace('app.notifications_prompt.dismissed', { role: 'cancel' });
             this.notificationService.setReleaseNotificationsEnabled(false);
           },
         },
@@ -177,12 +194,14 @@ export class AppComponent implements OnDestroy {
           text: 'Enable',
           role: 'confirm',
           handler: () => {
+            this.debugLogService.trace('app.notifications_prompt.dismissed', { role: 'confirm' });
             void this.enableReleaseNotificationsFromPrompt();
           },
         },
       ],
     });
 
+    this.debugLogService.trace('app.notifications_prompt.presented');
     await alert.present();
   }
 
@@ -218,7 +237,13 @@ export class AppComponent implements OnDestroy {
       buttons: ['OK'],
     });
 
+    this.debugLogService.trace('app.version_alert.presented', {
+      version: currentVersion.value,
+      previousVersion,
+    });
     await alert.present();
+    await alert.onDidDismiss();
+    this.debugLogService.trace('app.version_alert.dismissed');
     this.preferenceStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion.value);
   }
 
@@ -228,7 +253,10 @@ export class AppComponent implements OnDestroy {
       header: 'Update Ready',
       message: `Game Shelf v${safeSemver} has been downloaded. Reload now to apply it.`,
       buttons: [
-        { text: 'Later', role: 'cancel' },
+        {
+          text: 'Later',
+          role: 'cancel',
+        },
         {
           text: 'Reload',
           role: 'confirm',
@@ -238,7 +266,10 @@ export class AppComponent implements OnDestroy {
         },
       ],
     });
+    this.debugLogService.trace('app.ota_alert.presented', { semver });
     await alert.present();
+    const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('app.ota_alert.dismissed', { role });
   }
 
   private async presentNotificationToast(

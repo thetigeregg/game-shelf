@@ -25,6 +25,7 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { TagSummary } from '../core/models/game.models';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
 
@@ -65,6 +66,7 @@ export class TagsPage implements OnInit {
   private readonly popoverController = inject(PopoverController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
+  private readonly debugLogService = inject(DebugLogService);
 
   ngOnInit(): void {
     this.tags$ = this.gameShelfService.watchTags();
@@ -116,8 +118,10 @@ export class TagsPage implements OnInit {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'tag_delete_confirm' });
     await confirm.present();
     const { role } = await confirm.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'tag_delete_confirm', role });
 
     if (role !== 'confirm') {
       return;
@@ -171,6 +175,7 @@ export class TagsPage implements OnInit {
     message: string,
     color: 'primary' | 'warning' = 'primary'
   ): Promise<void> {
+    this.debugLogService.trace('ui.toast.presented', { message, color });
     const toast = await this.toastController.create({
       message,
       duration: 1500,

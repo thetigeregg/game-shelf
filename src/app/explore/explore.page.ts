@@ -1124,8 +1124,13 @@ export class ExplorePage implements OnInit {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'ignore_recommendation_confirm' });
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', {
+      type: 'ignore_recommendation_confirm',
+      role,
+    });
 
     if (role === 'confirm') {
       this.ignoreSelectedGameRecommendation({
@@ -1281,8 +1286,10 @@ export class ExplorePage implements OnInit {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'tags_select' });
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'tags_select', role });
 
     if (role !== 'confirm') {
       return;
@@ -3106,8 +3113,10 @@ export class ExplorePage implements OnInit {
       ],
     });
 
+    this.debugLogService.trace('ui.alert.presented', { type: 'add_to_library' });
     await alert.present();
     const { role } = await alert.onDidDismiss();
+    this.debugLogService.trace('ui.alert.dismissed', { type: 'add_to_library', role });
 
     if (role !== 'confirm') {
       return null;
@@ -3174,6 +3183,7 @@ export class ExplorePage implements OnInit {
     message: string,
     color: 'primary' | 'danger' = 'primary'
   ): Promise<void> {
+    this.debugLogService.trace('ui.toast.presented', { message, color });
     const toast = await this.toastController.create({
       message,
       duration: 1600,

@@ -63,6 +63,7 @@ import {
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PreferenceStorageService } from '../core/storage/preference-storage.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { SyncEventsService } from '../core/services/sync-events.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
@@ -228,6 +229,7 @@ export class ListPageComponent {
   private readonly menuController = inject(MenuController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
+  private readonly debugLogService = inject(DebugLogService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
@@ -782,14 +784,26 @@ export class ListPageComponent {
   }
 
   openViewsFromPopover(): void {
-    this._pendingHeaderAction = () =>
-      void this.router.navigate(['/views'], {
+    this.debugLogService.info('views.popover_item_tapped');
+    this._pendingHeaderAction = () => {
+      this.debugLogService.info('views.navigate_called');
+      const promise = this.router.navigate(['/views'], {
         state: {
           listType: this.listType,
           filters: this.filters,
           groupBy: this.groupBy,
         },
       });
+      this.debugLogService.info('views.navigate_returned');
+      void promise.then(
+        (result) => {
+          this.debugLogService.info('views.navigate_resolved', { result });
+        },
+        (err: unknown) => {
+          this.debugLogService.error('views.navigate_rejected', err);
+        }
+      );
+    };
     this.closeHeaderActionsPopover();
   }
 
@@ -1073,6 +1087,9 @@ export class ListPageComponent {
 
   onHeaderActionsPopoverDidDismiss(): void {
     this.closeHeaderActionsPopover();
+    this.debugLogService.info('header_actions.did_dismiss_fired', {
+      hasPendingAction: this._pendingHeaderAction !== null,
+    });
     const action = this._pendingHeaderAction;
     this._pendingHeaderAction = null;
     action?.();

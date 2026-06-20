@@ -701,55 +701,52 @@ describe('ListPageComponent', () => {
     expect(component.headerActionsPopoverEvent).toBeUndefined();
   });
 
-  it('openViewsFromPopover closes popover and defers navigation to didDismiss', () => {
+  it('openViewsFromPopover awaits dismiss then navigates to /views', async () => {
     const component = createComponent();
     const navigateSpy = vi.spyOn(routerMock, 'navigate');
-    component.isHeaderActionsPopoverOpen = true;
+    const dismissMock = vi.fn().mockResolvedValue(true);
+    (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+      dismiss: dismissMock,
+    };
 
-    component.openViewsFromPopover();
+    await component.openViewsFromPopover();
 
-    expect(component.isHeaderActionsPopoverOpen).toBe(false);
-    expect(navigateSpy).not.toHaveBeenCalled();
-
-    component.onHeaderActionsPopoverDidDismiss();
-
+    expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateSpy).toHaveBeenCalledOnce();
     const [path, extras] = navigateSpy.mock.calls[0] as [string[], { state: { listType: string } }];
     expect(path).toEqual(['/views']);
     expect(extras.state.listType).toBe('collection');
   });
 
-  it('openTagsFromPopover closes popover and defers navigation to didDismiss', () => {
+  it('openTagsFromPopover awaits dismiss then navigates to /tags', async () => {
     const component = createComponent();
     const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
-    component.isHeaderActionsPopoverOpen = true;
+    const dismissMock = vi.fn().mockResolvedValue(true);
+    (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+      dismiss: dismissMock,
+    };
 
-    component.openTagsFromPopover();
+    await component.openTagsFromPopover();
 
-    expect(component.isHeaderActionsPopoverOpen).toBe(false);
-    expect(navigateByUrlSpy).not.toHaveBeenCalled();
-
-    component.onHeaderActionsPopoverDidDismiss();
-
+    expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/tags');
   });
 
-  it('openSettingsFromPopover closes popover and defers navigation to didDismiss', () => {
+  it('openSettingsFromPopover awaits dismiss then navigates to /settings', async () => {
     const component = createComponent();
     const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
-    component.isHeaderActionsPopoverOpen = true;
+    const dismissMock = vi.fn().mockResolvedValue(true);
+    (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+      dismiss: dismissMock,
+    };
 
-    component.openSettingsFromPopover();
+    await component.openSettingsFromPopover();
 
-    expect(component.isHeaderActionsPopoverOpen).toBe(false);
-    expect(navigateByUrlSpy).not.toHaveBeenCalled();
-
-    component.onHeaderActionsPopoverDidDismiss();
-
+    expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/settings');
   });
 
-  it('onHeaderActionsPopoverDidDismiss without pending action only closes popover', () => {
+  it('onHeaderActionsPopoverDidDismiss closes popover', () => {
     const component = createComponent();
     const navigateSpy = vi.spyOn(routerMock, 'navigate');
     const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');

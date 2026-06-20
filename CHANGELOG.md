@@ -3948,3 +3948,12 @@
 - b6f2cf47 fix(list-page): fix err serialization and add navigate_returned log
 - e2bf7c25 fix(list-page): log navigate promise outcome instead of synchronous return
 - 46d6300a fix(list-page): add debug logs to pinpoint views navigation freeze
+
+## v1.66.0 - 2026-06-20
+
+- 059d8616 Merge pull request #456 from thetigeregg/feat/fix
+- a8ee59ce fix(list-page): await popover dismiss before navigating to fix iOS freeze
+- ae1240ad Merge branch 'main' into feat/fix
+- 58db6765 feat(debug): add comprehensive trace logging for app lifecycle, UI events, and plugin calls
+- 1b18c434 fix(list-page): log popover open and all item taps for freeze diagnosis
+- 47afd210 fix(list-page): await popover dismiss before navigating to fix iOS race condition

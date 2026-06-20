@@ -1087,7 +1087,7 @@ export class ListPageComponent {
 
   onHeaderActionsPopoverDidDismiss(): void {
     this.closeHeaderActionsPopover();
-    this.debugLogService.info('views.did_dismiss_fired', {
+    this.debugLogService.info('header_actions.did_dismiss_fired', {
       hasPendingAction: this._pendingHeaderAction !== null,
     });
     const action = this._pendingHeaderAction;

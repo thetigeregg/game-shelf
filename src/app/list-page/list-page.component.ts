@@ -800,7 +800,7 @@ export class ListPageComponent {
           this.debugLogService.info('views.navigate_resolved', { result });
         },
         (err: unknown) => {
-          this.debugLogService.info('views.navigate_rejected', err);
+          this.debugLogService.error('views.navigate_rejected', err);
         }
       );
     };

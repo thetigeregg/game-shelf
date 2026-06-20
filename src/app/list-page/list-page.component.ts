@@ -795,7 +795,7 @@ export class ListPageComponent {
         },
       });
       this.debugLogService.info('views.navigate_returned');
-      promise.then(
+      void promise.then(
         (result) => {
           this.debugLogService.info('views.navigate_resolved', { result });
         },

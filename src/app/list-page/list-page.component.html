@@ -88,70 +88,6 @@
 }
 
 <ng-template #listPageContent>
-  <ion-popover
-    [isOpen]="isBulkActionsPopoverOpen"
-    [arrow]="false"
-    [event]="bulkActionsPopoverEvent"
-    side="bottom"
-    alignment="end"
-    (didDismiss)="closeBulkActionsPopover()"
-  >
-    <ng-template>
-      <ion-content>
-        <ion-list lines="none">
-          <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
-            Move to {{ getMoveTargetLabel() }}
-          </ion-item>
-          <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
-            Set tags
-          </ion-item>
-          <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
-            Set status
-          </ion-item>
-          <ion-item
-            button
-            detail="false"
-            (click)="openExternalMetadataForSelectedGamesFromPopover()"
-          >
-            External metadata
-          </ion-item>
-          <ion-item button detail="false" (click)="exportSelectedGamesFromPopover()">
-            Export CSV
-          </ion-item>
-          <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
-            Delete
-          </ion-item>
-        </ion-list>
-      </ion-content>
-    </ng-template>
-  </ion-popover>
-
-  <ion-popover
-    #headerActionsPopover
-    [isOpen]="isHeaderActionsPopoverOpen"
-    [event]="headerActionsPopoverEvent"
-    [arrow]="false"
-    side="bottom"
-    alignment="end"
-    (didDismiss)="onHeaderActionsPopoverDidDismiss()"
-  >
-    <ng-template>
-      <ion-content>
-        <ion-list lines="none">
-          <ion-item button detail="false" (click)="openViewsFromPopover()">Views</ion-item>
-          <ion-item button detail="false" (click)="openTagsFromPopover()">Tags</ion-item>
-          <ion-item button detail="false" (click)="activateMultiSelectFromPopover()">
-            Multi-select
-          </ion-item>
-          <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
-            Pick random game
-          </ion-item>
-          <ion-item button detail="false" (click)="openSettingsFromPopover()">Settings</ion-item>
-        </ion-list>
-      </ion-content>
-    </ng-template>
-  </ion-popover>
-
   <app-game-list
     [listType]="listType"
     [filters]="filters"
@@ -201,6 +137,67 @@
     </ion-fab>
   }
 </ng-template>
+
+<ion-popover
+  [isOpen]="isBulkActionsPopoverOpen"
+  [arrow]="false"
+  [event]="bulkActionsPopoverEvent"
+  side="bottom"
+  alignment="end"
+  (didDismiss)="closeBulkActionsPopover()"
+>
+  <ng-template>
+    <ion-content>
+      <ion-list lines="none">
+        <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
+          Move to {{ getMoveTargetLabel() }}
+        </ion-item>
+        <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
+          Set tags
+        </ion-item>
+        <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
+          Set status
+        </ion-item>
+        <ion-item button detail="false" (click)="openExternalMetadataForSelectedGamesFromPopover()">
+          External metadata
+        </ion-item>
+        <ion-item button detail="false" (click)="exportSelectedGamesFromPopover()">
+          Export CSV
+        </ion-item>
+        <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
+          Delete
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-popover>
+
+<ion-popover
+  #headerActionsPopover
+  [isOpen]="isHeaderActionsPopoverOpen"
+  [event]="headerActionsPopoverEvent"
+  [arrow]="false"
+  side="bottom"
+  alignment="end"
+  (didPresent)="onHeaderActionsPopoverDidPresent()"
+  (didDismiss)="onHeaderActionsPopoverDidDismiss()"
+>
+  <ng-template>
+    <ion-content>
+      <ion-list lines="none">
+        <ion-item button detail="false" (click)="openViewsFromPopover()">Views</ion-item>
+        <ion-item button detail="false" (click)="openTagsFromPopover()">Tags</ion-item>
+        <ion-item button detail="false" (click)="activateMultiSelectFromPopover()">
+          Multi-select
+        </ion-item>
+        <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
+          Pick random game
+        </ion-item>
+        <ion-item button detail="false" (click)="openSettingsFromPopover()">Settings</ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-popover>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>

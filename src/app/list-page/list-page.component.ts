@@ -1086,6 +1086,10 @@ export class ListPageComponent {
     this.headerActionsPopoverEvent = undefined;
   }
 
+  onHeaderActionsPopoverDidPresent(): void {
+    this.debugLogService.info('header_actions.did_present_fired');
+  }
+
   onHeaderActionsPopoverDidDismiss(): void {
     this.closeHeaderActionsPopover();
     this.debugLogService.info('header_actions.did_dismiss_fired');

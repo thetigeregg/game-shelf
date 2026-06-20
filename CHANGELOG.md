@@ -3936,3 +3936,15 @@
 - 443084de feat(auth): skip write-token prompt when requireAuth runtime flag is false
 - a7580be1 feat(auth): skip write-token prompt when requireAuth runtime flag is false
 - 0fa18ce1 fix(list-page): defer popover navigation to didDismiss to fix iOS freeze
+
+## v1.65.1 - 2026-06-20
+
+- a871495a Merge pull request #455 from thetigeregg/feat/fix
+- 9b13a059 fix(list-page): use header_actions namespace for popover dismiss log
+- c1971f29 fix(list-page): use views namespace for did_dismiss_fired log
+- 42fba8d8 fix(list-page): rename did_dismiss log to header_actions namespace
+- d85b8ba8 fix(list-page): log navigate_rejected at error level
+- 02c6a961 fix(list-page): prefix void on non-awaited promise.then in openViewsFromPopover
+- b6f2cf47 fix(list-page): fix err serialization and add navigate_returned log
+- e2bf7c25 fix(list-page): log navigate promise outcome instead of synchronous return
+- 46d6300a fix(list-page): add debug logs to pinpoint views navigation freeze

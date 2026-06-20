@@ -329,7 +329,7 @@ describe('SettingsPage CSV review fields', () => {
       info: vi.fn(),
       error: vi.fn(),
       trace: vi.fn(),
-      flush: vi.fn(),
+      flush: vi.fn().mockResolvedValue(undefined),
       exportText: vi.fn().mockReturnValue('Game Shelf Debug Logs\n'),
       clear: vi.fn(),
     };

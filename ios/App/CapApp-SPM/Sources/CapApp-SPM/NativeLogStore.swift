@@ -68,9 +68,13 @@ public final class NativeLogStore {
         try? trimmed.write(to: logFileURL, atomically: true, encoding: .utf8)
     }
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     private func isoTimestamp() -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.string(from: Date())
+        NativeLogStore.isoFormatter.string(from: Date())
     }
 }

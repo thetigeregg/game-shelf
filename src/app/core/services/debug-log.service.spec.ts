@@ -92,20 +92,20 @@ describe('DebugLogService', () => {
     expect(networkConnectivityMock.onConnectedChange).toHaveBeenCalledOnce();
   });
 
-  it('flush calls NativeLogger.log with js.flush_checkpoint when on native', () => {
+  it('flush calls NativeLogger.log with js.flush_checkpoint when on native', async () => {
     vi.mocked(isNativePlatform).mockReturnValue(true);
     service.initialize();
 
-    service.flush();
+    await service.flush();
 
     expect(nativeLogSpy).toHaveBeenCalledWith({ level: 'info', message: 'js.flush_checkpoint' });
   });
 
-  it('flush does not call NativeLogger.log when not on native', () => {
+  it('flush does not call NativeLogger.log when not on native', async () => {
     vi.mocked(isNativePlatform).mockReturnValue(false);
     service.initialize();
 
-    service.flush();
+    await service.flush();
 
     expect(nativeLogSpy).not.toHaveBeenCalled();
   });

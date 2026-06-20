@@ -140,10 +140,10 @@ export class DebugLogService {
     this.info('debug.verbose_tracing_updated', { enabled: this.verboseTracingEnabled });
   }
 
-  flush(): void {
+  async flush(): Promise<void> {
     this.persist(true);
     if (isNativePlatform()) {
-      NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' }).catch(() => {
+      await NativeLogger.log({ level: 'info', message: 'js.flush_checkpoint' }).catch(() => {
         // best-effort; ignore failures
       });
     }

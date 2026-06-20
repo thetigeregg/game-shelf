@@ -857,7 +857,7 @@ export class SettingsPage {
   async exportDebugLogs(): Promise<void> {
     try {
       this.debugLogService.info('settings.export_debug_logs_requested');
-      this.debugLogService.flush();
+      await this.debugLogService.flush();
       const jsContent = this.debugLogService.exportText();
 
       let nativeSection = '';

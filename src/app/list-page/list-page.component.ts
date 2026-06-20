@@ -777,14 +777,14 @@ export class ListPageComponent {
 
   async openSettingsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.settings_tapped');
-    this.debugLogService.flush();
+    await this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/settings');
   }
 
   async openTagsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.tags_tapped');
-    this.debugLogService.flush();
+    await this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/tags');
   }
@@ -796,7 +796,7 @@ export class ListPageComponent {
       filters: this.filters,
       groupBy: this.groupBy,
     });
-    this.debugLogService.flush();
+    await this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/views');
   }

@@ -70,6 +70,7 @@ import { AddToLibraryWorkflowService } from '../features/game-search/add-to-libr
 import { DEFAULT_GAME_LIST_FILTERS, type GameCatalogResult } from '../core/models/game.models';
 import { AlertController, MenuController, ToastController } from '@ionic/angular/standalone';
 import { serializeListPagePreferences } from './list-page-preferences';
+import { ViewsContextService } from '../views/views-context.service';
 
 describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
@@ -703,6 +704,8 @@ describe('ListPageComponent', () => {
 
   it('openViewsFromPopover sets context, awaits dismiss, then navigates to /views', async () => {
     const component = createComponent();
+    const viewsContextService = TestBed.inject(ViewsContextService);
+    const setContextSpy = vi.spyOn(viewsContextService, 'set');
     const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
     const dismissMock = vi.fn().mockResolvedValue(true);
     (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
@@ -711,6 +714,8 @@ describe('ListPageComponent', () => {
 
     await component.openViewsFromPopover();
 
+    expect(setContextSpy).toHaveBeenCalledOnce();
+    expect(setContextSpy).toHaveBeenCalledWith(expect.objectContaining({ listType: 'collection' }));
     expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });

@@ -28,8 +28,9 @@ export class ThemeService {
     this.initializeSystemColorSchemeListener();
 
     const storedColorSchemePreference = this.readStoredColorSchemePreference();
-    // Note: DebugLogService.initialize() is called after ThemeService.initialize() in app.component.ts.
-    // These traces are only captured if the user had verbose tracing enabled from a prior session.
+    // verboseTracingEnabled is hydrated from preferences during DebugLogService.initialize(),
+    // which runs before ThemeService.initialize(). Traces here only fire if the user had
+    // verbose tracing enabled in a prior session.
     this.debugLogService.trace('theme.init', { storedPreference: storedColorSchemePreference });
     this.applyColorSchemePreference(
       storedColorSchemePreference ?? DEFAULT_COLOR_SCHEME_PREFERENCE,

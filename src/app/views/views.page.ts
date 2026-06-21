@@ -100,6 +100,7 @@ export class ViewsPage implements OnInit {
     this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
       tap((views) => {
         this.debugLogService.info('views.page.views_emit', { count: views.length });
+        this.warnMalformedViews(views);
         void this.debugLogService.flush();
       })
     );
@@ -267,21 +268,30 @@ export class ViewsPage implements OnInit {
     // Harden against malformed rows: a missing `filters` or `groupBy` would
     // otherwise throw here during render. The declared type says both are
     // always present, but synced/migrated data may not honor that, so read
-    // through an optional view. Log it so the export reveals malformed rows.
+    // through an optional view and fall back to defaults. This runs during
+    // change detection, so it must stay side-effect free — malformed rows are
+    // logged once per emission in `warnMalformedViews`, not here.
     const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
-    if (!looseView.filters || !looseView.groupBy) {
-      this.debugLogService.warn('views.page.view_malformed', {
-        id: view.id,
-        name: view.name,
-        hasFilters: Boolean(looseView.filters),
-        hasGroupBy: Boolean(looseView.groupBy),
-      });
-      void this.debugLogService.flush();
-    }
     const filters = looseView.filters ?? DEFAULT_GAME_LIST_FILTERS;
     const sortLabel = this.getSortLabel(filters.sortField, filters.sortDirection);
     const groupLabel = this.getGroupLabel(this.normalizeGroupBy(looseView.groupBy));
     return `${sortLabel} • Group: ${groupLabel}`;
+  }
+
+  // Logs malformed rows (missing `filters`/`groupBy`) once per views emission
+  // rather than per change-detection render. The flush is left to the caller.
+  private warnMalformedViews(views: readonly GameListView[]): void {
+    for (const view of views) {
+      const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
+      if (!looseView.filters || !looseView.groupBy) {
+        this.debugLogService.warn('views.page.view_malformed', {
+          id: view.id,
+          name: view.name,
+          hasFilters: Boolean(looseView.filters),
+          hasGroupBy: Boolean(looseView.groupBy),
+        });
+      }
+    }
   }
 
   trackByViewId(_: number, view: GameListView): string {

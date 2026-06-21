@@ -131,31 +131,26 @@ describe('ViewsPage', () => {
       expect(debugLogServiceMock.warn).not.toHaveBeenCalled();
     });
 
-    it('falls back to defaults and warns when filters are missing', () => {
+    it('falls back to defaults without side effects when filters are missing', () => {
       const malformed = makeView({ id: 7, name: 'Broken' });
       delete (malformed as Partial<GameListView>).filters;
 
       const summary = component.getViewSummary(malformed);
 
       expect(summary).toBe('Game title ↑ • Group: None');
-      expect(debugLogServiceMock.warn).toHaveBeenCalledWith(
-        'views.page.view_malformed',
-        expect.objectContaining({ id: 7, name: 'Broken', hasFilters: false, hasGroupBy: true })
-      );
-      expect(debugLogServiceMock.flush).toHaveBeenCalled();
+      // getViewSummary runs during change detection, so it must stay
+      // side-effect free — warnings are emitted from the views$ pipeline.
+      expect(debugLogServiceMock.warn).not.toHaveBeenCalled();
     });
 
-    it('normalizes an unknown groupBy to none and warns when groupBy is missing', () => {
+    it('normalizes a missing groupBy to none without side effects', () => {
       const malformed = makeView();
       delete (malformed as Partial<GameListView>).groupBy;
 
       const summary = component.getViewSummary(malformed);
 
       expect(summary).toContain('Group: None');
-      expect(debugLogServiceMock.warn).toHaveBeenCalledWith(
-        'views.page.view_malformed',
-        expect.objectContaining({ hasFilters: true, hasGroupBy: false })
-      );
+      expect(debugLogServiceMock.warn).not.toHaveBeenCalled();
     });
   });
 
@@ -170,6 +165,39 @@ describe('ViewsPage', () => {
       expect(debugLogServiceMock.info).toHaveBeenCalledWith('views.page.views_emit', {
         count: 1,
       });
+    });
+
+    it('warns once per emission for each malformed view', () => {
+      const malformedFilters = makeView({ id: 7, name: 'Broken' });
+      delete (malformedFilters as Partial<GameListView>).filters;
+      const malformedGroupBy = makeView({ id: 8, name: 'AlsoBroken' });
+      delete (malformedGroupBy as Partial<GameListView>).groupBy;
+      gameShelfServiceMock.watchViews.mockReturnValue(
+        of([makeView(), malformedFilters, malformedGroupBy])
+      );
+
+      component.ngOnInit();
+      component.views$.subscribe();
+
+      expect(debugLogServiceMock.warn).toHaveBeenCalledTimes(2);
+      expect(debugLogServiceMock.warn).toHaveBeenCalledWith(
+        'views.page.view_malformed',
+        expect.objectContaining({ id: 7, name: 'Broken', hasFilters: false, hasGroupBy: true })
+      );
+      expect(debugLogServiceMock.warn).toHaveBeenCalledWith(
+        'views.page.view_malformed',
+        expect.objectContaining({ id: 8, name: 'AlsoBroken', hasFilters: true, hasGroupBy: false })
+      );
+      expect(debugLogServiceMock.flush).toHaveBeenCalled();
+    });
+
+    it('does not warn when all emitted views are well-formed', () => {
+      gameShelfServiceMock.watchViews.mockReturnValue(of([makeView(), makeView({ id: 2 })]));
+
+      component.ngOnInit();
+      component.views$.subscribe();
+
+      expect(debugLogServiceMock.warn).not.toHaveBeenCalled();
     });
 
     it('records start and end diagnostic checkpoints', () => {

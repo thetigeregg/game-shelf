@@ -87,9 +87,11 @@ export class ViewsPage implements OnInit {
   private readonly viewsContextService = inject(ViewsContextService);
 
   ngOnInit(): void {
-    // Diagnostic checkpoints: each flush() persists buffered entries
-    // synchronously, so the last checkpoint survives even a subsequent
-    // synchronous freeze. Used to localize the iOS Views-page freeze.
+    // Diagnostic checkpoints: flush() serializes buffered entries on the main
+    // thread (JSON.stringify) and then issues the storage write — async on
+    // native, where Preferences.set() is scheduled rather than awaited here. It
+    // is best-effort rather than guaranteed-synchronous persistence, but the
+    // serialized snapshot helps localize the iOS Views-page freeze.
     this.debugLogService.info('views.page.ngoninit.start');
     void this.debugLogService.flush();
     const { context: ctx, hasContext } = this.viewsContextService.consume();
@@ -100,11 +102,11 @@ export class ViewsPage implements OnInit {
     this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
       tap((views) => {
         this.debugLogService.info('views.page.views_emit', { count: views.length });
-        // Only force a synchronous flush when a malformed row is detected.
-        // flush() persists buffered entries synchronously (JSON.stringify +
-        // storage write), so doing it on every emission would add main-thread
-        // blocking work to a hot observable — the routine checkpoint above is
-        // left to the debounced persist instead.
+        // Only force a flush when a malformed row is detected. The expensive,
+        // main-thread part of flush() is the synchronous JSON.stringify (the
+        // native storage write is scheduled async), so flushing on every
+        // emission would add serialization work to a hot observable — the
+        // routine checkpoint is left to the debounced persist instead.
         if (this.warnMalformedViews(views)) {
           void this.debugLogService.flush();
         }

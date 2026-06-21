@@ -177,6 +177,9 @@ describe('ViewsPage', () => {
       );
 
       component.ngOnInit();
+      // ngOnInit flushes its start/end checkpoints, so reset the mock to assert
+      // the conditional flush in the views$ tap actually fires for malformed rows.
+      debugLogServiceMock.flush.mockClear();
       component.views$.subscribe();
 
       expect(debugLogServiceMock.warn).toHaveBeenCalledTimes(2);

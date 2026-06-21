@@ -3986,3 +3986,13 @@
 - bbf3b153 fix(list-page): flatten error so views-count diagnostic keeps stack
 - 0ffa59e3 test(list-page): cover views-count diagnostic failure path
 - abd99479 chore(list-page): log view row counts to diagnose Views freeze
+
+## v1.67.2 - 2026-06-21
+
+- 619e50b9 Merge pull request #459 from thetigeregg/feat/fix
+- 9e6f27f5 docs(views): clarify flush() persistence semantics and tighten flush test
+- 4bdd03ce perf(views): flush debug logs only on malformed view rows
+- ad217d25 refactor(views): move malformed-row warning out of render path
+- 91575546 test(views): cover view-summary hardening and lifecycle diagnostics
+- 05fea7b6 Merge branch 'main' into feat/fix
+- d41a5a7a chore(views): add lifecycle diagnostics and harden getViewSummary

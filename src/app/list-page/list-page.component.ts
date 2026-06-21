@@ -825,7 +825,11 @@ export class ListPageComponent {
         totalRows: collectionViews.length + wishlistViews.length,
       });
     } catch (error: unknown) {
-      this.debugLogService.error('header_actions.views_count_failed', { error });
+      const detail =
+        error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { error };
+      this.debugLogService.error('header_actions.views_count_failed', detail);
     }
   }
 

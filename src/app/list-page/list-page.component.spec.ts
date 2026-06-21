@@ -741,6 +741,9 @@ describe('ListPageComponent', () => {
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0]?.[0]).toBe('header_actions.views_count_failed');
+    expect(errorSpy.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ name: 'Error', message: 'boom' })
+    );
     expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });

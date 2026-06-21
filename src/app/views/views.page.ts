@@ -24,7 +24,7 @@ import {
   IonInput,
   IonNote,
 } from '@ionic/angular/standalone';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameGroupByField,
@@ -87,12 +87,34 @@ export class ViewsPage implements OnInit {
   private readonly viewsContextService = inject(ViewsContextService);
 
   ngOnInit(): void {
+    // Diagnostic checkpoints: each flush() persists buffered entries
+    // synchronously, so the last checkpoint survives even a subsequent
+    // synchronous freeze. Used to localize the iOS Views-page freeze.
+    this.debugLogService.info('views.page.ngoninit.start');
+    void this.debugLogService.flush();
     const { context: ctx, hasContext } = this.viewsContextService.consume();
     this.listType = ctx.listType;
     this.currentFilters = { ...DEFAULT_GAME_LIST_FILTERS, ...ctx.filters };
     this.currentGroupBy = this.normalizeGroupBy(ctx.groupBy);
     this.hasCurrentConfiguration = hasContext;
-    this.views$ = this.gameShelfService.watchViews(this.listType);
+    this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
+      tap((views) => {
+        this.debugLogService.info('views.page.views_emit', { count: views.length });
+        void this.debugLogService.flush();
+      })
+    );
+    this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
+    void this.debugLogService.flush();
+  }
+
+  ionViewWillEnter(): void {
+    this.debugLogService.info('views.page.will_enter');
+    void this.debugLogService.flush();
+  }
+
+  ionViewDidEnter(): void {
+    this.debugLogService.info('views.page.did_enter');
+    void this.debugLogService.flush();
   }
 
   get backHref(): string {
@@ -242,8 +264,23 @@ export class ViewsPage implements OnInit {
   }
 
   getViewSummary(view: GameListView): string {
-    const sortLabel = this.getSortLabel(view.filters.sortField, view.filters.sortDirection);
-    const groupLabel = this.getGroupLabel(view.groupBy);
+    // Harden against malformed rows: a missing `filters` or `groupBy` would
+    // otherwise throw here during render. The declared type says both are
+    // always present, but synced/migrated data may not honor that, so read
+    // through an optional view. Log it so the export reveals malformed rows.
+    const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
+    if (!looseView.filters || !looseView.groupBy) {
+      this.debugLogService.warn('views.page.view_malformed', {
+        id: view.id,
+        name: view.name,
+        hasFilters: Boolean(looseView.filters),
+        hasGroupBy: Boolean(looseView.groupBy),
+      });
+      void this.debugLogService.flush();
+    }
+    const filters = looseView.filters ?? DEFAULT_GAME_LIST_FILTERS;
+    const sortLabel = this.getSortLabel(filters.sortField, filters.sortDirection);
+    const groupLabel = this.getGroupLabel(this.normalizeGroupBy(looseView.groupBy));
     return `${sortLabel} • Group: ${groupLabel}`;
   }
 
@@ -343,5 +380,7 @@ export class ViewsPage implements OnInit {
 
   constructor() {
     addIcons({ ellipsisVertical, add });
+    this.debugLogService.info('views.page.ctor');
+    void this.debugLogService.flush();
   }
 }

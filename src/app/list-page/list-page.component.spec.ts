@@ -732,8 +732,7 @@ describe('ListPageComponent', () => {
     (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
       dismiss: dismissMock,
     };
-    const debugLogService = (component as unknown as { debugLogService: DebugLogService })
-      .debugLogService;
+    const debugLogService = TestBed.inject(DebugLogService);
     const errorSpy = vi.spyOn(debugLogService, 'error');
     gameShelfServiceMock.listViews.mockRejectedValue(new Error('boom'));
 
@@ -758,14 +757,11 @@ describe('ListPageComponent', () => {
       (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
         dismiss: dismissMock,
       };
-      const debugLogService = (component as unknown as { debugLogService: DebugLogService })
-        .debugLogService;
+      const debugLogService = TestBed.inject(DebugLogService);
       const errorSpy = vi.spyOn(debugLogService, 'error');
       gameShelfServiceMock.listViews.mockReturnValue(new Promise<never>(() => undefined));
 
-      const timeoutMs = (
-        ListPageComponent as unknown as { VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS: number }
-      ).VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS;
+      const timeoutMs = ListPageComponent.VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS;
 
       const opened = component.openViewsFromPopover();
       await vi.advanceTimersByTimeAsync(timeoutMs);

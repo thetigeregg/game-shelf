@@ -175,7 +175,7 @@ function buildConfig(listType: ListType): ListPageConfig {
 })
 export class ListPageComponent {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
-  private static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
+  static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -834,7 +834,7 @@ export class ListPageComponent {
       const distinctNames = (views: GameListView[]): number => {
         const names = new Set<string>();
         for (const view of views) {
-          names.add(view.name);
+          names.add(view.name.trim().toLowerCase());
         }
         return names.size;
       };

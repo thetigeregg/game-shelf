@@ -1,10 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
   AlertController,
-  PopoverController,
   ToastController,
   IonHeader,
   IonToolbar,
@@ -78,13 +77,24 @@ export class ViewsPage implements OnInit {
   editingViewId: number | null = null;
   draftName = '';
 
+  // Single root-level actions popover (one for the whole page), opened
+  // programmatically per row. Replaces the previous per-item, in-content
+  // `ion-popover` which froze the iOS WKWebView when the list rendered — the
+  // same iOS backdrop freeze fixed in list-page by moving popovers to root.
+  isViewActionsPopoverOpen = false;
+  viewActionsPopoverEvent: Event | undefined = undefined;
+  selectedViewForActions: GameListView | null = null;
+
+  private loggedFirstViewsEmit = false;
+
   private readonly gameShelfService = inject(GameShelfService);
   private readonly router = inject(Router);
-  private readonly popoverController = inject(PopoverController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly debugLogService = inject(DebugLogService);
   private readonly viewsContextService = inject(ViewsContextService);
+
+  @ViewChild('viewActionsPopover') private viewActionsPopover?: IonPopover;
 
   ngOnInit(): void {
     // Diagnostic checkpoints: flush() serializes buffered entries on the main
@@ -101,15 +111,16 @@ export class ViewsPage implements OnInit {
     this.hasCurrentConfiguration = hasContext;
     this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
       tap((views) => {
-        this.debugLogService.info('views.page.views_emit', { count: views.length });
-        // Only force a flush when a malformed row is detected. The expensive,
-        // main-thread part of flush() is the synchronous JSON.stringify (the
-        // native storage write is scheduled async), so flushing on every
-        // emission would add serialization work to a hot observable — the
-        // routine checkpoint is left to the debounced persist instead.
-        if (this.warnMalformedViews(views)) {
+        // Flush the first emission so the export confirms the list actually
+        // rendered (distinguishes a transition hang from a list-render hang).
+        // Subsequent emissions rely on the debounced persist to avoid adding
+        // serialization work on every change.
+        if (!this.loggedFirstViewsEmit) {
+          this.loggedFirstViewsEmit = true;
+          this.debugLogService.info('views.page.views_emit', { count: views.length });
           void this.debugLogService.flush();
         }
+        this.warnMalformedViews(views);
       })
     );
     this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
@@ -196,10 +207,24 @@ export class ViewsPage implements OnInit {
     await this.router.navigateByUrl(`${targetUrl}?applyView=${String(view.id)}`);
   }
 
-  async renameViewFromPopover(view: GameListView): Promise<void> {
-    await this.popoverController.dismiss();
+  openViewActions(view: GameListView, event: Event): void {
+    event.stopPropagation();
+    this.selectedViewForActions = view;
+    this.viewActionsPopoverEvent = event;
+    this.isViewActionsPopoverOpen = true;
+  }
 
-    if (typeof view.id !== 'number') {
+  onViewActionsDismiss(): void {
+    this.isViewActionsPopoverOpen = false;
+    this.viewActionsPopoverEvent = undefined;
+    this.selectedViewForActions = null;
+  }
+
+  async renameViewFromPopover(): Promise<void> {
+    const view = this.selectedViewForActions;
+    await this.viewActionsPopover?.dismiss();
+
+    if (!view || typeof view.id !== 'number') {
       return;
     }
 
@@ -209,10 +234,11 @@ export class ViewsPage implements OnInit {
     this.isNameModalOpen = true;
   }
 
-  async updateViewFromPopover(view: GameListView): Promise<void> {
-    await this.popoverController.dismiss();
+  async updateViewFromPopover(): Promise<void> {
+    const view = this.selectedViewForActions;
+    await this.viewActionsPopover?.dismiss();
 
-    if (typeof view.id !== 'number') {
+    if (!view || typeof view.id !== 'number') {
       return;
     }
 
@@ -232,10 +258,11 @@ export class ViewsPage implements OnInit {
     await this.presentToast('View updated.');
   }
 
-  async deleteViewFromPopover(view: GameListView): Promise<void> {
-    await this.popoverController.dismiss();
+  async deleteViewFromPopover(): Promise<void> {
+    const view = this.selectedViewForActions;
+    await this.viewActionsPopover?.dismiss();
 
-    if (typeof view.id !== 'number') {
+    if (!view || typeof view.id !== 'number') {
       return;
     }
 
@@ -266,10 +293,6 @@ export class ViewsPage implements OnInit {
 
     await this.gameShelfService.deleteView(view.id);
     await this.presentToast('View deleted.');
-  }
-
-  getActionsTriggerId(view: GameListView): string {
-    return `view-actions-trigger-${String(view.id ?? view.name).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   }
 
   getViewSummary(view: GameListView): string {

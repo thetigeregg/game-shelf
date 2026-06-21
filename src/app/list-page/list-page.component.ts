@@ -793,14 +793,17 @@ export class ListPageComponent {
 
   async openViewsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.views_tapped');
-    await this.logViewRowCounts();
     this.viewsContextService.set({
       listType: this.listType,
       filters: this.filters,
       groupBy: this.groupBy,
     });
-    await this.debugLogService.flush();
+    // Dismiss the popover before running the bounded diagnostic so tapping
+    // "Views" stays responsive even when storage is slow. The count is still
+    // logged and flushed prior to navigation.
     await this.headerActionsPopover?.dismiss();
+    await this.logViewRowCounts();
+    await this.debugLogService.flush();
     void this.router.navigateByUrl('/views');
   }
 
@@ -828,8 +831,13 @@ export class ListPageComponent {
         ]),
         timeout,
       ]);
-      const distinctNames = (views: GameListView[]): number =>
-        new Set(views.map((view) => view.name)).size;
+      const distinctNames = (views: GameListView[]): number => {
+        const names = new Set<string>();
+        for (const view of views) {
+          names.add(view.name);
+        }
+        return names.size;
+      };
       this.debugLogService.info('header_actions.views_count', {
         collectionRows: collectionViews.length,
         collectionDistinctNames: distinctNames(collectionViews),

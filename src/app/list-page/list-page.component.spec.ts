@@ -76,6 +76,7 @@ describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
     findGameByIdentity: vi.fn(),
     getView: vi.fn(),
+    listViews: vi.fn(),
   };
   const igdbProxyServiceMock = {
     getGameById: vi.fn(),
@@ -103,6 +104,7 @@ describe('ListPageComponent', () => {
     vi.clearAllMocks();
     gameShelfServiceMock.findGameByIdentity.mockResolvedValue(null);
     gameShelfServiceMock.getView.mockResolvedValue(null);
+    gameShelfServiceMock.listViews.mockResolvedValue([]);
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({ status: 'added' });
 
@@ -716,6 +718,8 @@ describe('ListPageComponent', () => {
 
     expect(setContextSpy).toHaveBeenCalledOnce();
     expect(setContextSpy).toHaveBeenCalledWith(expect.objectContaining({ listType: 'collection' }));
+    expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('collection');
+    expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('wishlist');
     expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });

@@ -35,6 +35,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameListView,
   GameType,
   GameVideo,
   GameWebsite,
@@ -791,6 +792,7 @@ export class ListPageComponent {
 
   async openViewsFromPopover(): Promise<void> {
     this.debugLogService.info('header_actions.views_tapped');
+    await this.logViewRowCounts();
     this.viewsContextService.set({
       listType: this.listType,
       filters: this.filters,
@@ -799,6 +801,32 @@ export class ListPageComponent {
     await this.debugLogService.flush();
     await this.headerActionsPopover?.dismiss();
     void this.router.navigateByUrl('/views');
+  }
+
+  /**
+   * Diagnostic: count rows in the views table before navigating. Logged and
+   * flushed prior to navigation so the count survives even if rendering the
+   * Views page freezes. A row count far exceeding the distinct-name count
+   * indicates duplicate view rows accumulating in storage.
+   */
+  private async logViewRowCounts(): Promise<void> {
+    try {
+      const [collectionViews, wishlistViews] = await Promise.all([
+        this.gameShelfService.listViews('collection'),
+        this.gameShelfService.listViews('wishlist'),
+      ]);
+      const distinctNames = (views: GameListView[]): number =>
+        new Set(views.map((view) => view.name)).size;
+      this.debugLogService.info('header_actions.views_count', {
+        collectionRows: collectionViews.length,
+        collectionDistinctNames: distinctNames(collectionViews),
+        wishlistRows: wishlistViews.length,
+        wishlistDistinctNames: distinctNames(wishlistViews),
+        totalRows: collectionViews.length + wishlistViews.length,
+      });
+    } catch (error: unknown) {
+      this.debugLogService.error('header_actions.views_count_failed', { error });
+    }
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {

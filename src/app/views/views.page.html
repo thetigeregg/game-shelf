@@ -20,33 +20,10 @@
             slot="end"
             fill="clear"
             aria-label="View actions"
-            [id]="getActionsTriggerId(view)"
-            (click)="$event.stopPropagation()"
+            (click)="openViewActions(view, $event)"
           >
             <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
           </ion-button>
-          <ion-popover [trigger]="getActionsTriggerId(view)" triggerAction="click">
-            <ng-template>
-              <ion-content>
-                <ion-list lines="none">
-                  <ion-item button detail="false" (click)="renameViewFromPopover(view)">
-                    Rename
-                  </ion-item>
-                  <ion-item button detail="false" (click)="updateViewFromPopover(view)">
-                    Update from current
-                  </ion-item>
-                  <ion-item
-                    button
-                    detail="false"
-                    color="danger"
-                    (click)="deleteViewFromPopover(view)"
-                  >
-                    Delete
-                  </ion-item>
-                </ion-list>
-              </ion-content>
-            </ng-template>
-          </ion-popover>
         </ion-item>
       }
       @if (views.length === 0) {
@@ -68,6 +45,30 @@
     </ion-fab-button>
   </ion-fab>
 </ion-content>
+
+<ion-popover
+  #viewActionsPopover
+  [isOpen]="isViewActionsPopoverOpen"
+  [event]="viewActionsPopoverEvent"
+  [arrow]="false"
+  side="bottom"
+  alignment="end"
+  (didDismiss)="onViewActionsDismiss()"
+>
+  <ng-template>
+    <ion-content>
+      <ion-list lines="none">
+        <ion-item button detail="false" (click)="renameViewFromPopover()">Rename</ion-item>
+        <ion-item button detail="false" (click)="updateViewFromPopover()">
+          Update from current
+        </ion-item>
+        <ion-item button detail="false" color="danger" (click)="deleteViewFromPopover()">
+          Delete
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-popover>
 
 <ion-modal [isOpen]="isNameModalOpen" (didDismiss)="closeNameModal()">
   <ng-template>

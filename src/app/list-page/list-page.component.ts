@@ -35,6 +35,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameListView,
   GameType,
   GameVideo,
   GameWebsite,
@@ -174,6 +175,7 @@ function buildConfig(listType: ListType): ListPageConfig {
 })
 export class ListPageComponent {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
+  static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -796,9 +798,68 @@ export class ListPageComponent {
       filters: this.filters,
       groupBy: this.groupBy,
     });
-    await this.debugLogService.flush();
+    // Dismiss the popover before running the bounded diagnostic so tapping
+    // "Views" stays responsive even when storage is slow. The count is still
+    // logged and flushed prior to navigation.
     await this.headerActionsPopover?.dismiss();
+    await this.logViewRowCounts();
+    await this.debugLogService.flush();
     void this.router.navigateByUrl('/views');
+  }
+
+  /**
+   * Diagnostic: count rows in the views table before navigating. Logged and
+   * flushed prior to navigation so the count survives even if rendering the
+   * Views page freezes. A row count far exceeding the distinct-name count
+   * indicates duplicate view rows accumulating in storage.
+   *
+   * Bounded by a short timeout and swallows errors so tapping "Views" stays
+   * responsive even when storage is slow or unhealthy.
+   */
+  private async logViewRowCounts(): Promise<void> {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error('views_count_timeout'));
+        }, ListPageComponent.VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS);
+      });
+      const inFlight = Promise.all([
+        this.gameShelfService.listViews('collection'),
+        this.gameShelfService.listViews('wishlist'),
+      ]);
+      // If the timeout wins the race, the in-flight reads keep running. Absorb
+      // any late rejection so it never surfaces as an unhandled rejection.
+      inFlight.catch(() => undefined);
+      const [collectionViews, wishlistViews] = await Promise.race([inFlight, timeout]);
+      // Match LocalGameRepository.normalizeViewName (trim-only) so the distinct
+      // count reflects the app's actual view-name normalization and is directly
+      // comparable to the row count when detecting duplicate view rows.
+      const distinctNames = (views: GameListView[]): number => {
+        const names = new Set<string>();
+        for (const view of views) {
+          names.add(view.name.trim());
+        }
+        return names.size;
+      };
+      this.debugLogService.info('header_actions.views_count', {
+        collectionRows: collectionViews.length,
+        collectionDistinctNames: distinctNames(collectionViews),
+        wishlistRows: wishlistViews.length,
+        wishlistDistinctNames: distinctNames(wishlistViews),
+        totalRows: collectionViews.length + wishlistViews.length,
+      });
+    } catch (error: unknown) {
+      const detail =
+        error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { error };
+      this.debugLogService.error('header_actions.views_count_failed', detail);
+    } finally {
+      if (timeoutHandle !== undefined) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   }
 
   private openAddGameDetailShortcutSearchUrl(provider: DetailWebsiteSearchProvider): string | null {

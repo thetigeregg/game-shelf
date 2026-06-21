@@ -1515,6 +1515,10 @@ export class GameShelfService {
     return this.repository.getView(viewId);
   }
 
+  async listViews(listType: ListType): Promise<GameListView[]> {
+    return this.repository.listViews(listType);
+  }
+
   async createView(
     name: string,
     listType: ListType,

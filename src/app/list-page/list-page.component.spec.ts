@@ -64,6 +64,7 @@ import { ListPageComponent } from './list-page.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { SyncEventsService } from '../core/services/sync-events.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
@@ -76,6 +77,7 @@ describe('ListPageComponent', () => {
   const gameShelfServiceMock = {
     findGameByIdentity: vi.fn(),
     getView: vi.fn(),
+    listViews: vi.fn(),
   };
   const igdbProxyServiceMock = {
     getGameById: vi.fn(),
@@ -103,6 +105,7 @@ describe('ListPageComponent', () => {
     vi.clearAllMocks();
     gameShelfServiceMock.findGameByIdentity.mockResolvedValue(null);
     gameShelfServiceMock.getView.mockResolvedValue(null);
+    gameShelfServiceMock.listViews.mockResolvedValue([]);
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({ status: 'added' });
 
@@ -716,8 +719,64 @@ describe('ListPageComponent', () => {
 
     expect(setContextSpy).toHaveBeenCalledOnce();
     expect(setContextSpy).toHaveBeenCalledWith(expect.objectContaining({ listType: 'collection' }));
+    expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('collection');
+    expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('wishlist');
     expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
+  });
+
+  it('openViewsFromPopover still navigates when the view-count diagnostic throws', async () => {
+    const component = createComponent();
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+    const dismissMock = vi.fn().mockResolvedValue(true);
+    (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+      dismiss: dismissMock,
+    };
+    const debugLogService = TestBed.inject(DebugLogService);
+    const errorSpy = vi.spyOn(debugLogService, 'error');
+    gameShelfServiceMock.listViews.mockRejectedValue(new Error('boom'));
+
+    await component.openViewsFromPopover();
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0]?.[0]).toBe('header_actions.views_count_failed');
+    expect(errorSpy.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ name: 'Error', message: 'boom' })
+    );
+    expect(dismissMock).toHaveBeenCalledOnce();
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
+  });
+
+  it('openViewsFromPopover still navigates when the view-count diagnostic times out', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const component = createComponent();
+      const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+      const dismissMock = vi.fn().mockResolvedValue(true);
+      (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+        dismiss: dismissMock,
+      };
+      const debugLogService = TestBed.inject(DebugLogService);
+      const errorSpy = vi.spyOn(debugLogService, 'error');
+      gameShelfServiceMock.listViews.mockReturnValue(new Promise<never>(() => undefined));
+
+      const timeoutMs = ListPageComponent.VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS;
+
+      const opened = component.openViewsFromPopover();
+      await vi.advanceTimersByTimeAsync(timeoutMs);
+      await opened;
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0]?.[0]).toBe('header_actions.views_count_failed');
+      expect(errorSpy.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({ name: 'Error', message: 'views_count_timeout' })
+      );
+      expect(dismissMock).toHaveBeenCalledOnce();
+      expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('openTagsFromPopover awaits dismiss then navigates to /tags', async () => {

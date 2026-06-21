@@ -310,15 +310,13 @@ export class ViewsPage implements OnInit {
   }
 
   // Logs malformed rows (missing `filters`/`groupBy`) once per views emission
-  // rather than per change-detection render. Returns true if any malformed row
-  // was found so the caller can force-flush only in that case. The flush is
-  // left to the caller.
-  private warnMalformedViews(views: readonly GameListView[]): boolean {
-    let foundMalformed = false;
+  // rather than per change-detection render. The diagnostic flush is keyed to
+  // the first emission, not malformed rows, so this no longer reports back to
+  // the caller.
+  private warnMalformedViews(views: readonly GameListView[]): void {
     for (const view of views) {
       const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
       if (!looseView.filters || !looseView.groupBy) {
-        foundMalformed = true;
         this.debugLogService.warn('views.page.view_malformed', {
           id: view.id,
           name: view.name,
@@ -327,7 +325,6 @@ export class ViewsPage implements OnInit {
         });
       }
     }
-    return foundMalformed;
   }
 
   trackByViewId(_: number, view: GameListView): string {

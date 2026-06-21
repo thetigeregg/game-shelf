@@ -832,10 +832,13 @@ export class ListPageComponent {
       // any late rejection so it never surfaces as an unhandled rejection.
       inFlight.catch(() => undefined);
       const [collectionViews, wishlistViews] = await Promise.race([inFlight, timeout]);
+      // Match LocalGameRepository.normalizeViewName (trim-only) so the distinct
+      // count reflects the app's actual view-name normalization and is directly
+      // comparable to the row count when detecting duplicate view rows.
       const distinctNames = (views: GameListView[]): number => {
         const names = new Set<string>();
         for (const view of views) {
-          names.add(view.name.trim().toLowerCase());
+          names.add(view.name.trim());
         }
         return names.size;
       };

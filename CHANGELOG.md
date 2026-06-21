@@ -3996,3 +3996,11 @@
 - 91575546 test(views): cover view-summary hardening and lifecycle diagnostics
 - 05fea7b6 Merge branch 'main' into feat/fix
 - d41a5a7a chore(views): add lifecycle diagnostics and harden getViewSummary
+
+## v1.67.3 - 2026-06-21
+
+- 896113f7 Merge pull request #460 from thetigeregg/feat/fix
+- 42f9fa39 refactor(views): drop unused boolean return from warnMalformedViews
+- de38bfe1 test(views): cover root-level actions popover and drop stale PopoverController mocks
+- 7bc561bc Merge branch 'main' into feat/fix
+- 005da805 fix(views): use root-level actions popover to fix iOS freeze

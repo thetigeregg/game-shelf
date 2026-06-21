@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, DoCheck, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -65,7 +65,7 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
     IonNote,
   ],
 })
-export class ViewsPage implements OnInit {
+export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   views$!: Observable<GameListView[]>;
   listType: ListType = 'collection';
   hasCurrentConfiguration = false;
@@ -86,6 +86,15 @@ export class ViewsPage implements OnInit {
   selectedViewForActions: GameListView | null = null;
 
   private loggedFirstViewsEmit = false;
+
+  // Diagnostics for the iOS renderer crash on /views: a wall-clock heartbeat
+  // plus a change-detection counter. If heartbeats keep firing while the page
+  // is shown, the main thread is alive and the crash is native (memory/GPU);
+  // if they stop, the main thread is blocked. A runaway docheckCount points to
+  // a change-detection loop.
+  private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
+  private docheckCount = 0;
+  private enteredAtMs = 0;
 
   private readonly gameShelfService = inject(GameShelfService);
   private readonly router = inject(Router);
@@ -125,6 +134,26 @@ export class ViewsPage implements OnInit {
     );
     this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
     void this.debugLogService.flush();
+
+    this.enteredAtMs = Date.now();
+    this.heartbeatHandle = setInterval(() => {
+      this.debugLogService.info('views.page.heartbeat', {
+        elapsedMs: Date.now() - this.enteredAtMs,
+        docheckCount: this.docheckCount,
+      });
+      void this.debugLogService.flush();
+    }, 2000);
+  }
+
+  ngDoCheck(): void {
+    this.docheckCount += 1;
+  }
+
+  ngOnDestroy(): void {
+    if (this.heartbeatHandle !== null) {
+      clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
   }
 
   ionViewWillEnter(): void {

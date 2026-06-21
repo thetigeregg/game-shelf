@@ -748,6 +748,37 @@ describe('ListPageComponent', () => {
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });
 
+  it('openViewsFromPopover still navigates when the view-count diagnostic times out', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const component = createComponent();
+      const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+      const dismissMock = vi.fn().mockResolvedValue(true);
+      (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+        dismiss: dismissMock,
+      };
+      const debugLogService = (component as unknown as { debugLogService: DebugLogService })
+        .debugLogService;
+      const errorSpy = vi.spyOn(debugLogService, 'error');
+      gameShelfServiceMock.listViews.mockReturnValue(new Promise<never>(() => undefined));
+
+      const opened = component.openViewsFromPopover();
+      await vi.advanceTimersByTimeAsync(2000);
+      await opened;
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0]?.[0]).toBe('header_actions.views_count_failed');
+      expect(errorSpy.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({ name: 'Error', message: 'views_count_timeout' })
+      );
+      expect(dismissMock).toHaveBeenCalledOnce();
+      expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('openTagsFromPopover awaits dismiss then navigates to /tags', async () => {
     const component = createComponent();
     const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');

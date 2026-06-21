@@ -175,6 +175,7 @@ function buildConfig(listType: ListType): ListPageConfig {
 })
 export class ListPageComponent {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
+  private static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -808,12 +809,24 @@ export class ListPageComponent {
    * flushed prior to navigation so the count survives even if rendering the
    * Views page freezes. A row count far exceeding the distinct-name count
    * indicates duplicate view rows accumulating in storage.
+   *
+   * Bounded by a short timeout and swallows errors so tapping "Views" stays
+   * responsive even when storage is slow or unhealthy.
    */
   private async logViewRowCounts(): Promise<void> {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
-      const [collectionViews, wishlistViews] = await Promise.all([
-        this.gameShelfService.listViews('collection'),
-        this.gameShelfService.listViews('wishlist'),
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error('views_count_timeout'));
+        }, ListPageComponent.VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS);
+      });
+      const [collectionViews, wishlistViews] = await Promise.race([
+        Promise.all([
+          this.gameShelfService.listViews('collection'),
+          this.gameShelfService.listViews('wishlist'),
+        ]),
+        timeout,
       ]);
       const distinctNames = (views: GameListView[]): number =>
         new Set(views.map((view) => view.name)).size;
@@ -830,6 +843,10 @@ export class ListPageComponent {
           ? { name: error.name, message: error.message, stack: error.stack }
           : { error };
       this.debugLogService.error('header_actions.views_count_failed', detail);
+    } finally {
+      if (timeoutHandle !== undefined) {
+        clearTimeout(timeoutHandle);
+      }
     }
   }
 

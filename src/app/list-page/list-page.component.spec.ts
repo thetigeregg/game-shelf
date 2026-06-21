@@ -64,6 +64,7 @@ import { ListPageComponent } from './list-page.component';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { SyncBootstrapProgressService } from '../core/services/sync-bootstrap-progress.service';
 import { SyncEventsService } from '../core/services/sync-events.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
@@ -720,6 +721,26 @@ describe('ListPageComponent', () => {
     expect(setContextSpy).toHaveBeenCalledWith(expect.objectContaining({ listType: 'collection' }));
     expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('collection');
     expect(gameShelfServiceMock.listViews).toHaveBeenCalledWith('wishlist');
+    expect(dismissMock).toHaveBeenCalledOnce();
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
+  });
+
+  it('openViewsFromPopover still navigates when the view-count diagnostic throws', async () => {
+    const component = createComponent();
+    const navigateByUrlSpy = vi.spyOn(routerMock, 'navigateByUrl');
+    const dismissMock = vi.fn().mockResolvedValue(true);
+    (component as unknown as Record<string, unknown>)['headerActionsPopover'] = {
+      dismiss: dismissMock,
+    };
+    const debugLogService = (component as unknown as { debugLogService: DebugLogService })
+      .debugLogService;
+    const errorSpy = vi.spyOn(debugLogService, 'error');
+    gameShelfServiceMock.listViews.mockRejectedValue(new Error('boom'));
+
+    await component.openViewsFromPopover();
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0]?.[0]).toBe('header_actions.views_count_failed');
     expect(dismissMock).toHaveBeenCalledOnce();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/views');
   });

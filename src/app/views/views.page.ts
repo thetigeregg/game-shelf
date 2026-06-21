@@ -100,8 +100,14 @@ export class ViewsPage implements OnInit {
     this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
       tap((views) => {
         this.debugLogService.info('views.page.views_emit', { count: views.length });
-        this.warnMalformedViews(views);
-        void this.debugLogService.flush();
+        // Only force a synchronous flush when a malformed row is detected.
+        // flush() persists buffered entries synchronously (JSON.stringify +
+        // storage write), so doing it on every emission would add main-thread
+        // blocking work to a hot observable — the routine checkpoint above is
+        // left to the debounced persist instead.
+        if (this.warnMalformedViews(views)) {
+          void this.debugLogService.flush();
+        }
       })
     );
     this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
@@ -279,11 +285,15 @@ export class ViewsPage implements OnInit {
   }
 
   // Logs malformed rows (missing `filters`/`groupBy`) once per views emission
-  // rather than per change-detection render. The flush is left to the caller.
-  private warnMalformedViews(views: readonly GameListView[]): void {
+  // rather than per change-detection render. Returns true if any malformed row
+  // was found so the caller can force-flush only in that case. The flush is
+  // left to the caller.
+  private warnMalformedViews(views: readonly GameListView[]): boolean {
+    let foundMalformed = false;
     for (const view of views) {
       const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
       if (!looseView.filters || !looseView.groupBy) {
+        foundMalformed = true;
         this.debugLogService.warn('views.page.view_malformed', {
           id: view.id,
           name: view.name,
@@ -292,6 +302,7 @@ export class ViewsPage implements OnInit {
         });
       }
     }
+    return foundMalformed;
   }
 
   trackByViewId(_: number, view: GameListView): string {

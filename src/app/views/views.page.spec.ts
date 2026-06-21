@@ -120,7 +120,11 @@ describe('ViewsPage', () => {
   });
 
   afterEach(() => {
+    // ngOnInit starts a heartbeat interval; tear it down so timers never leak
+    // into later tests.
+    component.ngOnDestroy();
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   describe('getViewSummary', () => {
@@ -224,6 +228,41 @@ describe('ViewsPage', () => {
       expect(debugLogServiceMock.info).toHaveBeenCalledWith('views.page.ngoninit.end', {
         listType: 'collection',
       });
+    });
+  });
+
+  describe('heartbeat diagnostics', () => {
+    it('emits a heartbeat with the change-detection count every interval', () => {
+      vi.useFakeTimers();
+      component.ngOnInit();
+      component.ngDoCheck();
+      component.ngDoCheck();
+
+      vi.advanceTimersByTime(2000);
+
+      const heartbeat = debugLogServiceMock.info.mock.calls.find(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeat?.[1]).toEqual({ elapsedMs: 2000, docheckCount: 2 });
+    });
+
+    it('stops the heartbeat on destroy', () => {
+      vi.useFakeTimers();
+      component.ngOnInit();
+      component.ngOnDestroy();
+
+      vi.advanceTimersByTime(6000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(0);
+    });
+
+    it('is safe to destroy when ngOnInit never ran', () => {
+      expect(() => {
+        component.ngOnDestroy();
+      }).not.toThrow();
     });
   });
 

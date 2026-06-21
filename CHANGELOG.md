@@ -3973,3 +3973,16 @@
 - e6ca3098 feat(native-logger): add native iOS log capture plugin with lifecycle events
 - 404f7a63 fix(list-page): replace history.pushState state with service to fix iOS WKWebView crash
 - a5cc18f8 fix(list-page): move popovers to root level to fix iOS backdrop freeze
+
+## v1.67.1 - 2026-06-21
+
+- 26d6045c Merge pull request #458 from thetigeregg/feat/fix
+- 2d2fb1af fix(list-page): align views diagnostic distinct count with trim-only normalization
+- a8e0a6d7 fix(list-page): absorb late views-count rejection after diagnostic timeout
+- c3803f03 refactor(list-page): normalize view names and harden diagnostic tests
+- 7218ce4f test(list-page): read views-count timeout from component in diagnostic spec
+- 3bd805e7 fix(list-page): dismiss popover before bounded views-count diagnostic
+- 0aa0fd0f fix(list-page): bound views-count diagnostic so tapping Views stays responsive
+- bbf3b153 fix(list-page): flatten error so views-count diagnostic keeps stack
+- 0ffa59e3 test(list-page): cover views-count diagnostic failure path
+- abd99479 chore(list-page): log view row counts to diagnose Views freeze

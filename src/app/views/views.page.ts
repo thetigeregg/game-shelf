@@ -24,7 +24,7 @@ import {
   IonInput,
   IonNote,
 } from '@ionic/angular/standalone';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameGroupByField,
@@ -87,12 +87,43 @@ export class ViewsPage implements OnInit {
   private readonly viewsContextService = inject(ViewsContextService);
 
   ngOnInit(): void {
+    // Diagnostic checkpoints: flush() serializes buffered entries on the main
+    // thread (JSON.stringify) and then issues the storage write — async on
+    // native, where Preferences.set() is scheduled rather than awaited here. It
+    // is best-effort rather than guaranteed-synchronous persistence, but the
+    // serialized snapshot helps localize the iOS Views-page freeze.
+    this.debugLogService.info('views.page.ngoninit.start');
+    void this.debugLogService.flush();
     const { context: ctx, hasContext } = this.viewsContextService.consume();
     this.listType = ctx.listType;
     this.currentFilters = { ...DEFAULT_GAME_LIST_FILTERS, ...ctx.filters };
     this.currentGroupBy = this.normalizeGroupBy(ctx.groupBy);
     this.hasCurrentConfiguration = hasContext;
-    this.views$ = this.gameShelfService.watchViews(this.listType);
+    this.views$ = this.gameShelfService.watchViews(this.listType).pipe(
+      tap((views) => {
+        this.debugLogService.info('views.page.views_emit', { count: views.length });
+        // Only force a flush when a malformed row is detected. The expensive,
+        // main-thread part of flush() is the synchronous JSON.stringify (the
+        // native storage write is scheduled async), so flushing on every
+        // emission would add serialization work to a hot observable — the
+        // routine checkpoint is left to the debounced persist instead.
+        if (this.warnMalformedViews(views)) {
+          void this.debugLogService.flush();
+        }
+      })
+    );
+    this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
+    void this.debugLogService.flush();
+  }
+
+  ionViewWillEnter(): void {
+    this.debugLogService.info('views.page.will_enter');
+    void this.debugLogService.flush();
+  }
+
+  ionViewDidEnter(): void {
+    this.debugLogService.info('views.page.did_enter');
+    void this.debugLogService.flush();
   }
 
   get backHref(): string {
@@ -242,9 +273,38 @@ export class ViewsPage implements OnInit {
   }
 
   getViewSummary(view: GameListView): string {
-    const sortLabel = this.getSortLabel(view.filters.sortField, view.filters.sortDirection);
-    const groupLabel = this.getGroupLabel(view.groupBy);
+    // Harden against malformed rows: a missing `filters` or `groupBy` would
+    // otherwise throw here during render. The declared type says both are
+    // always present, but synced/migrated data may not honor that, so read
+    // through an optional view and fall back to defaults. This runs during
+    // change detection, so it must stay side-effect free — malformed rows are
+    // logged once per emission in `warnMalformedViews`, not here.
+    const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
+    const filters = looseView.filters ?? DEFAULT_GAME_LIST_FILTERS;
+    const sortLabel = this.getSortLabel(filters.sortField, filters.sortDirection);
+    const groupLabel = this.getGroupLabel(this.normalizeGroupBy(looseView.groupBy));
     return `${sortLabel} • Group: ${groupLabel}`;
+  }
+
+  // Logs malformed rows (missing `filters`/`groupBy`) once per views emission
+  // rather than per change-detection render. Returns true if any malformed row
+  // was found so the caller can force-flush only in that case. The flush is
+  // left to the caller.
+  private warnMalformedViews(views: readonly GameListView[]): boolean {
+    let foundMalformed = false;
+    for (const view of views) {
+      const looseView = view as Partial<Pick<GameListView, 'filters' | 'groupBy'>>;
+      if (!looseView.filters || !looseView.groupBy) {
+        foundMalformed = true;
+        this.debugLogService.warn('views.page.view_malformed', {
+          id: view.id,
+          name: view.name,
+          hasFilters: Boolean(looseView.filters),
+          hasGroupBy: Boolean(looseView.groupBy),
+        });
+      }
+    }
+    return foundMalformed;
   }
 
   trackByViewId(_: number, view: GameListView): string {
@@ -343,5 +403,7 @@ export class ViewsPage implements OnInit {
 
   constructor() {
     addIcons({ ellipsisVertical, add });
+    this.debugLogService.info('views.page.ctor');
+    void this.debugLogService.flush();
   }
 }

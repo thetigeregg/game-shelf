@@ -824,13 +824,14 @@ export class ListPageComponent {
           reject(new Error('views_count_timeout'));
         }, ListPageComponent.VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS);
       });
-      const [collectionViews, wishlistViews] = await Promise.race([
-        Promise.all([
-          this.gameShelfService.listViews('collection'),
-          this.gameShelfService.listViews('wishlist'),
-        ]),
-        timeout,
+      const inFlight = Promise.all([
+        this.gameShelfService.listViews('collection'),
+        this.gameShelfService.listViews('wishlist'),
       ]);
+      // If the timeout wins the race, the in-flight reads keep running. Absorb
+      // any late rejection so it never surfaces as an unhandled rejection.
+      inFlight.catch(() => undefined);
+      const [collectionViews, wishlistViews] = await Promise.race([inFlight, timeout]);
       const distinctNames = (views: GameListView[]): number => {
         const names = new Set<string>();
         for (const view of views) {

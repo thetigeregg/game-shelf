@@ -105,11 +105,23 @@ test.afterEach(({ page }) => {
   expect(backendRequestFailures, backendRequestFailures.join('\n')).toEqual([]);
 });
 
-// The alert and its backdrop remain attached during Ionic's dismiss animation.
-// Waiting only for the alert to be hidden lets the lingering backdrop intercept
-// the next click, so wait for every alert to detach before continuing.
+// During Ionic's dismiss animation the alert and its backdrop stay attached and
+// the backdrop keeps intercepting clicks. Ionic does not reliably detach the
+// alert element afterwards, so wait for every alert to be non-visible (animation
+// finished, backdrop gone) instead of waiting for it to leave the DOM.
 async function waitForAlertDismissed(page: Page): Promise<void> {
-  await expect(page.locator('ion-alert')).toHaveCount(0);
+  const alerts = page.locator('ion-alert');
+  await expect
+    .poll(async () => {
+      const count = await alerts.count();
+      for (let index = 0; index < count; index += 1) {
+        if (await alerts.nth(index).isVisible()) {
+          return true;
+        }
+      }
+      return false;
+    })
+    .toBe(false);
 }
 
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {

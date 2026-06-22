@@ -10,7 +10,6 @@ import {
   isRecommendationsExploreEnabled,
   isTasFeatureEnabled,
   persistRuntimeConfig,
-  resetRuntimeConfigPersistenceCacheForTesting,
   setLiveRuntimeConfig,
 } from './runtime-config';
 
@@ -18,7 +17,6 @@ describe('runtime-config', () => {
   beforeEach(() => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     localStorage.clear();
-    resetRuntimeConfigPersistenceCacheForTesting();
   });
 
   afterEach(() => {
@@ -364,6 +362,26 @@ describe('runtime-config', () => {
 
       const writes = setItemSpy.mock.calls.filter(([key]) => key === RUNTIME_CONFIG_KEY);
       expect(writes).toHaveLength(1);
+    });
+
+    it('retries persistence on the next read when a write did not take', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+
+      // First write fails to store (e.g. quota) and is swallowed, so nothing is
+      // persisted. Deduping against the stored value (not a write-only cache)
+      // must let the next read retry instead of permanently suppressing it.
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+        throw new DOMException('QuotaExceededError');
+      });
+
+      expect(isTasFeatureEnabled()).toBe(true);
+      expect(isTasFeatureEnabled()).toBe(true);
+
+      const writes = setItemSpy.mock.calls.filter(([key]) => key === RUNTIME_CONFIG_KEY);
+      expect(writes.length).toBeGreaterThanOrEqual(2);
+      expect(localStorage.getItem(RUNTIME_CONFIG_KEY)).toBe(
+        JSON.stringify({ featureFlags: { tasEnabled: true } })
+      );
     });
   });
 });

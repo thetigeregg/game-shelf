@@ -3,15 +3,6 @@ import { readPreference, writePreference } from '../storage/preference-storage.s
 
 const PERSISTED_RUNTIME_CONFIG_STORAGE_KEY = 'game-shelf:runtime-config:v1';
 
-// Tracks the last value actually written so redundant persists become no-ops.
-// resolveRuntimeConfig() runs on every feature-flag read — frequently inside
-// change detection (e.g. isTasFeatureEnabled() from a template) — and the live
-// path used to persist on every call. Persisting issues an async
-// Preferences.set; starting async work on every change-detection pass keeps the
-// app from stabilizing and produces an infinite change-detection loop. Writing
-// only when the config actually changes prevents that.
-let lastPersistedSerializedConfig: string | null = null;
-
 interface RuntimeFeatureFlags {
   showMgcImport?: boolean;
   e2eFixtures?: boolean;
@@ -134,17 +125,20 @@ function writePersistedRuntimeConfig(config: RuntimeConfig): void {
     return;
   }
 
+  // resolveRuntimeConfig() runs on every feature-flag read — frequently inside
+  // change detection (e.g. isTasFeatureEnabled() from a template) — and the live
+  // path persists on every call. Persisting issues an async Preferences.set;
+  // starting async work on every change-detection pass keeps the app from
+  // stabilizing and produces an infinite change-detection loop. Deduping against
+  // the value already stored avoids that. Comparing against the stored value
+  // (rather than a write-only cache) means a failed or rolled-back write differs
+  // on the next read and retries instead of being permanently suppressed.
   const serialized = JSON.stringify(config);
-  if (serialized === lastPersistedSerializedConfig) {
+  if (serialized === readPreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY)) {
     return;
   }
 
-  try {
-    writePreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, serialized);
-    lastPersistedSerializedConfig = serialized;
-  } catch {
-    // Ignore storage failures.
-  }
+  writePreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, serialized);
 }
 
 function resolveRuntimeConfig(): { config: RuntimeConfig | null; source: RuntimeConfigSource } {
@@ -162,10 +156,6 @@ function resolveRuntimeConfig(): { config: RuntimeConfig | null; source: Runtime
   }
 
   return { config: null, source: 'default' };
-}
-
-export function resetRuntimeConfigPersistenceCacheForTesting(): void {
-  lastPersistedSerializedConfig = null;
 }
 
 export function persistRuntimeConfig(config: unknown): RuntimeConfig | null {

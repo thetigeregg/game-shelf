@@ -296,6 +296,20 @@ describe('ViewsPage', () => {
         component.ngOnDestroy();
       }).not.toThrow();
     });
+
+    it('self-terminates after the bounded diagnostic window', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+
+      // Run well past the 60-tick (~2min) bound; the heartbeat should stop on
+      // its own so an extended session can't crowd out other diagnostics.
+      vi.advanceTimersByTime(2000 * 200);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(60);
+    });
   });
 
   describe('view actions popover', () => {

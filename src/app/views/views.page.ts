@@ -95,7 +95,13 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   // (enter/leave) rather than ngOnInit/ngOnDestroy because IonicRouteStrategy
   // reuses cached page instances, so ngOnDestroy may not run on navigation —
   // an ngOnInit-scoped interval would keep firing while /views is offscreen.
+  // Stop the heartbeat after this many ticks (2s each → ~2min). The freeze
+  // shows up shortly after entry, so a bounded window captures it without
+  // letting a long /views session evict other diagnostics from the 8000-entry
+  // buffer or sustain storage-write pressure on iOS.
+  private static readonly HEARTBEAT_MAX_TICKS = 60;
   private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTicks = 0;
   private docheckCount = 0;
   private enteredAtMs = 0;
 
@@ -174,6 +180,7 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
     this.stopHeartbeat();
     this.enteredAtMs = Date.now();
     this.docheckCount = 0;
+    this.heartbeatTicks = 0;
     // Run outside Angular so the tick itself doesn't trigger change detection:
     // an in-zone interval would both add main-thread work every 2s (worsening
     // the freeze under investigation) and inflate docheckCount, hiding the
@@ -187,6 +194,12 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
           elapsedMs: Date.now() - this.enteredAtMs,
           docheckCount: this.docheckCount,
         });
+        this.heartbeatTicks += 1;
+        if (this.heartbeatTicks >= ViewsPage.HEARTBEAT_MAX_TICKS) {
+          // Self-terminate once the diagnostic window has elapsed so an
+          // extended session can't crowd out other logs.
+          this.stopHeartbeat();
+        }
       }, 2000);
     });
   }

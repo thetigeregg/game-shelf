@@ -105,6 +105,31 @@ test.afterEach(({ page }) => {
   expect(backendRequestFailures, backendRequestFailures.join('\n')).toEqual([]);
 });
 
+// During Ionic's dismiss animation the alert and its backdrop stay attached and
+// the backdrop keeps intercepting clicks; Ionic only applies `overlay-hidden`
+// (display: none) and detaches the host once the animation finishes. Watch the
+// backdrop rather than the alert host: the backdrop is the element that actually
+// intercepts pointer events, and it stops being hit-testable exactly when
+// `overlay-hidden` or detachment removes it. The dismiss animation can outlast
+// expect.poll's 5s default, so give it the same headroom as the test timeout.
+async function waitForAlertDismissed(page: Page): Promise<void> {
+  const alertBackdrops = page.locator('ion-alert ion-backdrop');
+  await expect
+    .poll(
+      async () => {
+        const count = await alertBackdrops.count();
+        for (let index = 0; index < count; index += 1) {
+          if (await alertBackdrops.nth(index).isVisible()) {
+            return true;
+          }
+        }
+        return false;
+      },
+      { timeout: 15000 }
+    )
+    .toBe(false);
+}
+
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
   const okButton = page.getByRole('button', { name: 'OK' });
@@ -116,7 +141,7 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
     }
 
     await okButton.click();
-    await expect(versionAlert).toBeHidden();
+    await waitForAlertDismissed(page);
   }
 }
 
@@ -132,7 +157,7 @@ async function dismissAnyVisibleAlertIfPresent(page: Page): Promise<void> {
     const okButton = page.getByRole('button', { name: 'OK' });
     if (await okButton.isVisible().catch(() => false)) {
       await okButton.click();
-      await expect(alert).toBeHidden();
+      await waitForAlertDismissed(page);
       continue;
     }
 
@@ -295,7 +320,7 @@ async function setSingleSelectValue(
   await expect(alert).toBeVisible();
   await alert.getByRole('radio', { name: optionLabel }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function setMultiSelectValue(
@@ -315,7 +340,7 @@ async function setMultiSelectValue(
   await expect(alert).toBeVisible();
   await alert.getByRole('checkbox', { name: optionLabel }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function expectPersistedFilterControls(page: Page): Promise<void> {
@@ -362,7 +387,7 @@ async function triggerReviewRefreshFromExternalMetadata(page: Page): Promise<voi
   await expect(alert).toBeVisible();
   await alert.getByRole('radio', { name: 'Review' }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function expectUiUpdatedFilterControls(page: Page): Promise<void> {

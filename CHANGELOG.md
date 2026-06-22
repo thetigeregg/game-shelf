@@ -4026,3 +4026,9 @@
 - 83be690e chore(ci): bump actions/checkout from 6 to 7
 - 004dc185 fix(docker): update Playwright version to v1.61.0 in all scraper Dockerfiles
 - 58baad14 fix(config): update editor command from 'cursor' to 'code'
+
+## v1.67.6 - 2026-06-22
+
+- b483318f Merge pull request #474 from thetigeregg/feat/fix
+- 19650aae fix(config): dedupe runtime-config persist against stored value
+- b577e06a fix(config): dedupe runtime-config persistence to stop iOS Views CD loop

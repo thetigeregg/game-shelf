@@ -106,21 +106,27 @@ test.afterEach(({ page }) => {
 });
 
 // During Ionic's dismiss animation the alert and its backdrop stay attached and
-// the backdrop keeps intercepting clicks. Ionic does not reliably detach the
-// alert element afterwards, so wait for every alert to be non-visible (animation
-// finished, backdrop gone) instead of waiting for it to leave the DOM.
+// the backdrop keeps intercepting clicks; Ionic only applies `overlay-hidden`
+// (display: none) and detaches the host once the animation finishes. Watch the
+// backdrop rather than the alert host: the backdrop is the element that actually
+// intercepts pointer events, and it stops being hit-testable exactly when
+// `overlay-hidden` or detachment removes it. The dismiss animation can outlast
+// expect.poll's 5s default, so give it the same headroom as the test timeout.
 async function waitForAlertDismissed(page: Page): Promise<void> {
-  const alerts = page.locator('ion-alert');
+  const alertBackdrops = page.locator('ion-alert ion-backdrop');
   await expect
-    .poll(async () => {
-      const count = await alerts.count();
-      for (let index = 0; index < count; index += 1) {
-        if (await alerts.nth(index).isVisible()) {
-          return true;
+    .poll(
+      async () => {
+        const count = await alertBackdrops.count();
+        for (let index = 0; index < count; index += 1) {
+          if (await alertBackdrops.nth(index).isVisible()) {
+            return true;
+          }
         }
-      }
-      return false;
-    })
+        return false;
+      },
+      { timeout: 15000 }
+    )
     .toBe(false);
 }
 

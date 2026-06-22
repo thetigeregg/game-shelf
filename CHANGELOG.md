@@ -4014,3 +4014,15 @@
 - 63d81743 fix(views): add iOS freeze heartbeat and change-detection diagnostics
 - 6208f73f Merge branch 'main' into feat/fix
 - 0c2b32cd chore(views): add heartbeat diagnostic to isolate iOS renderer crash
+
+## v1.67.5 - 2026-06-22
+
+- c9571c43 Merge pull request #473 from thetigeregg/feat/fixb
+- 58247282 test(e2e): wait for alert backdrop to clear before next click
+- f16addfd test(e2e): wait for alert to hide instead of detach on dismiss
+- 748c71f7 test(e2e): wait for ion-alert to detach after dismiss
+- 9f8ba627 fix: update Playwright version to 1.61.0 across all scrapers and bump pg version to 8.22.0 in server
+- ab8ab7a3 chore: update dependencies to latest versions
+- 83be690e chore(ci): bump actions/checkout from 6 to 7
+- 004dc185 fix(docker): update Playwright version to v1.61.0 in all scraper Dockerfiles
+- 58baad14 fix(config): update editor command from 'cursor' to 'code'

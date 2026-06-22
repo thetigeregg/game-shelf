@@ -1,4 +1,4 @@
-import { Component, DoCheck, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, DoCheck, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -105,6 +105,7 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   private readonly toastController = inject(ToastController);
   private readonly debugLogService = inject(DebugLogService);
   private readonly viewsContextService = inject(ViewsContextService);
+  private readonly ngZone = inject(NgZone);
 
   @ViewChild('viewActionsPopover') private viewActionsPopover?: IonPopover;
 
@@ -173,13 +174,21 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
     this.stopHeartbeat();
     this.enteredAtMs = Date.now();
     this.docheckCount = 0;
-    this.heartbeatHandle = setInterval(() => {
-      this.debugLogService.info('views.page.heartbeat', {
-        elapsedMs: Date.now() - this.enteredAtMs,
-        docheckCount: this.docheckCount,
-      });
-      void this.debugLogService.flush();
-    }, 2000);
+    // Run outside Angular so the tick itself doesn't trigger change detection:
+    // an in-zone interval would both add main-thread work every 2s (worsening
+    // the freeze under investigation) and inflate docheckCount, hiding the
+    // change-detection signal we're trying to measure.
+    this.ngZone.runOutsideAngular(() => {
+      this.heartbeatHandle = setInterval(() => {
+        // Rely on info()'s debounced persist rather than flush(); a synchronous
+        // JSON.stringify of the full buffer every 2s is avoidable main-thread
+        // jank on iOS.
+        this.debugLogService.info('views.page.heartbeat', {
+          elapsedMs: Date.now() - this.enteredAtMs,
+          docheckCount: this.docheckCount,
+        });
+      }, 2000);
+    });
   }
 
   private stopHeartbeat(): void {

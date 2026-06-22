@@ -120,7 +120,11 @@ describe('ViewsPage', () => {
   });
 
   afterEach(() => {
+    // ionViewDidEnter starts a heartbeat interval; tear it down so timers never
+    // leak into later tests.
+    component.ngOnDestroy();
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   describe('getViewSummary', () => {
@@ -224,6 +228,87 @@ describe('ViewsPage', () => {
       expect(debugLogServiceMock.info).toHaveBeenCalledWith('views.page.ngoninit.end', {
         listType: 'collection',
       });
+    });
+  });
+
+  describe('heartbeat diagnostics', () => {
+    it('emits a heartbeat with the change-detection count every interval', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ngDoCheck();
+      component.ngDoCheck();
+
+      vi.advanceTimersByTime(2000);
+
+      const heartbeat = debugLogServiceMock.info.mock.calls.find(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeat?.[1]).toEqual({ elapsedMs: 2000, docheckCount: 2 });
+    });
+
+    it('stops the heartbeat when the view leaves', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ionViewDidLeave();
+
+      vi.advanceTimersByTime(6000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(0);
+    });
+
+    it('resets elapsed time and the change-detection count on re-entry', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ngDoCheck();
+      vi.advanceTimersByTime(2000);
+      component.ionViewDidLeave();
+
+      // Re-enter a cached instance: counters should start from zero, not carry
+      // over from the previous visit.
+      component.ionViewDidEnter();
+      component.ngDoCheck();
+      vi.advanceTimersByTime(2000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats.at(-1)?.[1]).toEqual({ elapsedMs: 2000, docheckCount: 1 });
+    });
+
+    it('stops the heartbeat on destroy', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ngOnDestroy();
+
+      vi.advanceTimersByTime(6000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(0);
+    });
+
+    it('is safe to destroy when the view never entered', () => {
+      expect(() => {
+        component.ngOnDestroy();
+      }).not.toThrow();
+    });
+
+    it('self-terminates after the bounded diagnostic window', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+
+      // Run well past the 60-tick (~2min) bound; the heartbeat should stop on
+      // its own so an extended session can't crowd out other diagnostics.
+      vi.advanceTimersByTime(2000 * 200);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(60);
     });
   });
 

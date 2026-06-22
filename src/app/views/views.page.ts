@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, DoCheck, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -65,7 +65,7 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
     IonNote,
   ],
 })
-export class ViewsPage implements OnInit {
+export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   views$!: Observable<GameListView[]>;
   listType: ListType = 'collection';
   hasCurrentConfiguration = false;
@@ -87,12 +87,31 @@ export class ViewsPage implements OnInit {
 
   private loggedFirstViewsEmit = false;
 
+  // Diagnostics for the iOS renderer crash on /views: a wall-clock heartbeat
+  // plus a change-detection counter. If heartbeats keep firing while the page
+  // is shown, the main thread is alive and the crash is native (memory/GPU);
+  // if they stop, the main thread is blocked. A runaway docheckCount points to
+  // a change-detection loop. The heartbeat is tied to the Ionic view lifecycle
+  // (enter/leave) rather than ngOnInit/ngOnDestroy because IonicRouteStrategy
+  // reuses cached page instances, so ngOnDestroy may not run on navigation —
+  // an ngOnInit-scoped interval would keep firing while /views is offscreen.
+  // Stop the heartbeat after this many ticks (2s each → ~2min). The freeze
+  // shows up shortly after entry, so a bounded window captures it without
+  // letting a long /views session evict other diagnostics from the 8000-entry
+  // buffer or sustain storage-write pressure on iOS.
+  private static readonly HEARTBEAT_MAX_TICKS = 60;
+  private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTicks = 0;
+  private docheckCount = 0;
+  private enteredAtMs = 0;
+
   private readonly gameShelfService = inject(GameShelfService);
   private readonly router = inject(Router);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly debugLogService = inject(DebugLogService);
   private readonly viewsContextService = inject(ViewsContextService);
+  private readonly ngZone = inject(NgZone);
 
   @ViewChild('viewActionsPopover') private viewActionsPopover?: IonPopover;
 
@@ -127,6 +146,16 @@ export class ViewsPage implements OnInit {
     void this.debugLogService.flush();
   }
 
+  ngDoCheck(): void {
+    this.docheckCount += 1;
+  }
+
+  ngOnDestroy(): void {
+    // Safety net for the non-reused case; the heartbeat is normally stopped in
+    // ionViewDidLeave.
+    this.stopHeartbeat();
+  }
+
   ionViewWillEnter(): void {
     this.debugLogService.info('views.page.will_enter');
     void this.debugLogService.flush();
@@ -135,6 +164,51 @@ export class ViewsPage implements OnInit {
   ionViewDidEnter(): void {
     this.debugLogService.info('views.page.did_enter');
     void this.debugLogService.flush();
+    this.startHeartbeat();
+  }
+
+  ionViewDidLeave(): void {
+    // Pause diagnostics while the page is offscreen. With route reuse the
+    // instance is cached, so without this the interval would keep logging and
+    // flush-writing on the main thread for a page the user can't see.
+    this.stopHeartbeat();
+  }
+
+  private startHeartbeat(): void {
+    // Reset per-visit so elapsedMs/docheckCount reflect this visit, not the
+    // cumulative lifetime of a reused instance.
+    this.stopHeartbeat();
+    this.enteredAtMs = Date.now();
+    this.docheckCount = 0;
+    this.heartbeatTicks = 0;
+    // Run outside Angular so the tick itself doesn't trigger change detection:
+    // an in-zone interval would both add main-thread work every 2s (worsening
+    // the freeze under investigation) and inflate docheckCount, hiding the
+    // change-detection signal we're trying to measure.
+    this.ngZone.runOutsideAngular(() => {
+      this.heartbeatHandle = setInterval(() => {
+        // Rely on info()'s debounced persist rather than flush(); a synchronous
+        // JSON.stringify of the full buffer every 2s is avoidable main-thread
+        // jank on iOS.
+        this.debugLogService.info('views.page.heartbeat', {
+          elapsedMs: Date.now() - this.enteredAtMs,
+          docheckCount: this.docheckCount,
+        });
+        this.heartbeatTicks += 1;
+        if (this.heartbeatTicks >= ViewsPage.HEARTBEAT_MAX_TICKS) {
+          // Self-terminate once the diagnostic window has elapsed so an
+          // extended session can't crowd out other logs.
+          this.stopHeartbeat();
+        }
+      }, 2000);
+    });
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatHandle !== null) {
+      clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
   }
 
   get backHref(): string {

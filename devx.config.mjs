@@ -1,7 +1,7 @@
 export default {
   projectName: 'game-shelf',
   editor: {
-    command: 'cursor',
+    command: 'code',
     args: ['--profile', 'Ionic'],
   },
   branchPrefix: 'feat/',

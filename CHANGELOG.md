@@ -4004,3 +4004,13 @@
 - de38bfe1 test(views): cover root-level actions popover and drop stale PopoverController mocks
 - 7bc561bc Merge branch 'main' into feat/fix
 - 005da805 fix(views): use root-level actions popover to fix iOS freeze
+
+## v1.67.4 - 2026-06-22
+
+- 827f458d Merge pull request #461 from thetigeregg/feat/fix
+- 6448ddc7 fix(views): bound heartbeat to a 2-minute diagnostic window
+- bb63378c fix(views): run heartbeat outside angular zone, drop per-tick flush
+- b8087b8c fix(views): tie heartbeat to ionic view lifecycle for route reuse
+- 63d81743 fix(views): add iOS freeze heartbeat and change-detection diagnostics
+- 6208f73f Merge branch 'main' into feat/fix
+- 0c2b32cd chore(views): add heartbeat diagnostic to isolate iOS renderer crash

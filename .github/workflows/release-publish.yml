@@ -38,7 +38,7 @@ jobs:
           private-key: ${{ secrets.AUTOCOMMIT_APP_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app_token.outputs.token }}
           fetch-depth: 0
@@ -101,7 +101,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.release_sha }}
           fetch-depth: 0
@@ -136,7 +136,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.release_sha }}
           fetch-depth: 0
@@ -228,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.release_sha }}
           sparse-checkout: .nvmrc
@@ -315,7 +315,7 @@ jobs:
           (matrix.id == 'metacritic' && needs.detect_image_changes.outputs.publish_metacritic == 'true') ||
           (matrix.id == 'psprices' && needs.detect_image_changes.outputs.publish_psprices == 'true') ||
           (matrix.id == 'backup' && needs.detect_image_changes.outputs.publish_backup == 'true')
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.release_sha }}
 

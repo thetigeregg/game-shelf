@@ -125,11 +125,20 @@ function writePersistedRuntimeConfig(config: RuntimeConfig): void {
     return;
   }
 
-  try {
-    writePreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(config));
-  } catch {
-    // Ignore storage failures.
+  // resolveRuntimeConfig() runs on every feature-flag read — frequently inside
+  // change detection (e.g. isTasFeatureEnabled() from a template) — and the live
+  // path persists on every call. Persisting issues an async Preferences.set;
+  // starting async work on every change-detection pass keeps the app from
+  // stabilizing and produces an infinite change-detection loop. Deduping against
+  // the value already stored avoids that. Comparing against the stored value
+  // (rather than a write-only cache) means a failed or rolled-back write differs
+  // on the next read and retries instead of being permanently suppressed.
+  const serialized = JSON.stringify(config);
+  if (serialized === readPreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY)) {
+    return;
   }
+
+  writePreference(PERSISTED_RUNTIME_CONFIG_STORAGE_KEY, serialized);
 }
 
 function resolveRuntimeConfig(): { config: RuntimeConfig | null; source: RuntimeConfigSource } {

@@ -105,6 +105,13 @@ test.afterEach(({ page }) => {
   expect(backendRequestFailures, backendRequestFailures.join('\n')).toEqual([]);
 });
 
+// The alert and its backdrop remain attached during Ionic's dismiss animation.
+// Waiting only for the alert to be hidden lets the lingering backdrop intercept
+// the next click, so wait for every alert to detach before continuing.
+async function waitForAlertDismissed(page: Page): Promise<void> {
+  await expect(page.locator('ion-alert')).toHaveCount(0);
+}
+
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
   const okButton = page.getByRole('button', { name: 'OK' });
@@ -116,7 +123,7 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
     }
 
     await okButton.click();
-    await expect(versionAlert).toBeHidden();
+    await waitForAlertDismissed(page);
   }
 }
 
@@ -132,7 +139,7 @@ async function dismissAnyVisibleAlertIfPresent(page: Page): Promise<void> {
     const okButton = page.getByRole('button', { name: 'OK' });
     if (await okButton.isVisible().catch(() => false)) {
       await okButton.click();
-      await expect(alert).toBeHidden();
+      await waitForAlertDismissed(page);
       continue;
     }
 
@@ -295,7 +302,7 @@ async function setSingleSelectValue(
   await expect(alert).toBeVisible();
   await alert.getByRole('radio', { name: optionLabel }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function setMultiSelectValue(
@@ -315,7 +322,7 @@ async function setMultiSelectValue(
   await expect(alert).toBeVisible();
   await alert.getByRole('checkbox', { name: optionLabel }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function expectPersistedFilterControls(page: Page): Promise<void> {
@@ -362,7 +369,7 @@ async function triggerReviewRefreshFromExternalMetadata(page: Page): Promise<voi
   await expect(alert).toBeVisible();
   await alert.getByRole('radio', { name: 'Review' }).click();
   await alert.getByRole('button', { name: 'OK' }).click();
-  await expect(alert).toBeHidden();
+  await waitForAlertDismissed(page);
 }
 
 async function expectUiUpdatedFilterControls(page: Page): Promise<void> {

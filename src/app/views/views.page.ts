@@ -91,7 +91,10 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   // plus a change-detection counter. If heartbeats keep firing while the page
   // is shown, the main thread is alive and the crash is native (memory/GPU);
   // if they stop, the main thread is blocked. A runaway docheckCount points to
-  // a change-detection loop.
+  // a change-detection loop. The heartbeat is tied to the Ionic view lifecycle
+  // (enter/leave) rather than ngOnInit/ngOnDestroy because IonicRouteStrategy
+  // reuses cached page instances, so ngOnDestroy may not run on navigation —
+  // an ngOnInit-scoped interval would keep firing while /views is offscreen.
   private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
   private docheckCount = 0;
   private enteredAtMs = 0;
@@ -134,15 +137,6 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
     );
     this.debugLogService.info('views.page.ngoninit.end', { listType: this.listType });
     void this.debugLogService.flush();
-
-    this.enteredAtMs = Date.now();
-    this.heartbeatHandle = setInterval(() => {
-      this.debugLogService.info('views.page.heartbeat', {
-        elapsedMs: Date.now() - this.enteredAtMs,
-        docheckCount: this.docheckCount,
-      });
-      void this.debugLogService.flush();
-    }, 2000);
   }
 
   ngDoCheck(): void {
@@ -150,10 +144,9 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.heartbeatHandle !== null) {
-      clearInterval(this.heartbeatHandle);
-      this.heartbeatHandle = null;
-    }
+    // Safety net for the non-reused case; the heartbeat is normally stopped in
+    // ionViewDidLeave.
+    this.stopHeartbeat();
   }
 
   ionViewWillEnter(): void {
@@ -164,6 +157,36 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
   ionViewDidEnter(): void {
     this.debugLogService.info('views.page.did_enter');
     void this.debugLogService.flush();
+    this.startHeartbeat();
+  }
+
+  ionViewDidLeave(): void {
+    // Pause diagnostics while the page is offscreen. With route reuse the
+    // instance is cached, so without this the interval would keep logging and
+    // flush-writing on the main thread for a page the user can't see.
+    this.stopHeartbeat();
+  }
+
+  private startHeartbeat(): void {
+    // Reset per-visit so elapsedMs/docheckCount reflect this visit, not the
+    // cumulative lifetime of a reused instance.
+    this.stopHeartbeat();
+    this.enteredAtMs = Date.now();
+    this.docheckCount = 0;
+    this.heartbeatHandle = setInterval(() => {
+      this.debugLogService.info('views.page.heartbeat', {
+        elapsedMs: Date.now() - this.enteredAtMs,
+        docheckCount: this.docheckCount,
+      });
+      void this.debugLogService.flush();
+    }, 2000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatHandle !== null) {
+      clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
   }
 
   get backHref(): string {

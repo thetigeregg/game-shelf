@@ -120,8 +120,8 @@ describe('ViewsPage', () => {
   });
 
   afterEach(() => {
-    // ngOnInit starts a heartbeat interval; tear it down so timers never leak
-    // into later tests.
+    // ionViewDidEnter starts a heartbeat interval; tear it down so timers never
+    // leak into later tests.
     component.ngOnDestroy();
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -234,7 +234,7 @@ describe('ViewsPage', () => {
   describe('heartbeat diagnostics', () => {
     it('emits a heartbeat with the change-detection count every interval', () => {
       vi.useFakeTimers();
-      component.ngOnInit();
+      component.ionViewDidEnter();
       component.ngDoCheck();
       component.ngDoCheck();
 
@@ -246,9 +246,41 @@ describe('ViewsPage', () => {
       expect(heartbeat?.[1]).toEqual({ elapsedMs: 2000, docheckCount: 2 });
     });
 
+    it('stops the heartbeat when the view leaves', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ionViewDidLeave();
+
+      vi.advanceTimersByTime(6000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats).toHaveLength(0);
+    });
+
+    it('resets elapsed time and the change-detection count on re-entry', () => {
+      vi.useFakeTimers();
+      component.ionViewDidEnter();
+      component.ngDoCheck();
+      vi.advanceTimersByTime(2000);
+      component.ionViewDidLeave();
+
+      // Re-enter a cached instance: counters should start from zero, not carry
+      // over from the previous visit.
+      component.ionViewDidEnter();
+      component.ngDoCheck();
+      vi.advanceTimersByTime(2000);
+
+      const heartbeats = debugLogServiceMock.info.mock.calls.filter(
+        ([event]) => event === 'views.page.heartbeat'
+      );
+      expect(heartbeats.at(-1)?.[1]).toEqual({ elapsedMs: 2000, docheckCount: 1 });
+    });
+
     it('stops the heartbeat on destroy', () => {
       vi.useFakeTimers();
-      component.ngOnInit();
+      component.ionViewDidEnter();
       component.ngOnDestroy();
 
       vi.advanceTimersByTime(6000);
@@ -259,7 +291,7 @@ describe('ViewsPage', () => {
       expect(heartbeats).toHaveLength(0);
     });
 
-    it('is safe to destroy when ngOnInit never ran', () => {
+    it('is safe to destroy when the view never entered', () => {
       expect(() => {
         component.ngOnDestroy();
       }).not.toThrow();

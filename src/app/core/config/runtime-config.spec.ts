@@ -10,6 +10,7 @@ import {
   isRecommendationsExploreEnabled,
   isTasFeatureEnabled,
   persistRuntimeConfig,
+  resetRuntimeConfigPersistenceCacheForTesting,
   setLiveRuntimeConfig,
 } from './runtime-config';
 
@@ -17,11 +18,13 @@ describe('runtime-config', () => {
   beforeEach(() => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     localStorage.clear();
+    resetRuntimeConfigPersistenceCacheForTesting();
   });
 
   afterEach(() => {
     delete window.__GAME_SHELF_RUNTIME_CONFIG__;
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   describe('isMgcImportFeatureEnabled()', () => {
@@ -329,6 +332,38 @@ describe('runtime-config', () => {
         appVersion: '4.5.6',
       });
       expect(setItemSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('live config persistence on read', () => {
+    const RUNTIME_CONFIG_KEY = 'game-shelf:runtime-config:v1';
+
+    it('does not re-persist an unchanged live config on repeated feature-flag reads', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+      // Prime persistence with the initial write.
+      expect(isTasFeatureEnabled()).toBe(true);
+
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+      expect(isTasFeatureEnabled()).toBe(true);
+      expect(isTasFeatureEnabled()).toBe(true);
+      expect(isTasFeatureEnabled()).toBe(true);
+
+      // Repeated reads of an unchanged config must not write again — that
+      // per-read write is what drove the infinite change-detection loop.
+      const writes = setItemSpy.mock.calls.filter(([key]) => key === RUNTIME_CONFIG_KEY);
+      expect(writes).toHaveLength(0);
+    });
+
+    it('persists again when the live config changes', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+      expect(isTasFeatureEnabled()).toBe(true);
+
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: false } };
+      expect(isTasFeatureEnabled()).toBe(false);
+
+      const writes = setItemSpy.mock.calls.filter(([key]) => key === RUNTIME_CONFIG_KEY);
+      expect(writes).toHaveLength(1);
     });
   });
 });

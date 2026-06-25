@@ -201,6 +201,7 @@ export function buildEnvironmentIosSource(variant, envValues, options = {}) {
   }
 
   const requireAuth = parseBoolean(envValues.REQUIRE_AUTH, true);
+  const tasEnabled = parseBoolean(envValues.FEATURE_TAS, false);
 
   return `import {
   EMULATORJS_DEFAULT_PATH_TO_DATA,
@@ -225,7 +226,7 @@ export const environment = {
     showMgcImport: false,
     e2eFixtures: false,
     recommendationsExploreEnabled: true,
-    tasEnabled: false,
+    tasEnabled: ${tasEnabled},
     requireAuth: ${requireAuth},
   },
 };

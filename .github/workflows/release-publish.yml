@@ -394,6 +394,7 @@ jobs:
           build-args: |
             BUILD_IOS_LIVE_UPDATE=true
             IOS_OTA_NATIVE_BUILD_NUMBER=${{ vars.IOS_OTA_NATIVE_BUILD_NUMBER }}
+            FEATURE_TAS=${{ vars.FEATURE_TAS }}
           secrets: |
             IOS_BACKEND_ORIGIN_PROD=${{ secrets.IOS_BACKEND_ORIGIN_PROD }}
           secret-files: |

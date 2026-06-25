@@ -4032,3 +4032,10 @@
 - b483318f Merge pull request #474 from thetigeregg/feat/fix
 - 19650aae fix(config): dedupe runtime-config persist against stored value
 - b577e06a fix(config): dedupe runtime-config persistence to stop iOS Views CD loop
+
+## v1.67.7 - 2026-06-25
+
+- cead94b4 Merge pull request #475 from thetigeregg/feat/pta
+- f7dea803 ci(ios): forward FEATURE_TAS into OTA live-update build
+- 9b574faf ci(ios): wire FEATURE_TAS into generated iOS environment
+- 1a287670 ci(ios): wire FEATURE_TAS into TestFlight build env

@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { cert, getApps, initializeApp, type ServiceAccount } from 'firebase-admin/app';
-import { getMessaging, type Messaging } from 'firebase-admin/messaging';
+import { getMessaging, type BatchResponse, type Messaging } from 'firebase-admin/messaging';
 
 export interface FcmSendPayload {
   title: string;
@@ -17,11 +17,13 @@ export interface FcmSendResult {
 let cachedServiceAccount: ServiceAccount | null = null;
 let cachedServiceAccountError: Error | null = null;
 let cachedMessaging: Messaging | null = null;
+let loggedNotConfiguredWarning = false;
 
 export function resetFcmStateForTests(): void {
   cachedServiceAccount = null;
   cachedServiceAccountError = null;
   cachedMessaging = null;
+  loggedNotConfiguredWarning = false;
 }
 
 export function hasConfiguredFcm(): boolean {
@@ -45,6 +47,10 @@ export async function sendFcmMulticast(
   }
 
   if (!hasConfiguredFcm()) {
+    if (!loggedNotConfiguredWarning) {
+      loggedNotConfiguredWarning = true;
+      console.warn('[fcm] not_configured', { skippedTokenCount: activeTokens.length });
+    }
     return {
       successCount: 0,
       failureCount: activeTokens.length,
@@ -67,15 +73,46 @@ export async function sendFcmMulticast(
     })
   );
 
-  const invalidTokens: string[] = [];
   let successCount = 0;
   let failureCount = 0;
-
-  for (let i = 0; i < responses.length; i += 1) {
-    const response = responses[i];
-    const tokenChunk = tokenChunks[i] ?? [];
+  for (const response of responses) {
     successCount += response.successCount;
     failureCount += response.failureCount;
+  }
+
+  const { invalidTokens, failuresByCode } = summarizeFcmSendFailures(responses, tokenChunks);
+
+  if (Object.keys(failuresByCode).length > 0) {
+    // Codes and counts only — never log token values (they are delivery credentials).
+    console.warn('[fcm] send_failures', { failuresByCode, successCount, failureCount });
+  }
+
+  return {
+    successCount,
+    failureCount,
+    invalidTokens,
+  };
+}
+
+const INVALID_TOKEN_ERROR_CODES = [
+  'registration-token-not-registered',
+  'invalid-registration-token',
+];
+
+/**
+ * Splits per-token send failures into invalid-token deactivation candidates and a
+ * `code -> count` summary of every other failure (e.g. messaging/third-party-auth-error).
+ * Pure so it can be unit-tested without initializing Firebase.
+ */
+export function summarizeFcmSendFailures(
+  responses: BatchResponse[],
+  tokenChunks: string[][]
+): { invalidTokens: string[]; failuresByCode: Record<string, number> } {
+  const invalidTokens = new Set<string>();
+  const failuresByCode: Record<string, number> = {};
+
+  responses.forEach((response, chunkIndex) => {
+    const tokenChunk = tokenChunks[chunkIndex] ?? [];
 
     response.responses.forEach((entry, entryIndex) => {
       if (entry.success) {
@@ -83,22 +120,26 @@ export async function sendFcmMulticast(
       }
 
       const code = entry.error?.code ?? '';
-      if (
-        code.includes('registration-token-not-registered') ||
-        code.includes('invalid-registration-token')
-      ) {
+      const isInvalidToken = INVALID_TOKEN_ERROR_CODES.some((invalidCode) =>
+        code.includes(invalidCode)
+      );
+
+      if (isInvalidToken) {
         const token = tokenChunk[entryIndex];
         if (token) {
-          invalidTokens.push(token);
+          invalidTokens.add(token);
         }
+        return;
       }
+
+      const bucket = code.length > 0 ? code : 'unknown';
+      failuresByCode[bucket] = (failuresByCode[bucket] ?? 0) + 1;
     });
-  }
+  });
 
   return {
-    successCount,
-    failureCount,
-    invalidTokens: [...new Set(invalidTokens)],
+    invalidTokens: [...invalidTokens],
+    failuresByCode,
   };
 }
 

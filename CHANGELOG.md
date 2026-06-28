@@ -4039,3 +4039,8 @@
 - f7dea803 ci(ios): forward FEATURE_TAS into OTA live-update build
 - 9b574faf ci(ios): wire FEATURE_TAS into generated iOS environment
 - 1a287670 ci(ios): wire FEATURE_TAS into TestFlight build env
+
+## v1.68.0 - 2026-06-28
+
+- a3f101d8 Merge pull request #476 from thetigeregg/feat/notif
+- 19f9eff5 feat(notifications): log FCM send failures and unconfigured state

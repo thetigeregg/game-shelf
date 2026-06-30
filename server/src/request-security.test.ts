@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   isAuthorizedMutatingRequest,
   isReleaseMonitorInternalRequest,
+  resolveReleaseMonitorInternalToken,
   shouldRequireAuth,
 } from './request-security.js';
 
@@ -33,6 +34,30 @@ void test('isReleaseMonitorInternalRequest fails closed when no token is configu
   assert.equal(isReleaseMonitorInternalRequest('', ''), false);
   assert.equal(isReleaseMonitorInternalRequest('anything', '   '), false);
   assert.equal(isReleaseMonitorInternalRequest(undefined, 'api-secret'), false);
+});
+
+void test('resolveReleaseMonitorInternalToken prefers the API token', () => {
+  assert.equal(
+    resolveReleaseMonitorInternalToken('api-secret', ['client-a', 'client-b']),
+    'api-secret'
+  );
+  assert.equal(resolveReleaseMonitorInternalToken('  api-secret  ', []), 'api-secret');
+});
+
+void test('resolveReleaseMonitorInternalToken falls back to the first client write token', () => {
+  assert.equal(resolveReleaseMonitorInternalToken('', ['client-a', 'client-b']), 'client-a');
+  assert.equal(resolveReleaseMonitorInternalToken('   ', [' client-a ']), 'client-a');
+});
+
+void test('resolveReleaseMonitorInternalToken returns empty when no credential is configured', () => {
+  assert.equal(resolveReleaseMonitorInternalToken('', []), '');
+  assert.equal(resolveReleaseMonitorInternalToken('   ', ['   ']), '');
+});
+
+void test('resolveReleaseMonitorInternalToken output exempts the matching self-call', () => {
+  const token = resolveReleaseMonitorInternalToken('', ['client-a']);
+  assert.equal(isReleaseMonitorInternalRequest(token, token), true);
+  assert.equal(isReleaseMonitorInternalRequest('client-b', token), false);
 });
 
 void test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {

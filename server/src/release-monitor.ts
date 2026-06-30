@@ -826,7 +826,7 @@ async function fetchRefreshApiJson<T>(
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: { [RELEASE_MONITOR_INTERNAL_HEADER_NAME]: config.apiToken },
+      headers: { [RELEASE_MONITOR_INTERNAL_HEADER_NAME]: config.releaseMonitorInternalToken },
       signal: controller.signal,
     });
     if (!response.ok) {

@@ -7,6 +7,7 @@ import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './recommendations/discovery-enrichment-defaults.js';
+import { resolveReleaseMonitorInternalToken } from './request-security.js';
 
 // Default base URL for in-cluster self-calls to the API (recommendations
 // enrichment and release-monitor refresh). Defined once so the fallback host is
@@ -101,6 +102,7 @@ export interface AppConfig {
   postgresUrl: string;
   apiToken: string;
   clientWriteTokens: string[];
+  releaseMonitorInternalToken: string;
   requireAuth: boolean;
   imageCacheDir: string;
   imageCacheTtlSeconds: number;
@@ -564,6 +566,11 @@ const rateLimitConfig: RateLimitConfig = {
   },
 };
 
+// Read the auth credentials once so the derived release-monitor internal token
+// (below) does not re-read the secret files.
+const apiToken = readSecretFile('API_TOKEN', 'api_token');
+const clientWriteTokens = readTokenList('CLIENT_WRITE_TOKENS', 'client_write_tokens');
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
@@ -580,8 +587,9 @@ export const config: AppConfig = {
     'http://127.0.0.1:8100',
   ]),
   postgresUrl: readRequiredSecretFile('DATABASE_URL', 'database_url'),
-  apiToken: readSecretFile('API_TOKEN', 'api_token'),
-  clientWriteTokens: readTokenList('CLIENT_WRITE_TOKENS', 'client_write_tokens'),
+  apiToken,
+  clientWriteTokens,
+  releaseMonitorInternalToken: resolveReleaseMonitorInternalToken(apiToken, clientWriteTokens),
   requireAuth: readBooleanEnv('REQUIRE_AUTH', true),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),

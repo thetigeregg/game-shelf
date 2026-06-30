@@ -2,10 +2,13 @@ import { timingSafeEqual } from 'node:crypto';
 
 const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
-// Carries the shared API token on the release monitor's in-cluster self-calls so
-// the inbound rate limiter can exempt them (see ensureRateLimitRegistered
-// allowList / isReleaseMonitorInternalRequest). A static marker would be trivially
-// spoofable, letting any client bypass inbound rate limits on every route.
+// Carries the shared internal token on the release monitor's in-cluster
+// self-calls so the inbound rate limiter can exempt them (see
+// ensureRateLimitRegistered allowList / isReleaseMonitorInternalRequest). The
+// token is resolved by resolveReleaseMonitorInternalToken so it works whether
+// the deployment authenticates with an API token or only client write tokens. A
+// static marker would be trivially spoofable, letting any client bypass inbound
+// rate limits on every route.
 export const RELEASE_MONITOR_INTERNAL_HEADER_NAME = 'x-gameshelf-release-monitor';
 
 interface MutatingRequestAuthOptions {
@@ -54,16 +57,39 @@ export function isAuthorizedMutatingRequest(options: MutatingRequestAuthOptions)
 }
 
 /**
+ * Resolve the shared secret the release monitor presents on its in-cluster
+ * self-calls (and that the inbound rate limiter verifies for exemption).
+ * Prefers the API token; falls back to the first configured client write token
+ * so deployments that authenticate with client write tokens only still exempt
+ * the refresh instead of throttling it against tight inbound buckets. Returns
+ * '' when no credential is configured, so the path fails closed.
+ */
+export function resolveReleaseMonitorInternalToken(
+  apiToken: string,
+  clientWriteTokens: string[]
+): string {
+  const trimmedApiToken = apiToken.trim();
+
+  if (trimmedApiToken.length > 0) {
+    return trimmedApiToken;
+  }
+
+  const clientWriteToken = clientWriteTokens.find((token) => token.trim().length > 0);
+  return clientWriteToken?.trim() ?? '';
+}
+
+/**
  * Authorize the release monitor's in-cluster self-calls for inbound rate-limit
- * exemption. The request must present the configured API token in the internal
- * header (timing-safe match). An unset token never exempts, so the path fails
- * closed and a static/spoofed marker cannot bypass inbound limits.
+ * exemption. The request must present the configured internal token (resolved by
+ * resolveReleaseMonitorInternalToken) in the internal header (timing-safe match).
+ * An unset token never exempts, so the path fails closed and a static/spoofed
+ * marker cannot bypass inbound limits.
  */
 export function isReleaseMonitorInternalRequest(
   headerValue: string | string[] | undefined,
-  apiToken: string
+  internalToken: string
 ): boolean {
-  const configuredToken = apiToken.trim();
+  const configuredToken = internalToken.trim();
 
   if (configuredToken.length === 0) {
     return false;

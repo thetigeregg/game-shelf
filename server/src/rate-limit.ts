@@ -84,13 +84,13 @@ export async function ensureRateLimitRegistered(app: FastifyInstance): Promise<v
       // Exempt the release monitor's in-cluster self-calls from inbound limits:
       // routing its HLTB/Metacritic/MobyGames refresh through the API would
       // otherwise starve against tight buckets (e.g. mobygames_search at 12/min).
-      // The header must carry the API token (timing-safe verified) so a spoofed
-      // marker cannot bypass limits on every route. Upstream scrapers stay
-      // protected by the separate outbound limiters.
+      // The header must carry the resolved internal token (timing-safe verified)
+      // so a spoofed marker cannot bypass limits on every route. Upstream
+      // scrapers stay protected by the separate outbound limiters.
       allowList: (request: FastifyRequest) =>
         isReleaseMonitorInternalRequest(
           request.headers[RELEASE_MONITOR_INTERNAL_HEADER_NAME],
-          config.apiToken
+          config.releaseMonitorInternalToken
         ),
       addHeaders: {
         'x-ratelimit-limit': true,

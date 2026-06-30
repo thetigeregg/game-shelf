@@ -3,7 +3,7 @@ import {
   BackgroundJobType,
   ClaimedBackgroundJob,
 } from './background-jobs.js';
-import { config } from './config.js';
+import { config, INTERNAL_API_BASE_URL_DEFAULT } from './config.js';
 import { createPool } from './db.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
@@ -75,7 +75,7 @@ export function readDiscoveryEnrichmentApiBaseUrl(): string {
     return raw;
   }
 
-  return 'http://api:3000';
+  return INTERNAL_API_BASE_URL_DEFAULT;
 }
 
 export function readPositiveIntegerEnv(name: string, fallback: number): number {

@@ -2,8 +2,10 @@ import { timingSafeEqual } from 'node:crypto';
 
 const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
-// Marks in-cluster self-calls from the release monitor so the inbound rate
-// limiter can exempt them (see ensureRateLimitRegistered allowList).
+// Carries the shared API token on the release monitor's in-cluster self-calls so
+// the inbound rate limiter can exempt them (see ensureRateLimitRegistered
+// allowList / isReleaseMonitorInternalRequest). A static marker would be trivially
+// spoofable, letting any client bypass inbound rate limits on every route.
 export const RELEASE_MONITOR_INTERNAL_HEADER_NAME = 'x-gameshelf-release-monitor';
 
 interface MutatingRequestAuthOptions {
@@ -49,6 +51,31 @@ export function isAuthorizedMutatingRequest(options: MutatingRequestAuthOptions)
   }
 
   return isAuthorizedClientWriteToken(options.clientWriteTokenHeader, options.clientWriteTokens);
+}
+
+/**
+ * Authorize the release monitor's in-cluster self-calls for inbound rate-limit
+ * exemption. The request must present the configured API token in the internal
+ * header (timing-safe match). An unset token never exempts, so the path fails
+ * closed and a static/spoofed marker cannot bypass inbound limits.
+ */
+export function isReleaseMonitorInternalRequest(
+  headerValue: string | string[] | undefined,
+  apiToken: string
+): boolean {
+  const configuredToken = apiToken.trim();
+
+  if (configuredToken.length === 0) {
+    return false;
+  }
+
+  const provided = normalizeHeaderValue(headerValue);
+
+  if (provided.length === 0) {
+    return false;
+  }
+
+  return timingSafeStringEqual(provided, configuredToken);
 }
 
 function isAuthorizedBearerToken(

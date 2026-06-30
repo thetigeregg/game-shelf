@@ -8,6 +8,11 @@ import {
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './recommendations/discovery-enrichment-defaults.js';
 
+// Default base URL for in-cluster self-calls to the API (recommendations
+// enrichment and release-monitor refresh). Defined once so the fallback host is
+// not duplicated across releaseMonitorApiBaseUrl and readDiscoveryEnrichmentApiBaseUrl.
+export const INTERNAL_API_BASE_URL_DEFAULT = 'http://api:3000';
+
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -678,7 +683,8 @@ export const config: AppConfig = {
   // back to the default when the variable is set-but-empty, since readEnv returns
   // '' (not the default) for an empty string and '' is not a valid URL base.
   releaseMonitorApiBaseUrl:
-    readEnv('RECOMMENDATIONS_ENRICH_API_BASE_URL', 'http://api:3000') || 'http://api:3000',
+    readEnv('RECOMMENDATIONS_ENRICH_API_BASE_URL', INTERNAL_API_BASE_URL_DEFAULT) ||
+    INTERNAL_API_BASE_URL_DEFAULT,
   fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
   fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
   fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),

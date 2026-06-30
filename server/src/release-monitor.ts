@@ -826,7 +826,7 @@ async function fetchRefreshApiJson<T>(
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: { [RELEASE_MONITOR_INTERNAL_HEADER_NAME]: '1' },
+      headers: { [RELEASE_MONITOR_INTERNAL_HEADER_NAME]: config.apiToken },
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -844,7 +844,9 @@ async function fetchRefreshApiJson<T>(
     } catch {
       // The provider responded but the body is not valid JSON. Treat it as a
       // clean no-match so the cadence advances rather than retrying a
-      // persistently malformed response forever.
+      // persistently malformed response forever. Log it so a systemic API
+      // regression (every body malformed) is observable instead of silent.
+      console.warn('[release-monitor] refresh_api_malformed_json', { pathname });
       return { ok: true, value: null };
     }
   } catch {

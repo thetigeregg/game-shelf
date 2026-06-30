@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { isAuthorizedMutatingRequest, shouldRequireAuth } from './request-security.js';
+import {
+  isAuthorizedMutatingRequest,
+  isReleaseMonitorInternalRequest,
+  shouldRequireAuth,
+} from './request-security.js';
 
 void test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
   assert.equal(shouldRequireAuth('GET'), false);
@@ -13,6 +17,22 @@ void test('shouldRequireAuth protects all mutating HTTP methods by default', () 
   assert.equal(shouldRequireAuth('DELETE'), true);
   assert.equal(shouldRequireAuth('TRACE'), true);
   assert.equal(shouldRequireAuth(''), true);
+});
+
+void test('isReleaseMonitorInternalRequest exempts only the configured API token', () => {
+  assert.equal(isReleaseMonitorInternalRequest('api-secret', 'api-secret'), true);
+  assert.equal(isReleaseMonitorInternalRequest(['api-secret'], 'api-secret'), true);
+});
+
+void test('isReleaseMonitorInternalRequest rejects a spoofed static marker', () => {
+  assert.equal(isReleaseMonitorInternalRequest('1', 'api-secret'), false);
+  assert.equal(isReleaseMonitorInternalRequest('wrong-token', 'api-secret'), false);
+});
+
+void test('isReleaseMonitorInternalRequest fails closed when no token is configured', () => {
+  assert.equal(isReleaseMonitorInternalRequest('', ''), false);
+  assert.equal(isReleaseMonitorInternalRequest('anything', '   '), false);
+  assert.equal(isReleaseMonitorInternalRequest(undefined, 'api-secret'), false);
 });
 
 void test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {

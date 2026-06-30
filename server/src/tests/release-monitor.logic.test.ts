@@ -1007,3 +1007,207 @@ void test('loadActiveTokenSet caps token volume per run to avoid unbounded memor
   const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);
   assert.equal(set.size, 20000);
 });
+
+type FetchCall = { url: string };
+
+function withMockedFetch(
+  impl: (call: FetchCall) => Response | Promise<Response>,
+  run: (calls: FetchCall[]) => Promise<void>
+): Promise<void> {
+  const calls: FetchCall[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (input: unknown) => {
+    const url = typeof input === 'string' ? input : String(input);
+    const call: FetchCall = { url };
+    calls.push(call);
+    return Promise.resolve(impl(call));
+  };
+
+  return run(calls).finally(() => {
+    globalThis.fetch = original;
+  });
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+void test('fetchHltbPayload targets the configured API base URL, not the in-process worker', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ item: { hltbMainHours: 12, hltbMainExtraHours: 18 } }),
+    async (calls) => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'Sea of Stars',
+        releaseYear: 2023,
+        platform: 'PC',
+      });
+
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url.startsWith(config.releaseMonitorApiBaseUrl), true);
+      assert.equal(calls[0].url.includes('/v1/hltb/search'), true);
+      assert.equal(calls[0].url.includes('q=Sea+of+Stars'), true);
+      if (!result.ok) {
+        assert.fail('expected provider response');
+      }
+      assert.deepEqual(result.value, {
+        hltbMainHours: 12,
+        hltbMainExtraHours: 18,
+      });
+    }
+  );
+});
+
+void test('fetchHltbPayload reports a transport failure so the cadence is not advanced', async () => {
+  await withMockedFetch(
+    () => {
+      throw new Error('connection refused');
+    },
+    async () => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'Sea of Stars',
+        releaseYear: 2023,
+        platform: 'PC',
+      });
+      assert.equal(result.ok, false);
+    }
+  );
+});
+
+void test('fetchHltbPayload treats a non-2xx response as a transport failure', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ error: 'bad gateway' }, 502),
+    async () => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'Sea of Stars',
+        releaseYear: 2023,
+        platform: 'PC',
+      });
+      assert.equal(result.ok, false);
+    }
+  );
+});
+
+void test('fetchHltbPayload treats an empty item as a clean no-match (cadence may advance)', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ item: null }),
+    async () => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'Some Obscure Title',
+        releaseYear: 2024,
+        platform: 'PC',
+      });
+      if (!result.ok) {
+        assert.fail('expected provider response');
+      }
+      assert.equal(result.value, null);
+    }
+  );
+});
+
+void test('fetchHltbPayload skips the request for too-short titles', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ item: { hltbMainHours: 5 } }),
+    async (calls) => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'A',
+        releaseYear: 2024,
+        platform: null,
+      });
+      assert.equal(calls.length, 0);
+      if (!result.ok) {
+        assert.fail('expected provider response');
+      }
+      assert.equal(result.value, null);
+    }
+  );
+});
+
+void test('fetchReviewPayload uses the metacritic route when no mobygames override is set', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ item: { metacriticScore: 88, metacriticUrl: 'https://mc.example/x' } }),
+    async (calls) => {
+      const result = await releaseMonitorInternals.fetchReviewPayload({
+        title: 'Oxenfree II: Lost Signals',
+        releaseYear: 2023,
+        platform: 'PC',
+        platformIgdbId: 6,
+        reviewMatchMobygamesGameId: null,
+      });
+
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url.includes('/v1/metacritic/search'), true);
+      if (!result.ok) {
+        assert.fail('expected provider response');
+      }
+      assert.deepEqual(result.value, {
+        source: 'metacritic',
+        metacriticScore: 88,
+        metacriticUrl: 'https://mc.example/x',
+      });
+    }
+  );
+});
+
+void test('fetchReviewPayload uses the mobygames route when an override id is present', async () => {
+  await withMockedFetch(
+    () =>
+      jsonResponse({
+        games: [{ game_id: 4242, moby_url: 'https://moby.example/g', critic_score: 90 }],
+      }),
+    async (calls) => {
+      const result = await releaseMonitorInternals.fetchReviewPayload({
+        title: 'Monument Valley III',
+        releaseYear: 2025,
+        platform: 'iOS',
+        platformIgdbId: 39,
+        reviewMatchMobygamesGameId: 4242,
+      });
+
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url.includes('/v1/mobygames/search'), true);
+      if (!result.ok || !result.value) {
+        assert.fail('expected a mobygames match');
+      }
+      const review = result.value;
+      if (review.source !== 'mobygames') {
+        assert.fail('expected mobygames review source');
+      }
+      assert.equal(review.reviewScore, 90);
+    }
+  );
+});
+
+void test('fetchReviewPayload propagates a mobygames transport failure', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ error: 'timeout' }, 504),
+    async () => {
+      const result = await releaseMonitorInternals.fetchReviewPayload({
+        title: 'Monument Valley III',
+        releaseYear: 2025,
+        platform: 'iOS',
+        platformIgdbId: 39,
+        reviewMatchMobygamesGameId: 4242,
+      });
+      assert.equal(result.ok, false);
+    }
+  );
+});
+
+void test('fetchMobygamesPayload returns a clean no-match when the override id is absent', async () => {
+  await withMockedFetch(
+    () => jsonResponse({ games: [{ game_id: 1, moby_url: 'https://moby.example/other' }] }),
+    async () => {
+      const result = await releaseMonitorInternals.fetchMobygamesPayload({
+        title: 'Monument Valley III',
+        reviewMatchMobygamesGameId: 4242,
+      });
+      if (!result.ok) {
+        assert.fail('expected provider response');
+      }
+      assert.equal(result.value, null);
+    }
+  );
+});

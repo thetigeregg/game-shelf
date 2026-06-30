@@ -17,6 +17,7 @@ const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
+const REFRESH_REQUEST_TIMEOUT_MS = 15_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
@@ -29,10 +30,7 @@ const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US
 });
 
 type ReleaseEventType =
-  | 'release_date_set'
-  | 'release_date_changed'
-  | 'release_date_removed'
-  | 'release_day';
+  'release_date_set' | 'release_date_changed' | 'release_date_removed' | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
 export type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
@@ -476,18 +474,21 @@ async function processGameRow(
         platform: hltbRefreshQuery.platform,
       });
 
-      if (refreshedHltb) {
-        stats.hltbRefreshSuccesses += 1;
-        mergedPayload = {
-          ...mergedPayload,
-          hltbMainHours: finiteNumberOrNull(refreshedHltb.hltbMainHours),
-          hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.hltbMainExtraHours),
-          hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.hltbCompletionistHours),
-        };
+      if (refreshedHltb.ok) {
+        if (refreshedHltb.value) {
+          stats.hltbRefreshSuccesses += 1;
+          mergedPayload = {
+            ...mergedPayload,
+            hltbMainHours: finiteNumberOrNull(refreshedHltb.value.hltbMainHours),
+            hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.value.hltbMainExtraHours),
+            hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.value.hltbCompletionistHours),
+          };
+        }
+        // Advance cadence when the provider responded (match or clean no-match) to
+        // avoid hammering the scraper for titles that currently return no match. A
+        // transport/HTTP error leaves the timer unset so the next run retries.
+        lastHltbRefreshAt = nowIso;
       }
-      // Advance cadence on attempt (not just success) to avoid repeatedly
-      // hammering the scraper for titles that currently return no match.
-      lastHltbRefreshAt = nowIso;
     }
 
     if (reviewDue) {
@@ -500,13 +501,16 @@ async function processGameRow(
       );
       const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
 
-      if (refreshedReview) {
-        stats.reviewRefreshSuccesses += 1;
-        mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview);
+      if (refreshedReview.ok) {
+        if (refreshedReview.value) {
+          stats.reviewRefreshSuccesses += 1;
+          mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview.value);
+        }
+        // Advance cadence when the provider responded (match or clean no-match) to
+        // avoid hammering the scraper for titles that currently return no match. A
+        // transport/HTTP error leaves the timer unset so the next run retries.
+        lastMetacriticRefreshAt = nowIso;
       }
-      // Advance cadence on attempt (not just success) to avoid repeatedly
-      // hammering the scraper for titles that currently return no match.
-      lastMetacriticRefreshAt = nowIso;
     }
 
     const payloadPatch = buildPayloadPatch(originalPayload, mergedPayload);
@@ -744,19 +748,23 @@ function resolveReviewRefreshQuery(
   };
 }
 
+type HltbItem = {
+  hltbMainHours?: unknown;
+  hltbMainExtraHours?: unknown;
+  hltbCompletionistHours?: unknown;
+};
+
 interface HltbApiResponse {
-  item?: {
-    hltbMainHours?: unknown;
-    hltbMainExtraHours?: unknown;
-    hltbCompletionistHours?: unknown;
-  } | null;
+  item?: HltbItem | null;
 }
 
+type MetacriticItem = {
+  metacriticScore?: unknown;
+  metacriticUrl?: unknown;
+};
+
 interface MetacriticApiResponse {
-  item?: {
-    metacriticScore?: unknown;
-    metacriticUrl?: unknown;
-  } | null;
+  item?: MetacriticItem | null;
 }
 
 interface MobyGamesApiResponse {
@@ -767,6 +775,13 @@ interface MobyGamesApiResponse {
     moby_score?: unknown;
   }> | null;
 }
+
+type MobygamesRefreshItem = {
+  mobygamesGameId: number | null;
+  mobyScore: number | null;
+  reviewScore: number | null;
+  reviewUrl: string | null;
+};
 
 type RefreshedReviewPayload =
   | {
@@ -782,26 +797,71 @@ type RefreshedReviewPayload =
       reviewUrl: string | null;
     };
 
+// `ok: false` means the provider could not be reached (transport/HTTP error) so the
+// caller must NOT advance the refresh cadence and should retry next run. `ok: true`
+// means the provider responded: `value` holds the match, or `null` for a clean
+// no-match (cadence may advance to avoid re-scraping unmatched titles).
+type RefreshOutcome<T> = { ok: true; value: T | null } | { ok: false };
+
+async function fetchRefreshApiJson<T>(
+  pathname: string,
+  query: Record<string, string | number | boolean | null | undefined>
+): Promise<RefreshOutcome<T>> {
+  const url = new URL(pathname, config.releaseMonitorApiBaseUrl);
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+    url.searchParams.set(key, String(value));
+  });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, REFRESH_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'x-gameshelf-release-monitor': '1' },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return { ok: false };
+    }
+    if (response.status === 204) {
+      return { ok: true, value: null };
+    }
+    const text = await response.text();
+    if (text.trim().length === 0) {
+      return { ok: true, value: null };
+    }
+    return { ok: true, value: JSON.parse(text) as T };
+  } catch {
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchHltbPayload(params: {
   title: string;
   releaseYear: number | null;
   platform: string | null;
-}): Promise<HltbApiResponse['item'] | null> {
+}): Promise<RefreshOutcome<HltbItem>> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/hltb/search', {
+  const result = await fetchRefreshApiJson<HltbApiResponse>('/v1/hltb/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
   });
-  if (!response.ok) {
-    return null;
+  if (!result.ok) {
+    return { ok: false };
   }
 
-  const payload = (await response.json()) as HltbApiResponse;
-  return payload.item ?? null;
+  return { ok: true, value: result.value?.item ?? null };
 }
 
 async function fetchMetacriticPayload(params: {
@@ -809,23 +869,22 @@ async function fetchMetacriticPayload(params: {
   releaseYear: number | null;
   platform: string | null;
   platformIgdbId: number;
-}): Promise<MetacriticApiResponse['item'] | null> {
+}): Promise<RefreshOutcome<MetacriticItem>> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/metacritic/search', {
+  const result = await fetchRefreshApiJson<MetacriticApiResponse>('/v1/metacritic/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
     platformIgdbId: params.platformIgdbId,
   });
-  if (!response.ok) {
-    return null;
+  if (!result.ok) {
+    return { ok: false };
   }
 
-  const payload = (await response.json()) as MetacriticApiResponse;
-  return payload.item ?? null;
+  return { ok: true, value: result.value?.item ?? null };
 }
 
 async function fetchReviewPayload(params: {
@@ -834,22 +893,28 @@ async function fetchReviewPayload(params: {
   platform: string | null;
   platformIgdbId: number;
   reviewMatchMobygamesGameId: number | null;
-}): Promise<RefreshedReviewPayload | null> {
+}): Promise<RefreshOutcome<RefreshedReviewPayload>> {
   if (params.reviewMatchMobygamesGameId !== null) {
     const mobygames = await fetchMobygamesPayload({
       title: params.title,
       reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId,
     });
-    if (!mobygames) {
-      return null;
+    if (!mobygames.ok) {
+      return { ok: false };
+    }
+    if (!mobygames.value) {
+      return { ok: true, value: null };
     }
 
     return {
-      source: 'mobygames',
-      mobygamesGameId: mobygames.mobygamesGameId,
-      mobyScore: mobygames.mobyScore,
-      reviewScore: mobygames.reviewScore,
-      reviewUrl: mobygames.reviewUrl,
+      ok: true,
+      value: {
+        source: 'mobygames',
+        mobygamesGameId: mobygames.value.mobygamesGameId,
+        mobyScore: mobygames.value.mobyScore,
+        reviewScore: mobygames.value.reviewScore,
+        reviewUrl: mobygames.value.reviewUrl,
+      },
     };
   }
 
@@ -859,45 +924,46 @@ async function fetchReviewPayload(params: {
     platform: params.platform,
     platformIgdbId: params.platformIgdbId,
   });
-  if (!metacritic) {
-    return null;
+  if (!metacritic.ok) {
+    return { ok: false };
+  }
+  if (!metacritic.value) {
+    return { ok: true, value: null };
   }
 
   return {
-    source: 'metacritic',
-    metacriticScore: finiteNumberOrNull(metacritic.metacriticScore),
-    metacriticUrl: stringOrNull(metacritic.metacriticUrl),
+    ok: true,
+    value: {
+      source: 'metacritic',
+      metacriticScore: finiteNumberOrNull(metacritic.value.metacriticScore),
+      metacriticUrl: stringOrNull(metacritic.value.metacriticUrl),
+    },
   };
 }
 
 async function fetchMobygamesPayload(params: {
   title: string;
   reviewMatchMobygamesGameId: number;
-}): Promise<{
-  mobygamesGameId: number | null;
-  mobyScore: number | null;
-  reviewScore: number | null;
-  reviewUrl: string | null;
-} | null> {
+}): Promise<RefreshOutcome<MobygamesRefreshItem>> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/mobygames/search', {
+  const result = await fetchRefreshApiJson<MobyGamesApiResponse>('/v1/mobygames/search', {
     q: params.title,
     id: params.reviewMatchMobygamesGameId,
     limit: 5,
     format: 'normal',
     include: 'game_id,moby_url,moby_score,critic_score',
   });
-  if (!response.ok) {
-    return null;
+  if (!result.ok) {
+    return { ok: false };
   }
 
-  const payload = (await response.json()) as MobyGamesApiResponse;
-  const games = Array.isArray(payload.games) ? payload.games : [];
+  const rawGames = result.value?.games;
+  const games = Array.isArray(rawGames) ? rawGames : [];
   if (games.length === 0) {
-    return null;
+    return { ok: true, value: null };
   }
   const matched = games.find(
     (entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId
@@ -905,7 +971,7 @@ async function fetchMobygamesPayload(params: {
   if (!matched) {
     // Explicit override id was not returned by provider; treat this as no match
     // to avoid persisting data from an unrelated fallback result.
-    return null;
+    return { ok: true, value: null };
   }
 
   const criticScore = normalizeReviewScore(finiteNumberFromNumberOrString(matched.critic_score));
@@ -917,10 +983,13 @@ async function fetchMobygamesPayload(params: {
     );
 
   return {
-    mobygamesGameId: integerOrNull(matched.game_id),
-    mobyScore,
-    reviewScore,
-    reviewUrl: stringOrNull(matched.moby_url),
+    ok: true,
+    value: {
+      mobygamesGameId: integerOrNull(matched.game_id),
+      mobyScore,
+      reviewScore,
+      reviewUrl: stringOrNull(matched.moby_url),
+    },
   };
 }
 
@@ -2364,6 +2433,9 @@ export const releaseMonitorInternals = {
   normalizeDateString,
   resolveHltbRefreshQuery,
   resolveReviewRefreshQuery,
+  fetchHltbPayload,
+  fetchReviewPayload,
+  fetchMobygamesPayload,
   mergeReviewRefreshPayload,
   mergeMetacriticRefreshPayload,
   mergeMobygamesRefreshPayload,

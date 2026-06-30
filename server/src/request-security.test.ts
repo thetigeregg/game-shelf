@@ -36,28 +36,29 @@ void test('isReleaseMonitorInternalRequest fails closed when no token is configu
   assert.equal(isReleaseMonitorInternalRequest(undefined, 'api-secret'), false);
 });
 
-void test('resolveReleaseMonitorInternalToken prefers the API token', () => {
+void test('resolveReleaseMonitorInternalToken prefers the dedicated internal token', () => {
   assert.equal(
-    resolveReleaseMonitorInternalToken('api-secret', ['client-a', 'client-b']),
-    'api-secret'
+    resolveReleaseMonitorInternalToken('internal-secret', 'api-secret'),
+    'internal-secret'
   );
-  assert.equal(resolveReleaseMonitorInternalToken('  api-secret  ', []), 'api-secret');
+  assert.equal(resolveReleaseMonitorInternalToken('  internal-secret  ', ''), 'internal-secret');
 });
 
-void test('resolveReleaseMonitorInternalToken falls back to the first client write token', () => {
-  assert.equal(resolveReleaseMonitorInternalToken('', ['client-a', 'client-b']), 'client-a');
-  assert.equal(resolveReleaseMonitorInternalToken('   ', [' client-a ']), 'client-a');
+void test('resolveReleaseMonitorInternalToken falls back to the API token', () => {
+  assert.equal(resolveReleaseMonitorInternalToken('', 'api-secret'), 'api-secret');
+  assert.equal(resolveReleaseMonitorInternalToken('   ', '  api-secret  '), 'api-secret');
 });
 
-void test('resolveReleaseMonitorInternalToken returns empty when no credential is configured', () => {
-  assert.equal(resolveReleaseMonitorInternalToken('', []), '');
-  assert.equal(resolveReleaseMonitorInternalToken('   ', ['   ']), '');
+void test('resolveReleaseMonitorInternalToken returns empty when no server secret is configured', () => {
+  assert.equal(resolveReleaseMonitorInternalToken('', ''), '');
+  assert.equal(resolveReleaseMonitorInternalToken('   ', '   '), '');
 });
 
-void test('resolveReleaseMonitorInternalToken output exempts the matching self-call', () => {
-  const token = resolveReleaseMonitorInternalToken('', ['client-a']);
+void test('resolveReleaseMonitorInternalToken output exempts only the matching self-call', () => {
+  const token = resolveReleaseMonitorInternalToken('', 'api-secret');
   assert.equal(isReleaseMonitorInternalRequest(token, token), true);
-  assert.equal(isReleaseMonitorInternalRequest('client-b', token), false);
+  // A client write token is never the resolved secret, so it cannot match.
+  assert.equal(isReleaseMonitorInternalRequest('client-write-token', token), false);
 });
 
 void test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {

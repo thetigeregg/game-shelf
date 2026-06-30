@@ -654,6 +654,80 @@ void test('computeNextCheckAt ignores refresh cadence when provider refresh is i
   assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 15);
 });
 
+void test('computeNextCheckAt backs off a failed refresh instead of rechecking every cycle', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const nowMs = now.getTime();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const intervalMs = Math.max(1, config.hltbPeriodicRefreshDays) * oneDayMs;
+  // Released long ago so the release-based cadence is ~365d and the refresh
+  // backoff dominates the result.
+  const longAgo = {
+    precision: 'day' as const,
+    marker: '2020-01-01',
+    date: '2020-01-01',
+    year: 2020,
+    display: '2020-01-01',
+  };
+
+  // Without the failure flag the stale timer makes the title immediately due.
+  const immediate = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      longAgo,
+      now,
+      true,
+      new Date(nowMs - intervalMs - oneDayMs).toISOString(),
+      false,
+      null
+    )
+  );
+  assert.equal(immediate <= nowMs, true);
+
+  // A small overdue is floored to the 6h minimum backoff.
+  const minBackoff = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      longAgo,
+      now,
+      true,
+      new Date(nowMs - intervalMs - 60 * 60 * 1000).toISOString(),
+      false,
+      null,
+      true,
+      false
+    )
+  );
+  assert.equal(Math.round((minBackoff - nowMs) / (60 * 60 * 1000)), 6);
+
+  // A larger overdue grows the backoff (here ~1 day overdue → ~1 day delay).
+  const growingBackoff = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      longAgo,
+      now,
+      true,
+      new Date(nowMs - intervalMs - oneDayMs).toISOString(),
+      false,
+      null,
+      true,
+      false
+    )
+  );
+  assert.equal(Math.round((growingBackoff - nowMs) / oneDayMs), 1);
+
+  // Very overdue is capped at the 7-day maximum backoff.
+  const cappedBackoff = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      longAgo,
+      now,
+      false,
+      null,
+      true,
+      new Date(nowMs - intervalMs - 60 * oneDayMs).toISOString(),
+      false,
+      true
+    )
+  );
+  assert.equal(Math.round((cappedBackoff - nowMs) / oneDayMs), 7);
+});
+
 void test('computeNextCheckAt covers released and invalid-imprecise fallback branches', () => {
   const now = new Date('2026-03-06T10:00:00.000Z');
   const oneDayMs = 24 * 60 * 60 * 1000;

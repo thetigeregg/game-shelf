@@ -570,6 +570,13 @@ const rateLimitConfig: RateLimitConfig = {
 // (below) does not re-read the secret files.
 const apiToken = readSecretFile('API_TOKEN', 'api_token');
 const clientWriteTokens = readTokenList('CLIENT_WRITE_TOKENS', 'client_write_tokens');
+// Dedicated server-only secret for the release-monitor self-call rate-limit
+// exemption. Optional: falls back to the API token. Never a client write token,
+// which is distributed to apps and would let any client bypass inbound limits.
+const releaseMonitorInternalSecret = readSecretFile(
+  'RELEASE_MONITOR_INTERNAL_TOKEN',
+  'release_monitor_internal_token'
+);
 
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
@@ -589,7 +596,10 @@ export const config: AppConfig = {
   postgresUrl: readRequiredSecretFile('DATABASE_URL', 'database_url'),
   apiToken,
   clientWriteTokens,
-  releaseMonitorInternalToken: resolveReleaseMonitorInternalToken(apiToken, clientWriteTokens),
+  releaseMonitorInternalToken: resolveReleaseMonitorInternalToken(
+    releaseMonitorInternalSecret,
+    apiToken
+  ),
   requireAuth: readBooleanEnv('REQUIRE_AUTH', true),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),

@@ -19,6 +19,15 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const REFRESH_REQUEST_TIMEOUT_MS = 15_000;
+// When a provider refresh fails (transport/HTTP error), the cadence timer is not
+// advanced so the title is retried — but without backoff it would be re-fetched
+// every monitor cycle. These bound a growing retry delay: the next check is
+// floored at `now + clamp(timeSinceDue, MIN, MAX)`, which doubles each failed
+// cycle (next = now + overdue, so overdue ~doubles) until it caps, while still
+// retrying within MAX so a transient outage recovers and a persistent failure
+// stays visible (the timer never advances on error).
+const REFRESH_RETRY_MIN_BACKOFF_MS = 6 * 60 * 60 * 1000;
+const REFRESH_RETRY_MAX_BACKOFF_MS = 7 * 24 * 60 * 60 * 1000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 const RELEASE_NOTIFICATION_FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
@@ -466,6 +475,11 @@ async function processGameRow(
     const reviewDue =
       !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
 
+    // Track transport/HTTP failures so the next check backs off instead of
+    // re-hitting a persistently failing provider on every monitor cycle.
+    let hltbRefreshFailed = false;
+    let reviewRefreshFailed = false;
+
     if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
       const hltbRefreshQuery = resolveHltbRefreshQuery(mergedPayload, title, platformName);
@@ -489,6 +503,8 @@ async function processGameRow(
         // avoid hammering the scraper for titles that currently return no match. A
         // transport/HTTP error leaves the timer unset so the next run retries.
         lastHltbRefreshAt = nowIso;
+      } else {
+        hltbRefreshFailed = true;
       }
     }
 
@@ -511,6 +527,8 @@ async function processGameRow(
         // avoid hammering the scraper for titles that currently return no match. A
         // transport/HTTP error leaves the timer unset so the next run retries.
         lastMetacriticRefreshAt = nowIso;
+      } else {
+        reviewRefreshFailed = true;
       }
     }
 
@@ -611,7 +629,9 @@ async function processGameRow(
       hltbRefreshEligible,
       lastHltbRefreshAt,
       reviewRefreshEligible,
-      lastMetacriticRefreshAt
+      lastMetacriticRefreshAt,
+      hltbRefreshFailed,
+      reviewRefreshFailed
     );
     await upsertWatchState(pool, {
       igdbGameId: row.igdb_game_id,
@@ -1551,13 +1571,28 @@ async function upsertWatchState(
   }
 }
 
+function computeRefreshRetryBackoffMs(
+  lastRefreshMs: number,
+  intervalMs: number,
+  nowMs: number
+): number {
+  // No prior success to anchor growth on: retry at the minimum interval.
+  if (!Number.isFinite(lastRefreshMs)) {
+    return REFRESH_RETRY_MIN_BACKOFF_MS;
+  }
+  const overdueMs = nowMs - (lastRefreshMs + intervalMs);
+  return Math.min(REFRESH_RETRY_MAX_BACKOFF_MS, Math.max(REFRESH_RETRY_MIN_BACKOFF_MS, overdueMs));
+}
+
 function computeNextCheckAt(
   release: ReleaseInfo,
   now: Date,
   hltbEligible: boolean,
   lastHltbRefreshAt: string | null,
   metacriticEligible: boolean,
-  lastMetacriticRefreshAt: string | null
+  lastMetacriticRefreshAt: string | null,
+  hltbRefreshFailed = false,
+  metacriticRefreshFailed = false
 ): string {
   const nowMs = now.getTime();
   let nextReleaseCheckMs = nowMs + ONE_DAY_MS;
@@ -1603,7 +1638,15 @@ function computeNextCheckAt(
   if (hltbEligible) {
     const hltbIntervalMs = Math.max(1, config.hltbPeriodicRefreshDays) * ONE_DAY_MS;
     const hltbLastMs = lastHltbRefreshAt ? Date.parse(lastHltbRefreshAt) : Number.NaN;
-    const nextHltbCheckMs = Number.isFinite(hltbLastMs) ? hltbLastMs + hltbIntervalMs : nowMs;
+    let nextHltbCheckMs = Number.isFinite(hltbLastMs) ? hltbLastMs + hltbIntervalMs : nowMs;
+    if (hltbRefreshFailed) {
+      // Floor the retry at a growing backoff so a failing provider is not
+      // re-hit every cycle (the timer stays unadvanced, so it is still due).
+      nextHltbCheckMs = Math.max(
+        nextHltbCheckMs,
+        nowMs + computeRefreshRetryBackoffMs(hltbLastMs, hltbIntervalMs, nowMs)
+      );
+    }
     nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextHltbCheckMs);
   }
 
@@ -1612,9 +1655,17 @@ function computeNextCheckAt(
     const metacriticLastMs = lastMetacriticRefreshAt
       ? Date.parse(lastMetacriticRefreshAt)
       : Number.NaN;
-    const nextMetacriticCheckMs = Number.isFinite(metacriticLastMs)
+    let nextMetacriticCheckMs = Number.isFinite(metacriticLastMs)
       ? metacriticLastMs + metacriticIntervalMs
       : nowMs;
+    if (metacriticRefreshFailed) {
+      // Floor the retry at a growing backoff so a failing provider is not
+      // re-hit every cycle (the timer stays unadvanced, so it is still due).
+      nextMetacriticCheckMs = Math.max(
+        nextMetacriticCheckMs,
+        nowMs + computeRefreshRetryBackoffMs(metacriticLastMs, metacriticIntervalMs, nowMs)
+      );
+    }
     nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextMetacriticCheckMs);
   }
 

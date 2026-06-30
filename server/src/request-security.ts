@@ -5,10 +5,12 @@ export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
 // Carries the shared internal token on the release monitor's in-cluster
 // self-calls so the inbound rate limiter can exempt them (see
 // ensureRateLimitRegistered allowList / isReleaseMonitorInternalRequest). The
-// token is resolved by resolveReleaseMonitorInternalToken so it works whether
-// the deployment authenticates with an API token or only client write tokens. A
-// static marker would be trivially spoofable, letting any client bypass inbound
-// rate limits on every route.
+// token is resolved by resolveReleaseMonitorInternalToken from a dedicated
+// internal secret (falling back to the API token) — both server-only. It is
+// deliberately NOT a client write token: those are distributed to client apps,
+// so honoring one here would let any client that extracts its token bypass
+// inbound rate limits on every route. A static marker would be equally
+// spoofable.
 export const RELEASE_MONITOR_INTERNAL_HEADER_NAME = 'x-gameshelf-release-monitor';
 
 interface MutatingRequestAuthOptions {
@@ -59,23 +61,23 @@ export function isAuthorizedMutatingRequest(options: MutatingRequestAuthOptions)
 /**
  * Resolve the shared secret the release monitor presents on its in-cluster
  * self-calls (and that the inbound rate limiter verifies for exemption).
- * Prefers the API token; falls back to the first configured client write token
- * so deployments that authenticate with client write tokens only still exempt
- * the refresh instead of throttling it against tight inbound buckets. Returns
- * '' when no credential is configured, so the path fails closed.
+ * Prefers a dedicated internal token; falls back to the API token. Both are
+ * server-only secrets, so the exemption can never be triggered by a credential
+ * distributed to client apps (a client write token). Returns '' when neither is
+ * configured, so the path fails closed: self-calls are simply rate-limited like
+ * any other client rather than silently exempted by a guessable marker.
  */
 export function resolveReleaseMonitorInternalToken(
-  apiToken: string,
-  clientWriteTokens: string[]
+  internalToken: string,
+  apiToken: string
 ): string {
-  const trimmedApiToken = apiToken.trim();
+  const trimmedInternalToken = internalToken.trim();
 
-  if (trimmedApiToken.length > 0) {
-    return trimmedApiToken;
+  if (trimmedInternalToken.length > 0) {
+    return trimmedInternalToken;
   }
 
-  const clientWriteToken = clientWriteTokens.find((token) => token.trim().length > 0);
-  return clientWriteToken?.trim() ?? '';
+  return apiToken.trim();
 }
 
 /**

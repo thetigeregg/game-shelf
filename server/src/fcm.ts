@@ -62,14 +62,16 @@ export async function sendFcmMulticast(
   const tokenChunks = chunk(activeTokens, 500);
   const responses = await Promise.all(
     tokenChunks.map(async (tokenChunk) => {
-      return messaging.sendEachForMulticast({
-        tokens: tokenChunk,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-        },
-        data: payload.data,
-      });
+      return messaging.sendEach(
+        tokenChunk.map((token) => ({
+          token,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
+          data: payload.data,
+        }))
+      );
     })
   );
 

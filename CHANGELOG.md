@@ -4044,3 +4044,13 @@
 
 - a3f101d8 Merge pull request #476 from thetigeregg/feat/notif
 - 19f9eff5 feat(notifications): log FCM send failures and unconfigured state
+
+## v1.68.1 - 2026-06-30
+
+- 5c09178c Merge pull request #488 from thetigeregg/feat/fix
+- c034eca7 build(deps): bump deps and migrate FCM off deprecated multicast API
+- ea0a127b fix: update faraday
+- 94c05f12 fix: sync
+- b0a5e948 fix: update playwright
+- 84fcf409 fix: update deps
+- 4708bf22 fix: update audit

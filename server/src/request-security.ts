@@ -2,6 +2,9 @@ import { timingSafeEqual } from 'node:crypto';
 
 const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
+// Marks in-cluster self-calls from the release monitor so the inbound rate
+// limiter can exempt them (see ensureRateLimitRegistered allowList).
+export const RELEASE_MONITOR_INTERNAL_HEADER_NAME = 'x-gameshelf-release-monitor';
 
 interface MutatingRequestAuthOptions {
   requireAuth: boolean;

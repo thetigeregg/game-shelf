@@ -10,6 +10,7 @@ import {
   RELEASE_NOTIFICATION_EVENTS_KEY,
   RELEASE_NOTIFICATIONS_ENABLED_KEY,
 } from './notification-constants.js';
+import { RELEASE_MONITOR_INTERNAL_HEADER_NAME } from './request-security.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 
@@ -807,22 +808,25 @@ async function fetchRefreshApiJson<T>(
   pathname: string,
   query: Record<string, string | number | boolean | null | undefined>
 ): Promise<RefreshOutcome<T>> {
-  const url = new URL(pathname, config.releaseMonitorApiBaseUrl);
-  Object.entries(query).forEach(([key, value]) => {
-    if (value === null || value === undefined) {
-      return;
-    }
-    url.searchParams.set(key, String(value));
-  });
-
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
   }, REFRESH_REQUEST_TIMEOUT_MS);
   try {
+    // Built inside the try so a malformed base URL degrades to `ok: false`
+    // instead of throwing past the RefreshOutcome contract and aborting the
+    // caller's run before release events are sent.
+    const url = new URL(pathname, config.releaseMonitorApiBaseUrl);
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      url.searchParams.set(key, String(value));
+    });
+
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: { 'x-gameshelf-release-monitor': '1' },
+      headers: { [RELEASE_MONITOR_INTERNAL_HEADER_NAME]: '1' },
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -835,7 +839,14 @@ async function fetchRefreshApiJson<T>(
     if (text.trim().length === 0) {
       return { ok: true, value: null };
     }
-    return { ok: true, value: JSON.parse(text) as T };
+    try {
+      return { ok: true, value: JSON.parse(text) as T };
+    } catch {
+      // The provider responded but the body is not valid JSON. Treat it as a
+      // clean no-match so the cadence advances rather than retrying a
+      // persistently malformed response forever.
+      return { ok: true, value: null };
+    }
   } catch {
     return { ok: false };
   } finally {

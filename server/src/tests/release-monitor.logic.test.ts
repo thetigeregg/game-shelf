@@ -1211,3 +1211,21 @@ void test('fetchMobygamesPayload returns a clean no-match when the override id i
     }
   );
 });
+
+void test('fetchHltbPayload treats a 2xx with malformed JSON as a clean no-match, not a failure', async () => {
+  await withMockedFetch(
+    () =>
+      new Response('not-json{', { status: 200, headers: { 'content-type': 'application/json' } }),
+    async () => {
+      const result = await releaseMonitorInternals.fetchHltbPayload({
+        title: 'Sea of Stars',
+        releaseYear: 2023,
+        platform: 'PC',
+      });
+      if (!result.ok) {
+        assert.fail('a provider response must not be reported as a transport failure');
+      }
+      assert.equal(result.value, null);
+    }
+  );
+});

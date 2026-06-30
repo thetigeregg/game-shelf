@@ -1,7 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import type { SharedProviderRateLimitPolicy } from './provider-rate-limit.js';
+import { RELEASE_MONITOR_INTERNAL_HEADER_NAME } from './request-security.js';
 
 export interface InboundRateLimitConfig {
   max: number;
@@ -77,6 +78,12 @@ export async function ensureRateLimitRegistered(app: FastifyInstance): Promise<v
   if (!app.hasDecorator('rateLimit')) {
     await app.register(rateLimit, {
       global: false,
+      // Exempt the release monitor's in-cluster self-calls from inbound limits:
+      // routing its HLTB/Metacritic/MobyGames refresh through the API would
+      // otherwise starve against tight buckets (e.g. mobygames_search at 12/min).
+      // Upstream scrapers stay protected by the separate outbound limiters.
+      allowList: (request: FastifyRequest) =>
+        request.headers[RELEASE_MONITOR_INTERNAL_HEADER_NAME] === '1',
       addHeaders: {
         'x-ratelimit-limit': true,
         'x-ratelimit-remaining': true,

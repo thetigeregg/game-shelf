@@ -672,7 +672,13 @@ export const config: AppConfig = {
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
   metacriticPeriodicRefreshYears: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_YEARS', 3),
   metacriticPeriodicRefreshDays: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_DAYS', 30),
-  releaseMonitorApiBaseUrl: readEnv('RECOMMENDATIONS_ENRICH_API_BASE_URL', 'http://api:3000'),
+  // Shared internal API base for in-cluster self-calls. Intentionally reuses the
+  // recommendations-enrichment variable (see readDiscoveryEnrichmentApiBaseUrl)
+  // so one env var configures every internal HTTP caller. The trailing `||` falls
+  // back to the default when the variable is set-but-empty, since readEnv returns
+  // '' (not the default) for an empty string and '' is not a valid URL base.
+  releaseMonitorApiBaseUrl:
+    readEnv('RECOMMENDATIONS_ENRICH_API_BASE_URL', 'http://api:3000') || 'http://api:3000',
   fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
   fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
   fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),

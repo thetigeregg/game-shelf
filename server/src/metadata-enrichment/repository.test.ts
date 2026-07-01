@@ -137,7 +137,7 @@ void test('repository sets isPeriodicRefresh false when any enrichment timestamp
   assert.equal(rows[0]?.isPeriodicRefresh, false);
 });
 
-void test('repository sets isPeriodicRefresh true when all four enrichment timestamps are set', async () => {
+void test('repository sets isPeriodicRefresh true when all enrichment and sync timestamps are set', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
       rows: [
@@ -150,6 +150,7 @@ void test('repository sets isPeriodicRefresh true when all four enrichment times
             mediaEnrichedAt: '2026-01-01T00:00:00.000Z',
             steamEnrichedAt: '2026-01-01T00:00:00.000Z',
             websitesEnrichedAt: '2026-01-01T00:00:00.000Z',
+            metadataSyncEnqueuedAt: '2026-01-01T00:00:00.000Z',
           },
         },
       ],
@@ -159,6 +160,30 @@ void test('repository sets isPeriodicRefresh true when all four enrichment times
 
   const rows = await repository.listRowsMissingMetadata({ limit: 10 });
   assert.equal(rows[0]?.isPeriodicRefresh, true);
+});
+
+void test('repository sets isPeriodicRefresh false when metadataSyncEnqueuedAt is blank', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '4',
+          platform_igdb_id: 6,
+          payload: {
+            title: 'Missing Sync Marker',
+            taxonomyEnrichedAt: '2026-01-01T00:00:00.000Z',
+            mediaEnrichedAt: '2026-01-01T00:00:00.000Z',
+            steamEnrichedAt: '2026-01-01T00:00:00.000Z',
+            websitesEnrichedAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, false);
 });
 
 void test('repository sets isPeriodicRefresh false when payload has no enrichment timestamps', async () => {

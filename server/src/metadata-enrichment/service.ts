@@ -164,6 +164,29 @@ function buildMetadataPatch(params: {
     nextValues['websites'] = params.metadata.websites;
     nextValues['steamAppId'] = params.metadata.steamAppId;
   }
+
+  if (params.row.isPeriodicRefresh) {
+    if (!params.metadata) {
+      return {};
+    }
+    const dataKeys = [
+      'themes',
+      'themeIds',
+      'keywords',
+      'keywordIds',
+      'screenshots',
+      'videos',
+      'websites',
+      'steamAppId',
+    ];
+    const anyDataChanged = dataKeys.some(
+      (key) => !isDeepStrictEqual(params.row.payload[key], nextValues[key])
+    );
+    if (!anyDataChanged) {
+      return {};
+    }
+  }
+
   nextValues['websitesEnrichedAt'] = params.completedAt;
   nextValues['taxonomyEnrichmentStatus'] = status;
   nextValues['taxonomyEnrichedAt'] = params.completedAt;

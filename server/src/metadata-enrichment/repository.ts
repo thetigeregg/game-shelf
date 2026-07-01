@@ -26,7 +26,8 @@ function isFullyEnriched(payload: Record<string, unknown>): boolean {
     nonBlank('taxonomyEnrichedAt') &&
     nonBlank('mediaEnrichedAt') &&
     nonBlank('steamEnrichedAt') &&
-    nonBlank('websitesEnrichedAt')
+    nonBlank('websitesEnrichedAt') &&
+    nonBlank('metadataSyncEnqueuedAt')
   );
 }
 

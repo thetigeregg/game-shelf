@@ -68,11 +68,17 @@ export class MetadataEnrichmentRepository {
             AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
             AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
             AND pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
-            AND LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
-            AND LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+            AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                  THEN LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
+                  ELSE FALSE END
+            AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                  THEN LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+                  ELSE FALSE END
             AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
             AND pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
-            AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+            AND CASE WHEN pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
+                  THEN (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+                  ELSE FALSE END
           THEN TRUE ELSE FALSE END AS is_periodic_refresh
         FROM games
         -- Intentionally excludes discovery rows: those are enriched by

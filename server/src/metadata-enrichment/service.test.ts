@@ -849,9 +849,18 @@ void test('periodic refresh row is idempotent when IGDB returns identical data',
 
   const summary = await service.runOnce();
   assert.ok(summary);
-  assert.equal(summary.updatedRows, 0);
-  assert.equal(summary.skippedRows, 1);
-  assert.equal(repository.updates.length, 0);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(summary.skippedRows, 0);
+  assert.equal(repository.updates.length, 1);
+  // Enrichment timestamps are bumped even when data is unchanged to prevent re-selection next run.
+  const patch = repository.updates[0]?.payloadPatch;
+  assert.ok(patch);
+  assert.equal(typeof patch['taxonomyEnrichedAt'], 'string');
+  assert.equal(typeof patch['mediaEnrichedAt'], 'string');
+  assert.equal(typeof patch['steamEnrichedAt'], 'string');
+  assert.equal(typeof patch['websitesEnrichedAt'], 'string');
+  assert.equal(patch['themes'], undefined);
+  assert.equal(patch['keywords'], undefined);
 });
 
 void test('periodic refresh and initial enrichment rows in same run deduplicate IGDB requests', async () => {

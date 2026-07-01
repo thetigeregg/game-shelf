@@ -100,6 +100,7 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
     sql.includes("COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''"),
     true
   );
+  assert.equal(sql.includes("payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'"), true);
   assert.equal(sql.includes("(payload ->> 'releaseDate')::date <= CURRENT_DATE"), true);
   assert.equal(
     sql.includes("(payload ->> 'releaseDate')::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')"),

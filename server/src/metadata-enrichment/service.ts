@@ -167,7 +167,13 @@ function buildMetadataPatch(params: {
 
   if (params.row.isPeriodicRefresh) {
     if (!params.metadata) {
-      return {};
+      // No IGDB data: bump enrichment timestamps to prevent re-selection next run.
+      return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichedAt: params.completedAt,
+        steamEnrichedAt: params.completedAt,
+        websitesEnrichedAt: params.completedAt,
+      });
     }
     const dataKeys = [
       'themes',
@@ -183,7 +189,13 @@ function buildMetadataPatch(params: {
       (key) => !isDeepStrictEqual(params.row.payload[key], nextValues[key])
     );
     if (!anyDataChanged) {
-      return {};
+      // Data unchanged: bump enrichment timestamps only to prevent re-selection next run.
+      return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichedAt: params.completedAt,
+        steamEnrichedAt: params.completedAt,
+        websitesEnrichedAt: params.completedAt,
+      });
     }
   }
 

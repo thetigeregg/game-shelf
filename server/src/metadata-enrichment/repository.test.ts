@@ -101,6 +101,10 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
     true
   );
   assert.equal(sql.includes("payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'"), true);
+  assert.equal(
+    sql.includes("pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')"),
+    true
+  );
   assert.equal(sql.includes("LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE"), true);
   assert.equal(
     sql.includes(
@@ -109,6 +113,10 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
     true
   );
   assert.equal(sql.includes("payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'"), true);
+  assert.equal(
+    sql.includes("pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')"),
+    true
+  );
   assert.equal(
     sql.includes(
       "(payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')"
@@ -178,9 +186,17 @@ void test('repository SQL emits is_periodic_refresh CASE expression matching Arm
   const caseExpr = sql.slice(caseStart, caseEnd);
   assert.equal(caseExpr.includes('$2 > 0 AND $3 > 0'), true);
   assert.equal(
+    caseExpr.includes("pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')"),
+    true
+  );
+  assert.equal(
     caseExpr.includes(
       "LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')"
     ),
+    true
+  );
+  assert.equal(
+    caseExpr.includes("pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')"),
     true
   );
   assert.equal(

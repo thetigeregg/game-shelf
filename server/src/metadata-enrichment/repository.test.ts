@@ -115,6 +115,12 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
     ),
     true
   );
+  // Arm 2 must not gate on metadataSyncEnqueuedAt — older rows without the sync
+  // marker backfilled should still qualify for periodic refresh.
+  const arm2Start = sql.indexOf('$2 > 0 AND $3 > 0');
+  const arm2End = sql.indexOf('ORDER BY', arm2Start);
+  const arm2 = sql.slice(arm2Start, arm2End);
+  assert.equal(arm2.includes('metadataSyncEnqueuedAt'), false);
 });
 
 void test('repository sets isPeriodicRefresh false when any enrichment timestamp is blank', async () => {
@@ -141,7 +147,7 @@ void test('repository sets isPeriodicRefresh false when any enrichment timestamp
   assert.equal(rows[0]?.isPeriodicRefresh, false);
 });
 
-void test('repository sets isPeriodicRefresh true when all enrichment and sync timestamps are set', async () => {
+void test('repository sets isPeriodicRefresh true when all four enrichment timestamps are set', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
       rows: [
@@ -154,7 +160,6 @@ void test('repository sets isPeriodicRefresh true when all enrichment and sync t
             mediaEnrichedAt: '2026-01-01T00:00:00.000Z',
             steamEnrichedAt: '2026-01-01T00:00:00.000Z',
             websitesEnrichedAt: '2026-01-01T00:00:00.000Z',
-            metadataSyncEnqueuedAt: '2026-01-01T00:00:00.000Z',
           },
         },
       ],
@@ -166,7 +171,7 @@ void test('repository sets isPeriodicRefresh true when all enrichment and sync t
   assert.equal(rows[0]?.isPeriodicRefresh, true);
 });
 
-void test('repository sets isPeriodicRefresh false when metadataSyncEnqueuedAt is blank', async () => {
+void test('repository sets isPeriodicRefresh true even when metadataSyncEnqueuedAt is blank', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
       rows: [
@@ -187,7 +192,7 @@ void test('repository sets isPeriodicRefresh false when metadataSyncEnqueuedAt i
   const repository = new MetadataEnrichmentRepository(pool as never);
 
   const rows = await repository.listRowsMissingMetadata({ limit: 10 });
-  assert.equal(rows[0]?.isPeriodicRefresh, false);
+  assert.equal(rows[0]?.isPeriodicRefresh, true);
 });
 
 void test('repository sets isPeriodicRefresh false when payload has no enrichment timestamps', async () => {

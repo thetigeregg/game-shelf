@@ -17,9 +17,9 @@ interface MissingRow extends QueryResultRow {
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
 
-// Returns true when all four enrichment timestamps and the sync marker are non-blank.
+// Returns true when all four enrichment timestamps are non-blank.
 // Arm 2 (SQL) additionally requires a valid releaseDate within the refresh window
-// and a stale taxonomyEnrichedAt; this helper only checks the enrichment/sync markers.
+// and a stale taxonomyEnrichedAt; this helper only checks the enrichment timestamps.
 function isReadyForPeriodicRefresh(payload: Record<string, unknown>): boolean {
   const nonBlank = (key: string) => {
     const v = payload[key];
@@ -29,8 +29,7 @@ function isReadyForPeriodicRefresh(payload: Record<string, unknown>): boolean {
     nonBlank('taxonomyEnrichedAt') &&
     nonBlank('mediaEnrichedAt') &&
     nonBlank('steamEnrichedAt') &&
-    nonBlank('websitesEnrichedAt') &&
-    nonBlank('metadataSyncEnqueuedAt')
+    nonBlank('websitesEnrichedAt')
   );
 }
 
@@ -101,7 +100,6 @@ export class MetadataEnrichmentRepository {
             AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
             AND COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') <> ''
             AND COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') <> ''
-            AND COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') <> ''
             AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
             AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
             AND LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE

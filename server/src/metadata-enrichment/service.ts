@@ -193,10 +193,13 @@ function buildMetadataPatch(params: {
       (key) => !isDeepStrictEqual(params.row.payload[key], nextValues[key])
     );
     if (!anyDataChanged) {
-      // Data unchanged: bump enrichment timestamps only to prevent re-selection next run.
+      // Data unchanged: bump enrichment timestamps and correct any stale status fields.
       return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichmentStatus: 'success',
         taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichmentStatus: 'success',
         mediaEnrichedAt: params.completedAt,
+        steamEnrichmentStatus: 'success',
         steamEnrichedAt: params.completedAt,
         websitesEnrichedAt: params.completedAt,
       });

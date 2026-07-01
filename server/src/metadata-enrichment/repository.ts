@@ -17,7 +17,9 @@ interface MissingRow extends QueryResultRow {
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
 
-function isFullyEnriched(payload: Record<string, unknown>): boolean {
+// Returns true when all four enrichment timestamps and the sync marker are
+// non-blank — the full set that Arm 2 (periodic re-enrichment) requires.
+function isReadyForPeriodicRefresh(payload: Record<string, unknown>): boolean {
   const nonBlank = (key: string) => {
     const v = payload[key];
     return typeof v === 'string' && v.trim().length > 0;
@@ -122,7 +124,7 @@ export class MetadataEnrichmentRepository {
         igdbGameId: row.igdb_game_id,
         platformIgdbId: row.platform_igdb_id,
         payload,
-        isPeriodicRefresh: isFullyEnriched(payload),
+        isPeriodicRefresh: isReadyForPeriodicRefresh(payload),
       };
     });
   }

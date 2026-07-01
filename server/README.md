@@ -133,6 +133,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
 - `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
+- `ADMIN_FORCED_REFRESH_MAX_GAMES` (default `10000`) caps rows scanned per data type by `POST /v1/admin/refresh-data`
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
@@ -262,6 +263,8 @@ Inbound policies:
 - `RATE_LIMIT_INBOUND_ADMIN_DETAIL_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_ADMIN_MUTATION_MAX_REQUESTS`
 - `RATE_LIMIT_INBOUND_ADMIN_MUTATION_WINDOW_MS`
+- `RATE_LIMIT_INBOUND_ADMIN_REFRESH_DATA_MAX_REQUESTS`
+- `RATE_LIMIT_INBOUND_ADMIN_REFRESH_DATA_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_BACKGROUND_JOBS_STATS_MAX_REQUESTS`
 - `RATE_LIMIT_INBOUND_BACKGROUND_JOBS_STATS_WINDOW_MS`
 - `RATE_LIMIT_INBOUND_BACKGROUND_JOBS_FAILED_LIST_MAX_REQUESTS`

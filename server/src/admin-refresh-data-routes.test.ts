@@ -69,7 +69,15 @@ class PoolMock {
     }
 
     if (normalized.startsWith('with latest_run as')) {
-      return Promise.resolve({ rows: [], rowCount: 0 });
+      const rows = [...this.rows.values()]
+        .filter((row) => row.payload['listType'] === 'discovery')
+        .sort((a, b) => a.igdbGameId.localeCompare(b.igdbGameId))
+        .map((row) => ({
+          igdb_game_id: row.igdbGameId,
+          platform_igdb_id: row.platformIgdbId,
+          payload: structuredClone(row.payload),
+        }));
+      return Promise.resolve({ rows, rowCount: rows.length });
     }
 
     if (normalized.startsWith('insert into background_jobs')) {
@@ -327,6 +335,65 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
       );
       assert.equal(steamJobs.length, 1);
       assert.equal(pspricesJobs.length, 1);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+void test('admin refresh-data route also enqueues pricing jobs for discovery rows and combines totals with wishlist', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+    pool.seed({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: { listType: 'wishlist', title: 'Wishlist Steam Game', steamAppId: 111 },
+    });
+    pool.seed({
+      igdbGameId: '2',
+      platformIgdbId: 6,
+      payload: { listType: 'discovery', title: 'Discovery Steam Game', steamAppId: 222 },
+    });
+    pool.seed({
+      igdbGameId: '3',
+      platformIgdbId: 48,
+      payload: { listType: 'discovery', title: 'Discovery PSPrices Game' },
+    });
+    pool.seed({
+      igdbGameId: '4',
+      platformIgdbId: 9999,
+      payload: { listType: 'discovery', title: 'Discovery Unsupported Platform' },
+    });
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'] },
+      });
+
+      assert.equal(response.statusCode, 200);
+      const body = JSON.parse(response.body) as {
+        results: { pricing: { scanned: number; enqueued: number; deduped: number } };
+      };
+      assert.equal(body.results.pricing.scanned, 4);
+      assert.equal(body.results.pricing.enqueued, 3);
+
+      const discoverySteamJobs = pool.enqueuedJobs.filter(
+        (job) =>
+          job.jobType === 'steam_price_revalidate' && (job.dedupeKey ?? '').includes(':discovery:')
+      );
+      const discoveryPspricesJobs = pool.enqueuedJobs.filter(
+        (job) =>
+          job.jobType === 'psprices_price_revalidate' &&
+          (job.dedupeKey ?? '').includes(':discovery:')
+      );
+      assert.equal(discoverySteamJobs.length, 1);
+      assert.equal(discoveryPspricesJobs.length, 1);
     } finally {
       await app.close();
     }

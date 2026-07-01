@@ -4073,3 +4073,9 @@
 - 24821f3b fix(api): prevent periodic refresh re-selection on no-data and unchanged rows
 - f76aff7e fix(api): resolve periodic refresh correctness issues
 - dc85ea18 feat(api): add periodic re-enrichment of IGDB metadata for recently released games
+
+## v1.69.1 - 2026-07-01
+
+- f7506d19 Merge pull request #490 from thetigeregg/feat/probo
+- 1a797d61 fix(api): dispatch release-monitor HLTB/review refresh over real HTTP
+- cac0f53b fix(api): dispatch release-monitor HLTB/review refresh over real HTTP

@@ -167,12 +167,16 @@ function buildMetadataPatch(params: {
 
   if (params.row.isPeriodicRefresh) {
     if (!params.metadata) {
-      // No IGDB data: bump enrichment timestamps to prevent re-selection next run.
+      // No IGDB data: bump enrichment timestamps and record no_data status so stored state is consistent.
       return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichmentStatus: 'no_data',
         taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichmentStatus: 'no_data',
         mediaEnrichedAt: params.completedAt,
+        steamEnrichmentStatus: 'no_data',
         steamEnrichedAt: params.completedAt,
         websitesEnrichedAt: params.completedAt,
+        metadataSyncEnqueuedAt: params.completedAt,
       });
     }
     const dataKeys = [

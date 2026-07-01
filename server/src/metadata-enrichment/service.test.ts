@@ -934,3 +934,58 @@ void test('periodic refresh and initial enrichment rows in same run deduplicate 
   assert.deepEqual(repository.updates[0]?.payloadPatch['themes'], ['Strategy']);
   assert.deepEqual(repository.updates[1]?.payloadPatch['themes'], ['Strategy']);
 });
+
+void test('periodic refresh row with no IGDB record bumps timestamps and records no_data status', async () => {
+  const oldTimestamp = '2025-12-01T00:00:00.000Z';
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5003',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Removed Game',
+        listType: 'collection',
+        releaseDate: '2026-02-01',
+        taxonomyEnrichedAt: oldTimestamp,
+        mediaEnrichedAt: oldTimestamp,
+        steamEnrichedAt: oldTimestamp,
+        websitesEnrichedAt: oldTimestamp,
+        metadataSyncEnqueuedAt: oldTimestamp,
+        themes: ['Action'],
+        keywords: [],
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+      isPeriodicRefresh: true,
+    },
+  ];
+  // IGDB fetch succeeds but returns no record for this game ID.
+  const igdbClient = new IgdbClientMock(new Map());
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(summary.skippedRows, 0);
+  assert.equal(repository.updates.length, 1);
+
+  const patch = repository.updates[0]?.payloadPatch;
+  assert.ok(patch);
+  assert.equal(patch['taxonomyEnrichmentStatus'], 'no_data');
+  assert.equal(patch['mediaEnrichmentStatus'], 'no_data');
+  assert.equal(patch['steamEnrichmentStatus'], 'no_data');
+  assert.equal(typeof patch['taxonomyEnrichedAt'], 'string');
+  assert.notEqual(patch['taxonomyEnrichedAt'], oldTimestamp);
+  assert.equal(typeof patch['metadataSyncEnqueuedAt'], 'string');
+  assert.notEqual(patch['metadataSyncEnqueuedAt'], oldTimestamp);
+});

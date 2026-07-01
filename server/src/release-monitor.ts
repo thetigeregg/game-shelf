@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
+import { buildLocalApiUrl, fetchLocalApiJson, type FetchJsonResult } from './local-api-client.js';
 import { clampTextWithEllipsis, MAX_NOTIFICATION_BODY } from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
@@ -29,10 +30,7 @@ const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US
 });
 
 type ReleaseEventType =
-  | 'release_date_set'
-  | 'release_date_changed'
-  | 'release_date_removed'
-  | 'release_day';
+  'release_date_set' | 'release_date_changed' | 'release_date_removed' | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
 export type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
@@ -99,8 +97,10 @@ interface MonitorRunStats {
   igdbRefreshSuccesses: number;
   hltbRefreshAttempts: number;
   hltbRefreshSuccesses: number;
+  hltbRefreshTransportFailures: number;
   reviewRefreshAttempts: number;
   reviewRefreshSuccesses: number;
+  reviewRefreshTransportFailures: number;
   eventsConsidered: number;
   eventsDisabled: number;
   eventsReleaseDayAlreadyNotified: number;
@@ -476,18 +476,23 @@ async function processGameRow(
         platform: hltbRefreshQuery.platform,
       });
 
-      if (refreshedHltb) {
-        stats.hltbRefreshSuccesses += 1;
-        mergedPayload = {
-          ...mergedPayload,
-          hltbMainHours: finiteNumberOrNull(refreshedHltb.hltbMainHours),
-          hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.hltbMainExtraHours),
-          hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.hltbCompletionistHours),
-        };
+      if (refreshedHltb.ok) {
+        if (refreshedHltb.value) {
+          stats.hltbRefreshSuccesses += 1;
+          mergedPayload = {
+            ...mergedPayload,
+            hltbMainHours: finiteNumberOrNull(refreshedHltb.value.hltbMainHours),
+            hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.value.hltbMainExtraHours),
+            hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.value.hltbCompletionistHours),
+          };
+        }
+        // Advance cadence on a definitive response (match or clean no-match), not
+        // just an attempt, so a transport failure keeps retrying instead of going
+        // quiet for a full cadence period while a title with no match is skipped.
+        lastHltbRefreshAt = nowIso;
+      } else {
+        stats.hltbRefreshTransportFailures += 1;
       }
-      // Advance cadence on attempt (not just success) to avoid repeatedly
-      // hammering the scraper for titles that currently return no match.
-      lastHltbRefreshAt = nowIso;
     }
 
     if (reviewDue) {
@@ -500,13 +505,18 @@ async function processGameRow(
       );
       const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
 
-      if (refreshedReview) {
-        stats.reviewRefreshSuccesses += 1;
-        mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview);
+      if (refreshedReview.ok) {
+        if (refreshedReview.value) {
+          stats.reviewRefreshSuccesses += 1;
+          mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview.value);
+        }
+        // Advance cadence on a definitive response (match or clean no-match), not
+        // just an attempt, so a transport failure keeps retrying instead of going
+        // quiet for a full cadence period while a title with no match is skipped.
+        lastMetacriticRefreshAt = nowIso;
+      } else {
+        stats.reviewRefreshTransportFailures += 1;
       }
-      // Advance cadence on attempt (not just success) to avoid repeatedly
-      // hammering the scraper for titles that currently return no match.
-      lastMetacriticRefreshAt = nowIso;
     }
 
     const payloadPatch = buildPayloadPatch(originalPayload, mergedPayload);
@@ -786,22 +796,25 @@ async function fetchHltbPayload(params: {
   title: string;
   releaseYear: number | null;
   platform: string | null;
-}): Promise<HltbApiResponse['item'] | null> {
+}): Promise<FetchJsonResult<HltbApiResponse['item']>> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/hltb/search', {
+  const url = buildLocalApiUrl(config.recommendationsEnrichApiBaseUrl, '/v1/hltb/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
   });
-  if (!response.ok) {
-    return null;
+  const result = await fetchLocalApiJson<HltbApiResponse>(
+    url,
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+  );
+  if (!result.ok) {
+    return { ok: false, value: null };
   }
 
-  const payload = (await response.json()) as HltbApiResponse;
-  return payload.item ?? null;
+  return { ok: true, value: result.value?.item ?? null };
 }
 
 async function fetchMetacriticPayload(params: {
@@ -809,23 +822,26 @@ async function fetchMetacriticPayload(params: {
   releaseYear: number | null;
   platform: string | null;
   platformIgdbId: number;
-}): Promise<MetacriticApiResponse['item'] | null> {
+}): Promise<FetchJsonResult<MetacriticApiResponse['item']>> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/metacritic/search', {
+  const url = buildLocalApiUrl(config.recommendationsEnrichApiBaseUrl, '/v1/metacritic/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
     platformIgdbId: params.platformIgdbId,
   });
-  if (!response.ok) {
-    return null;
+  const result = await fetchLocalApiJson<MetacriticApiResponse>(
+    url,
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+  );
+  if (!result.ok) {
+    return { ok: false, value: null };
   }
 
-  const payload = (await response.json()) as MetacriticApiResponse;
-  return payload.item ?? null;
+  return { ok: true, value: result.value?.item ?? null };
 }
 
 async function fetchReviewPayload(params: {
@@ -834,22 +850,28 @@ async function fetchReviewPayload(params: {
   platform: string | null;
   platformIgdbId: number;
   reviewMatchMobygamesGameId: number | null;
-}): Promise<RefreshedReviewPayload | null> {
+}): Promise<FetchJsonResult<RefreshedReviewPayload>> {
   if (params.reviewMatchMobygamesGameId !== null) {
     const mobygames = await fetchMobygamesPayload({
       title: params.title,
       reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId,
     });
-    if (!mobygames) {
-      return null;
+    if (!mobygames.ok) {
+      return { ok: false, value: null };
+    }
+    if (!mobygames.value) {
+      return { ok: true, value: null };
     }
 
     return {
-      source: 'mobygames',
-      mobygamesGameId: mobygames.mobygamesGameId,
-      mobyScore: mobygames.mobyScore,
-      reviewScore: mobygames.reviewScore,
-      reviewUrl: mobygames.reviewUrl,
+      ok: true,
+      value: {
+        source: 'mobygames',
+        mobygamesGameId: mobygames.value.mobygamesGameId,
+        mobyScore: mobygames.value.mobyScore,
+        reviewScore: mobygames.value.reviewScore,
+        reviewUrl: mobygames.value.reviewUrl,
+      },
     };
   }
 
@@ -859,45 +881,56 @@ async function fetchReviewPayload(params: {
     platform: params.platform,
     platformIgdbId: params.platformIgdbId,
   });
-  if (!metacritic) {
-    return null;
+  if (!metacritic.ok) {
+    return { ok: false, value: null };
+  }
+  if (!metacritic.value) {
+    return { ok: true, value: null };
   }
 
   return {
-    source: 'metacritic',
-    metacriticScore: finiteNumberOrNull(metacritic.metacriticScore),
-    metacriticUrl: stringOrNull(metacritic.metacriticUrl),
+    ok: true,
+    value: {
+      source: 'metacritic',
+      metacriticScore: finiteNumberOrNull(metacritic.value.metacriticScore),
+      metacriticUrl: stringOrNull(metacritic.value.metacriticUrl),
+    },
   };
 }
 
 async function fetchMobygamesPayload(params: {
   title: string;
   reviewMatchMobygamesGameId: number;
-}): Promise<{
-  mobygamesGameId: number | null;
-  mobyScore: number | null;
-  reviewScore: number | null;
-  reviewUrl: string | null;
-} | null> {
+}): Promise<
+  FetchJsonResult<{
+    mobygamesGameId: number | null;
+    mobyScore: number | null;
+    reviewScore: number | null;
+    reviewUrl: string | null;
+  }>
+> {
   if (params.title.trim().length < 2) {
-    return null;
+    return { ok: true, value: null };
   }
 
-  const response = await fetchMetadataPathFromWorker('/v1/mobygames/search', {
+  const url = buildLocalApiUrl(config.recommendationsEnrichApiBaseUrl, '/v1/mobygames/search', {
     q: params.title,
     id: params.reviewMatchMobygamesGameId,
     limit: 5,
     format: 'normal',
     include: 'game_id,moby_url,moby_score,critic_score',
   });
-  if (!response.ok) {
-    return null;
+  const result = await fetchLocalApiJson<MobyGamesApiResponse>(
+    url,
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+  );
+  if (!result.ok) {
+    return { ok: false, value: null };
   }
 
-  const payload = (await response.json()) as MobyGamesApiResponse;
-  const games = Array.isArray(payload.games) ? payload.games : [];
+  const games = Array.isArray(result.value?.games) ? result.value.games : [];
   if (games.length === 0) {
-    return null;
+    return { ok: true, value: null };
   }
   const matched = games.find(
     (entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId
@@ -905,7 +938,7 @@ async function fetchMobygamesPayload(params: {
   if (!matched) {
     // Explicit override id was not returned by provider; treat this as no match
     // to avoid persisting data from an unrelated fallback result.
-    return null;
+    return { ok: true, value: null };
   }
 
   const criticScore = normalizeReviewScore(finiteNumberFromNumberOrString(matched.critic_score));
@@ -917,10 +950,13 @@ async function fetchMobygamesPayload(params: {
     );
 
   return {
-    mobygamesGameId: integerOrNull(matched.game_id),
-    mobyScore,
-    reviewScore,
-    reviewUrl: stringOrNull(matched.moby_url),
+    ok: true,
+    value: {
+      mobygamesGameId: integerOrNull(matched.game_id),
+      mobyScore,
+      reviewScore,
+      reviewUrl: stringOrNull(matched.moby_url),
+    },
   };
 }
 
@@ -2143,8 +2179,10 @@ function createMonitorRunStats(): MonitorRunStats {
     igdbRefreshSuccesses: 0,
     hltbRefreshAttempts: 0,
     hltbRefreshSuccesses: 0,
+    hltbRefreshTransportFailures: 0,
     reviewRefreshAttempts: 0,
     reviewRefreshSuccesses: 0,
+    reviewRefreshTransportFailures: 0,
     eventsConsidered: 0,
     eventsDisabled: 0,
     eventsReleaseDayAlreadyNotified: 0,

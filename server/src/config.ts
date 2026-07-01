@@ -129,6 +129,7 @@ export interface AppConfig {
   metacriticSearchRateLimitMaxPerMinute: number;
   mobygamesApiBaseUrl: string;
   mobygamesApiKey: string;
+  recommendationsEnrichApiBaseUrl: string;
   steamStoreApiBaseUrl: string;
   steamStoreApiTimeoutMs: number;
   steamDefaultCountry: string;
@@ -617,6 +618,10 @@ export const config: AppConfig = {
   metacriticSearchRateLimitMaxPerMinute: rateLimitConfig.inbound.metacritic_search.max,
   mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
+  recommendationsEnrichApiBaseUrl: readEnv(
+    'RECOMMENDATIONS_ENRICH_API_BASE_URL',
+    'http://api:3000'
+  ),
   steamStoreApiBaseUrl: readEnv('STEAM_STORE_API_BASE_URL', 'https://store.steampowered.com'),
   steamStoreApiTimeoutMs: readIntegerEnv('STEAM_STORE_API_TIMEOUT_MS', 10_000),
   steamDefaultCountry: normalizeCountryCode(readEnv('STEAM_DEFAULT_COUNTRY', 'CH')) ?? 'CH',

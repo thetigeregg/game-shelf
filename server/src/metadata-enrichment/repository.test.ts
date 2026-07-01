@@ -125,12 +125,12 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
   );
   // Arm 2 (WHERE clause) must not gate on metadataSyncEnqueuedAt — older rows without the sync
   // marker backfilled should still qualify for periodic refresh.
-  // Find the second occurrence of '$2 > 0 AND $3 > 0' which is inside the WHERE Arm 2.
-  const firstOccurrence = sql.indexOf('$2 > 0 AND $3 > 0');
-  const arm2Start = sql.indexOf('$2 > 0 AND $3 > 0', firstOccurrence + 1);
-  const arm2End = sql.indexOf('ORDER BY', arm2Start);
-  const arm2 = sql.slice(arm2Start, arm2End);
-  assert.equal(arm2.includes('metadataSyncEnqueuedAt'), false);
+  // With the CTE refactor, Arm 2 is simply `OR is_periodic_refresh` with no extra predicates.
+  const arm2Match = sql.match(/OR is_periodic_refresh\s*\n/);
+  assert.ok(arm2Match, 'WHERE must include plain `OR is_periodic_refresh` as Arm 2');
+  // The CTE predicate itself (computed once) must not depend on metadataSyncEnqueuedAt.
+  const cteBody = sql.slice(sql.indexOf('WITH candidates'), sql.indexOf('FROM candidates'));
+  assert.equal(cteBody.includes('metadataSyncEnqueuedAt'), false);
 });
 
 void test('repository maps is_periodic_refresh false from SQL column', async () => {

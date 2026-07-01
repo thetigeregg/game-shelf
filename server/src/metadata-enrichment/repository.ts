@@ -57,44 +57,9 @@ export class MetadataEnrichmentRepository {
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
     const result = await queryable.query<MissingRow>(
       `
-      SELECT igdb_game_id, platform_igdb_id, payload,
-        CASE WHEN
-          $2 > 0 AND $3 > 0
-          AND COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''
-          AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
-          AND COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') <> ''
-          AND COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') <> ''
-          AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
-          AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
-          AND pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
-          AND LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
-          AND LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
-          AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
-          AND pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
-          AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
-        THEN TRUE ELSE FALSE END AS is_periodic_refresh
-      FROM games
-      WHERE
-        -- Intentionally excludes discovery rows: those are enriched by
-        -- recommendations/discovery-enrichment-service.ts.
-        COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
-        AND (
-          -- Arm 1: initial enrichment (any timestamp still blank)
-          (
-            COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
-            OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
-            OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
-            OR (
-              COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
-              AND (
-                NOT (payload ? 'websites')
-                OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
-              )
-            )
-            OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
-          )
-          -- Arm 2: periodic re-enrichment for recently released games
-          OR (
+      WITH candidates AS (
+        SELECT igdb_game_id, platform_igdb_id, payload,
+          CASE WHEN
             $2 > 0 AND $3 > 0
             AND COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''
             AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
@@ -108,8 +73,31 @@ export class MetadataEnrichmentRepository {
             AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
             AND pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
             AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+          THEN TRUE ELSE FALSE END AS is_periodic_refresh
+        FROM games
+        -- Intentionally excludes discovery rows: those are enriched by
+        -- recommendations/discovery-enrichment-service.ts.
+        WHERE COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
+      )
+      SELECT igdb_game_id, platform_igdb_id, payload, is_periodic_refresh
+      FROM candidates
+      WHERE
+        -- Arm 1: initial enrichment (any timestamp still blank)
+        (
+          COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
+          OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
+          OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
+          OR (
+            COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
+            AND (
+              NOT (payload ? 'websites')
+              OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+            )
           )
+          OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
         )
+        -- Arm 2: periodic re-enrichment for recently released games
+        OR is_periodic_refresh
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC
       LIMIT $1
       `,

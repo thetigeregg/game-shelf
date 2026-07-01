@@ -202,6 +202,7 @@ function buildMetadataPatch(params: {
         steamEnrichmentStatus: 'success',
         steamEnrichedAt: params.completedAt,
         websitesEnrichedAt: params.completedAt,
+        metadataSyncEnqueuedAt: params.completedAt,
       });
     }
   }

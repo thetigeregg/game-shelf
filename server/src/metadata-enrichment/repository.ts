@@ -12,26 +12,11 @@ interface MissingRow extends QueryResultRow {
   igdb_game_id: string;
   platform_igdb_id: number;
   payload: unknown;
+  is_periodic_refresh: boolean;
 }
 
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
-
-// Returns true when all four enrichment timestamps are non-blank.
-// Arm 2 (SQL) additionally requires a valid releaseDate within the refresh window
-// and a stale taxonomyEnrichedAt; this helper only checks the enrichment timestamps.
-function isReadyForPeriodicRefresh(payload: Record<string, unknown>): boolean {
-  const nonBlank = (key: string) => {
-    const v = payload[key];
-    return typeof v === 'string' && v.trim().length > 0;
-  };
-  return (
-    nonBlank('taxonomyEnrichedAt') &&
-    nonBlank('mediaEnrichedAt') &&
-    nonBlank('steamEnrichedAt') &&
-    nonBlank('websitesEnrichedAt')
-  );
-}
 
 export class MetadataEnrichmentRepository {
   constructor(private readonly pool: Pool) {}
@@ -72,7 +57,20 @@ export class MetadataEnrichmentRepository {
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
     const result = await queryable.query<MissingRow>(
       `
-      SELECT igdb_game_id, platform_igdb_id, payload
+      SELECT igdb_game_id, platform_igdb_id, payload,
+        CASE WHEN
+          $2 > 0 AND $3 > 0
+          AND COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''
+          AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
+          AND COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') <> ''
+          AND COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') <> ''
+          AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
+          AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
+          AND LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
+          AND LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+          AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
+          AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+        THEN TRUE ELSE FALSE END AS is_periodic_refresh
       FROM games
       WHERE
         -- Intentionally excludes discovery rows: those are enriched by
@@ -123,7 +121,7 @@ export class MetadataEnrichmentRepository {
         igdbGameId: row.igdb_game_id,
         platformIgdbId: row.platform_igdb_id,
         payload,
-        isPeriodicRefresh: isReadyForPeriodicRefresh(payload),
+        isPeriodicRefresh: row.is_periodic_refresh,
       };
     });
   }

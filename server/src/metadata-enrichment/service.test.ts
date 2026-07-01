@@ -852,13 +852,14 @@ void test('periodic refresh row is idempotent when IGDB returns identical data',
   assert.equal(summary.updatedRows, 1);
   assert.equal(summary.skippedRows, 0);
   assert.equal(repository.updates.length, 1);
-  // Enrichment timestamps and statuses are set even when data is unchanged.
+  // Enrichment timestamps, statuses, and sync marker are set even when data is unchanged.
   const patch = repository.updates[0]?.payloadPatch;
   assert.ok(patch);
   assert.equal(typeof patch['taxonomyEnrichedAt'], 'string');
   assert.equal(typeof patch['mediaEnrichedAt'], 'string');
   assert.equal(typeof patch['steamEnrichedAt'], 'string');
   assert.equal(typeof patch['websitesEnrichedAt'], 'string');
+  assert.equal(typeof patch['metadataSyncEnqueuedAt'], 'string');
   assert.equal(patch['taxonomyEnrichmentStatus'], 'success');
   assert.equal(patch['mediaEnrichmentStatus'], 'success');
   assert.equal(patch['steamEnrichmentStatus'], 'success');

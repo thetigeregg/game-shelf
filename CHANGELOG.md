@@ -4054,3 +4054,22 @@
 - b0a5e948 fix: update playwright
 - 84fcf409 fix: update deps
 - 4708bf22 fix: update audit
+
+## v1.69.0 - 2026-07-01
+
+- 8981d6c0 Merge pull request #489 from thetigeregg/feat/fixagain2
+- 9ae30db9 perf(api): remove redundant pg_input_is_valid outer guards in periodic refresh CTE
+- d20ae80e test(api): use ISO timestamps for releaseDate in periodic refresh tests
+- 344a15c5 fix(api): wrap date/timestamptz casts in nested CASE to guarantee guard ordering
+- 82bf19e3 refactor(api): factor Arm 2 predicate into CTE to eliminate duplication
+- 26361c24 fix(api): guard JSON date casts with pg_input_is_valid before casting
+- cc212af9 fix(api): derive isPeriodicRefresh from SQL CASE and backfill sync marker on unchanged data
+- cae9c31a fix(api): remove metadataSyncEnqueuedAt gate from periodic refresh eligibility
+- 1f813ee7 fix(api): correct misleading comment and impossible test fixture for periodic refresh
+- ce0d4d0e refactor(api): rename isFullyEnriched to isReadyForPeriodicRefresh
+- fca99825 fix(api): correct stale enrichment status on unchanged periodic refresh
+- 3c428ec5 fix(api): guard taxonomyEnrichedAt format before timestamptz cast in re-enrichment query
+- f27f461c fix(api): address periodic re-enrichment correctness issues from review
+- 24821f3b fix(api): prevent periodic refresh re-selection on no-data and unchanged rows
+- f76aff7e fix(api): resolve periodic refresh correctness issues
+- dc85ea18 feat(api): add periodic re-enrichment of IGDB metadata for recently released games

@@ -23,8 +23,13 @@ class RepositoryMock {
     return { acquired: true, value };
   }
 
-  listRowsMissingMetadata(limit: number): Promise<MetadataEnrichmentGameRow[]> {
-    return Promise.resolve(this.rows.slice(0, limit));
+  listRowsMissingMetadata(params: {
+    limit: number;
+    refreshMonths?: number;
+    refreshDays?: number;
+    queryable?: object;
+  }): Promise<MetadataEnrichmentGameRow[]> {
+    return Promise.resolve(this.rows.slice(0, params.limit));
   }
 
   updateGamePayload(params: {
@@ -74,6 +79,8 @@ void test('metadata enrichment start skips scheduling when disabled', () => {
       batchSize: 200,
       maxGamesPerRun: 5000,
       startupDelayMs: 25,
+      refreshMonths: 0,
+      refreshDays: 0,
     }
   );
 
@@ -102,6 +109,8 @@ void test('metadata enrichment start schedules immediate run and logs startup fa
       batchSize: 200,
       maxGamesPerRun: 5000,
       startupDelayMs: -10,
+      refreshMonths: 0,
+      refreshDays: 0,
     }
   );
 
@@ -143,8 +152,18 @@ void test('metadata enrichment start schedules immediate run and logs startup fa
 void test('metadata enrichment updates all platform rows for same game id', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
-    { igdbGameId: '1520', platformIgdbId: 6, payload: { title: 'Mario' } },
-    { igdbGameId: '1520', platformIgdbId: 48, payload: { title: 'Mario' } },
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: { title: 'Mario' },
+      isPeriodicRefresh: false,
+    },
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 48,
+      payload: { title: 'Mario' },
+      isPeriodicRefresh: false,
+    },
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
@@ -178,6 +197,8 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -217,6 +238,8 @@ void test('metadata enrichment skips when advisory lock is not acquired', async 
       batchSize: 200,
       maxGamesPerRun: 5000,
       startupDelayMs: 0,
+      refreshMonths: 0,
+      refreshDays: 0,
     }
   );
 
@@ -239,6 +262,7 @@ void test('metadata enrichment backfills storefront links for collection rows wi
         steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z',
       },
+      isPeriodicRefresh: false,
     },
   ];
   const igdbClient = new IgdbClientMock(
@@ -264,6 +288,8 @@ void test('metadata enrichment backfills storefront links for collection rows wi
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -276,8 +302,8 @@ void test('metadata enrichment backfills storefront links for collection rows wi
 void test('metadata enrichment tolerates failed batches and still updates successful batches', async () => {
   const repository = new RepositoryMock();
   repository.rows = [
-    { igdbGameId: '1', platformIgdbId: 6, payload: { title: 'One' } },
-    { igdbGameId: '2', platformIgdbId: 6, payload: { title: 'Two' } },
+    { igdbGameId: '1', platformIgdbId: 6, payload: { title: 'One' }, isPeriodicRefresh: false },
+    { igdbGameId: '2', platformIgdbId: 6, payload: { title: 'Two' }, isPeriodicRefresh: false },
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
@@ -315,6 +341,8 @@ void test('metadata enrichment tolerates failed batches and still updates succes
     batchSize: 1,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -333,7 +361,9 @@ void test('metadata enrichment tolerates failed batches and still updates succes
 
 void test('metadata enrichment is idempotent on rerun', async () => {
   const repository = new RepositoryMock();
-  repository.rows = [{ igdbGameId: '10', platformIgdbId: 6, payload: { title: 'Game' } }];
+  repository.rows = [
+    { igdbGameId: '10', platformIgdbId: 6, payload: { title: 'Game' }, isPeriodicRefresh: false },
+  ];
   const igdbClient = new IgdbClientMock(
     new Map([
       [
@@ -357,6 +387,8 @@ void test('metadata enrichment is idempotent on rerun', async () => {
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const first = await service.runOnce();
@@ -370,7 +402,14 @@ void test('metadata enrichment is idempotent on rerun', async () => {
 
 void test('metadata enrichment marks no_data when IGDB returns no row for a fetched id', async () => {
   const repository = new RepositoryMock();
-  repository.rows = [{ igdbGameId: '404', platformIgdbId: 6, payload: { title: 'Missing' } }];
+  repository.rows = [
+    {
+      igdbGameId: '404',
+      platformIgdbId: 6,
+      payload: { title: 'Missing' },
+      isPeriodicRefresh: false,
+    },
+  ];
   const igdbClient = new IgdbClientMock(new Map());
 
   const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
@@ -378,6 +417,8 @@ void test('metadata enrichment marks no_data when IGDB returns no row for a fetc
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -419,6 +460,7 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         ],
         steamAppId: null,
       },
+      isPeriodicRefresh: false,
     },
   ];
   const igdbClient = new IgdbClientMock(new Map());
@@ -427,6 +469,8 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -453,6 +497,7 @@ void test('metadata enrichment patch updates preserve manual override lock field
         reviewMatchLocked: true,
         psPricesMatchLocked: true,
       },
+      isPeriodicRefresh: false,
     },
   ];
   const igdbClient = new IgdbClientMock(
@@ -478,6 +523,8 @@ void test('metadata enrichment patch updates preserve manual override lock field
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -516,6 +563,7 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         ],
         steamAppId: null,
       },
+      isPeriodicRefresh: false,
     },
   ];
 
@@ -527,6 +575,8 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
       batchSize: 200,
       maxGamesPerRun: 5000,
       startupDelayMs: 0,
+      refreshMonths: 0,
+      refreshDays: 0,
     }
   );
 
@@ -556,6 +606,7 @@ void test('metadata enrichment refetches rows when websites are present but empt
         websites: [],
         steamAppId: null,
       },
+      isPeriodicRefresh: false,
     },
   ];
   const igdbClient = new IgdbClientMock(
@@ -590,6 +641,8 @@ void test('metadata enrichment refetches rows when websites are present but empt
     batchSize: 200,
     maxGamesPerRun: 5000,
     startupDelayMs: 0,
+    refreshMonths: 0,
+    refreshDays: 0,
   });
 
   const summary = await service.runOnce();
@@ -606,4 +659,269 @@ void test('metadata enrichment refetches rows when websites are present but empt
       trusted: false,
     },
   ]);
+});
+
+void test('periodic refresh row is fetched and all enrichment timestamps are updated', async () => {
+  const repository = new RepositoryMock();
+  const oldTimestamp = '2025-12-01T00:00:00.000Z';
+  repository.rows = [
+    {
+      igdbGameId: '5000',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Recently Released',
+        listType: 'wishlist',
+        releaseDate: '2026-02-01',
+        taxonomyEnrichedAt: oldTimestamp,
+        mediaEnrichedAt: oldTimestamp,
+        steamEnrichedAt: oldTimestamp,
+        websitesEnrichedAt: oldTimestamp,
+        metadataSyncEnqueuedAt: oldTimestamp,
+        themes: ['Action'],
+        keywords: ['Old Keyword'],
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+      isPeriodicRefresh: true,
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '5000',
+        {
+          themes: ['Action', 'Fantasy'],
+          themeIds: [1, 2],
+          keywords: ['Old Keyword', 'New Keyword'],
+          keywordIds: [10, 11],
+          screenshots: [
+            {
+              id: 1,
+              imageId: 'img1',
+              url: 'https://example.com/img1.jpg',
+              width: 1920,
+              height: 1080,
+            },
+          ],
+          videos: [],
+          websites: [],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 1);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(repository.updates.length, 1);
+
+  const patch = repository.updates[0]?.payloadPatch;
+  assert.ok(patch);
+  assert.deepEqual(patch['themes'], ['Action', 'Fantasy']);
+  assert.deepEqual(patch['keywords'], ['Old Keyword', 'New Keyword']);
+  assert.equal(patch['taxonomyEnrichmentStatus'], 'success');
+  assert.equal(patch['mediaEnrichmentStatus'], 'success');
+  assert.equal(patch['steamEnrichmentStatus'], 'success');
+  assert.equal(typeof patch['taxonomyEnrichedAt'], 'string');
+  assert.notEqual(patch['taxonomyEnrichedAt'], oldTimestamp);
+  assert.equal(typeof patch['metadataSyncEnqueuedAt'], 'string');
+  assert.notEqual(patch['metadataSyncEnqueuedAt'], oldTimestamp);
+});
+
+void test('periodic refresh row with failed IGDB fetch is not written and not sync-backfilled', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5001',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Failed Refresh',
+        listType: 'wishlist',
+        releaseDate: '2026-02-01',
+        taxonomyEnrichedAt: '2025-12-01T00:00:00.000Z',
+        mediaEnrichedAt: '2025-12-01T00:00:00.000Z',
+        steamEnrichedAt: '2025-12-01T00:00:00.000Z',
+        websitesEnrichedAt: '2025-12-01T00:00:00.000Z',
+        // metadataSyncEnqueuedAt intentionally absent (simulating old data)
+        themes: ['Action'],
+        keywords: [],
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+      isPeriodicRefresh: true,
+    },
+  ];
+  const igdbClient = new IgdbClientMock(new Map());
+  igdbClient.failuresForBatchContaining.add('5001');
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 0);
+  assert.equal(summary.skippedRows, 1);
+  assert.equal(repository.updates.length, 0);
+});
+
+void test('periodic refresh row is idempotent when IGDB returns identical data', async () => {
+  const existingWebsite = {
+    provider: null,
+    providerLabel: null,
+    url: 'https://example.com',
+    typeId: 1,
+    typeName: 'Official Website',
+    trusted: true,
+  };
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5002',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Unchanged Game',
+        listType: 'collection',
+        releaseDate: '2026-03-01',
+        taxonomyEnrichedAt: '2026-04-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-04-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-04-01T00:00:00.000Z',
+        websitesEnrichedAt: '2026-04-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-04-01T00:00:00.000Z',
+        themes: ['RPG'],
+        themeIds: [5],
+        keywords: ['Fantasy'],
+        keywordIds: [50],
+        screenshots: [],
+        videos: [],
+        websites: [existingWebsite],
+        steamAppId: null,
+      },
+      isPeriodicRefresh: true,
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '5002',
+        {
+          themes: ['RPG'],
+          themeIds: [5],
+          keywords: ['Fantasy'],
+          keywordIds: [50],
+          screenshots: [],
+          videos: [],
+          websites: [existingWebsite],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 0);
+  assert.equal(summary.skippedRows, 1);
+  assert.equal(repository.updates.length, 0);
+});
+
+void test('periodic refresh and initial enrichment rows in same run deduplicate IGDB requests', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '6000',
+      platformIgdbId: 6,
+      payload: { title: 'Needs Initial Enrichment' },
+      isPeriodicRefresh: false,
+    },
+    {
+      igdbGameId: '6000',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Needs Periodic Refresh',
+        taxonomyEnrichedAt: '2025-12-01T00:00:00.000Z',
+        mediaEnrichedAt: '2025-12-01T00:00:00.000Z',
+        steamEnrichedAt: '2025-12-01T00:00:00.000Z',
+        websitesEnrichedAt: '2025-12-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2025-12-01T00:00:00.000Z',
+        themes: [],
+        keywords: [],
+        screenshots: [],
+        videos: [],
+        websites: [],
+        steamAppId: null,
+      },
+      isPeriodicRefresh: true,
+    },
+  ];
+
+  let fetchCallCount = 0;
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '6000',
+        {
+          themes: ['Strategy'],
+          themeIds: [9],
+          keywords: ['Turn-based'],
+          keywordIds: [99],
+          screenshots: [],
+          videos: [],
+          websites: [],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+  const originalFetch = igdbClient.fetchGameMetadataByIds.bind(igdbClient);
+  igdbClient.fetchGameMetadataByIds = (ids: string[]) => {
+    fetchCallCount += 1;
+    return originalFetch(ids);
+  };
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 1);
+  assert.equal(fetchCallCount, 1);
+  assert.equal(summary.updatedRows, 2);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['themes'], ['Strategy']);
+  assert.deepEqual(repository.updates[1]?.payloadPatch['themes'], ['Strategy']);
 });

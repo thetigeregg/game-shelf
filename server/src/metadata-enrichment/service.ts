@@ -12,6 +12,8 @@ export interface MetadataEnrichmentServiceOptions {
   batchSize: number;
   maxGamesPerRun: number;
   startupDelayMs: number;
+  refreshMonths: number;
+  refreshDays: number;
 }
 
 type EnrichmentStatus = 'success' | 'no_data';
@@ -43,10 +45,12 @@ export class MetadataEnrichmentService {
 
   async runOnce(): Promise<MetadataEnrichmentSummary | null> {
     const lockResult = await this.repository.withAdvisoryLock(async (client) => {
-      const rows = await this.repository.listRowsMissingMetadata(
-        this.options.maxGamesPerRun,
-        client
-      );
+      const rows = await this.repository.listRowsMissingMetadata({
+        limit: this.options.maxGamesPerRun,
+        refreshMonths: this.options.refreshMonths,
+        refreshDays: this.options.refreshDays,
+        queryable: client,
+      });
       const summary: MetadataEnrichmentSummary = {
         scannedRows: rows.length,
         uniqueGamesRequested: 0,
@@ -59,7 +63,9 @@ export class MetadataEnrichmentService {
         return summary;
       }
 
-      const rowsNeedingMetadata = rows.filter((row) => rowNeedsMetadataFetch(row.payload));
+      const rowsNeedingMetadata = rows.filter(
+        (row) => rowNeedsMetadataFetch(row.payload) || row.isPeriodicRefresh
+      );
       const uniqueGameIds = [...new Set(rowsNeedingMetadata.map((row) => row.igdbGameId))];
       summary.uniqueGamesRequested = uniqueGameIds.length;
       const metadataByGameId = new Map<string, IgdbMetadataRecord>();
@@ -89,9 +95,13 @@ export class MetadataEnrichmentService {
         const payloadPatch = buildMetadataPatch({
           row,
           metadata: metadataByGameId.get(row.igdbGameId),
-          metadataFetched: needsMetadata && successfullyFetchedGameIds.has(row.igdbGameId),
+          metadataFetched:
+            (needsMetadata || row.isPeriodicRefresh) &&
+            successfullyFetchedGameIds.has(row.igdbGameId),
           needsSyncBackfill:
-            !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
+            !needsMetadata &&
+            !row.isPeriodicRefresh &&
+            isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
           completedAt,
         });
         const changed = Object.keys(payloadPatch).length > 0;

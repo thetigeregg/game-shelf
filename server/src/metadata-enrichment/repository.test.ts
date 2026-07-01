@@ -42,7 +42,7 @@ void test('repository selects rows missing enrichment markers', async () => {
   });
   const repository = new MetadataEnrichmentRepository(pool as never);
 
-  const rows = await repository.listRowsMissingMetadata(10);
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.igdbGameId, '1520');
   assert.equal(rows[0]?.platformIgdbId, 4);
@@ -70,6 +70,107 @@ void test('repository selects rows missing enrichment markers', async () => {
     true
   );
   assert.equal(/metadataSyncEnqueuedAt/.test(sql), true);
+});
+
+void test('repository passes refresh params as $2 and $3 with default 0 when omitted', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.deepEqual(pool.queries[0]?.params, [10, 0, 0]);
+});
+
+void test('repository passes refresh params when provided', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 5, refreshMonths: 6, refreshDays: 30 });
+  assert.deepEqual(pool.queries[0]?.params, [5, 6, 30]);
+});
+
+void test('repository SQL includes periodic re-enrichment arm', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10, refreshMonths: 6, refreshDays: 30 });
+  const sql = pool.queries[0]?.sql ?? '';
+
+  assert.equal(sql.includes('$2 > 0 AND $3 > 0'), true);
+  assert.equal(
+    sql.includes("COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''"),
+    true
+  );
+  assert.equal(sql.includes("(payload ->> 'releaseDate')::date <= CURRENT_DATE"), true);
+  assert.equal(
+    sql.includes("(payload ->> 'releaseDate')::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')"),
+    true
+  );
+  assert.equal(
+    sql.includes(
+      "(payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')"
+    ),
+    true
+  );
+});
+
+void test('repository sets isPeriodicRefresh false when any enrichment timestamp is blank', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '1',
+          platform_igdb_id: 6,
+          payload: {
+            title: 'Partial',
+            taxonomyEnrichedAt: '2026-01-01T00:00:00.000Z',
+            mediaEnrichedAt: '',
+            steamEnrichedAt: '2026-01-01T00:00:00.000Z',
+            websitesEnrichedAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, false);
+});
+
+void test('repository sets isPeriodicRefresh true when all four enrichment timestamps are set', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '2',
+          platform_igdb_id: 6,
+          payload: {
+            title: 'Fully Enriched',
+            taxonomyEnrichedAt: '2026-01-01T00:00:00.000Z',
+            mediaEnrichedAt: '2026-01-01T00:00:00.000Z',
+            steamEnrichedAt: '2026-01-01T00:00:00.000Z',
+            websitesEnrichedAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, true);
+});
+
+void test('repository sets isPeriodicRefresh false when payload has no enrichment timestamps', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [{ igdb_game_id: '3', platform_igdb_id: 6, payload: { title: 'New Game' } }],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, false);
 });
 
 void test('repository wraps callback with advisory lock and unlock', async () => {

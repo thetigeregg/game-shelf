@@ -231,6 +231,8 @@ export interface AppConfig {
   igdbMetadataEnrichMaxGamesPerRun: number;
   igdbMetadataEnrichStartupDelayMs: number;
   igdbMetadataEnrichRequestTimeoutMs: number;
+  igdbMetadataEnrichRefreshMonths: number;
+  igdbMetadataEnrichRefreshDays: number;
 }
 
 export interface NamedInboundRateLimitConfig {
@@ -841,4 +843,6 @@ export const config: AppConfig = {
   igdbMetadataEnrichStartupDelayMs: readIntegerEnv('IGDB_METADATA_ENRICH_STARTUP_DELAY_MS', 5000),
   igdbMetadataEnrichRequestTimeoutMs:
     rateLimitConfig.outbound.igdb_metadata_enrichment.requestTimeoutMs ?? 15_000,
+  igdbMetadataEnrichRefreshMonths: readIntegerEnv('IGDB_METADATA_ENRICH_REFRESH_MONTHS', 6),
+  igdbMetadataEnrichRefreshDays: readIntegerEnv('IGDB_METADATA_ENRICH_REFRESH_DAYS', 30),
 };

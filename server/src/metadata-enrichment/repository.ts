@@ -17,6 +17,19 @@ interface MissingRow extends QueryResultRow {
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
 
+function isFullyEnriched(payload: Record<string, unknown>): boolean {
+  const nonBlank = (key: string) => {
+    const v = payload[key];
+    return typeof v === 'string' && v.trim().length > 0;
+  };
+  return (
+    nonBlank('taxonomyEnrichedAt') &&
+    nonBlank('mediaEnrichedAt') &&
+    nonBlank('steamEnrichedAt') &&
+    nonBlank('websitesEnrichedAt')
+  );
+}
+
 export class MetadataEnrichmentRepository {
   constructor(private readonly pool: Pool) {}
 
@@ -46,10 +59,13 @@ export class MetadataEnrichmentRepository {
     }
   }
 
-  async listRowsMissingMetadata(
-    limit: number,
-    queryable: Queryable = this.pool
-  ): Promise<MetadataEnrichmentGameRow[]> {
+  async listRowsMissingMetadata(params: {
+    limit: number;
+    refreshMonths?: number;
+    refreshDays?: number;
+    queryable?: Queryable;
+  }): Promise<MetadataEnrichmentGameRow[]> {
+    const { limit, refreshMonths, refreshDays, queryable = this.pool } = params;
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
     const result = await queryable.query<MissingRow>(
       `
@@ -60,32 +76,51 @@ export class MetadataEnrichmentRepository {
         -- recommendations/discovery-enrichment-service.ts.
         COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
         AND (
-          COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
-          OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
-          OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
-          OR (
-            COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
-            AND (
-              NOT (payload ? 'websites')
-              OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+          -- Arm 1: initial enrichment (any timestamp still blank)
+          (
+            COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
+            OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
+            OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
+            OR (
+              COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
+              AND (
+                NOT (payload ? 'websites')
+                OR jsonb_array_length(CASE WHEN jsonb_typeof(payload -> 'websites') = 'array' THEN payload -> 'websites' ELSE '[]'::jsonb END) = 0
+              )
             )
+            OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
           )
-          OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
+          -- Arm 2: periodic re-enrichment for recently released games
+          OR (
+            $2 > 0 AND $3 > 0
+            AND COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
+            AND (payload ->> 'releaseDate')::date <= CURRENT_DATE
+            AND (payload ->> 'releaseDate')::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+            AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+          )
         )
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC
       LIMIT $1
       `,
-      [normalizedLimit]
+      [normalizedLimit, refreshMonths ?? 0, refreshDays ?? 0]
     );
 
-    return result.rows.map((row) => ({
-      igdbGameId: row.igdb_game_id,
-      platformIgdbId: row.platform_igdb_id,
-      payload:
+    return result.rows.map((row) => {
+      const payload =
         row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
           ? (row.payload as Record<string, unknown>)
-          : {},
-    }));
+          : {};
+      return {
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        isPeriodicRefresh: isFullyEnriched(payload),
+      };
+    });
   }
 
   async updateGamePayload(params: {

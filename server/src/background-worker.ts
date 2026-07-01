@@ -1181,7 +1181,8 @@ async function main(): Promise<void> {
         return { runResult: result };
       }
       case 'metadata_enrichment_run': {
-        const summary = await metadataEnrichmentService.runOnce();
+        const force = job.payload['force'] === true;
+        const summary = await metadataEnrichmentService.runOnce(force ? { force } : undefined);
         return { summary };
       }
       case 'igdb_popularity_ingest': {

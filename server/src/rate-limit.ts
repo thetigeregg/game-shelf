@@ -30,6 +30,7 @@ export type RateLimitPolicyName =
   | 'admin_read'
   | 'admin_detail'
   | 'admin_mutation'
+  | 'admin_refresh_data'
   | 'background_jobs_stats'
   | 'background_jobs_failed_list'
   | 'background_jobs_replay'

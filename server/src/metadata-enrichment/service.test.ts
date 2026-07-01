@@ -11,6 +11,13 @@ class RepositoryMock {
     payloadPatch: Record<string, unknown>;
   }> = [];
   public lockAcquired = true;
+  public lastListParams: {
+    limit: number;
+    refreshMonths?: number;
+    refreshDays?: number;
+    queryable?: object;
+    force?: boolean;
+  } | null = null;
 
   async withAdvisoryLock<T>(
     callback: (client: object) => Promise<T>
@@ -28,7 +35,9 @@ class RepositoryMock {
     refreshMonths?: number;
     refreshDays?: number;
     queryable?: object;
+    force?: boolean;
   }): Promise<MetadataEnrichmentGameRow[]> {
+    this.lastListParams = params;
     return Promise.resolve(this.rows.slice(0, params.limit));
   }
 
@@ -992,4 +1001,85 @@ void test('periodic refresh row with no IGDB record bumps timestamps and records
   assert.notEqual(patch['taxonomyEnrichedAt'], oldTimestamp);
   assert.equal(typeof patch['metadataSyncEnqueuedAt'], 'string');
   assert.notEqual(patch['metadataSyncEnqueuedAt'], oldTimestamp);
+});
+
+void test('runOnce with no overrides does not pass force to the repository', async () => {
+  const repository = new RepositoryMock();
+  const service = new MetadataEnrichmentService(
+    repository as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: true,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: 0,
+      refreshMonths: 6,
+      refreshDays: 30,
+    }
+  );
+
+  await service.runOnce();
+  assert.equal(repository.lastListParams?.force, false);
+});
+
+void test('runOnce({ force: true }) passes force through and refetches an already fully-enriched row', async () => {
+  const repository = new RepositoryMock();
+  const oldTimestamp = '2025-12-01T00:00:00.000Z';
+  repository.rows = [
+    {
+      igdbGameId: '6000',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Already Enriched',
+        listType: 'wishlist',
+        taxonomyEnrichedAt: oldTimestamp,
+        mediaEnrichedAt: oldTimestamp,
+        steamEnrichedAt: oldTimestamp,
+        websitesEnrichedAt: oldTimestamp,
+        metadataSyncEnqueuedAt: oldTimestamp,
+        themes: ['Action'],
+        websites: [],
+        steamAppId: null,
+      },
+      // Simulates the repository's forced-query behavior, which hard-codes
+      // is_periodic_refresh = TRUE for every returned row when force is set.
+      isPeriodicRefresh: true,
+    },
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '6000',
+        {
+          themes: ['Action', 'Adventure'],
+          themeIds: [1, 3],
+          keywords: [],
+          keywordIds: [],
+          screenshots: [],
+          videos: [],
+          websites: [],
+          steamAppId: null,
+        },
+      ],
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0,
+    refreshMonths: 6,
+    refreshDays: 30,
+  });
+
+  const summary = await service.runOnce({ force: true });
+
+  assert.equal(repository.lastListParams?.force, true);
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 1);
+  assert.equal(summary.updatedRows, 1);
+  const patch = repository.updates[0]?.payloadPatch;
+  assert.ok(patch);
+  assert.deepEqual(patch['themes'], ['Action', 'Adventure']);
 });

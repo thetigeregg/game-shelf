@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { registerAdminDiscoveryMatchRoutes } from './admin-discovery-match-routes.js';
+import { registerAdminRefreshDataRoutes } from './admin-refresh-data-routes.js';
 import { registerBackgroundJobRoutes } from './background-jobs-routes.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
@@ -271,6 +272,7 @@ async function main(): Promise<void> {
     await registerCacheObservabilityRoutes(app, pool);
     registerBackgroundJobRoutes(app, pool);
     registerAdminDiscoveryMatchRoutes(app, pool);
+    registerAdminRefreshDataRoutes(app, pool);
     registerManualRoutes(app, {
       manualsDir: config.manualsDir,
       manualsPublicBaseUrl: config.manualsPublicBaseUrl,

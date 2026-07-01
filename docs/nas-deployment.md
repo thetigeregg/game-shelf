@@ -119,7 +119,7 @@ Common stack env vars:
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
 - `RECOMMENDATIONS_JOB_CONCURRENCY` (optional; defaults `1`; read by worker runtime; applies when `BACKGROUND_WORKER_MODE` includes recommendations work (`all` or `recommendations`))
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `worker-general`)
-- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (optional; defaults `http://api:3000`; worker-only)
+- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (optional; defaults `http://api:3000`; consumed by `worker-general` and by the API process's own release monitor)
 - `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
 - `RECOMMENDATIONS_EXPLORATION_WEIGHT` (optional; default `0.3`)
 - `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT` (optional; default `0.5`)

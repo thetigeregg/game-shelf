@@ -159,7 +159,7 @@ Release notification preference defaults:
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `worker-general`; API process no longer runs scheduler ticks)
 - `RECOMMENDATIONS_JOB_CONCURRENCY` (read by worker runtime; applies when `BACKGROUND_WORKER_MODE` includes recommendations work (`all` or `recommendations`); default `1`)
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
-- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (worker-only; defaults to `http://api:3000` for discovery enrichment lookups)
+- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (defaults to `http://api:3000` for discovery enrichment lookups; consumed by `worker-general` and by the API process's own release monitor)
 - `RECOMMENDATIONS_DAILY_STALE_HOURS`
 - `RECOMMENDATIONS_TOP_LIMIT`
 - `RECOMMENDATIONS_SIMILARITY_K`

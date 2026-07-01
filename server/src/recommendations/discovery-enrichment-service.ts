@@ -16,6 +16,7 @@ import {
 import { normalizeDiscoveryGameKeys } from '../discovery-game-keys.js';
 import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
 import { isProviderMatchLocked } from '../provider-match-lock.js';
+import { buildLocalApiUrl, fetchLocalApiJson, type FetchJsonResult } from '../local-api-client.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -61,11 +62,6 @@ interface MetacriticResponse {
     metacriticScore?: number | null;
     metacriticUrl?: string | null;
   } | null;
-}
-
-interface FetchJsonResult<T> {
-  ok: boolean;
-  value: T | null;
 }
 
 interface SteamMetadataClient {
@@ -390,8 +386,8 @@ export class DiscoveryEnrichmentService {
 
     const [hltbResponse, metacriticResponse] = await Promise.all([
       shouldTryHltb
-        ? this.fetchJson<HltbResponse>(
-            this.buildLocalUrl('/v1/hltb/search', {
+        ? fetchLocalApiJson<HltbResponse>(
+            buildLocalApiUrl(this.options.apiBaseUrl, '/v1/hltb/search', {
               q: hltbLookup.title,
               ...(hltbLookup.releaseYear ? { releaseYear: String(hltbLookup.releaseYear) } : {}),
               ...(hltbLookup.platform ? { platform: hltbLookup.platform } : {}),
@@ -399,7 +395,9 @@ export class DiscoveryEnrichmentService {
                 ? { preferredHltbGameId: String(hltbLookup.preferredGameId) }
                 : {}),
               ...(hltbLookup.preferredUrl ? { preferredHltbUrl: hltbLookup.preferredUrl } : {}),
-            })
+            }),
+            this.options.requestTimeoutMs,
+            { 'x-gameshelf-discovery-enrichment': '1' }
           )
         : Promise.resolve(null),
       shouldTryMetacritic ? this.fetchReviewPayload(reviewLookup) : Promise.resolve(null),
@@ -546,14 +544,6 @@ export class DiscoveryEnrichmentService {
     }
   }
 
-  private buildLocalUrl(path: string, query: Record<string, string>): string {
-    const url = new URL(path, this.options.apiBaseUrl);
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
-    }
-    return url.toString();
-  }
-
   private getRearmAfterDays(): number {
     const raw = this.options.rearmAfterDays;
     if (typeof raw === 'number' && Number.isFinite(raw)) {
@@ -570,51 +560,20 @@ export class DiscoveryEnrichmentService {
     return DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT;
   }
 
-  private async fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.options.requestTimeoutMs);
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'x-gameshelf-discovery-enrichment': '1',
-        },
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        return { ok: false, value: null };
-      }
-      if (response.status === 204) {
-        return { ok: true, value: null };
-      }
-
-      const bodyText = await response.text();
-      if (bodyText.trim().length === 0) {
-        return { ok: true, value: null };
-      }
-
-      return { ok: true, value: JSON.parse(bodyText) as T };
-    } catch {
-      return { ok: false, value: null };
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private async fetchReviewPayload(
     params: ReviewLookupContext
   ): Promise<FetchJsonResult<ReviewLookupResult>> {
     if (params.reviewSource === 'mobygames' && params.mobygamesGameId !== null) {
-      const response = await this.fetchJson<MobyGamesResponse>(
-        this.buildLocalUrl('/v1/mobygames/search', {
+      const response = await fetchLocalApiJson<MobyGamesResponse>(
+        buildLocalApiUrl(this.options.apiBaseUrl, '/v1/mobygames/search', {
           q: params.title,
           id: String(params.mobygamesGameId),
           limit: '5',
           format: 'normal',
           include: 'game_id,moby_url,moby_score,critic_score',
-        })
+        }),
+        this.options.requestTimeoutMs,
+        { 'x-gameshelf-discovery-enrichment': '1' }
       );
 
       if (!response.ok) {
@@ -627,13 +586,15 @@ export class DiscoveryEnrichmentService {
       };
     }
 
-    const response = await this.fetchJson<MetacriticResponse>(
-      this.buildLocalUrl('/v1/metacritic/search', {
+    const response = await fetchLocalApiJson<MetacriticResponse>(
+      buildLocalApiUrl(this.options.apiBaseUrl, '/v1/metacritic/search', {
         q: params.title,
         ...(params.releaseYear ? { releaseYear: String(params.releaseYear) } : {}),
         ...(params.platform ? { platform: params.platform } : {}),
         platformIgdbId: String(params.platformIgdbId),
-      })
+      }),
+      this.options.requestTimeoutMs,
+      { 'x-gameshelf-discovery-enrichment': '1' }
     );
 
     if (!response.ok) {

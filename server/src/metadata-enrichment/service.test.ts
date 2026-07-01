@@ -671,7 +671,7 @@ void test('periodic refresh row is fetched and all enrichment timestamps are upd
       payload: {
         title: 'Recently Released',
         listType: 'wishlist',
-        releaseDate: '2026-02-01',
+        releaseDate: '2026-02-01T00:00:00.000Z',
         taxonomyEnrichedAt: oldTimestamp,
         mediaEnrichedAt: oldTimestamp,
         steamEnrichedAt: oldTimestamp,
@@ -750,7 +750,7 @@ void test('periodic refresh row with failed IGDB fetch is not written and not sy
       payload: {
         title: 'Failed Refresh',
         listType: 'wishlist',
-        releaseDate: '2026-02-01',
+        releaseDate: '2026-02-01T00:00:00.000Z',
         taxonomyEnrichedAt: '2025-12-01T00:00:00.000Z',
         mediaEnrichedAt: '2025-12-01T00:00:00.000Z',
         steamEnrichedAt: '2025-12-01T00:00:00.000Z',
@@ -802,7 +802,7 @@ void test('periodic refresh row is idempotent when IGDB returns identical data',
       payload: {
         title: 'Unchanged Game',
         listType: 'collection',
-        releaseDate: '2026-03-01',
+        releaseDate: '2026-03-01T00:00:00.000Z',
         taxonomyEnrichedAt: '2026-04-01T00:00:00.000Z',
         mediaEnrichedAt: '2026-04-01T00:00:00.000Z',
         steamEnrichedAt: '2026-04-01T00:00:00.000Z',
@@ -949,7 +949,7 @@ void test('periodic refresh row with no IGDB record bumps timestamps and records
       payload: {
         title: 'Removed Game',
         listType: 'collection',
-        releaseDate: '2026-02-01',
+        releaseDate: '2026-02-01T00:00:00.000Z',
         taxonomyEnrichedAt: oldTimestamp,
         mediaEnrichedAt: oldTimestamp,
         steamEnrichedAt: oldTimestamp,

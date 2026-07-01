@@ -1003,7 +1003,7 @@ void test('periodic refresh row with no IGDB record bumps timestamps and records
   assert.notEqual(patch['metadataSyncEnqueuedAt'], oldTimestamp);
 });
 
-void test('runOnce with no overrides does not pass force to the repository', async () => {
+void test('runOnce with no overrides passes force: false to the repository', async () => {
   const repository = new RepositoryMock();
   const service = new MetadataEnrichmentService(
     repository as never,

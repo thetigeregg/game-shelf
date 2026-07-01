@@ -17,6 +17,7 @@ import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './r
 
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
+const PRICING_ENQUEUE_CONCURRENCY = 5;
 
 type DataType = 'hltb' | 'reviews' | 'igdb' | 'pricing';
 const KNOWN_DATA_TYPES: ReadonlySet<DataType> = new Set(['hltb', 'reviews', 'igdb', 'pricing']);
@@ -95,8 +96,16 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       }
 
       if (dataTypes.has('pricing')) {
-        const wishlist = await enqueueForcedWishlistPricingRefreshJobs(pool, backgroundJobs);
-        const discovery = await enqueueForcedDiscoveryPricingRefreshJobs(pool, backgroundJobs);
+        const wishlist = await enqueueForcedWishlistPricingRefreshJobs(
+          pool,
+          backgroundJobs,
+          config.adminForcedRefreshMaxGames
+        );
+        const discoveryMaxRows = Math.max(0, config.adminForcedRefreshMaxGames - wishlist.scanned);
+        const discovery =
+          discoveryMaxRows > 0
+            ? await enqueueForcedDiscoveryPricingRefreshJobs(pool, backgroundJobs, discoveryMaxRows)
+            : { scanned: 0, enqueued: 0, deduped: 0 };
         results.pricing = {
           scanned: wishlist.scanned + discovery.scanned,
           enqueued: wishlist.enqueued + discovery.enqueued,
@@ -166,7 +175,8 @@ interface PricingEnqueueStats {
 
 async function enqueueForcedWishlistPricingRefreshJobs(
   pool: Pool,
-  backgroundJobs: BackgroundJobRepository
+  backgroundJobs: BackgroundJobRepository,
+  maxRows: number
 ): Promise<PricingEnqueueStats> {
   const rows = await pool.query<PricingCandidateRow>(
     `
@@ -177,18 +187,13 @@ async function enqueueForcedWishlistPricingRefreshJobs(
     ORDER BY igdb_game_id ASC, platform_igdb_id ASC
     LIMIT $3
     `,
-    [
-      STEAM_WINDOWS_PLATFORM_IGDB_ID,
-      [...PSPRICES_PLATFORM_IGDB_IDS],
-      config.adminForcedRefreshMaxGames,
-    ]
+    [STEAM_WINDOWS_PLATFORM_IGDB_ID, [...PSPRICES_PLATFORM_IGDB_IDS], maxRows]
   );
 
   const steamCountry = config.steamDefaultCountry;
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
-  let enqueued = 0;
-  let deduped = 0;
+  const jobs: Array<() => Promise<{ deduped: boolean }>> = [];
 
   for (const row of rows.rows) {
     const payload = normalizePayloadObject(row.payload);
@@ -202,24 +207,21 @@ async function enqueueForcedWishlistPricingRefreshJobs(
         continue;
       }
 
-      const queued = await backgroundJobs.enqueue({
-        jobType: 'steam_price_revalidate',
-        dedupeKey: `admin-refresh-force:wishlist:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
-        payload: {
-          cacheKey: `admin-refresh-force:wishlist:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          cc: steamCountry,
-          steamAppId,
-        },
-        priority: 120,
-        maxAttempts: 3,
-      });
-      if (queued.deduped) {
-        deduped += 1;
-      } else {
-        enqueued += 1;
-      }
+      jobs.push(() =>
+        backgroundJobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey: `admin-refresh-force:wishlist:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+          payload: {
+            cacheKey: `admin-refresh-force:wishlist:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+            igdbGameId: row.igdb_game_id,
+            platformIgdbId: row.platform_igdb_id,
+            cc: steamCountry,
+            steamAppId,
+          },
+          priority: 120,
+          maxAttempts: 3,
+        })
+      );
       continue;
     }
 
@@ -233,32 +235,34 @@ async function enqueueForcedWishlistPricingRefreshJobs(
       continue;
     }
 
-    const queued = await backgroundJobs.enqueue({
-      jobType: 'psprices_price_revalidate',
-      dedupeKey: `admin-refresh-force:wishlist:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-      payload: {
-        cacheKey: `admin-refresh-force:wishlist:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId: row.platform_igdb_id,
-        title,
-        psPricesUrl: resolvePreferredPsPricesUrl(payload),
-      },
-      priority: 120,
-      maxAttempts: 3,
-    });
-    if (queued.deduped) {
-      deduped += 1;
-    } else {
-      enqueued += 1;
-    }
+    jobs.push(() =>
+      backgroundJobs.enqueue({
+        jobType: 'psprices_price_revalidate',
+        dedupeKey: `admin-refresh-force:wishlist:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+        payload: {
+          cacheKey: `admin-refresh-force:wishlist:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId: row.platform_igdb_id,
+          title,
+          psPricesUrl: resolvePreferredPsPricesUrl(payload),
+        },
+        priority: 120,
+        maxAttempts: 3,
+      })
+    );
   }
+
+  const results = await runWithConcurrencyLimit(jobs, PRICING_ENQUEUE_CONCURRENCY);
+  const enqueued = results.filter((result) => !result.deduped).length;
+  const deduped = results.filter((result) => result.deduped).length;
 
   return { scanned: rows.rows.length, enqueued, deduped };
 }
 
 async function enqueueForcedDiscoveryPricingRefreshJobs(
   pool: Pool,
-  backgroundJobs: BackgroundJobRepository
+  backgroundJobs: BackgroundJobRepository,
+  maxRows: number
 ): Promise<PricingEnqueueStats> {
   const perModeTopLimit = Math.max(1, config.recommendationsTopLimit);
   const rows = await pool.query<PricingCandidateRow>(
@@ -305,7 +309,7 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
       RECOMMENDATION_RUNTIME_MODES,
       [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES],
       perModeTopLimit,
-      config.adminForcedRefreshMaxGames,
+      maxRows,
     ]
   );
 
@@ -313,8 +317,7 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
-  let enqueued = 0;
-  let deduped = 0;
+  const jobs: Array<() => Promise<{ deduped: boolean }>> = [];
 
   for (const row of rows.rows) {
     const payload = normalizePayloadObject(row.payload);
@@ -328,24 +331,21 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
         continue;
       }
 
-      const queued = await backgroundJobs.enqueue({
-        jobType: 'steam_price_revalidate',
-        dedupeKey: `admin-refresh-force:discovery:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
-        payload: {
-          cacheKey: `admin-refresh-force:discovery:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          cc: steamCountry,
-          steamAppId,
-        },
-        priority: 120,
-        maxAttempts: 3,
-      });
-      if (queued.deduped) {
-        deduped += 1;
-      } else {
-        enqueued += 1;
-      }
+      jobs.push(() =>
+        backgroundJobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey: `admin-refresh-force:discovery:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+          payload: {
+            cacheKey: `admin-refresh-force:discovery:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+            igdbGameId: row.igdb_game_id,
+            platformIgdbId: row.platform_igdb_id,
+            cc: steamCountry,
+            steamAppId,
+          },
+          priority: 120,
+          maxAttempts: 3,
+        })
+      );
       continue;
     }
 
@@ -381,27 +381,44 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
       continue;
     }
 
-    const queued = await backgroundJobs.enqueue({
-      jobType: 'psprices_price_revalidate',
-      dedupeKey: `admin-refresh-force:discovery:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-      payload: {
-        cacheKey: `admin-refresh-force:discovery:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId: row.platform_igdb_id,
-        title,
-        psPricesUrl: resolvePreferredPsPricesUrl(payload),
-      },
-      priority: 120,
-      maxAttempts: 3,
-    });
-    if (queued.deduped) {
-      deduped += 1;
-    } else {
-      enqueued += 1;
-    }
+    jobs.push(() =>
+      backgroundJobs.enqueue({
+        jobType: 'psprices_price_revalidate',
+        dedupeKey: `admin-refresh-force:discovery:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+        payload: {
+          cacheKey: `admin-refresh-force:discovery:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId: row.platform_igdb_id,
+          title,
+          psPricesUrl: resolvePreferredPsPricesUrl(payload),
+        },
+        priority: 120,
+        maxAttempts: 3,
+      })
+    );
   }
 
+  const results = await runWithConcurrencyLimit(jobs, PRICING_ENQUEUE_CONCURRENCY);
+  const enqueued = results.filter((result) => !result.deduped).length;
+  const deduped = results.filter((result) => result.deduped).length;
+
   return { scanned: rows.rows.length, enqueued, deduped };
+}
+
+async function runWithConcurrencyLimit<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  if (tasks.length === 0) {
+    return [];
+  }
+
+  const results: T[] = [];
+  for (let index = 0; index < tasks.length; index += concurrency) {
+    const chunk = tasks.slice(index, index + concurrency);
+    results.push(...(await Promise.all(chunk.map((task) => task()))));
+  }
+  return results;
 }
 
 function readEnrichmentRetryState(

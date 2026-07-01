@@ -108,6 +108,7 @@ void test('repository SQL includes periodic re-enrichment arm', async () => {
     ),
     true
   );
+  assert.equal(sql.includes("payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'"), true);
   assert.equal(
     sql.includes(
       "(payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')"

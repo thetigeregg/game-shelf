@@ -103,6 +103,7 @@ export class MetadataEnrichmentRepository {
             AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
             AND LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
             AND LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+            AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
             AND (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
           )
         )

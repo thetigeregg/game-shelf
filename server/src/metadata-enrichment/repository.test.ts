@@ -42,7 +42,7 @@ void test('repository selects rows missing enrichment markers', async () => {
   });
   const repository = new MetadataEnrichmentRepository(pool as never);
 
-  const rows = await repository.listRowsMissingMetadata(10);
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.igdbGameId, '1520');
   assert.equal(rows[0]?.platformIgdbId, 4);
@@ -70,6 +70,141 @@ void test('repository selects rows missing enrichment markers', async () => {
     true
   );
   assert.equal(/metadataSyncEnqueuedAt/.test(sql), true);
+});
+
+void test('repository passes refresh params as $2 and $3 with default 0 when omitted', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.deepEqual(pool.queries[0]?.params, [10, 0, 0]);
+});
+
+void test('repository passes refresh params when provided', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 5, refreshMonths: 6, refreshDays: 30 });
+  assert.deepEqual(pool.queries[0]?.params, [5, 6, 30]);
+});
+
+void test('repository SQL includes periodic re-enrichment arm', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10, refreshMonths: 6, refreshDays: 30 });
+  const sql = pool.queries[0]?.sql ?? '';
+
+  assert.equal(sql.includes('$2 > 0 AND $3 > 0'), true);
+  assert.equal(
+    sql.includes("COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''"),
+    true
+  );
+  assert.equal(sql.includes("payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'"), true);
+  assert.equal(
+    sql.includes("pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')"),
+    true
+  );
+  assert.equal(sql.includes("LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE"), true);
+  assert.equal(
+    sql.includes(
+      "LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')"
+    ),
+    true
+  );
+  assert.equal(sql.includes("payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'"), true);
+  assert.equal(
+    sql.includes("pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')"),
+    true
+  );
+  assert.equal(
+    sql.includes(
+      "(payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')"
+    ),
+    true
+  );
+  // Arm 2 (WHERE clause) must not gate on metadataSyncEnqueuedAt — older rows without the sync
+  // marker backfilled should still qualify for periodic refresh.
+  // With the CTE refactor, Arm 2 is simply `OR is_periodic_refresh` with no extra predicates.
+  const arm2Match = sql.match(/OR is_periodic_refresh\s*\n/);
+  assert.ok(arm2Match, 'WHERE must include plain `OR is_periodic_refresh` as Arm 2');
+  // The CTE predicate itself (computed once) must not depend on metadataSyncEnqueuedAt.
+  const cteBody = sql.slice(sql.indexOf('WITH candidates'), sql.indexOf('FROM candidates'));
+  assert.equal(cteBody.includes('metadataSyncEnqueuedAt'), false);
+});
+
+void test('repository maps is_periodic_refresh false from SQL column', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '1',
+          platform_igdb_id: 6,
+          payload: { title: 'Arm 1 Row' },
+          is_periodic_refresh: false,
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, false);
+});
+
+void test('repository maps is_periodic_refresh true from SQL column', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '2',
+          platform_igdb_id: 6,
+          payload: { title: 'Arm 2 Row' },
+          is_periodic_refresh: true,
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10 });
+  assert.equal(rows[0]?.isPeriodicRefresh, true);
+});
+
+void test('repository SQL emits is_periodic_refresh CASE expression matching Arm 2 predicates', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10, refreshMonths: 6, refreshDays: 30 });
+  const sql = pool.queries[0]?.sql ?? '';
+
+  // The SELECT list must include the CASE expression for is_periodic_refresh.
+  assert.equal(sql.includes('AS is_periodic_refresh'), true);
+  // The CASE must use the same $2/$3 gate as Arm 2.
+  const caseStart = sql.indexOf('CASE WHEN');
+  const caseEnd = sql.indexOf('AS is_periodic_refresh', caseStart);
+  const caseExpr = sql.slice(caseStart, caseEnd);
+  assert.equal(caseExpr.includes('$2 > 0 AND $3 > 0'), true);
+  assert.equal(
+    caseExpr.includes("pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')"),
+    true
+  );
+  assert.equal(
+    caseExpr.includes(
+      "LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')"
+    ),
+    true
+  );
+  assert.equal(
+    caseExpr.includes("pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')"),
+    true
+  );
+  assert.equal(
+    caseExpr.includes(
+      "(payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')"
+    ),
+    true
+  );
 });
 
 void test('repository wraps callback with advisory lock and unlock', async () => {

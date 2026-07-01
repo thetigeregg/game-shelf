@@ -474,6 +474,8 @@ async function main(): Promise<void> {
       batchSize: config.igdbMetadataEnrichBatchSize,
       maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
       startupDelayMs: config.igdbMetadataEnrichStartupDelayMs,
+      refreshMonths: config.igdbMetadataEnrichRefreshMonths,
+      refreshDays: config.igdbMetadataEnrichRefreshDays,
     }
   );
   const popularityIngestService = new PopularityIngestService(pool, {

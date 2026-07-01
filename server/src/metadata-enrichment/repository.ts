@@ -12,6 +12,7 @@ interface MissingRow extends QueryResultRow {
   igdb_game_id: string;
   platform_igdb_id: number;
   payload: unknown;
+  is_periodic_refresh: boolean;
 }
 
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
@@ -46,20 +47,47 @@ export class MetadataEnrichmentRepository {
     }
   }
 
-  async listRowsMissingMetadata(
-    limit: number,
-    queryable: Queryable = this.pool
-  ): Promise<MetadataEnrichmentGameRow[]> {
+  async listRowsMissingMetadata(params: {
+    limit: number;
+    refreshMonths?: number;
+    refreshDays?: number;
+    queryable?: Queryable;
+  }): Promise<MetadataEnrichmentGameRow[]> {
+    const { limit, refreshMonths, refreshDays, queryable = this.pool } = params;
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
     const result = await queryable.query<MissingRow>(
       `
-      SELECT igdb_game_id, platform_igdb_id, payload
-      FROM games
-      WHERE
+      WITH candidates AS (
+        SELECT igdb_game_id, platform_igdb_id, payload,
+          CASE WHEN
+            $2 > 0 AND $3 > 0
+            AND COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') <> ''
+            AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
+            AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
+            AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                  THEN LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
+                  ELSE FALSE END
+            AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                  THEN LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+                  ELSE FALSE END
+            AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
+            AND CASE WHEN pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
+                  THEN (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+                  ELSE FALSE END
+          THEN TRUE ELSE FALSE END AS is_periodic_refresh
+        FROM games
         -- Intentionally excludes discovery rows: those are enriched by
         -- recommendations/discovery-enrichment-service.ts.
-        COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
-        AND (
+        WHERE COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
+      )
+      SELECT igdb_game_id, platform_igdb_id, payload, is_periodic_refresh
+      FROM candidates
+      WHERE
+        -- Arm 1: initial enrichment (any timestamp still blank)
+        (
           COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
@@ -72,20 +100,26 @@ export class MetadataEnrichmentRepository {
           )
           OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
         )
+        -- Arm 2: periodic re-enrichment for recently released games
+        OR is_periodic_refresh
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC
       LIMIT $1
       `,
-      [normalizedLimit]
+      [normalizedLimit, refreshMonths ?? 0, refreshDays ?? 0]
     );
 
-    return result.rows.map((row) => ({
-      igdbGameId: row.igdb_game_id,
-      platformIgdbId: row.platform_igdb_id,
-      payload:
+    return result.rows.map((row) => {
+      const payload =
         row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
           ? (row.payload as Record<string, unknown>)
-          : {},
-    }));
+          : {};
+      return {
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        isPeriodicRefresh: row.is_periodic_refresh,
+      };
+    });
   }
 
   async updateGamePayload(params: {

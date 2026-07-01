@@ -12,6 +12,8 @@ export interface MetadataEnrichmentServiceOptions {
   batchSize: number;
   maxGamesPerRun: number;
   startupDelayMs: number;
+  refreshMonths: number;
+  refreshDays: number;
 }
 
 type EnrichmentStatus = 'success' | 'no_data';
@@ -43,10 +45,12 @@ export class MetadataEnrichmentService {
 
   async runOnce(): Promise<MetadataEnrichmentSummary | null> {
     const lockResult = await this.repository.withAdvisoryLock(async (client) => {
-      const rows = await this.repository.listRowsMissingMetadata(
-        this.options.maxGamesPerRun,
-        client
-      );
+      const rows = await this.repository.listRowsMissingMetadata({
+        limit: this.options.maxGamesPerRun,
+        refreshMonths: this.options.refreshMonths,
+        refreshDays: this.options.refreshDays,
+        queryable: client,
+      });
       const summary: MetadataEnrichmentSummary = {
         scannedRows: rows.length,
         uniqueGamesRequested: 0,
@@ -59,7 +63,9 @@ export class MetadataEnrichmentService {
         return summary;
       }
 
-      const rowsNeedingMetadata = rows.filter((row) => rowNeedsMetadataFetch(row.payload));
+      const rowsNeedingMetadata = rows.filter(
+        (row) => rowNeedsMetadataFetch(row.payload) || row.isPeriodicRefresh
+      );
       const uniqueGameIds = [...new Set(rowsNeedingMetadata.map((row) => row.igdbGameId))];
       summary.uniqueGamesRequested = uniqueGameIds.length;
       const metadataByGameId = new Map<string, IgdbMetadataRecord>();
@@ -89,9 +95,13 @@ export class MetadataEnrichmentService {
         const payloadPatch = buildMetadataPatch({
           row,
           metadata: metadataByGameId.get(row.igdbGameId),
-          metadataFetched: needsMetadata && successfullyFetchedGameIds.has(row.igdbGameId),
+          metadataFetched:
+            (needsMetadata || row.isPeriodicRefresh) &&
+            successfullyFetchedGameIds.has(row.igdbGameId),
           needsSyncBackfill:
-            !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
+            !needsMetadata &&
+            !row.isPeriodicRefresh &&
+            isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
           completedAt,
         });
         const changed = Object.keys(payloadPatch).length > 0;
@@ -154,6 +164,49 @@ function buildMetadataPatch(params: {
     nextValues['websites'] = params.metadata.websites;
     nextValues['steamAppId'] = params.metadata.steamAppId;
   }
+
+  if (params.row.isPeriodicRefresh) {
+    if (!params.metadata) {
+      // No IGDB data: bump enrichment timestamps and record no_data status so stored state is consistent.
+      return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichmentStatus: 'no_data',
+        taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichmentStatus: 'no_data',
+        mediaEnrichedAt: params.completedAt,
+        steamEnrichmentStatus: 'no_data',
+        steamEnrichedAt: params.completedAt,
+        websitesEnrichedAt: params.completedAt,
+        metadataSyncEnqueuedAt: params.completedAt,
+      });
+    }
+    const dataKeys = [
+      'themes',
+      'themeIds',
+      'keywords',
+      'keywordIds',
+      'screenshots',
+      'videos',
+      'websites',
+      'steamAppId',
+    ];
+    const anyDataChanged = dataKeys.some(
+      (key) => !isDeepStrictEqual(params.row.payload[key], nextValues[key])
+    );
+    if (!anyDataChanged) {
+      // Data unchanged: bump enrichment timestamps and correct any stale status fields.
+      return pickChangedTopLevelFields(params.row.payload, {
+        taxonomyEnrichmentStatus: 'success',
+        taxonomyEnrichedAt: params.completedAt,
+        mediaEnrichmentStatus: 'success',
+        mediaEnrichedAt: params.completedAt,
+        steamEnrichmentStatus: 'success',
+        steamEnrichedAt: params.completedAt,
+        websitesEnrichedAt: params.completedAt,
+        metadataSyncEnqueuedAt: params.completedAt,
+      });
+    }
+  }
+
   nextValues['websitesEnrichedAt'] = params.completedAt;
   nextValues['taxonomyEnrichmentStatus'] = status;
   nextValues['taxonomyEnrichedAt'] = params.completedAt;

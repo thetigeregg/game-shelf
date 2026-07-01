@@ -55,6 +55,12 @@ function readIntegerEnv(name: string, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function readNonNegativeIntegerEnv(name: string, fallback: number): number {
+  const raw = readEnv(name);
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function readNumberEnv(name: string, fallback: number): number {
   const raw = readEnv(name);
   const parsed = Number.parseFloat(raw);
@@ -231,6 +237,8 @@ export interface AppConfig {
   igdbMetadataEnrichMaxGamesPerRun: number;
   igdbMetadataEnrichStartupDelayMs: number;
   igdbMetadataEnrichRequestTimeoutMs: number;
+  igdbMetadataEnrichRefreshMonths: number;
+  igdbMetadataEnrichRefreshDays: number;
 }
 
 export interface NamedInboundRateLimitConfig {
@@ -841,4 +849,9 @@ export const config: AppConfig = {
   igdbMetadataEnrichStartupDelayMs: readIntegerEnv('IGDB_METADATA_ENRICH_STARTUP_DELAY_MS', 5000),
   igdbMetadataEnrichRequestTimeoutMs:
     rateLimitConfig.outbound.igdb_metadata_enrichment.requestTimeoutMs ?? 15_000,
+  igdbMetadataEnrichRefreshMonths: readNonNegativeIntegerEnv(
+    'IGDB_METADATA_ENRICH_REFRESH_MONTHS',
+    6
+  ),
+  igdbMetadataEnrichRefreshDays: readNonNegativeIntegerEnv('IGDB_METADATA_ENRICH_REFRESH_DAYS', 30),
 };

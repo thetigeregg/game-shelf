@@ -4,6 +4,7 @@ export interface MetadataEnrichmentGameRow {
   igdbGameId: string;
   platformIgdbId: number;
   payload: Record<string, unknown>;
+  isPeriodicRefresh: boolean;
 }
 
 export interface IgdbGameScreenshot {

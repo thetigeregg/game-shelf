@@ -755,7 +755,7 @@ void test('periodic refresh row with failed IGDB fetch is not written and not sy
         mediaEnrichedAt: '2025-12-01T00:00:00.000Z',
         steamEnrichedAt: '2025-12-01T00:00:00.000Z',
         websitesEnrichedAt: '2025-12-01T00:00:00.000Z',
-        // metadataSyncEnqueuedAt intentionally absent (simulating old data)
+        metadataSyncEnqueuedAt: '2025-12-01T00:00:00.000Z',
         themes: ['Action'],
         keywords: [],
         screenshots: [],

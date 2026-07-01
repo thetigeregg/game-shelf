@@ -17,8 +17,9 @@ interface MissingRow extends QueryResultRow {
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
 
-// Returns true when all four enrichment timestamps and the sync marker are
-// non-blank — the full set that Arm 2 (periodic re-enrichment) requires.
+// Returns true when all four enrichment timestamps and the sync marker are non-blank.
+// Arm 2 (SQL) additionally requires a valid releaseDate within the refresh window
+// and a stale taxonomyEnrichedAt; this helper only checks the enrichment/sync markers.
 function isReadyForPeriodicRefresh(payload: Record<string, unknown>): boolean {
   const nonBlank = (key: string) => {
     const v = payload[key];

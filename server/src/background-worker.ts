@@ -17,6 +17,7 @@ import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js'
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
@@ -41,8 +42,6 @@ import type { QueryResultRow } from 'pg';
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
 const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT', 'LONG'];
-const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
-const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const POPULARITY_PRIMITIVE_LIMIT = 500;
 
 if (process.env.NODE_ENV !== 'test') {

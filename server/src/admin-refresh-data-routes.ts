@@ -3,6 +3,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   maybeRearmProviderRetryState,
@@ -16,8 +17,6 @@ import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
-const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
-const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const PRICING_ENQUEUE_CONCURRENCY = 5;
 
 type DataType = 'hltb' | 'reviews' | 'igdb' | 'pricing';

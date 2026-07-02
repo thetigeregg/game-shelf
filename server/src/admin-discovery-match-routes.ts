@@ -4,6 +4,7 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { normalizeDiscoveryGameKeys, parseDiscoveryGameKeys } from './discovery-game-keys.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   createEmptyProviderRetryState,
@@ -111,8 +112,6 @@ interface DiscoveryProviderState {
 const MAX_LIST_LIMIT = 200;
 const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
-const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
-const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const PRICING_REQUEUE_CONCURRENCY = 5;
 
 export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Pool): void {

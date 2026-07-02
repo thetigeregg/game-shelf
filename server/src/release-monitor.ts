@@ -31,10 +31,7 @@ const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US
 });
 
 type ReleaseEventType =
-  | 'release_date_set'
-  | 'release_date_changed'
-  | 'release_date_removed'
-  | 'release_day';
+  'release_date_set' | 'release_date_changed' | 'release_date_removed' | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
 export type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
@@ -55,6 +52,7 @@ interface DueGameRow {
   force_review?: boolean;
   respect_recency?: boolean;
   respect_staleness?: boolean;
+  bypass_cache?: boolean;
 }
 
 interface NotificationPreferences {
@@ -286,7 +284,59 @@ function buildReleaseMonitorGameJobPayload(
     force_review: forceOverrides?.review === true,
     respect_recency: forceOverrides?.respectRecency ?? true,
     respect_staleness: forceOverrides?.respectStaleness ?? false,
+    bypass_cache: forceOverrides?.hltb === true || forceOverrides?.review === true,
   };
+}
+
+interface ForcedRefreshDueResult {
+  hltbDue: boolean;
+  reviewDue: boolean;
+  reviewProvider: 'metacritic' | 'mobygames' | null;
+}
+
+// Mirrors the due-check in processGameRow (hltbDue/reviewDue), but evaluates against the
+// row's pre-refetch release_watch_state columns instead of a freshly refetched IGDB release
+// date, so it can run cheaply at enqueue time across the whole candidate pool. This is an
+// approximation: a game whose IGDB release date changes between this scan and the worker's
+// own fresh refetch could be excluded here even though the worker would find it due.
+function evaluateForcedRefreshDue(
+  row: DueGameRow,
+  force: { hltb: boolean; review: boolean },
+  options: { respectRecency: boolean; respectStaleness: boolean },
+  now: Date
+): ForcedRefreshDueResult {
+  const payload = row.payload ?? {};
+  const releaseBefore = deriveReleaseInfo({
+    marker: stringOrNull(row.last_known_release_marker),
+    precision: normalizeReleasePrecision(row.last_known_release_precision),
+    releaseDate: stringOrNull(row.last_known_release_date) ?? stringOrNull(payload['releaseDate']),
+    releaseYear: integerOrNull(row.last_known_release_year ?? payload['releaseYear']),
+  });
+
+  const hltbEligible = isWithinPastYears(releaseBefore, now, config.hltbPeriodicRefreshYears);
+  const metacriticEligible = isWithinPastYears(
+    releaseBefore,
+    now,
+    config.metacriticPeriodicRefreshYears
+  );
+
+  const hltbDue = force.hltb
+    ? (!options.respectRecency || hltbEligible) &&
+      (!options.respectStaleness || isHltbRefreshDue(row.last_hltb_refresh_at, payload, now))
+    : false;
+  const reviewDue = force.review
+    ? (!options.respectRecency || metacriticEligible) &&
+      (!options.respectStaleness || isReviewRefreshDue(row.last_metacritic_refresh_at, now))
+    : false;
+
+  const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
+  const reviewProvider = reviewDue
+    ? typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
+      ? 'mobygames'
+      : 'metacritic'
+    : null;
+
+  return { hltbDue, reviewDue, reviewProvider };
 }
 
 async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
@@ -335,38 +385,108 @@ async function queryAllEligibleGamesForForcedRefresh(pool: Pool): Promise<DueGam
 
 const FORCED_REFRESH_ENQUEUE_CONCURRENCY = 5;
 
+export interface ForcedRefreshDataTypeStats {
+  scanned: number;
+  enqueued: number;
+  deduped: number;
+}
+
+export interface ForcedRefreshResult {
+  hltb: ForcedRefreshDataTypeStats;
+  metacritic: ForcedRefreshDataTypeStats;
+  mobygames: ForcedRefreshDataTypeStats;
+}
+
+function newForcedRefreshDataTypeStats(): ForcedRefreshDataTypeStats {
+  return { scanned: 0, enqueued: 0, deduped: 0 };
+}
+
 export async function enqueueForcedReleaseMonitorRefreshJobs(
   pool: Pool,
   force: { hltb: boolean; review: boolean },
   options?: { respectRecency?: boolean; respectStaleness?: boolean }
-): Promise<{ scanned: number; enqueued: number; deduped: number }> {
+): Promise<ForcedRefreshResult> {
   const jobs = new BackgroundJobRepository(pool);
   const rows = await queryAllEligibleGamesForForcedRefresh(pool);
   const respectRecency = options?.respectRecency ?? true;
   const respectStaleness = options?.respectStaleness ?? false;
   const forceSuffix = `${force.hltb ? '1' : '0'}${force.review ? '1' : '0'}${respectRecency ? '1' : '0'}${respectStaleness ? '1' : '0'}`;
+  const now = new Date();
 
-  const tasks = rows.map((row) => async () => {
+  const result: ForcedRefreshResult = {
+    hltb: newForcedRefreshDataTypeStats(),
+    metacritic: newForcedRefreshDataTypeStats(),
+    mobygames: newForcedRefreshDataTypeStats(),
+  };
+
+  const dueByRow = rows.map((row) =>
+    evaluateForcedRefreshDue(row, force, { respectRecency, respectStaleness }, now)
+  );
+
+  if (force.hltb) {
+    result.hltb.scanned = rows.length;
+  }
+  if (force.review) {
+    result.metacritic.scanned = rows.length;
+    result.mobygames.scanned = rows.length;
+  }
+
+  const enqueueTasks: Array<{
+    row: DueGameRow;
+    due: ForcedRefreshDueResult;
+    task: () => Promise<{ deduped: boolean }>;
+  }> = [];
+
+  rows.forEach((row, index) => {
+    const due = dueByRow[index];
+    if (!(due.hltbDue || due.reviewDue)) {
+      return;
+    }
     const dedupeKey = `release-monitor:forced:${forceSuffix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
     const payload = buildReleaseMonitorGameJobPayload(row, {
       ...force,
       respectRecency,
       respectStaleness,
     });
-    return jobs.enqueue({
-      jobType: 'release_monitor_game',
-      dedupeKey,
-      payload,
-      priority: 80,
-      maxAttempts: 5,
+    enqueueTasks.push({
+      row,
+      due,
+      task: () =>
+        jobs.enqueue({
+          jobType: 'release_monitor_game',
+          dedupeKey,
+          payload,
+          priority: 80,
+          maxAttempts: 5,
+        }),
     });
   });
 
-  const results = await runWithConcurrencyLimit(tasks, FORCED_REFRESH_ENQUEUE_CONCURRENCY);
-  const enqueued = results.filter((result) => !result.deduped).length;
-  const deduped = results.filter((result) => result.deduped).length;
+  const enqueueResults = await runWithConcurrencyLimit(
+    enqueueTasks.map((entry) => entry.task),
+    FORCED_REFRESH_ENQUEUE_CONCURRENCY
+  );
 
-  return { scanned: rows.length, enqueued, deduped };
+  enqueueResults.forEach((enqueueResult, index) => {
+    const { due } = enqueueTasks[index];
+    if (due.hltbDue) {
+      if (enqueueResult.deduped) {
+        result.hltb.deduped += 1;
+      } else {
+        result.hltb.enqueued += 1;
+      }
+    }
+    if (due.reviewDue && due.reviewProvider) {
+      const bucket = result[due.reviewProvider];
+      if (enqueueResult.deduped) {
+        bucket.deduped += 1;
+      } else {
+        bucket.enqueued += 1;
+      }
+    }
+  });
+
+  return result;
 }
 
 function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRow | null {
@@ -400,6 +520,7 @@ function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRo
     force_review: payload['force_review'] === true,
     respect_recency: payload['respect_recency'] !== false,
     respect_staleness: payload['respect_staleness'] === true,
+    bypass_cache: payload['bypass_cache'] === true,
   };
   /* node:coverage enable */
 }
@@ -575,6 +696,7 @@ async function processGameRow(
         title: hltbRefreshQuery.title,
         releaseYear: hltbRefreshQuery.releaseYear,
         platform: hltbRefreshQuery.platform,
+        forceFresh: row.bypass_cache === true,
       });
 
       if (refreshedHltb.ok) {
@@ -604,7 +726,10 @@ async function processGameRow(
         platformName,
         platformIgdbId
       );
-      const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
+      const refreshedReview = await fetchReviewPayload({
+        ...reviewRefreshQuery,
+        forceFresh: row.bypass_cache === true,
+      });
 
       if (refreshedReview.ok) {
         if (refreshedReview.value) {
@@ -893,10 +1018,17 @@ type RefreshedReviewPayload =
       reviewUrl: string | null;
     };
 
+const FORCE_REFRESH_HEADER_NAME = 'X-GameShelf-Force-Refresh';
+
+function forceFreshHeaders(forceFresh?: boolean): Record<string, string> | undefined {
+  return forceFresh ? { [FORCE_REFRESH_HEADER_NAME]: '1' } : undefined;
+}
+
 async function fetchHltbPayload(params: {
   title: string;
   releaseYear: number | null;
   platform: string | null;
+  forceFresh?: boolean;
 }): Promise<FetchJsonResult<HltbApiResponse['item']>> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
@@ -909,7 +1041,8 @@ async function fetchHltbPayload(params: {
   });
   const result = await fetchLocalApiJson<HltbApiResponse>(
     url,
-    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+    forceFreshHeaders(params.forceFresh)
   );
   if (!result.ok) {
     return { ok: false, value: null };
@@ -923,6 +1056,7 @@ async function fetchMetacriticPayload(params: {
   releaseYear: number | null;
   platform: string | null;
   platformIgdbId: number;
+  forceFresh?: boolean;
 }): Promise<FetchJsonResult<MetacriticApiResponse['item']>> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
@@ -936,7 +1070,8 @@ async function fetchMetacriticPayload(params: {
   });
   const result = await fetchLocalApiJson<MetacriticApiResponse>(
     url,
-    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+    forceFreshHeaders(params.forceFresh)
   );
   if (!result.ok) {
     return { ok: false, value: null };
@@ -951,11 +1086,13 @@ async function fetchReviewPayload(params: {
   platform: string | null;
   platformIgdbId: number;
   reviewMatchMobygamesGameId: number | null;
+  forceFresh?: boolean;
 }): Promise<FetchJsonResult<RefreshedReviewPayload>> {
   if (params.reviewMatchMobygamesGameId !== null) {
     const mobygames = await fetchMobygamesPayload({
       title: params.title,
       reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId,
+      forceFresh: params.forceFresh,
     });
     if (!mobygames.ok) {
       return { ok: false, value: null };
@@ -981,6 +1118,7 @@ async function fetchReviewPayload(params: {
     releaseYear: params.releaseYear,
     platform: params.platform,
     platformIgdbId: params.platformIgdbId,
+    forceFresh: params.forceFresh,
   });
   if (!metacritic.ok) {
     return { ok: false, value: null };
@@ -1002,6 +1140,7 @@ async function fetchReviewPayload(params: {
 async function fetchMobygamesPayload(params: {
   title: string;
   reviewMatchMobygamesGameId: number;
+  forceFresh?: boolean;
 }): Promise<
   FetchJsonResult<{
     mobygamesGameId: number | null;
@@ -1023,7 +1162,8 @@ async function fetchMobygamesPayload(params: {
   });
   const result = await fetchLocalApiJson<MobyGamesApiResponse>(
     url,
-    config.recommendationsDiscoveryEnrichRequestTimeoutMs
+    config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+    forceFreshHeaders(params.forceFresh)
   );
   if (!result.ok) {
     return { ok: false, value: null };
@@ -2484,6 +2624,8 @@ export const releaseMonitorInternals = {
   processGameRow,
   enqueueReleaseMonitorGameJob,
   enqueueForcedReleaseMonitorRefreshJobs,
+  evaluateForcedRefreshDue,
+  buildReleaseMonitorGameJobPayload,
   queryAllEligibleGamesForForcedRefresh,
   parseDueGameRowFromPayload,
   processQueuedReleaseMonitorGame,

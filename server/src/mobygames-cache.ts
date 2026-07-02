@@ -96,9 +96,10 @@ export async function registerMobyGamesCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeMobyGamesQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = request.headers['x-gameshelf-force-refresh'] === '1';
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<MobyGamesCacheRow>(
             'SELECT response_json, updated_at FROM mobygames_search_cache WHERE cache_key = $1 LIMIT 1',
@@ -167,7 +168,13 @@ export async function registerMobyGamesCachedRoute(
         }
       }
 
-      if (!normalized) {
+      if (bypassCache) {
+        cacheOutcome = 'BYPASS';
+        incrementMobygamesMetric('bypasses');
+        logMobygamesCacheDecision(request, 'BYPASS', normalized, null, {
+          reason: 'forced_refresh',
+        });
+      } else if (!normalized) {
         cacheOutcome = 'BYPASS';
         incrementMobygamesMetric('bypasses');
         logMobygamesCacheDecision(request, 'BYPASS', null, null, {

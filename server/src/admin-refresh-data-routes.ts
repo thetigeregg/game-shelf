@@ -35,6 +35,11 @@ interface DataTypeResult {
   deduped: number;
 }
 
+interface ReviewsDataTypeResult extends DataTypeResult {
+  metacritic: DataTypeResult;
+  mobygames: DataTypeResult;
+}
+
 interface PricingCandidateRow extends QueryResultRow {
   igdb_game_id: string;
   platform_igdb_id: number;
@@ -76,7 +81,7 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
         return;
       }
 
-      const results: Partial<Record<DataType, DataTypeResult>> = {};
+      const results: Partial<Record<DataType, DataTypeResult | ReviewsDataTypeResult>> = {};
       const totals = { enqueued: 0, deduped: 0 };
 
       if (dataTypes.has('hltb') || dataTypes.has('reviews')) {
@@ -88,19 +93,27 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
           },
           { respectRecency, respectStaleness }
         );
-        const shared: DataTypeResult = {
-          scanned: forced.scanned,
-          enqueued: forced.enqueued,
-          deduped: forced.deduped,
-        };
         if (dataTypes.has('hltb')) {
-          results.hltb = shared;
+          results.hltb = {
+            scanned: forced.hltb.scanned,
+            enqueued: forced.hltb.enqueued,
+            deduped: forced.hltb.deduped,
+          };
+          totals.enqueued += forced.hltb.enqueued;
+          totals.deduped += forced.hltb.deduped;
         }
         if (dataTypes.has('reviews')) {
-          results.reviews = shared;
+          const reviews: ReviewsDataTypeResult = {
+            scanned: forced.metacritic.scanned,
+            enqueued: forced.metacritic.enqueued + forced.mobygames.enqueued,
+            deduped: forced.metacritic.deduped + forced.mobygames.deduped,
+            metacritic: forced.metacritic,
+            mobygames: forced.mobygames,
+          };
+          results.reviews = reviews;
+          totals.enqueued += reviews.enqueued;
+          totals.deduped += reviews.deduped;
         }
-        totals.enqueued += forced.enqueued;
-        totals.deduped += forced.deduped;
       }
 
       if (dataTypes.has('igdb')) {

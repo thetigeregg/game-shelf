@@ -204,17 +204,17 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
     pool.seed({
       igdbGameId: '1',
       platformIgdbId: 6,
-      payload: { listType: 'wishlist', title: 'Wishlist Game' },
+      payload: { listType: 'wishlist', title: 'Wishlist Game', releaseYear: 2024 },
     });
     pool.seed({
       igdbGameId: '2',
       platformIgdbId: 6,
-      payload: { listType: 'collection', title: 'Collection Game' },
+      payload: { listType: 'collection', title: 'Collection Game', releaseYear: 2024 },
     });
     pool.seed({
       igdbGameId: '3',
       platformIgdbId: 6,
-      payload: { listType: 'discovery', title: 'Discovery Game' },
+      payload: { listType: 'discovery', title: 'Discovery Game', releaseYear: 2024 },
     });
 
     try {
@@ -231,13 +231,26 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
       const body = JSON.parse(response.body) as {
         results: {
           hltb: { scanned: number; enqueued: number; deduped: number };
-          reviews: { scanned: number; enqueued: number; deduped: number };
+          reviews: {
+            scanned: number;
+            enqueued: number;
+            deduped: number;
+            metacritic: { scanned: number; enqueued: number; deduped: number };
+            mobygames: { scanned: number; enqueued: number; deduped: number };
+          };
         };
         respectRecency: boolean;
         respectStaleness: boolean;
       };
       assert.equal(body.results.hltb.scanned, 2);
-      assert.deepEqual(body.results.hltb, body.results.reviews);
+      assert.deepEqual(body.results.hltb, { scanned: 2, enqueued: 2, deduped: 0 });
+      assert.deepEqual(body.results.reviews, {
+        scanned: 2,
+        enqueued: 2,
+        deduped: 0,
+        metacritic: { scanned: 2, enqueued: 2, deduped: 0 },
+        mobygames: { scanned: 2, enqueued: 0, deduped: 0 },
+      });
       assert.equal(body.respectRecency, true);
       assert.equal(body.respectStaleness, false);
 

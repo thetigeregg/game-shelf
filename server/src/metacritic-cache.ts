@@ -74,9 +74,15 @@ export async function registerMetacriticCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeMetacriticQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = request.headers['x-gameshelf-force-refresh'] === '1';
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (bypassCache) {
+        incrementMetacriticMetric('bypasses');
+        cacheOutcome = 'BYPASS';
+      }
+
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<MetacriticCacheRow>(
             'SELECT response_json, updated_at FROM metacritic_search_cache WHERE cache_key = $1 LIMIT 1',

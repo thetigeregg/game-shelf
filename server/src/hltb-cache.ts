@@ -76,9 +76,15 @@ export async function registerHltbCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeHltbQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = request.headers['x-gameshelf-force-refresh'] === '1';
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (bypassCache) {
+        incrementHltbMetric('bypasses');
+        cacheOutcome = 'BYPASS';
+      }
+
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<HltbCacheRow>(
             'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',

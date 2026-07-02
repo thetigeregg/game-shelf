@@ -169,6 +169,64 @@ void test('MOBYGAMES cache stores on miss and serves on hit', async () => {
   await app.close();
 });
 
+void test('MOBYGAMES cache force-refresh header bypasses a fresh cache entry, then refreshes the cache for regular traffic', async () => {
+  resetCacheMetrics();
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      const title = fetchCalls === 1 ? 'Okami' : 'Okami HD';
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 1, title }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Okami&platform=9&limit=5',
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  const forced = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Okami&platform=9&limit=5',
+    headers: { 'x-gameshelf-force-refresh': '1' },
+  });
+  assert.equal(forced.statusCode, 200);
+  assert.equal(forced.headers['x-gameshelf-mobygames-cache'], 'BYPASS');
+  assert.equal(fetchCalls, 2);
+  assert.equal(
+    (JSON.parse(forced.body) as { games: Array<{ title: string }> }).games[0]?.title,
+    'Okami HD'
+  );
+
+  const afterForced = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Okami&platform=9&limit=5',
+  });
+  assert.equal(afterForced.statusCode, 200);
+  assert.equal(afterForced.headers['x-gameshelf-mobygames-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 2);
+  assert.equal(
+    (JSON.parse(afterForced.body) as { games: Array<{ title: string }> }).games[0]?.title,
+    'Okami HD'
+  );
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.bypasses, 1);
+
+  await app.close();
+});
+
 void test('MOBYGAMES cache bypasses cache when query is too short', async () => {
   resetCacheMetrics();
   const pool = new MobyGamesPoolMock();

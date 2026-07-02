@@ -160,6 +160,64 @@ void test('METACRITIC cache stores on miss and serves on hit', async () => {
   await app.close();
 });
 
+void test('METACRITIC cache force-refresh header bypasses a fresh cache entry, then refreshes the cache for regular traffic', async () => {
+  resetCacheMetrics();
+  const pool = new MetacriticPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      const metacriticScore = fetchCalls === 1 ? 20 : 30;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii',
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-metacritic-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  const forced = await app.inject({
+    method: 'GET',
+    url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii',
+    headers: { 'x-gameshelf-force-refresh': '1' },
+  });
+  assert.equal(forced.statusCode, 200);
+  assert.equal(forced.headers['x-gameshelf-metacritic-cache'], 'BYPASS');
+  assert.equal(fetchCalls, 2);
+  assert.equal(
+    (JSON.parse(forced.body) as { item: { metacriticScore: number } }).item.metacriticScore,
+    30
+  );
+
+  const afterForced = await app.inject({
+    method: 'GET',
+    url: '/v1/metacritic/search?q=Okami&releaseYear=2006&platform=Wii',
+  });
+  assert.equal(afterForced.statusCode, 200);
+  assert.equal(afterForced.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 2);
+  assert.equal(
+    (JSON.parse(afterForced.body) as { item: { metacriticScore: number } }).item.metacriticScore,
+    30
+  );
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.metacritic.bypasses, 1);
+
+  await app.close();
+});
+
 void test('METACRITIC cache supports candidates when includeCandidates is enabled', async () => {
   resetCacheMetrics();
   const pool = new MetacriticPoolMock();

@@ -25,9 +25,11 @@ class PoolMock {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.startsWith('select g.igdb_game_id, g.platform_igdb_id, g.payload,')) {
+      const limit = typeof params[0] === 'number' ? params[0] : Number.POSITIVE_INFINITY;
       const rows = [...this.rows.values()]
         .filter((row) => ['collection', 'wishlist'].includes(String(row.payload['listType'])))
         .sort((a, b) => a.igdbGameId.localeCompare(b.igdbGameId))
+        .slice(0, limit)
         .map((row) => ({
           igdb_game_id: row.igdbGameId,
           platform_igdb_id: row.platformIgdbId,
@@ -52,6 +54,7 @@ class PoolMock {
     ) {
       const steamPlatformId = typeof params[0] === 'number' ? params[0] : null;
       const pspricesPlatformIds = Array.isArray(params[1]) ? (params[1] as number[]) : [];
+      const limit = typeof params[2] === 'number' ? params[2] : Number.POSITIVE_INFINITY;
       const rows = [...this.rows.values()]
         .filter((row) => row.payload['listType'] === 'wishlist')
         .filter(
@@ -60,6 +63,7 @@ class PoolMock {
             pspricesPlatformIds.includes(row.platformIgdbId)
         )
         .sort((a, b) => a.igdbGameId.localeCompare(b.igdbGameId))
+        .slice(0, limit)
         .map((row) => ({
           igdb_game_id: row.igdbGameId,
           platform_igdb_id: row.platformIgdbId,
@@ -69,9 +73,11 @@ class PoolMock {
     }
 
     if (normalized.startsWith('with latest_run as')) {
+      const limit = typeof params[3] === 'number' ? params[3] : Number.POSITIVE_INFINITY;
       const rows = [...this.rows.values()]
         .filter((row) => row.payload['listType'] === 'discovery')
         .sort((a, b) => a.igdbGameId.localeCompare(b.igdbGameId))
+        .slice(0, limit)
         .map((row) => ({
           igdb_game_id: row.igdbGameId,
           platform_igdb_id: row.platformIgdbId,

@@ -1,12 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run build)",
+      "Bash(npm run typecheck:server)",
       "Bash(npx tsc *)",
       "Bash(python3 -)",
       "Bash(echo \"EXIT=$?\")",
-      "Read(//tmp/**)",
-      "Bash(npx devx *)"
+      "Read(/tmp/**)",
+      "Bash(npx devx *)",
+      "Bash(npm --prefix server run typecheck)"
     ]
   }
 }

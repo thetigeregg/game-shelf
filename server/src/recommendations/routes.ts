@@ -162,17 +162,11 @@ export function registerRecommendationRoutes(
         return;
       }
 
-      if (lane === null) {
-        reply.code(400).send({
-          error:
-            'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
-        });
-        return;
-      }
-
+      // lane is guaranteed non-null here: the check above already returned
+      // when query.lane !== undefined && lane === null.
       const result = await service.getRecommendationLanes(
         target,
-        lane,
+        lane as RecommendationLaneKey,
         offset,
         limit ?? 10,
         runtimeMode

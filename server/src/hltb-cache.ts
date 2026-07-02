@@ -135,7 +135,9 @@ export async function registerHltbCachedRoute(
         }
       }
 
-      incrementHltbMetric('misses');
+      if (!bypassCache) {
+        incrementHltbMetric('misses');
+      }
       const response = await fetchMetadata(request);
 
       if (normalized && response.ok) {

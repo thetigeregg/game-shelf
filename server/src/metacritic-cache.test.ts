@@ -214,6 +214,7 @@ void test('METACRITIC cache force-refresh header bypasses a fresh cache entry, t
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.metacritic.bypasses, 1);
+  assert.equal(metrics.metacritic.misses, 1);
 
   await app.close();
 });

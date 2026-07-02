@@ -177,6 +177,7 @@ void test('HLTB cache force-refresh header bypasses a fresh cache entry, then re
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.hltb.bypasses, 1);
+  assert.equal(metrics.hltb.misses, 1);
 
   await app.close();
 });

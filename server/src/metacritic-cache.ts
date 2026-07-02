@@ -136,7 +136,9 @@ export async function registerMetacriticCachedRoute(
         }
       }
 
-      incrementMetacriticMetric('misses');
+      if (!bypassCache) {
+        incrementMetacriticMetric('misses');
+      }
       const response = await fetchMetadata(request);
 
       if (cacheKey && normalized && response.ok) {

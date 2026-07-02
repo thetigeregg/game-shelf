@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementMetacriticMetric } from './cache-metrics.js';
+import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -74,7 +76,7 @@ export async function registerMetacriticCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeMetacriticQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
-      const bypassCache = request.headers['x-gameshelf-force-refresh'] === '1';
+      const bypassCache = isAuthorizedForceRefreshRequest(request);
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
       if (bypassCache) {
@@ -152,6 +154,20 @@ export async function registerMetacriticCachedRoute(
       reply.header('X-GameShelf-METACRITIC-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
     },
+  });
+}
+
+function isAuthorizedForceRefreshRequest(request: FastifyRequest): boolean {
+  if (request.headers['x-gameshelf-force-refresh'] !== '1') {
+    return false;
+  }
+
+  return isAuthorizedMutatingRequest({
+    requireAuth: true,
+    apiToken: config.apiToken,
+    clientWriteTokens: config.clientWriteTokens,
+    authorizationHeader: request.headers.authorization,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
   });
 }
 

@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { processQueuedHltbCacheRevalidation, registerHltbCachedRoute } from './hltb-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
+import { config } from './config.js';
 
 interface HltbCandidateResponseBody {
   candidates?: Array<{
@@ -125,61 +126,113 @@ void test('HLTB cache stores on miss and serves on hit', async () => {
 
 void test('HLTB cache force-refresh header bypasses a fresh cache entry, then refreshes the cache for regular traffic', async () => {
   resetCacheMetrics();
+  const originalApiToken = config.apiToken;
+  config.apiToken = 'test-api-token';
   const pool = new HltbPoolMock();
   const app = Fastify();
   let fetchCalls = 0;
 
-  await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: () => {
-      fetchCalls += 1;
-      const hltbMainHours = fetchCalls === 1 ? 20 : 30;
-      return Promise.resolve(
-        new Response(JSON.stringify({ item: { hltbMainHours }, candidates: [] }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-      );
-    },
-  });
+  try {
+    await registerHltbCachedRoute(app, pool as unknown as Pool, {
+      fetchMetadata: () => {
+        fetchCalls += 1;
+        const hltbMainHours = fetchCalls === 1 ? 20 : 30;
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: { hltbMainHours }, candidates: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      },
+    });
 
-  const first = await app.inject({
-    method: 'GET',
-    url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
-  });
-  assert.equal(first.statusCode, 200);
-  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
-  assert.equal(fetchCalls, 1);
+    const first = await app.inject({
+      method: 'GET',
+      url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+    });
+    assert.equal(first.statusCode, 200);
+    assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+    assert.equal(fetchCalls, 1);
 
-  const forced = await app.inject({
-    method: 'GET',
-    url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
-    headers: { 'x-gameshelf-force-refresh': '1' },
-  });
-  assert.equal(forced.statusCode, 200);
-  assert.equal(forced.headers['x-gameshelf-hltb-cache'], 'BYPASS');
-  assert.equal(fetchCalls, 2);
-  assert.equal(
-    (JSON.parse(forced.body) as { item: { hltbMainHours: number } }).item.hltbMainHours,
-    30
-  );
+    const forced = await app.inject({
+      method: 'GET',
+      url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+      headers: {
+        'x-gameshelf-force-refresh': '1',
+        authorization: 'Bearer test-api-token',
+      },
+    });
+    assert.equal(forced.statusCode, 200);
+    assert.equal(forced.headers['x-gameshelf-hltb-cache'], 'BYPASS');
+    assert.equal(fetchCalls, 2);
+    assert.equal(
+      (JSON.parse(forced.body) as { item: { hltbMainHours: number } }).item.hltbMainHours,
+      30
+    );
 
-  const afterForced = await app.inject({
-    method: 'GET',
-    url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
-  });
-  assert.equal(afterForced.statusCode, 200);
-  assert.equal(afterForced.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
-  assert.equal(fetchCalls, 2);
-  assert.equal(
-    (JSON.parse(afterForced.body) as { item: { hltbMainHours: number } }).item.hltbMainHours,
-    30
-  );
+    const afterForced = await app.inject({
+      method: 'GET',
+      url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+    });
+    assert.equal(afterForced.statusCode, 200);
+    assert.equal(afterForced.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+    assert.equal(fetchCalls, 2);
+    assert.equal(
+      (JSON.parse(afterForced.body) as { item: { hltbMainHours: number } }).item.hltbMainHours,
+      30
+    );
 
-  const metrics = getCacheMetrics();
-  assert.equal(metrics.hltb.bypasses, 1);
-  assert.equal(metrics.hltb.misses, 1);
+    const metrics = getCacheMetrics();
+    assert.equal(metrics.hltb.bypasses, 1);
+    assert.equal(metrics.hltb.misses, 1);
+  } finally {
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
+});
 
-  await app.close();
+void test('HLTB cache force-refresh header is ignored without a valid auth token', async () => {
+  resetCacheMetrics();
+  const originalApiToken = config.apiToken;
+  config.apiToken = 'test-api-token';
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  try {
+    await registerHltbCachedRoute(app, pool as unknown as Pool, {
+      fetchMetadata: () => {
+        fetchCalls += 1;
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      },
+    });
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+    });
+    assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+    assert.equal(fetchCalls, 1);
+
+    const unauthorizedForced = await app.inject({
+      method: 'GET',
+      url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+      headers: { 'x-gameshelf-force-refresh': '1' },
+    });
+    assert.equal(unauthorizedForced.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+    assert.equal(fetchCalls, 1);
+
+    const metrics = getCacheMetrics();
+    assert.equal(metrics.hltb.bypasses, 0);
+  } finally {
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
 });
 
 void test('HLTB cache supports candidates when includeCandidates is enabled', async () => {

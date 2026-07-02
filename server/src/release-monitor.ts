@@ -1021,7 +1021,16 @@ type RefreshedReviewPayload =
 const FORCE_REFRESH_HEADER_NAME = 'X-GameShelf-Force-Refresh';
 
 function forceFreshHeaders(forceFresh?: boolean): Record<string, string> | undefined {
-  return forceFresh ? { [FORCE_REFRESH_HEADER_NAME]: '1' } : undefined;
+  if (!forceFresh) {
+    return undefined;
+  }
+
+  const headers: Record<string, string> = { [FORCE_REFRESH_HEADER_NAME]: '1' };
+  const apiToken = config.apiToken.trim();
+  if (apiToken.length > 0) {
+    headers['Authorization'] = `Bearer ${apiToken}`;
+  }
+  return headers;
 }
 
 async function fetchHltbPayload(params: {

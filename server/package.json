@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node --enable-source-maps --import tsx src/index.ts",
     "start:background-worker": "node --enable-source-maps --import tsx src/background-worker.ts",

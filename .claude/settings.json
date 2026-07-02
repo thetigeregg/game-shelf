@@ -5,7 +5,8 @@
       "Bash(npx tsc *)",
       "Bash(python3 -)",
       "Bash(echo \"EXIT=$?\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npx devx *)"
     ]
   }
 }

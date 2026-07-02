@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementMetacriticMetric } from './cache-metrics.js';
+import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -74,9 +76,15 @@ export async function registerMetacriticCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeMetacriticQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = isAuthorizedForceRefreshRequest(request);
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (bypassCache) {
+        incrementMetacriticMetric('bypasses');
+        cacheOutcome = 'BYPASS';
+      }
+
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<MetacriticCacheRow>(
             'SELECT response_json, updated_at FROM metacritic_search_cache WHERE cache_key = $1 LIMIT 1',
@@ -130,7 +138,9 @@ export async function registerMetacriticCachedRoute(
         }
       }
 
-      incrementMetacriticMetric('misses');
+      if (!bypassCache) {
+        incrementMetacriticMetric('misses');
+      }
       const response = await fetchMetadata(request);
 
       if (cacheKey && normalized && response.ok) {
@@ -144,6 +154,20 @@ export async function registerMetacriticCachedRoute(
       reply.header('X-GameShelf-METACRITIC-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
     },
+  });
+}
+
+function isAuthorizedForceRefreshRequest(request: FastifyRequest): boolean {
+  if (request.headers['x-gameshelf-force-refresh'] !== '1') {
+    return false;
+  }
+
+  return isAuthorizedMutatingRequest({
+    requireAuth: true,
+    apiToken: config.apiToken,
+    clientWriteTokens: config.clientWriteTokens,
+    authorizationHeader: request.headers.authorization,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
   });
 }
 

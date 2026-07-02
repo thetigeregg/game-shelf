@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -76,9 +78,15 @@ export async function registerHltbCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeHltbQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = isAuthorizedForceRefreshRequest(request);
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (bypassCache) {
+        incrementHltbMetric('bypasses');
+        cacheOutcome = 'BYPASS';
+      }
+
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<HltbCacheRow>(
             'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
@@ -129,7 +137,9 @@ export async function registerHltbCachedRoute(
         }
       }
 
-      incrementHltbMetric('misses');
+      if (!bypassCache) {
+        incrementHltbMetric('misses');
+      }
       const response = await fetchMetadata(request);
 
       if (normalized && response.ok) {
@@ -157,6 +167,20 @@ export async function registerHltbCachedRoute(
       reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
     },
+  });
+}
+
+function isAuthorizedForceRefreshRequest(request: FastifyRequest): boolean {
+  if (request.headers['x-gameshelf-force-refresh'] !== '1') {
+    return false;
+  }
+
+  return isAuthorizedMutatingRequest({
+    requireAuth: true,
+    apiToken: config.apiToken,
+    clientWriteTokens: config.clientWriteTokens,
+    authorizationHeader: request.headers.authorization,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
   });
 }
 

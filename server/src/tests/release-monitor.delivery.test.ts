@@ -1719,6 +1719,167 @@ void test('processGameRow does not attempt hltb/review for a bootstrap ineligibl
   }
 });
 
+void test('processGameRow sends a force-refresh header for hltb/review fetches when bypass_cache is set', async () => {
+  const originalFetch = globalThis.fetch;
+  const capturedHeaders: Record<string, HeadersInit | undefined> = {};
+  globalThis.fetch = (input: URL | RequestInfo, init?: RequestInit) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('/v1/hltb/search')) {
+      capturedHeaders.hltb = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      capturedHeaders.metacritic = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+        respect_recency: false,
+        bypass_cache: true,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+    assert.equal(
+      (capturedHeaders.hltb as Record<string, string> | undefined)?.['X-GameShelf-Force-Refresh'],
+      '1'
+    );
+    assert.equal(
+      (capturedHeaders.metacritic as Record<string, string> | undefined)?.[
+        'X-GameShelf-Force-Refresh'
+      ],
+      '1'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow omits the force-refresh header when bypass_cache is not set', async () => {
+  const originalFetch = globalThis.fetch;
+  const capturedHeaders: Record<string, HeadersInit | undefined> = {};
+  globalThis.fetch = (input: URL | RequestInfo, init?: RequestInit) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('/v1/hltb/search')) {
+      capturedHeaders.hltb = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      capturedHeaders.metacritic = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+        respect_recency: false,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+    assert.equal(capturedHeaders.hltb, undefined);
+    assert.equal(capturedHeaders.metacritic, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows and stamps force flags', async () => {
   const rows: DueGameSeedRow[] = [
     {
@@ -1729,7 +1890,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
       last_known_release_marker: null,
       last_known_release_precision: null,
       last_known_release_date: null,
-      last_known_release_year: null,
+      last_known_release_year: 2024,
       last_seen_state: null,
       last_hltb_refresh_at: null,
       last_metacritic_refresh_at: null,
@@ -1743,7 +1904,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
       last_known_release_marker: null,
       last_known_release_precision: null,
       last_known_release_date: null,
-      last_known_release_year: null,
+      last_known_release_year: 2024,
       last_seen_state: null,
       last_hltb_refresh_at: null,
       last_metacritic_refresh_at: null,
@@ -1757,14 +1918,24 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
     { hltb: true, review: false }
   );
 
-  assert.deepEqual(result, { scanned: 2, enqueued: 2, deduped: 0 });
+  assert.deepEqual(result, {
+    hltb: { scanned: 2, enqueued: 2, deduped: 0 },
+    metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
+    mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 2, enqueued: 2, deduped: 0 },
+  });
   assert.equal(pool.queuedJobs, 2);
 
   const repeat = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
     pool as unknown as Pool,
     { hltb: true, review: false }
   );
-  assert.deepEqual(repeat, { scanned: 2, enqueued: 0, deduped: 2 });
+  assert.deepEqual(repeat, {
+    hltb: { scanned: 2, enqueued: 0, deduped: 2 },
+    metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
+    mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 2, enqueued: 0, deduped: 2 },
+  });
 });
 
 void test('enqueueForcedReleaseMonitorRefreshJobs defaults respect_recency true and respect_staleness false on job payloads', async () => {
@@ -1777,7 +1948,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs defaults respect_recency true 
       last_known_release_marker: null,
       last_known_release_precision: null,
       last_known_release_date: null,
-      last_known_release_year: null,
+      last_known_release_year: 2024,
       last_seen_state: null,
       last_hltb_refresh_at: null,
       last_metacritic_refresh_at: null,
@@ -1795,6 +1966,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs defaults respect_recency true 
   assert.ok(payload);
   assert.equal(payload['respect_recency'], true);
   assert.equal(payload['respect_staleness'], false);
+  assert.equal(payload['bypass_cache'], true);
 });
 
 void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respectStaleness options onto job payloads and dedupe keys', async () => {
@@ -1807,7 +1979,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respect
       last_known_release_marker: null,
       last_known_release_precision: null,
       last_known_release_date: null,
-      last_known_release_year: null,
+      last_known_release_year: 2024,
       last_seen_state: null,
       last_hltb_refresh_at: null,
       last_metacritic_refresh_at: null,
@@ -1821,7 +1993,12 @@ void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respect
     { hltb: true, review: true },
     { respectRecency: false, respectStaleness: true }
   );
-  assert.deepEqual(first, { scanned: 1, enqueued: 1, deduped: 0 });
+  assert.deepEqual(first, {
+    hltb: { scanned: 1, enqueued: 1, deduped: 0 },
+    metacritic: { scanned: 1, enqueued: 1, deduped: 0 },
+    mobygames: { scanned: 1, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 1, deduped: 0 },
+  });
   const firstPayload = pool.lastEnqueuedPayload;
   assert.ok(firstPayload);
   assert.equal(firstPayload['respect_recency'], false);
@@ -1834,5 +2011,95 @@ void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respect
     { hltb: true, review: true },
     { respectRecency: true, respectStaleness: false }
   );
-  assert.deepEqual(second, { scanned: 1, enqueued: 1, deduped: 0 });
+  assert.deepEqual(second, {
+    hltb: { scanned: 1, enqueued: 1, deduped: 0 },
+    metacritic: { scanned: 1, enqueued: 1, deduped: 0 },
+    mobygames: { scanned: 1, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 1, deduped: 0 },
+  });
+});
+
+void test('enqueueForcedReleaseMonitorRefreshJobs buckets metacritic and mobygames independently from one shared scan', async () => {
+  const rows: DueGameSeedRow[] = [
+    {
+      igdb_game_id: '1',
+      platform_igdb_id: 6,
+      payload: { title: 'Metacritic Game', listType: 'collection' },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: 2024,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+    {
+      igdb_game_id: '2',
+      platform_igdb_id: 6,
+      payload: {
+        title: 'Mobygames Game',
+        listType: 'collection',
+        reviewMatchMobygamesGameId: 555,
+      },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: 2024,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+  ];
+  const pool = new ReleaseMonitorFlowPoolMock(rows);
+
+  const result = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: false, review: true }
+  );
+
+  assert.deepEqual(result, {
+    hltb: { scanned: 0, enqueued: 0, deduped: 0 },
+    metacritic: { scanned: 2, enqueued: 1, deduped: 0 },
+    mobygames: { scanned: 2, enqueued: 1, deduped: 0 },
+    job: { scanned: 2, enqueued: 2, deduped: 0 },
+  });
+  // One job per row, not one per (row, provider) pair.
+  assert.equal(pool.queuedJobs, 2);
+});
+
+void test('enqueueForcedReleaseMonitorRefreshJobs excludes rows that are not due and enqueues nothing for them', async () => {
+  const rows: DueGameSeedRow[] = [
+    {
+      igdb_game_id: '1',
+      platform_igdb_id: 6,
+      payload: { title: 'No Release Info', listType: 'collection' },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+  ];
+  const pool = new ReleaseMonitorFlowPoolMock(rows);
+
+  const result = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: true, review: false }
+  );
+
+  assert.deepEqual(result, {
+    hltb: { scanned: 1, enqueued: 0, deduped: 0 },
+    metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
+    mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 0, deduped: 0 },
+  });
+  assert.equal(pool.queuedJobs, 0);
 });

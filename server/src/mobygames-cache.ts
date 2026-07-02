@@ -12,6 +12,7 @@ import {
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface MobyGamesCacheRow {
   response_json: unknown;
@@ -96,9 +97,10 @@ export async function registerMobyGamesCachedRoute(
     handler: async (request, reply) => {
       const normalized = normalizeMobyGamesQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      const bypassCache = isAuthorizedForceRefreshRequest(request);
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey && normalized) {
+      if (cacheKey && normalized && !bypassCache) {
         try {
           const cached = await pool.query<MobyGamesCacheRow>(
             'SELECT response_json, updated_at FROM mobygames_search_cache WHERE cache_key = $1 LIMIT 1',
@@ -167,7 +169,13 @@ export async function registerMobyGamesCachedRoute(
         }
       }
 
-      if (!normalized) {
+      if (bypassCache) {
+        cacheOutcome = 'BYPASS';
+        incrementMobygamesMetric('bypasses');
+        logMobygamesCacheDecision(request, 'BYPASS', normalized, null, {
+          reason: 'forced_refresh',
+        });
+      } else if (!normalized) {
         cacheOutcome = 'BYPASS';
         incrementMobygamesMetric('bypasses');
         logMobygamesCacheDecision(request, 'BYPASS', null, null, {
@@ -240,6 +248,20 @@ function describeMobygamesPayload(payload: unknown): Record<string, unknown> {
     gameCount: games.length,
     firstTitle,
   };
+}
+
+function isAuthorizedForceRefreshRequest(request: FastifyRequest): boolean {
+  if (request.headers['x-gameshelf-force-refresh'] !== '1') {
+    return false;
+  }
+
+  return isAuthorizedMutatingRequest({
+    requireAuth: true,
+    apiToken: config.apiToken,
+    clientWriteTokens: config.clientWriteTokens,
+    authorizationHeader: request.headers.authorization,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
+  });
 }
 
 function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | null {

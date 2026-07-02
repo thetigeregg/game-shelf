@@ -19,6 +19,7 @@ import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
+import { hasUnifiedPriceValue, resolvePriceFetchedAtMs } from './pricing-freshness.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -176,45 +177,6 @@ function normalizeNonEmptyString(value: unknown): string | null {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean {
-  if (payload['priceIsFree'] === true) {
-    return true;
-  }
-
-  const amountCandidate = payload['priceAmount'];
-  if (typeof amountCandidate === 'number') {
-    return Number.isFinite(amountCandidate) && amountCandidate >= 0;
-  }
-  if (typeof amountCandidate === 'string') {
-    const parsed = Number.parseFloat(amountCandidate.trim());
-    return Number.isFinite(parsed) && parsed >= 0;
-  }
-
-  return false;
-}
-
-function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
-  // Freshness should track successful unified pricing snapshots, not fetch attempts.
-  if (!hasUnifiedPriceValue(payload)) {
-    return null;
-  }
-
-  const candidates = [payload['priceFetchedAt']];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeNonEmptyString(candidate);
-    if (!normalized) {
-      continue;
-    }
-    const parsedMs = Date.parse(normalized);
-    if (Number.isFinite(parsedMs)) {
-      return parsedMs;
-    }
-  }
-
-  return null;
 }
 
 function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): string | null {
@@ -1181,7 +1143,15 @@ async function main(): Promise<void> {
       }
       case 'metadata_enrichment_run': {
         const force = job.payload['force'] === true;
-        const summary = await metadataEnrichmentService.runOnce(force ? { force } : undefined);
+        const summary = await metadataEnrichmentService.runOnce(
+          force
+            ? {
+                force,
+                respectRecency: job.payload['respectRecency'] !== false,
+                respectStaleness: job.payload['respectStaleness'] === true,
+              }
+            : undefined
+        );
         return { summary };
       }
       case 'igdb_popularity_ingest': {

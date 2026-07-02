@@ -16,6 +16,7 @@ import { DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES } from './recommendations/typ
 import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 import { runWithConcurrencyLimit } from './utils/concurrency.js';
+import { resolvePriceFetchedAtMs } from './pricing-freshness.js';
 
 const PRICING_ENQUEUE_CONCURRENCY = 5;
 
@@ -24,6 +25,8 @@ const KNOWN_DATA_TYPES: ReadonlySet<DataType> = new Set(['hltb', 'reviews', 'igd
 
 interface RefreshDataBody {
   dataTypes?: unknown;
+  respectRecency?: unknown;
+  respectStaleness?: unknown;
 }
 
 interface DataTypeResult {
@@ -61,14 +64,30 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
         return;
       }
 
+      // Recency (how new the game's release is) defaults to enforced; staleness (how
+      // recently the data was last refreshed) defaults to bypassed, since the point of
+      // this endpoint is to force a refresh regardless of when it last ran.
+      const respectRecency = parseBooleanFlag(body.respectRecency, true);
+      const respectStaleness = parseBooleanFlag(body.respectStaleness, false);
+      if (respectRecency === null || respectStaleness === null) {
+        reply.code(400).send({
+          error: 'respectRecency and respectStaleness must be booleans when provided.',
+        });
+        return;
+      }
+
       const results: Partial<Record<DataType, DataTypeResult>> = {};
       const totals = { enqueued: 0, deduped: 0 };
 
       if (dataTypes.has('hltb') || dataTypes.has('reviews')) {
-        const forced = await enqueueForcedReleaseMonitorRefreshJobs(pool, {
-          hltb: dataTypes.has('hltb'),
-          review: dataTypes.has('reviews'),
-        });
+        const forced = await enqueueForcedReleaseMonitorRefreshJobs(
+          pool,
+          {
+            hltb: dataTypes.has('hltb'),
+            review: dataTypes.has('reviews'),
+          },
+          { respectRecency, respectStaleness }
+        );
         const shared: DataTypeResult = {
           scanned: forced.scanned,
           enqueued: forced.enqueued,
@@ -87,9 +106,11 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       if (dataTypes.has('igdb')) {
         const queued = await backgroundJobs.enqueue({
           jobType: 'metadata_enrichment_run',
-          dedupeKey: 'metadata-enrichment:admin-refresh-force',
+          dedupeKey: `metadata-enrichment:admin-refresh-force:${respectRecency ? '1' : '0'}${respectStaleness ? '1' : '0'}`,
           payload: {
             force: true,
+            respectRecency,
+            respectStaleness,
             requestedAt: new Date().toISOString(),
             requestedBy: 'admin-refresh-data',
           },
@@ -102,15 +123,24 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       }
 
       if (dataTypes.has('pricing')) {
+        // Pricing has no recency (release-year) gate to respect; only staleness applies.
         const wishlist = await enqueueForcedWishlistPricingRefreshJobs(
           pool,
           backgroundJobs,
-          config.adminForcedRefreshMaxGames
+          config.adminForcedRefreshMaxGames,
+          { respectStaleness }
         );
         const discoveryMaxRows = Math.max(0, config.adminForcedRefreshMaxGames - wishlist.scanned);
         const discovery =
           discoveryMaxRows > 0
-            ? await enqueueForcedDiscoveryPricingRefreshJobs(pool, backgroundJobs, discoveryMaxRows)
+            ? await enqueueForcedDiscoveryPricingRefreshJobs(
+                pool,
+                backgroundJobs,
+                discoveryMaxRows,
+                {
+                  respectStaleness,
+                }
+              )
             : { scanned: 0, enqueued: 0, deduped: 0 };
         results.pricing = {
           scanned: wishlist.scanned + discovery.scanned,
@@ -124,6 +154,8 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       reply.send({
         ok: true,
         requestedDataTypes: [...dataTypes],
+        respectRecency,
+        respectStaleness,
         results,
         totals,
       });
@@ -145,6 +177,13 @@ function parseDataTypes(value: unknown): Set<DataType> | null {
   }
 
   return dataTypes.size > 0 ? dataTypes : null;
+}
+
+function parseBooleanFlag(value: unknown, defaultValue: boolean): boolean | null {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  return typeof value === 'boolean' ? value : null;
 }
 
 function isAdminAuthorized(
@@ -176,7 +215,8 @@ interface PricingEnqueueStats {
 async function enqueueForcedWishlistPricingRefreshJobs(
   pool: Pool,
   backgroundJobs: BackgroundJobRepository,
-  maxRows: number
+  maxRows: number,
+  options: { respectStaleness: boolean }
 ): Promise<PricingEnqueueStats> {
   const rows = await pool.query<PricingCandidateRow>(
     `
@@ -193,12 +233,20 @@ async function enqueueForcedWishlistPricingRefreshJobs(
   const steamCountry = config.steamDefaultCountry;
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
+  const staleThresholdMs = Date.now() - Math.max(1, config.pricingRefreshStaleHours) * 3600 * 1000;
   const jobs: Array<() => Promise<{ deduped: boolean }>> = [];
 
   for (const row of rows.rows) {
     const payload = normalizePayloadObject(row.payload);
     if (payload === null) {
       continue;
+    }
+
+    if (options.respectStaleness) {
+      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      if (fetchedAtMs !== null && fetchedAtMs > staleThresholdMs) {
+        continue;
+      }
     }
 
     if (row.platform_igdb_id === STEAM_WINDOWS_PLATFORM_IGDB_ID) {
@@ -262,7 +310,8 @@ async function enqueueForcedWishlistPricingRefreshJobs(
 async function enqueueForcedDiscoveryPricingRefreshJobs(
   pool: Pool,
   backgroundJobs: BackgroundJobRepository,
-  maxRows: number
+  maxRows: number,
+  options: { respectStaleness: boolean }
 ): Promise<PricingEnqueueStats> {
   const perModeTopLimit = Math.max(1, config.recommendationsTopLimit);
   const rows = await pool.query<PricingCandidateRow>(
@@ -317,12 +366,21 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   const pspricesRegion = config.pspricesRegionPath.toLowerCase();
   const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
+  const staleThresholdMs =
+    nowMs - Math.max(1, config.discoveryPricingRefreshStaleHours) * 3600 * 1000;
   const jobs: Array<() => Promise<{ deduped: boolean }>> = [];
 
   for (const row of rows.rows) {
     const payload = normalizePayloadObject(row.payload);
     if (payload === null) {
       continue;
+    }
+
+    if (options.respectStaleness) {
+      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      if (fetchedAtMs !== null && fetchedAtMs > staleThresholdMs) {
+        continue;
+      }
     }
 
     if (row.platform_igdb_id === STEAM_WINDOWS_PLATFORM_IGDB_ID) {

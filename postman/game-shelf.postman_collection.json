@@ -590,7 +590,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dataTypes\": [\"hltb\", \"reviews\", \"igdb\", \"pricing\"]\n}",
+              "raw": "{\n  \"dataTypes\": [\"hltb\", \"reviews\", \"igdb\", \"pricing\"],\n  \"respectRecency\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -602,7 +602,7 @@
               "host": ["{{apiBaseUrl}}"],
               "path": ["v1", "admin", "refresh-data"]
             },
-            "description": "Force-triggers HLTB, review (Metacritic/MobyGames), IGDB metadata, and pricing refresh, bypassing normal cadence eligibility. Scope per data type matches its existing periodic mechanism: hltb/reviews/igdb cover collection+wishlist games, pricing covers wishlist+discovery games. Enqueues background jobs and returns enqueued/deduped counts immediately; does not wait for jobs to complete. Edit the dataTypes array to trigger a subset (any of hltb, reviews, igdb, pricing)."
+            "description": "Force-triggers HLTB, review (Metacritic/MobyGames), IGDB metadata, and pricing refresh. Scope per data type matches its existing periodic mechanism: hltb/reviews/igdb cover collection+wishlist games, pricing covers wishlist+discovery games. Enqueues background jobs and returns enqueued/deduped counts immediately; does not wait for jobs to complete. Edit the dataTypes array to trigger a subset (any of hltb, reviews, igdb, pricing). By default this still gates hltb/reviews/igdb on release recency (respectRecency: true) but bypasses the last-refreshed staleness check (respectStaleness: false); this request sets respectRecency: false to fully bypass cadence eligibility as before. Pass respectStaleness: true to skip games refreshed too recently instead."
           }
         },
         {

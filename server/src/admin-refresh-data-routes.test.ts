@@ -236,16 +236,99 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
       };
       assert.equal(body.results.hltb.scanned, 2);
       assert.deepEqual(body.results.hltb, body.results.reviews);
+      assert.equal(body.respectRecency, true);
+      assert.equal(body.respectStaleness, false);
 
       const releaseMonitorJobs = pool.enqueuedJobs.filter(
         (job) => job.jobType === 'release_monitor_game'
       );
       assert.equal(releaseMonitorJobs.length, 2);
       for (const job of releaseMonitorJobs) {
-        const payload = job.payload as { force_hltb: boolean; force_review: boolean };
+        const payload = job.payload as {
+          force_hltb: boolean;
+          force_review: boolean;
+          respect_recency: boolean;
+          respect_staleness: boolean;
+        };
         assert.equal(payload.force_hltb, true);
         assert.equal(payload.force_review, true);
+        assert.equal(payload.respect_recency, true);
+        assert.equal(payload.respect_staleness, false);
       }
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+void test('admin refresh-data route rejects non-boolean respectRecency/respectStaleness', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      for (const payload of [
+        { dataTypes: ['hltb'], respectRecency: 'yes' },
+        { dataTypes: ['hltb'], respectStaleness: 1 },
+      ]) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/v1/admin/refresh-data',
+          headers: { 'x-game-shelf-client-token': 'device-token-1' },
+          payload,
+        });
+        assert.equal(
+          response.statusCode,
+          400,
+          `expected 400 for payload ${JSON.stringify(payload)}`
+        );
+      }
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+void test('admin refresh-data route threads respectRecency/respectStaleness overrides onto release-monitor job payloads', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+    pool.seed({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: { listType: 'wishlist', title: 'Wishlist Game' },
+    });
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['hltb'], respectRecency: false, respectStaleness: true },
+      });
+
+      assert.equal(response.statusCode, 200);
+      const body = JSON.parse(response.body) as {
+        respectRecency: boolean;
+        respectStaleness: boolean;
+      };
+      assert.equal(body.respectRecency, false);
+      assert.equal(body.respectStaleness, true);
+
+      const releaseMonitorJobs = pool.enqueuedJobs.filter(
+        (job) => job.jobType === 'release_monitor_game'
+      );
+      assert.equal(releaseMonitorJobs.length, 1);
+      const payload = releaseMonitorJobs[0]?.payload as {
+        respect_recency: boolean;
+        respect_staleness: boolean;
+      };
+      assert.equal(payload.respect_recency, false);
+      assert.equal(payload.respect_staleness, true);
     } finally {
       await app.close();
     }
@@ -287,7 +370,27 @@ void test('admin refresh-data route enqueues a single forced igdb metadata job a
         (job) => job.jobType === 'metadata_enrichment_run'
       );
       assert.equal(metadataJobs.length, 1);
-      assert.equal((metadataJobs[0]?.payload as { force: boolean }).force, true);
+      const metadataPayload = metadataJobs[0]?.payload as {
+        force: boolean;
+        respectRecency: boolean;
+        respectStaleness: boolean;
+      };
+      assert.equal(metadataPayload.force, true);
+      assert.equal(metadataPayload.respectRecency, true);
+      assert.equal(metadataPayload.respectStaleness, false);
+
+      // A repeat call with different respect flags is a distinct forced-refresh request
+      // and must not dedupe against the first.
+      const third = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['igdb'], respectRecency: false, respectStaleness: true },
+      });
+      const thirdBody = JSON.parse(third.body) as {
+        results: { igdb: { enqueued: number; deduped: number } };
+      };
+      assert.deepEqual(thirdBody.results.igdb, { enqueued: 1, deduped: 0 });
     } finally {
       await app.close();
     }
@@ -400,6 +503,100 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
       );
       assert.equal(discoverySteamJobs.length, 1);
       assert.equal(discoveryPspricesJobs.length, 1);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+void test('admin refresh-data route pricing skips fresh prices only when respectStaleness is true', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+    pool.seed({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: {
+        listType: 'wishlist',
+        title: 'Freshly Priced Steam Game',
+        steamAppId: 123,
+        priceIsFree: false,
+        priceAmount: 19.99,
+        priceFetchedAt: new Date().toISOString(),
+      },
+    });
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      const defaultResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'] },
+      });
+      const defaultBody = JSON.parse(defaultResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(defaultBody.results.pricing.enqueued, 1);
+
+      const respectStalenessResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'], respectStaleness: true },
+      });
+      const respectStalenessBody = JSON.parse(respectStalenessResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(respectStalenessBody.results.pricing.enqueued, 0);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+void test('admin refresh-data route pricing skips fresh discovery prices only when respectStaleness is true', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+    pool.seed({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: {
+        listType: 'discovery',
+        title: 'Freshly Priced Discovery Steam Game',
+        steamAppId: 123,
+        priceIsFree: false,
+        priceAmount: 19.99,
+        priceFetchedAt: new Date().toISOString(),
+      },
+    });
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      const defaultResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'] },
+      });
+      const defaultBody = JSON.parse(defaultResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(defaultBody.results.pricing.enqueued, 1);
+
+      const respectStalenessResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'], respectStaleness: true },
+      });
+      const respectStalenessBody = JSON.parse(respectStalenessResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(respectStalenessBody.results.pricing.enqueued, 0);
     } finally {
       await app.close();
     }

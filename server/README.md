@@ -133,7 +133,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
 - `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
-- `ADMIN_FORCED_REFRESH_MAX_GAMES` (default `10000`) caps rows scanned for the `hltb`, `reviews`, and `pricing` data types on `POST /v1/admin/refresh-data`; the `igdb` data type enqueues one `metadata_enrichment_run` job, whose scan size is instead controlled by `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN`
+- `ADMIN_FORCED_REFRESH_MAX_GAMES` (default `10000`) caps rows scanned for the `hltb`, `reviews`, and `pricing` data types on `POST /v1/admin/refresh-data`; the `igdb` data type enqueues one `metadata_enrichment_run` job, whose scan size is instead controlled by `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN`. The request body also accepts optional `respectRecency` (default `true`) and `respectStaleness` (default `false`) booleans: `respectRecency` still gates `hltb`/`reviews`/`igdb` on release recency, and `respectStaleness` still skips rows refreshed too recently; pass `respectRecency: false` to fully bypass cadence eligibility as the endpoint did before these flags existed.
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)

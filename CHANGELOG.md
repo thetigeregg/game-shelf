@@ -4079,3 +4079,19 @@
 - f7506d19 Merge pull request #490 from thetigeregg/feat/probo
 - 1a797d61 fix(api): dispatch release-monitor HLTB/review refresh over real HTTP
 - cac0f53b fix(api): dispatch release-monitor HLTB/review refresh over real HTTP
+
+## v1.70.0 - 2026-07-02
+
+- 4af7c08b Merge pull request #491 from thetigeregg/feat/pinger
+- 4f8c0496 fix(server): avoid double-counting shared hltb/reviews totals
+- 2f9abe7f fix(server): harden admin refresh-data helper and docs
+- cc5259a6 test(server): apply LIMIT in admin refresh-data route mock queries
+- f5718276 fix(server): guard concurrency limit and dedupe platform id constants
+- c09fda2c refactor(server): dedupe concurrency limiter, fix refresh-data error
+- c113d0e4 test(server): clarify metadata repository force:false test name
+- 564e5238 fix(server): namespace forced release-monitor dedupe keys and batch enqueue
+- f4b0a04a fix(api): cap pricing scan budget and batch enqueue in refresh-data route
+- 3e2f1767 docs(server): document forced-refresh env vars
+- 6e96105b fix: update docs
+- 45dd46a6 Merge branch 'main' into feat/pinger
+- e6fb9e7e feat(api): add admin endpoint to force-trigger data refresh

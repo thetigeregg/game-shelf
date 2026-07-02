@@ -163,6 +163,7 @@ interface DueGameSeedRow {
 class ReleaseMonitorFlowPoolMock {
   private readonly dueRows: DueGameSeedRow[];
   queuedJobs = 0;
+  lastEnqueuedPayload: Record<string, unknown> | null = null;
   private readonly queuedByDedupeKey = new Map<string, number>();
   private nextJobId = 1;
   private enqueueFailuresRemaining: number;
@@ -222,6 +223,8 @@ class ReleaseMonitorFlowPoolMock {
         this.queuedByDedupeKey.set(dedupeKey, jobId);
       }
       this.queuedJobs += 1;
+      const payloadJson = typeof params[2] === 'string' ? params[2] : '{}';
+      this.lastEnqueuedPayload = JSON.parse(payloadJson) as Record<string, unknown>;
       return Promise.resolve({ rows: [{ id: jobId }], rowCount: 1 });
     }
 
@@ -1408,7 +1411,45 @@ void test('parseDueGameRowFromPayload defaults force_hltb/force_review to false 
   assert.equal(parsed.force_review, false);
 });
 
-void test('processGameRow bypasses bootstrap/cadence gating for hltb/review when forced', async () => {
+void test('parseDueGameRowFromPayload defaults respect_recency to true and respect_staleness to false when absent', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.respect_recency, true);
+  assert.equal(parsed.respect_staleness, false);
+});
+
+void test('parseDueGameRowFromPayload round-trips explicit respect_recency/respect_staleness overrides', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+    respect_recency: false,
+    respect_staleness: true,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.respect_recency, false);
+  assert.equal(parsed.respect_staleness, true);
+});
+
+void test('processGameRow bypasses bootstrap gating but still respects recency by default when forced', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
 
@@ -1429,7 +1470,8 @@ void test('processGameRow bypasses bootstrap/cadence gating for hltb/review when
           listType: 'wishlist',
         },
         // Bootstrap (no existing watch state) and far outside the eligibility
-        // window: without force flags, hltbDue/reviewDue would both be false.
+        // window: force bypasses the bootstrap check, but with the default
+        // respect_recency (true), the game is still too old to refresh.
         watch_exists: false,
         last_known_release_marker: null,
         last_known_release_precision: null,
@@ -1447,8 +1489,156 @@ void test('processGameRow bypasses bootstrap/cadence gating for hltb/review when
       stats
     );
 
+    assert.equal(stats.hltbRefreshAttempts, 0);
+    assert.equal(stats.reviewRefreshAttempts, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow bypasses bootstrap/recency gating for hltb/review when forced with respect_recency false', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+        },
+        // Bootstrap (no existing watch state) and far outside the eligibility
+        // window: with respect_recency explicitly false, force bypasses both
+        // bootstrap and recency gating.
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+        respect_recency: false,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
     assert.equal(stats.hltbRefreshAttempts, 1);
     assert.equal(stats.reviewRefreshAttempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow bypasses staleness by default when forced, even with a recent last refresh', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    const recentRefresh = new Date().toISOString();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Recent Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          // Existing hltb/review values so isHltbRefreshDue/isReviewRefreshDue gate on
+          // last-refresh age rather than "missing data" always being due.
+          hltbMainHours: 10,
+          metacriticScore: 80,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: null,
+        // Already refreshed moments ago: without force, this would not be due again.
+        last_hltb_refresh_at: recentRefresh,
+        last_metacritic_refresh_at: recentRefresh,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow respects staleness when forced with respect_staleness true and a recent last refresh', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    const recentRefresh = new Date().toISOString();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Recent Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          // Existing hltb/review values so isHltbRefreshDue/isReviewRefreshDue gate on
+          // last-refresh age rather than "missing data" always being due.
+          hltbMainHours: 10,
+          metacriticScore: 80,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: null,
+        last_hltb_refresh_at: recentRefresh,
+        last_metacritic_refresh_at: recentRefresh,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+        respect_staleness: true,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 0);
+    assert.equal(stats.reviewRefreshAttempts, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1542,4 +1732,74 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
     { hltb: true, review: false }
   );
   assert.deepEqual(repeat, { scanned: 2, enqueued: 0, deduped: 2 });
+});
+
+void test('enqueueForcedReleaseMonitorRefreshJobs defaults respect_recency true and respect_staleness false on job payloads', async () => {
+  const rows: DueGameSeedRow[] = [
+    {
+      igdb_game_id: '1',
+      platform_igdb_id: 6,
+      payload: { title: 'Collection Game', listType: 'collection' },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+  ];
+  const pool = new ReleaseMonitorFlowPoolMock(rows);
+
+  await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(pool as unknown as Pool, {
+    hltb: true,
+    review: true,
+  });
+
+  const payload = pool.lastEnqueuedPayload;
+  assert.ok(payload);
+  assert.equal(payload['respect_recency'], true);
+  assert.equal(payload['respect_staleness'], false);
+});
+
+void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respectStaleness options onto job payloads and dedupe keys', async () => {
+  const rows: DueGameSeedRow[] = [
+    {
+      igdb_game_id: '1',
+      platform_igdb_id: 6,
+      payload: { title: 'Collection Game', listType: 'collection' },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+  ];
+  const pool = new ReleaseMonitorFlowPoolMock(rows);
+
+  const first = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: true, review: true },
+    { respectRecency: false, respectStaleness: true }
+  );
+  assert.deepEqual(first, { scanned: 1, enqueued: 1, deduped: 0 });
+  const firstPayload = pool.lastEnqueuedPayload;
+  assert.ok(firstPayload);
+  assert.equal(firstPayload['respect_recency'], false);
+  assert.equal(firstPayload['respect_staleness'], true);
+
+  // A repeat call with different respect flags must not dedupe against the first,
+  // since the two requests carry different forced-refresh semantics.
+  const second = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: true, review: true },
+    { respectRecency: true, respectStaleness: false }
+  );
+  assert.deepEqual(second, { scanned: 1, enqueued: 1, deduped: 0 });
 });

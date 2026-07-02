@@ -31,7 +31,10 @@ const RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('en-US
 });
 
 type ReleaseEventType =
-  'release_date_set' | 'release_date_changed' | 'release_date_removed' | 'release_day';
+  | 'release_date_set'
+  | 'release_date_changed'
+  | 'release_date_removed'
+  | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
 export type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
@@ -50,6 +53,8 @@ interface DueGameRow {
   last_notified_release_day: string | null;
   force_hltb?: boolean;
   force_review?: boolean;
+  respect_recency?: boolean;
+  respect_staleness?: boolean;
 }
 
 interface NotificationPreferences {
@@ -257,7 +262,12 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
 
 function buildReleaseMonitorGameJobPayload(
   row: DueGameRow,
-  forceOverrides?: { hltb: boolean; review: boolean }
+  forceOverrides?: {
+    hltb: boolean;
+    review: boolean;
+    respectRecency?: boolean;
+    respectStaleness?: boolean;
+  }
 ): Record<string, unknown> {
   return {
     igdb_game_id: row.igdb_game_id,
@@ -274,6 +284,8 @@ function buildReleaseMonitorGameJobPayload(
     last_notified_release_day: row.last_notified_release_day,
     force_hltb: forceOverrides?.hltb === true,
     force_review: forceOverrides?.review === true,
+    respect_recency: forceOverrides?.respectRecency ?? true,
+    respect_staleness: forceOverrides?.respectStaleness ?? false,
   };
 }
 
@@ -325,15 +337,22 @@ const FORCED_REFRESH_ENQUEUE_CONCURRENCY = 5;
 
 export async function enqueueForcedReleaseMonitorRefreshJobs(
   pool: Pool,
-  force: { hltb: boolean; review: boolean }
+  force: { hltb: boolean; review: boolean },
+  options?: { respectRecency?: boolean; respectStaleness?: boolean }
 ): Promise<{ scanned: number; enqueued: number; deduped: number }> {
   const jobs = new BackgroundJobRepository(pool);
   const rows = await queryAllEligibleGamesForForcedRefresh(pool);
-  const forceSuffix = `${force.hltb ? '1' : '0'}${force.review ? '1' : '0'}`;
+  const respectRecency = options?.respectRecency ?? true;
+  const respectStaleness = options?.respectStaleness ?? false;
+  const forceSuffix = `${force.hltb ? '1' : '0'}${force.review ? '1' : '0'}${respectRecency ? '1' : '0'}${respectStaleness ? '1' : '0'}`;
 
   const tasks = rows.map((row) => async () => {
     const dedupeKey = `release-monitor:forced:${forceSuffix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
-    const payload = buildReleaseMonitorGameJobPayload(row, force);
+    const payload = buildReleaseMonitorGameJobPayload(row, {
+      ...force,
+      respectRecency,
+      respectStaleness,
+    });
     return jobs.enqueue({
       jobType: 'release_monitor_game',
       dedupeKey,
@@ -379,6 +398,8 @@ function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRo
     last_notified_release_day: stringOrNull(payload['last_notified_release_day']),
     force_hltb: payload['force_hltb'] === true,
     force_review: payload['force_review'] === true,
+    respect_recency: payload['respect_recency'] !== false,
+    respect_staleness: payload['respect_staleness'] === true,
   };
   /* node:coverage enable */
 }
@@ -531,14 +552,21 @@ async function processGameRow(
     const hltbRefreshEligible = hltbEligible;
     const reviewRefreshEligible = metacriticEligible;
 
+    // Forced refresh always bypasses the bootstrap check; recency and staleness are each
+    // bypassed only when the corresponding respect_* flag is explicitly turned off.
     const hltbDue =
-      row.force_hltb === true ||
-      (!isBootstrap &&
-        hltbRefreshEligible &&
-        isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now));
+      row.force_hltb === true
+        ? (row.respect_recency === false || hltbRefreshEligible) &&
+          (row.respect_staleness !== true ||
+            isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now))
+        : !isBootstrap &&
+          hltbRefreshEligible &&
+          isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
     const reviewDue =
-      row.force_review === true ||
-      (!isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now));
+      row.force_review === true
+        ? (row.respect_recency === false || reviewRefreshEligible) &&
+          (row.respect_staleness !== true || isReviewRefreshDue(lastMetacriticRefreshAt, now))
+        : !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
 
     if (hltbDue) {
       stats.hltbRefreshAttempts += 1;

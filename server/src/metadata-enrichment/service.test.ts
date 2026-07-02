@@ -17,6 +17,8 @@ class RepositoryMock {
     refreshDays?: number;
     queryable?: object;
     force?: boolean;
+    respectRecency?: boolean;
+    respectStaleness?: boolean;
   } | null = null;
 
   async withAdvisoryLock<T>(
@@ -36,6 +38,8 @@ class RepositoryMock {
     refreshDays?: number;
     queryable?: object;
     force?: boolean;
+    respectRecency?: boolean;
+    respectStaleness?: boolean;
   }): Promise<MetadataEnrichmentGameRow[]> {
     this.lastListParams = params;
     return Promise.resolve(this.rows.slice(0, params.limit));
@@ -1020,6 +1024,50 @@ void test('runOnce with no overrides passes force: false to the repository', asy
 
   await service.runOnce();
   assert.equal(repository.lastListParams?.force, false);
+});
+
+void test('runOnce({ force: true }) defaults respectRecency true and respectStaleness false', async () => {
+  const repository = new RepositoryMock();
+  const service = new MetadataEnrichmentService(
+    repository as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: true,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: 0,
+      refreshMonths: 6,
+      refreshDays: 30,
+    }
+  );
+
+  await service.runOnce({ force: true });
+  const params = repository.lastListParams;
+  assert.ok(params);
+  assert.equal(params.respectRecency, true);
+  assert.equal(params.respectStaleness, false);
+});
+
+void test('runOnce({ force: true, respectRecency: false, respectStaleness: true }) passes overrides through', async () => {
+  const repository = new RepositoryMock();
+  const service = new MetadataEnrichmentService(
+    repository as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: true,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: 0,
+      refreshMonths: 6,
+      refreshDays: 30,
+    }
+  );
+
+  await service.runOnce({ force: true, respectRecency: false, respectStaleness: true });
+  const params = repository.lastListParams;
+  assert.ok(params);
+  assert.equal(params.respectRecency, false);
+  assert.equal(params.respectStaleness, true);
 });
 
 void test('runOnce({ force: true }) passes force through and refetches an already fully-enriched row', async () => {

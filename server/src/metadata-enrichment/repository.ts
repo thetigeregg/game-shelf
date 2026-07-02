@@ -66,20 +66,62 @@ export class MetadataEnrichmentRepository {
     refreshDays?: number;
     queryable?: Queryable;
     force?: boolean;
+    respectRecency?: boolean;
+    respectStaleness?: boolean;
   }): Promise<MetadataEnrichmentGameRow[]> {
-    const { limit, refreshMonths, refreshDays, queryable = this.pool, force = false } = params;
+    const {
+      limit,
+      refreshMonths,
+      refreshDays,
+      queryable = this.pool,
+      force = false,
+      respectRecency = true,
+      respectStaleness = false,
+    } = params;
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
 
     if (force) {
+      // Recency gate (Arm A): honored only when respectRecency is true — game must have
+      // been released within refreshMonths. Staleness gate (Arm B): honored only when
+      // respectStaleness is true — game must be missing enrichment fields or overdue by
+      // refreshDays. Either gate can be independently bypassed for a forced admin refresh.
       const forcedResult = await queryable.query<MissingRow>(
         `
         SELECT igdb_game_id, platform_igdb_id, payload, TRUE AS is_periodic_refresh
         FROM games
         WHERE COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
+          AND (
+            NOT $4::boolean
+            OR (
+              $2 > 0
+              AND COALESCE(NULLIF(payload ->> 'releaseDate', ''), '') <> ''
+              AND payload ->> 'releaseDate' ~ '^\\d{4}-\\d{2}-\\d{2}'
+              AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                    THEN LEFT(payload ->> 'releaseDate', 10)::date <= CURRENT_DATE
+                    ELSE FALSE END
+              AND CASE WHEN pg_input_is_valid(LEFT(payload ->> 'releaseDate', 10), 'date')
+                    THEN LEFT(payload ->> 'releaseDate', 10)::date >= CURRENT_DATE - ($2 * INTERVAL '1 month')
+                    ELSE FALSE END
+            )
+          )
+          AND (
+            NOT $5::boolean
+            OR COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
+            OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
+            OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
+            OR COALESCE(NULLIF(payload ->> 'websitesEnrichedAt', ''), '') = ''
+            OR (
+              $3 > 0
+              AND payload ->> 'taxonomyEnrichedAt' ~ '^\\d{4}-\\d{2}-\\d{2}T'
+              AND CASE WHEN pg_input_is_valid(payload ->> 'taxonomyEnrichedAt', 'timestamptz')
+                    THEN (payload ->> 'taxonomyEnrichedAt')::timestamptz <= NOW() - ($3 * INTERVAL '1 day')
+                    ELSE FALSE END
+            )
+          )
         ORDER BY igdb_game_id ASC, platform_igdb_id ASC
         LIMIT $1
         `,
-        [normalizedLimit]
+        [normalizedLimit, refreshMonths ?? 0, refreshDays ?? 0, respectRecency, respectStaleness]
       );
       return forcedResult.rows.map(mapMissingRow);
     }

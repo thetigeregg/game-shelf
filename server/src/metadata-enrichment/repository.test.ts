@@ -260,7 +260,7 @@ void test('repository update writes sync event for changed game payload', async 
   ]);
 });
 
-void test('repository force mode bypasses date-gating and marks rows as periodic refresh', async () => {
+void test('repository force mode with default respect flags gates on recency but not staleness', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
       rows: [
@@ -282,7 +282,12 @@ void test('repository force mode bypasses date-gating and marks rows as periodic
   });
   const repository = new MetadataEnrichmentRepository(pool as never);
 
-  const rows = await repository.listRowsMissingMetadata({ limit: 10, force: true });
+  const rows = await repository.listRowsMissingMetadata({
+    limit: 10,
+    refreshMonths: 6,
+    refreshDays: 30,
+    force: true,
+  });
 
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.isPeriodicRefresh, true);
@@ -292,8 +297,25 @@ void test('repository force mode bypasses date-gating and marks rows as periodic
     true
   );
   assert.equal(sql.includes('is_periodic_refresh'), true);
-  assert.equal(sql.includes('taxonomyEnrichedAt'), false);
-  assert.deepEqual(pool.queries[0]?.params, [10]);
+  assert.equal(sql.includes('taxonomyEnrichedAt'), true);
+  // Defaults: respectRecency true, respectStaleness false.
+  assert.deepEqual(pool.queries[0]?.params, [10, 6, 30, true, false]);
+});
+
+void test('repository force mode with respectRecency false and respectStaleness true passes flags through', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({
+    limit: 10,
+    refreshMonths: 6,
+    refreshDays: 30,
+    force: true,
+    respectRecency: false,
+    respectStaleness: true,
+  });
+
+  assert.deepEqual(pool.queries[0]?.params, [10, 6, 30, false, true]);
 });
 
 void test('repository force: false selects the normal gated query', async () => {

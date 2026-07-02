@@ -1,9 +1,6 @@
 declare module '../../shared/provider-rate-limit.mjs' {
   export type ProviderThrottleSource =
-    | 'local_window'
-    | 'local_rps'
-    | 'local_queue'
-    | 'upstream_429';
+    'local_window' | 'local_rps' | 'local_queue' | 'upstream_429';
 
   export interface SharedProviderRateLimitPolicy {
     requestsPerSecond?: number;
@@ -82,10 +79,7 @@ declare module '../../shared/provider-rate-limit.mjs' {
 
 declare module '../../../shared/provider-rate-limit.mjs' {
   export type ProviderThrottleSource =
-    | 'local_window'
-    | 'local_rps'
-    | 'local_queue'
-    | 'upstream_429';
+    'local_window' | 'local_rps' | 'local_queue' | 'upstream_429';
 
   export interface SharedProviderRateLimitPolicy {
     requestsPerSecond?: number;
@@ -176,6 +170,7 @@ declare module '*.mjs' {
   export function handleRequest(
     request: Request,
     env: Record<string, unknown>,
-    fetchImpl?: typeof fetch
+    fetchImpl?: typeof fetch,
+    options?: { now?: () => number }
   ): Promise<Response>;
 }

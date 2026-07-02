@@ -265,7 +265,7 @@ void test('installSingleLineConsole routes trace, dir, and table through single-
   const traceArgs = tracePayload['args'] as Array<Record<string, unknown>>;
   const traceStack = traceArgs[0]?.['stack'];
   assert.equal(typeof traceStack, 'string');
-  assert.match(traceStack, /Error/);
+  assert.match(traceStack as string, /Error/);
 
   assert.equal(logCalls.length, 2);
   const dirPayload = JSON.parse(logCalls[0] ?? '{}') as Record<string, unknown>;

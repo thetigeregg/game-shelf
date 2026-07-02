@@ -54,14 +54,7 @@ interface PsPricesCandidate extends PsPricesSnapshot {
 }
 
 type PsPricesSuffixClass =
-  | 'base'
-  | 'standard'
-  | 'complete'
-  | 'ultimate'
-  | 'deluxe'
-  | 'bundle'
-  | 'expansion'
-  | 'other';
+  'base' | 'standard' | 'complete' | 'ultimate' | 'deluxe' | 'bundle' | 'expansion' | 'other';
 
 interface RankedPsPricesCandidate {
   candidate: PsPricesSnapshot;
@@ -95,7 +88,7 @@ interface PsPricesRouteResponse {
   candidates?: PsPricesCandidate[];
 }
 
-export interface PspricesPriceRevalidationPayload {
+export interface PspricesPriceRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   igdbGameId: string;
   platformIgdbId: number;
@@ -1634,7 +1627,7 @@ async function persistPsPricesSnapshot(
   }
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
-  const preserveExisting = params.bestPrice === null;
+  const { bestPrice } = params;
   const patchPayload: Record<string, unknown> = {
     psPricesFetchedAt: fetchedAt,
     psPricesSource: 'psprices',
@@ -1679,22 +1672,22 @@ async function persistPsPricesSnapshot(
     }
     patchPayload['enrichmentRetry'] = Object.keys(existingRetry).length > 0 ? existingRetry : null;
   }
-  if (!preserveExisting) {
+  if (bestPrice !== null) {
     patchPayload['priceSource'] = 'psprices';
     patchPayload['priceFetchedAt'] = fetchedAt;
-    patchPayload['priceAmount'] = params.bestPrice.amount;
-    patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
-    patchPayload['priceRegularAmount'] = params.bestPrice.regularAmount ?? null;
-    patchPayload['priceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
-    patchPayload['priceIsFree'] = params.bestPrice.isFree ?? null;
-    patchPayload['priceUrl'] = params.bestPrice.url ?? null;
-    patchPayload['psPricesTitle'] = params.bestPrice.title ?? null;
-    patchPayload['psPricesPriceAmount'] = params.bestPrice.amount;
-    patchPayload['psPricesPriceCurrency'] = params.bestPrice.currency ?? null;
-    patchPayload['psPricesRegularPriceAmount'] = params.bestPrice.regularAmount ?? null;
-    patchPayload['psPricesDiscountPercent'] = params.bestPrice.discountPercent ?? null;
-    patchPayload['psPricesIsFree'] = params.bestPrice.isFree ?? null;
-    patchPayload['psPricesUrl'] = params.bestPrice.url ?? null;
+    patchPayload['priceAmount'] = bestPrice.amount;
+    patchPayload['priceCurrency'] = bestPrice.currency ?? null;
+    patchPayload['priceRegularAmount'] = bestPrice.regularAmount ?? null;
+    patchPayload['priceDiscountPercent'] = bestPrice.discountPercent ?? null;
+    patchPayload['priceIsFree'] = bestPrice.isFree ?? null;
+    patchPayload['priceUrl'] = bestPrice.url ?? null;
+    patchPayload['psPricesTitle'] = bestPrice.title ?? null;
+    patchPayload['psPricesPriceAmount'] = bestPrice.amount;
+    patchPayload['psPricesPriceCurrency'] = bestPrice.currency ?? null;
+    patchPayload['psPricesRegularPriceAmount'] = bestPrice.regularAmount ?? null;
+    patchPayload['psPricesDiscountPercent'] = bestPrice.discountPercent ?? null;
+    patchPayload['psPricesIsFree'] = bestPrice.isFree ?? null;
+    patchPayload['psPricesUrl'] = bestPrice.url ?? null;
   }
 
   const updateResult = await pool.query<{ previous_payload: unknown; next_payload: unknown }>(

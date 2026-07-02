@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run test:backend)",
+      "Bash(npm run test:backend:coverage)",
+      "Bash(npm run test:server)",
+      "Bash(npm run build)",
+      "Bash(npm run typecheck:server)",
+      "Bash(echo \"EXIT=$?\")",
+      "Read(/tmp/**)",
+      "Bash(npx devx pr prep)",
+      "Bash(npm --prefix server run typecheck)",
+      "Bash(npx tsc --noEmit -p server/tsconfig.json)"
+    ]
+  }
+}

@@ -1,14 +1,7 @@
-import * as sharedSingleLineConsoleModule from '../../shared/single-line-console.mjs';
-
-type SharedSingleLineConsoleModule = {
-  formatSingleLineLogMessage: (level: string, args: unknown[] | null) => string;
-  installSingleLineConsole: (consoleObject?: Console) => Console;
-};
-
-const { formatSingleLineLogMessage: formatSingleLineLogMessageShared } =
-  sharedSingleLineConsoleModule as SharedSingleLineConsoleModule;
-const { installSingleLineConsole: installSingleLineConsoleShared } =
-  sharedSingleLineConsoleModule as SharedSingleLineConsoleModule;
+import {
+  formatSingleLineLogMessage as formatSingleLineLogMessageShared,
+  installSingleLineConsole as installSingleLineConsoleShared,
+} from '../../shared/single-line-console.mjs';
 
 export function formatSingleLineLogMessage(level: string, args: unknown[] = []): string {
   return formatSingleLineLogMessageShared(level, args);

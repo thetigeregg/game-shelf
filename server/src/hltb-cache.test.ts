@@ -90,10 +90,12 @@ void test('HLTB cache stores on miss and serves on hit', async () => {
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -130,17 +132,19 @@ void test('HLTB cache supports candidates when includeCandidates is enabled', as
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: null,
-          candidates: [
-            { hltbMainHours: 18, imageUrl: 'https://howlongtobeat.com/games/okami.jpg' },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { hltbMainHours: 18, imageUrl: 'https://howlongtobeat.com/games/okami.jpg' },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -173,34 +177,36 @@ void test('HLTB cache resolves preferred candidate identity into item payload', 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'https://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
               hltbGameId: 7001,
               hltbUrl: 'https://howlongtobeat.com/game/7001',
-              imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
               hltbMainHours: 8,
             },
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
-              hltbMainHours: 9,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7001,
+                hltbUrl: 'https://howlongtobeat.com/game/7001',
+                imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
+                hltbMainHours: 8,
+              },
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+                hltbMainHours: 9,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -258,32 +264,34 @@ void test('HLTB cache resolves preferred candidate by normalized preferred URL',
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'https://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
               hltbGameId: 7001,
               hltbUrl: 'https://howlongtobeat.com/game/7001',
               hltbMainHours: 8,
             },
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              hltbMainHours: 9,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7001,
+                hltbUrl: 'https://howlongtobeat.com/game/7001',
+                hltbMainHours: 8,
+              },
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                hltbMainHours: 9,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -333,32 +341,34 @@ void test('HLTB cache canonicalizes preferred and candidate HLTB URLs across equ
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'http://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
               hltbGameId: 7001,
               hltbUrl: 'http://howlongtobeat.com/game/7001',
               hltbMainHours: 8,
             },
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              gameUrl: '/game/7002',
-              hltbMainHours: 9,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7001,
+                hltbUrl: 'http://howlongtobeat.com/game/7001',
+                hltbMainHours: 8,
+              },
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                gameUrl: '/game/7002',
+                hltbMainHours: 9,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -408,34 +418,36 @@ void test('HLTB cache keys differentiate preferred identities and normalize pref
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'https://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
               hltbGameId: 7001,
               hltbUrl: 'https://howlongtobeat.com/game/7001',
-              imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
               hltbMainHours: 8,
             },
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
-              hltbMainHours: 9,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7001,
+                hltbUrl: 'https://howlongtobeat.com/game/7001',
+                imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
+                hltbMainHours: 8,
+              },
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+                hltbMainHours: 9,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -534,24 +546,26 @@ void test('HLTB cache does not persist successful but uncacheable preferred-cand
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () =>
-      new Response(
-        JSON.stringify({
-          item: null,
-          candidates: [
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              hltbMainHours: null,
-              hltbMainExtraHours: null,
-              hltbCompletionistHours: null,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                hltbMainHours: null,
+                hltbMainExtraHours: null,
+                hltbCompletionistHours: null,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       ),
   });
 
@@ -587,29 +601,31 @@ void test('HLTB cache keeps original item when preferred candidate has no comple
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () =>
-      new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'https://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
-              hltbMainHours: null,
-              hltbMainExtraHours: null,
-              hltbCompletionistHours: null,
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbGameId: 7001,
+              hltbUrl: 'https://howlongtobeat.com/game/7001',
+              hltbMainHours: 8,
             },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+                hltbMainHours: null,
+                hltbMainExtraHours: null,
+                hltbCompletionistHours: null,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       ),
   });
 
@@ -648,32 +664,34 @@ void test('HLTB cache promotes preferred candidate when only legacy raw completi
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () =>
-      new Response(
-        JSON.stringify({
-          item: {
-            hltbGameId: 7001,
-            hltbUrl: 'https://howlongtobeat.com/game/7001',
-            hltbMainHours: 8,
-          },
-          candidates: [
-            {
-              title: 'Night In The Woods',
-              hltbGameId: 7002,
-              hltbUrl: 'https://howlongtobeat.com/game/7002',
-              main: null,
-              mainPlus: null,
-              mainExtra: null,
-              completionist: null,
-              solo: null,
-              coOp: null,
-              vs: 9,
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbGameId: 7001,
+              hltbUrl: 'https://howlongtobeat.com/game/7001',
+              hltbMainHours: 8,
             },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                main: null,
+                mainPlus: null,
+                mainExtra: null,
+                completionist: null,
+                solo: null,
+                coOp: null,
+                vs: 9,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       ),
   });
 
@@ -793,20 +811,24 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
     fetchMetadata: () => {
       fetchCalls += 1;
       if (fetchCalls === 1) {
-        return new Response(JSON.stringify({ item: { hltbMainHours: 5 } }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: { hltbMainHours: 5 } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
       }
 
       if (fetchCalls === 2) {
-        return new Response('upstream error', { status: 500 });
+        return Promise.resolve(new Response('upstream error', { status: 500 }));
       }
 
-      return new Response('not-json', {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
     now: () => nowMs,
     freshTtlSeconds: 1,
@@ -836,7 +858,7 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
   assert.equal(staleTwo.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
   assert.equal(staleTwo.headers['x-gameshelf-hltb-revalidate'], 'skipped');
 
-  const task = pendingTask;
+  const task = pendingTask as (() => Promise<void>) | null;
   assert.ok(task);
   await task();
 
@@ -845,7 +867,7 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
     method: 'GET',
     url: '/v1/hltb/search?q=chrono',
   });
-  const taskTwo = pendingTask;
+  const taskTwo = pendingTask as (() => Promise<void>) | null;
   assert.ok(taskTwo);
   await taskTwo();
 
@@ -1115,10 +1137,12 @@ void test('HLTB cache bypasses cache when query is too short', async () => {
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -1150,21 +1174,23 @@ void test('HLTB includeCandidates=yes is treated as cacheable candidate mode', a
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: null,
-          candidates: [
-            {
-              title: 'Okami',
-              imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
-              hltbMainHours: 18,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Okami',
+                imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
+                hltbMainHours: 18,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -1204,10 +1230,12 @@ void test('HLTB cache deletes stale invalid payload and fetches fresh response',
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: { hltbMainHours: 12 }, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { hltbMainHours: 12 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -1241,20 +1269,22 @@ void test('HLTB cache deletes candidate-only payloads when candidate images are 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: null,
-          candidates: [
-            {
-              hltbMainHours: 18,
-              imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                hltbMainHours: 18,
+                imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -1305,29 +1335,31 @@ void test('HLTB includeCandidates cache rejects fresh entries when summary item 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbMainHours: 8.5,
-            hltbMainExtraHours: 11.2,
-            hltbCompletionistHours: 39.7,
-          },
-          candidates: [
-            {
-              title: 'Call of Duty: Black Ops 6',
-              imageUrl: 'https://howlongtobeat.com/games/Call_of_Duty_Black_Ops_6.jpg',
-              platform: 'PC, PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S',
-              releaseYear: 2024,
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
               hltbMainHours: 8.5,
               hltbMainExtraHours: 11.2,
               hltbCompletionistHours: 39.7,
             },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+            candidates: [
+              {
+                title: 'Call of Duty: Black Ops 6',
+                imageUrl: 'https://howlongtobeat.com/games/Call_of_Duty_Black_Ops_6.jpg',
+                platform: 'PC, PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S',
+                releaseYear: 2024,
+                hltbMainHours: 8.5,
+                hltbMainExtraHours: 11.2,
+                hltbCompletionistHours: 39.7,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -1359,17 +1391,19 @@ void test('HLTB cache serves stale and revalidates in background', async () => {
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            hltbMainHours: fetchCalls === 1 ? 10 : 11,
-          },
-          candidates: [],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbMainHours: fetchCalls === 1 ? 10 : 11,
+            },
+            candidates: [],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
     now: () => nowMs,
@@ -1397,7 +1431,7 @@ void test('HLTB cache serves stale and revalidates in background', async () => {
   assert.equal(stale.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
   assert.equal(fetchCalls, 1);
 
-  const refreshTask = pendingRefreshTask;
+  const refreshTask = pendingRefreshTask as (() => Promise<void>) | null;
 
   assert.ok(refreshTask);
 
@@ -1490,7 +1524,7 @@ void test('HLTB stale revalidation treats uncacheable finalized payloads as fail
   });
   assert.equal(stale.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
 
-  const task = pendingRefreshTask;
+  const task = pendingRefreshTask as (() => Promise<void>) | null;
   assert.ok(task);
   await task();
 
@@ -1509,10 +1543,12 @@ void test('HLTB cache is fail-open when cache read throws', async () => {
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -1541,10 +1577,12 @@ void test('HLTB null item responses are not cached', async () => {
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 

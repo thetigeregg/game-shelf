@@ -849,7 +849,10 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -864,6 +867,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
     assert.equal(stats.reviewRefreshTransportFailures, 0);
 
     assert.equal(pool.watchStateWrites, 1);
+    assert.ok(pool.client.payloadPatch);
     assert.equal(pool.client.payloadPatch['title'], 'A Better Title');
     assert.equal(pool.client.payloadPatch['releasePrecision'], 'day');
     assert.equal(pool.client.payloadPatch['releaseMarker'], '2026-01-01');
@@ -872,6 +876,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
     assert.equal(pool.client.payloadPatch['hltbCompletionistHours'], 24);
     assert.equal(pool.client.payloadPatch['metacriticScore'], 88);
     assert.equal(pool.client.payloadPatch['metacriticUrl'], 'https://metacritic.example/game');
+    assert.ok(pool.client.syncEventPayload);
     assert.equal(pool.client.syncEventPayload['title'], 'A Better Title');
 
     const watchStateParams = pool.lastWatchStateParams;
@@ -998,7 +1003,10 @@ void test('processGameRow refreshes locked HLTB/review metadata using saved matc
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1010,6 +1018,7 @@ void test('processGameRow refreshes locked HLTB/review metadata using saved matc
     assert.equal(stats.reviewRefreshSuccesses, 1);
     assert.equal(stats.reviewRefreshTransportFailures, 0);
 
+    assert.ok(pool.client.payloadPatch);
     assert.equal(pool.client.payloadPatch['hltbMainHours'], 11);
     assert.equal(pool.client.payloadPatch['hltbMainExtraHours'], 17);
     assert.equal(pool.client.payloadPatch['hltbCompletionistHours'], 26);
@@ -1119,7 +1128,10 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1232,7 +1244,10 @@ void test('processGameRow does not advance HLTB cadence on transport failure', a
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1349,7 +1364,10 @@ void test('processGameRow does not advance review cadence on transport failure',
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1484,7 +1502,10 @@ void test('processGameRow bypasses bootstrap gating but still respects recency b
         force_hltb: true,
         force_review: true,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1532,7 +1553,10 @@ void test('processGameRow bypasses bootstrap/recency gating for hltb/review when
         force_review: true,
         respect_recency: false,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1582,7 +1606,10 @@ void test('processGameRow bypasses staleness by default when forced, even with a
         force_hltb: true,
         force_review: true,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1632,7 +1659,10 @@ void test('processGameRow respects staleness when forced with respect_staleness 
         force_review: true,
         respect_staleness: true,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );
@@ -1674,7 +1704,10 @@ void test('processGameRow does not attempt hltb/review for a bootstrap ineligibl
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
       },
-      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
       new Set<string>(),
       stats
     );

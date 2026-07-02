@@ -534,7 +534,7 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
   }));
 
   await repository.finalizeRunSuccess({
-    client,
+    client: client as unknown as Parameters<typeof repository.finalizeRunSuccess>[0]['client'],
     runId: 55,
     target: 'BACKLOG',
     recommendationsByMode: {
@@ -634,7 +634,7 @@ void test('markRunFailed updates run status and error message', async () => {
   };
 
   await repository.markRunFailed({
-    client,
+    client: client as unknown as Parameters<typeof repository.markRunFailed>[0]['client'],
     runId: 77,
     errorMessage: 'boom',
   });

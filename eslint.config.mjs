@@ -44,7 +44,7 @@ export default defineConfig([
     files: tsFiles,
   })),
   {
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
 
     extends: compat.extends(
       'plugin:@angular-eslint/recommended',

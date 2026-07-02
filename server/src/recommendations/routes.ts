@@ -108,19 +108,23 @@ export function registerRecommendationRoutes(
 
       const offset = Math.min(parseNonNegativeInteger(query.offset) ?? 0, MAX_PAGE_OFFSET);
       const limit = parsePositiveInteger(query.limit);
-      const lane = query.lane === undefined ? null : parseRecommendationLaneKey(query.lane);
 
-      if (query.lane !== undefined && !lane) {
-        reply.code(400).send({
-          error:
-            'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
-        });
-        return;
+      let lane: RecommendationLaneKey | undefined;
+      if (query.lane !== undefined) {
+        const parsedLane = parseRecommendationLaneKey(query.lane);
+        if (parsedLane === null) {
+          reply.code(400).send({
+            error:
+              'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
+          });
+          return;
+        }
+        lane = parsedLane;
       }
 
       const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
 
-      if (query.lane === undefined) {
+      if (lane === undefined) {
         const result = await service.getRecommendationLaneCollection(
           target,
           limit ?? 20,

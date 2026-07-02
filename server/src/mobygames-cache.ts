@@ -45,7 +45,7 @@ interface MobyGamesCredentials {
   apiKey: string;
 }
 
-export interface MobyGamesCacheRevalidationPayload {
+export interface MobyGamesCacheRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   requestUrl: string;
 }
@@ -98,7 +98,7 @@ export async function registerMobyGamesCachedRoute(
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey) {
+      if (cacheKey && normalized) {
         try {
           const cached = await pool.query<MobyGamesCacheRow>(
             'SELECT response_json, updated_at FROM mobygames_search_cache WHERE cache_key = $1 LIMIT 1',

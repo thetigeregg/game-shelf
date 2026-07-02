@@ -136,10 +136,12 @@ void test('MOBYGAMES cache stores on miss and serves on hit', async () => {
   await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ games: [{ game_id: 1, title: 'Okami' }] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 1, title: 'Okami' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -176,10 +178,12 @@ void test('MOBYGAMES cache bypasses cache when query is too short', async () => 
   await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ games: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -210,10 +214,12 @@ void test('MOBYGAMES cache is fail-open when cache read throws', async () => {
   await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ games: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -241,10 +247,12 @@ void test('MOBYGAMES cache does not store empty games payloads', async () => {
   await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ games: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -455,7 +463,7 @@ void test('MOBYGAMES stale revalidation serves stale and refreshes cache in back
   assert.deepEqual(JSON.parse(response.body), stalePayload);
 
   // Run background revalidation
-  const task0 = backgroundTask;
+  const task0 = backgroundTask as (() => Promise<void>) | null;
   assert.ok(task0, 'background task should be scheduled');
   await task0();
   assert.equal(revalidateCalls, 1);
@@ -562,7 +570,7 @@ void test('MOBYGAMES stale revalidation handles non-ok upstream response', async
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Castlevania' });
-  const task1 = backgroundTask;
+  const task1 = backgroundTask as (() => Promise<void>) | null;
   assert.ok(task1);
   await task1();
 
@@ -613,7 +621,7 @@ void test('MOBYGAMES stale revalidation handles null JSON payload', async () => 
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Metroid' });
-  const task2 = backgroundTask;
+  const task2 = backgroundTask as (() => Promise<void>) | null;
   assert.ok(task2);
   await task2();
 
@@ -664,7 +672,7 @@ void test('MOBYGAMES stale revalidation handles uncacheable payload (empty games
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Contra' });
-  const task3 = backgroundTask;
+  const task3 = backgroundTask as (() => Promise<void>) | null;
   assert.ok(task3);
   await task3();
 
@@ -709,7 +717,7 @@ void test('MOBYGAMES stale revalidation handles fetch exception', async () => {
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Ghosts' });
-  const task4 = backgroundTask;
+  const task4 = backgroundTask as (() => Promise<void>) | null;
   assert.ok(task4);
   await task4();
 

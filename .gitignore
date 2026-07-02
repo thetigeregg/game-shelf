@@ -86,4 +86,3 @@ nas-data/
 nas-secrets/
 /worktrees/
 prompts/
-.claude/settings.json

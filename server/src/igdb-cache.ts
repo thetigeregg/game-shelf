@@ -23,7 +23,7 @@ interface IgdbCacheRouteOptions {
   staleTtlSeconds?: number;
 }
 
-export interface IgdbCacheRevalidationPayload {
+export interface IgdbCacheRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   gameId: string;
 }
@@ -214,7 +214,7 @@ function scheduleIgdbRevalidation(
     return false;
   }
 
-  let resolveDone: (() => void) | null = null;
+  let resolveDone: () => void = () => {};
   const inFlight = new Promise<void>((resolve) => {
     resolveDone = resolve;
   });
@@ -251,14 +251,14 @@ function scheduleIgdbRevalidation(
           await cancelResponseBody(response);
         }
         revalidationInFlightByKey.delete(cacheKey);
-        resolveDone?.();
+        resolveDone();
       }
     });
     incrementIgdbMetric('revalidateScheduled');
   } catch (error) {
     incrementIgdbMetric('revalidateFailed');
     revalidationInFlightByKey.delete(cacheKey);
-    resolveDone?.();
+    resolveDone();
     request.log.warn({
       msg: 'igdb_cache_revalidate_schedule_failed',
       error: error instanceof Error ? error.message : String(error),

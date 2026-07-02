@@ -4,6 +4,7 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { normalizeDiscoveryGameKeys, parseDiscoveryGameKeys } from './discovery-game-keys.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   createEmptyProviderRetryState,
@@ -14,6 +15,7 @@ import {
 } from './recommendations/provider-retry-state.js';
 import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
 type ClearableDiscoveryMatchProvider = 'hltb' | 'review';
@@ -110,8 +112,6 @@ interface DiscoveryProviderState {
 const MAX_LIST_LIMIT = 200;
 const DEFAULT_LIST_LIMIT = 50;
 const DISCOVERY_SCAN_LIMIT = 1000;
-const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
-const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 const PRICING_REQUEUE_CONCURRENCY = 5;
 
 export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Pool): void {
@@ -1110,22 +1110,6 @@ async function listDiscoveryGamesByKeys(
       payload: normalizePayloadObject(row.payload),
     }))
     .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
-}
-
-async function runWithConcurrencyLimit<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number
-): Promise<T[]> {
-  if (tasks.length === 0) {
-    return [];
-  }
-
-  const results: T[] = [];
-  for (let index = 0; index < tasks.length; index += concurrency) {
-    const chunk = tasks.slice(index, index + concurrency);
-    results.push(...(await Promise.all(chunk.map((task) => task()))));
-  }
-  return results;
 }
 
 async function listDiscoveryGamesByIgdbGameId(

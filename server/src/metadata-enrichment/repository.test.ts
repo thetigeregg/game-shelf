@@ -259,3 +259,50 @@ void test('repository update writes sync event for changed game payload', async 
     JSON.stringify({ title: 'Mario', themes: ['Action'] }),
   ]);
 });
+
+void test('repository force mode bypasses date-gating and marks rows as periodic refresh', async () => {
+  const pool = new PoolMock({
+    onQuery: () => ({
+      rows: [
+        {
+          igdb_game_id: '1520',
+          platform_igdb_id: 4,
+          payload: {
+            title: 'Fully Enriched Game',
+            taxonomyEnrichedAt: '2026-06-01T00:00:00.000Z',
+            mediaEnrichedAt: '2026-06-01T00:00:00.000Z',
+            steamEnrichedAt: '2026-06-01T00:00:00.000Z',
+            websitesEnrichedAt: '2026-06-01T00:00:00.000Z',
+            metadataSyncEnqueuedAt: '2026-06-01T00:00:00.000Z',
+          },
+          is_periodic_refresh: true,
+        },
+      ],
+    }),
+  });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  const rows = await repository.listRowsMissingMetadata({ limit: 10, force: true });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.isPeriodicRefresh, true);
+  const sql = pool.queries[0]?.sql ?? '';
+  assert.equal(
+    sql.includes("COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')"),
+    true
+  );
+  assert.equal(sql.includes('is_periodic_refresh'), true);
+  assert.equal(sql.includes('taxonomyEnrichedAt'), false);
+  assert.deepEqual(pool.queries[0]?.params, [10]);
+});
+
+void test('repository force: false selects the normal gated query', async () => {
+  const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.listRowsMissingMetadata({ limit: 10, force: false });
+
+  const sql = pool.queries[0]?.sql ?? '';
+  assert.equal(sql.includes('Arm 1'), true);
+  assert.deepEqual(pool.queries[0]?.params, [10, 0, 0]);
+});

@@ -1369,3 +1369,177 @@ void test('processGameRow does not advance review cadence on transport failure',
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('parseDueGameRowFromPayload round-trips force_hltb/force_review flags', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+    force_hltb: true,
+    force_review: true,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.force_hltb, true);
+  assert.equal(parsed.force_review, true);
+});
+
+void test('parseDueGameRowFromPayload defaults force_hltb/force_review to false when absent', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.force_hltb, false);
+  assert.equal(parsed.force_review, false);
+});
+
+void test('processGameRow bypasses bootstrap/cadence gating for hltb/review when forced', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+        },
+        // Bootstrap (no existing watch state) and far outside the eligibility
+        // window: without force flags, hltbDue/reviewDue would both be false.
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow does not attempt hltb/review for a bootstrap ineligible game without force flags', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 0);
+    assert.equal(stats.reviewRefreshAttempts, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows and stamps force flags', async () => {
+  const rows: DueGameSeedRow[] = [
+    {
+      igdb_game_id: '1',
+      platform_igdb_id: 6,
+      payload: { title: 'Collection Game', listType: 'collection' },
+      watch_exists: true,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+    {
+      igdb_game_id: '2',
+      platform_igdb_id: 6,
+      payload: { title: 'Wishlist Game', listType: 'wishlist' },
+      watch_exists: false,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null,
+    },
+  ];
+  const pool = new ReleaseMonitorFlowPoolMock(rows);
+
+  const result = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: true, review: false }
+  );
+
+  assert.deepEqual(result, { scanned: 2, enqueued: 2, deduped: 0 });
+  assert.equal(pool.queuedJobs, 2);
+
+  const repeat = await releaseMonitorInternals.enqueueForcedReleaseMonitorRefreshJobs(
+    pool as unknown as Pool,
+    { hltb: true, review: false }
+  );
+  assert.deepEqual(repeat, { scanned: 2, enqueued: 0, deduped: 2 });
+});

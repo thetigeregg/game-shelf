@@ -573,6 +573,39 @@
           }
         },
         {
+          "name": "Refresh Data - All Types (Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataTypes\": [\"hltb\", \"reviews\", \"igdb\", \"pricing\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/admin/refresh-data",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "admin", "refresh-data"]
+            },
+            "description": "Force-triggers HLTB, review (Metacritic/MobyGames), IGDB metadata, and pricing refresh, bypassing normal cadence eligibility. Scope per data type matches its existing periodic mechanism: hltb/reviews/igdb cover collection+wishlist games, pricing covers wishlist+discovery games. Enqueues background jobs and returns enqueued/deduped counts immediately; does not wait for jobs to complete. Edit the dataTypes array to trigger a subset (any of hltb, reviews, igdb, pricing)."
+          }
+        },
+        {
           "name": "Notifications Test (Optional Feature)",
           "request": {
             "method": "POST",

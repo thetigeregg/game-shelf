@@ -18,6 +18,19 @@ interface MissingRow extends QueryResultRow {
 const METADATA_ENRICHMENT_LOCK_NAMESPACE = 77302;
 const METADATA_ENRICHMENT_LOCK_KEY = 1;
 
+function mapMissingRow(row: MissingRow): MetadataEnrichmentGameRow {
+  const payload =
+    row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+      ? (row.payload as Record<string, unknown>)
+      : {};
+  return {
+    igdbGameId: row.igdb_game_id,
+    platformIgdbId: row.platform_igdb_id,
+    payload,
+    isPeriodicRefresh: row.is_periodic_refresh,
+  };
+}
+
 export class MetadataEnrichmentRepository {
   constructor(private readonly pool: Pool) {}
 
@@ -52,9 +65,25 @@ export class MetadataEnrichmentRepository {
     refreshMonths?: number;
     refreshDays?: number;
     queryable?: Queryable;
+    force?: boolean;
   }): Promise<MetadataEnrichmentGameRow[]> {
-    const { limit, refreshMonths, refreshDays, queryable = this.pool } = params;
+    const { limit, refreshMonths, refreshDays, queryable = this.pool, force = false } = params;
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
+
+    if (force) {
+      const forcedResult = await queryable.query<MissingRow>(
+        `
+        SELECT igdb_game_id, platform_igdb_id, payload, TRUE AS is_periodic_refresh
+        FROM games
+        WHERE COALESCE(payload ->> 'listType', '') IN ('collection', 'wishlist')
+        ORDER BY igdb_game_id ASC, platform_igdb_id ASC
+        LIMIT $1
+        `,
+        [normalizedLimit]
+      );
+      return forcedResult.rows.map(mapMissingRow);
+    }
+
     const result = await queryable.query<MissingRow>(
       `
       WITH candidates AS (
@@ -108,18 +137,7 @@ export class MetadataEnrichmentRepository {
       [normalizedLimit, refreshMonths ?? 0, refreshDays ?? 0]
     );
 
-    return result.rows.map((row) => {
-      const payload =
-        row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
-          ? (row.payload as Record<string, unknown>)
-          : {};
-      return {
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId: row.platform_igdb_id,
-        payload,
-        isPeriodicRefresh: row.is_periodic_refresh,
-      };
-    });
+    return result.rows.map(mapMissingRow);
   }
 
   async updateGamePayload(params: {

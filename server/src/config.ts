@@ -166,6 +166,7 @@ export interface AppConfig {
   releaseMonitorIntervalSeconds: number;
   releaseMonitorBatchSize: number;
   releaseMonitorDebugLogs: boolean;
+  adminForcedRefreshMaxGames: number;
   hltbPeriodicRefreshYears: number;
   hltbPeriodicRefreshDays: number;
   metacriticPeriodicRefreshYears: number;
@@ -282,6 +283,7 @@ export interface RateLimitConfig {
     admin_read: NamedInboundRateLimitConfig;
     admin_detail: NamedInboundRateLimitConfig;
     admin_mutation: NamedInboundRateLimitConfig;
+    admin_refresh_data: NamedInboundRateLimitConfig;
     background_jobs_stats: NamedInboundRateLimitConfig;
     background_jobs_failed_list: NamedInboundRateLimitConfig;
     background_jobs_replay: NamedInboundRateLimitConfig;
@@ -494,6 +496,10 @@ const rateLimitConfig: RateLimitConfig = {
     admin_read: readInboundPolicyConfig('ADMIN_READ', { max: 20, windowMs: 60_000 }),
     admin_detail: readInboundPolicyConfig('ADMIN_DETAIL', { max: 30, windowMs: 60_000 }),
     admin_mutation: readInboundPolicyConfig('ADMIN_MUTATION', { max: 10, windowMs: 60_000 }),
+    admin_refresh_data: readInboundPolicyConfig('ADMIN_REFRESH_DATA', {
+      max: 5,
+      windowMs: 60_000,
+    }),
     background_jobs_stats: readInboundPolicyConfig('BACKGROUND_JOBS_STATS', {
       max: 10,
       windowMs: 60_000,
@@ -680,6 +686,7 @@ export const config: AppConfig = {
   releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
   releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),
   releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
+  adminForcedRefreshMaxGames: readIntegerEnv('ADMIN_FORCED_REFRESH_MAX_GAMES', 10_000),
   hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
   metacriticPeriodicRefreshYears: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_YEARS', 3),

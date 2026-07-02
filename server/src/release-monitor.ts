@@ -13,6 +13,7 @@ import {
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -47,6 +48,8 @@ interface DueGameRow {
   last_hltb_refresh_at: string | null;
   last_metacritic_refresh_at: string | null;
   last_notified_release_day: string | null;
+  force_hltb?: boolean;
+  force_review?: boolean;
 }
 
 interface NotificationPreferences {
@@ -252,11 +255,11 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   emitRunSummary(stats);
 }
 
-async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
-  /* node:coverage disable */
-  const jobs = new BackgroundJobRepository(pool);
-  const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
-  const payload: Record<string, unknown> = {
+function buildReleaseMonitorGameJobPayload(
+  row: DueGameRow,
+  forceOverrides?: { hltb: boolean; review: boolean }
+): Record<string, unknown> {
+  return {
     igdb_game_id: row.igdb_game_id,
     platform_igdb_id: row.platform_igdb_id,
     payload: row.payload ?? {},
@@ -269,7 +272,16 @@ async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promis
     last_hltb_refresh_at: row.last_hltb_refresh_at,
     last_metacritic_refresh_at: row.last_metacritic_refresh_at,
     last_notified_release_day: row.last_notified_release_day,
+    force_hltb: forceOverrides?.hltb === true,
+    force_review: forceOverrides?.review === true,
   };
+}
+
+async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
+  /* node:coverage disable */
+  const jobs = new BackgroundJobRepository(pool);
+  const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
+  const payload = buildReleaseMonitorGameJobPayload(row);
   const queued = await jobs.enqueue({
     jobType: 'release_monitor_game',
     dedupeKey,
@@ -279,6 +291,63 @@ async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promis
   });
   return !queued.deduped;
   /* node:coverage enable */
+}
+
+async function queryAllEligibleGamesForForcedRefresh(pool: Pool): Promise<DueGameRow[]> {
+  const result = await pool.query<DueGameRow>(
+    `
+    SELECT
+      g.igdb_game_id,
+      g.platform_igdb_id,
+      g.payload,
+      (rws.igdb_game_id IS NOT NULL) AS watch_exists,
+      rws.last_known_release_marker,
+      rws.last_known_release_precision,
+      rws.last_known_release_date,
+      rws.last_known_release_year,
+      rws.last_seen_state,
+      rws.last_hltb_refresh_at,
+      rws.last_metacritic_refresh_at,
+      rws.last_notified_release_day
+    FROM games g
+    LEFT JOIN release_watch_state rws
+      ON rws.igdb_game_id = g.igdb_game_id AND rws.platform_igdb_id = g.platform_igdb_id
+    WHERE (g.payload->>'listType') IN ('collection', 'wishlist')
+    ORDER BY g.igdb_game_id ASC, g.platform_igdb_id ASC
+    LIMIT $1
+    `,
+    [config.adminForcedRefreshMaxGames]
+  );
+  return result.rows;
+}
+
+const FORCED_REFRESH_ENQUEUE_CONCURRENCY = 5;
+
+export async function enqueueForcedReleaseMonitorRefreshJobs(
+  pool: Pool,
+  force: { hltb: boolean; review: boolean }
+): Promise<{ scanned: number; enqueued: number; deduped: number }> {
+  const jobs = new BackgroundJobRepository(pool);
+  const rows = await queryAllEligibleGamesForForcedRefresh(pool);
+  const forceSuffix = `${force.hltb ? '1' : '0'}${force.review ? '1' : '0'}`;
+
+  const tasks = rows.map((row) => async () => {
+    const dedupeKey = `release-monitor:forced:${forceSuffix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
+    const payload = buildReleaseMonitorGameJobPayload(row, force);
+    return jobs.enqueue({
+      jobType: 'release_monitor_game',
+      dedupeKey,
+      payload,
+      priority: 80,
+      maxAttempts: 5,
+    });
+  });
+
+  const results = await runWithConcurrencyLimit(tasks, FORCED_REFRESH_ENQUEUE_CONCURRENCY);
+  const enqueued = results.filter((result) => !result.deduped).length;
+  const deduped = results.filter((result) => result.deduped).length;
+
+  return { scanned: rows.length, enqueued, deduped };
 }
 
 function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRow | null {
@@ -308,6 +377,8 @@ function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRo
     last_hltb_refresh_at: stringOrNull(payload['last_hltb_refresh_at']),
     last_metacritic_refresh_at: stringOrNull(payload['last_metacritic_refresh_at']),
     last_notified_release_day: stringOrNull(payload['last_notified_release_day']),
+    force_hltb: payload['force_hltb'] === true,
+    force_review: payload['force_review'] === true,
   };
   /* node:coverage enable */
 }
@@ -461,11 +532,13 @@ async function processGameRow(
     const reviewRefreshEligible = metacriticEligible;
 
     const hltbDue =
-      !isBootstrap &&
-      hltbRefreshEligible &&
-      isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+      row.force_hltb === true ||
+      (!isBootstrap &&
+        hltbRefreshEligible &&
+        isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now));
     const reviewDue =
-      !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
+      row.force_review === true ||
+      (!isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now));
 
     if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
@@ -2382,6 +2455,9 @@ export const releaseMonitorInternals = {
   processDueGames,
   processGameRow,
   enqueueReleaseMonitorGameJob,
+  enqueueForcedReleaseMonitorRefreshJobs,
+  queryAllEligibleGamesForForcedRefresh,
+  parseDueGameRowFromPayload,
   processQueuedReleaseMonitorGame,
   buildReleaseEvents,
   computeNextCheckAt,

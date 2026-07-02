@@ -43,13 +43,15 @@ export class MetadataEnrichmentService {
     );
   }
 
-  async runOnce(): Promise<MetadataEnrichmentSummary | null> {
+  async runOnce(overrides?: { force?: boolean }): Promise<MetadataEnrichmentSummary | null> {
+    const force = overrides?.force === true;
     const lockResult = await this.repository.withAdvisoryLock(async (client) => {
       const rows = await this.repository.listRowsMissingMetadata({
         limit: this.options.maxGamesPerRun,
         refreshMonths: this.options.refreshMonths,
         refreshDays: this.options.refreshDays,
         queryable: client,
+        force,
       });
       const summary: MetadataEnrichmentSummary = {
         scannedRows: rows.length,

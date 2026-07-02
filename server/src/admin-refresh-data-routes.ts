@@ -99,8 +99,6 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
             enqueued: forced.hltb.enqueued,
             deduped: forced.hltb.deduped,
           };
-          totals.enqueued += forced.hltb.enqueued;
-          totals.deduped += forced.hltb.deduped;
         }
         if (dataTypes.has('reviews')) {
           const reviews: ReviewsDataTypeResult = {
@@ -111,9 +109,11 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
             mobygames: forced.mobygames,
           };
           results.reviews = reviews;
-          totals.enqueued += reviews.enqueued;
-          totals.deduped += reviews.deduped;
         }
+        // Use job-level counts for totals rather than summing the hltb/reviews buckets: a
+        // single release_monitor_game job can satisfy both, and per-type buckets double-count it.
+        totals.enqueued += forced.job.enqueued;
+        totals.deduped += forced.job.deduped;
       }
 
       if (dataTypes.has('igdb')) {

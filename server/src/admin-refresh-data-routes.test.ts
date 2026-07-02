@@ -239,6 +239,7 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
             mobygames: { scanned: number; enqueued: number; deduped: number };
           };
         };
+        totals: { enqueued: number; deduped: number };
         respectRecency: boolean;
         respectStaleness: boolean;
       };
@@ -251,6 +252,9 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
         metacritic: { scanned: 2, enqueued: 2, deduped: 0 },
         mobygames: { scanned: 2, enqueued: 0, deduped: 0 },
       });
+      // Both rows are due for hltb and reviews, so one release_monitor_game job per row
+      // covers both data types; totals must count jobs, not sum the per-type buckets.
+      assert.deepEqual(body.totals, { enqueued: 2, deduped: 0 });
       assert.equal(body.respectRecency, true);
       assert.equal(body.respectStaleness, false);
 

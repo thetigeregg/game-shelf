@@ -1922,6 +1922,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
     hltb: { scanned: 2, enqueued: 2, deduped: 0 },
     metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
     mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 2, enqueued: 2, deduped: 0 },
   });
   assert.equal(pool.queuedJobs, 2);
 
@@ -1933,6 +1934,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs scans collection+wishlist rows
     hltb: { scanned: 2, enqueued: 0, deduped: 2 },
     metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
     mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 2, enqueued: 0, deduped: 2 },
   });
 });
 
@@ -1995,6 +1997,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respect
     hltb: { scanned: 1, enqueued: 1, deduped: 0 },
     metacritic: { scanned: 1, enqueued: 1, deduped: 0 },
     mobygames: { scanned: 1, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 1, deduped: 0 },
   });
   const firstPayload = pool.lastEnqueuedPayload;
   assert.ok(firstPayload);
@@ -2012,6 +2015,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs threads respectRecency/respect
     hltb: { scanned: 1, enqueued: 1, deduped: 0 },
     metacritic: { scanned: 1, enqueued: 1, deduped: 0 },
     mobygames: { scanned: 1, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 1, deduped: 0 },
   });
 });
 
@@ -2061,6 +2065,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs buckets metacritic and mobygam
     hltb: { scanned: 0, enqueued: 0, deduped: 0 },
     metacritic: { scanned: 2, enqueued: 1, deduped: 0 },
     mobygames: { scanned: 2, enqueued: 1, deduped: 0 },
+    job: { scanned: 2, enqueued: 2, deduped: 0 },
   });
   // One job per row, not one per (row, provider) pair.
   assert.equal(pool.queuedJobs, 2);
@@ -2094,6 +2099,7 @@ void test('enqueueForcedReleaseMonitorRefreshJobs excludes rows that are not due
     hltb: { scanned: 1, enqueued: 0, deduped: 0 },
     metacritic: { scanned: 0, enqueued: 0, deduped: 0 },
     mobygames: { scanned: 0, enqueued: 0, deduped: 0 },
+    job: { scanned: 1, enqueued: 0, deduped: 0 },
   });
   assert.equal(pool.queuedJobs, 0);
 });

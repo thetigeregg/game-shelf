@@ -395,6 +395,9 @@ export interface ForcedRefreshResult {
   hltb: ForcedRefreshDataTypeStats;
   metacritic: ForcedRefreshDataTypeStats;
   mobygames: ForcedRefreshDataTypeStats;
+  // Job-level counts: one release_monitor_game job can satisfy both hltb and review for a
+  // row, so this is the union of due rows rather than a sum of the per-provider buckets.
+  job: ForcedRefreshDataTypeStats;
 }
 
 function newForcedRefreshDataTypeStats(): ForcedRefreshDataTypeStats {
@@ -417,6 +420,7 @@ export async function enqueueForcedReleaseMonitorRefreshJobs(
     hltb: newForcedRefreshDataTypeStats(),
     metacritic: newForcedRefreshDataTypeStats(),
     mobygames: newForcedRefreshDataTypeStats(),
+    job: newForcedRefreshDataTypeStats(),
   };
 
   const dueByRow = rows.map((row) =>
@@ -429,6 +433,9 @@ export async function enqueueForcedReleaseMonitorRefreshJobs(
   if (force.review) {
     result.metacritic.scanned = rows.length;
     result.mobygames.scanned = rows.length;
+  }
+  if (force.hltb || force.review) {
+    result.job.scanned = rows.length;
   }
 
   const enqueueTasks: Array<{
@@ -469,6 +476,11 @@ export async function enqueueForcedReleaseMonitorRefreshJobs(
 
   enqueueResults.forEach((enqueueResult, index) => {
     const { due } = enqueueTasks[index];
+    if (enqueueResult.deduped) {
+      result.job.deduped += 1;
+    } else {
+      result.job.enqueued += 1;
+    }
     if (due.hltbDue) {
       if (enqueueResult.deduped) {
         result.hltb.deduped += 1;

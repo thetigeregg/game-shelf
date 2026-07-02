@@ -320,31 +320,43 @@ async function queryAllEligibleGamesForForcedRefresh(pool: Pool): Promise<DueGam
   return result.rows;
 }
 
+const FORCED_REFRESH_ENQUEUE_CONCURRENCY = 5;
+
+async function runWithConcurrencyLimit<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  const results: T[] = [];
+  for (let index = 0; index < tasks.length; index += concurrency) {
+    const chunk = tasks.slice(index, index + concurrency);
+    results.push(...(await Promise.all(chunk.map((task) => task()))));
+  }
+  return results;
+}
+
 export async function enqueueForcedReleaseMonitorRefreshJobs(
   pool: Pool,
   force: { hltb: boolean; review: boolean }
 ): Promise<{ scanned: number; enqueued: number; deduped: number }> {
   const jobs = new BackgroundJobRepository(pool);
   const rows = await queryAllEligibleGamesForForcedRefresh(pool);
-  let enqueued = 0;
-  let deduped = 0;
+  const forceSuffix = `${force.hltb ? '1' : '0'}${force.review ? '1' : '0'}`;
 
-  for (const row of rows) {
-    const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
+  const tasks = rows.map((row) => async () => {
+    const dedupeKey = `release-monitor:forced:${forceSuffix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
     const payload = buildReleaseMonitorGameJobPayload(row, force);
-    const queued = await jobs.enqueue({
+    return jobs.enqueue({
       jobType: 'release_monitor_game',
       dedupeKey,
       payload,
       priority: 80,
       maxAttempts: 5,
     });
-    if (queued.deduped) {
-      deduped += 1;
-    } else {
-      enqueued += 1;
-    }
-  }
+  });
+
+  const results = await runWithConcurrencyLimit(tasks, FORCED_REFRESH_ENQUEUE_CONCURRENCY);
+  const enqueued = results.filter((result) => !result.deduped).length;
+  const deduped = results.filter((result) => result.deduped).length;
 
   return { scanned: rows.length, enqueued, deduped };
 }

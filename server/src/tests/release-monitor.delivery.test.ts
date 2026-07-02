@@ -1370,25 +1370,42 @@ void test('processGameRow does not advance review cadence on transport failure',
   }
 });
 
-void test('parseDueGameRowFromPayload round-trips force_hltb/force_review flags', async () => {
-  const pool = new QueuedGamePoolMock();
-  releaseMonitorInternals.clearQueuedGameContextCache();
+void test('parseDueGameRowFromPayload round-trips force_hltb/force_review flags', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+    force_hltb: true,
+    force_review: true,
+  });
 
-  await assert.doesNotReject(
-    releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, {
-      igdb_game_id: '52189',
-      platform_igdb_id: 167,
-      payload: {
-        title: 'Grand Theft Auto VI',
-        platform: 'PlayStation 5',
-        releaseYear: 2026,
-        listType: 'wishlist',
-      },
-      watch_exists: false,
-      force_hltb: true,
-      force_review: true,
-    })
-  );
+  assert.ok(parsed);
+  assert.equal(parsed.force_hltb, true);
+  assert.equal(parsed.force_review, true);
+});
+
+void test('parseDueGameRowFromPayload defaults force_hltb/force_review to false when absent', () => {
+  const parsed = releaseMonitorInternals.parseDueGameRowFromPayload({
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist',
+    },
+    watch_exists: false,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.force_hltb, false);
+  assert.equal(parsed.force_review, false);
 });
 
 void test('processGameRow bypasses bootstrap/cadence gating for hltb/review when forced', async () => {

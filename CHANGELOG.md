@@ -4095,3 +4095,9 @@
 - 6e96105b fix: update docs
 - 45dd46a6 Merge branch 'main' into feat/pinger
 - e6fb9e7e feat(api): add admin endpoint to force-trigger data refresh
+
+## v1.71.0 - 2026-07-02
+
+- a3273b83 Merge pull request #492 from thetigeregg/vcrap
+- 0512e98f fix: update
+- 999b6334 feat(server): support recency/staleness gates in admin refresh-data

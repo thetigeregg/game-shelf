@@ -555,3 +555,50 @@ void test('admin refresh-data route pricing skips fresh prices only when respect
     }
   });
 });
+
+void test('admin refresh-data route pricing skips fresh discovery prices only when respectStaleness is true', async () => {
+  await withAdminAuth(async () => {
+    const app = fastifyFactory({ logger: false });
+    const pool = new PoolMock();
+    pool.seed({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: {
+        listType: 'discovery',
+        title: 'Freshly Priced Discovery Steam Game',
+        steamAppId: 123,
+        priceIsFree: false,
+        priceAmount: 19.99,
+        priceFetchedAt: new Date().toISOString(),
+      },
+    });
+
+    try {
+      registerAdminRefreshDataRoutes(app, pool as unknown as Pool);
+
+      const defaultResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'] },
+      });
+      const defaultBody = JSON.parse(defaultResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(defaultBody.results.pricing.enqueued, 1);
+
+      const respectStalenessResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/refresh-data',
+        headers: { 'x-game-shelf-client-token': 'device-token-1' },
+        payload: { dataTypes: ['pricing'], respectStaleness: true },
+      });
+      const respectStalenessBody = JSON.parse(respectStalenessResponse.body) as {
+        results: { pricing: { enqueued: number } };
+      };
+      assert.equal(respectStalenessBody.results.pricing.enqueued, 0);
+    } finally {
+      await app.close();
+    }
+  });
+});

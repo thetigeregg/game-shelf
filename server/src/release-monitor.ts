@@ -13,6 +13,7 @@ import {
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -321,18 +322,6 @@ async function queryAllEligibleGamesForForcedRefresh(pool: Pool): Promise<DueGam
 }
 
 const FORCED_REFRESH_ENQUEUE_CONCURRENCY = 5;
-
-async function runWithConcurrencyLimit<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number
-): Promise<T[]> {
-  const results: T[] = [];
-  for (let index = 0; index < tasks.length; index += concurrency) {
-    const chunk = tasks.slice(index, index + concurrency);
-    results.push(...(await Promise.all(chunk.map((task) => task()))));
-  }
-  return results;
-}
 
 export async function enqueueForcedReleaseMonitorRefreshJobs(
   pool: Pool,

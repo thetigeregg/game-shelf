@@ -14,6 +14,7 @@ import { enqueueForcedReleaseMonitorRefreshJobs } from './release-monitor.js';
 import { DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES } from './recommendations/types.js';
 import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
@@ -54,9 +55,10 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       const body = (request.body ?? {}) as RefreshDataBody;
       const dataTypes = parseDataTypes(body.dataTypes);
       if (dataTypes === null) {
-        reply
-          .code(400)
-          .send({ error: 'dataTypes must include at least one of hltb, reviews, igdb, pricing.' });
+        reply.code(400).send({
+          error:
+            'dataTypes must be a non-empty array containing only hltb, reviews, igdb, pricing.',
+        });
         return;
       }
 
@@ -403,22 +405,6 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   const deduped = results.filter((result) => result.deduped).length;
 
   return { scanned: rows.rows.length, enqueued, deduped };
-}
-
-async function runWithConcurrencyLimit<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number
-): Promise<T[]> {
-  if (tasks.length === 0) {
-    return [];
-  }
-
-  const results: T[] = [];
-  for (let index = 0; index < tasks.length; index += concurrency) {
-    const chunk = tasks.slice(index, index + concurrency);
-    results.push(...(await Promise.all(chunk.map((task) => task()))));
-  }
-  return results;
 }
 
 function readEnrichmentRetryState(

@@ -14,6 +14,7 @@ import {
 } from './recommendations/provider-retry-state.js';
 import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
 type ClearableDiscoveryMatchProvider = 'hltb' | 'review';
@@ -1110,22 +1111,6 @@ async function listDiscoveryGamesByKeys(
       payload: normalizePayloadObject(row.payload),
     }))
     .filter((row): row is NormalizedDiscoveryGame => row.payload !== null);
-}
-
-async function runWithConcurrencyLimit<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number
-): Promise<T[]> {
-  if (tasks.length === 0) {
-    return [];
-  }
-
-  const results: T[] = [];
-  for (let index = 0; index < tasks.length; index += concurrency) {
-    const chunk = tasks.slice(index, index + concurrency);
-    results.push(...(await Promise.all(chunk.map((task) => task()))));
-  }
-  return results;
 }
 
 async function listDiscoveryGamesByIgdbGameId(

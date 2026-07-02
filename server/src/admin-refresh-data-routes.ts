@@ -62,6 +62,7 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       }
 
       const results: Partial<Record<DataType, DataTypeResult>> = {};
+      const totals = { enqueued: 0, deduped: 0 };
 
       if (dataTypes.has('hltb') || dataTypes.has('reviews')) {
         const forced = await enqueueForcedReleaseMonitorRefreshJobs(pool, {
@@ -79,6 +80,8 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
         if (dataTypes.has('reviews')) {
           results.reviews = shared;
         }
+        totals.enqueued += forced.enqueued;
+        totals.deduped += forced.deduped;
       }
 
       if (dataTypes.has('igdb')) {
@@ -94,6 +97,8 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
           maxAttempts: 3,
         });
         results.igdb = queued.deduped ? { enqueued: 0, deduped: 1 } : { enqueued: 1, deduped: 0 };
+        totals.enqueued += results.igdb.enqueued;
+        totals.deduped += results.igdb.deduped;
       }
 
       if (dataTypes.has('pricing')) {
@@ -112,15 +117,9 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
           enqueued: wishlist.enqueued + discovery.enqueued,
           deduped: wishlist.deduped + discovery.deduped,
         };
+        totals.enqueued += results.pricing.enqueued;
+        totals.deduped += results.pricing.deduped;
       }
-
-      const totals = Object.values(results).reduce(
-        (accumulator, result) => ({
-          enqueued: accumulator.enqueued + result.enqueued,
-          deduped: accumulator.deduped + result.deduped,
-        }),
-        { enqueued: 0, deduped: 0 }
-      );
 
       reply.send({
         ok: true,

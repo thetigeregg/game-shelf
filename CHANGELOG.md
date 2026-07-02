@@ -4101,3 +4101,16 @@
 - a3273b83 Merge pull request #492 from thetigeregg/vcrap
 - 0512e98f fix: update
 - 999b6334 feat(server): support recency/staleness gates in admin refresh-data
+
+## v1.71.1 - 2026-07-02
+
+- d08df9f4 Merge pull request #493 from thetigeregg/feat/fiaaa
+- acb8e5f8 fix: remove script
+- 0e0c3521 fix(server): remove redundant lane guard and narrow devx bash perm
+- f73c6c18 fix(server): guard lane narrowing instead of unsafe cast in routes
+- b78bea48 chore(claude): scope PR-agent bash permissions to minimum needed
+- 10ee7dfa fix(server): resolve PR review feedback on lane validation and test mocks
+- cd31bff7 ci(server): add typecheck gate and fix strict-mode errors
+- e9fcf7a8 ci(server): add typecheck step to CI pipeline
+- 1e424b55 fix(server): resolve pre-existing TypeScript strict-mode errors
+- bce0ba91 fix: allow claude settings

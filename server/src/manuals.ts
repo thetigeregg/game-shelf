@@ -67,7 +67,7 @@ interface RegisterManualRoutesOptions {
   queueSnapshotTtlMs?: number;
 }
 
-export interface ManualsCatalogRefreshPayload {
+export interface ManualsCatalogRefreshPayload extends Record<string, unknown> {
   reason: string;
   requestedAt: string;
   force: boolean;

@@ -16,7 +16,7 @@ void test('config clamps popularity feed row limit to a sane maximum', () => {
   fs.writeFileSync(envFile, 'POPULARITY_FEED_ROW_LIMIT=999\n', 'utf8');
 
   try {
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       DOTENV_CONFIG_QUIET: 'true',
       ENV_FILE: envFile,
@@ -67,7 +67,7 @@ void test('config reads outbound IGDB metadata proxy window overrides from env',
   );
 
   try {
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       DOTENV_CONFIG_QUIET: 'true',
       ENV_FILE: envFile,

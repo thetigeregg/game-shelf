@@ -8,18 +8,6 @@ import {
   deriveSteamAppIdFromWebsites,
   normalizeIgdbWebsites,
 } from '../../../shared/igdb-websites-normalization.mjs';
-import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
-
-const normalizeWebsites = normalizeIgdbWebsites as (
-  input: { websites?: unknown },
-  options?: {
-    websiteTypeNames?: ReadonlyMap<number, string> | null;
-  }
-) => ReturnType<typeof normalizeIgdbWebsites>;
-
-const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
-  value: unknown
-) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
 
 interface TokenCache {
   accessToken: string;
@@ -263,15 +251,15 @@ export class DiscoveryIgdbClient {
       const score = computeSourceScore(raw, params.source);
       const developers = normalizeCompanies(raw.involved_companies, 'developer');
       const publishers = normalizeCompanies(raw.involved_companies, 'publisher');
-      const websites = normalizeWebsites(
+      const websites = normalizeIgdbWebsites(
         {
           websites: raw.websites,
         },
         {
           websiteTypeNames,
         }
-      ) as NormalizedWebsite[];
-      const steamAppId = deriveSteamAppId(websites) as number | null;
+      );
+      const steamAppId = deriveSteamAppIdFromWebsites(websites);
       const payloadBase: Record<string, unknown> = {
         igdbGameId: String(igdbGameId),
         title,
@@ -375,7 +363,7 @@ export class DiscoveryIgdbClient {
 
             return parsePositiveInteger((entry as RawGameType).id);
           })
-          .filter((id): id is number => Number.isInteger(id) && id > 0)
+          .filter((id): id is number => id !== null)
       : [];
 
     this.gameTypeCache = {

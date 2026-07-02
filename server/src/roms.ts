@@ -216,7 +216,7 @@ interface RegisterRomRoutesOptions {
   queueSnapshotTtlMs?: number;
 }
 
-export interface RomsCatalogRefreshPayload {
+export interface RomsCatalogRefreshPayload extends Record<string, unknown> {
   reason: string;
   requestedAt: string;
   force: boolean;

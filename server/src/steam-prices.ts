@@ -41,7 +41,7 @@ interface SteamRouteResponse {
   bestPrice: SteamPriceSnapshot | null;
 }
 
-export interface SteamPriceRevalidationPayload {
+export interface SteamPriceRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   igdbGameId: string;
   platformIgdbId: number;

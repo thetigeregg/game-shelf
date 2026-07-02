@@ -428,7 +428,7 @@ export class RecommendationRepository {
       [settingKey]
     );
 
-    return result.rowCount > 0 ? (result.rows[0]?.setting_value ?? null) : null;
+    return (result.rowCount ?? 0) > 0 ? (result.rows[0]?.setting_value ?? null) : null;
   }
 
   async upsertSetting(params: {

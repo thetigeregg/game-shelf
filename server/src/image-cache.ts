@@ -426,6 +426,8 @@ async function readCachedImageBytes(
     }
 
     if (
+      expectedSizeBytes !== null &&
+      expectedSizeBytes !== undefined &&
       Number.isInteger(expectedSizeBytes) &&
       expectedSizeBytes > 0 &&
       fileStat.size !== expectedSizeBytes

@@ -13,17 +13,6 @@ import {
 } from '../../../shared/igdb-websites-normalization.mjs';
 import type { NormalizedWebsite } from '../../../shared/igdb-websites-normalization.mjs';
 
-const normalizeWebsites = normalizeIgdbWebsites as (
-  input: { websites?: unknown },
-  options?: {
-    websiteTypeNames?: ReadonlyMap<number, string> | null;
-  }
-) => ReturnType<typeof normalizeIgdbWebsites>;
-
-const deriveSteamAppId = deriveSteamAppIdFromWebsites as (
-  value: unknown
-) => ReturnType<typeof deriveSteamAppIdFromWebsites>;
-
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
 const GAME_INSERT_BATCH_SIZE = 250;
@@ -959,14 +948,14 @@ function normalizeIgdbGame(
     : [];
 
   const platforms = platformOptions.map((platform) => platform.name);
-  const websites = normalizeWebsites(
+  const websites = normalizeIgdbWebsites(
     {
       websites: raw.websites,
     },
     {
       websiteTypeNames: options?.websiteTypeNames ?? null,
     }
-  ) as NormalizedWebsite[];
+  );
 
   return {
     igdbGameId,
@@ -992,7 +981,7 @@ function normalizeIgdbGame(
     developers: normalizeCompanyRole(raw.involved_companies, 'developer'),
     publishers: normalizeCompanyRole(raw.involved_companies, 'publisher'),
     websites,
-    steamAppId: deriveSteamAppId(websites) as number | null,
+    steamAppId: deriveSteamAppIdFromWebsites(websites),
   };
 }
 

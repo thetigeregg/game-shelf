@@ -36,7 +36,7 @@ class RepositoryMock {
     }
 
     const value = await params.callback({
-      query: () => Promise.resolve({ rows: [], rowCount: 0 } as QueryResult),
+      query: () => Promise.resolve({ rows: [], rowCount: 0 } as unknown as QueryResult),
     });
     return { acquired: true, value };
   }
@@ -1238,12 +1238,12 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
   globalThis.setTimeout = ((handler: TimerHandler, timeout?: number) => {
     timeoutCalls.push(timeout ?? 0);
     return 1 as unknown as ReturnType<typeof setTimeout>;
-  }) as typeof setTimeout;
+  }) as unknown as typeof setTimeout;
   globalThis.setInterval = ((handler: TimerHandler, timeout?: number) => {
     intervalCalls += 1;
     timeoutCalls.push(timeout ?? 0);
     return 2 as unknown as ReturnType<typeof setInterval>;
-  }) as typeof setInterval;
+  }) as unknown as typeof setInterval;
   globalThis.clearInterval = ((id: ReturnType<typeof setInterval>) => {
     void id;
     clearCalls += 1;

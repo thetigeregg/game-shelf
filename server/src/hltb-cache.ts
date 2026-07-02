@@ -34,7 +34,7 @@ interface HltbCacheRouteOptions {
   staleTtlSeconds?: number;
 }
 
-export interface HltbCacheRevalidationPayload {
+export interface HltbCacheRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   requestUrl: string;
 }
@@ -78,7 +78,7 @@ export async function registerHltbCachedRoute(
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey) {
+      if (cacheKey && normalized) {
         try {
           const cached = await pool.query<HltbCacheRow>(
             'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
@@ -476,7 +476,7 @@ function hasCacheableHltbCandidates(candidates: unknown): boolean {
   });
 }
 
-function isPositiveNumber(value: unknown): boolean {
+function isPositiveNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 

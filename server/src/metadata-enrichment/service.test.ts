@@ -136,9 +136,9 @@ void test('metadata enrichment start schedules immediate run and logs startup fa
   const originalConsoleWarn = console.warn;
   globalThis.setTimeout = ((callback: TimerHandler, delay?: number) => {
     scheduledDelay = delay;
-    scheduledCallback = typeof callback === 'function' ? callback : undefined;
+    scheduledCallback = typeof callback === 'function' ? (callback as () => void) : undefined;
     return 0 as unknown as ReturnType<typeof setTimeout>;
-  }) as typeof setTimeout;
+  }) as unknown as typeof setTimeout;
   console.warn = ((message?: unknown, payload?: unknown) => {
     loggedMessage = typeof message === 'string' ? message : String(message);
     loggedPayload = payload;

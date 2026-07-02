@@ -8,7 +8,7 @@ import {
   registerPsPricesRoute,
 } from './psprices-prices.js';
 
-interface GameRow {
+interface GameRow extends Record<string, unknown> {
   payload: Record<string, unknown>;
 }
 
@@ -1427,7 +1427,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
     enqueueRevalidationJob: (payload) => {
-      queuedPayloads.push(payload as unknown as Record<string, unknown>);
+      queuedPayloads.push(payload);
     },
     fetchImpl: () => {
       fetchCalls += 1;
@@ -1480,7 +1480,7 @@ void test('PSPrices route schedules stale revalidation when psPrices match is lo
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
     enqueueRevalidationJob: (payload) => {
-      queuedPayloads.push(payload as unknown as Record<string, unknown>);
+      queuedPayloads.push(payload);
     },
   });
 

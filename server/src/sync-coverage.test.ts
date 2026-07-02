@@ -272,6 +272,7 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
   assert.equal(body.cursor, '1');
   assert.equal(pool.store.idempotency.has('bad-1'), true);
   const storedGame = pool.store.games.get('2::130');
+  assert.ok(storedGame);
   assert.equal(storedGame.igdbGameId, '2');
   assert.equal(storedGame.platformIgdbId, 130);
   assert.equal(storedGame.title, 'Game');
@@ -309,7 +310,7 @@ void test('sync push accepts http/https custom cover urls in normalized payloads
 
   assert.equal(response.statusCode, 200);
   assert.equal(
-    pool.store.games.get('5::130').customCoverUrl,
+    pool.store.games.get('5::130')?.customCoverUrl,
     'https://images.example.com/custom-cover.jpg'
   );
 
@@ -343,7 +344,7 @@ void test('sync push rejects credentialed http/https custom cover urls', async (
   });
 
   assert.equal(response.statusCode, 200);
-  assert.equal(pool.store.games.get('6::130').customCoverUrl, null);
+  assert.equal(pool.store.games.get('6::130')?.customCoverUrl, null);
 
   await app.close();
 });

@@ -1,31 +1,18 @@
-import { IgdbMetadataRecord } from './types.js';
-import * as mediaNormalization from '../../../shared/igdb-media-normalization.mjs';
-import * as websiteNormalization from '../../../shared/igdb-websites-normalization.mjs';
+import type { IgdbMetadataRecord } from './types.js';
+import {
+  normalizeIgdbScreenshotList,
+  normalizeIgdbVideoList,
+} from '../../../shared/igdb-media-normalization.mjs';
+import {
+  deriveSteamAppIdFromWebsites,
+  normalizeIgdbWebsites,
+} from '../../../shared/igdb-websites-normalization.mjs';
 import {
   createProviderLimiter,
   type ProviderLimiter,
   ProviderThrottleError,
 } from '../provider-rate-limit.js';
 import { resolveOutboundRateLimit } from '../rate-limit.js';
-
-const normalizeIgdbScreenshotList = mediaNormalization.normalizeIgdbScreenshotList as (
-  value: unknown,
-  options?: { limit?: number; size?: string }
-) => IgdbMetadataRecord['screenshots'];
-
-const normalizeIgdbVideoList = mediaNormalization.normalizeIgdbVideoList as (
-  value: unknown,
-  options?: { limit?: number }
-) => IgdbMetadataRecord['videos'];
-const normalizeIgdbWebsites = websiteNormalization.normalizeIgdbWebsites as (
-  input: { websites?: unknown },
-  options?: {
-    websiteTypeNames?: ReadonlyMap<number, string> | null;
-  }
-) => IgdbMetadataRecord['websites'];
-const deriveSteamAppIdFromWebsites = websiteNormalization.deriveSteamAppIdFromWebsites as (
-  value: unknown
-) => IgdbMetadataRecord['steamAppId'];
 
 interface TokenCache {
   accessToken: string;
@@ -121,7 +108,7 @@ export class MetadataEnrichmentIgdbClient {
     const map = new Map<string, IgdbMetadataRecord>();
     for (const row of payload) {
       const id = parsePositiveInteger((row as { id?: unknown }).id);
-      if (!Number.isInteger(id) || id <= 0) {
+      if (id === null) {
         continue;
       }
 

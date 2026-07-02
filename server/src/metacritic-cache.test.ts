@@ -127,10 +127,12 @@ void test('METACRITIC cache stores on miss and serves on hit', async () => {
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: { metacriticScore: 20 }, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 20 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -167,15 +169,17 @@ void test('METACRITIC cache supports candidates when includeCandidates is enable
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: null,
-          candidates: [{ metacriticScore: 18 }],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [{ metacriticScore: 18 }],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
   });
@@ -210,10 +214,12 @@ void test('METACRITIC cache normalizes includeCandidates and platformIgdbId in q
     fetchMetadata: (request) => {
       fetchCalls += 1;
       observedUrls.push(request.url);
-      return new Response(JSON.stringify({ item: { metacriticScore: 40 } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 40 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -258,20 +264,24 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
     fetchMetadata: () => {
       fetchCalls += 1;
       if (fetchCalls === 1) {
-        return new Response(JSON.stringify({ item: { metacriticScore: 5 } }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: { metacriticScore: 5 } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
       }
 
       if (fetchCalls === 2) {
-        return new Response('upstream error', { status: 500 });
+        return Promise.resolve(new Response('upstream error', { status: 500 }));
       }
 
-      return new Response('not-json', {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
     now: () => nowMs,
     freshTtlSeconds: 1,
@@ -301,7 +311,7 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
   assert.equal(staleTwo.headers['x-gameshelf-metacritic-cache'], 'HIT_STALE');
   assert.equal(staleTwo.headers['x-gameshelf-metacritic-revalidate'], 'skipped');
 
-  const task = pendingTask;
+  const task = pendingTask as (() => Promise<void>) | null;
   assert.ok(task);
   await task();
 
@@ -310,7 +320,7 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
     method: 'GET',
     url: '/v1/metacritic/search?q=chrono',
   });
-  const taskTwo = pendingTask;
+  const taskTwo = pendingTask as (() => Promise<void>) | null;
   assert.ok(taskTwo);
   await taskTwo();
 
@@ -339,10 +349,12 @@ void test('METACRITIC cache treats invalid cache timestamps as expired and refre
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: { metacriticScore: 55 } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 55 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -369,21 +381,27 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
     fetchMetadata: () => {
       fetchCalls += 1;
       if (fetchCalls === 1) {
-        return new Response(JSON.stringify({ item: { metacriticScore: 20 } }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: { metacriticScore: 20 } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
       }
       if (fetchCalls === 2) {
-        return new Response('not-json', {
+        return Promise.resolve(
+          new Response('not-json', {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null, candidates: [] }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        });
-      }
-      return new Response(JSON.stringify({ item: null, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+        })
+      );
     },
     now: () => nowMs,
     freshTtlSeconds: 1,
@@ -397,13 +415,13 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
 
   nowMs += 2_000;
   await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
-  const taskOne = pendingTask;
+  const taskOne = pendingTask as (() => Promise<void>) | null;
   assert.ok(taskOne);
   await taskOne();
 
   nowMs += 2_000;
   await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
-  const taskTwo = pendingTask;
+  const taskTwo = pendingTask as (() => Promise<void>) | null;
   assert.ok(taskTwo);
   await taskTwo();
 
@@ -424,10 +442,12 @@ void test('METACRITIC cache bypasses cache when query is too short', async () =>
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -466,10 +486,12 @@ void test('METACRITIC cache deletes stale invalid payload and fetches fresh resp
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: { metacriticScore: 12 }, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 12 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -496,17 +518,19 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(
-        JSON.stringify({
-          item: {
-            metacriticScore: fetchCalls === 1 ? 10 : 11,
-          },
-          candidates: [],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              metacriticScore: fetchCalls === 1 ? 10 : 11,
+            },
+            candidates: [],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
       );
     },
     now: () => nowMs,
@@ -534,7 +558,7 @@ void test('METACRITIC cache serves stale and revalidates in background', async (
   assert.equal(stale.headers['x-gameshelf-metacritic-revalidate'], 'scheduled');
   assert.equal(fetchCalls, 1);
 
-  const refreshTask = pendingRefreshTask;
+  const refreshTask = pendingRefreshTask as (() => Promise<void>) | null;
 
   assert.ok(refreshTask);
 
@@ -566,10 +590,12 @@ void test('METACRITIC cache is fail-open when cache read throws', async () => {
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null, candidates: [] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 
@@ -598,10 +624,12 @@ void test('METACRITIC null item responses are not cached', async () => {
   await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: () => {
       fetchCalls += 1;
-      return new Response(JSON.stringify({ item: null }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     },
   });
 

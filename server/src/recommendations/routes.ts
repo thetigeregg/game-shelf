@@ -110,7 +110,7 @@ export function registerRecommendationRoutes(
       const limit = parsePositiveInteger(query.limit);
       const lane = query.lane === undefined ? null : parseRecommendationLaneKey(query.lane);
 
-      if (query.lane !== undefined && !lane) {
+      if (query.lane !== undefined && lane === null) {
         reply.code(400).send({
           error:
             'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
@@ -158,6 +158,14 @@ export function registerRecommendationRoutes(
           staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
           staleRefreshJobId: queueState.jobId,
           lanes: result.lanes,
+        });
+        return;
+      }
+
+      if (lane === null) {
+        reply.code(400).send({
+          error:
+            'Query parameter lane must be one of overall, hiddenGems, exploration, blended, popular, or recent.',
         });
         return;
       }

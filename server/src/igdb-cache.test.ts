@@ -181,8 +181,9 @@ void test('IGDB cache serves stale entry and schedules only one revalidation per
   assert.equal(second.headers['x-gameshelf-igdb-revalidate'], 'skipped');
   assert.equal(fetchCalls, 0);
 
-  assert.notEqual(pendingTask, null);
-  await pendingTask?.();
+  const task = pendingTask as (() => Promise<void>) | null;
+  assert.notEqual(task, null);
+  await task?.();
 
   const third = await app.inject({
     method: 'GET',
@@ -248,8 +249,9 @@ void test('IGDB stale revalidation cleans up in-flight state when scheduling thr
   assert.equal(second.headers['x-gameshelf-igdb-cache'], 'HIT_STALE');
   assert.equal(second.headers['x-gameshelf-igdb-revalidate'], 'scheduled');
 
-  assert.notEqual(pendingTask, null);
-  await pendingTask?.();
+  const task = pendingTask as (() => Promise<void>) | null;
+  assert.notEqual(task, null);
+  await task?.();
 
   const third = await app.inject({ method: 'GET', url: '/v1/games/199' });
   assert.equal(third.statusCode, 200);

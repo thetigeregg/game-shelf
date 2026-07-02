@@ -233,6 +233,8 @@ void test('admin refresh-data route scopes hltb/reviews to collection+wishlist a
           hltb: { scanned: number; enqueued: number; deduped: number };
           reviews: { scanned: number; enqueued: number; deduped: number };
         };
+        respectRecency: boolean;
+        respectStaleness: boolean;
       };
       assert.equal(body.results.hltb.scanned, 2);
       assert.deepEqual(body.results.hltb, body.results.reviews);

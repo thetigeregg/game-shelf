@@ -33,7 +33,7 @@ interface MetacriticCacheRouteOptions {
   staleTtlSeconds?: number;
 }
 
-export interface MetacriticCacheRevalidationPayload {
+export interface MetacriticCacheRevalidationPayload extends Record<string, unknown> {
   cacheKey: string;
   requestUrl: string;
 }
@@ -76,7 +76,7 @@ export async function registerMetacriticCachedRoute(
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-      if (cacheKey) {
+      if (cacheKey && normalized) {
         try {
           const cached = await pool.query<MetacriticCacheRow>(
             'SELECT response_json, updated_at FROM metacritic_search_cache WHERE cache_key = $1 LIMIT 1',

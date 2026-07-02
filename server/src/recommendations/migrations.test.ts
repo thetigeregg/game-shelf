@@ -52,7 +52,7 @@ void test('createPool destroys client when migration unlock fails', async () => 
 
   Pool.prototype.connect = function connect(): Promise<typeof fakeClient> {
     return Promise.resolve(fakeClient);
-  };
+  } as unknown as typeof Pool.prototype.connect;
 
   try {
     await assert.rejects(

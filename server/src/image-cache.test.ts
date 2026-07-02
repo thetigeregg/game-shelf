@@ -109,10 +109,12 @@ void test('Image cache stores on miss and serves on hit', async () => {
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -158,7 +160,7 @@ void test('Image proxy validates URLs and handles upstream timeout/errors', asyn
       if (urlValue.includes('timeout')) {
         throw new Error('timeout');
       }
-      return new Response('oops', { status: 503 });
+      return Promise.resolve(new Response('oops', { status: 503 }));
     },
   });
 
@@ -225,20 +227,24 @@ void test('Image proxy enforces size limits and rejects empty upstream payloads'
     fetchImpl: () => {
       call += 1;
       if (call === 1) {
-        return new Response(Buffer.from([1, 2, 3, 4]), {
+        return Promise.resolve(
+          new Response(Buffer.from([1, 2, 3, 4]), {
+            status: 200,
+            headers: {
+              'content-type': 'image/png',
+              'content-length': '10',
+            },
+          })
+        );
+      }
+      return Promise.resolve(
+        new Response(new Uint8Array([]), {
           status: 200,
           headers: {
             'content-type': 'image/png',
-            'content-length': '10',
           },
-        });
-      }
-      return new Response(new Uint8Array([]), {
-        status: 200,
-        headers: {
-          'content-type': 'image/png',
-        },
-      });
+        })
+      );
     },
   });
 
@@ -272,10 +278,12 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
       tempDir,
       {
         fetchImpl: () =>
-          new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-            status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+          Promise.resolve(
+            new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+              status: 200,
+              headers: { 'content-type': 'image/jpeg' },
+            })
+          ),
       }
     );
 
@@ -295,10 +303,12 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
       tempDir,
       {
         fetchImpl: () =>
-          new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-            status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+          Promise.resolve(
+            new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+              status: 200,
+              headers: { 'content-type': 'image/jpeg' },
+            })
+          ),
       }
     );
 
@@ -318,10 +328,12 @@ void test('Image proxy tolerates cache read/write/delete failures and still serv
       tempDir,
       {
         fetchImpl: () =>
-          new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-            status: 200,
-            headers: { 'content-type': 'image/jpeg' },
-          }),
+          Promise.resolve(
+            new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+              status: 200,
+              headers: { 'content-type': 'image/jpeg' },
+            })
+          ),
       }
     );
     const purge = await app.inject({
@@ -352,12 +364,14 @@ void test('Image proxy handles stale DB record with missing file and fallback ex
   const primingApp = Fastify();
   await registerImageProxyRoute(primingApp, stalePool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([1, 2, 3]), {
-        status: 200,
-        headers: {
-          'content-type': 'application/octet-stream',
-        },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([1, 2, 3]), {
+          status: 200,
+          headers: {
+            'content-type': 'application/octet-stream',
+          },
+        })
+      ),
   });
   await primingApp.inject({
     method: 'GET',
@@ -373,12 +387,14 @@ void test('Image proxy handles stale DB record with missing file and fallback ex
   const app = Fastify();
   await registerImageProxyRoute(app, stalePool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([9, 9, 9]), {
-        status: 200,
-        headers: {
-          'content-type': 'application/octet-stream',
-        },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([9, 9, 9]), {
+          status: 200,
+          headers: {
+            'content-type': 'application/octet-stream',
+          },
+        })
+      ),
   });
 
   const response = await app.inject({
@@ -404,10 +420,12 @@ void test('Image proxy refetches cached assets when the stored file is truncated
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -451,10 +469,12 @@ void test('Image proxy removes corrupt cache directories before refetching and r
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -510,10 +530,12 @@ void test('Image proxy rejects symlink escapes from the managed cache directory'
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -568,10 +590,12 @@ void test('Image proxy does not write through symlinked cache subdirectories', a
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -610,10 +634,12 @@ void test('Image proxy refetches cached assets when the stored file cannot be re
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -654,10 +680,12 @@ void test('Image purge only removes files contained in the managed cache directo
   const app = Fastify();
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      ),
   });
 
   await app.inject({
@@ -698,10 +726,12 @@ void test('Image purge does not remove files through symlinked cache subdirector
   const app = Fastify();
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      ),
   });
 
   await app.inject({
@@ -741,10 +771,12 @@ void test('Image proxy ignores cached file metadata outside the managed cache di
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -787,12 +819,14 @@ void test('Image proxy logs non-Error database failures and still responds', asy
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([0xaa, 0xbb, 0xcc]), {
-        status: 200,
-        headers: {
-          'content-type': 'image/unknown',
-        },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([0xaa, 0xbb, 0xcc]), {
+          status: 200,
+          headers: {
+            'content-type': 'image/unknown',
+          },
+        })
+      ),
   });
 
   const response = await app.inject({
@@ -814,12 +848,14 @@ void test('Image proxy handles missing url parameter and null upstream body', as
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(null, {
-        status: 200,
-        headers: {
-          'content-type': 'image/png',
-        },
-      }),
+      Promise.resolve(
+        new Response(null, {
+          status: 200,
+          headers: {
+            'content-type': 'image/png',
+          },
+        })
+      ),
   });
 
   const missingUrl = await app.inject({
@@ -848,10 +884,12 @@ void test('Image cache purge endpoint removes cached assets by source URL', asyn
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () => {
       fetchCalls += 1;
-      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      });
+      return Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      );
     },
   });
 
@@ -893,10 +931,12 @@ void test('Image proxy route rate limits by client IP', async () => {
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: () =>
-      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      ),
   });
 
   for (let index = 0; index < 50; index += 1) {
@@ -930,10 +970,12 @@ void test('Image proxy rounds overridden rate limit window up to avoid shortenin
     rateLimitWindowMs: 1_500,
     imageProxyMaxRequestsPerWindow: 1,
     fetchImpl: () =>
-      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
-        status: 200,
-        headers: { 'content-type': 'image/jpeg' },
-      }),
+      Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        })
+      ),
   });
 
   const first = await app.inject({

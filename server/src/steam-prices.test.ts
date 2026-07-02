@@ -4,7 +4,7 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { registerSteamPricesRoute } from './steam-prices.js';
 
-interface GameRow {
+interface GameRow extends Record<string, unknown> {
   payload: Record<string, unknown>;
 }
 
@@ -501,7 +501,7 @@ void test('Steam route serves stale cache and schedules revalidation', async () 
   await registerSteamPricesRoute(app, pool as unknown as Pool, {
     nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
     enqueueRevalidationJob: (payload) => {
-      queuedPayloads.push(payload as unknown as Record<string, unknown>);
+      queuedPayloads.push(payload);
     },
     fetchImpl: (input) => {
       fetchCalls += 1;

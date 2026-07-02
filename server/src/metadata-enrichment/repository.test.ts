@@ -296,7 +296,7 @@ void test('repository force mode bypasses date-gating and marks rows as periodic
   assert.deepEqual(pool.queries[0]?.params, [10]);
 });
 
-void test('repository non-force mode ignores the force param and runs the gated query', async () => {
+void test('repository force: false selects the normal gated query', async () => {
   const pool = new PoolMock({ onQuery: () => ({ rows: [] }) });
   const repository = new MetadataEnrichmentRepository(pool as never);
 

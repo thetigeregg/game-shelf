@@ -413,6 +413,110 @@ void test('hltb and review refresh due checks respect refresh age', () => {
   );
 });
 
+void test('evaluateForcedRefreshDue mirrors processGameRow due checks using pre-refetch release info', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const baseRow = {
+    igdb_game_id: '1',
+    platform_igdb_id: 6,
+    payload: {} as Record<string, unknown>,
+    watch_exists: true,
+    last_known_release_marker: null as string | null,
+    last_known_release_precision: null as string | null,
+    last_known_release_date: null as string | null,
+    last_known_release_year: null as number | null,
+    last_seen_state: null as string | null,
+    last_hltb_refresh_at: null as string | null,
+    last_metacritic_refresh_at: null as string | null,
+    last_notified_release_day: null as string | null,
+  };
+  const recentRow = {
+    ...baseRow,
+    last_known_release_marker: '2025',
+    last_known_release_precision: 'year',
+    last_known_release_year: 2025,
+  };
+
+  // Recent release, no existing hltb/review data -> due.
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      recentRow,
+      { hltb: true, review: true },
+      { respectRecency: true, respectStaleness: false },
+      now
+    ),
+    { hltbDue: true, reviewDue: true, reviewProvider: 'metacritic' }
+  );
+
+  // Recent release, existing data with a recent refresh timestamp, staleness respected -> not due.
+  const freshlyRefreshedRow = {
+    ...recentRow,
+    payload: { hltbMainHours: 10, metacriticScore: 80 },
+    last_hltb_refresh_at: '2026-03-06T09:59:00.000Z',
+    last_metacritic_refresh_at: '2026-03-06T09:59:00.000Z',
+  };
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      freshlyRefreshedRow,
+      { hltb: true, review: true },
+      { respectRecency: true, respectStaleness: true },
+      now
+    ),
+    { hltbDue: false, reviewDue: false, reviewProvider: null }
+  );
+
+  // Unknown release date -> not due unless respectRecency is disabled.
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      baseRow,
+      { hltb: true, review: true },
+      { respectRecency: true, respectStaleness: false },
+      now
+    ),
+    { hltbDue: false, reviewDue: false, reviewProvider: null }
+  );
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      baseRow,
+      { hltb: true, review: true },
+      { respectRecency: false, respectStaleness: false },
+      now
+    ),
+    { hltbDue: true, reviewDue: true, reviewProvider: 'metacritic' }
+  );
+
+  // Existing data with a stale refresh timestamp, staleness respected -> due again.
+  const staleRow = {
+    ...recentRow,
+    payload: { hltbMainHours: 10, metacriticScore: 80 },
+    last_hltb_refresh_at: '2020-01-01T00:00:00.000Z',
+    last_metacritic_refresh_at: '2020-01-01T00:00:00.000Z',
+  };
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      staleRow,
+      { hltb: true, review: true },
+      { respectRecency: true, respectStaleness: true },
+      now
+    ),
+    { hltbDue: true, reviewDue: true, reviewProvider: 'metacritic' }
+  );
+
+  // reviewProvider follows reviewMatchMobygamesGameId on the payload.
+  const mobygamesRow = {
+    ...recentRow,
+    payload: { reviewMatchMobygamesGameId: 555 },
+  };
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      mobygamesRow,
+      { hltb: false, review: true },
+      { respectRecency: true, respectStaleness: false },
+      now
+    ),
+    { hltbDue: false, reviewDue: true, reviewProvider: 'mobygames' }
+  );
+});
+
 void test('derive release state and past-years checks handle precision edge cases', () => {
   const now = new Date('2026-03-06T10:00:00.000Z');
 

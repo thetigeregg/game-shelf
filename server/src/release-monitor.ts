@@ -13,6 +13,7 @@ import {
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME } from './request-security.js';
 import { runWithConcurrencyLimit } from './utils/concurrency.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
@@ -1041,6 +1042,11 @@ function forceFreshHeaders(forceFresh?: boolean): Record<string, string> | undef
   const apiToken = config.apiToken.trim();
   if (apiToken.length > 0) {
     headers['Authorization'] = `Bearer ${apiToken}`;
+  } else {
+    const clientWriteToken = config.clientWriteTokens[0]?.trim();
+    if (clientWriteToken) {
+      headers[CLIENT_WRITE_TOKEN_HEADER_NAME] = clientWriteToken;
+    }
   }
   return headers;
 }

@@ -1271,6 +1271,88 @@ void test('processGameRow does not advance HLTB cadence on transport failure', a
   }
 });
 
+void test('processGameRow sends a force-refresh header for the mobygames review fetch when bypass_cache is set', async () => {
+  const originalFetch = globalThis.fetch;
+  const capturedHeaders: Record<string, HeadersInit | undefined> = {};
+  globalThis.fetch = (input: URL | RequestInfo, init?: RequestInit) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('/v1/hltb/search')) {
+      capturedHeaders.hltb = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ item: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    if (url.includes('/v1/mobygames/search')) {
+      capturedHeaders.mobygames = init?.headers;
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          reviewMatchMobygamesGameId: 555,
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+        force_hltb: true,
+        force_review: true,
+        respect_recency: false,
+        bypass_cache: true,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+    assert.equal(
+      (capturedHeaders.mobygames as Record<string, string> | undefined)?.[
+        'X-GameShelf-Force-Refresh'
+      ],
+      '1'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('processGameRow does not advance review cadence on transport failure', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (input: URL | RequestInfo) => {

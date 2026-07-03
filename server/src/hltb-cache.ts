@@ -176,7 +176,7 @@ function isAuthorizedForceRefreshRequest(request: FastifyRequest): boolean {
   }
 
   return isAuthorizedMutatingRequest({
-    requireAuth: true,
+    requireAuth: config.requireAuth,
     apiToken: config.apiToken,
     clientWriteTokens: config.clientWriteTokens,
     authorizationHeader: request.headers.authorization,

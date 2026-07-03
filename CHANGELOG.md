@@ -4114,3 +4114,12 @@
 - e9fcf7a8 ci(server): add typecheck step to CI pipeline
 - 1e424b55 fix(server): resolve pre-existing TypeScript strict-mode errors
 - bce0ba91 fix: allow claude settings
+
+## v1.72.0 - 2026-07-03
+
+- 7d919193 Merge pull request #494 from thetigeregg/feat/fiaaaz
+- 202d1cd1 fix(server): honor requireAuth config for force-refresh bypass
+- 4af2b36d fix(server): count union of jobs, not per-type sums, in refresh-data totals
+- 83eb1fc1 fix(server): require auth token for force-refresh cache bypass
+- 1795de6d fix(server): stop double-counting cache misses on force-refresh bypass
+- 3b6d4116 feat(server): filter admin refresh-data by due status and bypass cache

@@ -4135,3 +4135,7 @@
 - 3c673f9f feat(game-list): add discounted checkbox filter for wishlist
 - 8e1d5262 fix(game-list): tier TAS fallback by data completeness and release date
 - ef3c7f11 fix(game-list): tier PTAS fallback by data completeness and release date
+
+## v1.73.1 - 2026-07-04
+
+- 002c508c fix(ios): force OTA rebuild to invalidate stale bundle id (#496)

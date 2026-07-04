@@ -4139,3 +4139,7 @@
 ## v1.73.1 - 2026-07-04
 
 - 002c508c fix(ios): force OTA rebuild to invalidate stale bundle id (#496)
+
+## v1.73.2 - 2026-07-04
+
+- 0100853a fix(ci): force OTA deploy check on manual dispatch (#497)

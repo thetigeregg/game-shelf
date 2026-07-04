@@ -175,10 +175,16 @@ jobs:
             NATIVE_ARGS="--native-shell-changed"
           fi
 
+          FORCE_ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_ARGS="--force"
+          fi
+
           node scripts/ios-live-update-should-deploy.mjs \
             --base "$PREV" \
             --head "${{ needs.release.outputs.release_sha }}" \
             $NATIVE_ARGS \
+            $FORCE_ARGS \
             --github-output "$GITHUB_OUTPUT"
 
   ios_live_update_skip_summary:

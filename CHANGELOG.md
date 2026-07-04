@@ -4123,3 +4123,15 @@
 - 83eb1fc1 fix(server): require auth token for force-refresh cache bypass
 - 1795de6d fix(server): stop double-counting cache misses on force-refresh bypass
 - 3b6d4116 feat(server): filter admin refresh-data by due status and bypass cache
+
+## v1.73.0 - 2026-07-04
+
+- 593ff255 Merge pull request #495 from thetigeregg/feat/fiaaaz2
+- 9bcae0ed refactor(game-list): compute TAS/PTAS tier values without recompute
+- de0320e5 refactor(game-list): resolve TAS/PTAS tier values once per game
+- de8921d9 fix(game-list): invert TAS/PTAS tier-2 fallback proxy values
+- 73a7619f fix(game-list): scope discounted filter to wishlist and cache TAS/PTAS by day
+- ebc34730 fix(game-list): coerce legacy discounted filters and hoist sort date
+- 3c673f9f feat(game-list): add discounted checkbox filter for wishlist
+- 8e1d5262 fix(game-list): tier TAS fallback by data completeness and release date
+- ef3c7f11 fix(game-list): tier PTAS fallback by data completeness and release date

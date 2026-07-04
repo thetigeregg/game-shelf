@@ -1117,13 +1117,48 @@ export class GameListFilteringEngine {
     sortDirection: GameListFilters['sortDirection'],
     timePreference: number
   ): number {
+    const leftTier = this.classifyTasTier(left, timePreference);
+    const rightTier = this.classifyTasTier(right, timePreference);
+
+    if (leftTier.tier !== rightTier.tier) {
+      return leftTier.tier - rightTier.tier;
+    }
+
+    if (leftTier.tier === 4) {
+      return this.compareReleaseDatesUnknownLast(left, right, sortDirection);
+    }
+
     return this.compareNumericSortValues(
-      resolveTimeAdjustedScoreForGame(left, timePreference),
-      resolveTimeAdjustedScoreForGame(right, timePreference),
+      leftTier.value,
+      rightTier.value,
       sortDirection,
       left,
       right
     );
+  }
+
+  private classifyTasTier(
+    game: GameEntry,
+    timePreference: number
+  ): { tier: 1 | 2 | 3 | 4; value: number | null } {
+    if (this.resolveReleaseDateStatus(game) === 'past') {
+      const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
+      const hasHltb = resolveEffectiveHltbHours(game) !== null;
+
+      if (hasReview && hasHltb) {
+        return { tier: 1, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
+      }
+
+      if (hasHltb) {
+        return { tier: 2, value: resolveEffectiveHltbHours(game) };
+      }
+
+      if (hasReview) {
+        return { tier: 3, value: resolveNormalizedCriticScoreForGame(game) };
+      }
+    }
+
+    return { tier: 4, value: null };
   }
 
   private compareGamesByPriceAdjustedTimeAdjustedScore(

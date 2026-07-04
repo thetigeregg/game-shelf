@@ -1158,13 +1158,14 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(desc.map((game) => game.title)).toEqual(['Normal', 'Fallback']);
   });
 
-  it('sorts by TAS using HLTB fallback hierarchy and keeps missing TAS values last', () => {
+  it('sorts by TAS using HLTB fallback hierarchy and falls back to completion-time/review tiers', () => {
     enableTasFeature();
     const games: GameEntry[] = [
       makeGame({
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Main',
+        releaseDate: '2020-01-01',
         reviewScore: 80,
         reviewSource: 'metacritic',
         hltbMainHours: 10,
@@ -1173,6 +1174,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Main+Extra',
+        releaseDate: '2020-01-01',
         reviewScore: 80,
         reviewSource: 'metacritic',
         hltbMainHours: null,
@@ -1182,6 +1184,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '3',
         platformIgdbId: 130,
         title: 'Completionist',
+        releaseDate: '2020-01-01',
         reviewScore: 80,
         reviewSource: 'metacritic',
         hltbMainHours: null,
@@ -1192,6 +1195,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '4',
         platformIgdbId: 130,
         title: 'Moby',
+        releaseDate: '2020-01-01',
         reviewScore: 8.5,
         reviewSource: 'mobygames',
         mobyScore: 8.5,
@@ -1201,6 +1205,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '5',
         platformIgdbId: 130,
         title: 'No Hours',
+        releaseDate: '2020-01-01',
         reviewScore: 90,
         reviewSource: 'metacritic',
         hltbMainHours: null,
@@ -1211,6 +1216,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '6',
         platformIgdbId: 130,
         title: 'No Score',
+        releaseDate: '2020-01-01',
         reviewScore: null,
         hltbMainHours: 10,
       }),
@@ -1226,13 +1232,15 @@ describe('GameListFilteringEngine UI behavior', () => {
       '',
       20
     );
+    // 'No Score' has HLTB only (tier 2) and 'No Hours' has review only (tier 3), so
+    // tier order places 'No Score' before 'No Hours' regardless of direction.
     expect(desc.map((game) => game.title)).toEqual([
       'Completionist',
       'Moby',
       'Main+Extra',
       'Main',
-      'No Hours',
       'No Score',
+      'No Hours',
     ]);
 
     const asc = engine.applyFiltersAndSort(
@@ -1250,9 +1258,166 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Main+Extra',
       'Moby',
       'Completionist',
-      'No Hours',
       'No Score',
+      'No Hours',
     ]);
+  });
+
+  it('groups TAS sort into fixed tiers by data completeness, unaffected by direction', () => {
+    enableTasFeature();
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Full Data',
+        releaseDate: '2020-01-01',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+        hltbMainHours: 10,
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Hltb Only',
+        releaseDate: '2020-01-01',
+        reviewScore: null,
+        hltbMainHours: 15,
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Review Only',
+        releaseDate: '2020-01-01',
+        reviewScore: 70,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'No Data',
+        releaseDate: '2019-01-01',
+        reviewScore: null,
+        hltbMainHours: null,
+      }),
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'tas', sortDirection: 'asc' },
+      '',
+      20
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Full Data',
+      'Hltb Only',
+      'Review Only',
+      'No Data',
+    ]);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'tas', sortDirection: 'desc' },
+      '',
+      20
+    );
+    // Tier order (1-4) is fixed regardless of direction; only within-tier ordering flips.
+    // Since each tier here has exactly one game, the tier order is identical to asc.
+    expect(desc.map((game) => game.title)).toEqual([
+      'Full Data',
+      'Hltb Only',
+      'Review Only',
+      'No Data',
+    ]);
+  });
+
+  it('forces TAS games with unknown or future release dates into the release-date tier', () => {
+    enableTasFeature();
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Fully Qualified Past',
+        releaseDate: '2020-01-01',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+        hltbMainHours: 10,
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Fully Qualified Future',
+        releaseDate: '2999-01-01',
+        reviewScore: 95,
+        reviewSource: 'metacritic',
+        hltbMainHours: 8,
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Fully Qualified Unknown',
+        releaseDate: null,
+        reviewScore: 92,
+        reviewSource: 'metacritic',
+        hltbMainHours: 9,
+      }),
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'tas', sortDirection: 'asc' },
+      '',
+      20
+    );
+
+    // Only the past-dated game qualifies for tier 1; future/unknown dates are forced
+    // into the release-date tier and sorted chronologically, with unknown last.
+    expect(asc.map((game) => game.title)).toEqual([
+      'Fully Qualified Past',
+      'Fully Qualified Future',
+      'Fully Qualified Unknown',
+    ]);
+  });
+
+  it('sorts the TAS release-date fallback tier chronologically with unknown dates always last', () => {
+    enableTasFeature();
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Unknown Date',
+        releaseDate: null,
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Far Future',
+        releaseDate: '2999-06-01',
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Near Future',
+        releaseDate: '2999-01-01',
+      }),
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'tas', sortDirection: 'asc' },
+      '',
+      20
+    );
+    expect(asc.map((game) => game.title)).toEqual(['Near Future', 'Far Future', 'Unknown Date']);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'tas', sortDirection: 'desc' },
+      '',
+      20
+    );
+    // Direction reverses known-date ordering, but unknown dates stay pinned last.
+    expect(desc.map((game) => game.title)).toEqual(['Far Future', 'Near Future', 'Unknown Date']);
   });
 
   it('sorts by PTAS using price penalty and falls back to TAS tier when price is missing', () => {
@@ -1572,6 +1737,7 @@ describe('GameListFilteringEngine UI behavior', () => {
           igdbGameId: '1',
           platformIgdbId: 130,
           title: 'Beta',
+          releaseDate: '2020-01-01',
           reviewScore: 80,
           reviewSource: 'metacritic',
           hltbMainHours: 10,
@@ -1580,6 +1746,7 @@ describe('GameListFilteringEngine UI behavior', () => {
           igdbGameId: '2',
           platformIgdbId: 130,
           title: 'Alpha',
+          releaseDate: '2020-01-01',
           reviewScore: 80,
           reviewSource: 'metacritic',
           hltbMainHours: 10,

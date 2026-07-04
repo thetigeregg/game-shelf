@@ -17,6 +17,8 @@ import {
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
+  resolveEffectiveHltbHours,
+  resolveEffectivePriceForGame,
   resolvePriceAdjustedTimeAdjustedScoreForGame,
   resolveNormalizedCriticScoreForGame,
   resolveTimeAdjustedScoreForGame,
@@ -1048,6 +1050,17 @@ export class GameListFilteringEngine {
     return releaseDate.slice(0, 10);
   }
 
+  private resolveReleaseDateStatus(game: GameEntry): 'past' | 'future' | 'unknown' {
+    const dateOnly = this.getDateOnly(game.releaseDate);
+
+    if (!dateOnly) {
+      return 'unknown';
+    }
+
+    const today = this.getDateOnly(new Date().toISOString());
+    return today !== null && dateOnly > today ? 'future' : 'past';
+  }
+
   private normalizeFilterHours(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
       return null;
@@ -1120,13 +1133,90 @@ export class GameListFilteringEngine {
     timePreference: number,
     pricePreference: number
   ): number {
+    const leftTier = this.classifyWishlistPtasTier(left, timePreference, pricePreference);
+    const rightTier = this.classifyWishlistPtasTier(right, timePreference, pricePreference);
+
+    if (leftTier.tier !== rightTier.tier) {
+      return leftTier.tier - rightTier.tier;
+    }
+
+    if (leftTier.tier === 5) {
+      return this.compareReleaseDatesUnknownLast(left, right, sortDirection);
+    }
+
     return this.compareNumericSortValues(
-      resolvePriceAdjustedTimeAdjustedScoreForGame(left, timePreference, pricePreference),
-      resolvePriceAdjustedTimeAdjustedScoreForGame(right, timePreference, pricePreference),
+      leftTier.value,
+      rightTier.value,
       sortDirection,
       left,
       right
     );
+  }
+
+  private classifyWishlistPtasTier(
+    game: GameEntry,
+    timePreference: number,
+    pricePreference: number
+  ): { tier: 1 | 2 | 3 | 4 | 5; value: number | null } {
+    if (this.resolveReleaseDateStatus(game) === 'past') {
+      const hasPrice = resolveEffectivePriceForGame(game) !== null;
+      const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
+      const hasHltb = resolveEffectiveHltbHours(game) !== null;
+
+      if (hasPrice && hasReview && hasHltb) {
+        return {
+          tier: 1,
+          value: resolvePriceAdjustedTimeAdjustedScoreForGame(
+            game,
+            timePreference,
+            pricePreference
+          ),
+        };
+      }
+
+      if (hasPrice) {
+        return { tier: 2, value: resolveEffectivePriceForGame(game) };
+      }
+
+      if (hasReview && hasHltb) {
+        return { tier: 3, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
+      }
+
+      if (hasReview) {
+        return { tier: 4, value: resolveNormalizedCriticScoreForGame(game) };
+      }
+    }
+
+    return { tier: 5, value: null };
+  }
+
+  private compareReleaseDatesUnknownLast(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection']
+  ): number {
+    const leftDate = this.getDateOnly(left.releaseDate);
+    const rightDate = this.getDateOnly(right.releaseDate);
+
+    if (leftDate === null && rightDate === null) {
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
+    if (leftDate === null) {
+      return 1;
+    }
+
+    if (rightDate === null) {
+      return -1;
+    }
+
+    if (leftDate !== rightDate) {
+      return sortDirection === 'desc'
+        ? rightDate.localeCompare(leftDate)
+        : leftDate.localeCompare(rightDate);
+    }
+
+    return this.sortGamesByTitleFallback(left, right);
   }
 
   private compareGamesByPrice(

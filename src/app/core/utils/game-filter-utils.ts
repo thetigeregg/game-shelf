@@ -118,6 +118,10 @@ export function normalizeNonNegativeNumber(value: unknown): number | null {
   return Math.round(value * 10) / 10;
 }
 
+export function normalizeBooleanFilter(value: unknown): boolean {
+  return value === true;
+}
+
 export function normalizeTagFilterList(value: unknown, noneTagFilterValue: string): string[] {
   const normalized = normalizeStringList(value);
   const hasNoneTagFilter = normalized.includes(noneTagFilterValue);

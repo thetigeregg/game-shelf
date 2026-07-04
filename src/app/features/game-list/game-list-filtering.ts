@@ -10,6 +10,7 @@ import {
 } from '../../core/models/game.models';
 import {
   isGameOnDiscount,
+  normalizeBooleanFilter,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -266,7 +267,7 @@ export class GameListFilteringEngine {
         hltbMainHoursMin > hltbMainHoursMax
           ? hltbMainHoursMin
           : hltbMainHoursMax,
-      discounted: filters.discounted,
+      discounted: normalizeBooleanFilter(filters.discounted),
     };
   }
 
@@ -797,6 +798,7 @@ export class GameListFilteringEngine {
       return existingCache.sortedGames;
     }
 
+    const today = this.getDateOnly(new Date().toISOString());
     const sortedGames =
       sortField === 'metacritic' || sortField === 'review'
         ? [...games].sort((left, right) =>
@@ -811,12 +813,19 @@ export class GameListFilteringEngine {
                   right,
                   sortDirection,
                   timePreference,
-                  pricePreference
+                  pricePreference,
+                  today
                 )
               )
             : sortField === 'tas' && isTasFeatureEnabled()
               ? [...games].sort((left, right) =>
-                  this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+                  this.compareGamesByTimeAdjustedScore(
+                    left,
+                    right,
+                    sortDirection,
+                    timePreference,
+                    today
+                  )
                 )
               : this.applySortDirection(
                   [...games].sort((left, right) => this.compareGames(left, right, sortField)),
@@ -1057,14 +1066,16 @@ export class GameListFilteringEngine {
     return releaseDate.slice(0, 10);
   }
 
-  private resolveReleaseDateStatus(game: GameEntry): 'past' | 'future' | 'unknown' {
+  private resolveReleaseDateStatus(
+    game: GameEntry,
+    today: string | null
+  ): 'past' | 'future' | 'unknown' {
     const dateOnly = this.getDateOnly(game.releaseDate);
 
     if (!dateOnly) {
       return 'unknown';
     }
 
-    const today = this.getDateOnly(new Date().toISOString());
     return today !== null && dateOnly > today ? 'future' : 'past';
   }
 
@@ -1122,10 +1133,11 @@ export class GameListFilteringEngine {
     left: GameEntry,
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection'],
-    timePreference: number
+    timePreference: number,
+    today: string | null
   ): number {
-    const leftTier = this.classifyTasTier(left, timePreference);
-    const rightTier = this.classifyTasTier(right, timePreference);
+    const leftTier = this.classifyTasTier(left, timePreference, today);
+    const rightTier = this.classifyTasTier(right, timePreference, today);
 
     if (leftTier.tier !== rightTier.tier) {
       return leftTier.tier - rightTier.tier;
@@ -1146,9 +1158,10 @@ export class GameListFilteringEngine {
 
   private classifyTasTier(
     game: GameEntry,
-    timePreference: number
+    timePreference: number,
+    today: string | null
   ): { tier: 1 | 2 | 3 | 4; value: number | null } {
-    if (this.resolveReleaseDateStatus(game) === 'past') {
+    if (this.resolveReleaseDateStatus(game, today) === 'past') {
       const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
       const hasHltb = resolveEffectiveHltbHours(game) !== null;
 
@@ -1173,10 +1186,11 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection'],
     timePreference: number,
-    pricePreference: number
+    pricePreference: number,
+    today: string | null
   ): number {
-    const leftTier = this.classifyWishlistPtasTier(left, timePreference, pricePreference);
-    const rightTier = this.classifyWishlistPtasTier(right, timePreference, pricePreference);
+    const leftTier = this.classifyWishlistPtasTier(left, timePreference, pricePreference, today);
+    const rightTier = this.classifyWishlistPtasTier(right, timePreference, pricePreference, today);
 
     if (leftTier.tier !== rightTier.tier) {
       return leftTier.tier - rightTier.tier;
@@ -1198,9 +1212,10 @@ export class GameListFilteringEngine {
   private classifyWishlistPtasTier(
     game: GameEntry,
     timePreference: number,
-    pricePreference: number
+    pricePreference: number,
+    today: string | null
   ): { tier: 1 | 2 | 3 | 4 | 5; value: number | null } {
-    if (this.resolveReleaseDateStatus(game) === 'past') {
+    if (this.resolveReleaseDateStatus(game, today) === 'past') {
       const hasPrice = resolveEffectivePriceForGame(game) !== null;
       const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
       const hasHltb = resolveEffectiveHltbHours(game) !== null;

@@ -35,6 +35,7 @@ import {
   ListType,
 } from '../../core/models/game.models';
 import {
+  normalizeBooleanFilter,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -157,7 +158,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
       sortField: normalizedSortField,
-      discounted: this.showDiscountedFilter && this.filters.discounted,
+      discounted: this.showDiscountedFilter && normalizeBooleanFilter(this.filters.discounted),
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =

@@ -1175,7 +1175,8 @@ export class GameListFilteringEngine {
       }
 
       if (hasHltb) {
-        return { tier: 2, value: resolveEffectiveHltbHours(game) };
+        const hltbHours = resolveEffectiveHltbHours(game);
+        return { tier: 2, value: hltbHours === null ? null : -hltbHours };
       }
 
       if (hasReview) {
@@ -1237,7 +1238,8 @@ export class GameListFilteringEngine {
       }
 
       if (hasPrice) {
-        return { tier: 2, value: resolveEffectivePriceForGame(game) };
+        const price = resolveEffectivePriceForGame(game);
+        return { tier: 2, value: price === null ? null : -price };
       }
 
       if (hasReview && hasHltb) {

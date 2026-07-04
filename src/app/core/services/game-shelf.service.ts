@@ -42,6 +42,7 @@ import {
   normalizeTagIds,
   normalizeTheGamesDbUrl,
 } from './game-shelf-normalization';
+import { isGameOnDiscount } from '../utils/game-filter-utils';
 
 interface SteamPriceLookupApi {
   lookupSteamPrice(
@@ -1258,34 +1259,7 @@ export class GameShelfService {
       'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree'
     >
   ): boolean {
-    if (game.priceIsFree === true) {
-      return false;
-    }
-
-    const amount =
-      typeof game.priceAmount === 'number' && Number.isFinite(game.priceAmount)
-        ? game.priceAmount
-        : null;
-    const regularAmount =
-      typeof game.priceRegularAmount === 'number' && Number.isFinite(game.priceRegularAmount)
-        ? game.priceRegularAmount
-        : null;
-
-    if (
-      amount !== null &&
-      regularAmount !== null &&
-      amount >= 0 &&
-      regularAmount >= 0 &&
-      regularAmount > amount
-    ) {
-      return true;
-    }
-
-    const discountPercent =
-      typeof game.priceDiscountPercent === 'number' && Number.isFinite(game.priceDiscountPercent)
-        ? game.priceDiscountPercent
-        : null;
-    return discountPercent !== null && discountPercent > 0;
+    return isGameOnDiscount(game);
   }
 
   async updateGameCover(

@@ -83,6 +83,7 @@ export function normalizeListPageStoredFilters(
         : hltbMainHoursMax,
     releaseDateFrom: normalizeDateOnly(parsed['releaseDateFrom']),
     releaseDateTo: normalizeDateOnly(parsed['releaseDateTo']),
+    discounted: options.listType === 'wishlist' && parsed['discounted'] === true,
   };
 }
 

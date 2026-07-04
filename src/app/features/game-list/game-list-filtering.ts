@@ -9,6 +9,8 @@ import {
   isGameRating,
 } from '../../core/models/game.models';
 import {
+  isGameOnDiscount,
+  normalizeBooleanFilter,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -17,9 +19,11 @@ import {
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
-  resolvePriceAdjustedTimeAdjustedScoreForGame,
+  calculatePriceAdjustedTimeAdjustedScore,
+  calculateTimeAdjustedScore,
+  resolveEffectiveHltbHours,
+  resolveEffectivePriceForGame,
   resolveNormalizedCriticScoreForGame,
-  resolveTimeAdjustedScoreForGame,
 } from '../../core/utils/time-adjusted-score.util';
 import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
@@ -70,6 +74,7 @@ export class GameListFilteringEngine {
     sortDirection: GameListFilters['sortDirection'];
     timePreference: number;
     pricePreference: number;
+    today: string | null;
     sortedGames: GameEntry[];
   } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
@@ -263,6 +268,7 @@ export class GameListFilteringEngine {
         hltbMainHoursMin > hltbMainHoursMax
           ? hltbMainHoursMin
           : hltbMainHoursMax,
+      discounted: normalizeBooleanFilter(filters.discounted),
     };
   }
 
@@ -640,6 +646,10 @@ export class GameListFilteringEngine {
       return false;
     }
 
+    if (filters.discounted && game.listType === 'wishlist' && !isGameOnDiscount(game)) {
+      return false;
+    }
+
     if (
       filters.collections.length > 0 &&
       !filters.collections.some((selectedCollection) =>
@@ -777,6 +787,9 @@ export class GameListFilteringEngine {
     const existingCache = this.sortedGamesCache;
     const cachePricePreference =
       sortField === 'ptas' && isTasFeatureEnabled() ? pricePreference : 0;
+    const today = this.getDateOnly(new Date().toISOString());
+    const cacheToday =
+      (sortField === 'ptas' || sortField === 'tas') && isTasFeatureEnabled() ? today : null;
 
     if (
       existingCache &&
@@ -784,7 +797,8 @@ export class GameListFilteringEngine {
       existingCache.sortField === sortField &&
       existingCache.sortDirection === sortDirection &&
       existingCache.timePreference === timePreference &&
-      existingCache.pricePreference === cachePricePreference
+      existingCache.pricePreference === cachePricePreference &&
+      existingCache.today === cacheToday
     ) {
       return existingCache.sortedGames;
     }
@@ -803,12 +817,19 @@ export class GameListFilteringEngine {
                   right,
                   sortDirection,
                   timePreference,
-                  pricePreference
+                  pricePreference,
+                  today
                 )
               )
             : sortField === 'tas' && isTasFeatureEnabled()
               ? [...games].sort((left, right) =>
-                  this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+                  this.compareGamesByTimeAdjustedScore(
+                    left,
+                    right,
+                    sortDirection,
+                    timePreference,
+                    today
+                  )
                 )
               : this.applySortDirection(
                   [...games].sort((left, right) => this.compareGames(left, right, sortField)),
@@ -820,6 +841,7 @@ export class GameListFilteringEngine {
       sortDirection,
       timePreference,
       pricePreference: cachePricePreference,
+      today: cacheToday,
       sortedGames,
     };
     return sortedGames;
@@ -860,7 +882,8 @@ export class GameListFilteringEngine {
       minMainHours !== null ||
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||
-      !!filters.releaseDateTo
+      !!filters.releaseDateTo ||
+      filters.discounted
     );
   }
 
@@ -1048,6 +1071,19 @@ export class GameListFilteringEngine {
     return releaseDate.slice(0, 10);
   }
 
+  private resolveReleaseDateStatus(
+    game: GameEntry,
+    today: string | null
+  ): 'past' | 'future' | 'unknown' {
+    const dateOnly = this.getDateOnly(game.releaseDate);
+
+    if (!dateOnly) {
+      return 'unknown';
+    }
+
+    return today !== null && dateOnly > today ? 'future' : 'past';
+  }
+
   private normalizeFilterHours(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
       return null;
@@ -1102,15 +1138,55 @@ export class GameListFilteringEngine {
     left: GameEntry,
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection'],
-    timePreference: number
+    timePreference: number,
+    today: string | null
   ): number {
+    const leftTier = this.classifyTasTier(left, timePreference, today);
+    const rightTier = this.classifyTasTier(right, timePreference, today);
+
+    if (leftTier.tier !== rightTier.tier) {
+      return leftTier.tier - rightTier.tier;
+    }
+
+    if (leftTier.tier === 4) {
+      return this.compareReleaseDatesUnknownLast(left, right, sortDirection);
+    }
+
     return this.compareNumericSortValues(
-      resolveTimeAdjustedScoreForGame(left, timePreference),
-      resolveTimeAdjustedScoreForGame(right, timePreference),
+      leftTier.value,
+      rightTier.value,
       sortDirection,
       left,
       right
     );
+  }
+
+  private classifyTasTier(
+    game: GameEntry,
+    timePreference: number,
+    today: string | null
+  ): { tier: 1 | 2 | 3 | 4; value: number | null } {
+    if (this.resolveReleaseDateStatus(game, today) === 'past') {
+      const reviewScore = resolveNormalizedCriticScoreForGame(game);
+      const hltbHours = resolveEffectiveHltbHours(game);
+
+      if (reviewScore !== null && hltbHours !== null) {
+        return {
+          tier: 1,
+          value: calculateTimeAdjustedScore(reviewScore, hltbHours, timePreference),
+        };
+      }
+
+      if (hltbHours !== null) {
+        return { tier: 2, value: -hltbHours };
+      }
+
+      if (reviewScore !== null) {
+        return { tier: 3, value: reviewScore };
+      }
+    }
+
+    return { tier: 4, value: null };
   }
 
   private compareGamesByPriceAdjustedTimeAdjustedScore(
@@ -1118,15 +1194,99 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection'],
     timePreference: number,
-    pricePreference: number
+    pricePreference: number,
+    today: string | null
   ): number {
+    const leftTier = this.classifyWishlistPtasTier(left, timePreference, pricePreference, today);
+    const rightTier = this.classifyWishlistPtasTier(right, timePreference, pricePreference, today);
+
+    if (leftTier.tier !== rightTier.tier) {
+      return leftTier.tier - rightTier.tier;
+    }
+
+    if (leftTier.tier === 5) {
+      return this.compareReleaseDatesUnknownLast(left, right, sortDirection);
+    }
+
     return this.compareNumericSortValues(
-      resolvePriceAdjustedTimeAdjustedScoreForGame(left, timePreference, pricePreference),
-      resolvePriceAdjustedTimeAdjustedScoreForGame(right, timePreference, pricePreference),
+      leftTier.value,
+      rightTier.value,
       sortDirection,
       left,
       right
     );
+  }
+
+  private classifyWishlistPtasTier(
+    game: GameEntry,
+    timePreference: number,
+    pricePreference: number,
+    today: string | null
+  ): { tier: 1 | 2 | 3 | 4 | 5; value: number | null } {
+    if (this.resolveReleaseDateStatus(game, today) === 'past') {
+      const price = resolveEffectivePriceForGame(game);
+      const reviewScore = resolveNormalizedCriticScoreForGame(game);
+      const hltbHours = resolveEffectiveHltbHours(game);
+
+      if (price !== null && reviewScore !== null && hltbHours !== null) {
+        return {
+          tier: 1,
+          value: calculatePriceAdjustedTimeAdjustedScore(
+            reviewScore,
+            hltbHours,
+            timePreference,
+            price,
+            pricePreference
+          ),
+        };
+      }
+
+      if (price !== null) {
+        return { tier: 2, value: -price };
+      }
+
+      if (reviewScore !== null && hltbHours !== null) {
+        return {
+          tier: 3,
+          value: calculateTimeAdjustedScore(reviewScore, hltbHours, timePreference),
+        };
+      }
+
+      if (reviewScore !== null) {
+        return { tier: 4, value: reviewScore };
+      }
+    }
+
+    return { tier: 5, value: null };
+  }
+
+  private compareReleaseDatesUnknownLast(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection']
+  ): number {
+    const leftDate = this.getDateOnly(left.releaseDate);
+    const rightDate = this.getDateOnly(right.releaseDate);
+
+    if (leftDate === null && rightDate === null) {
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
+    if (leftDate === null) {
+      return 1;
+    }
+
+    if (rightDate === null) {
+      return -1;
+    }
+
+    if (leftDate !== rightDate) {
+      return sortDirection === 'desc'
+        ? rightDate.localeCompare(leftDate)
+        : leftDate.localeCompare(rightDate);
+    }
+
+    return this.sortGamesByTitleFallback(left, right);
   }
 
   private compareGamesByPrice(

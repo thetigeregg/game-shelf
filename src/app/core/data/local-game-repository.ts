@@ -18,6 +18,7 @@ import {
   Tag,
 } from '../models/game.models';
 import {
+  normalizeBooleanFilter,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -1816,6 +1817,7 @@ export class LocalGameRepository implements GameRepository {
           : hltbMainHoursMax,
       releaseDateFrom,
       releaseDateTo,
+      discounted: listType === 'wishlist' && normalizeBooleanFilter(source.discounted),
     };
   }
 

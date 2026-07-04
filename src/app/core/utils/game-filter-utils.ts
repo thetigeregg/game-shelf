@@ -1,4 +1,5 @@
 import {
+  GameEntry,
   GameRatingFilterOption,
   GameStatusFilterOption,
   GameType,
@@ -117,9 +118,49 @@ export function normalizeNonNegativeNumber(value: unknown): number | null {
   return Math.round(value * 10) / 10;
 }
 
+export function normalizeBooleanFilter(value: unknown): boolean {
+  return value === true;
+}
+
 export function normalizeTagFilterList(value: unknown, noneTagFilterValue: string): string[] {
   const normalized = normalizeStringList(value);
   const hasNoneTagFilter = normalized.includes(noneTagFilterValue);
   const tagNames = normalized.filter((tag) => tag !== noneTagFilterValue);
   return hasNoneTagFilter ? [noneTagFilterValue, ...tagNames] : tagNames;
+}
+
+export function isGameOnDiscount(
+  game: Pick<
+    GameEntry,
+    'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree'
+  >
+): boolean {
+  if (game.priceIsFree === true) {
+    return false;
+  }
+
+  const amount =
+    typeof game.priceAmount === 'number' && Number.isFinite(game.priceAmount)
+      ? game.priceAmount
+      : null;
+  const regularAmount =
+    typeof game.priceRegularAmount === 'number' && Number.isFinite(game.priceRegularAmount)
+      ? game.priceRegularAmount
+      : null;
+
+  if (
+    amount !== null &&
+    regularAmount !== null &&
+    amount >= 0 &&
+    regularAmount >= 0 &&
+    regularAmount > amount
+  ) {
+    return true;
+  }
+
+  const discountPercent =
+    typeof game.priceDiscountPercent === 'number' && Number.isFinite(game.priceDiscountPercent)
+      ? game.priceDiscountPercent
+      : null;
+  return discountPercent !== null && discountPercent > 0;
 }

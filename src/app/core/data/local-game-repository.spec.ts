@@ -924,6 +924,24 @@ describe('LocalGameRepository', () => {
     expect(await repository.getView(createdId)).toBeUndefined();
   });
 
+  it('keeps discounted on wishlist views and strips it on collection views', async () => {
+    const wishlistView = await repository.createView({
+      name: 'Wishlist deals',
+      listType: 'wishlist',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, discounted: true },
+      groupBy: 'none',
+    });
+    expect(wishlistView.filters.discounted).toBe(true);
+
+    const collectionView = await repository.createView({
+      name: 'Collection deals',
+      listType: 'collection',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, discounted: true },
+      groupBy: 'none',
+    });
+    expect(collectionView.filters.discounted).toBe(false);
+  });
+
   it('returns undefined when updating a missing view', async () => {
     const updated = await repository.updateView(404, { name: 'Missing' });
     expect(updated).toBeUndefined();

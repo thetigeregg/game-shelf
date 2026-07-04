@@ -133,6 +133,17 @@
       </ion-select>
     </ion-item>
 
+    @if (showDiscountedFilter) {
+      <ion-item>
+        <ion-checkbox
+          [checked]="draftFilters.discounted"
+          (ionChange)="onDiscountedFilterChange($event.detail.checked)"
+        >
+          Discounted
+        </ion-checkbox>
+      </ion-item>
+    }
+
     <ion-accordion-group>
       <ion-accordion value="exclusions">
         <ion-item slot="header" color="light">

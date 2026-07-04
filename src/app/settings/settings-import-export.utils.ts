@@ -381,6 +381,7 @@ export function parseFilters(
           : parsedHltbMainHoursMax,
       releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
       releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null,
+      discounted: options?.listType === 'wishlist' && parsed.discounted === true,
     };
   } catch {
     return null;

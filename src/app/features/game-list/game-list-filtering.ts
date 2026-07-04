@@ -19,11 +19,11 @@ import {
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
+  calculatePriceAdjustedTimeAdjustedScore,
+  calculateTimeAdjustedScore,
   resolveEffectiveHltbHours,
   resolveEffectivePriceForGame,
-  resolvePriceAdjustedTimeAdjustedScoreForGame,
   resolveNormalizedCriticScoreForGame,
-  resolveTimeAdjustedScoreForGame,
 } from '../../core/utils/time-adjusted-score.util';
 import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
@@ -1171,7 +1171,10 @@ export class GameListFilteringEngine {
       const hltbHours = resolveEffectiveHltbHours(game);
 
       if (reviewScore !== null && hltbHours !== null) {
-        return { tier: 1, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
+        return {
+          tier: 1,
+          value: calculateTimeAdjustedScore(reviewScore, hltbHours, timePreference),
+        };
       }
 
       if (hltbHours !== null) {
@@ -1228,9 +1231,11 @@ export class GameListFilteringEngine {
       if (price !== null && reviewScore !== null && hltbHours !== null) {
         return {
           tier: 1,
-          value: resolvePriceAdjustedTimeAdjustedScoreForGame(
-            game,
+          value: calculatePriceAdjustedTimeAdjustedScore(
+            reviewScore,
+            hltbHours,
             timePreference,
+            price,
             pricePreference
           ),
         };
@@ -1241,7 +1246,10 @@ export class GameListFilteringEngine {
       }
 
       if (reviewScore !== null && hltbHours !== null) {
-        return { tier: 3, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
+        return {
+          tier: 3,
+          value: calculateTimeAdjustedScore(reviewScore, hltbHours, timePreference),
+        };
       }
 
       if (reviewScore !== null) {

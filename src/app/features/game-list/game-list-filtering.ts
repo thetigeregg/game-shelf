@@ -1167,20 +1167,19 @@ export class GameListFilteringEngine {
     today: string | null
   ): { tier: 1 | 2 | 3 | 4; value: number | null } {
     if (this.resolveReleaseDateStatus(game, today) === 'past') {
-      const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
-      const hasHltb = resolveEffectiveHltbHours(game) !== null;
+      const reviewScore = resolveNormalizedCriticScoreForGame(game);
+      const hltbHours = resolveEffectiveHltbHours(game);
 
-      if (hasReview && hasHltb) {
+      if (reviewScore !== null && hltbHours !== null) {
         return { tier: 1, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
       }
 
-      if (hasHltb) {
-        const hltbHours = resolveEffectiveHltbHours(game);
-        return { tier: 2, value: hltbHours === null ? null : -hltbHours };
+      if (hltbHours !== null) {
+        return { tier: 2, value: -hltbHours };
       }
 
-      if (hasReview) {
-        return { tier: 3, value: resolveNormalizedCriticScoreForGame(game) };
+      if (reviewScore !== null) {
+        return { tier: 3, value: reviewScore };
       }
     }
 
@@ -1222,11 +1221,11 @@ export class GameListFilteringEngine {
     today: string | null
   ): { tier: 1 | 2 | 3 | 4 | 5; value: number | null } {
     if (this.resolveReleaseDateStatus(game, today) === 'past') {
-      const hasPrice = resolveEffectivePriceForGame(game) !== null;
-      const hasReview = resolveNormalizedCriticScoreForGame(game) !== null;
-      const hasHltb = resolveEffectiveHltbHours(game) !== null;
+      const price = resolveEffectivePriceForGame(game);
+      const reviewScore = resolveNormalizedCriticScoreForGame(game);
+      const hltbHours = resolveEffectiveHltbHours(game);
 
-      if (hasPrice && hasReview && hasHltb) {
+      if (price !== null && reviewScore !== null && hltbHours !== null) {
         return {
           tier: 1,
           value: resolvePriceAdjustedTimeAdjustedScoreForGame(
@@ -1237,17 +1236,16 @@ export class GameListFilteringEngine {
         };
       }
 
-      if (hasPrice) {
-        const price = resolveEffectivePriceForGame(game);
-        return { tier: 2, value: price === null ? null : -price };
+      if (price !== null) {
+        return { tier: 2, value: -price };
       }
 
-      if (hasReview && hasHltb) {
+      if (reviewScore !== null && hltbHours !== null) {
         return { tier: 3, value: resolveTimeAdjustedScoreForGame(game, timePreference) };
       }
 
-      if (hasReview) {
-        return { tier: 4, value: resolveNormalizedCriticScoreForGame(game) };
+      if (reviewScore !== null) {
+        return { tier: 4, value: reviewScore };
       }
     }
 

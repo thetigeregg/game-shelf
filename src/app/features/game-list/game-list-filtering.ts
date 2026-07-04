@@ -74,6 +74,7 @@ export class GameListFilteringEngine {
     sortDirection: GameListFilters['sortDirection'];
     timePreference: number;
     pricePreference: number;
+    today: string | null;
     sortedGames: GameEntry[];
   } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
@@ -645,7 +646,7 @@ export class GameListFilteringEngine {
       return false;
     }
 
-    if (filters.discounted && !isGameOnDiscount(game)) {
+    if (filters.discounted && game.listType === 'wishlist' && !isGameOnDiscount(game)) {
       return false;
     }
 
@@ -786,6 +787,9 @@ export class GameListFilteringEngine {
     const existingCache = this.sortedGamesCache;
     const cachePricePreference =
       sortField === 'ptas' && isTasFeatureEnabled() ? pricePreference : 0;
+    const today = this.getDateOnly(new Date().toISOString());
+    const cacheToday =
+      (sortField === 'ptas' || sortField === 'tas') && isTasFeatureEnabled() ? today : null;
 
     if (
       existingCache &&
@@ -793,12 +797,12 @@ export class GameListFilteringEngine {
       existingCache.sortField === sortField &&
       existingCache.sortDirection === sortDirection &&
       existingCache.timePreference === timePreference &&
-      existingCache.pricePreference === cachePricePreference
+      existingCache.pricePreference === cachePricePreference &&
+      existingCache.today === cacheToday
     ) {
       return existingCache.sortedGames;
     }
 
-    const today = this.getDateOnly(new Date().toISOString());
     const sortedGames =
       sortField === 'metacritic' || sortField === 'review'
         ? [...games].sort((left, right) =>
@@ -837,6 +841,7 @@ export class GameListFilteringEngine {
       sortDirection,
       timePreference,
       pricePreference: cachePricePreference,
+      today: cacheToday,
       sortedGames,
     };
     return sortedGames;

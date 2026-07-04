@@ -155,12 +155,7 @@ export interface GameCatalogResult {
 export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
 export type RecommendationLaneKey =
-  | 'overall'
-  | 'hiddenGems'
-  | 'exploration'
-  | 'blended'
-  | 'popular'
-  | 'recent';
+  'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
 
 export interface RecommendationScoreComponents {
   taste: number;
@@ -563,6 +558,7 @@ export interface GameListFilters {
   hltbMainHoursMax: number | null;
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
+  discounted: boolean;
 }
 
 export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
@@ -587,6 +583,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   hltbMainHoursMax: null,
   releaseDateFrom: null,
   releaseDateTo: null,
+  discounted: false,
 };
 
 export interface GameListView {

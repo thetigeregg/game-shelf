@@ -9,6 +9,7 @@ import {
   isGameRating,
 } from '../../core/models/game.models';
 import {
+  isGameOnDiscount,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -265,6 +266,7 @@ export class GameListFilteringEngine {
         hltbMainHoursMin > hltbMainHoursMax
           ? hltbMainHoursMin
           : hltbMainHoursMax,
+      discounted: filters.discounted,
     };
   }
 
@@ -642,6 +644,10 @@ export class GameListFilteringEngine {
       return false;
     }
 
+    if (filters.discounted && !isGameOnDiscount(game)) {
+      return false;
+    }
+
     if (
       filters.collections.length > 0 &&
       !filters.collections.some((selectedCollection) =>
@@ -862,7 +868,8 @@ export class GameListFilteringEngine {
       minMainHours !== null ||
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||
-      !!filters.releaseDateTo
+      !!filters.releaseDateTo ||
+      filters.discounted
     );
   }
 

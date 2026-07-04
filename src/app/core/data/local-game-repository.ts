@@ -1816,6 +1816,7 @@ export class LocalGameRepository implements GameRepository {
           : hltbMainHoursMax,
       releaseDateFrom,
       releaseDateTo,
+      discounted: listType === 'wishlist' && source.discounted,
     };
   }
 

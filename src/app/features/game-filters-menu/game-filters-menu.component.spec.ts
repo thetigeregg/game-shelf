@@ -77,6 +77,39 @@ describe('GameFiltersMenuComponent', () => {
     expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ sortField: 'review' }));
   });
 
+  it('shows the discounted filter only on the wishlist list type', () => {
+    const component = createComponent();
+
+    component.listType = 'collection';
+    expect(component.showDiscountedFilter).toBe(false);
+
+    component.listType = 'wishlist';
+    expect(component.showDiscountedFilter).toBe(true);
+  });
+
+  it('clears a stale discounted filter outside wishlist and emits corrected filters', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, discounted: true };
+    component.listType = 'collection';
+    component.ngOnChanges();
+
+    expect(component.draftFilters.discounted).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ discounted: false }));
+  });
+
+  it('updates discounted via onDiscountedFilterChange', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.listType = 'wishlist';
+    component.onDiscountedFilterChange(true);
+
+    expect(component.draftFilters.discounted).toBe(true);
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ discounted: true }));
+  });
+
   it('does not emit when incoming sort field is already valid', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');

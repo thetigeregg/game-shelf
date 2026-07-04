@@ -90,6 +90,7 @@ describe('list-page-preferences', () => {
       hltbMainHoursMax: 25,
       releaseDateFrom: '2025-02-01',
       releaseDateTo: null,
+      discounted: false,
     });
   });
 
@@ -177,6 +178,19 @@ describe('list-page-preferences', () => {
 
     expect(wishlistNormalized.sortField).toBe('ptas');
     expect(collectionNormalized.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
+  it('accepts discounted only for wishlist stored preferences', () => {
+    const wishlistNormalized = normalizeListPageStoredFilters({ discounted: true }, '__none__', {
+      listType: 'wishlist',
+    });
+
+    const collectionNormalized = normalizeListPageStoredFilters({ discounted: true }, '__none__', {
+      listType: 'collection',
+    });
+
+    expect(wishlistNormalized.discounted).toBe(true);
+    expect(collectionNormalized.discounted).toBe(false);
   });
 
   it('migrates metacritic sort field from stored preferences to review', () => {

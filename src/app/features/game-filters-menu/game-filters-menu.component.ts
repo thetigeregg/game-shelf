@@ -22,6 +22,7 @@ import {
   IonDatetime,
   IonAccordionGroup,
   IonAccordion,
+  IonCheckbox,
 } from '@ionic/angular/standalone';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -90,6 +91,7 @@ type FiltersPresentation = 'menu' | 'split';
     IonDatetime,
     IonAccordionGroup,
     IonAccordion,
+    IonCheckbox,
   ],
 })
 export class GameFiltersMenuComponent implements OnChanges {
@@ -155,12 +157,16 @@ export class GameFiltersMenuComponent implements OnChanges {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
       sortField: normalizedSortField,
+      discounted: this.showDiscountedFilter && this.filters.discounted,
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =
       `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
 
-    if (this.filters.sortField !== normalizedSortField) {
+    if (
+      this.filters.sortField !== normalizedSortField ||
+      this.filters.discounted !== normalizedFilters.discounted
+    ) {
       this.filtersChange.emit({ ...normalizedFilters });
     }
   }
@@ -220,6 +226,14 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       genres: normalized,
+    };
+    this.updateFilters();
+  }
+
+  onDiscountedFilterChange(value: boolean): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      discounted: value,
     };
     this.updateFilters();
   }
@@ -523,6 +537,10 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   get showPriceSort(): boolean {
+    return this.listType === 'wishlist';
+  }
+
+  get showDiscountedFilter(): boolean {
     return this.listType === 'wishlist';
   }
 }

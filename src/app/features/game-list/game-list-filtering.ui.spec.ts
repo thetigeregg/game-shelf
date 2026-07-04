@@ -628,6 +628,58 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Target']);
   });
 
+  it('filters to games currently on discount', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Discounted By Amount',
+        listType: 'wishlist',
+        priceAmount: 10,
+        priceRegularAmount: 20,
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Discounted By Percent',
+        listType: 'wishlist',
+        priceDiscountPercent: 15,
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Full Price',
+        listType: 'wishlist',
+        priceAmount: 20,
+        priceRegularAmount: 20,
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Free Game',
+        listType: 'wishlist',
+        priceIsFree: true,
+        priceDiscountPercent: 15,
+      }),
+      makeGame({
+        igdbGameId: '5',
+        platformIgdbId: 130,
+        title: 'No Pricing',
+        listType: 'wishlist',
+      }),
+    ];
+
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      discounted: true,
+    };
+
+    const result = engine.applyFiltersAndSort(games, filters, '');
+    expect(result.map((game) => game.title).sort()).toEqual(
+      ['Discounted By Amount', 'Discounted By Percent'].sort()
+    );
+  });
+
   it('excludes games that match exclusion filters', () => {
     const games: GameEntry[] = [
       makeGame({

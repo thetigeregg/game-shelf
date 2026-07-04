@@ -194,6 +194,23 @@ describe('settings-import-export.utils', () => {
     expect(collectionParsed?.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
 
+  it('accepts discounted only for wishlist views during import parsing', () => {
+    const wishlistParsed = parseFilters(
+      JSON.stringify({ discounted: true }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'wishlist' }
+    );
+
+    const collectionParsed = parseFilters(
+      JSON.stringify({ discounted: true }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'collection' }
+    );
+
+    expect(wishlistParsed?.discounted).toBe(true);
+    expect(collectionParsed?.discounted).toBe(false);
+  });
+
   it('falls back from price sort field for collection views during import parsing', () => {
     const parsed = parseFilters(
       JSON.stringify({

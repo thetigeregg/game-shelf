@@ -136,7 +136,7 @@
     "prettier": "3.9.3",
     "sql.js": "^1.14.1",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.62.0",
+    "typescript-eslint": "^8.62.1",
     "vitest": "^4.1.9"
   },
   "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows."

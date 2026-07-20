@@ -4143,3 +4143,7 @@
 ## v1.73.2 - 2026-07-04
 
 - 0100853a fix(ci): force OTA deploy check on manual dispatch (#497)
+
+## v1.73.3 - 2026-07-20
+
+- d3e4dcd4 chore(deps): bump runtime and dev dependencies (#511)

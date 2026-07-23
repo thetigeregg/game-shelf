@@ -4147,3 +4147,7 @@
 ## v1.73.3 - 2026-07-20
 
 - d3e4dcd4 chore(deps): bump runtime and dev dependencies (#511)
+
+## v1.73.4 - 2026-07-23
+
+- 59875f91 chore: bump dependencies and fix lint fallout from typescript-eslint 8.65 (#515)

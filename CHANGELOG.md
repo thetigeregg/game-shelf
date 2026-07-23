@@ -4151,3 +4151,7 @@
 ## v1.73.4 - 2026-07-23
 
 - 59875f91 chore: bump dependencies and fix lint fallout from typescript-eslint 8.65 (#515)
+
+## v1.73.5 - 2026-07-23
+
+- 28a038a8 build(server): bump typescript to ^7.0.2 (#516)

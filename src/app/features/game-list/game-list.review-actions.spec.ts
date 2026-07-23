@@ -1018,6 +1018,7 @@ describe('game-list review actions', () => {
 
   it('defaults to full motion when matchMedia is unavailable', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- saved only for restoration, never invoked unbound
     const originalMatchMedia = window.matchMedia;
 
     Object.defineProperty(window, 'matchMedia', {

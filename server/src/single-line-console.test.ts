@@ -69,7 +69,8 @@ void test('formatSingleLineLogMessage only marks true cycles and keeps own proto
   assert.deepEqual(payload['first'], { value: 'shared' });
   assert.deepEqual(payload['second'], { value: 'shared' });
   assert.equal(payload['constructor'], 'allowed');
-  assert.equal(payload['toString'], 'also-allowed');
+  const toStringKey: string = 'toString';
+  assert.equal(payload[toStringKey], 'also-allowed');
   assert.equal(payload['args'], undefined);
 });
 

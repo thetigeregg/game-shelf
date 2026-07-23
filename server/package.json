@@ -11,19 +11,19 @@
     "test:coverage": "mkdir -p coverage && timeout 300s env NODE_ENV=test node --test --test-timeout=30000 --test-force-exit --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info --import tsx src/*.test.ts src/**/*.test.ts && node ../scripts/coverage/normalize-lcov-paths.mjs coverage/lcov.info server"
   },
   "dependencies": {
-    "@fastify/cors": "^11.2.0",
-    "@fastify/middie": "^9.3.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/middie": "^9.3.3",
     "@fastify/rate-limit": "^11.1.0",
     "dotenv": "^17.4.2",
-    "express-rate-limit": "^8.5.2",
-    "fastify": "^5.9.0",
+    "express-rate-limit": "^8.6.0",
+    "fastify": "^5.10.0",
     "fastify-plugin": "^6.0.0",
-    "firebase-admin": "^14.1.0",
+    "firebase-admin": "^14.2.0",
     "pg": "^8.22.0",
-    "tsx": "^4.22.4"
+    "tsx": "^4.23.1"
   },
   "devDependencies": {
-    "@types/node": "^24.13.2",
+    "@types/node": "^24.13.3",
     "@types/pg": "^8.20.0",
     "typescript": "^6.0.3"
   }

@@ -82,7 +82,7 @@
     "@tiptap/core": "^3.28.0",
     "@tiptap/extension-details": "^3.28.0",
     "@tiptap/extension-list": "^3.28.0",
-    "@tiptap/extension-underline": "^3.28.0",
+    "@tiptap/extension-underline": "^3.29.0",
     "@tiptap/pm": "^3.28.0",
     "@tiptap/starter-kit": "^3.28.0",
     "dexie": "^4.4.4",

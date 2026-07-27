@@ -77,7 +77,7 @@
     "@capawesome/capacitor-file-picker": "^8.0.3",
     "@capawesome/capacitor-live-update": "^8.3.0",
     "@ionic/angular": "^8.8.15",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@semantic-icons/simple-icons": "^0.58.0",
     "@tiptap/core": "^3.28.0",
     "@tiptap/extension-details": "^3.28.0",

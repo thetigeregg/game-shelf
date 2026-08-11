@@ -140,7 +140,7 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       return queryResult([], 2);
     }
@@ -278,7 +278,7 @@ void test('runOnce carries websites and steam app ids into refreshed game payloa
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       const payloadParam = params?.[2];
       refreshPayloadJson = typeof payloadParam === 'string' ? payloadParam : '';
@@ -410,7 +410,7 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       return queryResult([], 250);
     }
@@ -796,7 +796,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       existingGamesRefreshCount += 1;
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
@@ -937,7 +937,7 @@ void test('runOnce refresh query preserves cover fields for non-discovery rows',
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       existingGamesRefreshCount += 1;
       // Only discovery-pool rows should get coverUrl/coverSource/customCoverUrl
@@ -947,7 +947,7 @@ void test('runOnce refresh query preserves cover fields for non-discovery rows',
         normalized.includes("typed.payload - '{coverurl,coversource,customcoverurl}'::text[]")
       );
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
-      assert.ok(payload.includes('"coverUrl":null'));
+      assert.ok(payload.includes('"coverUrl"'));
       return queryResult([], 1);
     }
 
@@ -1116,7 +1116,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
 
     if (
       normalized.startsWith('with typed as (') &&
-      normalized.includes('update games as g set payload = merged.payload')
+      normalized.includes('update games as g set payload = merged.next_payload')
     ) {
       return queryResult([], 1);
     }

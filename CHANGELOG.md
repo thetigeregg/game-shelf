@@ -4159,3 +4159,7 @@
 ## v1.73.6 - 2026-08-11
 
 - 7187ee67 build(deps): bump dependencies across app, server, scrapers, and iOS (#541)
+
+## v1.73.7 - 2026-08-11
+
+- ff437401 fix(popularity): preserve user cover choices on refresh (#542)

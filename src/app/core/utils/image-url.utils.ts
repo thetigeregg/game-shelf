@@ -61,6 +61,12 @@ export function buildProxyImageUrl(sourceUrl: string, apiBaseUrl: string): strin
   return `${normalizedBaseUrl}/v1/images/proxy?url=${encodeURIComponent(proxyEligibleUrl)}`;
 }
 
+export function isTheGamesDbCdnUrl(sourceUrl: string): boolean {
+  const parsed = parseHttpUrl(sourceUrl);
+
+  return parsed !== null && parsed.hostname.toLowerCase() === THE_GAMES_DB_HOST;
+}
+
 export function toProxyEligibleImageUrl(sourceUrl: string): string | null {
   const parsed = parseHttpUrl(sourceUrl);
 

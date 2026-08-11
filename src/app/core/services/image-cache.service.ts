@@ -6,6 +6,7 @@ import { PreferenceStorageService } from '../storage/preference-storage.service'
 import { environment } from '../../../environments/environment';
 import {
   buildProxyImageUrl,
+  isTheGamesDbCdnUrl,
   normalizeImageSourceUrl,
   withIgdbRetinaVariant,
 } from '../utils/image-url.utils';
@@ -135,6 +136,18 @@ export class ImageCacheService {
     // when persisted as IndexedDB blobs on some clients (notably iOS WebKit contexts).
     // Use direct URL rendering for thumbs and reserve blob cache for detail art.
     if (variant === 'thumb') {
+      // TheGamesDB's CDN rejects a lot of these hotlinked <img> requests (no such
+      // issue via our backend proxy), so serve those through the proxy URL directly
+      // rather than the source URL — but still skip the blob-cache path above.
+      if (isTheGamesDbCdnUrl(normalizedSourceUrl)) {
+        this.debugLogService.trace('image_cache.resolve_direct', {
+          gameKey,
+          variant,
+          reason: 'thumb_variant_proxied',
+        });
+        return this.buildFetchUrl(normalizedSourceUrl);
+      }
+
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,

@@ -163,8 +163,10 @@ describe('ImageCacheService', () => {
     it('transforms TheGamesDB thumb URL to small variant', async () => {
       const src = 'https://cdn.thegamesdb.net/images/original/clearlogo/some-game.png';
       const url = await service.resolveImageUrl('game-1', src, 'thumb');
-      // normalizeSourceUrl rewrites /images/original/ to /images/small/
-      expect(url).toContain('/images/small/');
+      // normalizeSourceUrl rewrites /images/original/ to /images/small/, and
+      // TheGamesDB thumbs are served through the proxy URL (see resolveImageUrl).
+      expect(url).toContain('/v1/images/proxy?url=');
+      expect(url).toContain(encodeURIComponent('/images/small/'));
     });
     it('returns source URL for detail image when fetch fails (non-proxy URL)', async () => {
       // Non-IGDB/TheGamesDB URLs are fetched directly; network failure returns source URL

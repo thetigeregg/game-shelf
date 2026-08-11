@@ -4155,3 +4155,7 @@
 ## v1.73.5 - 2026-07-23
 
 - 28a038a8 build(server): bump typescript to ^7.0.2 (#516)
+
+## v1.73.6 - 2026-08-11
+
+- 7187ee67 build(deps): bump dependencies across app, server, scrapers, and iOS (#541)

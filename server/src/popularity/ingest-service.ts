@@ -611,16 +611,30 @@ export class PopularityIngestService {
             VALUES ${valueClauses.join(', ')}
           ) AS v(igdb_game_id, platform_igdb_id, payload)
         ),
+        -- Games the user has added to their collection/wishlist own their cover
+        -- choice (coverUrl/coverSource/customCoverUrl), which may deliberately
+        -- point at TheGamesDB. Only discovery-pool rows (never user-curated) get
+        -- their cover refreshed from this popularity feed.
         merged AS (
           SELECT
             g.igdb_game_id,
             g.platform_igdb_id,
-            g.payload || typed.payload AS payload
+            CASE
+              WHEN COALESCE(g.payload ->> 'listType', '') = 'discovery'
+                THEN g.payload || typed.payload
+              ELSE g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])
+            END AS payload
           FROM games AS g
           INNER JOIN typed
             ON g.igdb_game_id = typed.igdb_game_id
            AND g.platform_igdb_id = typed.platform_igdb_id
-          WHERE g.payload IS DISTINCT FROM (g.payload || typed.payload)
+          WHERE g.payload IS DISTINCT FROM (
+            CASE
+              WHEN COALESCE(g.payload ->> 'listType', '') = 'discovery'
+                THEN g.payload || typed.payload
+              ELSE g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])
+            END
+          )
         )
         UPDATE games AS g
         SET payload = merged.payload,

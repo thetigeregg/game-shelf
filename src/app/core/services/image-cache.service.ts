@@ -134,7 +134,10 @@ export class ImageCacheService {
     // Thumbnails are rendered in large volumes and have shown unreliable behavior
     // when persisted as IndexedDB blobs on some clients (notably iOS WebKit contexts).
     // Use direct URL rendering for thumbs and reserve blob cache for detail art.
-    if (variant === 'thumb') {
+    // TheGamesDB's CDN rejects a lot of these hotlinked <img> requests (no such
+    // issue via our backend proxy), so route those through the proxy/cache path
+    // like detail images instead of loading the source URL directly.
+    if (variant === 'thumb' && !normalizedSourceUrl.includes('cdn.thegamesdb.net/')) {
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,

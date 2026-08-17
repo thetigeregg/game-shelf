@@ -4183,3 +4183,7 @@
 ## v1.75.1 - 2026-08-17
 
 - 0f692893 docs(claude): scope validation and commit-message rules (#553)
+
+## v1.75.2 - 2026-08-17
+
+- fade54d1 chore(deps): bump fastify from 5.11.3 to 5.12.0 in /server (#548)

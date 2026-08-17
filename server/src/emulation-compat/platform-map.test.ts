@@ -6,6 +6,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(5), true);
   assert.equal(isCompatEligiblePlatform(21), true);
   assert.equal(isCompatEligiblePlatform(8), true);
+  assert.equal(isCompatEligiblePlatform(11), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -29,6 +30,15 @@ void test('getCompatPlatformConfig returns the PCSX2 config for PlayStation 2', 
   assert.equal(ps2.emulator, 'pcsx2');
   assert.equal(ps2.displayName, 'PlayStation 2');
   assert.equal(ps2.bestStatus, 'perfect');
+});
+
+void test('getCompatPlatformConfig returns the xemu config for Xbox', () => {
+  const xbox = getCompatPlatformConfig(11);
+
+  assert.ok(xbox);
+  assert.equal(xbox.emulator, 'xemu');
+  assert.equal(xbox.displayName, 'Xbox');
+  assert.equal(xbox.bestStatus, 'perfect');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

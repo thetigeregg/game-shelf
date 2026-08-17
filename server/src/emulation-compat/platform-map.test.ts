@@ -5,7 +5,8 @@ import { getCompatPlatformConfig, isCompatEligiblePlatform } from './platform-ma
 void test('isCompatEligiblePlatform is true only for configured platforms', () => {
   assert.equal(isCompatEligiblePlatform(5), true);
   assert.equal(isCompatEligiblePlatform(21), true);
-  assert.equal(isCompatEligiblePlatform(8), false);
+  assert.equal(isCompatEligiblePlatform(8), true);
+  assert.equal(isCompatEligiblePlatform(999), false);
 });
 
 void test('getCompatPlatformConfig returns the Dolphin config for GameCube/Wii', () => {
@@ -21,6 +22,15 @@ void test('getCompatPlatformConfig returns the Dolphin config for GameCube/Wii',
   assert.equal(gamecube.displayName, 'GameCube');
 });
 
+void test('getCompatPlatformConfig returns the PCSX2 config for PlayStation 2', () => {
+  const ps2 = getCompatPlatformConfig(8);
+
+  assert.ok(ps2);
+  assert.equal(ps2.emulator, 'pcsx2');
+  assert.equal(ps2.displayName, 'PlayStation 2');
+  assert.equal(ps2.bestStatus, 'perfect');
+});
+
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {
-  assert.equal(getCompatPlatformConfig(8), null);
+  assert.equal(getCompatPlatformConfig(999), null);
 });

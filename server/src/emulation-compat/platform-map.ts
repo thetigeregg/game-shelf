@@ -32,6 +32,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'perfect',
     },
   ],
+  [
+    8,
+    {
+      emulator: 'pcsx2',
+      displayName: 'PlayStation 2',
+      sourceUrl: 'https://pcsx2.net/compat/',
+      bestStatus: 'perfect',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

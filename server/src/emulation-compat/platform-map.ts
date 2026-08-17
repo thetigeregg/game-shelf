@@ -86,6 +86,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'playable',
     },
   ],
+  [
+    37,
+    {
+      emulator: 'azahar',
+      displayName: '3DS',
+      sourceUrl: 'https://github.com/azahar-emu/compatibility-list',
+      bestStatus: 'perfect',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

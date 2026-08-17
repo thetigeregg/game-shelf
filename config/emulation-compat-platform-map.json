@@ -46,5 +46,11 @@
     "displayName": "PlayStation Vita",
     "sourceUrl": "https://vita3k-api.pedro.moe/list/commercial",
     "bestStatus": "playable"
+  },
+  "37": {
+    "emulator": "azahar",
+    "displayName": "3DS",
+    "sourceUrl": "https://github.com/azahar-emu/compatibility-list",
+    "bestStatus": "perfect"
   }
 }

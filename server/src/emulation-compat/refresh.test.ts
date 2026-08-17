@@ -215,8 +215,9 @@ void test('enqueueForcedCompatRefreshJobs dedupes platforms that are not due whe
             { platform_igdb_id: 9, last_refreshed_at: new Date().toISOString() },
             { platform_igdb_id: 41, last_refreshed_at: new Date().toISOString() },
             { platform_igdb_id: 46, last_refreshed_at: new Date().toISOString() },
+            { platform_igdb_id: 37, last_refreshed_at: new Date().toISOString() },
           ],
-          rowCount: 8,
+          rowCount: 9,
         });
       }
       return super.query(sql, params);
@@ -230,5 +231,5 @@ void test('enqueueForcedCompatRefreshJobs dedupes platforms that are not due whe
 
   config.compatScraperBaseUrl = originalBaseUrl;
 
-  assert.deepEqual(result, { enqueued: 0, deduped: 8, errors: 0 });
+  assert.deepEqual(result, { enqueued: 0, deduped: 9, errors: 0 });
 });

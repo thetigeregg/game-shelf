@@ -26,6 +26,7 @@ const port = Number.parseInt(process.env.PORT ?? '8791', 10);
 const apiToken = readEnvOrFile('COMPAT_SCRAPER_TOKEN');
 const browserTimeoutMs = Number.parseInt(process.env.COMPAT_SCRAPER_TIMEOUT_MS ?? '25000', 10);
 const browserIdleTtlMs = Number.parseInt(process.env.COMPAT_SCRAPER_BROWSER_IDLE_MS ?? '30000', 10);
+const compatDumpDir = process.env.COMPAT_DUMP_DIR ?? '/data/compat-dumps';
 const debugLogsEnabled =
   String(process.env.DEBUG_COMPAT_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 let sharedBrowser = null;
@@ -119,10 +120,12 @@ app.get('/v1/compat/:platformIgdbId', async (req, res) => {
   }
 
   try {
-    const browser = await getSharedBrowser();
-    const entries = await platform.parser.fetchList(browser, {
+    // Parsers that need a live browser (none currently do) can call getSharedBrowser()
+    // themselves; file-based parsers like Dolphin's ignore it entirely.
+    const entries = await platform.parser.fetchList(getSharedBrowser, {
       platformSlug: platform.platformSlug,
       timeoutMs: browserTimeoutMs,
+      dumpDir: compatDumpDir,
     });
     scheduleBrowserIdleClose();
 

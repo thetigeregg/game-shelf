@@ -510,9 +510,11 @@ services:
       COMPAT_SCRAPER_TIMEOUT_MS: ${COMPAT_SCRAPER_TIMEOUT_MS:-25000}
       COMPAT_SCRAPER_BROWSER_IDLE_MS: ${COMPAT_SCRAPER_BROWSER_IDLE_MS:-30000}
       COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_DUMP_DIR: ${COMPAT_DUMP_DIR:-/data/compat-dumps}
       DEBUG_COMPAT_SCRAPER_LOGS: ${DEBUG_COMPAT_SCRAPER_LOGS:-false}
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
+      - ./nas-data/compat-dumps:/data/compat-dumps:ro
     restart: unless-stopped
 
   backup:

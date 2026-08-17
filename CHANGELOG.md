@@ -4219,3 +4219,9 @@
 - c0b968f6 feat(compat): parse Dolphin compat data from manual wiki dumps
 - 639ddf2f feat(compat): skip rematching games already at an emulator's best status
 - 348316c8 feat(compat): add emulation compatibility ingestion for GameCube/Wii
+
+## v1.78.0 - 2026-08-17
+
+- 7383b2de Merge pull request #557 from thetigeregg/feat/compat
+- 8f446132 Merge branch 'main' into feat/compat
+- 830aa464 feat(compat): add PS Vita compatibility via Vita3K

@@ -28,5 +28,11 @@
     "displayName": "Xbox 360",
     "sourceUrl": "https://xenia-manager.github.io/database/data/game-compatibility/canary.json",
     "bestStatus": "playable"
+  },
+  "9": {
+    "emulator": "rpcs3",
+    "displayName": "PlayStation 3",
+    "sourceUrl": "https://rpcs3.net/compatibility",
+    "bestStatus": "playable"
   }
 }

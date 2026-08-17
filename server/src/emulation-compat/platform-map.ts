@@ -59,6 +59,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'playable',
     },
   ],
+  [
+    9,
+    {
+      emulator: 'rpcs3',
+      displayName: 'PlayStation 3',
+      sourceUrl: 'https://rpcs3.net/compatibility',
+      bestStatus: 'playable',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

@@ -40,5 +40,11 @@
     "displayName": "Wii U",
     "sourceUrl": "https://compat.cemu.info/",
     "bestStatus": "perfect"
+  },
+  "46": {
+    "emulator": "vita3k",
+    "displayName": "PlayStation Vita",
+    "sourceUrl": "https://vita3k-api.pedro.moe/list/commercial",
+    "bestStatus": "playable"
   }
 }

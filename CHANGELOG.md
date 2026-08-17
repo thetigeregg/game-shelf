@@ -4187,3 +4187,7 @@
 ## v1.75.2 - 2026-08-17
 
 - fade54d1 chore(deps): bump fastify from 5.11.3 to 5.12.0 in /server (#548)
+
+## v1.76.0 - 2026-08-17
+
+- 849fd58d feat(compat): add Xbox 360 compatibility via Xenia (#554)

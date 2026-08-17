@@ -4225,3 +4225,10 @@
 - 7383b2de Merge pull request #557 from thetigeregg/feat/compat
 - 8f446132 Merge branch 'main' into feat/compat
 - 830aa464 feat(compat): add PS Vita compatibility via Vita3K
+
+## v1.79.0 - 2026-08-17
+
+- b6826297 Merge pull request #558 from thetigeregg/feat/compat
+- 6915d57f fix(compat-scraper): normalize Azahar compat labels
+- d1667b23 Merge branch 'main' into feat/compat
+- f2ebf966 feat(compat): add 3DS compatibility via Azahar

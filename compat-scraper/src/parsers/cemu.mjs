@@ -5,9 +5,9 @@ import { load } from 'cheerio';
 // no pagination needed.
 const CEMU_COMPAT_URL = 'https://compat.cemu.info/?sort=All';
 
-// Only "Perfect" clears the bar for Cemu; everything else (Playable's ceiling is one tier
-// below, plus Runs/Loads/Unplayable/Unknown) folds into "incomplete". Must stay consistent
-// with this platform's `bestStatus: "perfect"` config.
+// "Perfect" and "Playable" map to their own statuses; everything else (Runs/Loads/Unplayable/
+// Unknown) folds into "incomplete". Must stay consistent with this platform's
+// `bestStatus: "perfect"` config.
 function mapRawStatus(rawLabel) {
   const normalized = String(rawLabel ?? '')
     .trim()
@@ -64,7 +64,7 @@ export async function fetchList(_getBrowser, { timeoutMs }) {
       rawLabel,
       normalizedStatus: mapRawStatus(rawLabel),
       sourceId: null,
-      sourceUrl: href ?? CEMU_COMPAT_URL,
+      sourceUrl: href ? new URL(href, CEMU_COMPAT_URL).toString() : CEMU_COMPAT_URL,
     });
   });
 

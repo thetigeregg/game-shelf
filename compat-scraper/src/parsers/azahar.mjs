@@ -30,9 +30,26 @@ function mapRawRating(rating) {
   return 'incomplete';
 }
 
+const AZAHAR_LABELS_BY_NORMALIZED_LABEL = new Map(
+  Object.entries(AZAHAR_LABELS).map(([rating, label]) => [label.toLowerCase(), Number(rating)])
+);
+
+// Accepts either a label ("Perfect", case/whitespace-insensitive) or a raw numeric code
+// ("0", "1", ...), matching the shapes rawLabel can take from fetchList and from callers.
 export function mapLabel(rawLabel) {
-  const entry = Object.entries(AZAHAR_LABELS).find(([, label]) => label === rawLabel);
-  return entry ? mapRawRating(Number(entry[0])) : 'incomplete';
+  const normalized = String(rawLabel ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (AZAHAR_LABELS_BY_NORMALIZED_LABEL.has(normalized)) {
+    return mapRawRating(AZAHAR_LABELS_BY_NORMALIZED_LABEL.get(normalized));
+  }
+
+  if (normalized in AZAHAR_LABELS) {
+    return mapRawRating(Number(normalized));
+  }
+
+  return 'incomplete';
 }
 
 // getBrowser/dumpDir are unused here — this parser does a plain HTTPS fetch, no browser or

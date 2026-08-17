@@ -7,6 +7,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(21), true);
   assert.equal(isCompatEligiblePlatform(8), true);
   assert.equal(isCompatEligiblePlatform(11), true);
+  assert.equal(isCompatEligiblePlatform(12), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -39,6 +40,15 @@ void test('getCompatPlatformConfig returns the xemu config for Xbox', () => {
   assert.equal(xbox.emulator, 'xemu');
   assert.equal(xbox.displayName, 'Xbox');
   assert.equal(xbox.bestStatus, 'perfect');
+});
+
+void test('getCompatPlatformConfig returns the Xenia config for Xbox 360 with a non-perfect bestStatus', () => {
+  const xbox360 = getCompatPlatformConfig(12);
+
+  assert.ok(xbox360);
+  assert.equal(xbox360.emulator, 'xenia');
+  assert.equal(xbox360.displayName, 'Xbox 360');
+  assert.equal(xbox360.bestStatus, 'playable');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

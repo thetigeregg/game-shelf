@@ -22,5 +22,11 @@
     "displayName": "Xbox",
     "sourceUrl": "https://xemu.app/compat.json",
     "bestStatus": "perfect"
+  },
+  "12": {
+    "emulator": "xenia",
+    "displayName": "Xbox 360",
+    "sourceUrl": "https://xenia-manager.github.io/database/data/game-compatibility/canary.json",
+    "bestStatus": "playable"
   }
 }

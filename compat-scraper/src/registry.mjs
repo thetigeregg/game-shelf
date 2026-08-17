@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dolphinParser } from './parsers/dolphin.mjs';
 import { pcsx2Parser } from './parsers/pcsx2.mjs';
 import { xemuParser } from './parsers/xemu.mjs';
+import { xeniaParser } from './parsers/xenia.mjs';
 
 // Adding a new platform/emulator is: one parser module + one entry here +
 // one entry in config/emulation-compat-platform-map.json — nothing else changes.
@@ -11,6 +12,7 @@ const PARSER_REGISTRY = {
   dolphin: dolphinParser,
   pcsx2: pcsx2Parser,
   xemu: xemuParser,
+  xenia: xeniaParser,
 };
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));

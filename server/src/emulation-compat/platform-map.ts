@@ -68,6 +68,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'playable',
     },
   ],
+  [
+    41,
+    {
+      emulator: 'cemu',
+      displayName: 'Wii U',
+      sourceUrl: 'https://compat.cemu.info/',
+      bestStatus: 'perfect',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

@@ -4163,3 +4163,7 @@
 ## v1.73.7 - 2026-08-11
 
 - ff437401 fix(popularity): preserve user cover choices on refresh (#542)
+
+## v1.73.8 - 2026-08-17
+
+- a0c75769 fix(compat): cover emulation-compat title matching, refresh, and scheduler logic (#549)

@@ -7,7 +7,15 @@ export default {
   branchPrefix: 'feat/',
   baseBranch: 'main',
   worktreeRoot: 'worktrees',
-  packageDirs: ['.', 'server', 'worker', 'hltb-scraper', 'metacritic-scraper', 'psprices-scraper'],
+  packageDirs: [
+    '.',
+    'server',
+    'worker',
+    'hltb-scraper',
+    'metacritic-scraper',
+    'psprices-scraper',
+    'compat-scraper',
+  ],
   env: {
     exampleFile: '.env.example',
     localFile: '.env',
@@ -40,6 +48,7 @@ export default {
         HLTB_HOST_PORT: 8788,
         METACRITIC_HOST_PORT: 8789,
         PSPRICES_HOST_PORT: 8790,
+        COMPAT_HOST_PORT: 8791,
       },
     },
     env: {
@@ -55,6 +64,7 @@ export default {
         'hltb-scraper',
         'metacritic-scraper',
         'psprices-scraper',
+        'compat-scraper',
         'api',
         'worker-general',
         'worker-recommendations',
@@ -69,6 +79,7 @@ export default {
         'hltb-scraper',
         'metacritic-scraper',
         'psprices-scraper',
+        'compat-scraper',
       ],
       logServices: [
         'edge',
@@ -79,6 +90,7 @@ export default {
         'hltb-scraper',
         'metacritic-scraper',
         'psprices-scraper',
+        'compat-scraper',
       ],
       startCommandHint: 'npx devx worktree stack up',
     },

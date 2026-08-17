@@ -19,6 +19,10 @@ test('matchesImagePath maps paths to the expected images', () => {
   assert.equal(matchesImagePath('edge', 'metacritic-scraper/src/foo.ts'), true);
   assert.equal(matchesImagePath('backup', 'scripts/backup/foo.sh'), true);
   assert.equal(matchesImagePath('edge', 'scripts/backup/foo.sh'), true);
+  assert.equal(matchesImagePath('compat', 'compat-scraper/src/foo.mjs'), true);
+  assert.equal(matchesImagePath('compat', 'shared/foo.ts'), true);
+  assert.equal(matchesImagePath('compat', 'config/emulation-compat-platform-map.json'), true);
+  assert.equal(matchesImagePath('compat', 'hltb-scraper/src/foo.mjs'), false);
   assert.equal(matchesImagePath('edge', 'ios/foo'), false);
   assert.equal(matchesImagePath('edge', 'package.json'), false);
 });
@@ -60,6 +64,7 @@ test('evaluateDockerPublishDeploy publishes api only for server changes', () => 
       hltb: '',
       metacritic: '',
       psprices: '',
+      compat: '',
     },
     hasPreviousTag: true,
   });
@@ -67,7 +72,14 @@ test('evaluateDockerPublishDeploy publishes api only for server changes', () => 
   assert.equal(decision.images.api.shouldPublish, true);
   assert.equal(decision.images.edge.shouldPublish, false);
   assert.equal(decision.images.backup.shouldPublish, false);
-  assert.deepEqual(decision.skippedImages, ['edge', 'hltb', 'metacritic', 'psprices', 'backup']);
+  assert.deepEqual(decision.skippedImages, [
+    'edge',
+    'hltb',
+    'metacritic',
+    'psprices',
+    'compat',
+    'backup',
+  ]);
 });
 
 test('evaluateDockerPublishDeploy publishes edge only for src changes', () => {
@@ -108,6 +120,7 @@ test('evaluateDockerPublishDeploy fans out shared changes to api and scrapers', 
   assert.equal(decision.images.hltb.shouldPublish, true);
   assert.equal(decision.images.metacritic.shouldPublish, true);
   assert.equal(decision.images.psprices.shouldPublish, true);
+  assert.equal(decision.images.compat.shouldPublish, true);
   assert.equal(decision.images.edge.shouldPublish, false);
 });
 

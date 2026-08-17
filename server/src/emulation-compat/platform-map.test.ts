@@ -8,6 +8,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(8), true);
   assert.equal(isCompatEligiblePlatform(11), true);
   assert.equal(isCompatEligiblePlatform(12), true);
+  assert.equal(isCompatEligiblePlatform(9), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -49,6 +50,15 @@ void test('getCompatPlatformConfig returns the Xenia config for Xbox 360 with a 
   assert.equal(xbox360.emulator, 'xenia');
   assert.equal(xbox360.displayName, 'Xbox 360');
   assert.equal(xbox360.bestStatus, 'playable');
+});
+
+void test('getCompatPlatformConfig returns the RPCS3 config for PlayStation 3 with a non-perfect bestStatus', () => {
+  const ps3 = getCompatPlatformConfig(9);
+
+  assert.ok(ps3);
+  assert.equal(ps3.emulator, 'rpcs3');
+  assert.equal(ps3.displayName, 'PlayStation 3');
+  assert.equal(ps3.bestStatus, 'playable');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

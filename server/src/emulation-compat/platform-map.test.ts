@@ -10,6 +10,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(12), true);
   assert.equal(isCompatEligiblePlatform(9), true);
   assert.equal(isCompatEligiblePlatform(41), true);
+  assert.equal(isCompatEligiblePlatform(46), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -69,6 +70,15 @@ void test('getCompatPlatformConfig returns the Cemu config for Wii U', () => {
   assert.equal(wiiu.emulator, 'cemu');
   assert.equal(wiiu.displayName, 'Wii U');
   assert.equal(wiiu.bestStatus, 'perfect');
+});
+
+void test('getCompatPlatformConfig returns the Vita3K config for PlayStation Vita with a non-perfect bestStatus', () => {
+  const psvita = getCompatPlatformConfig(46);
+
+  assert.ok(psvita);
+  assert.equal(psvita.emulator, 'vita3k');
+  assert.equal(psvita.displayName, 'PlayStation Vita');
+  assert.equal(psvita.bestStatus, 'playable');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

@@ -77,6 +77,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'perfect',
     },
   ],
+  [
+    46,
+    {
+      emulator: 'vita3k',
+      displayName: 'PlayStation Vita',
+      sourceUrl: 'https://vita3k-api.pedro.moe/list/commercial',
+      bestStatus: 'playable',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

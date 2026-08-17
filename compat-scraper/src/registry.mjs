@@ -7,6 +7,7 @@ import { xemuParser } from './parsers/xemu.mjs';
 import { xeniaParser } from './parsers/xenia.mjs';
 import { rpcs3Parser } from './parsers/rpcs3.mjs';
 import { cemuParser } from './parsers/cemu.mjs';
+import { vita3kParser } from './parsers/vita3k.mjs';
 
 // Adding a new platform/emulator is: one parser module + one entry here +
 // one entry in config/emulation-compat-platform-map.json — nothing else changes.
@@ -17,6 +18,7 @@ const PARSER_REGISTRY = {
   xenia: xeniaParser,
   rpcs3: rpcs3Parser,
   cemu: cemuParser,
+  vita3k: vita3kParser,
 };
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));

@@ -4191,3 +4191,31 @@
 ## v1.76.0 - 2026-08-17
 
 - 849fd58d feat(compat): add Xbox 360 compatibility via Xenia (#554)
+
+## v1.77.0 - 2026-08-17
+
+- 81a60455 Merge pull request #556 from thetigeregg/feat/compat
+- 5f29fe44 fix(compat): correct Cemu status comment and absolute-ize source URL
+- 020e1d26 Merge branch 'main' into feat/compat
+- dd45b424 feat(compat): add Wii U compatibility via Cemu
+- 262b062e feat(compat): add PS3 compatibility via RPCS3's public API (#555)
+- 48cddad6 feat(compat): add PS3 compatibility via RPCS3's public API
+- 0b4ca4ed Merge branch 'main' into feat/compat
+- c653a82b Merge branch 'main' into feat/compat
+- 610d5a7e feat(compat): add Xbox 360 compatibility via Xenia Canary
+- 95f4b46d Merge branch 'main' into feat/compat
+- 30174b5e docs(claude): scope validation and commit-message rules
+- 94081d85 fix(xemu): update comments for clarity on status mapping
+- eb1d5c4b feat(compat): add original Xbox compatibility via xemu
+- b8a0c198 Merge branch 'main' into feat/compat
+- 0680b57c fix(compat): correct PS2 status-mapping comment
+- 5f31465a Merge remote-tracking branch 'origin/main' into feat/compat
+- c35f4f2b feat(compat): add PS2 compatibility via PCSX2's static compat list
+- 07f13019 fix(compat): resolve CI lint failure and address PR review feedback
+- db880ebe feat(compat): add cheerio as a dependency in package.json and package-lock.json
+- cb22f98a fix(compat): cover emulation-compat title matching, refresh, and scheduler logic
+- b93ed761 chore(compat): wire compat-scraper into bootstrap, docs, and dependabot
+- 9cd989bd feat(compat): add compat-scraper service and update related configurations
+- c0b968f6 feat(compat): parse Dolphin compat data from manual wiki dumps
+- 639ddf2f feat(compat): skip rematching games already at an emulator's best status
+- 348316c8 feat(compat): add emulation compatibility ingestion for GameCube/Wii

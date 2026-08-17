@@ -11,6 +11,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(9), true);
   assert.equal(isCompatEligiblePlatform(41), true);
   assert.equal(isCompatEligiblePlatform(46), true);
+  assert.equal(isCompatEligiblePlatform(37), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -79,6 +80,15 @@ void test('getCompatPlatformConfig returns the Vita3K config for PlayStation Vit
   assert.equal(psvita.emulator, 'vita3k');
   assert.equal(psvita.displayName, 'PlayStation Vita');
   assert.equal(psvita.bestStatus, 'playable');
+});
+
+void test('getCompatPlatformConfig returns the Azahar config for 3DS', () => {
+  const threeDs = getCompatPlatformConfig(37);
+
+  assert.ok(threeDs);
+  assert.equal(threeDs.emulator, 'azahar');
+  assert.equal(threeDs.displayName, '3DS');
+  assert.equal(threeDs.bestStatus, 'perfect');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

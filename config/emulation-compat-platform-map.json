@@ -34,5 +34,11 @@
     "displayName": "PlayStation 3",
     "sourceUrl": "https://rpcs3.net/compatibility",
     "bestStatus": "playable"
+  },
+  "41": {
+    "emulator": "cemu",
+    "displayName": "Wii U",
+    "sourceUrl": "https://compat.cemu.info/",
+    "bestStatus": "perfect"
   }
 }

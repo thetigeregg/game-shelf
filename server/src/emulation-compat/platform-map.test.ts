@@ -9,6 +9,7 @@ void test('isCompatEligiblePlatform is true only for configured platforms', () =
   assert.equal(isCompatEligiblePlatform(11), true);
   assert.equal(isCompatEligiblePlatform(12), true);
   assert.equal(isCompatEligiblePlatform(9), true);
+  assert.equal(isCompatEligiblePlatform(41), true);
   assert.equal(isCompatEligiblePlatform(999), false);
 });
 
@@ -59,6 +60,15 @@ void test('getCompatPlatformConfig returns the RPCS3 config for PlayStation 3 wi
   assert.equal(ps3.emulator, 'rpcs3');
   assert.equal(ps3.displayName, 'PlayStation 3');
   assert.equal(ps3.bestStatus, 'playable');
+});
+
+void test('getCompatPlatformConfig returns the Cemu config for Wii U', () => {
+  const wiiu = getCompatPlatformConfig(41);
+
+  assert.ok(wiiu);
+  assert.equal(wiiu.emulator, 'cemu');
+  assert.equal(wiiu.displayName, 'Wii U');
+  assert.equal(wiiu.bestStatus, 'perfect');
 });
 
 void test('getCompatPlatformConfig returns null for a platform with no compat source', () => {

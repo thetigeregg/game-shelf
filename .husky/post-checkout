@@ -16,7 +16,8 @@ if [ -d node_modules ] \
   && [ -d worker/node_modules ] \
   && [ -d hltb-scraper/node_modules ] \
   && [ -d metacritic-scraper/node_modules ] \
-  && [ -d psprices-scraper/node_modules ]; then
+  && [ -d psprices-scraper/node_modules ] \
+  && [ -d compat-scraper/node_modules ]; then
   exit 0
 fi
 

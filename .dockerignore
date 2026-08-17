@@ -6,6 +6,7 @@ www
 dist
 worker/node_modules
 hltb-scraper/node_modules
+compat-scraper/node_modules
 server/node_modules
 nas-data
 .git

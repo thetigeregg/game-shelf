@@ -117,6 +117,9 @@ export interface AppConfig {
   theGamesDbApiKey: string;
   hltbScraperBaseUrl: string;
   hltbScraperToken: string;
+  compatScraperBaseUrl: string;
+  compatScraperToken: string;
+  compatScraperRequestTimeoutMs: number;
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
@@ -171,6 +174,7 @@ export interface AppConfig {
   hltbPeriodicRefreshDays: number;
   metacriticPeriodicRefreshYears: number;
   metacriticPeriodicRefreshDays: number;
+  compatPeriodicRefreshDays: number;
   fcmTokenCleanupEnabled: boolean;
   fcmTokenCleanupIntervalHours: number;
   fcmTokenStaleDeactivateDays: number;
@@ -606,6 +610,9 @@ export const config: AppConfig = {
   cacheStatsMaxRequestsPerWindow: rateLimitConfig.inbound.cache_stats.max,
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token'),
+  compatScraperBaseUrl: readEnv('COMPAT_SCRAPER_BASE_URL', ''),
+  compatScraperToken: readSecretFile('COMPAT_SCRAPER_TOKEN', 'compat_scraper_token'),
+  compatScraperRequestTimeoutMs: readIntegerEnv('COMPAT_SCRAPER_REQUEST_TIMEOUT_MS', 25_000),
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true
@@ -691,6 +698,7 @@ export const config: AppConfig = {
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
   metacriticPeriodicRefreshYears: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_YEARS', 3),
   metacriticPeriodicRefreshDays: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_DAYS', 30),
+  compatPeriodicRefreshDays: readIntegerEnv('COMPAT_PERIODIC_REFRESH_DAYS', 7),
   fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
   fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
   fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),

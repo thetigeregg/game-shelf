@@ -80,6 +80,10 @@ services:
       HLTB_PERIODIC_REFRESH_DAYS: ${HLTB_PERIODIC_REFRESH_DAYS:-30}
       METACRITIC_PERIODIC_REFRESH_YEARS: ${METACRITIC_PERIODIC_REFRESH_YEARS:-3}
       METACRITIC_PERIODIC_REFRESH_DAYS: ${METACRITIC_PERIODIC_REFRESH_DAYS:-30}
+      COMPAT_SCRAPER_BASE_URL: ${COMPAT_SCRAPER_BASE_URL:-http://compat-scraper:8791}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_SCRAPER_REQUEST_TIMEOUT_MS: ${COMPAT_SCRAPER_REQUEST_TIMEOUT_MS:-25000}
+      COMPAT_PERIODIC_REFRESH_DAYS: ${COMPAT_PERIODIC_REFRESH_DAYS:-7}
       FCM_TOKEN_CLEANUP_ENABLED: ${FCM_TOKEN_CLEANUP_ENABLED:-true}
       FCM_TOKEN_CLEANUP_INTERVAL_HOURS: ${FCM_TOKEN_CLEANUP_INTERVAL_HOURS:-24}
       FCM_TOKEN_STALE_DEACTIVATE_DAYS: ${FCM_TOKEN_STALE_DEACTIVATE_DAYS:-60}
@@ -255,6 +259,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ${IMAGE_CACHE_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/image-cache}:/data/images
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
@@ -315,6 +320,10 @@ services:
       HLTB_PERIODIC_REFRESH_DAYS: ${HLTB_PERIODIC_REFRESH_DAYS:-30}
       METACRITIC_PERIODIC_REFRESH_YEARS: ${METACRITIC_PERIODIC_REFRESH_YEARS:-3}
       METACRITIC_PERIODIC_REFRESH_DAYS: ${METACRITIC_PERIODIC_REFRESH_DAYS:-30}
+      COMPAT_SCRAPER_BASE_URL: ${COMPAT_SCRAPER_BASE_URL:-http://compat-scraper:8791}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_SCRAPER_REQUEST_TIMEOUT_MS: ${COMPAT_SCRAPER_REQUEST_TIMEOUT_MS:-25000}
+      COMPAT_PERIODIC_REFRESH_DAYS: ${COMPAT_PERIODIC_REFRESH_DAYS:-7}
       MANUALS_DIR: ${MANUALS_DIR:-/data/manuals}
       ROMS_DIR: ${ROMS_DIR:-/data/roms}
       RECOMMENDATIONS_DAILY_STALE_HOURS: ${RECOMMENDATIONS_DAILY_STALE_HOURS:-24}
@@ -396,6 +405,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
@@ -416,6 +426,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
@@ -487,6 +498,22 @@ services:
       DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
+    restart: unless-stopped
+
+  compat-scraper:
+    container_name: gameshelf-compat-scraper
+    image: ${COMPAT_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-compat-scraper:main}
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PORT: ${COMPAT_SCRAPER_PORT:-8791}
+      COMPAT_SCRAPER_TIMEOUT_MS: ${COMPAT_SCRAPER_TIMEOUT_MS:-25000}
+      COMPAT_SCRAPER_BROWSER_IDLE_MS: ${COMPAT_SCRAPER_BROWSER_IDLE_MS:-30000}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_DUMP_DIR: ${COMPAT_DUMP_DIR:-/data/compat-dumps}
+      DEBUG_COMPAT_SCRAPER_LOGS: ${DEBUG_COMPAT_SCRAPER_LOGS:-false}
+    volumes:
+      - ${SECRETS_HOST_DIR}:/run/secrets:ro
+      - ${COMPAT_DUMPS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/compat-dumps}:/data/compat-dumps:ro
     restart: unless-stopped
 
   backup:

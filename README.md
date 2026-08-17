@@ -11,6 +11,7 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
 - `metacritic-scraper/`: Playwright-backed Metacritic lookup service
 - `psprices-scraper/`: Playwright-backed PSPrices lookup service
+- `compat-scraper/`: emulator compatibility list ingestion service (GameCube/Wii via Dolphin today; see `compat-scraper/README.md`)
 - `edge/`: Caddy image for serving frontend and proxying `/api`
 - `docs/`: Deployment and operational docs
 - `.github/workflows/`: CI, release/publish, and secret scanning pipelines
@@ -56,8 +57,9 @@ cp .env.example .env
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 - `nas-secrets/psprices_scraper_token` (optional)
+- `nas-secrets/compat_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `psprices-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
+4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `psprices-scraper` + `compat-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
 npx devx worktree stack up
@@ -380,3 +382,4 @@ npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.g
 - `hltb-scraper/README.md`
 - `metacritic-scraper/README.md`
 - `psprices-scraper/README.md`
+- `compat-scraper/README.md`

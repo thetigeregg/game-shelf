@@ -9,6 +9,7 @@
    - `nas-data/manuals`
    - `nas-data/roms`
    - `nas-data/bios`
+   - `nas-data/compat-dumps` (manually downloaded emulator compatibility list HTML — see `compat-scraper/README.md`)
 
 ## 2. Create Portainer stack
 
@@ -24,6 +25,7 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-metacritic-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-psprices-scraper:main`
+   - `ghcr.io/thetigeregg/game-shelf-compat-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
    - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
      Set `POSTGRES_IMAGE` only when you explicitly want to override this pin.
@@ -44,13 +46,14 @@ Required app secrets (one secret per file):
 - `thegamesdb_api_key`
 - `hltb_scraper_token` (optional)
 - `psprices_scraper_token` (optional)
+- `compat_scraper_token` (optional)
 - `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
 - `postgres_password`
 
 Common stack env vars:
 
-- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`, `roms`, `bios`)
+- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`, `roms`, `bios`, `compat-dumps`)
 - `SECRETS_HOST_DIR` (required: absolute host path to your secrets directory, e.g. `/volume1/docker/secrets/gameshelf`)
 - `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
 - `DATABASE_URL_FILE`
@@ -75,6 +78,9 @@ Common stack env vars:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
+- `COMPAT_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `COMPAT_SCRAPER_TOKEN_FILE` (optional, but recommended)
+- `COMPAT_DUMP_DIR` (optional; defaults `/data/compat-dumps`; consumed by `compat-scraper`)
 - `PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
 - `PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
 - `PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
@@ -104,6 +110,7 @@ Common stack env vars:
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 - `METACRITIC_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `METACRITIC_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+- `COMPAT_PERIODIC_REFRESH_DAYS` (optional; defaults `7`; days between scheduled emulation-compatibility refreshes, tracked per platform/emulator)
 - `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)
@@ -247,6 +254,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/psprices_scraper_token` (optional)
+- `/volume1/docker/secrets/gameshelf/compat_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
@@ -259,6 +267,7 @@ You can override individual directories if needed:
 - `MANUALS_HOST_DIR`
 - `ROMS_HOST_DIR`
 - `BIOS_HOST_DIR`
+- `COMPAT_DUMPS_HOST_DIR`
 
 ## 3. Start stack
 
@@ -277,6 +286,7 @@ Services:
 - `hltb-scraper` provides browser-backed HLTB lookups.
 - `metacritic-scraper` provides browser-backed Metacritic lookups.
 - `psprices-scraper` provides browser-backed PSPrices lookups.
+- `compat-scraper` serves emulator compatibility data (GameCube/Wii via Dolphin today; see `compat-scraper/README.md`).
 - `backup` creates nightly Postgres dump artifacts under `nas-data/backups`.
 
 Manual PDFs:
@@ -284,6 +294,11 @@ Manual PDFs:
 - Store PDFs under `nas-data/manuals`.
 - Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation 2__pid-8`).
 - The app serves files at `/manuals/...` and the API scans `/data/manuals` for fuzzy matching.
+
+Emulation compatibility data:
+
+- Dolphin's (GameCube/Wii) compatibility list is not scraped live — both `dolphin-emu.org/compat/` and its backing wiki sit behind proof-of-work anti-scraping challenges. Download the wiki's per-platform game list page as HTML and place it at `nas-data/compat-dumps/gamecube.html` / `nas-data/compat-dumps/wii.html`; re-download periodically to keep data fresh. See `compat-scraper/README.md` for details.
+- Manual match correction (fixing what fuzzy-matching missed or got wrong) is done via `npm run compat:match -- <coverage|list|set|clear>` from `server/`, not an admin UI.
 
 ROM files:
 
@@ -409,6 +424,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
 `nas-secrets/psprices_scraper_token` (optional)
+`nas-secrets/compat_scraper_token` (optional)
 `nas-secrets/firebase_service_account_json` (required for FCM notifications)
 `nas-secrets/metacritic_scraper_token` (optional)
 `nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
@@ -443,6 +459,8 @@ Key metadata env vars in `.env`:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
+- `COMPAT_SCRAPER_BASE_URL=http://compat-scraper:8791`
+- `COMPAT_PERIODIC_REFRESH_DAYS=7`
 - `PRICING_REFRESH_ENABLED=true`
 - `PRICING_REFRESH_INTERVAL_MINUTES=60`
 - `PRICING_REFRESH_BATCH_SIZE=200`

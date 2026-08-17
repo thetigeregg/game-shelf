@@ -85,6 +85,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `CLIENT_WRITE_TOKENS_FILE` (defaults to `/run/secrets/client_write_tokens`)
 - `HLTB_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/hltb_scraper_token`)
 - `METACRITIC_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/metacritic_scraper_token`)
+- `COMPAT_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/compat_scraper_token`)
 - `MOBYGAMES_API_KEY_FILE` (defaults to `/run/secrets/mobygames_api_key`)
 - `OPENAI_API_KEY_FILE` (defaults to `/run/secrets/openai_api_key`) for semantic recommendation embeddings
 - `FIREBASE_SERVICE_ACCOUNT_JSON_FILE` (defaults to `/run/secrets/firebase_service_account_json`) for FCM push notifications
@@ -102,6 +103,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `METACRITIC_CACHE_FRESH_TTL_SECONDS`
 - `METACRITIC_CACHE_STALE_TTL_SECONDS`
+- `COMPAT_SCRAPER_BASE_URL`
 - `MOBYGAMES_API_BASE_URL`
   - default: `https://api.mobygames.com/v2`
 - `STEAM_STORE_API_BASE_URL`
@@ -133,13 +135,14 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
 - `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
-- `ADMIN_FORCED_REFRESH_MAX_GAMES` (default `10000`) caps rows scanned for the `hltb`, `reviews`, and `pricing` data types on `POST /v1/admin/refresh-data`; the `igdb` data type enqueues one `metadata_enrichment_run` job, whose scan size is instead controlled by `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN`. The request body also accepts optional `respectRecency` (default `true`) and `respectStaleness` (default `false`) booleans: `respectRecency` still gates `hltb`/`reviews`/`igdb` on release recency, and `respectStaleness` still skips rows refreshed too recently; pass `respectRecency: false` to fully bypass cadence eligibility as the endpoint did before these flags existed.
+- `ADMIN_FORCED_REFRESH_MAX_GAMES` (default `10000`) caps rows scanned for the `hltb`, `reviews`, and `pricing` data types on `POST /v1/admin/refresh-data`; the `igdb` data type enqueues one `metadata_enrichment_run` job, whose scan size is instead controlled by `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN`. The request body also accepts optional `respectRecency` (default `true`) and `respectStaleness` (default `false`) booleans: `respectRecency` still gates `hltb`/`reviews`/`igdb` on release recency, and `respectStaleness` still skips rows refreshed too recently; pass `respectRecency: false` to fully bypass cadence eligibility as the endpoint did before these flags existed. The `compat` data type is scanned per compat-eligible platform (not per game, so `ADMIN_FORCED_REFRESH_MAX_GAMES` doesn't apply) and only respects `respectStaleness`; there's no recency concept for compat data.
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
 - `METACRITIC_PERIODIC_REFRESH_YEARS` (default `3`)
 - `METACRITIC_PERIODIC_REFRESH_DAYS` (default `30`)
+- `COMPAT_PERIODIC_REFRESH_DAYS` (default `7`) days between scheduled emulation-compatibility refreshes; staleness is tracked per platform/emulator (`emulation_compat_source_state`), not per game. See `compat-scraper/README.md` for the Dolphin (GameCube/Wii) manual-dump workflow and `server/src/scripts/compat-match-cli.ts` (`npm run compat:match -- <coverage|list|set|clear>`) for manual match correction.
 - `FCM_TOKEN_CLEANUP_ENABLED` (`true|false`, default `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (default `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (default `60`)

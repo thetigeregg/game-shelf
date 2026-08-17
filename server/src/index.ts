@@ -33,6 +33,7 @@ import { registerRomRoutes } from './roms.js';
 import { registerNotificationRoutes } from './notifications.js';
 import { registerPopularityRoutes } from './popularity/routes.js';
 import { startReleaseMonitor } from './release-monitor.js';
+import { startEmulationCompatMonitor } from './emulation-compat/scheduler.js';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
   isAuthorizedMutatingRequest,
@@ -71,6 +72,7 @@ async function main(): Promise<void> {
   const requestStartedAtMs = new Map<string, number>();
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
+  let emulationCompatMonitor: ReturnType<typeof startEmulationCompatMonitor> | null = null;
   const backgroundJobs = new BackgroundJobRepository(pool);
   const recommendationRepository = new RecommendationRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
@@ -305,6 +307,7 @@ async function main(): Promise<void> {
     });
 
     releaseMonitor = startReleaseMonitor(pool);
+    emulationCompatMonitor = startEmulationCompatMonitor(pool);
     await registerHltbCachedRoute(app, pool, {
       enqueueRevalidationJob: (payload) => {
         void backgroundJobs.enqueue({
@@ -384,6 +387,7 @@ async function main(): Promise<void> {
 
     app.addHook('onClose', async () => {
       await releaseMonitor?.stop();
+      await emulationCompatMonitor?.stop();
       await pool.end();
     });
     closeHookRegistered = true;
@@ -445,6 +449,9 @@ async function main(): Promise<void> {
     } else {
       if (releaseMonitor) {
         await releaseMonitor.stop().catch(() => undefined);
+      }
+      if (emulationCompatMonitor) {
+        await emulationCompatMonitor.stop().catch(() => undefined);
       }
       await pool.end().catch(() => undefined);
     }

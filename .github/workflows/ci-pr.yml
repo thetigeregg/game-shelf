@@ -183,6 +183,8 @@ jobs:
             dockerfile: metacritic-scraper/Dockerfile
           - image: psprices-scraper
             dockerfile: psprices-scraper/Dockerfile
+          - image: compat-scraper
+            dockerfile: compat-scraper/Dockerfile
           - image: backup
             dockerfile: backup/Dockerfile
 

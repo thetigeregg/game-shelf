@@ -50,6 +50,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'perfect',
     },
   ],
+  [
+    12,
+    {
+      emulator: 'xenia',
+      displayName: 'Xbox 360',
+      sourceUrl: 'https://xenia-manager.github.io/database/data/game-compatibility/canary.json',
+      bestStatus: 'playable',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

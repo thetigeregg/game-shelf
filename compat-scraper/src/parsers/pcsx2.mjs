@@ -4,9 +4,8 @@
 const PCSX2_COMPAT_DATA_URL =
   'https://raw.githubusercontent.com/PCSX2/pcsx2-net-www/main/static/data/compat/data.min.json';
 
-// Only "Perfect" clears the bar for PCSX2; everything else (Playable's ceiling is one tier
-// below, plus Ingame/Menus/Intro/Nothing) folds into "incomplete". Must stay consistent with
-// this platform's `bestStatus: "perfect"` config.
+// "Perfect" and "Playable" map to their own statuses; everything else (Ingame/Menus/Intro/Nothing)
+// folds into "incomplete". Must stay consistent with this platform's `bestStatus: "perfect"` config.
 function mapRawStatus(rawLabel) {
   const normalized = String(rawLabel ?? '')
     .trim()

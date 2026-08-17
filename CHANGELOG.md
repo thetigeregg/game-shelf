@@ -4175,3 +4175,11 @@
 ## v1.74.1 - 2026-08-17
 
 - 31f423b1 chore(deps): update dependencies to latest versions (#551)
+
+## v1.75.0 - 2026-08-17
+
+- 1066edef feat(compat): add original Xbox compatibility via xemu (#552)
+
+## v1.75.1 - 2026-08-17
+
+- 0f692893 docs(claude): scope validation and commit-message rules (#553)

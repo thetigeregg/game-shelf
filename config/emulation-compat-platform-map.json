@@ -16,5 +16,11 @@
     "displayName": "PlayStation 2",
     "sourceUrl": "https://pcsx2.net/compat/",
     "bestStatus": "perfect"
+  },
+  "11": {
+    "emulator": "xemu",
+    "displayName": "Xbox",
+    "sourceUrl": "https://xemu.app/compat.json",
+    "bestStatus": "perfect"
   }
 }

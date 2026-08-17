@@ -41,6 +41,15 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       bestStatus: 'perfect',
     },
   ],
+  [
+    11,
+    {
+      emulator: 'xemu',
+      displayName: 'Xbox',
+      sourceUrl: 'https://xemu.app/compat.json',
+      bestStatus: 'perfect',
+    },
+  ],
 ]);
 
 export function isCompatEligiblePlatform(platformIgdbId: number): boolean {

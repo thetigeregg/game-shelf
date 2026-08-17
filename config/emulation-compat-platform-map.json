@@ -10,5 +10,11 @@
     "displayName": "GameCube",
     "sourceUrl": "https://www.dolphin-emu.org/compat/",
     "bestStatus": "perfect"
+  },
+  "8": {
+    "emulator": "pcsx2",
+    "displayName": "PlayStation 2",
+    "sourceUrl": "https://pcsx2.net/compat/",
+    "bestStatus": "perfect"
   }
 }

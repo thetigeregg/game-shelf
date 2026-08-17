@@ -4,9 +4,8 @@
 const XEMU_COMPAT_DATA_URL = 'https://xemu.app/compat.json';
 const XEMU_TITLE_ID_PATTERN = /^\/titles\/([0-9a-f]+)/i;
 
-// Only "Perfect" clears the bar for xemu; everything else (Playable's ceiling is one tier
-// below, plus Starts/Intro/Broken) folds into "incomplete". Must stay consistent with this
-// platform's `bestStatus: "perfect"` config.
+// "Perfect" and "Playable" map to their own statuses; everything else (Starts/Intro/Broken)
+// folds into "incomplete". Must stay consistent with this platform's `bestStatus: "perfect"` config.
 function mapRawStatus(rawLabel) {
   const normalized = String(rawLabel ?? '')
     .trim()

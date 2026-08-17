@@ -1106,6 +1106,44 @@ export const MIGRATIONS: string[] = [
   SET next_check_at = NOW(), updated_at = NOW()
   WHERE last_seen_state = 'scheduled';
   `,
+  `
+  CREATE TABLE IF NOT EXISTS emulation_compat_status (
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    emulator TEXT NOT NULL,
+    normalized_status TEXT NOT NULL CHECK (normalized_status IN ('perfect', 'playable', 'incomplete')),
+    raw_label TEXT NOT NULL,
+    raw_source_id TEXT,
+    source_url TEXT,
+    match_confidence NUMERIC,
+    match_query_title TEXT,
+    match_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    enrichment_retry JSONB NOT NULL DEFAULT '{}'::jsonb,
+    matched_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (igdb_game_id, platform_igdb_id),
+    FOREIGN KEY (igdb_game_id, platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS emulation_compat_status_platform_status_idx
+  ON emulation_compat_status (platform_igdb_id, normalized_status);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS emulation_compat_source_state (
+    platform_igdb_id INTEGER PRIMARY KEY,
+    emulator TEXT NOT NULL,
+    source_url TEXT,
+    last_refreshed_at TIMESTAMPTZ,
+    last_refresh_status TEXT CHECK (last_refresh_status IN ('success', 'error')),
+    last_refresh_error TEXT,
+    last_entry_count INTEGER,
+    last_matched_count INTEGER,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
 ];
 
 export class MigrationUnlockError extends Error {

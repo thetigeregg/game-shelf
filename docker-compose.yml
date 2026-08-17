@@ -102,6 +102,9 @@ services:
       PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS:-86400}
       PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS:-7776000}
+      COMPAT_SCRAPER_BASE_URL: ${COMPAT_SCRAPER_BASE_URL:-http://compat-scraper:8791}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_PERIODIC_REFRESH_DAYS: ${COMPAT_PERIODIC_REFRESH_DAYS:-7}
       METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       METACRITIC_CACHE_FRESH_TTL_SECONDS: ${METACRITIC_CACHE_FRESH_TTL_SECONDS:-604800}
       METACRITIC_CACHE_STALE_TTL_SECONDS: ${METACRITIC_CACHE_STALE_TTL_SECONDS:-7776000}
@@ -255,6 +258,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ./nas-data/image-cache:/data/images
       - ./nas-data/manuals:/data/manuals:ro
@@ -285,6 +289,9 @@ services:
       PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS:-86400}
       PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS:-7776000}
+      COMPAT_SCRAPER_BASE_URL: ${COMPAT_SCRAPER_BASE_URL:-http://compat-scraper:8791}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      COMPAT_PERIODIC_REFRESH_DAYS: ${COMPAT_PERIODIC_REFRESH_DAYS:-7}
       MOBYGAMES_API_BASE_URL: ${MOBYGAMES_API_BASE_URL:-https://api.mobygames.com/v2}
       MOBYGAMES_API_KEY_FILE: ${MOBYGAMES_API_KEY_FILE:-/run/secrets/mobygames_api_key}
       STEAM_STORE_API_BASE_URL: ${STEAM_STORE_API_BASE_URL:-https://store.steampowered.com}
@@ -395,6 +402,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
@@ -416,6 +424,7 @@ services:
       - hltb-scraper
       - metacritic-scraper
       - psprices-scraper
+      - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
@@ -487,6 +496,21 @@ services:
       PSPRICES_SCRAPER_BROWSER_IDLE_MS: ${PSPRICES_SCRAPER_BROWSER_IDLE_MS:-30000}
       PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
       DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
+    volumes:
+      - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
+    restart: unless-stopped
+
+  compat-scraper:
+    build:
+      context: .
+      dockerfile: compat-scraper/Dockerfile
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PORT: ${COMPAT_SCRAPER_PORT:-8791}
+      COMPAT_SCRAPER_TIMEOUT_MS: ${COMPAT_SCRAPER_TIMEOUT_MS:-25000}
+      COMPAT_SCRAPER_BROWSER_IDLE_MS: ${COMPAT_SCRAPER_BROWSER_IDLE_MS:-30000}
+      COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      DEBUG_COMPAT_SCRAPER_LOGS: ${DEBUG_COMPAT_SCRAPER_LOGS:-false}
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped

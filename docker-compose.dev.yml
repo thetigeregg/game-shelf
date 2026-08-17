@@ -23,3 +23,7 @@ services:
   psprices-scraper:
     ports:
       - '127.0.0.1:${PSPRICES_HOST_PORT:-8790}:8790'
+
+  compat-scraper:
+    ports:
+      - '127.0.0.1:${COMPAT_HOST_PORT:-8791}:8791'

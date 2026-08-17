@@ -17,11 +17,18 @@ import { applyRouteRateLimit } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 import { runWithConcurrencyLimit } from './utils/concurrency.js';
 import { resolvePriceFetchedAtMs } from './pricing-freshness.js';
+import { enqueueForcedCompatRefreshJobs } from './emulation-compat/refresh.js';
 
 const PRICING_ENQUEUE_CONCURRENCY = 5;
 
-type DataType = 'hltb' | 'reviews' | 'igdb' | 'pricing';
-const KNOWN_DATA_TYPES: ReadonlySet<DataType> = new Set(['hltb', 'reviews', 'igdb', 'pricing']);
+type DataType = 'hltb' | 'reviews' | 'igdb' | 'pricing' | 'compat';
+const KNOWN_DATA_TYPES: ReadonlySet<DataType> = new Set([
+  'hltb',
+  'reviews',
+  'igdb',
+  'pricing',
+  'compat',
+]);
 
 interface RefreshDataBody {
   dataTypes?: unknown;
@@ -64,7 +71,7 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
       if (dataTypes === null) {
         reply.code(400).send({
           error:
-            'dataTypes must be a non-empty array containing only hltb, reviews, igdb, pricing.',
+            'dataTypes must be a non-empty array containing only hltb, reviews, igdb, pricing, compat.',
         });
         return;
       }
@@ -162,6 +169,13 @@ export function registerAdminRefreshDataRoutes(app: FastifyInstance, pool: Pool)
         };
         totals.enqueued += results.pricing.enqueued;
         totals.deduped += results.pricing.deduped;
+      }
+
+      if (dataTypes.has('compat')) {
+        const forced = await enqueueForcedCompatRefreshJobs(pool, { respectStaleness });
+        results.compat = { enqueued: forced.enqueued, deduped: forced.deduped };
+        totals.enqueued += forced.enqueued;
+        totals.deduped += forced.deduped;
       }
 
       reply.send({

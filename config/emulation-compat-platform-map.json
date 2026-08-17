@@ -1,0 +1,12 @@
+{
+  "5": {
+    "emulator": "dolphin",
+    "displayName": "Wii",
+    "sourceUrl": "https://www.dolphin-emu.org/compat/"
+  },
+  "21": {
+    "emulator": "dolphin",
+    "displayName": "GameCube",
+    "sourceUrl": "https://www.dolphin-emu.org/compat/"
+  }
+}

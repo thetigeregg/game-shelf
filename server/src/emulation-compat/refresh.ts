@@ -18,6 +18,7 @@ interface OwnedGameRow {
   igdb_game_id: string;
   title: string;
   match_locked: boolean;
+  normalized_status: string | null;
 }
 
 export function isCompatRefreshDue(
@@ -71,7 +72,8 @@ async function loadOwnedGamesForPlatform(
     SELECT
       g.igdb_game_id,
       BTRIM(COALESCE(g.payload->>'title', '')) AS title,
-      COALESCE(ecs.match_locked, FALSE) AS match_locked
+      COALESCE(ecs.match_locked, FALSE) AS match_locked,
+      ecs.normalized_status AS normalized_status
     FROM games g
     LEFT JOIN emulation_compat_status ecs
       ON ecs.igdb_game_id = g.igdb_game_id AND ecs.platform_igdb_id = g.platform_igdb_id
@@ -98,11 +100,15 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
   try {
     const { emulator, sourceUrl, entries } = await fetchCompatList(platformIgdbId);
     const ownedGames = await loadOwnedGamesForPlatform(pool, platformIgdbId);
-    const unlockedGames = ownedGames.filter((game) => !game.match_locked);
+    // Games already locked (manual override) or already at this emulator's best
+    // reachable status are stable — they can't improve, so skip re-fetch/re-match work.
+    const candidates = ownedGames.filter(
+      (game) => !game.match_locked && game.normalized_status !== platformConfig.bestStatus
+    );
 
-    let matchedCount = ownedGames.length - unlockedGames.length;
+    let matchedCount = ownedGames.filter((game) => game.normalized_status !== null).length;
 
-    for (const game of unlockedGames) {
+    for (const game of candidates) {
       const best = findBestTitleMatch(game.title, entries, (entry) => entry.rawTitle);
 
       if (!best || best.score < MIN_MATCH_SCORE) {
@@ -146,7 +152,9 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
         ]
       );
 
-      matchedCount += 1;
+      if (game.normalized_status === null) {
+        matchedCount += 1;
+      }
     }
 
     await pool.query(

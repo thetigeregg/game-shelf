@@ -5,6 +5,22 @@ import { COMPAT_PLATFORM_MAP } from '../emulation-compat/platform-map.js';
 
 type Flags = Record<string, string | undefined>;
 
+function parseIntFlag(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function parseFloatFlag(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function parseArgs(argv: string[]): { command: string; flags: Flags } {
   const rest = argv.slice(1);
   const flags: Flags = {};
@@ -58,9 +74,9 @@ async function runCoverage(pool: import('pg').Pool): Promise<void> {
 }
 
 async function runList(pool: import('pg').Pool, flags: Flags): Promise<void> {
-  const platformFilter = flags.platform ? Number.parseInt(flags.platform, 10) : null;
+  const platformFilter = parseIntFlag(flags.platform);
   const state = flags.state ?? 'missing';
-  const maxConfidence = flags.maxConfidence ? Number.parseFloat(flags.maxConfidence) : null;
+  const maxConfidence = parseFloatFlag(flags.maxConfidence);
 
   if (state === 'missing') {
     const result = await pool.query<{
@@ -125,11 +141,11 @@ async function runList(pool: import('pg').Pool, flags: Flags): Promise<void> {
 
 async function runSet(pool: import('pg').Pool, flags: Flags): Promise<void> {
   const igdbGameId = flags.game;
-  const platformIgdbId = flags.platform ? Number.parseInt(flags.platform, 10) : NaN;
+  const platformIgdbId = parseIntFlag(flags.platform);
   const status = flags.status;
   const rawLabel = flags.label ?? status;
 
-  if (!igdbGameId || !Number.isInteger(platformIgdbId) || !isEmulationCompatStatus(status)) {
+  if (!igdbGameId || platformIgdbId === null || !isEmulationCompatStatus(status)) {
     console.error(
       'Usage: compat:match set --game=<igdbGameId> --platform=<platformIgdbId> --status=<perfect|playable|incomplete> [--label=<raw>]'
     );
@@ -168,9 +184,9 @@ async function runSet(pool: import('pg').Pool, flags: Flags): Promise<void> {
 
 async function runClear(pool: import('pg').Pool, flags: Flags): Promise<void> {
   const igdbGameId = flags.game;
-  const platformIgdbId = flags.platform ? Number.parseInt(flags.platform, 10) : NaN;
+  const platformIgdbId = parseIntFlag(flags.platform);
 
-  if (!igdbGameId || !Number.isInteger(platformIgdbId)) {
+  if (!igdbGameId || platformIgdbId === null) {
     console.error('Usage: compat:match clear --game=<igdbGameId> --platform=<platformIgdbId>');
     process.exitCode = 1;
     return;

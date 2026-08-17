@@ -119,6 +119,7 @@ export interface AppConfig {
   hltbScraperToken: string;
   compatScraperBaseUrl: string;
   compatScraperToken: string;
+  compatScraperRequestTimeoutMs: number;
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
@@ -611,6 +612,7 @@ export const config: AppConfig = {
   hltbScraperToken: readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token'),
   compatScraperBaseUrl: readEnv('COMPAT_SCRAPER_BASE_URL', ''),
   compatScraperToken: readSecretFile('COMPAT_SCRAPER_TOKEN', 'compat_scraper_token'),
+  compatScraperRequestTimeoutMs: readIntegerEnv('COMPAT_SCRAPER_REQUEST_TIMEOUT_MS', 25_000),
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

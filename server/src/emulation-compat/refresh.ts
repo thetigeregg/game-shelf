@@ -39,16 +39,37 @@ export function isCompatRefreshDue(
   return ageMs >= Math.max(1, refreshDays) * ONE_DAY_MS;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function fetchCompatList(
   platformIgdbId: number
 ): Promise<{ emulator: string; sourceUrl: string | null; entries: CompatSourceEntry[] }> {
   const baseUrl = config.compatScraperBaseUrl.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/v1/compat/${String(platformIgdbId)}`, {
-    headers:
-      config.compatScraperToken.length > 0
-        ? { Authorization: `Bearer ${config.compatScraperToken}` }
-        : {},
-  });
+  const response = await fetchWithTimeout(
+    `${baseUrl}/v1/compat/${String(platformIgdbId)}`,
+    {
+      headers:
+        config.compatScraperToken.length > 0
+          ? { Authorization: `Bearer ${config.compatScraperToken}` }
+          : {},
+    },
+    config.compatScraperRequestTimeoutMs
+  );
 
   if (!response.ok) {
     throw new Error(`compat-scraper request failed with status ${String(response.status)}`);

@@ -15,6 +15,7 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
 
   let running = false;
   let stopped = false;
+  let currentRun: Promise<void> | null = null;
   const intervalMs = Math.max(30, config.releaseMonitorIntervalSeconds) * 1000;
 
   console.info('[emulation-compat] started', {
@@ -29,7 +30,7 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
     }
 
     running = true;
-    try {
+    const run = (async () => {
       const now = new Date();
       const stateResult = await pool.query<{
         platform_igdb_id: number;
@@ -54,11 +55,18 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
           });
         }
       }
-    } catch (error) {
-      console.error('[emulation-compat] run_failed', error);
-    } finally {
-      running = false;
-    }
+    })()
+      .catch((error: unknown) => {
+        console.error('[emulation-compat] run_failed', error);
+      })
+      .finally(() => {
+        running = false;
+        if (currentRun === run) {
+          currentRun = null;
+        }
+      });
+    currentRun = run;
+    await run;
   };
 
   void runOnce();
@@ -67,10 +75,12 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
   }, intervalMs);
 
   return {
-    stop: () => {
+    stop: async () => {
       stopped = true;
       clearInterval(timer);
-      return Promise.resolve();
+      if (currentRun) {
+        await currentRun;
+      }
     },
   };
 }

@@ -1,12 +1,17 @@
 # Workflow
 
-Before suggesting any commit:
+Before suggesting any commit, classify the diff, then scope validation accordingly:
 
-1. Run `npm run lint` from the root to verify ESLint passes
-2. Run `npm run test` from the root to execute the Vitest suite with coverage
-3. Run `npm run build` from the root to verify the Angular build passes
-4. Do not bypass pre-commit hooks
-5. If any step fails, fix the issue before proceeding
+1. **Docs/non-code only** (`*.md`, `docs/**`, `CHANGELOG.md`, comments-only edits) — skip lint/test/build entirely. Say explicitly that no validation was run and why.
+2. **Single-workspace code change** — run that workspace's own scripts, not the full monorepo suite:
+   - Root Angular app (`src/**`): `npm run test`, `npm run build`
+   - `server/**`: `npm run typecheck:server`, `npm run test:server`
+   - `worker/**`: `npm run test:worker`
+   - `npm run lint` (`eslint .`) always runs repo-wide — there's no per-workspace lint script yet, so lint isn't scope-able even when the change is.
+3. **Cross-cutting change** (`shared/**`, root config like `angular.json`/`tsconfig*.json`/`eslint.config.mjs`, or `package.json`/`package-lock.json` dependency changes) — run the full `npm run lint`, `npm run test`, and `npm run build` from the root.
+4. `.husky/pre-commit` already runs `lint-staged` (targeted `eslint --fix` on staged files) on every commit — the manual `npm run lint` step above is a broader safety net for cross-file/type-aware rules, not a duplicate check, so still run it per the scope rules above.
+5. Do not bypass pre-commit hooks.
+6. If any step fails, fix the issue before proceeding.
 
 # Code Quality
 
@@ -50,11 +55,11 @@ Must follow Conventional Commits format.
 
 # Commit Message Output
 
-When code changes were made and the task is complete:
+When any git-tracked file was changed and the task is complete:
 
 - Always include a suggested Conventional Commit message in the final response.
 - Follow the format from the Commits section above: `type(scope): description`.
-- If no code changes were made, do not include a commit message.
+- If no git-tracked files were changed, do not include a commit message.
 - Do not run `git commit` unless the user explicitly asks.
 
 Before suggesting a commit message, complete the Workflow verification steps first.

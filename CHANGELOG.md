@@ -4171,3 +4171,7 @@
 ## v1.74.0 - 2026-08-17
 
 - d6aae7a0 feat(compat): add PS2 compatibility via PCSX2's static compat list (#550)
+
+## v1.74.1 - 2026-08-17
+
+- 31f423b1 chore(deps): update dependencies to latest versions (#551)

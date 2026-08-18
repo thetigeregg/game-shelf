@@ -4252,3 +4252,7 @@
 - 468d6ff4 refactor(compat): rework set/clear to bind games to live upstream entries
 - 52c21396 feat(compat): enhance refreshCompatSource to backfill payload compat status for owned games
 - a96c0c83 refactor(compat): rework set/clear to bind games to live upstream entries
+
+## v1.82.0 - 2026-08-18
+
+- c4d2429d feat(notifications): notify on compatibility status changes (#561)

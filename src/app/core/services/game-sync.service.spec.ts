@@ -993,6 +993,66 @@ describe('GameSyncService', () => {
     expect(stored?.psPricesMatchLocked).toBe(false);
   });
 
+  it('stores compatStatus from a pulled upsert', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4e1-compat-status',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        compatStatus: 'perfect',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    });
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.compatStatus).toBe('perfect');
+  });
+
+  it('preserves existing compatStatus when a pulled upsert omits it', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      compatStatus: 'playable',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4e2-preserve-compat-status',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    });
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.compatStatus).toBe('playable');
+  });
+
+  it('discards an invalid compatStatus from a pulled upsert', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4e3-invalid-compat-status',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        compatStatus: 'bogus',
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    });
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.compatStatus).toBeNull();
+  });
+
   it('normalizes scheme-less HLTB match urls from pulled upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4e-normalize-hltb-url',

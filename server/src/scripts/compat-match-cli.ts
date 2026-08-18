@@ -3,6 +3,8 @@ import { config } from '../config.js';
 import { isEmulationCompatStatus } from '../../../shared/emulation-compat-status.mjs';
 import { COMPAT_PLATFORM_MAP } from '../emulation-compat/platform-map.js';
 import { applyGamePayloadPatch } from '../release-monitor.js';
+import { fetchCompatList } from '../emulation-compat/refresh.js';
+import { getTitleSimilarityScore } from '../emulation-compat/title-similarity.js';
 
 type Flags = Record<string, string | undefined>;
 
@@ -140,15 +142,19 @@ async function runList(pool: import('pg').Pool, flags: Flags): Promise<void> {
   process.exitCode = 1;
 }
 
+const SUGGESTION_COUNT = 5;
+
 async function runSet(pool: import('pg').Pool, flags: Flags): Promise<void> {
   const igdbGameId = flags.game;
   const platformIgdbId = parseIntFlag(flags.platform);
-  const status = flags.status;
-  const rawLabel = flags.label ?? status;
+  const matchTitle = flags.matchTitle;
+  const matchSourceId = flags.matchSourceId ?? null;
 
-  if (!igdbGameId || platformIgdbId === null || !isEmulationCompatStatus(status)) {
+  if (!igdbGameId || platformIgdbId === null || !matchTitle) {
     console.error(
-      'Usage: compat:match set --game=<igdbGameId> --platform=<platformIgdbId> --status=<perfect|playable|incomplete> [--label=<raw>]'
+      'Usage: compat:match set --game=<igdbGameId> --platform=<platformIgdbId> --matchTitle=<exact upstream title> [--matchSourceId=<id>]\n' +
+        '  Binds the game to a specific upstream compat-list entry. Future refreshes keep\n' +
+        '  tracking that entry and update the status to whatever it currently reports.'
     );
     process.exitCode = 1;
     return;
@@ -161,27 +167,83 @@ async function runSet(pool: import('pg').Pool, flags: Flags): Promise<void> {
     return;
   }
 
+  const { emulator, entries } = await fetchCompatList(platformIgdbId);
+
+  const matches = matchSourceId
+    ? entries.filter((entry) => entry.sourceId === matchSourceId)
+    : entries.filter(
+        (entry) => entry.rawTitle.trim().toLowerCase() === matchTitle.trim().toLowerCase()
+      );
+
+  if (matches.length === 0) {
+    const suggestions = [...entries]
+      .map((entry) => ({ entry, score: getTitleSimilarityScore(matchTitle, entry.rawTitle) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, SUGGESTION_COUNT);
+    console.error(`No upstream entry found matching "${matchTitle}". Did you mean:`);
+    for (const { entry, score } of suggestions) {
+      console.error(
+        `  "${entry.rawTitle}" sourceId=${entry.sourceId ?? 'null'} (score=${score.toFixed(1)})`
+      );
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  if (matches.length > 1) {
+    console.error(
+      `Multiple upstream entries match "${matchTitle}". Disambiguate with --matchSourceId:`
+    );
+    for (const entry of matches) {
+      console.error(`  "${entry.rawTitle}" sourceId=${entry.sourceId ?? 'null'}`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  const entry = matches[0];
+  const normalizedStatus = isEmulationCompatStatus(entry.normalizedStatus)
+    ? entry.normalizedStatus
+    : 'incomplete';
+
   await pool.query(
     `
     INSERT INTO emulation_compat_status (
       igdb_game_id, platform_igdb_id, emulator, normalized_status, raw_label,
+      raw_source_id, source_url, match_query_title,
       match_locked, enrichment_retry, matched_at, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, TRUE, '{}'::jsonb, NOW(), NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, '{}'::jsonb, NOW(), NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id) DO UPDATE SET
+      emulator = EXCLUDED.emulator,
       normalized_status = EXCLUDED.normalized_status,
       raw_label = EXCLUDED.raw_label,
+      raw_source_id = EXCLUDED.raw_source_id,
+      source_url = EXCLUDED.source_url,
+      match_query_title = EXCLUDED.match_query_title,
       match_locked = TRUE,
       enrichment_retry = '{}'::jsonb,
       matched_at = NOW(),
       updated_at = NOW()
     `,
-    [igdbGameId, platformIgdbId, platform.emulator, status, rawLabel ?? status]
+    [
+      igdbGameId,
+      platformIgdbId,
+      emulator,
+      normalizedStatus,
+      entry.rawLabel,
+      entry.sourceId,
+      entry.sourceUrl,
+      entry.rawTitle,
+    ]
   );
 
-  await applyGamePayloadPatch(pool, igdbGameId, platformIgdbId, { compatStatus: status });
+  await applyGamePayloadPatch(pool, igdbGameId, platformIgdbId, {
+    compatStatus: normalizedStatus,
+  });
 
   console.log(
-    `Set game=${igdbGameId} platform=${String(platformIgdbId)} status=${status} (locked).`
+    `Bound game=${igdbGameId} platform=${String(platformIgdbId)} to "${entry.rawTitle}" ` +
+      `(status=${normalizedStatus}). Future refreshes will keep tracking this entry.`
   );
 }
 
@@ -203,7 +265,7 @@ async function runClear(pool: import('pg').Pool, flags: Flags): Promise<void> {
 
   console.log(
     result.rowCount && result.rowCount > 0
-      ? `Cleared manual lock for game=${igdbGameId} platform=${String(platformIgdbId)}.`
+      ? `Unbound game=${igdbGameId} platform=${String(platformIgdbId)} — back to automatic matching.`
       : `No row found for game=${igdbGameId} platform=${String(platformIgdbId)}.`
   );
 }

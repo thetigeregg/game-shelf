@@ -1415,16 +1415,18 @@ describe('SettingsPage CSV review fields', () => {
       removed: true,
       day: true,
       sale: false,
+      compatibilityChanged: true,
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
-      '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}'
+      '{"set":false,"changed":true,"removed":true,"day":true,"sale":false,"compatibilityChanged":true}'
     );
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
       payload: {
         key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
-        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}',
+        value:
+          '{"set":false,"changed":true,"removed":true,"day":true,"sale":false,"compatibilityChanged":true}',
       },
     });
   });
@@ -1452,9 +1454,10 @@ describe('SettingsPage CSV review fields', () => {
       removed: false,
       day: false,
       sale: false,
+      compatibilityChanged: true,
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
-      '{"set":false,"changed":false,"removed":false,"day":false,"sale":false}'
+      '{"set":false,"changed":false,"removed":false,"day":false,"sale":false,"compatibilityChanged":true}'
     );
   });
 

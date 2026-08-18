@@ -22,6 +22,7 @@ export interface ReleaseNotificationEventsPreference {
   removed: boolean;
   day: boolean;
   sale: boolean;
+  compatibilityChanged: boolean;
 }
 
 /**
@@ -117,7 +118,14 @@ export class NotificationService {
       const raw = this.preferenceStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
 
       if (!raw) {
-        return { set: true, changed: true, removed: true, day: true, sale: true };
+        return {
+          set: true,
+          changed: true,
+          removed: true,
+          day: true,
+          sale: true,
+          compatibilityChanged: true,
+        };
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -127,9 +135,17 @@ export class NotificationService {
         removed: coercePreferenceBoolean(parsed['removed'], true),
         day: coercePreferenceBoolean(parsed['day'], true),
         sale: coercePreferenceBoolean(parsed['sale'], true),
+        compatibilityChanged: coercePreferenceBoolean(parsed['compatibilityChanged'], true),
       };
     } catch {
-      return { set: true, changed: true, removed: true, day: true, sale: true };
+      return {
+        set: true,
+        changed: true,
+        removed: true,
+        day: true,
+        sale: true,
+        compatibilityChanged: true,
+      };
     }
   }
 

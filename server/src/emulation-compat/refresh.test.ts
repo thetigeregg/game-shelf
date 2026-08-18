@@ -45,9 +45,72 @@ class FakeCompatPool {
   sourceState: Record<string, unknown> | null = null;
   gamePayloads = new Map<string, Record<string, unknown>>();
   syncEventCount = 0;
+  notificationsEnabled = false;
+  notificationTokens: string[] = [];
+  notificationReserveAttempts = 0;
+  lastReservedNotificationBody: string | null = null;
+  private readonly notificationLogs = new Set<string>();
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalized.startsWith('select setting_key, setting_value from settings')) {
+      if (!this.notificationsEnabled) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      return Promise.resolve({
+        rows: [
+          { setting_key: 'game-shelf:notifications:release:enabled', setting_value: 'true' },
+          {
+            setting_key: 'game-shelf:notifications:release:events',
+            setting_value: JSON.stringify({ compatibilityChanged: true }),
+          },
+        ],
+        rowCount: 2,
+      });
+    }
+
+    if (
+      normalized.startsWith(
+        'select token from fcm_tokens where is_active = true order by token asc limit $1'
+      )
+    ) {
+      const rows = this.notificationTokens.map((token) => ({ token }));
+      return Promise.resolve({ rows, rowCount: rows.length });
+    }
+
+    if (normalized.startsWith('insert into release_notification_log')) {
+      const eventKey = typeof params[3] === 'string' ? params[3] : '';
+      this.notificationReserveAttempts += 1;
+      const payloadJson = typeof params[4] === 'string' ? params[4] : null;
+      if (payloadJson) {
+        this.lastReservedNotificationBody =
+          (JSON.parse(payloadJson) as { body?: string }).body ?? null;
+      }
+      if (!eventKey || this.notificationLogs.has(eventKey)) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      this.notificationLogs.add(eventKey);
+      return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('update release_notification_log set payload = $1::jsonb')) {
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (
+      normalized.startsWith(
+        'delete from release_notification_log where event_key = $1 and sent_count = 0'
+      )
+    ) {
+      const eventKey = typeof params[0] === 'string' ? params[0] : '';
+      this.notificationLogs.delete(eventKey);
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
 
     if (normalized.startsWith('select g.igdb_game_id, btrim')) {
       const [platformIgdbId] = params as [number];
@@ -341,6 +404,133 @@ void test('refreshCompatSource leaves a bound game untouched when its upstream e
   assert.ok(stored);
   assert.equal(stored.normalized_status, 'perfect');
   assert.equal(pool.syncEventCount, 0);
+});
+
+void test('refreshCompatSource attempts a compat status notification on a real transition', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  const originalFirebaseServiceAccountJson = config.firebaseServiceAccountJson;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+  config.firebaseServiceAccountJson = '';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metroid Prime' }];
+  pool.notificationsEnabled = true;
+  pool.notificationTokens = ['token-a'];
+
+  await withMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          emulator: 'dolphin',
+          sourceUrl: 'https://www.dolphin-emu.org/compat/',
+          entries: [
+            {
+              rawTitle: 'Metroid Prime',
+              rawLabel: 'Perfect',
+              normalizedStatus: 'perfect',
+              sourceId: '/index.php?title=Metroid_Prime',
+              sourceUrl: 'https://wiki.dolphin-emu.org/index.php?title=Metroid_Prime',
+            },
+          ],
+        }),
+        { status: 200 }
+      ),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 21);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+  config.firebaseServiceAccountJson = originalFirebaseServiceAccountJson;
+
+  assert.equal(pool.notificationReserveAttempts, 1);
+});
+
+void test('refreshCompatSource uses the shortened notification platform name (PS2) when configured', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  const originalFirebaseServiceAccountJson = config.firebaseServiceAccountJson;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+  config.firebaseServiceAccountJson = '';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metal Gear Solid 2' }];
+  pool.notificationsEnabled = true;
+  pool.notificationTokens = ['token-a'];
+
+  await withMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          emulator: 'pcsx2',
+          sourceUrl: 'https://pcsx2.net/compat/',
+          entries: [
+            {
+              rawTitle: 'Metal Gear Solid 2',
+              rawLabel: 'Perfect',
+              normalizedStatus: 'perfect',
+              sourceId: null,
+              sourceUrl: null,
+            },
+          ],
+        }),
+        { status: 200 }
+      ),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 8);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+  config.firebaseServiceAccountJson = originalFirebaseServiceAccountJson;
+
+  assert.equal(pool.notificationReserveAttempts, 1);
+  assert.ok(pool.lastReservedNotificationBody?.includes('(PS2)'));
+  assert.ok(!pool.lastReservedNotificationBody?.includes('PlayStation 2'));
+});
+
+void test('refreshCompatSource does not attempt a notification when the backfill pass syncs stale payload', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  const originalFirebaseServiceAccountJson = config.firebaseServiceAccountJson;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+  config.firebaseServiceAccountJson = '';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metroid Prime' }];
+  pool.statuses.set('g1', {
+    igdb_game_id: 'g1',
+    normalized_status: 'perfect',
+    match_locked: false,
+  });
+  pool.notificationsEnabled = true;
+  pool.notificationTokens = ['token-a'];
+
+  await withMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          emulator: 'dolphin',
+          sourceUrl: null,
+          entries: [
+            {
+              rawTitle: 'Metroid Prime',
+              rawLabel: 'Broken',
+              normalizedStatus: 'incomplete',
+              sourceId: null,
+              sourceUrl: null,
+            },
+          ],
+        }),
+        { status: 200 }
+      ),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 21);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+  config.firebaseServiceAccountJson = originalFirebaseServiceAccountJson;
+
+  assert.equal(pool.notificationReserveAttempts, 0);
 });
 
 void test('refreshCompatSource rejects a non compat-eligible platform', async () => {

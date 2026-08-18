@@ -213,10 +213,7 @@ interface ParsedSettingImportRow {
 }
 
 type ParsedImportRow =
-  | ParsedGameImportRow
-  | ParsedTagImportRow
-  | ParsedViewImportRow
-  | ParsedSettingImportRow;
+  ParsedGameImportRow | ParsedTagImportRow | ParsedViewImportRow | ParsedSettingImportRow;
 
 interface ImportPreviewRow {
   id: number;
@@ -299,6 +296,7 @@ export class SettingsPage {
     removed: true,
     day: true,
     sale: true,
+    compatibilityChanged: true,
   };
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
@@ -3397,6 +3395,7 @@ export class SettingsPage {
             removed: coercePreferenceBoolean(parsed['removed'], true),
             day: coercePreferenceBoolean(parsed['day'], true),
             sale: coercePreferenceBoolean(parsed['sale'], true),
+            compatibilityChanged: coercePreferenceBoolean(parsed['compatibilityChanged'], true),
           });
         } catch {
           normalizedValue = JSON.stringify({
@@ -3405,6 +3404,7 @@ export class SettingsPage {
             removed: true,
             day: true,
             sale: true,
+            compatibilityChanged: true,
           });
         }
 

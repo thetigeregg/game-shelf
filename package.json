@@ -75,7 +75,7 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@capawesome/capacitor-file-picker": "^8.0.4",
-    "@capawesome/capacitor-live-update": "^8.4.0",
+    "@capawesome/capacitor-live-update": "^8.4.1",
     "@ionic/angular": "^8.8.18",
     "@playwright/test": "^1.62.1",
     "@semantic-icons/simple-icons": "^0.58.0",
@@ -113,8 +113,8 @@
     "@eslint/eslintrc": "^3.3.6",
     "@eslint/js": "^10.0.1",
     "@ionic/angular-toolkit": "^12.3.0",
-    "@thetigeregg/commitlint-config": "^2.0.0",
-    "@thetigeregg/dev-cli": "^5.0.0",
+    "@thetigeregg/commitlint-config": "^2.0.1",
+    "@thetigeregg/dev-cli": "^5.0.2",
     "@thetigeregg/lint-staged-config": "^2.0.0",
     "@thetigeregg/ncu-config": "^3.1.0",
     "@thetigeregg/prettier-config": "^2.0.0",
@@ -122,7 +122,7 @@
     "@types/sql.js": "^1.4.11",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "cheerio": "^1.2.0",
     "eslint": "^10.8.1",
     "eslint-import-resolver-typescript": "^4.4.5",
@@ -138,7 +138,7 @@
     "sql.js": "^1.14.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.67.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows."
 }

@@ -1,4 +1,5 @@
 import {
+  CompatibilityStatus,
   DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
   GameGroupByField,
@@ -54,6 +55,7 @@ interface NormalizedFilterGame {
   gameType: GameType | null;
   status: GameStatus | null;
   rating: GameRating | null;
+  compatStatus: CompatibilityStatus | null;
   effectiveHltbHours: number | null;
   releaseDate: string | null;
 }
@@ -752,6 +754,14 @@ export class GameListFilteringEngine {
       }
     }
 
+    if (filters.compatibility.length > 0) {
+      const compatStatus = normalized.compatStatus;
+
+      if (compatStatus === null || !filters.compatibility.includes(compatStatus)) {
+        return false;
+      }
+    }
+
     const gameMainHours = normalized.effectiveHltbHours;
 
     if (gameMainHours !== null) {
@@ -879,6 +889,7 @@ export class GameListFilteringEngine {
       filters.excludedTags.length > 0 ||
       filters.excludedGameTypes.length > 0 ||
       filters.ratings.length > 0 ||
+      filters.compatibility.length > 0 ||
       minMainHours !== null ||
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||
@@ -922,6 +933,7 @@ export class GameListFilteringEngine {
       gameType: game.gameType ?? null,
       status: this.normalizeStatus(game.status),
       rating: this.normalizeRating(game.rating),
+      compatStatus: game.compatStatus ?? null,
       effectiveHltbHours: this.selectEffectiveHltbHours(game),
       releaseDate: this.getDateOnly(game.releaseDate),
     };

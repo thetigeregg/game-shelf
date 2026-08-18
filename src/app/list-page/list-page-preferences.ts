@@ -4,6 +4,7 @@ import {
   GameListFilters,
 } from '../core/models/game.models';
 import {
+  normalizeCompatibilityFilterList,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -73,6 +74,7 @@ export function normalizeListPageStoredFilters(
     ),
     excludedGameTypes: normalizeGameTypeList(parsed['excludedGameTypes']),
     ratings: normalizeGameRatingFilterList(parsed['ratings']),
+    compatibility: normalizeCompatibilityFilterList(parsed['compatibility']),
     hltbMainHoursMin:
       hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
         ? hltbMainHoursMax

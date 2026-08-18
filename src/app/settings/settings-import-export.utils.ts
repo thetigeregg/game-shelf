@@ -10,6 +10,7 @@ import type {
   Tag,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
+import { normalizeCompatibilityFilterList } from '../core/utils/game-filter-utils';
 import { sanitizeExternalHttpUrlString } from '../core/utils/url-host.util';
 import { normalizeTagIds } from '../features/game-list/game-list-detail-actions';
 
@@ -351,6 +352,7 @@ export function parseFilters(
             .map((value) => (value === 'none' ? 'none' : normalizeRating(String(value))))
             .filter((value): value is GameRating | 'none' => value === 'none' || value !== null)
         : [],
+      compatibility: normalizeCompatibilityFilterList(parsed.compatibility),
       sortField:
         parsed.sortField === 'title' ||
         parsed.sortField === 'releaseDate' ||

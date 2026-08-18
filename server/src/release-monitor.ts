@@ -1357,7 +1357,7 @@ function mergeReviewRefreshPayload(
   });
 }
 
-async function applyGamePayloadPatch(
+export async function applyGamePayloadPatch(
   pool: Pool,
   igdbGameId: string,
   platformIgdbId: number,

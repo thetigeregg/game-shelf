@@ -9,6 +9,7 @@ export function isGameRating(value: unknown): value is GameRating {
   return typeof value === 'number' && GAME_RATING_VALUES.includes(value as GameRating);
 }
 export type GameRatingFilterOption = GameRating | 'none';
+export type CompatibilityStatus = 'perfect' | 'playable' | 'incomplete';
 export type GameType =
   | 'main_game'
   | 'dlc_addon'
@@ -371,6 +372,7 @@ export interface GameEntry {
   releaseYear: number | null;
   status?: GameStatus | null;
   rating?: GameRating | null;
+  compatStatus?: CompatibilityStatus | null;
   listType: ListType;
   enteredCollectionAt?: string | null;
   createdAt: string;
@@ -554,6 +556,7 @@ export interface GameListFilters {
   excludedTags: string[];
   excludedGameTypes: GameType[];
   ratings: GameRatingFilterOption[];
+  compatibility: CompatibilityStatus[];
   hltbMainHoursMin: number | null;
   hltbMainHoursMax: number | null;
   releaseDateFrom: string | null;
@@ -579,6 +582,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   excludedTags: [],
   excludedGameTypes: [],
   ratings: [],
+  compatibility: [],
   hltbMainHoursMin: null,
   hltbMainHoursMax: null,
   releaseDateFrom: null,

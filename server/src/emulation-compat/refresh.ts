@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { config } from '../config.js';
 import { isEmulationCompatStatus } from '../../../shared/emulation-compat-status.mjs';
+import { applyGamePayloadPatch } from '../release-monitor.js';
 import { COMPAT_PLATFORM_MAP, getCompatPlatformConfig } from './platform-map.js';
 import { findBestTitleMatch } from './title-similarity.js';
 
@@ -176,6 +177,10 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
       if (game.normalized_status === null) {
         matchedCount += 1;
       }
+
+      await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
+        compatStatus: normalizedStatus,
+      });
     }
 
     await pool.query(

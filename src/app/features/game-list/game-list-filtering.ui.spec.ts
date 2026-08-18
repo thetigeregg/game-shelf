@@ -28,6 +28,7 @@ function makeGame(
     tags: partial.tags,
     hltbMainHours: partial.hltbMainHours ?? null,
     rating: partial.rating ?? null,
+    compatStatus: partial.compatStatus ?? null,
     status: partial.status ?? null,
     gameType: partial.gameType ?? null,
     metacriticScore: partial.metacriticScore,
@@ -805,6 +806,45 @@ describe('GameListFilteringEngine UI behavior', () => {
       ''
     );
     expect(result.map((game) => game.title)).toEqual(['Half Step Match']);
+  });
+
+  it('filters by compatibility status, excluding games with no compat data', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 21,
+        title: 'Perfect Game',
+        compatStatus: 'perfect',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 21,
+        title: 'Playable Game',
+        compatStatus: 'playable',
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 21,
+        title: 'Incomplete Game',
+        compatStatus: 'incomplete',
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'No Compat Data',
+      }),
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        compatibility: ['perfect', 'playable'],
+      },
+      ''
+    );
+
+    expect(result.map((game) => game.title).sort()).toEqual(['Perfect Game', 'Playable Game']);
   });
 
   it('filters by release date range and search query', () => {

@@ -4232,3 +4232,10 @@
 - 6915d57f fix(compat-scraper): normalize Azahar compat labels
 - d1667b23 Merge branch 'main' into feat/compat
 - f2ebf966 feat(compat): add 3DS compatibility via Azahar
+
+## v1.80.0 - 2026-08-18
+
+- a40f047f Merge pull request #559 from thetigeregg/feat/compat
+- 6d6fef0b fix(sync): reuse compat filter validator, fix compatStatus null merge
+- 8bdf213b Merge branch 'main' into feat/compat
+- 270f9203 feat(collection): add compatibility filter to advanced filters

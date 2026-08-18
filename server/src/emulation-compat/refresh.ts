@@ -216,7 +216,7 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
           igdbGameId: game.igdb_game_id,
           platformIgdbId,
           title: game.title,
-          platformDisplayName: platformConfig.displayName,
+          platformDisplayName: platformConfig.notificationDisplayName ?? platformConfig.displayName,
           previousStatus: game.normalized_status,
           nextStatus: normalizedStatus,
         });
@@ -281,7 +281,7 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
           igdbGameId: game.igdb_game_id,
           platformIgdbId,
           title: game.title,
-          platformDisplayName: platformConfig.displayName,
+          platformDisplayName: platformConfig.notificationDisplayName ?? platformConfig.displayName,
           previousStatus: game.normalized_status,
           nextStatus: normalizedStatus,
         });

@@ -6,6 +6,9 @@ import type { EmulationCompatStatus } from '../../../shared/emulation-compat-sta
 export interface CompatPlatformConfig {
   emulator: string;
   displayName: string;
+  // Shortened form used in push notification text, where space is limited.
+  // Falls back to displayName when the full name is already short enough.
+  notificationDisplayName?: string;
   sourceUrl: string;
   // The best status this emulator's compatibility list can report (e.g. Dolphin's
   // ceiling is "perfect"; an emulator with no perfect tier might cap out at "playable").
@@ -37,6 +40,7 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
     {
       emulator: 'pcsx2',
       displayName: 'PlayStation 2',
+      notificationDisplayName: 'PS2',
       sourceUrl: 'https://pcsx2.net/compat/',
       bestStatus: 'perfect',
     },
@@ -64,6 +68,7 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
     {
       emulator: 'rpcs3',
       displayName: 'PlayStation 3',
+      notificationDisplayName: 'PS3',
       sourceUrl: 'https://rpcs3.net/compatibility',
       bestStatus: 'playable',
     },
@@ -82,6 +87,7 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
     {
       emulator: 'vita3k',
       displayName: 'PlayStation Vita',
+      notificationDisplayName: 'PSV',
       sourceUrl: 'https://vita3k-api.pedro.moe/list/commercial',
       bestStatus: 'playable',
     },

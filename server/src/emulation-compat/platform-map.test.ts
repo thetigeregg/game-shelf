@@ -34,6 +34,7 @@ void test('getCompatPlatformConfig returns the PCSX2 config for PlayStation 2', 
   assert.ok(ps2);
   assert.equal(ps2.emulator, 'pcsx2');
   assert.equal(ps2.displayName, 'PlayStation 2');
+  assert.equal(ps2.notificationDisplayName, 'PS2');
   assert.equal(ps2.bestStatus, 'perfect');
 });
 
@@ -52,6 +53,7 @@ void test('getCompatPlatformConfig returns the Xenia config for Xbox 360 with a 
   assert.ok(xbox360);
   assert.equal(xbox360.emulator, 'xenia');
   assert.equal(xbox360.displayName, 'Xbox 360');
+  assert.equal(xbox360.notificationDisplayName, undefined);
   assert.equal(xbox360.bestStatus, 'playable');
 });
 
@@ -61,6 +63,7 @@ void test('getCompatPlatformConfig returns the RPCS3 config for PlayStation 3 wi
   assert.ok(ps3);
   assert.equal(ps3.emulator, 'rpcs3');
   assert.equal(ps3.displayName, 'PlayStation 3');
+  assert.equal(ps3.notificationDisplayName, 'PS3');
   assert.equal(ps3.bestStatus, 'playable');
 });
 
@@ -79,6 +82,7 @@ void test('getCompatPlatformConfig returns the Vita3K config for PlayStation Vit
   assert.ok(psvita);
   assert.equal(psvita.emulator, 'vita3k');
   assert.equal(psvita.displayName, 'PlayStation Vita');
+  assert.equal(psvita.notificationDisplayName, 'PSV');
   assert.equal(psvita.bestStatus, 'playable');
 });
 

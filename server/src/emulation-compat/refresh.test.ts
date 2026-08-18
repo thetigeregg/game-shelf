@@ -48,6 +48,7 @@ class FakeCompatPool {
   notificationsEnabled = false;
   notificationTokens: string[] = [];
   notificationReserveAttempts = 0;
+  lastReservedNotificationBody: string | null = null;
   private readonly notificationLogs = new Set<string>();
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
@@ -81,6 +82,11 @@ class FakeCompatPool {
     if (normalized.startsWith('insert into release_notification_log')) {
       const eventKey = typeof params[3] === 'string' ? params[3] : '';
       this.notificationReserveAttempts += 1;
+      const payloadJson = typeof params[4] === 'string' ? params[4] : null;
+      if (payloadJson) {
+        this.lastReservedNotificationBody =
+          (JSON.parse(payloadJson) as { body?: string }).body ?? null;
+      }
       if (!eventKey || this.notificationLogs.has(eventKey)) {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
@@ -438,6 +444,48 @@ void test('refreshCompatSource attempts a compat status notification on a real t
   config.firebaseServiceAccountJson = originalFirebaseServiceAccountJson;
 
   assert.equal(pool.notificationReserveAttempts, 1);
+});
+
+void test('refreshCompatSource uses the shortened notification platform name (PS2) when configured', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  const originalFirebaseServiceAccountJson = config.firebaseServiceAccountJson;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+  config.firebaseServiceAccountJson = '';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metal Gear Solid 2' }];
+  pool.notificationsEnabled = true;
+  pool.notificationTokens = ['token-a'];
+
+  await withMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          emulator: 'pcsx2',
+          sourceUrl: 'https://pcsx2.net/compat/',
+          entries: [
+            {
+              rawTitle: 'Metal Gear Solid 2',
+              rawLabel: 'Perfect',
+              normalizedStatus: 'perfect',
+              sourceId: null,
+              sourceUrl: null,
+            },
+          ],
+        }),
+        { status: 200 }
+      ),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 8);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+  config.firebaseServiceAccountJson = originalFirebaseServiceAccountJson;
+
+  assert.equal(pool.notificationReserveAttempts, 1);
+  assert.ok(pool.lastReservedNotificationBody?.includes('(PS2)'));
+  assert.ok(!pool.lastReservedNotificationBody?.includes('PlayStation 2'));
 });
 
 void test('refreshCompatSource does not attempt a notification when the backfill pass syncs stale payload', async () => {

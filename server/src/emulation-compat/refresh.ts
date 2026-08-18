@@ -20,6 +20,9 @@ interface OwnedGameRow {
   title: string;
   match_locked: boolean;
   normalized_status: string | null;
+  raw_source_id: string | null;
+  match_query_title: string | null;
+  payload_compat_status: string | null;
 }
 
 export function isCompatRefreshDue(
@@ -57,7 +60,7 @@ async function fetchWithTimeout(
   }
 }
 
-async function fetchCompatList(
+export async function fetchCompatList(
   platformIgdbId: number
 ): Promise<{ emulator: string; sourceUrl: string | null; entries: CompatSourceEntry[] }> {
   const baseUrl = config.compatScraperBaseUrl.replace(/\/$/, '');
@@ -95,7 +98,10 @@ async function loadOwnedGamesForPlatform(
       g.igdb_game_id,
       BTRIM(COALESCE(g.payload->>'title', '')) AS title,
       COALESCE(ecs.match_locked, FALSE) AS match_locked,
-      ecs.normalized_status AS normalized_status
+      ecs.normalized_status AS normalized_status,
+      ecs.raw_source_id AS raw_source_id,
+      ecs.match_query_title AS match_query_title,
+      g.payload->>'compatStatus' AS payload_compat_status
     FROM games g
     LEFT JOIN emulation_compat_status ecs
       ON ecs.igdb_game_id = g.igdb_game_id AND ecs.platform_igdb_id = g.platform_igdb_id
@@ -122,15 +128,68 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
   try {
     const { emulator, sourceUrl, entries } = await fetchCompatList(platformIgdbId);
     const ownedGames = await loadOwnedGamesForPlatform(pool, platformIgdbId);
-    // Games already locked (manual override) or already at this emulator's best
-    // reachable status are stable — they can't improve, so skip re-fetch/re-match work.
-    const candidates = ownedGames.filter(
+
+    // Bound rows (match_locked) are pinned to a specific upstream entry rather than
+    // a status — every refresh, look that entry up again by identity and take
+    // whatever status it currently reports, instead of re-running fuzzy matching.
+    const boundGames = ownedGames.filter((game) => game.match_locked);
+    // Unbound games below this emulator's best reachable status are the only ones
+    // that can still improve, so that's the only set worth fuzzy-matching.
+    const unboundCandidates = ownedGames.filter(
       (game) => !game.match_locked && game.normalized_status !== platformConfig.bestStatus
     );
 
     let matchedCount = ownedGames.filter((game) => game.normalized_status !== null).length;
+    const payloadPatchedGameIds = new Set<string>();
 
-    for (const game of candidates) {
+    for (const game of boundGames) {
+      const entry = game.raw_source_id
+        ? entries.find((candidate) => candidate.sourceId === game.raw_source_id)
+        : entries.find(
+            (candidate) =>
+              candidate.rawTitle.trim().toLowerCase() ===
+              (game.match_query_title ?? '').trim().toLowerCase()
+          );
+
+      if (!entry) {
+        continue;
+      }
+
+      const normalizedStatus = isEmulationCompatStatus(entry.normalizedStatus)
+        ? entry.normalizedStatus
+        : 'incomplete';
+
+      await pool.query(
+        `
+        UPDATE emulation_compat_status SET
+          emulator = $3,
+          normalized_status = $4,
+          raw_label = $5,
+          raw_source_id = $6,
+          source_url = $7,
+          matched_at = $8,
+          updated_at = NOW()
+        WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+        `,
+        [
+          game.igdb_game_id,
+          platformIgdbId,
+          emulator,
+          normalizedStatus,
+          entry.rawLabel,
+          entry.sourceId,
+          entry.sourceUrl,
+          now.toISOString(),
+        ]
+      );
+
+      payloadPatchedGameIds.add(game.igdb_game_id);
+      await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
+        compatStatus: normalizedStatus,
+      });
+    }
+
+    for (const game of unboundCandidates) {
       const best = findBestTitleMatch(game.title, entries, (entry) => entry.rawTitle);
 
       if (!best || best.score < MIN_MATCH_SCORE) {
@@ -178,8 +237,27 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
         matchedCount += 1;
       }
 
+      payloadPatchedGameIds.add(game.igdb_game_id);
       await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
         compatStatus: normalizedStatus,
+      });
+    }
+
+    // Backfill games whose emulation_compat_status row already reflects a status
+    // that the payload hasn't caught up to — e.g. rows matched before payload
+    // syncing existed, or rows sitting at bestStatus/bound that the loops above
+    // don't touch every run.
+    for (const game of ownedGames) {
+      if (
+        payloadPatchedGameIds.has(game.igdb_game_id) ||
+        game.normalized_status === null ||
+        game.normalized_status === game.payload_compat_status
+      ) {
+        continue;
+      }
+
+      await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
+        compatStatus: game.normalized_status,
       });
     }
 

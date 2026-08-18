@@ -531,8 +531,16 @@ export class ListPageComponent {
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {
-    this.displayedGames = games;
-    this.finishInitialListLoading();
+    // app-game-list can emit this synchronously during the same change-detection
+    // pass that first renders this component (e.g. when its games$ observable
+    // replays cached data immediately on subscribe). Mutating displayedGames here
+    // directly would then change a value (getListCountSummary()) already checked
+    // earlier in that pass, tripping NG0100. Defer to the next microtask so the
+    // update lands in its own change-detection cycle.
+    queueMicrotask(() => {
+      this.displayedGames = games;
+      this.finishInitialListLoading();
+    });
   }
 
   get isInitialListLoading(): boolean {

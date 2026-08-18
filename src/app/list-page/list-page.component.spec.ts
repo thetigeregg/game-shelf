@@ -164,12 +164,13 @@ describe('ListPageComponent', () => {
     expect(component.isInitialListLoading).toBe(false);
   });
 
-  it('dismisses initial list loading when game list reports displayed games', () => {
+  it('dismisses initial list loading when game list reports displayed games', async () => {
     const component = createComponent();
 
     expect(component.showInitialListLoading).toBe(true);
 
     component.onDisplayedGamesChange([]);
+    await Promise.resolve();
 
     expect(component.showInitialListLoading).toBe(false);
     expect(component.displayedGames).toEqual([]);

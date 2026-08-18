@@ -35,6 +35,8 @@ interface StoredStatusRow {
   igdb_game_id: string;
   normalized_status: string;
   match_locked: boolean;
+  raw_source_id?: string | null;
+  match_query_title?: string | null;
 }
 
 class FakeCompatPool {
@@ -48,13 +50,18 @@ class FakeCompatPool {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.startsWith('select g.igdb_game_id, btrim')) {
+      const [platformIgdbId] = params as [number];
       const rows = this.ownedGames.map((game) => {
         const stored = this.statuses.get(game.igdb_game_id);
+        const payloadKey = `${game.igdb_game_id}::${String(platformIgdbId)}`;
         return {
           igdb_game_id: game.igdb_game_id,
           title: game.title,
           match_locked: stored?.match_locked ?? false,
           normalized_status: stored?.normalized_status ?? null,
+          raw_source_id: stored?.raw_source_id ?? null,
+          match_query_title: stored?.match_query_title ?? null,
+          payload_compat_status: this.gamePayloads.get(payloadKey)?.compatStatus ?? null,
         };
       });
       return Promise.resolve({ rows, rowCount: rows.length });
@@ -70,6 +77,19 @@ class FakeCompatPool {
           match_locked: false,
         });
       }
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('update emulation_compat_status set')) {
+      const [igdbGameId, , , normalizedStatus] = params as [string, number, string, string];
+      const existing = this.statuses.get(igdbGameId);
+      this.statuses.set(igdbGameId, {
+        igdb_game_id: igdbGameId,
+        normalized_status: normalizedStatus,
+        match_locked: true,
+        raw_source_id: existing?.raw_source_id ?? null,
+        match_query_title: existing?.match_query_title ?? null,
+      });
       return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
@@ -172,7 +192,7 @@ void test('refreshCompatSource matches owned games against the scraper response 
   assert.equal(pool.syncEventCount, 1);
 });
 
-void test('refreshCompatSource skips games already at the emulator best status', async () => {
+void test('refreshCompatSource skips re-matching games already at the emulator best status, but backfills payload', async () => {
   const originalBaseUrl = config.compatScraperBaseUrl;
   config.compatScraperBaseUrl = 'http://compat-scraper.test';
 
@@ -212,7 +232,114 @@ void test('refreshCompatSource skips games already at the emulator best status',
   const stored = pool.statuses.get('g1');
   assert.ok(stored);
   assert.equal(stored.normalized_status, 'perfect');
-  assert.equal(pool.gamePayloads.size, 0);
+  assert.equal(pool.gamePayloads.get('g1::21')?.compatStatus, 'perfect');
+  assert.equal(pool.syncEventCount, 1);
+});
+
+void test('refreshCompatSource does not repatch payload once it already matches the stored status', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metroid Prime' }];
+  pool.statuses.set('g1', {
+    igdb_game_id: 'g1',
+    normalized_status: 'perfect',
+    match_locked: false,
+  });
+  pool.gamePayloads.set('g1::21', { compatStatus: 'perfect' });
+
+  await withMockFetch(
+    () =>
+      new Response(JSON.stringify({ emulator: 'dolphin', sourceUrl: null, entries: [] }), {
+        status: 200,
+      }),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 21);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+
+  assert.equal(pool.syncEventCount, 0);
+});
+
+void test('refreshCompatSource re-resolves a bound game by raw_source_id and updates its status', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metroid Prime Trilogy' }];
+  pool.statuses.set('g1', {
+    igdb_game_id: 'g1',
+    normalized_status: 'incomplete',
+    match_locked: true,
+    raw_source_id: '/index.php?title=Metroid_Prime',
+    match_query_title: 'Metroid Prime',
+  });
+
+  await withMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          emulator: 'dolphin',
+          sourceUrl: 'https://www.dolphin-emu.org/compat/',
+          entries: [
+            {
+              rawTitle: 'Metroid Prime',
+              rawLabel: 'Perfect',
+              normalizedStatus: 'perfect',
+              sourceId: '/index.php?title=Metroid_Prime',
+              sourceUrl: 'https://wiki.dolphin-emu.org/index.php?title=Metroid_Prime',
+            },
+          ],
+        }),
+        { status: 200 }
+      ),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 21);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+
+  const stored = pool.statuses.get('g1');
+  assert.ok(stored);
+  assert.equal(stored.normalized_status, 'perfect');
+  assert.equal(stored.match_locked, true);
+  assert.equal(pool.gamePayloads.get('g1::21')?.compatStatus, 'perfect');
+});
+
+void test('refreshCompatSource leaves a bound game untouched when its upstream entry disappears', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const pool = new FakeCompatPool();
+  pool.ownedGames = [{ igdb_game_id: 'g1', title: 'Metroid Prime Trilogy' }];
+  pool.statuses.set('g1', {
+    igdb_game_id: 'g1',
+    normalized_status: 'perfect',
+    match_locked: true,
+    raw_source_id: '/index.php?title=Metroid_Prime',
+    match_query_title: 'Metroid Prime',
+  });
+  pool.gamePayloads.set('g1::21', { compatStatus: 'perfect' });
+
+  await withMockFetch(
+    () =>
+      new Response(JSON.stringify({ emulator: 'dolphin', sourceUrl: null, entries: [] }), {
+        status: 200,
+      }),
+    async () => {
+      await refreshCompatSource(pool as unknown as Pool, 21);
+    }
+  );
+
+  config.compatScraperBaseUrl = originalBaseUrl;
+
+  const stored = pool.statuses.get('g1');
+  assert.ok(stored);
+  assert.equal(stored.normalized_status, 'perfect');
   assert.equal(pool.syncEventCount, 0);
 });
 

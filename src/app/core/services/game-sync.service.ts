@@ -15,6 +15,7 @@ import {
   Tag,
   isGameRating,
 } from '../models/game.models';
+import { isCompatibilityStatus } from '../utils/game-filter-utils';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
 import { SyncBootstrapProgressService } from './sync-bootstrap-progress.service';
@@ -1773,6 +1774,12 @@ export class GameSyncService implements SyncOutboxWriter {
           : this.normalizeOptionalBoolean(payload.reviewMatchLocked),
       metacriticScore: normalizedMetacriticScore,
       metacriticUrl: normalizedMetacriticUrl,
+      compatStatus:
+        payload.compatStatus === undefined
+          ? (existingByIdentity?.compatStatus ?? null)
+          : isCompatibilityStatus(payload.compatStatus)
+            ? payload.compatStatus
+            : null,
       similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
       collections: this.normalizeStringList(payload.collections),
       developers: this.normalizeStringList(payload.developers),

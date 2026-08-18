@@ -4239,3 +4239,16 @@
 - 6d6fef0b fix(sync): reuse compat filter validator, fix compatStatus null merge
 - 8bdf213b Merge branch 'main' into feat/compat
 - 270f9203 feat(collection): add compatibility filter to advanced filters
+
+## v1.81.0 - 2026-08-18
+
+- a2cd9c8a Merge pull request #560 from thetigeregg/feat/compat
+- 03035526 refactor(game-list): remove unused compat-status-icon class from radio button
+- 61514b19 feat(theme): update compat-perfect color variables for improved visibility
+- 250432f9 refactor(game-list): remove unused compat-status-icon styles
+- 3383d901 feat(game-list): add radioButtonOn icon to game list component
+- c17a5529 feat(game-list): show compat status indicator on collection rows
+- f18a0494 fix(compat): sync compatStatus to client, fix filter and list count
+- 468d6ff4 refactor(compat): rework set/clear to bind games to live upstream entries
+- 52c21396 feat(compat): enhance refreshCompatSource to backfill payload compat status for owned games
+- a96c0c83 refactor(compat): rework set/clear to bind games to live upstream entries

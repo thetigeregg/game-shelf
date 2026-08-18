@@ -220,6 +220,7 @@ describe('NotificationService', () => {
       removed: true,
       day: true,
       sale: true,
+      compatibilityChanged: true,
     });
 
     preferenceStorage.setItem(
@@ -232,6 +233,7 @@ describe('NotificationService', () => {
       removed: false,
       day: true,
       sale: false,
+      compatibilityChanged: true,
     });
 
     preferenceStorage.setItem('game-shelf:notifications:release:events', '{bad-json');
@@ -241,6 +243,7 @@ describe('NotificationService', () => {
       removed: true,
       day: true,
       sale: true,
+      compatibilityChanged: true,
     });
   });
 
@@ -253,6 +256,7 @@ describe('NotificationService', () => {
         removed: 'no',
         day: 0,
         sale: 'false',
+        compatibilityChanged: 'no',
       })
     );
 
@@ -262,6 +266,7 @@ describe('NotificationService', () => {
       removed: false,
       day: false,
       sale: false,
+      compatibilityChanged: false,
     });
   });
 

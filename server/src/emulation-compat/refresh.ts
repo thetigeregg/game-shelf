@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { config } from '../config.js';
 import { isEmulationCompatStatus } from '../../../shared/emulation-compat-status.mjs';
 import { applyGamePayloadPatch } from '../release-monitor.js';
+import { maybeSendCompatibilityStatusNotification } from '../compat-status-notifications.js';
 import { COMPAT_PLATFORM_MAP, getCompatPlatformConfig } from './platform-map.js';
 import { findBestTitleMatch } from './title-similarity.js';
 
@@ -117,6 +118,28 @@ async function loadOwnedGamesForPlatform(
 
 const MIN_MATCH_SCORE = 20;
 
+async function notifyCompatStatusChangeBestEffort(
+  pool: Pool,
+  params: {
+    igdbGameId: string;
+    platformIgdbId: number;
+    title: string;
+    platformDisplayName: string;
+    previousStatus: string | null;
+    nextStatus: string;
+  }
+): Promise<void> {
+  try {
+    await maybeSendCompatibilityStatusNotification(pool, params);
+  } catch (error) {
+    console.error('[emulation-compat] compat_status_notification_failed', {
+      igdbGameId: params.igdbGameId,
+      platformIgdbId: params.platformIgdbId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function refreshCompatSource(pool: Pool, platformIgdbId: number): Promise<void> {
   const platformConfig = getCompatPlatformConfig(platformIgdbId);
   if (!platformConfig) {
@@ -187,6 +210,17 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
       await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
         compatStatus: normalizedStatus,
       });
+
+      if (game.normalized_status !== normalizedStatus) {
+        await notifyCompatStatusChangeBestEffort(pool, {
+          igdbGameId: game.igdb_game_id,
+          platformIgdbId,
+          title: game.title,
+          platformDisplayName: platformConfig.displayName,
+          previousStatus: game.normalized_status,
+          nextStatus: normalizedStatus,
+        });
+      }
     }
 
     for (const game of unboundCandidates) {
@@ -241,6 +275,17 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
       await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
         compatStatus: normalizedStatus,
       });
+
+      if (game.normalized_status !== normalizedStatus) {
+        await notifyCompatStatusChangeBestEffort(pool, {
+          igdbGameId: game.igdb_game_id,
+          platformIgdbId,
+          title: game.title,
+          platformDisplayName: platformConfig.displayName,
+          previousStatus: game.normalized_status,
+          nextStatus: normalizedStatus,
+        });
+      }
     }
 
     // Backfill games whose emulation_compat_status row already reflects a status

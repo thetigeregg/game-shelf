@@ -2197,7 +2197,7 @@ function formatReleaseNotificationMonthYear(monthString: string): string {
   return RELEASE_NOTIFICATION_MONTH_YEAR_FORMATTER.format(parsed);
 }
 
-function buildReleaseEventBody(gameTitle: string, detail: string): string {
+export function buildReleaseEventBody(gameTitle: string, detail: string): string {
   const normalizedDetail = detail.trim();
   if (normalizedDetail.length === 0) {
     return clampTextWithEllipsis(gameTitle, MAX_NOTIFICATION_BODY);

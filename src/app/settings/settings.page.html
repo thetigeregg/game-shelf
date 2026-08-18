@@ -169,6 +169,19 @@
             (ionChange)="onReleaseEventToggleChange('sale', $any($event).detail.checked)"
           ></ion-toggle>
         </ion-item>
+        <ion-item>
+          <ion-label>Compatibility Status Changed</ion-label>
+          <ion-toggle
+            slot="end"
+            [checked]="
+              releaseNotificationsEnabled && releaseNotificationEvents.compatibilityChanged
+            "
+            [disabled]="!releaseNotificationsEnabled"
+            (ionChange)="
+              onReleaseEventToggleChange('compatibilityChanged', $any($event).detail.checked)
+            "
+          ></ion-toggle>
+        </ion-item>
       </ion-list>
     }
 

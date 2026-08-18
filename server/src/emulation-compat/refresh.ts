@@ -22,6 +22,7 @@ interface OwnedGameRow {
   normalized_status: string | null;
   raw_source_id: string | null;
   match_query_title: string | null;
+  payload_compat_status: string | null;
 }
 
 export function isCompatRefreshDue(
@@ -99,7 +100,8 @@ async function loadOwnedGamesForPlatform(
       COALESCE(ecs.match_locked, FALSE) AS match_locked,
       ecs.normalized_status AS normalized_status,
       ecs.raw_source_id AS raw_source_id,
-      ecs.match_query_title AS match_query_title
+      ecs.match_query_title AS match_query_title,
+      g.payload->>'compatStatus' AS payload_compat_status
     FROM games g
     LEFT JOIN emulation_compat_status ecs
       ON ecs.igdb_game_id = g.igdb_game_id AND ecs.platform_igdb_id = g.platform_igdb_id
@@ -138,6 +140,7 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
     );
 
     let matchedCount = ownedGames.filter((game) => game.normalized_status !== null).length;
+    const payloadPatchedGameIds = new Set<string>();
 
     for (const game of boundGames) {
       const entry = game.raw_source_id
@@ -180,6 +183,7 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
         ]
       );
 
+      payloadPatchedGameIds.add(game.igdb_game_id);
       await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
         compatStatus: normalizedStatus,
       });
@@ -233,8 +237,27 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
         matchedCount += 1;
       }
 
+      payloadPatchedGameIds.add(game.igdb_game_id);
       await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
         compatStatus: normalizedStatus,
+      });
+    }
+
+    // Backfill games whose emulation_compat_status row already reflects a status
+    // that the payload hasn't caught up to — e.g. rows matched before payload
+    // syncing existed, or rows sitting at bestStatus/bound that the loops above
+    // don't touch every run.
+    for (const game of ownedGames) {
+      if (
+        payloadPatchedGameIds.has(game.igdb_game_id) ||
+        game.normalized_status === null ||
+        game.normalized_status === game.payload_compat_status
+      ) {
+        continue;
+      }
+
+      await applyGamePayloadPatch(pool, game.igdb_game_id, platformIgdbId, {
+        compatStatus: game.normalized_status,
       });
     }
 

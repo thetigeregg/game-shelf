@@ -297,7 +297,7 @@ async function applyGameOperation(
         'steamEnrichedAt', COALESCE(EXCLUDED.payload -> 'steamEnrichedAt', games.payload -> 'steamEnrichedAt'),
         'steamEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'steamEnrichmentStatus', games.payload -> 'steamEnrichmentStatus'),
         'metadataSyncEnqueuedAt', COALESCE(EXCLUDED.payload -> 'metadataSyncEnqueuedAt', games.payload -> 'metadataSyncEnqueuedAt'),
-        'compatStatus', COALESCE(EXCLUDED.payload -> 'compatStatus', games.payload -> 'compatStatus')
+        'compatStatus', COALESCE(NULLIF(EXCLUDED.payload -> 'compatStatus', 'null'::jsonb), games.payload -> 'compatStatus')
       )
     ), updated_at = NOW()
     RETURNING payload

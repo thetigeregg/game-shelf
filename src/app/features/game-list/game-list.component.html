@@ -101,7 +101,18 @@
                 </ion-badge>
               }
               <p>{{ getGameReleaseDateLabel(game) }}</p>
-              <p>{{ getGameDisplayPlatformLabel(game) }}</p>
+              <p class="game-row-platform">
+                {{ getGameDisplayPlatformLabel(game) }}
+                @if (listType === 'collection' && getCompatIndicatorColor(game); as compatColor) {
+                  <ion-icon
+                    name="radio-button-on"
+                    class="compat-status-icon"
+                    [color]="compatColor"
+                    [attr.aria-label]="getCompatIndicatorLabel(game)"
+                    [title]="getCompatIndicatorLabel(game)"
+                  ></ion-icon>
+                }
+              </p>
               @if (game.tags && game.tags.length > 0) {
                 <div class="game-tags">
                   @for (tag of game.tags; track tag) {

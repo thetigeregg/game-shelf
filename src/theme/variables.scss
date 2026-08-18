@@ -92,6 +92,27 @@
   --ion-color-forest-dark-contrast-rgb: 0, 0, 0;
   --ion-color-forest-dark-shade: #46813a;
   --ion-color-forest-dark-tint: #619e55;
+
+  --ion-color-compat-perfect: #2f6338;
+  --ion-color-compat-perfect-rgb: 47, 99, 56;
+  --ion-color-compat-perfect-contrast: #ffffff;
+  --ion-color-compat-perfect-contrast-rgb: 255, 255, 255;
+  --ion-color-compat-perfect-shade: #295731;
+  --ion-color-compat-perfect-tint: #44734c;
+
+  --ion-color-compat-playable: #71a12f;
+  --ion-color-compat-playable-rgb: 113, 161, 47;
+  --ion-color-compat-playable-contrast: #000000;
+  --ion-color-compat-playable-contrast-rgb: 0, 0, 0;
+  --ion-color-compat-playable-shade: #638e29;
+  --ion-color-compat-playable-tint: #7faa44;
+
+  --ion-color-compat-incomplete: #ca3d2f;
+  --ion-color-compat-incomplete-rgb: 202, 61, 47;
+  --ion-color-compat-incomplete-contrast: #ffffff;
+  --ion-color-compat-incomplete-contrast-rgb: 255, 255, 255;
+  --ion-color-compat-incomplete-shade: #b23629;
+  --ion-color-compat-incomplete-tint: #cf5044;
 }
 
 .ion-palette-dark {
@@ -293,4 +314,31 @@
   --ion-color-contrast-rgb: var(--ion-color-forest-dark-contrast-rgb);
   --ion-color-shade: var(--ion-color-forest-dark-shade);
   --ion-color-tint: var(--ion-color-forest-dark-tint);
+}
+
+.ion-color-compat-perfect {
+  --ion-color-base: var(--ion-color-compat-perfect);
+  --ion-color-base-rgb: var(--ion-color-compat-perfect-rgb);
+  --ion-color-contrast: var(--ion-color-compat-perfect-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-compat-perfect-contrast-rgb);
+  --ion-color-shade: var(--ion-color-compat-perfect-shade);
+  --ion-color-tint: var(--ion-color-compat-perfect-tint);
+}
+
+.ion-color-compat-playable {
+  --ion-color-base: var(--ion-color-compat-playable);
+  --ion-color-base-rgb: var(--ion-color-compat-playable-rgb);
+  --ion-color-contrast: var(--ion-color-compat-playable-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-compat-playable-contrast-rgb);
+  --ion-color-shade: var(--ion-color-compat-playable-shade);
+  --ion-color-tint: var(--ion-color-compat-playable-tint);
+}
+
+.ion-color-compat-incomplete {
+  --ion-color-base: var(--ion-color-compat-incomplete);
+  --ion-color-base-rgb: var(--ion-color-compat-incomplete-rgb);
+  --ion-color-contrast: var(--ion-color-compat-incomplete-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-compat-incomplete-contrast-rgb);
+  --ion-color-shade: var(--ion-color-compat-incomplete-shade);
+  --ion-color-tint: var(--ion-color-compat-incomplete-tint);
 }

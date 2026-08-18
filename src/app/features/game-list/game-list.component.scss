@@ -40,6 +40,16 @@ ion-item-sliding ion-item {
   font-size: 1rem;
 }
 
+.game-row-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compat-status-icon {
+  font-size: 0.6rem;
+}
+
 .rating-indicator {
   display: inline-flex;
   align-items: center;

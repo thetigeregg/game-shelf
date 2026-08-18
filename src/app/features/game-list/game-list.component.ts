@@ -253,13 +253,7 @@ interface DetailGamePayloadCacheEntry {
 }
 
 type NotesToolbarAction =
-  | 'bold'
-  | 'italic'
-  | 'underline'
-  | 'bullet'
-  | 'number'
-  | 'check'
-  | 'details';
+  'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check' | 'details';
 
 @Component({
   selector: 'app-game-list',
@@ -4983,6 +4977,38 @@ export class GameListComponent implements OnChanges, OnDestroy {
       .getDisplayNameWithAliasSource(displayPlatform.name, displayPlatform.igdbId)
       .trim();
     return label.length > 0 ? label : 'Unknown platform';
+  }
+
+  getCompatIndicatorColor(game: GameEntry): string | null {
+    if (game.compatStatus === 'perfect') {
+      return 'compat-perfect';
+    }
+
+    if (game.compatStatus === 'playable') {
+      return 'compat-playable';
+    }
+
+    if (game.compatStatus === 'incomplete') {
+      return 'compat-incomplete';
+    }
+
+    return null;
+  }
+
+  getCompatIndicatorLabel(game: GameEntry): string {
+    if (game.compatStatus === 'perfect') {
+      return 'Emulation compatibility: Perfect';
+    }
+
+    if (game.compatStatus === 'playable') {
+      return 'Emulation compatibility: Playable';
+    }
+
+    if (game.compatStatus === 'incomplete') {
+      return 'Emulation compatibility: Incomplete';
+    }
+
+    return '';
   }
 
   getPlatformLabel(

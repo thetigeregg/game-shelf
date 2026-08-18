@@ -351,6 +351,12 @@ export function parseFilters(
             .map((value) => (value === 'none' ? 'none' : normalizeRating(String(value))))
             .filter((value): value is GameRating | 'none' => value === 'none' || value !== null)
         : [],
+      compatibility: Array.isArray(parsed.compatibility)
+        ? (parsed.compatibility as unknown[]).filter(
+            (value): value is GameListFilters['compatibility'][number] =>
+              value === 'perfect' || value === 'playable' || value === 'incomplete'
+          )
+        : [],
       sortField:
         parsed.sortField === 'title' ||
         parsed.sortField === 'releaseDate' ||

@@ -2,6 +2,7 @@ import { createPool } from '../db.js';
 import { config } from '../config.js';
 import { isEmulationCompatStatus } from '../../../shared/emulation-compat-status.mjs';
 import { COMPAT_PLATFORM_MAP } from '../emulation-compat/platform-map.js';
+import { applyGamePayloadPatch } from '../release-monitor.js';
 
 type Flags = Record<string, string | undefined>;
 
@@ -176,6 +177,8 @@ async function runSet(pool: import('pg').Pool, flags: Flags): Promise<void> {
     `,
     [igdbGameId, platformIgdbId, platform.emulator, status, rawLabel ?? status]
   );
+
+  await applyGamePayloadPatch(pool, igdbGameId, platformIgdbId, { compatStatus: status });
 
   console.log(
     `Set game=${igdbGameId} platform=${String(platformIgdbId)} status=${status} (locked).`

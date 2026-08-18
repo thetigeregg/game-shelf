@@ -165,6 +165,7 @@ describe('GameFiltersMenuComponent', () => {
     component.onStatusSelectionChange('playing');
     component.onExcludedStatusSelectionChange(['none', 'dropped']);
     component.onRatingSelectionChange(['none', 4.5]);
+    component.onCompatibilitySelectionChange(['perfect', 'playable', 'perfect', 'bad'] as never);
     component.onGameTypeSelectionChange('main_game');
 
     expect(filtersEmitSpy).toHaveBeenCalled();
@@ -174,7 +175,15 @@ describe('GameFiltersMenuComponent', () => {
     expect(component.draftFilters.statuses).toEqual(['playing']);
     expect(component.draftFilters.excludedStatuses).toEqual(['none', 'dropped']);
     expect(component.draftFilters.ratings).toEqual(['none', 4.5]);
+    expect(component.draftFilters.compatibility).toEqual(['perfect', 'playable']);
     expect(component.draftFilters.gameTypes).toEqual(['main_game']);
+  });
+
+  it('labels compatibility statuses', () => {
+    const component = createComponent();
+    expect(component.getCompatibilityLabel('perfect')).toBe('Perfect');
+    expect(component.getCompatibilityLabel('playable')).toBe('Playable');
+    expect(component.getCompatibilityLabel('incomplete')).toBe('Incomplete');
   });
 
   it('normalizes date and HLTB ranges, and reset restores defaults', () => {

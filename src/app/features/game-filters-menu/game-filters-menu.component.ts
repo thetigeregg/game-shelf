@@ -25,6 +25,7 @@ import {
   IonCheckbox,
 } from '@ionic/angular/standalone';
 import {
+  CompatibilityStatus,
   DEFAULT_GAME_LIST_FILTERS,
   GAME_RATING_VALUES,
   GameGroupByField,
@@ -36,6 +37,7 @@ import {
 } from '../../core/models/game.models';
 import {
   normalizeBooleanFilter,
+  normalizeCompatibilityFilterList,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -110,6 +112,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     (status) => status !== 'none'
   );
   readonly ratingOptions: GameRatingFilterOption[] = ['none', ...GAME_RATING_VALUES];
+  readonly compatibilityOptions: CompatibilityStatus[] = ['perfect', 'playable', 'incomplete'];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -335,6 +338,17 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onCompatibilitySelectionChange(
+    value: CompatibilityStatus[] | CompatibilityStatus | null | undefined
+  ): void {
+    const normalized = this.normalizeCompatibilitySelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      compatibility: normalized,
+    };
+    this.updateFilters();
+  }
+
   onReleaseDateFromChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
@@ -417,6 +431,18 @@ export class GameFiltersMenuComponent implements OnChanges {
     return rating.toFixed(1).replace(/\.0$/, '');
   }
 
+  getCompatibilityLabel(status: CompatibilityStatus): string {
+    if (status === 'perfect') {
+      return 'Perfect';
+    }
+
+    if (status === 'playable') {
+      return 'Playable';
+    }
+
+    return 'Incomplete';
+  }
+
   getGameTypeLabel(gameType: GameType): string {
     if (gameType === 'main_game') {
       return 'Main Game';
@@ -494,6 +520,14 @@ export class GameFiltersMenuComponent implements OnChanges {
         : [];
 
     return normalizeGameRatingFilterList(normalizedValues);
+  }
+
+  private normalizeCompatibilitySelection(
+    value: CompatibilityStatus[] | CompatibilityStatus | null | undefined
+  ): CompatibilityStatus[] {
+    const normalizedValues = Array.isArray(value) ? value : value ? [value] : [];
+
+    return normalizeCompatibilityFilterList(normalizedValues);
   }
 
   private normalizeGameTypeSelection(value: GameType[] | GameType | null | undefined): GameType[] {

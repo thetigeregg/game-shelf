@@ -19,6 +19,7 @@ import {
 } from '../models/game.models';
 import {
   normalizeBooleanFilter,
+  normalizeCompatibilityFilterList,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -1774,6 +1775,7 @@ export class LocalGameRepository implements GameRepository {
     );
     const excludedGameTypes = normalizeGameTypeList(source.excludedGameTypes);
     const ratings = normalizeGameRatingFilterList(source.ratings);
+    const compatibility = normalizeCompatibilityFilterList(source.compatibility);
     const hltbMainHoursMin = normalizeNonNegativeNumber(source.hltbMainHoursMin);
     const hltbMainHoursMax = normalizeNonNegativeNumber(source.hltbMainHoursMax);
     const releaseDateFrom =
@@ -1803,6 +1805,7 @@ export class LocalGameRepository implements GameRepository {
       excludedTags,
       excludedGameTypes,
       ratings,
+      compatibility,
       hltbMainHoursMin:
         hltbMainHoursMin !== null &&
         hltbMainHoursMax !== null &&

@@ -1,7 +1,9 @@
 import {
+  isCompatibilityStatus,
   isGameRatingFilterOption,
   isGameStatusFilterOption,
   isGameType,
+  normalizeCompatibilityFilterList,
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
@@ -24,6 +26,18 @@ describe('game-filter-utils', () => {
       'expansion',
     ]);
     expect(normalizeGameTypeList('not-array')).toEqual([]);
+  });
+
+  it('validates and normalizes compatibility filters', () => {
+    expect(isCompatibilityStatus('perfect')).toBe(true);
+    expect(isCompatibilityStatus('playable')).toBe(true);
+    expect(isCompatibilityStatus('incomplete')).toBe(true);
+    expect(isCompatibilityStatus('unknown')).toBe(false);
+    expect(normalizeCompatibilityFilterList(['perfect', 'playable', 'perfect', 'bad'])).toEqual([
+      'perfect',
+      'playable',
+    ]);
+    expect(normalizeCompatibilityFilterList('not-array')).toEqual([]);
   });
 
   it('validates and normalizes status filters', () => {

@@ -41,6 +41,8 @@ class FakeCompatPool {
   ownedGames: Array<{ igdb_game_id: string; title: string }> = [];
   statuses = new Map<string, StoredStatusRow>();
   sourceState: Record<string, unknown> | null = null;
+  gamePayloads = new Map<string, Record<string, unknown>>();
+  syncEventCount = 0;
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -81,6 +83,44 @@ class FakeCompatPool {
     }
 
     throw new Error(`Unexpected query in FakeCompatPool: ${sql}`);
+  }
+
+  // Mimics the subset of pg's Pool#connect() used by applyGamePayloadPatch:
+  // a client with query()/release(), backing the games.payload merge + sync_events insert.
+  connect(): Promise<{
+    query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>;
+    release: () => void;
+  }> {
+    return Promise.resolve({
+      query: (sql: string, params: unknown[] = []) => {
+        const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+        if (normalized === 'begin' || normalized === 'commit' || normalized === 'rollback') {
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        }
+
+        if (normalized.startsWith('update games set payload')) {
+          const [igdbGameId, platformIgdbId, patchJson] = params as [string, number, string];
+          const key = `${igdbGameId}::${String(platformIgdbId)}`;
+          const merged = {
+            ...this.gamePayloads.get(key),
+            ...(JSON.parse(patchJson) as object),
+          };
+          this.gamePayloads.set(key, merged);
+          return Promise.resolve({ rows: [{ payload: merged }], rowCount: 1 });
+        }
+
+        if (normalized.startsWith('insert into sync_events')) {
+          this.syncEventCount += 1;
+          return Promise.resolve({ rows: [], rowCount: 1 });
+        }
+
+        throw new Error(`Unexpected query in FakeCompatPool client: ${sql}`);
+      },
+      release: () => {
+        // no-op
+      },
+    });
   }
 }
 
@@ -128,6 +168,8 @@ void test('refreshCompatSource matches owned games against the scraper response 
   assert.ok(stored);
   assert.equal(stored.normalized_status, 'perfect');
   assert.ok(pool.sourceState);
+  assert.equal(pool.gamePayloads.get('g1::21')?.compatStatus, 'perfect');
+  assert.equal(pool.syncEventCount, 1);
 });
 
 void test('refreshCompatSource skips games already at the emulator best status', async () => {
@@ -170,6 +212,8 @@ void test('refreshCompatSource skips games already at the emulator best status',
   const stored = pool.statuses.get('g1');
   assert.ok(stored);
   assert.equal(stored.normalized_status, 'perfect');
+  assert.equal(pool.gamePayloads.size, 0);
+  assert.equal(pool.syncEventCount, 0);
 });
 
 void test('refreshCompatSource rejects a non compat-eligible platform', async () => {

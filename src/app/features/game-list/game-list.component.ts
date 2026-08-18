@@ -208,6 +208,7 @@ import {
   book,
   film,
   link,
+  radioButtonOn,
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -6249,6 +6250,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       chevronBack,
       documentText,
       book,
+      radioButtonOn,
     });
   }
 }

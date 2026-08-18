@@ -1,6 +1,10 @@
 import type { Pool } from 'pg';
 import { sendFcmMulticast, type FcmSendResult } from './fcm.js';
-import { buildReleaseEventBody } from './release-monitor.js';
+import {
+  clampTextWithEllipsis,
+  clampTitleWithSuffix,
+  MAX_NOTIFICATION_BODY,
+} from './notification-copy-policy.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
@@ -160,14 +164,40 @@ async function deactivateInvalidTokensBestEffort(
   }
 }
 
+// Mirrors buildReleaseEventBody's detail-first budgeting, but the title-side
+// budget goes through clampTitleWithSuffix so "(Platform)" survives truncation
+// intact and only the game title itself gets shortened.
+function buildCompatStatusNotificationBody(args: {
+  title: string;
+  platformDisplayName: string;
+  detail: string;
+}): string {
+  const normalizedDetail = args.detail.trim();
+  const titleDetailSeparator = ': ';
+  const minimumTitleBudget = 4;
+  const maxDetailLength = Math.max(
+    1,
+    MAX_NOTIFICATION_BODY - titleDetailSeparator.length - minimumTitleBudget
+  );
+  const clampedDetail = clampTextWithEllipsis(normalizedDetail, maxDetailLength);
+  const suffix = `${titleDetailSeparator}${clampedDetail}`;
+  const titleBudget = Math.max(minimumTitleBudget, MAX_NOTIFICATION_BODY - suffix.length);
+  const titleWithPlatform = clampTitleWithSuffix({
+    baseTitle: args.title,
+    suffix: `(${args.platformDisplayName})`,
+    max: titleBudget,
+  });
+  return `${titleWithPlatform}${suffix}`;
+}
+
 function buildCompatStatusNotificationEvent(
   params: MaybeSendCompatStatusNotificationParams
 ): CompatStatusNotificationEvent {
   const nextLabel = COMPAT_STATUS_LABELS[params.nextStatus] ?? params.nextStatus;
   const detail =
     params.previousStatus !== null
-      ? `${params.platformDisplayName}: ${COMPAT_STATUS_LABELS[params.previousStatus] ?? params.previousStatus} -> ${nextLabel}.`
-      : `${params.platformDisplayName}: ${nextLabel}.`;
+      ? `${COMPAT_STATUS_LABELS[params.previousStatus] ?? params.previousStatus} -> ${nextLabel}.`
+      : `${nextLabel}.`;
 
   const dayBucket = new Date().toISOString().slice(0, 10);
   const eventKey = [
@@ -182,7 +212,11 @@ function buildCompatStatusNotificationEvent(
   return {
     type: 'compat_status_changed',
     title: 'Compatibility updated',
-    body: buildReleaseEventBody(params.title, detail),
+    body: buildCompatStatusNotificationBody({
+      title: params.title,
+      platformDisplayName: params.platformDisplayName,
+      detail,
+    }),
     eventKey,
     payload: {
       previousStatus: params.previousStatus,

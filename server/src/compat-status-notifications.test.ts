@@ -129,7 +129,7 @@ void test('sends notification with from/to detail when status changes', async ()
 
   assert.equal(sends.length, 1);
   assert.equal(sends[0]?.title, 'Compatibility updated');
-  assert.equal(sends[0]?.body, 'Elden Ring: PlayStation 2: Incomplete -> Playable.');
+  assert.equal(sends[0]?.body, 'Elden Ring (PlayStation 2): Incomplete -> Playable.');
   assert.ok((sends[0]?.title.length ?? 0) <= MAX_NOTIFICATION_TITLE);
   assert.ok((sends[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
   assert.equal(sends[0]?.data['eventType'], 'compat_status_changed');
@@ -164,7 +164,7 @@ void test('uses first-time-set wording when there is no previous status', async 
   );
 
   assert.equal(sends.length, 1);
-  assert.equal(sends[0]?.body, 'Bloodborne: PlayStation 3: Perfect.');
+  assert.equal(sends[0]?.body, 'Bloodborne (PlayStation 3): Perfect.');
 });
 
 void test('fits worst-case platform/status combination within the body budget', async () => {
@@ -192,8 +192,38 @@ void test('fits worst-case platform/status combination within the body budget', 
   );
 
   assert.equal(sends.length, 1);
+  assert.equal(sends[0]?.body, 'A (PlayStation Vita): Incomplete -> Playable.');
   assert.ok((sends[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
-  assert.ok(sends[0]?.body.includes('PlayStation Vita: Incomplete -> Playable.'));
+});
+
+void test('never truncates the "(Platform)" suffix, even with an extremely long game title', async () => {
+  const pool = new CompatNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+  const sends: Array<{ body: string }> = [];
+
+  await maybeSendCompatibilityStatusNotification(
+    pool as unknown as Pool,
+    {
+      igdbGameId: '103',
+      platformIgdbId: 46,
+      title: 'A'.repeat(120),
+      platformDisplayName: 'PlayStation Vita',
+      previousStatus: 'incomplete',
+      nextStatus: 'playable',
+    },
+    {
+      sendMulticast: (_tokens, payload) => {
+        sends.push(payload);
+        return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+      },
+    }
+  );
+
+  assert.equal(sends.length, 1);
+  assert.ok((sends[0]?.body.length ?? 0) <= MAX_NOTIFICATION_BODY);
+  assert.ok(sends[0]?.body.includes('(PlayStation Vita): Incomplete -> Playable.'));
+  assert.ok(sends[0]?.body.includes('...'));
 });
 
 void test('skips notification when status is unchanged', async () => {

@@ -759,7 +759,9 @@ export class GameListFilteringEngine {
       const compatStatus = normalized.compatStatus;
       const platformIgdbId = this.getDisplayPlatformIgdbId(game);
       const matchesGuaranteed =
-        filters.compatibility.includes('guaranteed') && !isCompatTrackedPlatform(platformIgdbId);
+        filters.compatibility.includes('guaranteed') &&
+        platformIgdbId !== null &&
+        !isCompatTrackedPlatform(platformIgdbId);
       const matchesStatus = compatStatus !== null && filters.compatibility.includes(compatStatus);
 
       if (!matchesGuaranteed && !matchesStatus) {

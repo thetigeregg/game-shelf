@@ -4256,3 +4256,7 @@
 ## v1.82.0 - 2026-08-18
 
 - c4d2429d feat(notifications): notify on compatibility status changes (#561)
+
+## v1.83.0 - 2026-08-19
+
+- b76f8666 feat(game-list): add Guaranteed compatibility filter for untracked platforms (#562)

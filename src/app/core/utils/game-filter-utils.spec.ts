@@ -1,4 +1,5 @@
 import {
+  isCompatibilityFilterOption,
   isCompatibilityStatus,
   isGameRatingFilterOption,
   isGameStatusFilterOption,
@@ -32,11 +33,14 @@ describe('game-filter-utils', () => {
     expect(isCompatibilityStatus('perfect')).toBe(true);
     expect(isCompatibilityStatus('playable')).toBe(true);
     expect(isCompatibilityStatus('incomplete')).toBe(true);
+    expect(isCompatibilityStatus('guaranteed')).toBe(false);
     expect(isCompatibilityStatus('unknown')).toBe(false);
-    expect(normalizeCompatibilityFilterList(['perfect', 'playable', 'perfect', 'bad'])).toEqual([
-      'perfect',
-      'playable',
-    ]);
+    expect(isCompatibilityFilterOption('guaranteed')).toBe(true);
+    expect(isCompatibilityFilterOption('perfect')).toBe(true);
+    expect(isCompatibilityFilterOption('unknown')).toBe(false);
+    expect(
+      normalizeCompatibilityFilterList(['perfect', 'playable', 'perfect', 'guaranteed', 'bad'])
+    ).toEqual(['perfect', 'playable', 'guaranteed']);
     expect(normalizeCompatibilityFilterList('not-array')).toEqual([]);
   });
 

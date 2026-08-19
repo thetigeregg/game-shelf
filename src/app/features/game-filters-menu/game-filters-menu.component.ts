@@ -25,7 +25,7 @@ import {
   IonCheckbox,
 } from '@ionic/angular/standalone';
 import {
-  CompatibilityStatus,
+  CompatibilityFilterOption,
   DEFAULT_GAME_LIST_FILTERS,
   GAME_RATING_VALUES,
   GameGroupByField,
@@ -112,7 +112,12 @@ export class GameFiltersMenuComponent implements OnChanges {
     (status) => status !== 'none'
   );
   readonly ratingOptions: GameRatingFilterOption[] = ['none', ...GAME_RATING_VALUES];
-  readonly compatibilityOptions: CompatibilityStatus[] = ['perfect', 'playable', 'incomplete'];
+  readonly compatibilityOptions: CompatibilityFilterOption[] = [
+    'guaranteed',
+    'perfect',
+    'playable',
+    'incomplete',
+  ];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -339,7 +344,7 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   onCompatibilitySelectionChange(
-    value: CompatibilityStatus[] | CompatibilityStatus | null | undefined
+    value: CompatibilityFilterOption[] | CompatibilityFilterOption | null | undefined
   ): void {
     const normalized = this.normalizeCompatibilitySelection(value);
     this.draftFilters = {
@@ -431,7 +436,11 @@ export class GameFiltersMenuComponent implements OnChanges {
     return rating.toFixed(1).replace(/\.0$/, '');
   }
 
-  getCompatibilityLabel(status: CompatibilityStatus): string {
+  getCompatibilityLabel(status: CompatibilityFilterOption): string {
+    if (status === 'guaranteed') {
+      return 'Guaranteed';
+    }
+
     if (status === 'perfect') {
       return 'Perfect';
     }
@@ -523,8 +532,8 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   private normalizeCompatibilitySelection(
-    value: CompatibilityStatus[] | CompatibilityStatus | null | undefined
-  ): CompatibilityStatus[] {
+    value: CompatibilityFilterOption[] | CompatibilityFilterOption | null | undefined
+  ): CompatibilityFilterOption[] {
     const normalizedValues = Array.isArray(value) ? value : value ? [value] : [];
 
     return normalizeCompatibilityFilterList(normalizedValues);

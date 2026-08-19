@@ -1,4 +1,5 @@
 import {
+  CompatibilityFilterOption,
   CompatibilityStatus,
   GameEntry,
   GameRatingFilterOption,
@@ -53,12 +54,16 @@ export function isCompatibilityStatus(value: unknown): value is CompatibilitySta
   return value === 'perfect' || value === 'playable' || value === 'incomplete';
 }
 
-export function normalizeCompatibilityFilterList(value: unknown): CompatibilityStatus[] {
+export function isCompatibilityFilterOption(value: unknown): value is CompatibilityFilterOption {
+  return isCompatibilityStatus(value) || value === 'guaranteed';
+}
+
+export function normalizeCompatibilityFilterList(value: unknown): CompatibilityFilterOption[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return [...new Set(value.filter(isCompatibilityStatus))];
+  return [...new Set(value.filter(isCompatibilityFilterOption))];
 }
 
 export function isGameStatusFilterOption(value: unknown): value is GameStatusFilterOption {

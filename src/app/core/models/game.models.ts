@@ -10,6 +10,7 @@ export function isGameRating(value: unknown): value is GameRating {
 }
 export type GameRatingFilterOption = GameRating | 'none';
 export type CompatibilityStatus = 'perfect' | 'playable' | 'incomplete';
+export type CompatibilityFilterOption = CompatibilityStatus | 'guaranteed';
 export type GameType =
   | 'main_game'
   | 'dlc_addon'
@@ -556,7 +557,7 @@ export interface GameListFilters {
   excludedTags: string[];
   excludedGameTypes: GameType[];
   ratings: GameRatingFilterOption[];
-  compatibility: CompatibilityStatus[];
+  compatibility: CompatibilityFilterOption[];
   hltbMainHoursMin: number | null;
   hltbMainHoursMax: number | null;
   releaseDateFrom: string | null;

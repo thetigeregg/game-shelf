@@ -18,6 +18,7 @@ import {
   normalizeStringList,
   normalizeTagFilterList,
 } from '../../core/utils/game-filter-utils';
+import { isCompatTrackedPlatform } from '../../core/data/emulation-compat-platforms';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 import {
   calculatePriceAdjustedTimeAdjustedScore,
@@ -756,8 +757,14 @@ export class GameListFilteringEngine {
 
     if (filters.compatibility.length > 0) {
       const compatStatus = normalized.compatStatus;
+      const platformIgdbId = this.getDisplayPlatformIgdbId(game);
+      const matchesGuaranteed =
+        filters.compatibility.includes('guaranteed') &&
+        platformIgdbId !== null &&
+        !isCompatTrackedPlatform(platformIgdbId);
+      const matchesStatus = compatStatus !== null && filters.compatibility.includes(compatStatus);
 
-      if (compatStatus === null || !filters.compatibility.includes(compatStatus)) {
+      if (!matchesGuaranteed && !matchesStatus) {
         return false;
       }
     }

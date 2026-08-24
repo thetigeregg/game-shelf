@@ -79,7 +79,7 @@
     "@ionic/angular": "^8.8.18",
     "@playwright/test": "^1.62.1",
     "@semantic-icons/simple-icons": "^0.58.0",
-    "@tiptap/core": "^3.30.1",
+    "@tiptap/core": "^3.30.2",
     "@tiptap/extension-details": "^3.30.1",
     "@tiptap/extension-list": "^3.30.1",
     "@tiptap/extension-underline": "^3.30.1",

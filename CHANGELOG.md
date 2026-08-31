@@ -4260,3 +4260,7 @@
 ## v1.83.0 - 2026-08-19
 
 - b76f8666 feat(game-list): add Guaranteed compatibility filter for untracked platforms (#562)
+
+## v1.83.1 - 2026-08-31
+
+- b9c11158 chore: update dependencies in package.json and package-lock.json (#570)

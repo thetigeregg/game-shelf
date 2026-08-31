@@ -4264,3 +4264,7 @@
 ## v1.83.1 - 2026-08-31
 
 - b9c11158 chore: update dependencies in package.json and package-lock.json (#570)
+
+## v1.84.0 - 2026-08-31
+
+- f74f60db feat(game-list): add excluded compatibility filter (#571)

@@ -556,6 +556,7 @@ export interface GameListFilters {
   excludedStatuses: GameStatusFilterOption[];
   excludedTags: string[];
   excludedGameTypes: GameType[];
+  excludedCompatibility: CompatibilityFilterOption[];
   ratings: GameRatingFilterOption[];
   compatibility: CompatibilityFilterOption[];
   hltbMainHoursMin: number | null;
@@ -582,6 +583,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   excludedStatuses: [],
   excludedTags: [],
   excludedGameTypes: [],
+  excludedCompatibility: [],
   ratings: [],
   compatibility: [],
   hltbMainHoursMin: null,

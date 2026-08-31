@@ -251,6 +251,7 @@ describe('settings-import-export.utils', () => {
         excludedPlatform: ['SNES', false],
         excludedGenres: ['Puzzle', null],
         excludedGameTypes: ['expansion', 'invalid'],
+        excludedCompatibility: ['incomplete', 'invalid'],
       }),
       DEFAULT_GAME_LIST_FILTERS
     );
@@ -264,6 +265,7 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.excludedPlatform).toEqual(['SNES']);
     expect(parsed?.excludedGenres).toEqual(['Puzzle']);
     expect(parsed?.excludedGameTypes).toEqual(['expansion']);
+    expect(parsed?.excludedCompatibility).toEqual(['incomplete']);
   });
 
   it('buildGamesExportCsv emits game rows with tag names and review columns', () => {

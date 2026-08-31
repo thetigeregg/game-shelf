@@ -769,6 +769,21 @@ export class GameListFilteringEngine {
       }
     }
 
+    if (filters.excludedCompatibility.length > 0) {
+      const compatStatus = normalized.compatStatus;
+      const platformIgdbId = this.getDisplayPlatformIgdbId(game);
+      const matchesGuaranteed =
+        filters.excludedCompatibility.includes('guaranteed') &&
+        platformIgdbId !== null &&
+        !isCompatTrackedPlatform(platformIgdbId);
+      const matchesStatus =
+        compatStatus !== null && filters.excludedCompatibility.includes(compatStatus);
+
+      if (matchesGuaranteed || matchesStatus) {
+        return false;
+      }
+    }
+
     const gameMainHours = normalized.effectiveHltbHours;
 
     if (gameMainHours !== null) {
@@ -897,6 +912,7 @@ export class GameListFilteringEngine {
       filters.excludedGameTypes.length > 0 ||
       filters.ratings.length > 0 ||
       filters.compatibility.length > 0 ||
+      filters.excludedCompatibility.length > 0 ||
       minMainHours !== null ||
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||

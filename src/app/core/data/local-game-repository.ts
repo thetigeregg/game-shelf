@@ -1774,6 +1774,7 @@ export class LocalGameRepository implements GameRepository {
       (tag) => tag !== '__none__'
     );
     const excludedGameTypes = normalizeGameTypeList(source.excludedGameTypes);
+    const excludedCompatibility = normalizeCompatibilityFilterList(source.excludedCompatibility);
     const ratings = normalizeGameRatingFilterList(source.ratings);
     const compatibility = normalizeCompatibilityFilterList(source.compatibility);
     const hltbMainHoursMin = normalizeNonNegativeNumber(source.hltbMainHoursMin);
@@ -1804,6 +1805,7 @@ export class LocalGameRepository implements GameRepository {
       excludedStatuses,
       excludedTags,
       excludedGameTypes,
+      excludedCompatibility,
       ratings,
       compatibility,
       hltbMainHoursMin:

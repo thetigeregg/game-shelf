@@ -166,6 +166,7 @@ describe('GameFiltersMenuComponent', () => {
     component.onExcludedStatusSelectionChange(['none', 'dropped']);
     component.onRatingSelectionChange(['none', 4.5]);
     component.onCompatibilitySelectionChange(['perfect', 'playable', 'perfect', 'bad'] as never);
+    component.onExcludedCompatibilitySelectionChange(['incomplete', 'incomplete', 'bad'] as never);
     component.onGameTypeSelectionChange('main_game');
 
     expect(filtersEmitSpy).toHaveBeenCalled();
@@ -176,6 +177,7 @@ describe('GameFiltersMenuComponent', () => {
     expect(component.draftFilters.excludedStatuses).toEqual(['none', 'dropped']);
     expect(component.draftFilters.ratings).toEqual(['none', 4.5]);
     expect(component.draftFilters.compatibility).toEqual(['perfect', 'playable']);
+    expect(component.draftFilters.excludedCompatibility).toEqual(['incomplete']);
     expect(component.draftFilters.gameTypes).toEqual(['main_game']);
   });
 

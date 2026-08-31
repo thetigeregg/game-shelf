@@ -234,6 +234,23 @@
               }
             </ion-select>
           </ion-item>
+
+          <ion-item>
+            <ion-select
+              label="Excluded compatibility"
+              labelPlacement="stacked"
+              placeholder="No excluded compatibility"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedCompatibility"
+              (ngModelChange)="onExcludedCompatibilitySelectionChange($event)"
+            >
+              @for (status of compatibilityOptions; track status) {
+                <ion-select-option [value]="status">
+                  {{ getCompatibilityLabel(status) }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
         </div>
       </ion-accordion>
 

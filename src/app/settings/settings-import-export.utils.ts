@@ -347,6 +347,7 @@ export function parseFilters(
             VALID_GAME_TYPES.includes(value as NonNullable<GameCatalogResult['gameType']>)
           )
         : [],
+      excludedCompatibility: normalizeCompatibilityFilterList(parsed.excludedCompatibility),
       ratings: Array.isArray(parsed.ratings)
         ? parsed.ratings
             .map((value) => (value === 'none' ? 'none' : normalizeRating(String(value))))

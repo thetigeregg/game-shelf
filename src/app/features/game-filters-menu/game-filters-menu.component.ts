@@ -310,6 +310,17 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onExcludedCompatibilitySelectionChange(
+    value: CompatibilityFilterOption[] | CompatibilityFilterOption | null | undefined
+  ): void {
+    const normalized = this.normalizeCompatibilitySelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedCompatibility: normalized,
+    };
+    this.updateFilters();
+  }
+
   onExcludedStatusSelectionChange(
     value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined
   ): void {

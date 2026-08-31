@@ -73,6 +73,7 @@ export function normalizeListPageStoredFilters(
       (tag) => tag !== noneTagFilterValue
     ),
     excludedGameTypes: normalizeGameTypeList(parsed['excludedGameTypes']),
+    excludedCompatibility: normalizeCompatibilityFilterList(parsed['excludedCompatibility']),
     ratings: normalizeGameRatingFilterList(parsed['ratings']),
     compatibility: normalizeCompatibilityFilterList(parsed['compatibility']),
     hltbMainHoursMin:

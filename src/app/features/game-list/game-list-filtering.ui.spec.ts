@@ -909,6 +909,56 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Untracked Platform Game']);
   });
 
+  it('excludes games matching the excluded compatibility filter', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 21,
+        title: 'Perfect Game',
+        compatStatus: 'perfect',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 21,
+        title: 'Incomplete Game',
+        compatStatus: 'incomplete',
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Untracked Platform Game',
+      }),
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        excludedCompatibility: ['incomplete'],
+      },
+      ''
+    );
+
+    expect(result.map((game) => game.title).sort()).toEqual([
+      'Perfect Game',
+      'Untracked Platform Game',
+    ]);
+
+    const guaranteedExcluded = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        excludedCompatibility: ['guaranteed'],
+      },
+      ''
+    );
+
+    expect(guaranteedExcluded.map((game) => game.title).sort()).toEqual([
+      'Incomplete Game',
+      'Perfect Game',
+    ]);
+  });
+
   it('filters by release date range and search query', () => {
     const games: GameEntry[] = [
       makeGame({

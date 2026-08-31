@@ -16,12 +16,12 @@
     "@fastify/middie": "^9.3.3",
     "@fastify/rate-limit": "^11.2.0",
     "dotenv": "^17.4.2",
-    "express-rate-limit": "^8.6.2",
-    "fastify": "^5.12.0",
+    "express-rate-limit": "^8.7.0",
+    "fastify": "^5.12.1",
     "fastify-plugin": "^6.0.0",
-    "firebase-admin": "^14.2.0",
+    "firebase-admin": "^14.3.0",
     "pg": "^8.23.0",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.13"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

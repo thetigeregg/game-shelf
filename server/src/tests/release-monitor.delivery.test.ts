@@ -265,7 +265,6 @@ class ReleaseMonitorFlowPoolMock {
       return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
-    void params;
     return Promise.resolve({ rows: [], rowCount: 0 });
   }
 }

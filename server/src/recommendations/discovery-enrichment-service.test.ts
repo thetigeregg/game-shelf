@@ -1244,8 +1244,7 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
     timeoutCalls.push(timeout ?? 0);
     return 2 as unknown as ReturnType<typeof setInterval>;
   }) as unknown as typeof setInterval;
-  globalThis.clearInterval = ((id: ReturnType<typeof setInterval>) => {
-    void id;
+  globalThis.clearInterval = ((_id: ReturnType<typeof setInterval>) => {
     clearCalls += 1;
   }) as typeof clearInterval;
 

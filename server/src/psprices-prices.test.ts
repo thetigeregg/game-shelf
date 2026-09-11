@@ -113,17 +113,14 @@ class GamePoolMock {
       )
     ) {
       this.notificationTokenReadCount += 1;
-      void params;
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (normalized.startsWith('insert into release_notification_log')) {
-      void params;
       return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
     }
 
     if (normalized.startsWith('update release_notification_log set payload = $1::jsonb')) {
-      void params;
       return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
@@ -132,12 +129,10 @@ class GamePoolMock {
         'delete from release_notification_log where event_key = $1 and sent_count = 0'
       )
     ) {
-      void params;
       return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalized.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
-      void params;
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
 

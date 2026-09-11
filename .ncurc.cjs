@@ -6,7 +6,7 @@ const IONIC_MAJOR = 8;
 const isAngularPackage = (name) =>
   name.startsWith('@angular/') || name.startsWith('@angular-eslint/');
 
-const isIonicPackage = (name) => name.startsWith('@ionic/');
+const isIonicPackage = (name) => name.startsWith('@ionic/') && name !== '@ionic/angular-toolkit';
 
 module.exports = {
   ...base,

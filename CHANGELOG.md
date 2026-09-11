@@ -4268,3 +4268,7 @@
 ## v1.84.0 - 2026-08-31
 
 - f74f60db feat(game-list): add excluded compatibility filter (#571)
+
+## v1.84.1 - 2026-09-11
+
+- 6506fa9c chore(deps): bump dependencies across workspaces and pin ionic majors (#585)

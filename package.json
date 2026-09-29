@@ -112,7 +112,7 @@
     "@commitlint/config-conventional": "^21.2.3",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
-    "@ionic/angular-toolkit": "^12.3.0",
+    "@ionic/angular-toolkit": "^13.0.0",
     "@thetigeregg/commitlint-config": "^2.0.2",
     "@thetigeregg/dev-cli": "^5.0.2",
     "@thetigeregg/lint-staged-config": "^2.0.0",

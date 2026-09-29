@@ -4272,3 +4272,7 @@
 ## v1.84.1 - 2026-09-11
 
 - 6506fa9c chore(deps): bump dependencies across workspaces and pin ionic majors (#585)
+
+## v1.84.2 - 2026-09-29
+
+- 1499a651 chore(deps): bump app, server, and iOS fastlane dependencies (#601)

@@ -2147,4 +2147,70 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     expect(desc.map((game) => game.title)).toEqual(['Has Date', 'No Date A', 'No Date B']);
   });
+
+  it('breaks same-day releaseDate ties by title in both directions', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Same Day B',
+        releaseDate: '2021-01-01T18:00:00.000Z',
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Older',
+        releaseDate: '2019-01-01T00:00:00.000Z',
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Same Day A',
+        releaseDate: '2021-01-01T00:00:00.000Z',
+      }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'Malformed', releaseDate: '2021' }),
+      makeGame({
+        igdbGameId: '5',
+        platformIgdbId: 130,
+        title: 'Not A Date',
+        releaseDate: 'not-a-date',
+      }),
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'releaseDate',
+        sortDirection: 'asc',
+      },
+      ''
+    );
+
+    expect(asc.map((game) => game.title)).toEqual([
+      'Older',
+      'Same Day A',
+      'Same Day B',
+      'Malformed',
+      'Not A Date',
+    ]);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'releaseDate',
+        sortDirection: 'desc',
+      },
+      ''
+    );
+
+    expect(desc.map((game) => game.title)).toEqual([
+      'Same Day A',
+      'Same Day B',
+      'Older',
+      'Malformed',
+      'Not A Date',
+    ]);
+  });
 });

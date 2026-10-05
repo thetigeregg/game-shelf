@@ -519,6 +519,7 @@ export interface SyncPushResult {
 export type GameSortField =
   | 'title'
   | 'releaseDate'
+  | 'releasingSoon'
   | 'createdAt'
   | 'hltb'
   | 'tas'

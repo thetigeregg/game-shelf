@@ -72,7 +72,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
-import { distinctUntilChanged, filter, map, switchMap, tap } from 'rxjs/operators';
+import { distinctUntilChanged, filter, map, startWith, switchMap, tap } from 'rxjs/operators';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GAME_RATING_VALUES,
@@ -148,6 +148,7 @@ import {
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { exportSelectedGamesCsv } from './game-list-selection-export.util';
+import { watchUtcDayChanges } from './utc-day-change';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
@@ -678,8 +679,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
               ? this.pricePreferenceService.pricePreference$
               : of(this.pricePreferenceService.getPricePreference());
 
-          return pricePreference$.pipe(
-            map((pricePreference) =>
+          // Releasing soon tiers depend on today's UTC date, so re-sort an idle list at rollover.
+          const utcDayChange$ =
+            filters.sortField === 'releasingSoon'
+              ? watchUtcDayChanges().pipe(startWith(undefined))
+              : of(undefined);
+
+          return combineLatest([pricePreference$, utcDayChange$]).pipe(
+            map(([pricePreference]) =>
               this.applyFiltersAndSort(games, filters, searchQuery, timePreference, pricePreference)
             )
           );

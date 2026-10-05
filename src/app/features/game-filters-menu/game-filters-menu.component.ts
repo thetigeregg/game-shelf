@@ -50,6 +50,7 @@ type SortOption =
   | 'title:desc'
   | 'releaseDate:asc'
   | 'releaseDate:desc'
+  | 'releasingSoon:asc'
   | 'createdAt:asc'
   | 'createdAt:desc'
   | 'hltb:asc'
@@ -161,11 +162,14 @@ export class GameFiltersMenuComponent implements OnChanges {
               ? 'review'
               : this.filters.sortField === 'price' && !this.showPriceSort
                 ? DEFAULT_GAME_LIST_FILTERS.sortField
-                : this.filters.sortField;
+                : this.filters.sortField === 'releasingSoon' && !this.showReleasingSoonSort
+                  ? DEFAULT_GAME_LIST_FILTERS.sortField
+                  : this.filters.sortField;
     const normalizedFilters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
       sortField: normalizedSortField,
+      ...(normalizedSortField === 'releasingSoon' ? { sortDirection: 'asc' as const } : {}),
       discounted: this.showDiscountedFilter && normalizeBooleanFilter(this.filters.discounted),
     };
     this.draftFilters = normalizedFilters;
@@ -174,6 +178,7 @@ export class GameFiltersMenuComponent implements OnChanges {
 
     if (
       this.filters.sortField !== normalizedSortField ||
+      this.filters.sortDirection !== normalizedFilters.sortDirection ||
       this.filters.discounted !== normalizedFilters.discounted
     ) {
       this.filtersChange.emit({ ...normalizedFilters });
@@ -573,6 +578,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'title:desc' ||
       value === 'releaseDate:asc' ||
       value === 'releaseDate:desc' ||
+      (this.showReleasingSoonSort && value === 'releasingSoon:asc') ||
       value === 'createdAt:asc' ||
       value === 'createdAt:desc' ||
       value === 'hltb:asc' ||
@@ -592,6 +598,10 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   get showPriceSort(): boolean {
+    return this.listType === 'wishlist';
+  }
+
+  get showReleasingSoonSort(): boolean {
     return this.listType === 'wishlist';
   }
 

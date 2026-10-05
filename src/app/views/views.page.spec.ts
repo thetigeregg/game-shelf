@@ -140,6 +140,20 @@ describe('ViewsPage', () => {
       expect(debugLogServiceMock.warn).not.toHaveBeenCalled();
     });
 
+    it('labels the wishlist releasing soon sort without a direction arrow', () => {
+      const view = makeView({
+        listType: 'wishlist',
+        filters: { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon' },
+        groupBy: 'none',
+      });
+
+      component.listType = 'wishlist';
+      expect(component.getViewSummary(view)).toBe('Releasing soon • Group: None');
+
+      component.listType = 'collection';
+      expect(component.getViewSummary(view)).toBe('Game title ↑ • Group: None');
+    });
+
     it('falls back to defaults without side effects when filters are missing', () => {
       const malformed = makeView({ id: 7, name: 'Broken' });
       delete (malformed as Partial<GameListView>).filters;

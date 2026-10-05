@@ -1231,6 +1231,7 @@ export class ListPageComponent {
       (value === 'tas' && isTasFeatureEnabled()) ||
       (value === 'ptas' && isTasFeatureEnabled() && this.listType === 'wishlist') ||
       (value === 'price' && this.listType === 'wishlist') ||
+      (value === 'releasingSoon' && this.listType === 'wishlist') ||
       value === 'review' ||
       value === 'metacritic' ||
       value === 'platform'

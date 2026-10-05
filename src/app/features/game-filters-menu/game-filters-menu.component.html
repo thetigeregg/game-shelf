@@ -11,6 +11,9 @@
         <ion-select-option value="title:desc">Game title ↓</ion-select-option>
         <ion-select-option value="releaseDate:asc">Release date ↑</ion-select-option>
         <ion-select-option value="releaseDate:desc">Release date ↓</ion-select-option>
+        @if (showReleasingSoonSort) {
+          <ion-select-option value="releasingSoon:asc">Releasing soon</ion-select-option>
+        }
         <ion-select-option value="createdAt:asc">Date added ↑</ion-select-option>
         <ion-select-option value="createdAt:desc">Date added ↓</ion-select-option>
         <ion-select-option value="hltb:asc">Completion time ↑</ion-select-option>

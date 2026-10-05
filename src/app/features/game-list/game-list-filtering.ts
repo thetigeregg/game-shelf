@@ -821,7 +821,10 @@ export class GameListFilteringEngine {
       sortField === 'ptas' && isTasFeatureEnabled() ? pricePreference : 0;
     const today = this.getDateOnly(new Date().toISOString());
     const cacheToday =
-      (sortField === 'ptas' || sortField === 'tas') && isTasFeatureEnabled() ? today : null;
+      sortField === 'releasingSoon' ||
+      ((sortField === 'ptas' || sortField === 'tas') && isTasFeatureEnabled())
+        ? today
+        : null;
 
     if (
       existingCache &&
@@ -867,10 +870,14 @@ export class GameListFilteringEngine {
                 ? [...games].sort((left, right) =>
                     this.compareReleaseDatesUnknownLast(left, right, sortDirection)
                   )
-                : this.applySortDirection(
-                    [...games].sort((left, right) => this.compareGames(left, right, sortField)),
-                    sortDirection
-                  );
+                : sortField === 'releasingSoon'
+                  ? [...games].sort((left, right) =>
+                      this.compareGamesByReleasingSoon(left, right, today)
+                    )
+                  : this.applySortDirection(
+                      [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+                      sortDirection
+                    );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
@@ -1108,7 +1115,22 @@ export class GameListFilteringEngine {
     }
 
     const dateOnly = releaseDate.slice(0, 10);
-    return /^\d{4}-\d{2}-\d{2}$/.test(dateOnly) ? dateOnly : null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    if (month < 1 || month > 12 || day < 1) {
+      return null;
+    }
+
+    // Day 0 of the following month is the last day of this one.
+    return day <= new Date(Date.UTC(year, month, 0)).getUTCDate() ? dateOnly : null;
   }
 
   private resolveReleaseDateStatus(
@@ -1327,6 +1349,35 @@ export class GameListFilteringEngine {
     }
 
     return this.sortGamesByTitleFallback(left, right);
+  }
+
+  private compareGamesByReleasingSoon(
+    left: GameEntry,
+    right: GameEntry,
+    today: string | null
+  ): number {
+    const leftDate = this.getDateOnly(left.releaseDate);
+    const rightDate = this.getDateOnly(right.releaseDate);
+    const leftTier = this.classifyReleasingSoonTier(leftDate, today);
+    const rightTier = this.classifyReleasingSoonTier(rightDate, today);
+
+    if (leftTier !== rightTier) {
+      return leftTier - rightTier;
+    }
+
+    if (leftDate !== null && rightDate !== null && leftDate !== rightDate) {
+      return leftTier === 1 ? leftDate.localeCompare(rightDate) : rightDate.localeCompare(leftDate);
+    }
+
+    return this.sortGamesByTitleFallback(left, right);
+  }
+
+  private classifyReleasingSoonTier(dateOnly: string | null, today: string | null): 1 | 2 | 3 {
+    if (dateOnly === null) {
+      return 2;
+    }
+
+    return today !== null && dateOnly < today ? 3 : 1;
   }
 
   private compareGamesByPrice(

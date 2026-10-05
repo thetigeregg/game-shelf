@@ -415,6 +415,10 @@ export class ViewsPage implements OnInit, DoCheck, OnDestroy {
       return `Release date ${direction}`;
     }
 
+    if (sortField === 'releasingSoon' && this.listType === 'wishlist') {
+      return 'Releasing soon';
+    }
+
     if (sortField === 'createdAt') {
       return `Date added ${direction}`;
     }

@@ -1838,6 +1838,7 @@ export class LocalGameRepository implements GameRepository {
       (value === 'tas' && isTasFeatureEnabled()) ||
       (value === 'ptas' && isTasFeatureEnabled() && listType === 'wishlist') ||
       (value === 'price' && listType === 'wishlist') ||
+      (value === 'releasingSoon' && listType === 'wishlist') ||
       value === 'metacritic' ||
       value === 'platform'
     ) {

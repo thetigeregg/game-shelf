@@ -239,6 +239,18 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.sortDirection).toBe('desc');
   });
 
+  it('accepts releasing soon sort field only for wishlist views during import parsing', () => {
+    const raw = JSON.stringify({ sortField: 'releasingSoon', sortDirection: 'asc' });
+
+    const wishlistParsed = parseFilters(raw, DEFAULT_GAME_LIST_FILTERS, { listType: 'wishlist' });
+    const collectionParsed = parseFilters(raw, DEFAULT_GAME_LIST_FILTERS, {
+      listType: 'collection',
+    });
+
+    expect(wishlistParsed?.sortField).toBe('releasingSoon');
+    expect(collectionParsed?.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('parses optional filter arrays and drops invalid excluded game types', () => {
     const parsed = parseFilters(
       JSON.stringify({

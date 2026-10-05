@@ -960,6 +960,24 @@ describe('LocalGameRepository', () => {
     expect(created.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
 
+  it('keeps releasing soon view sort only for wishlist views', async () => {
+    const wishlistView = await repository.createView({
+      name: 'Releasing soon wishlist',
+      listType: 'wishlist',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon' },
+      groupBy: 'none',
+    });
+    const collectionView = await repository.createView({
+      name: 'Releasing soon collection',
+      listType: 'collection',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon' },
+      groupBy: 'none',
+    });
+
+    expect(wishlistView.filters.sortField).toBe('releasingSoon');
+    expect(collectionView.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('throws for invalid game and view inputs', async () => {
     await expect(
       repository.upsertFromCatalog({ ...mario, igdbGameId: ' ' }, 'collection')

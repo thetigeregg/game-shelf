@@ -667,6 +667,28 @@ describe('ListPageComponent', () => {
     routeMock.snapshot.data.listType = 'collection';
   });
 
+  it('accepts releasing soon sorting only on the wishlist', () => {
+    routeMock.snapshot.data.listType = 'wishlist';
+    const wishlistComponent = createComponent();
+
+    wishlistComponent.onFiltersChange({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      sortField: 'releasingSoon',
+    });
+
+    expect(wishlistComponent.filters.sortField).toBe('releasingSoon');
+
+    routeMock.snapshot.data.listType = 'collection';
+    const collectionComponent = createComponent();
+
+    collectionComponent.onFiltersChange({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      sortField: 'releasingSoon',
+    });
+
+    expect(collectionComponent.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('trims invalid option selections when platform, genre, and collection options change', () => {
     const component = createComponent();
     component.filters = {

@@ -184,6 +184,23 @@ describe('list-page-preferences', () => {
     expect(collectionNormalized.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
 
+  it('accepts releasing soon only for wishlist stored preferences', () => {
+    const wishlistNormalized = normalizeListPageStoredFilters(
+      { sortField: 'releasingSoon' },
+      '__none__',
+      { listType: 'wishlist' }
+    );
+
+    const collectionNormalized = normalizeListPageStoredFilters(
+      { sortField: 'releasingSoon' },
+      '__none__',
+      { listType: 'collection' }
+    );
+
+    expect(wishlistNormalized.sortField).toBe('releasingSoon');
+    expect(collectionNormalized.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+  });
+
   it('accepts discounted only for wishlist stored preferences', () => {
     const wishlistNormalized = normalizeListPageStoredFilters({ discounted: true }, '__none__', {
       listType: 'wishlist',

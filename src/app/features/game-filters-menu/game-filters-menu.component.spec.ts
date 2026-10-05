@@ -49,6 +49,40 @@ describe('GameFiltersMenuComponent', () => {
     );
   });
 
+  it('normalizes hidden releasing soon sort outside wishlist and emits corrected filters', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.filters = createFilters('releasingSoon');
+    component.listType = 'collection';
+    component.ngOnChanges();
+
+    expect(component.draftFilters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ sortField: DEFAULT_GAME_LIST_FILTERS.sortField })
+    );
+  });
+
+  it('keeps releasing soon sort on wishlist and forces ascending direction', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.filters = createFilters('releasingSoon');
+    component.listType = 'wishlist';
+    component.ngOnChanges();
+
+    expect(component.sortOption).toBe('releasingSoon:asc');
+    expect(emitSpy).not.toHaveBeenCalled();
+
+    component.filters = { ...createFilters('releasingSoon'), sortDirection: 'desc' };
+    component.ngOnChanges();
+
+    expect(component.sortOption).toBe('releasingSoon:asc');
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ sortField: 'releasingSoon', sortDirection: 'asc' })
+    );
+  });
+
   it('normalizes hidden ptas sort outside wishlist and emits corrected filters', () => {
     window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
     const component = createComponent();
@@ -130,6 +164,7 @@ describe('GameFiltersMenuComponent', () => {
     component.listType = 'collection';
     component.onSortOptionChange('not-a-sort');
     component.onSortOptionChange('price:asc');
+    component.onSortOptionChange('releasingSoon:asc');
     expect(emitSpy).not.toHaveBeenCalled();
 
     component.onSortOptionChange('metacritic:desc');
@@ -146,6 +181,14 @@ describe('GameFiltersMenuComponent', () => {
     component.onSortOptionChange('price:asc');
     expect(component.sortOption).toBe('price:asc');
     expect(component.draftFilters.sortField).toBe('price');
+    expect(component.draftFilters.sortDirection).toBe('asc');
+
+    component.onSortOptionChange('releasingSoon:desc');
+    expect(component.sortOption).toBe('price:asc');
+
+    component.onSortOptionChange('releasingSoon:asc');
+    expect(component.sortOption).toBe('releasingSoon:asc');
+    expect(component.draftFilters.sortField).toBe('releasingSoon');
     expect(component.draftFilters.sortDirection).toBe('asc');
   });
 

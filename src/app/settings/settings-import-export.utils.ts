@@ -362,6 +362,7 @@ export function parseFilters(
         (parsed.sortField === 'tas' && isTasFeatureEnabled()) ||
         (parsed.sortField === 'ptas' && allowPtasSort) ||
         (parsed.sortField === 'price' && allowPriceSort) ||
+        (parsed.sortField === 'releasingSoon' && allowPriceSort) ||
         parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'

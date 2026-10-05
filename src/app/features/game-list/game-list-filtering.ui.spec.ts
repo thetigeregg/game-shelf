@@ -2213,4 +2213,104 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Not A Date',
     ]);
   });
+
+  it('sorts releasing soon as upcoming, then undated, then released, relative to today', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
+
+    try {
+      const games: GameEntry[] = [
+        makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Old', releaseDate: '2020-01-01' }),
+        makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Far', releaseDate: '2027-03-01' }),
+        makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Undated B', releaseDate: null }),
+        makeGame({
+          igdbGameId: '4',
+          platformIgdbId: 130,
+          title: 'Yesterday',
+          releaseDate: '2026-06-14T23:00:00.000Z',
+        }),
+        makeGame({
+          igdbGameId: '5',
+          platformIgdbId: 130,
+          title: 'Today',
+          releaseDate: '2026-06-15T00:00:00.000Z',
+        }),
+        makeGame({ igdbGameId: '6', platformIgdbId: 130, title: 'Malformed', releaseDate: '2027' }),
+        makeGame({
+          igdbGameId: '7',
+          platformIgdbId: 130,
+          title: 'Next Week B',
+          releaseDate: '2026-06-22',
+        }),
+        makeGame({
+          igdbGameId: '8',
+          platformIgdbId: 130,
+          title: 'Next Week A',
+          releaseDate: '2026-06-22',
+        }),
+      ];
+      const expected = [
+        'Today',
+        'Next Week A',
+        'Next Week B',
+        'Far',
+        'Malformed',
+        'Undated B',
+        'Yesterday',
+        'Old',
+      ];
+
+      const asc = engine.applyFiltersAndSort(
+        games,
+        { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon', sortDirection: 'asc' },
+        ''
+      );
+      expect(asc.map((game) => game.title)).toEqual(expected);
+
+      const desc = engine.applyFiltersAndSort(
+        games,
+        { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon', sortDirection: 'desc' },
+        ''
+      );
+      expect(desc.map((game) => game.title)).toEqual(expected);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-sorts releasing soon when the current date changes', () => {
+    vi.useFakeTimers();
+
+    try {
+      const games: GameEntry[] = [
+        makeGame({
+          igdbGameId: '1',
+          platformIgdbId: 130,
+          title: 'June',
+          releaseDate: '2026-06-20',
+        }),
+        makeGame({
+          igdbGameId: '2',
+          platformIgdbId: 130,
+          title: 'July',
+          releaseDate: '2026-07-20',
+        }),
+      ];
+      const filters = { ...DEFAULT_GAME_LIST_FILTERS, sortField: 'releasingSoon' as const };
+
+      vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
+      expect(engine.applyFiltersAndSort(games, filters, '').map((game) => game.title)).toEqual([
+        'June',
+        'July',
+      ]);
+
+      vi.setSystemTime(new Date('2026-06-21T12:00:00.000Z'));
+      expect(engine.applyFiltersAndSort(games, filters, '').map((game) => game.title)).toEqual([
+        'July',
+        'June',
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

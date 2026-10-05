@@ -144,6 +144,7 @@ function isValidSortField(
     (value === 'tas' && isTasFeatureEnabled()) ||
     (value === 'ptas' && isTasFeatureEnabled() && allowWishlistOnlySorts) ||
     (value === 'price' && allowWishlistOnlySorts) ||
+    (value === 'releasingSoon' && allowWishlistOnlySorts) ||
     value === 'review' ||
     value === 'metacritic' ||
     value === 'platform'

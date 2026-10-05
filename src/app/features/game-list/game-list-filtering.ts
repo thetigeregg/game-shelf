@@ -1115,7 +1115,22 @@ export class GameListFilteringEngine {
     }
 
     const dateOnly = releaseDate.slice(0, 10);
-    return /^\d{4}-\d{2}-\d{2}$/.test(dateOnly) ? dateOnly : null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    if (month < 1 || month > 12 || day < 1) {
+      return null;
+    }
+
+    // Day 0 of the following month is the last day of this one.
+    return day <= new Date(Date.UTC(year, month, 0)).getUTCDate() ? dateOnly : null;
   }
 
   private resolveReleaseDateStatus(

@@ -1,5 +1,11 @@
+import { BehaviorSubject, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { GameCatalogResult, GameEntry } from '../../core/models/game.models';
+import {
+  DEFAULT_GAME_LIST_FILTERS,
+  type GameCatalogResult,
+  type GameEntry,
+  type GameListFilters,
+} from '../../core/models/game.models';
 
 vi.mock('@ionic/angular/standalone', () => {
   const Stub = () => null;
@@ -97,6 +103,7 @@ vi.mock('@tiptap/extension-details', () => ({
 }));
 
 import { GameListComponent } from './game-list.component';
+import { GameListFilteringEngine } from './game-list-filtering';
 
 function createGame(partial: Partial<GameEntry> = {}): GameEntry {
   const now = new Date().toISOString();
@@ -1034,5 +1041,87 @@ describe('game-list review actions', () => {
         value: originalMatchMedia,
       });
     }
+  });
+
+  describe('releasing soon day rollover', () => {
+    function createListPipeline(sortField: GameListFilters['sortField']): GameListComponent {
+      const emitter = { emit: vi.fn() };
+      const page = Object.create(GameListComponent.prototype) as GameListComponent;
+      Object.assign(page, {
+        listType: 'wishlist',
+        listType$: new BehaviorSubject<'collection' | 'wishlist' | null>(null),
+        filters$: new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS, sortField }),
+        searchQuery$: new BehaviorSubject(''),
+        groupBy$: new BehaviorSubject('none'),
+        filteringEngine: new GameListFilteringEngine('__none__'),
+        selectionModeActive: false,
+        selectedGameKeys: new Set<string>(),
+        displayedGames: [],
+        expandedSectionKeys: [],
+        platformOptionsChange: emitter,
+        collectionOptionsChange: emitter,
+        gameTypeOptionsChange: emitter,
+        genreOptionsChange: emitter,
+        tagOptionsChange: emitter,
+        displayedGamesChange: emitter,
+        selectionStateChange: emitter,
+        changeDetectorRef: { markForCheck: vi.fn() },
+        gameRowReleaseDateDisplayService: { getPreference: () => 'full' },
+        gameShelfService: {
+          watchList: () =>
+            of([
+              createGame({ igdbGameId: '1', title: 'June', releaseDate: '2026-06-15' }),
+              createGame({ igdbGameId: '2', title: 'July', releaseDate: '2026-07-20' }),
+            ]),
+        },
+        timePreferenceService: { timePreference$: of(15) },
+        pricePreferenceService: { pricePreference$: of(10), getPricePreference: () => 10 },
+        platformOrderService: { getDefaultOrder: () => [] },
+        platformCustomizationService: { getDisplayNames: () => ({}) },
+      });
+      page.ngOnChanges({
+        listType: { currentValue: 'wishlist', previousValue: undefined, firstChange: true },
+      } as never);
+
+      return page;
+    }
+
+    it('re-sorts an idle releasing soon list when the UTC day changes', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-15T23:59:00.000Z'));
+
+      try {
+        const emissions: string[][] = [];
+        const subscription = createListPipeline('releasingSoon').games$.subscribe((games) => {
+          emissions.push(games.map((game) => game.title));
+        });
+
+        expect(emissions).toEqual([['June', 'July']]);
+
+        vi.advanceTimersByTime(60 * 1000);
+        expect(emissions).toEqual([
+          ['June', 'July'],
+          ['July', 'June'],
+        ]);
+
+        subscription.unsubscribe();
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not schedule a day rollover timer for other sorts', () => {
+      vi.useFakeTimers();
+
+      try {
+        const subscription = createListPipeline('title').games$.subscribe();
+
+        expect(vi.getTimerCount()).toBe(0);
+        subscription.unsubscribe();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

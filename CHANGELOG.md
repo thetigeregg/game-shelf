@@ -4276,3 +4276,7 @@
 ## v1.84.2 - 2026-09-29
 
 - 1499a651 chore(deps): bump app, server, and iOS fastlane dependencies (#601)
+
+## v1.84.3 - 2026-10-05
+
+- 2908f9d0 fix(game-list): keep undated games last in release date sort (#606)

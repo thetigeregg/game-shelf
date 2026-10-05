@@ -4280,3 +4280,7 @@
 ## v1.84.3 - 2026-10-05
 
 - 2908f9d0 fix(game-list): keep undated games last in release date sort (#606)
+
+## v1.85.0 - 2026-10-05
+
+- 7a5c99ab feat(game-list): add wishlist releasing soon sort (#610)

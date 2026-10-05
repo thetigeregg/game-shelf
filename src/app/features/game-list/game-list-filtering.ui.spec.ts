@@ -2035,7 +2035,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       },
       ''
     );
-    expect(desc.map((game) => game.title)).toEqual(['No Date', 'Late', 'Early']);
+    expect(desc.map((game) => game.title)).toEqual(['Late', 'Early', 'No Date']);
   });
 
   it('builds grouped view for tag and releaseYear with fallback buckets', () => {
@@ -2134,5 +2134,17 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
 
     expect(result.map((game) => game.title)).toEqual(['Has Date', 'No Date A', 'No Date B']);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'releaseDate',
+        sortDirection: 'desc',
+      },
+      ''
+    );
+
+    expect(desc.map((game) => game.title)).toEqual(['Has Date', 'No Date A', 'No Date B']);
   });
 });

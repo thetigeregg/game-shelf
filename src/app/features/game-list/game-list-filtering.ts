@@ -863,10 +863,14 @@ export class GameListFilteringEngine {
                     today
                   )
                 )
-              : this.applySortDirection(
-                  [...games].sort((left, right) => this.compareGames(left, right, sortField)),
-                  sortDirection
-                );
+              : sortField === 'releaseDate'
+                ? [...games].sort((left, right) =>
+                    this.compareReleaseDatesUnknownLast(left, right, sortDirection)
+                  )
+                : this.applySortDirection(
+                    [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+                    sortDirection
+                  );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,

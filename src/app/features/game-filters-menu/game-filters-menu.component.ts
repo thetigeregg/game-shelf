@@ -211,9 +211,6 @@ export class GameFiltersMenuComponent implements OnChanges {
     if (sortField === 'ptas' && !this.showPtasSort) {
       return;
     }
-    if (sortField === 'releasingSoon' && !this.showReleasingSoonSort) {
-      return;
-    }
     this.sortOption = value;
     this.draftFilters = {
       ...this.draftFilters,

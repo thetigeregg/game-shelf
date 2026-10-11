@@ -168,8 +168,12 @@ app.get('/v1/compat/:platformIgdbId', async (req, res) => {
       message: error instanceof Error ? error.message : String(error),
       ...describeErrorCause(error),
     });
+    // The full message (with the dump's filesystem path) is logged above; keep it out of
+    // the response.
     if (error instanceof Error && error.code === DUMP_MISSING_ERROR_CODE) {
-      res.status(503).json({ error: error.message, code: DUMP_MISSING_ERROR_CODE });
+      res
+        .status(503)
+        .json({ error: 'Compatibility dump not found.', code: DUMP_MISSING_ERROR_CODE });
       return;
     }
 

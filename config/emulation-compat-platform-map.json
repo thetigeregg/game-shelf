@@ -44,7 +44,7 @@
   "46": {
     "emulator": "vita3k",
     "displayName": "PlayStation Vita",
-    "sourceUrl": "https://vita3k-api.pedro.moe/list/commercial",
+    "sourceUrl": "https://api.vita3k.org/list/commercial",
     "bestStatus": "playable"
   },
   "37": {

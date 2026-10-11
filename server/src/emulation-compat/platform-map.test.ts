@@ -83,6 +83,7 @@ void test('getCompatPlatformConfig returns the Vita3K config for PlayStation Vit
   assert.equal(psvita.emulator, 'vita3k');
   assert.equal(psvita.displayName, 'PlayStation Vita');
   assert.equal(psvita.notificationDisplayName, 'PSV');
+  assert.equal(psvita.sourceUrl, 'https://api.vita3k.org/list/commercial');
   assert.equal(psvita.bestStatus, 'playable');
 });
 

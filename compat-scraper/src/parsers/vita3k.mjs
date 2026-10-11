@@ -1,8 +1,21 @@
 // Vita3K's compat data lives as GitHub Issues (Vita3K/compatibility), but the Vita3K org
-// runs its own purpose-built Cloudflare Worker (Vita3K/api) that cron-refreshes from those
-// issues every minute and serves clean JSON with no anti-bot protection, so this can be
-// fetched live — no manual dump, no browser, no pagination.
-const VITA3K_COMPAT_DATA_URL = 'https://vita3k-api.pedro.moe/list/commercial';
+// runs its own purpose-built Cloudflare Worker (Vita3K/api, served at api.vita3k.org) that
+// cron-refreshes from those issues every minute and serves clean JSON with no anti-bot
+// protection, so this can be fetched live — no manual dump, no browser, no pagination.
+const VITA3K_COMPAT_DATA_URL = 'https://api.vita3k.org/list/commercial';
+
+// Each entry carries every GitHub label on its issue — the compat status plus bug tags
+// like "graphics bug" or "crash" — so the status has to be picked out of the mix. Ordered
+// best to worst.
+const VITA3K_STATUS_LABELS = [
+  'Playable',
+  'Ingame +',
+  'Ingame -',
+  'Intro',
+  'Menu',
+  'Bootable',
+  'Nothing',
+];
 
 // Vita3K has no "Perfect" tier — "Playable" is the ceiling (this platform's bestStatus is
 // "playable", not "perfect"). Everything else (Ingame +/-, Intro, Menu, Bootable, Nothing)
@@ -23,6 +36,38 @@ export function mapLabel(rawLabel) {
   return mapRawStatus(rawLabel);
 }
 
+// The API serves `labels` as a JSON-encoded string ('[{"name":"Playable","color":"…"}]'),
+// though upstream's own types declare an array — accept both. Anything else yields no labels.
+export function parseLabelNames(labels) {
+  let parsed = labels;
+
+  if (typeof labels === 'string') {
+    try {
+      parsed = JSON.parse(labels);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed
+    .map((label) => (typeof label === 'string' ? label : label?.name))
+    .filter((name) => typeof name === 'string')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+}
+
+// A handful of issues carry two status labels (e.g. "Playable" + "Intro"). Take the worst
+// one, so an ambiguous entry is never reported as playable. Returns '' when there is none.
+export function resolveStatusLabel(labelNames) {
+  const present = new Set(labelNames.map((name) => name.toLowerCase()));
+
+  return VITA3K_STATUS_LABELS.findLast((status) => present.has(status.toLowerCase())) ?? '';
+}
+
 // getBrowser/dumpDir are unused here — this parser does a plain HTTPS fetch, no browser or
 // local file needed. Kept in the signature for parity with browser/dump-based parsers.
 export async function fetchList(_getBrowser, { timeoutMs }) {
@@ -41,18 +86,30 @@ export async function fetchList(_getBrowser, { timeoutMs }) {
     throw new Error('Vita3K compat data response had no "list" array.');
   }
 
-  return games
+  const entries = games
     .filter((entry) => entry && typeof entry.name === 'string' && entry.name.trim().length > 0)
-    .map((entry) => ({
-      rawTitle: entry.name.trim(),
-      rawLabel: String(entry.status ?? '').trim(),
-      normalizedStatus: mapRawStatus(entry.status),
-      sourceId: typeof entry.titleId === 'string' ? entry.titleId : null,
-      sourceUrl:
-        typeof entry.issueId === 'number'
-          ? `https://github.com/Vita3K/compatibility/issues/${entry.issueId}`
-          : VITA3K_COMPAT_DATA_URL,
-    }));
+    .map((entry) => {
+      const rawLabel = resolveStatusLabel(parseLabelNames(entry.labels));
+
+      return {
+        rawTitle: entry.name.trim(),
+        rawLabel,
+        normalizedStatus: mapRawStatus(rawLabel),
+        sourceId: typeof entry.titleId === 'string' ? entry.titleId : null,
+        sourceUrl:
+          typeof entry.issueId === 'number'
+            ? `https://github.com/Vita3K/compatibility/issues/${entry.issueId}`
+            : VITA3K_COMPAT_DATA_URL,
+      };
+    });
+
+  // If nothing resolves to a known status the response shape has changed again; fail the
+  // refresh rather than silently downgrading every game to "incomplete".
+  if (entries.length > 0 && entries.every((entry) => entry.rawLabel.length === 0)) {
+    throw new Error('Vita3K compat data had no recognisable status labels.');
+  }
+
+  return entries;
 }
 
 export const vita3kParser = { fetchList, mapLabel };

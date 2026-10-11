@@ -88,7 +88,7 @@ export const COMPAT_PLATFORM_MAP: ReadonlyMap<number, CompatPlatformConfig> = ne
       emulator: 'vita3k',
       displayName: 'PlayStation Vita',
       notificationDisplayName: 'PSV',
-      sourceUrl: 'https://vita3k-api.pedro.moe/list/commercial',
+      sourceUrl: 'https://api.vita3k.org/list/commercial',
       bestStatus: 'playable',
     },
   ],

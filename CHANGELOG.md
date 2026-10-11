@@ -4284,3 +4284,7 @@
 ## v1.85.0 - 2026-10-05
 
 - 7a5c99ab feat(game-list): add wishlist releasing soon sort (#610)
+
+## v1.86.0 - 2026-10-11
+
+- c2515369 feat(compat): add refresh failure backoff and fix Vita3K source (#611)

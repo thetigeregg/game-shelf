@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
+import { DUMP_MISSING_ERROR_CODE } from './parsers/dolphin.mjs';
 import { resolvePlatform } from './registry.mjs';
 
 function readEnvOrFile(name) {
@@ -94,6 +95,24 @@ async function closeSharedBrowser() {
   await browser.close();
 }
 
+// Node's fetch reports network failures as a bare "fetch failed"; the actual reason
+// (ENOTFOUND, ECONNREFUSED, ...) only lives on error.cause.
+function describeErrorCause(error) {
+  if (!(error instanceof Error) || error.cause === undefined || error.cause === null) {
+    return {};
+  }
+
+  const cause = error.cause;
+  if (!(cause instanceof Error)) {
+    return { cause: String(cause) };
+  }
+
+  return {
+    cause: cause.message.length > 0 ? cause.message : cause.name,
+    ...(typeof cause.code === 'string' ? { causeCode: cause.code } : {}),
+  };
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
@@ -147,7 +166,17 @@ app.get('/v1/compat/:platformIgdbId', async (req, res) => {
     console.error('[compat-scraper] request_failed', {
       platformIgdbId,
       message: error instanceof Error ? error.message : String(error),
+      ...describeErrorCause(error),
     });
+    // The full message (with the dump's filesystem path) is logged above; keep it out of
+    // the response.
+    if (error instanceof Error && error.code === DUMP_MISSING_ERROR_CODE) {
+      res
+        .status(503)
+        .json({ error: 'Compatibility dump not found.', code: DUMP_MISSING_ERROR_CODE });
+      return;
+    }
+
     res.status(502).json({ error: 'Unable to fetch compatibility data.' });
   }
 });

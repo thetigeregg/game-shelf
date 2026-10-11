@@ -3,8 +3,11 @@ import test from 'node:test';
 import type { Pool } from 'pg';
 import { config } from '../config.js';
 import {
+  describeErrorCause,
   enqueueForcedCompatRefreshJobs,
+  isCompatPlatformDue,
   isCompatRefreshDue,
+  isCompatRetryBackoffActive,
   refreshCompatSource,
 } from './refresh.js';
 
@@ -31,6 +34,65 @@ void test('isCompatRefreshDue treats a non-positive refreshDays as at least one 
   assert.equal(isCompatRefreshDue(twelveHoursAgo, 0, now), false);
 });
 
+void test('isCompatRetryBackoffActive is false when no retry is scheduled or it is unparsable', () => {
+  const now = new Date('2026-08-17T00:00:00Z');
+  assert.equal(isCompatRetryBackoffActive(null, now), false);
+  assert.equal(isCompatRetryBackoffActive('not-a-date', now), false);
+});
+
+void test('isCompatRetryBackoffActive is true only until the scheduled retry time', () => {
+  const now = new Date('2026-08-17T00:00:00Z');
+  assert.equal(isCompatRetryBackoffActive('2026-08-17T00:30:00Z', now), true);
+  assert.equal(isCompatRetryBackoffActive('2026-08-17T00:00:00Z', now), false);
+  assert.equal(isCompatRetryBackoffActive('2026-08-16T23:00:00Z', now), false);
+});
+
+void test('compat due checks accept the Date objects pg returns for TIMESTAMPTZ columns', () => {
+  const now = new Date('2026-08-17T00:00:00.000Z');
+  assert.equal(isCompatRetryBackoffActive(new Date('2026-08-17T00:00:00.500Z'), now), true);
+  assert.equal(isCompatRetryBackoffActive(new Date('2026-08-16T23:59:59.500Z'), now), false);
+  assert.equal(isCompatRefreshDue(new Date('2026-08-16T00:00:00Z'), 7, now), false);
+  assert.equal(isCompatRefreshDue(new Date('2026-08-01T00:00:00Z'), 7, now), true);
+});
+
+void test('isCompatPlatformDue requires a stale platform that is outside its retry backoff', () => {
+  const now = new Date('2026-08-17T00:00:00Z');
+  const stale = new Date('2026-08-01T00:00:00Z');
+  const state = (last_refreshed_at: Date | null, next_retry_at: Date | null) => ({
+    platform_igdb_id: 46,
+    last_refreshed_at,
+    next_retry_at,
+  });
+
+  assert.equal(isCompatPlatformDue(undefined, now), true);
+  assert.equal(isCompatPlatformDue(state(stale, null), now), true);
+  assert.equal(isCompatPlatformDue(state(stale, new Date('2026-08-17T01:00:00Z')), now), false);
+  assert.equal(isCompatPlatformDue(state(stale, new Date('2026-08-16T23:00:00Z')), now), true);
+  assert.equal(isCompatPlatformDue(state(new Date('2026-08-16T00:00:00Z'), null), now), false);
+});
+
+void test('describeErrorCause surfaces the code and message of an Error cause', () => {
+  const cause = Object.assign(new Error('getaddrinfo ENOTFOUND example.test'), {
+    code: 'ENOTFOUND',
+  });
+  assert.deepEqual(describeErrorCause(new TypeError('fetch failed', { cause })), {
+    cause: 'getaddrinfo ENOTFOUND example.test',
+    causeCode: 'ENOTFOUND',
+  });
+});
+
+void test('describeErrorCause falls back to the cause name, stringifies non-Error causes, and omits missing ones', () => {
+  assert.deepEqual(
+    describeErrorCause(new Error('fetch failed', { cause: new AggregateError([], '') })),
+    { cause: 'AggregateError' }
+  );
+  assert.deepEqual(describeErrorCause(new Error('boom', { cause: 'socket closed' })), {
+    cause: 'socket closed',
+  });
+  assert.deepEqual(describeErrorCause(new Error('boom')), {});
+  assert.deepEqual(describeErrorCause('boom'), {});
+});
+
 interface StoredStatusRow {
   igdb_game_id: string;
   normalized_status: string;
@@ -42,7 +104,12 @@ interface StoredStatusRow {
 class FakeCompatPool {
   ownedGames: Array<{ igdb_game_id: string; title: string }> = [];
   statuses = new Map<string, StoredStatusRow>();
-  sourceState: Record<string, unknown> | null = null;
+  sourceState: { sql: string; params: unknown[] } | null = null;
+  sourceStateRows: Array<{
+    platform_igdb_id: number;
+    last_refreshed_at: string | null;
+    next_retry_at: string | null;
+  }> = [];
   gamePayloads = new Map<string, Record<string, unknown>>();
   syncEventCount = 0;
   notificationsEnabled = false;
@@ -157,12 +224,15 @@ class FakeCompatPool {
     }
 
     if (normalized.startsWith('insert into emulation_compat_source_state')) {
-      this.sourceState = { params };
+      this.sourceState = { sql: normalized, params };
       return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalized.startsWith('select platform_igdb_id, last_refreshed_at')) {
-      return Promise.resolve({ rows: [], rowCount: 0 });
+      return Promise.resolve({
+        rows: this.sourceStateRows,
+        rowCount: this.sourceStateRows.length,
+      });
     }
 
     throw new Error(`Unexpected query in FakeCompatPool: ${sql}`);
@@ -251,6 +321,7 @@ void test('refreshCompatSource matches owned games against the scraper response 
   assert.ok(stored);
   assert.equal(stored.normalized_status, 'perfect');
   assert.ok(pool.sourceState);
+  assert.match(pool.sourceState.sql, /consecutive_failures = 0, next_retry_at = null/);
   assert.equal(pool.gamePayloads.get('g1::21')?.compatStatus, 'perfect');
   assert.equal(pool.syncEventCount, 1);
 });
@@ -553,6 +624,197 @@ void test('refreshCompatSource records an error source state and rethrows on a f
 
   config.compatScraperBaseUrl = originalBaseUrl;
   assert.ok(pool.sourceState);
+});
+
+void test('refreshCompatSource schedules an exponential retry backoff from config on failure', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  const originalBaseMinutes = config.compatFailureBackoffBaseMinutes;
+  const originalMaxHours = config.compatFailureBackoffMaxHours;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+  config.compatFailureBackoffBaseMinutes = 30;
+  config.compatFailureBackoffMaxHours = 12;
+
+  const pool = new FakeCompatPool();
+
+  try {
+    await withMockFetch(
+      () => new Response('upstream error', { status: 502 }),
+      async () => {
+        await assert.rejects(refreshCompatSource(pool as unknown as Pool, 46));
+      }
+    );
+  } finally {
+    config.compatScraperBaseUrl = originalBaseUrl;
+    config.compatFailureBackoffBaseMinutes = originalBaseMinutes;
+    config.compatFailureBackoffMaxHours = originalMaxHours;
+  }
+
+  assert.ok(pool.sourceState);
+  assert.match(
+    pool.sourceState.sql,
+    /consecutive_failures = emulation_compat_source_state\.consecutive_failures \+ 1/
+  );
+  assert.match(pool.sourceState.sql, /next_retry_at = now\(\) \+ make_interval/);
+  // The configured source URL replaces a stale one even when the refresh fails.
+  assert.match(
+    pool.sourceState.sql,
+    /do update set emulator = excluded\.emulator, source_url = excluded\.source_url/
+  );
+  assert.deepEqual(pool.sourceState.params.slice(0, 3), [
+    46,
+    'vita3k',
+    'https://api.vita3k.org/list/commercial',
+  ]);
+  assert.deepEqual(pool.sourceState.params.slice(3), [
+    'compat-scraper request failed with status 502',
+    30,
+    12 * 60,
+  ]);
+});
+
+async function failRefresh(
+  respond: () => Response,
+  options?: { applyFailureBackoff?: boolean }
+): Promise<{ sql: string; params: unknown[] }> {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const pool = new FakeCompatPool();
+
+  try {
+    await withMockFetch(respond, async () => {
+      await assert.rejects(refreshCompatSource(pool as unknown as Pool, 21, options));
+    });
+  } finally {
+    config.compatScraperBaseUrl = originalBaseUrl;
+  }
+
+  assert.ok(pool.sourceState);
+  return pool.sourceState;
+}
+
+void test('refreshCompatSource records the error without backoff when the scraper is unreachable', async () => {
+  const state = await failRefresh(() => {
+    throw new TypeError('fetch failed', {
+      cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+    });
+  });
+
+  assert.match(state.sql, /last_refresh_status = 'error'/);
+  assert.match(state.sql, /source_url = excluded\.source_url/);
+  assert.doesNotMatch(state.sql, /consecutive_failures|next_retry_at/);
+  assert.equal(state.params[3], 'fetch failed');
+});
+
+void test('refreshCompatSource does not back off while a manual dump is missing', async () => {
+  const state = await failRefresh(
+    () =>
+      new Response(JSON.stringify({ error: 'No compatibility dump', code: 'dump_missing' }), {
+        status: 503,
+      })
+  );
+
+  assert.doesNotMatch(state.sql, /consecutive_failures|next_retry_at/);
+  assert.equal(state.params[3], 'compat-scraper request failed with status 503');
+});
+
+void test('refreshCompatSource backs off when the scraper request times out', async () => {
+  const state = await failRefresh(() => {
+    throw new DOMException('This operation was aborted', 'AbortError');
+  });
+
+  assert.match(state.sql, /next_retry_at = now\(\) \+ make_interval/);
+  assert.equal(state.params[3], 'compat-scraper request timed out');
+});
+
+void test('refreshCompatSource leaves the retry schedule alone when failure backoff is disabled', async () => {
+  const state = await failRefresh(() => new Response('upstream error', { status: 502 }), {
+    applyFailureBackoff: false,
+  });
+
+  assert.match(state.sql, /last_refresh_status = 'error'/);
+  assert.doesNotMatch(state.sql, /consecutive_failures|next_retry_at/);
+});
+
+void test('enqueueForcedCompatRefreshJobs escalates backoff only when respecting staleness', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const forcedPool = new FakeCompatPool();
+  const respectedPool = new FakeCompatPool();
+
+  try {
+    await withMockFetch(
+      () => new Response('upstream error', { status: 502 }),
+      async () => {
+        await enqueueForcedCompatRefreshJobs(forcedPool as unknown as Pool, {
+          respectStaleness: false,
+        });
+        await enqueueForcedCompatRefreshJobs(respectedPool as unknown as Pool, {
+          respectStaleness: true,
+        });
+      }
+    );
+  } finally {
+    config.compatScraperBaseUrl = originalBaseUrl;
+  }
+
+  assert.ok(forcedPool.sourceState);
+  assert.doesNotMatch(forcedPool.sourceState.sql, /consecutive_failures|next_retry_at/);
+  assert.ok(respectedPool.sourceState);
+  assert.match(respectedPool.sourceState.sql, /next_retry_at = now\(\) \+ make_interval/);
+});
+
+void test('enqueueForcedCompatRefreshJobs honours failure backoff only when respecting staleness', async () => {
+  const originalBaseUrl = config.compatScraperBaseUrl;
+  config.compatScraperBaseUrl = 'http://compat-scraper.test';
+
+  const now = Date.now();
+  const makePool = (): FakeCompatPool => {
+    const pool = new FakeCompatPool();
+    // Every platform is due (never refreshed) but still inside its retry backoff window.
+    pool.sourceStateRows = [5, 21, 8, 11, 12, 9, 41, 46, 37].map((platformIgdbId) => ({
+      platform_igdb_id: platformIgdbId,
+      last_refreshed_at: null,
+      next_retry_at: new Date(now + 60 * 60 * 1000).toISOString(),
+    }));
+    return pool;
+  };
+
+  let fetchCount = 0;
+  const respected = { enqueued: 0, deduped: 0, errors: 0 };
+  const forced = { enqueued: 0, deduped: 0, errors: 0 };
+
+  try {
+    await withMockFetch(
+      () => {
+        fetchCount += 1;
+        return new Response('upstream error', { status: 502 });
+      },
+      async () => {
+        Object.assign(
+          respected,
+          await enqueueForcedCompatRefreshJobs(makePool() as unknown as Pool, {
+            respectStaleness: true,
+          })
+        );
+        assert.equal(fetchCount, 0);
+
+        Object.assign(
+          forced,
+          await enqueueForcedCompatRefreshJobs(makePool() as unknown as Pool, {
+            respectStaleness: false,
+          })
+        );
+      }
+    );
+  } finally {
+    config.compatScraperBaseUrl = originalBaseUrl;
+  }
+
+  assert.deepEqual(respected, { enqueued: 0, deduped: 9, errors: 0 });
+  assert.deepEqual(forced, { enqueued: 0, deduped: 0, errors: 9 });
+  assert.equal(fetchCount, 9);
 });
 
 void test('enqueueForcedCompatRefreshJobs dedupes platforms that are not due when respecting staleness', async () => {

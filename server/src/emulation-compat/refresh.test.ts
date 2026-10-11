@@ -655,6 +655,16 @@ void test('refreshCompatSource schedules an exponential retry backoff from confi
     /consecutive_failures = emulation_compat_source_state\.consecutive_failures \+ 1/
   );
   assert.match(pool.sourceState.sql, /next_retry_at = now\(\) \+ make_interval/);
+  // The configured source URL replaces a stale one even when the refresh fails.
+  assert.match(
+    pool.sourceState.sql,
+    /do update set emulator = excluded\.emulator, source_url = excluded\.source_url/
+  );
+  assert.deepEqual(pool.sourceState.params.slice(0, 3), [
+    46,
+    'vita3k',
+    'https://api.vita3k.org/list/commercial',
+  ]);
   assert.deepEqual(pool.sourceState.params.slice(3), [
     'compat-scraper request failed with status 502',
     30,
@@ -691,6 +701,7 @@ void test('refreshCompatSource records the error without backoff when the scrape
   });
 
   assert.match(state.sql, /last_refresh_status = 'error'/);
+  assert.match(state.sql, /source_url = excluded\.source_url/);
   assert.doesNotMatch(state.sql, /consecutive_failures|next_retry_at/);
   assert.equal(state.params[3], 'fetch failed');
 });

@@ -86,7 +86,7 @@ export async function fetchList(_getBrowser, { timeoutMs }) {
     throw new Error('Vita3K compat data response had no "list" array.');
   }
 
-  const entries = games
+  const candidates = games
     .filter((entry) => entry && typeof entry.name === 'string' && entry.name.trim().length > 0)
     .map((entry) => {
       const rawLabel = resolveStatusLabel(parseLabelNames(entry.labels));
@@ -103,9 +103,14 @@ export async function fetchList(_getBrowser, { timeoutMs }) {
       };
     });
 
+  // An entry with no known status label (untagged issue, or a label upstream renamed or
+  // added) says nothing about compatibility, so drop it rather than report "incomplete" —
+  // games bound to it then keep their last known status.
+  const entries = candidates.filter((entry) => entry.rawLabel.length > 0);
+
   // If nothing resolves to a known status the response shape has changed again; fail the
-  // refresh rather than silently downgrading every game to "incomplete".
-  if (entries.length > 0 && entries.every((entry) => entry.rawLabel.length === 0)) {
+  // refresh rather than silently returning an empty list.
+  if (candidates.length > 0 && entries.length === 0) {
     throw new Error('Vita3K compat data had no recognisable status labels.');
   }
 

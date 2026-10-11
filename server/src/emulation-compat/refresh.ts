@@ -423,6 +423,8 @@ export async function refreshCompatSource(
           platform_igdb_id, emulator, source_url, last_refresh_status, last_refresh_error, updated_at
         ) VALUES ($1, $2, $3, 'error', $4, NOW())
         ON CONFLICT (platform_igdb_id) DO UPDATE SET
+          emulator = EXCLUDED.emulator,
+          source_url = EXCLUDED.source_url,
           last_refresh_status = 'error',
           last_refresh_error = EXCLUDED.last_refresh_error,
           updated_at = NOW()
@@ -446,6 +448,8 @@ export async function refreshCompatSource(
         consecutive_failures, next_retry_at, updated_at
       ) VALUES ($1, $2, $3, 'error', $4, 1, NOW() + make_interval(mins => $5::int), NOW())
       ON CONFLICT (platform_igdb_id) DO UPDATE SET
+        emulator = EXCLUDED.emulator,
+        source_url = EXCLUDED.source_url,
         last_refresh_status = 'error',
         last_refresh_error = EXCLUDED.last_refresh_error,
         consecutive_failures = emulation_compat_source_state.consecutive_failures + 1,

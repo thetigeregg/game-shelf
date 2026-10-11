@@ -61,7 +61,7 @@ test('resolveStatusLabel takes the worst status when several are present', () =>
   assert.equal(resolveStatusLabel(['Bootable', 'Menu']), 'Bootable');
 });
 
-test('fetchList maps entries from the api.vita3k.org labels shape', async () => {
+test('fetchList maps entries from the api.vita3k.org labels shape and drops unlabelled ones', async () => {
   const { entries, requestedUrls } = await fetchListWith(
     listResponse([
       { name: ' VVVVVV ', titleId: 'PCSB00810', labels: encodeLabels('Playable'), issueId: 1 },
@@ -120,21 +120,12 @@ test('fetchList maps entries from the api.vita3k.org labels shape', async () => 
       sourceId: 'PCSA00126',
       sourceUrl: 'https://github.com/Vita3K/compatibility/issues/12',
     },
-    {
-      rawTitle: 'Untagged',
-      rawLabel: '',
-      normalizedStatus: 'incomplete',
-      sourceId: null,
-      sourceUrl: 'https://api.vita3k.org/list/commercial',
-    },
-    {
-      rawTitle: 'Broken Labels',
-      rawLabel: '',
-      normalizedStatus: 'incomplete',
-      sourceId: 'PCSE00001',
-      sourceUrl: 'https://github.com/Vita3K/compatibility/issues/20',
-    },
   ]);
+  // "Untagged" and "Broken Labels" carry no recognised status and are dropped.
+  assert.equal(
+    entries.some((entry) => entry.rawLabel.length === 0),
+    false
+  );
 });
 
 test('fetchList returns an empty list as-is', async () => {

@@ -1,7 +1,12 @@
 import { Pool } from 'pg';
 import { config } from '../config.js';
 import { COMPAT_PLATFORM_MAP } from './platform-map.js';
-import { isCompatRefreshDue, refreshCompatSource } from './refresh.js';
+import {
+  describeErrorCause,
+  isCompatRefreshDue,
+  isCompatRetryBackoffActive,
+  refreshCompatSource,
+} from './refresh.js';
 
 interface MonitorStartResult {
   stop: () => Promise<void>;
@@ -35,14 +40,25 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
       const stateResult = await pool.query<{
         platform_igdb_id: number;
         last_refreshed_at: string | null;
-      }>(`SELECT platform_igdb_id, last_refreshed_at FROM emulation_compat_source_state`);
-      const lastRefreshedByPlatform = new Map(
-        stateResult.rows.map((row) => [row.platform_igdb_id, row.last_refreshed_at])
+        next_retry_at: string | null;
+      }>(
+        `SELECT platform_igdb_id, last_refreshed_at, next_retry_at FROM emulation_compat_source_state`
       );
+      const stateByPlatform = new Map(stateResult.rows.map((row) => [row.platform_igdb_id, row]));
 
       for (const platformIgdbId of COMPAT_PLATFORM_MAP.keys()) {
-        const lastRefreshedAt = lastRefreshedByPlatform.get(platformIgdbId) ?? null;
-        if (!isCompatRefreshDue(lastRefreshedAt, config.compatPeriodicRefreshDays, now)) {
+        const state = stateByPlatform.get(platformIgdbId);
+        if (
+          !isCompatRefreshDue(
+            state?.last_refreshed_at ?? null,
+            config.compatPeriodicRefreshDays,
+            now
+          )
+        ) {
+          continue;
+        }
+
+        if (isCompatRetryBackoffActive(state?.next_retry_at ?? null, now)) {
           continue;
         }
 
@@ -52,6 +68,7 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
           console.error('[emulation-compat] refresh_failed', {
             platformIgdbId,
             message: error instanceof Error ? error.message : String(error),
+            ...describeErrorCause(error),
           });
         }
       }

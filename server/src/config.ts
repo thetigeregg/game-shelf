@@ -175,6 +175,8 @@ export interface AppConfig {
   metacriticPeriodicRefreshYears: number;
   metacriticPeriodicRefreshDays: number;
   compatPeriodicRefreshDays: number;
+  compatFailureBackoffBaseMinutes: number;
+  compatFailureBackoffMaxHours: number;
   fcmTokenCleanupEnabled: boolean;
   fcmTokenCleanupIntervalHours: number;
   fcmTokenStaleDeactivateDays: number;
@@ -699,6 +701,8 @@ export const config: AppConfig = {
   metacriticPeriodicRefreshYears: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_YEARS', 3),
   metacriticPeriodicRefreshDays: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_DAYS', 30),
   compatPeriodicRefreshDays: readIntegerEnv('COMPAT_PERIODIC_REFRESH_DAYS', 7),
+  compatFailureBackoffBaseMinutes: readIntegerEnv('COMPAT_FAILURE_BACKOFF_BASE_MINUTES', 60),
+  compatFailureBackoffMaxHours: readIntegerEnv('COMPAT_FAILURE_BACKOFF_MAX_HOURS', 24),
   fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
   fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
   fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),

@@ -65,6 +65,7 @@ Configure in the API environment:
 - `COMPAT_SCRAPER_BASE_URL` (for example `http://localhost:8791`)
 - `COMPAT_SCRAPER_TOKEN` (if token auth is enabled)
 - `COMPAT_PERIODIC_REFRESH_DAYS` (default `7`; days between scheduled refreshes, tracked per platform/emulator)
+- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES` (default `60`) / `COMPAT_FAILURE_BACKOFF_MAX_HOURS` (default `24`): after a failed refresh the API waits the base delay before retrying that platform, doubling per consecutive failure up to the cap; a forced admin refresh bypasses it unless `respectStaleness` is `true`
 
 Manual correction of matches (fuzzy-match misses/errors) is done via a CLI, not an
 admin API/UI — see `server/src/scripts/compat-match-cli.ts`

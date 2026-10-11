@@ -143,6 +143,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_PERIODIC_REFRESH_YEARS` (default `3`)
 - `METACRITIC_PERIODIC_REFRESH_DAYS` (default `30`)
 - `COMPAT_PERIODIC_REFRESH_DAYS` (default `7`) days between scheduled emulation-compatibility refreshes; staleness is tracked per platform/emulator (`emulation_compat_source_state`), not per game. See `compat-scraper/README.md` for the Dolphin (GameCube/Wii) manual-dump workflow and `server/src/scripts/compat-match-cli.ts` (`npm run compat:match -- <coverage|list|set|clear>`) for manual match correction.
+- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES` (default `60`) and `COMPAT_FAILURE_BACKOFF_MAX_HOURS` (default `24`) control retry backoff after a failed emulation-compatibility refresh: the delay starts at the base, doubles per consecutive failure for that platform, and is capped at the max. State lives in `emulation_compat_source_state` (`consecutive_failures`, `next_retry_at`) and resets on success; `POST /v1/admin/refresh-data` bypasses it unless `respectStaleness` is `true`.
 - `FCM_TOKEN_CLEANUP_ENABLED` (`true|false`, default `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (default `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (default `60`)

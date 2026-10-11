@@ -1144,6 +1144,14 @@ export const MIGRATIONS: string[] = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   `,
+  `
+  ALTER TABLE emulation_compat_source_state
+  ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER NOT NULL DEFAULT 0;
+  `,
+  `
+  ALTER TABLE emulation_compat_source_state
+  ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
+  `,
 ];
 
 export class MigrationUnlockError extends Error {

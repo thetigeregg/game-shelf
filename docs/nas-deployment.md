@@ -111,6 +111,8 @@ Common stack env vars:
 - `METACRITIC_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `METACRITIC_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 - `COMPAT_PERIODIC_REFRESH_DAYS` (optional; defaults `7`; days between scheduled emulation-compatibility refreshes, tracked per platform/emulator)
+- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES` (optional; defaults `60`; first retry delay after a failed emulation-compatibility refresh, doubling per consecutive failure)
+- `COMPAT_FAILURE_BACKOFF_MAX_HOURS` (optional; defaults `24`; cap on that retry delay)
 - `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)
@@ -461,6 +463,8 @@ Key metadata env vars in `.env`:
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
 - `COMPAT_SCRAPER_BASE_URL=http://compat-scraper:8791`
 - `COMPAT_PERIODIC_REFRESH_DAYS=7`
+- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES=60`
+- `COMPAT_FAILURE_BACKOFF_MAX_HOURS=24`
 - `PRICING_REFRESH_ENABLED=true`
 - `PRICING_REFRESH_INTERVAL_MINUTES=60`
 - `PRICING_REFRESH_BATCH_SIZE=200`

@@ -3,8 +3,8 @@ import { config } from '../config.js';
 import { COMPAT_PLATFORM_MAP } from './platform-map.js';
 import {
   describeErrorCause,
-  isCompatRefreshDue,
-  isCompatRetryBackoffActive,
+  isCompatPlatformDue,
+  loadCompatSourceStates,
   refreshCompatSource,
 } from './refresh.js';
 
@@ -37,28 +37,10 @@ export function startEmulationCompatMonitor(pool: Pool): MonitorStartResult {
     running = true;
     const run = (async () => {
       const now = new Date();
-      const stateResult = await pool.query<{
-        platform_igdb_id: number;
-        last_refreshed_at: string | null;
-        next_retry_at: string | null;
-      }>(
-        `SELECT platform_igdb_id, last_refreshed_at, next_retry_at FROM emulation_compat_source_state`
-      );
-      const stateByPlatform = new Map(stateResult.rows.map((row) => [row.platform_igdb_id, row]));
+      const stateByPlatform = await loadCompatSourceStates(pool);
 
       for (const platformIgdbId of COMPAT_PLATFORM_MAP.keys()) {
-        const state = stateByPlatform.get(platformIgdbId);
-        if (
-          !isCompatRefreshDue(
-            state?.last_refreshed_at ?? null,
-            config.compatPeriodicRefreshDays,
-            now
-          )
-        ) {
-          continue;
-        }
-
-        if (isCompatRetryBackoffActive(state?.next_retry_at ?? null, now)) {
+        if (!isCompatPlatformDue(stateByPlatform.get(platformIgdbId), now)) {
           continue;
         }
 

@@ -36,6 +36,10 @@ To (re)populate data:
    default `7`) re-parses whatever's currently in that directory — there's no
    separate "upload" step, just replace the file periodically to keep data fresh.
 
+Until a dump is in place the scraper answers `503` with `code: "dump_missing"`. The API
+records that as an error but does not apply the failure backoff, so a newly dropped file
+is picked up on the next scheduler tick.
+
 A parser for a platform whose upstream source isn't bot-walled (a future emulator)
 can use `getBrowser()` (passed into `fetchList`) to scrape live with Playwright
 instead — see `src/server.mjs`'s route handler.
@@ -65,7 +69,7 @@ Configure in the API environment:
 - `COMPAT_SCRAPER_BASE_URL` (for example `http://localhost:8791`)
 - `COMPAT_SCRAPER_TOKEN` (if token auth is enabled)
 - `COMPAT_PERIODIC_REFRESH_DAYS` (default `7`; days between scheduled refreshes, tracked per platform/emulator)
-- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES` (default `60`) / `COMPAT_FAILURE_BACKOFF_MAX_HOURS` (default `24`): after a failed refresh the API waits the base delay before retrying that platform, doubling per consecutive failure up to the cap; a forced admin refresh bypasses it unless `respectStaleness` is `true`
+- `COMPAT_FAILURE_BACKOFF_BASE_MINUTES` (default `60`) / `COMPAT_FAILURE_BACKOFF_MAX_HOURS` (default `24`): after a failed refresh the API waits the base delay before retrying that platform, doubling per consecutive failure up to the cap. Only upstream-source failures (the scraper's `502`, or a request timeout) back off; an unreachable scraper, a database error or a missing Dolphin dump is retried on the next tick. A forced admin refresh bypasses the backoff and never extends it, unless `respectStaleness` is `true`
 
 Manual correction of matches (fuzzy-match misses/errors) is done via a CLI, not an
 admin API/UI — see `server/src/scripts/compat-match-cli.ts`

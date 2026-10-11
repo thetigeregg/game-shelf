@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
+import { DUMP_MISSING_ERROR_CODE } from './parsers/dolphin.mjs';
 import { resolvePlatform } from './registry.mjs';
 
 function readEnvOrFile(name) {
@@ -167,6 +168,11 @@ app.get('/v1/compat/:platformIgdbId', async (req, res) => {
       message: error instanceof Error ? error.message : String(error),
       ...describeErrorCause(error),
     });
+    if (error instanceof Error && error.code === DUMP_MISSING_ERROR_CODE) {
+      res.status(503).json({ error: error.message, code: DUMP_MISSING_ERROR_CODE });
+      return;
+    }
+
     res.status(502).json({ error: 'Unable to fetch compatibility data.' });
   }
 });

@@ -26,8 +26,27 @@ interface OwnedGameRow {
   payload_compat_status: string | null;
 }
 
+// pg hands TIMESTAMPTZ columns back as Date objects; ISO strings are accepted too.
+type CompatTimestamp = Date | string | null;
+
+export interface CompatSourceStateRow {
+  platform_igdb_id: number;
+  last_refreshed_at: CompatTimestamp;
+  next_retry_at: CompatTimestamp;
+}
+
+// The compat-scraper answered and reported that its upstream source failed (or never
+// answered in time). Only these failures back off: local trouble — scraper unreachable,
+// a database error, a manual dump that hasn't been placed yet — retries on the next tick.
+export class CompatUpstreamError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'CompatUpstreamError';
+  }
+}
+
 export function isCompatRefreshDue(
-  lastRefreshedAt: string | null,
+  lastRefreshedAt: CompatTimestamp,
   refreshDays: number,
   now: Date
 ): boolean {
@@ -35,7 +54,7 @@ export function isCompatRefreshDue(
     return true;
   }
 
-  const refreshedAtMs = Date.parse(lastRefreshedAt);
+  const refreshedAtMs = new Date(lastRefreshedAt).getTime();
   if (!Number.isFinite(refreshedAtMs)) {
     return true;
   }
@@ -44,17 +63,35 @@ export function isCompatRefreshDue(
   return ageMs >= Math.max(1, refreshDays) * ONE_DAY_MS;
 }
 
-export function isCompatRetryBackoffActive(nextRetryAt: string | null, now: Date): boolean {
+export function isCompatRetryBackoffActive(nextRetryAt: CompatTimestamp, now: Date): boolean {
   if (!nextRetryAt) {
     return false;
   }
 
-  const nextRetryAtMs = Date.parse(nextRetryAt);
+  const nextRetryAtMs = new Date(nextRetryAt).getTime();
   if (!Number.isFinite(nextRetryAtMs)) {
     return false;
   }
 
   return nextRetryAtMs > now.getTime();
+}
+
+// Scheduled eligibility: stale enough to refresh and not waiting out a failure backoff.
+export function isCompatPlatformDue(state: CompatSourceStateRow | undefined, now: Date): boolean {
+  return (
+    isCompatRefreshDue(state?.last_refreshed_at ?? null, config.compatPeriodicRefreshDays, now) &&
+    !isCompatRetryBackoffActive(state?.next_retry_at ?? null, now)
+  );
+}
+
+export async function loadCompatSourceStates(
+  pool: Pool
+): Promise<Map<number, CompatSourceStateRow>> {
+  const result = await pool.query<CompatSourceStateRow>(
+    `SELECT platform_igdb_id, last_refreshed_at, next_retry_at FROM emulation_compat_source_state`
+  );
+
+  return new Map(result.rows.map((row) => [row.platform_igdb_id, row]));
 }
 
 // Node's fetch reports network failures as a bare "fetch failed"; the actual reason
@@ -97,19 +134,31 @@ export async function fetchCompatList(
   platformIgdbId: number
 ): Promise<{ emulator: string; sourceUrl: string | null; entries: CompatSourceEntry[] }> {
   const baseUrl = config.compatScraperBaseUrl.replace(/\/$/, '');
-  const response = await fetchWithTimeout(
-    `${baseUrl}/v1/compat/${String(platformIgdbId)}`,
-    {
-      headers:
-        config.compatScraperToken.length > 0
-          ? { Authorization: `Bearer ${config.compatScraperToken}` }
-          : {},
-    },
-    config.compatScraperRequestTimeoutMs
-  );
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${baseUrl}/v1/compat/${String(platformIgdbId)}`,
+      {
+        headers:
+          config.compatScraperToken.length > 0
+            ? { Authorization: `Bearer ${config.compatScraperToken}` }
+            : {},
+      },
+      config.compatScraperRequestTimeoutMs
+    );
+  } catch (error) {
+    // The scraper accepted the request but its upstream fetch outlasted our timeout.
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new CompatUpstreamError('compat-scraper request timed out', { cause: error });
+    }
+    throw error;
+  }
 
   if (!response.ok) {
-    throw new Error(`compat-scraper request failed with status ${String(response.status)}`);
+    const message = `compat-scraper request failed with status ${String(response.status)}`;
+    // 502 is the scraper's "upstream source failed"; anything else (auth, unknown
+    // platform, a manual dump that isn't there yet) is ours to fix, not to wait out.
+    throw response.status === 502 ? new CompatUpstreamError(message) : new Error(message);
   }
 
   const body = (await response.json()) as {
@@ -172,7 +221,11 @@ async function notifyCompatStatusChangeBestEffort(
   }
 }
 
-export async function refreshCompatSource(pool: Pool, platformIgdbId: number): Promise<void> {
+export async function refreshCompatSource(
+  pool: Pool,
+  platformIgdbId: number,
+  options: { applyFailureBackoff?: boolean } = {}
+): Promise<void> {
   const platformConfig = getCompatPlatformConfig(platformIgdbId);
   if (!platformConfig) {
     throw new Error(`Platform ${String(platformIgdbId)} is not compat-eligible.`);
@@ -360,6 +413,25 @@ export async function refreshCompatSource(pool: Pool, platformIgdbId: number): P
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
+    // A forced refresh, or a failure that isn't the upstream source's, only records the
+    // error: the retry schedule the scheduler is working to stays as it was.
+    if (options.applyFailureBackoff === false || !(error instanceof CompatUpstreamError)) {
+      await pool.query(
+        `
+        INSERT INTO emulation_compat_source_state (
+          platform_igdb_id, emulator, source_url, last_refresh_status, last_refresh_error, updated_at
+        ) VALUES ($1, $2, $3, 'error', $4, NOW())
+        ON CONFLICT (platform_igdb_id) DO UPDATE SET
+          last_refresh_status = 'error',
+          last_refresh_error = EXCLUDED.last_refresh_error,
+          updated_at = NOW()
+        `,
+        [platformIgdbId, platformConfig.emulator, platformConfig.sourceUrl, message]
+      );
+      throw error;
+    }
+
     const backoffBaseMinutes = Math.max(1, config.compatFailureBackoffBaseMinutes);
     const backoffMaxMinutes = Math.max(
       backoffBaseMinutes,
@@ -403,31 +475,17 @@ export async function enqueueForcedCompatRefreshJobs(
   options: { respectStaleness: boolean }
 ): Promise<{ enqueued: number; deduped: number; errors: number }> {
   const now = new Date();
-  const stateResult = await pool.query<{
-    platform_igdb_id: number;
-    last_refreshed_at: string | null;
-    next_retry_at: string | null;
-  }>(
-    `SELECT platform_igdb_id, last_refreshed_at, next_retry_at FROM emulation_compat_source_state`
-  );
-  const stateByPlatform = new Map(stateResult.rows.map((row) => [row.platform_igdb_id, row]));
+  const stateByPlatform = await loadCompatSourceStates(pool);
 
   let enqueued = 0;
   let deduped = 0;
   let errors = 0;
 
   for (const platformIgdbId of getCompatEligiblePlatformIds()) {
-    const state = stateByPlatform.get(platformIgdbId);
     // An explicit force (respectStaleness: false) also bypasses the failure backoff, so
     // there is always a manual way to retry a platform immediately.
     const due =
-      !options.respectStaleness ||
-      (isCompatRefreshDue(
-        state?.last_refreshed_at ?? null,
-        config.compatPeriodicRefreshDays,
-        now
-      ) &&
-        !isCompatRetryBackoffActive(state?.next_retry_at ?? null, now));
+      !options.respectStaleness || isCompatPlatformDue(stateByPlatform.get(platformIgdbId), now);
 
     if (!due) {
       deduped += 1;
@@ -435,7 +493,11 @@ export async function enqueueForcedCompatRefreshJobs(
     }
 
     try {
-      await refreshCompatSource(pool, platformIgdbId);
+      // Manual retries while upstream is still down must not push the scheduler's next
+      // attempt further out.
+      await refreshCompatSource(pool, platformIgdbId, {
+        applyFailureBackoff: options.respectStaleness,
+      });
       enqueued += 1;
     } catch {
       errors += 1;

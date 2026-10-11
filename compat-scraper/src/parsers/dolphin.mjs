@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { load } from 'cheerio';
 
+export const DUMP_MISSING_ERROR_CODE = 'dump_missing';
+
 // Dolphin's official compatibility list (dolphin-emu.org/compat/) and its backing wiki
 // (wiki.dolphin-emu.org) are both behind proof-of-work anti-scraping challenges (BunnyCDN
 // Shield and Anubis, respectively) that explicitly exist to block automated access. Rather
@@ -49,8 +51,13 @@ export async function fetchList(_getBrowser, { platformSlug, dumpDir }) {
   const filePath = path.join(dumpDir, `${platformSlug}.html`);
 
   if (!fs.existsSync(filePath)) {
-    throw new Error(
-      `No compatibility dump found for platform "${platformSlug}" at ${filePath}. Download the wiki page and place it there.`
+    // Tagged so the route can tell "waiting on a manual dump" apart from an upstream
+    // failure — the API retries this one on its normal cadence instead of backing off.
+    throw Object.assign(
+      new Error(
+        `No compatibility dump found for platform "${platformSlug}" at ${filePath}. Download the wiki page and place it there.`
+      ),
+      { code: DUMP_MISSING_ERROR_CODE }
     );
   }
 

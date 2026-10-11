@@ -6,13 +6,13 @@ const VITA3K_COMPAT_DATA_URL = 'https://api.vita3k.org/list/commercial';
 
 // Each entry carries every GitHub label on its issue — the compat status plus bug tags
 // like "graphics bug" or "crash" — so the status has to be picked out of the mix. Ordered
-// best to worst.
+// best to worst, matching Vita3K's own CompatibilityState ranking.
 const VITA3K_STATUS_LABELS = [
   'Playable',
   'Ingame +',
   'Ingame -',
-  'Intro',
   'Menu',
+  'Intro',
   'Bootable',
   'Nothing',
 ];
@@ -84,6 +84,13 @@ export async function fetchList(_getBrowser, { timeoutMs }) {
 
   if (!games) {
     throw new Error('Vita3K compat data response had no "list" array.');
+  }
+
+  // `date: 0` means upstream cleared the list and will repopulate it on its next cron run.
+  // Fail the refresh so it is retried on the short failure backoff, rather than recording
+  // an empty (or half-filled) list as a successful refresh.
+  if (body.date === 0) {
+    throw new Error('Vita3K compat data list is cleared and awaiting repopulation.');
   }
 
   const candidates = games

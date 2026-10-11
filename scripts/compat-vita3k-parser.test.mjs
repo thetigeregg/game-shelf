@@ -59,6 +59,9 @@ test('resolveStatusLabel takes the worst status when several are present', () =>
   assert.equal(resolveStatusLabel(['Playable', 'Intro']), 'Intro');
   assert.equal(resolveStatusLabel(['Ingame -', 'Ingame +']), 'Ingame -');
   assert.equal(resolveStatusLabel(['Bootable', 'Menu']), 'Bootable');
+  // Vita3K ranks Intro below Menu.
+  assert.equal(resolveStatusLabel(['Menu', 'Intro']), 'Intro');
+  assert.equal(resolveStatusLabel(['Intro', 'Bootable']), 'Bootable');
 });
 
 test('fetchList maps entries from the api.vita3k.org labels shape and drops unlabelled ones', async () => {
@@ -131,6 +134,24 @@ test('fetchList maps entries from the api.vita3k.org labels shape and drops unla
 test('fetchList returns an empty list as-is', async () => {
   const { entries } = await fetchListWith(listResponse([]));
   assert.deepEqual(entries, []);
+});
+
+test('fetchList rejects a cleared list that is awaiting repopulation', async () => {
+  await assert.rejects(
+    fetchListWith(() => Response.json({ date: 0, list: [] })),
+    /cleared and awaiting repopulation/
+  );
+  await assert.rejects(
+    fetchListWith(() =>
+      Response.json({
+        date: 0,
+        list: [
+          { name: 'VVVVVV', titleId: 'PCSB00810', labels: encodeLabels('Playable'), issueId: 1 },
+        ],
+      })
+    ),
+    /cleared and awaiting repopulation/
+  );
 });
 
 test('fetchList rejects when no entry has a recognisable status label', async () => {

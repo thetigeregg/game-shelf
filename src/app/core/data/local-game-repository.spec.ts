@@ -942,6 +942,24 @@ describe('LocalGameRepository', () => {
     expect(collectionView.filters.discounted).toBe(false);
   });
 
+  it('keeps released on wishlist views and strips it on collection views', async () => {
+    const wishlistView = await repository.createView({
+      name: 'Wishlist released',
+      listType: 'wishlist',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, released: true },
+      groupBy: 'none',
+    });
+    expect(wishlistView.filters.released).toBe(true);
+
+    const collectionView = await repository.createView({
+      name: 'Collection released',
+      listType: 'collection',
+      filters: { ...DEFAULT_GAME_LIST_FILTERS, released: true },
+      groupBy: 'none',
+    });
+    expect(collectionView.filters.released).toBe(false);
+  });
+
   it('returns undefined when updating a missing view', async () => {
     const updated = await repository.updateView(404, { name: 'Missing' });
     expect(updated).toBeUndefined();

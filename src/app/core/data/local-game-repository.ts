@@ -1823,6 +1823,7 @@ export class LocalGameRepository implements GameRepository {
       releaseDateFrom,
       releaseDateTo,
       discounted: listType === 'wishlist' && normalizeBooleanFilter(source.discounted),
+      released: listType === 'wishlist' && normalizeBooleanFilter(source.released),
     };
   }
 

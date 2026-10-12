@@ -272,6 +272,7 @@ export class GameListFilteringEngine {
           ? hltbMainHoursMin
           : hltbMainHoursMax,
       discounted: normalizeBooleanFilter(filters.discounted),
+      released: normalizeBooleanFilter(filters.released),
     };
   }
 
@@ -362,8 +363,18 @@ export class GameListFilteringEngine {
       return sortedGames;
     }
 
+    // The released filter follows the device's local calendar date, not UTC.
+    const localToday = filters.released ? this.getLocalDateOnly() : null;
+
     return sortedGames.filter((game) =>
-      this.matchesFilters(game, filters, normalizedSearchQuery, minMainHours, maxMainHours)
+      this.matchesFilters(
+        game,
+        filters,
+        normalizedSearchQuery,
+        minMainHours,
+        maxMainHours,
+        localToday
+      )
     );
   }
 
@@ -627,7 +638,8 @@ export class GameListFilteringEngine {
     filters: GameListFilters,
     normalizedSearchQuery: string,
     minMainHours: number | null,
-    maxMainHours: number | null
+    maxMainHours: number | null,
+    localToday: string | null
   ): boolean {
     const normalized = this.getNormalizedFilterGame(game);
 
@@ -650,6 +662,16 @@ export class GameListFilteringEngine {
     }
 
     if (filters.discounted && game.listType === 'wishlist' && !isGameOnDiscount(game)) {
+      return false;
+    }
+
+    if (
+      filters.released &&
+      game.listType === 'wishlist' &&
+      (normalized.releaseDate === null ||
+        localToday === null ||
+        normalized.releaseDate > localToday)
+    ) {
       return false;
     }
 
@@ -928,7 +950,8 @@ export class GameListFilteringEngine {
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||
       !!filters.releaseDateTo ||
-      filters.discounted
+      filters.discounted ||
+      filters.released
     );
   }
 
@@ -1131,6 +1154,14 @@ export class GameListFilteringEngine {
 
     // Day 0 of the following month is the last day of this one.
     return day <= new Date(Date.UTC(year, month, 0)).getUTCDate() ? dateOnly : null;
+  }
+
+  private getLocalDateOnly(now: Date = new Date()): string {
+    const year = String(now.getFullYear()).padStart(4, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
   private resolveReleaseDateStatus(

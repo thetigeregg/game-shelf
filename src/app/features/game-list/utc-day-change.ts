@@ -18,3 +18,20 @@ export function watchUtcDayChanges(): Observable<void> {
     map(() => undefined)
   );
 }
+
+export function getMillisecondsUntilNextLocalDay(now: Date = new Date()): number {
+  const nextLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  return nextLocalMidnight.getTime() - now.getTime();
+}
+
+/**
+ * Emits each time the device's local calendar day rolls over. Like
+ * {@link watchUtcDayChanges}, the delay is recomputed on every cycle.
+ */
+export function watchLocalDayChanges(): Observable<void> {
+  return defer(() => timer(getMillisecondsUntilNextLocalDay())).pipe(
+    repeat(),
+    map(() => undefined)
+  );
+}

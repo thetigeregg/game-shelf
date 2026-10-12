@@ -145,6 +145,14 @@
           Discounted
         </ion-checkbox>
       </ion-item>
+      <ion-item>
+        <ion-checkbox
+          [checked]="draftFilters.released"
+          (ionChange)="onReleasedFilterChange($event.detail.checked)"
+        >
+          Released
+        </ion-checkbox>
+      </ion-item>
     }
 
     <ion-accordion-group>

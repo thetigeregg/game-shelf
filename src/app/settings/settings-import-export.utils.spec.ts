@@ -211,6 +211,23 @@ describe('settings-import-export.utils', () => {
     expect(collectionParsed?.discounted).toBe(false);
   });
 
+  it('accepts released only for wishlist views during import parsing', () => {
+    const wishlistParsed = parseFilters(
+      JSON.stringify({ released: true }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'wishlist' }
+    );
+
+    const collectionParsed = parseFilters(
+      JSON.stringify({ released: true }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'collection' }
+    );
+
+    expect(wishlistParsed?.released).toBe(true);
+    expect(collectionParsed?.released).toBe(false);
+  });
+
   it('falls back from price sort field for collection views during import parsing', () => {
     const parsed = parseFilters(
       JSON.stringify({

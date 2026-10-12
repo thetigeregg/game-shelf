@@ -171,6 +171,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       sortField: normalizedSortField,
       ...(normalizedSortField === 'releasingSoon' ? { sortDirection: 'asc' as const } : {}),
       discounted: this.showDiscountedFilter && normalizeBooleanFilter(this.filters.discounted),
+      released: this.showReleasedFilter && normalizeBooleanFilter(this.filters.released),
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =
@@ -179,7 +180,8 @@ export class GameFiltersMenuComponent implements OnChanges {
     if (
       this.filters.sortField !== normalizedSortField ||
       this.filters.sortDirection !== normalizedFilters.sortDirection ||
-      this.filters.discounted !== normalizedFilters.discounted
+      this.filters.discounted !== normalizedFilters.discounted ||
+      this.filters.released !== normalizedFilters.released
     ) {
       this.filtersChange.emit({ ...normalizedFilters });
     }
@@ -248,6 +250,14 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       discounted: value,
+    };
+    this.updateFilters();
+  }
+
+  onReleasedFilterChange(value: boolean): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      released: value,
     };
     this.updateFilters();
   }
@@ -606,6 +616,10 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   get showDiscountedFilter(): boolean {
+    return this.listType === 'wishlist';
+  }
+
+  get showReleasedFilter(): boolean {
     return this.listType === 'wishlist';
   }
 }

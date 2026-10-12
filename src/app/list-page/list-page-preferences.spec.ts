@@ -95,6 +95,7 @@ describe('list-page-preferences', () => {
       releaseDateFrom: '2025-02-01',
       releaseDateTo: null,
       discounted: false,
+      released: false,
     });
   });
 
@@ -212,6 +213,19 @@ describe('list-page-preferences', () => {
 
     expect(wishlistNormalized.discounted).toBe(true);
     expect(collectionNormalized.discounted).toBe(false);
+  });
+
+  it('accepts released only for wishlist stored preferences', () => {
+    const wishlistNormalized = normalizeListPageStoredFilters({ released: true }, '__none__', {
+      listType: 'wishlist',
+    });
+
+    const collectionNormalized = normalizeListPageStoredFilters({ released: true }, '__none__', {
+      listType: 'collection',
+    });
+
+    expect(wishlistNormalized.released).toBe(true);
+    expect(collectionNormalized.released).toBe(false);
   });
 
   it('migrates metacritic sort field from stored preferences to review', () => {

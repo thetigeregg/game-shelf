@@ -565,6 +565,7 @@ export interface GameListFilters {
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
   discounted: boolean;
+  released: boolean;
 }
 
 export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
@@ -592,6 +593,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   releaseDateFrom: null,
   releaseDateTo: null,
   discounted: false,
+  released: false,
 };
 
 export interface GameListView {

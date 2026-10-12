@@ -148,7 +148,7 @@ import {
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { exportSelectedGamesCsv } from './game-list-selection-export.util';
-import { watchUtcDayChanges } from './utc-day-change';
+import { watchLocalDayChanges, watchUtcDayChanges } from './utc-day-change';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
 import { sanitizeExternalHttpUrlString } from '../../core/utils/url-host.util';
@@ -685,7 +685,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
               ? watchUtcDayChanges().pipe(startWith(undefined))
               : of(undefined);
 
-          return combineLatest([pricePreference$, utcDayChange$]).pipe(
+          // The released filter depends on today's local date, so re-filter an idle list at rollover.
+          const localDayChange$ = filters.released
+            ? watchLocalDayChanges().pipe(startWith(undefined))
+            : of(undefined);
+
+          return combineLatest([pricePreference$, utcDayChange$, localDayChange$]).pipe(
             map(([pricePreference]) =>
               this.applyFiltersAndSort(games, filters, searchQuery, timePreference, pricePreference)
             )

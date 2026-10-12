@@ -386,6 +386,7 @@ export function parseFilters(
       releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
       releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null,
       discounted: options?.listType === 'wishlist' && parsed.discounted === true,
+      released: options?.listType === 'wishlist' && parsed.released === true,
     };
   } catch {
     return null;

@@ -9,6 +9,7 @@ import {
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
   normalizeTagFilterList,
 } from '../core/utils/game-filter-utils';
@@ -87,6 +88,10 @@ export function normalizeListPageStoredFilters(
     releaseDateFrom: normalizeDateOnly(parsed['releaseDateFrom']),
     releaseDateTo: normalizeDateOnly(parsed['releaseDateTo']),
     discounted: options.listType === 'wishlist' && parsed['discounted'] === true,
+    releaseStatus:
+      options.listType === 'wishlist'
+        ? normalizeReleaseStatusFilter(parsed['releaseStatus'])
+        : 'all',
   };
 }
 

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMillisecondsUntilNextUtcDay, watchUtcDayChanges } from './utc-day-change';
+import {
+  getMillisecondsUntilNextLocalDay,
+  getMillisecondsUntilNextUtcDay,
+  watchLocalDayChanges,
+  watchUtcDayChanges,
+} from './utc-day-change';
 
 describe('utc-day-change', () => {
   beforeEach(() => {
@@ -44,5 +49,28 @@ describe('utc-day-change', () => {
     expect(vi.getTimerCount()).toBe(0);
     vi.advanceTimersByTime(2 * 24 * 60 * 60 * 1000);
     expect(onDayChange).not.toHaveBeenCalled();
+  });
+
+  it('computes the delay until the next local midnight', () => {
+    expect(getMillisecondsUntilNextLocalDay(new Date(2026, 5, 15, 23, 59, 59))).toBe(1000);
+    expect(getMillisecondsUntilNextLocalDay(new Date(2026, 5, 15, 23))).toBe(60 * 60 * 1000);
+  });
+
+  it('emits at every local day rollover and not before', () => {
+    vi.setSystemTime(new Date(2026, 5, 15, 23));
+    const onDayChange = vi.fn();
+    const subscription = watchLocalDayChanges().subscribe(onDayChange);
+
+    vi.advanceTimersByTime(60 * 60 * 1000 - 1);
+    expect(onDayChange).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(onDayChange).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+    expect(onDayChange).toHaveBeenCalledTimes(2);
+
+    subscription.unsubscribe();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

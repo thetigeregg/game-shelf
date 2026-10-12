@@ -9,6 +9,7 @@ import {
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
   normalizeTagFilterList,
 } from './game-filter-utils';
@@ -80,6 +81,15 @@ describe('game-filter-utils', () => {
     expect(normalizeNonNegativeNumber(-1)).toBeNull();
     expect(normalizeNonNegativeNumber(Number.NaN)).toBeNull();
     expect(normalizeNonNegativeNumber('1.2')).toBeNull();
+  });
+
+  it('normalizes release status filters', () => {
+    expect(normalizeReleaseStatusFilter('released')).toBe('released');
+    expect(normalizeReleaseStatusFilter('unreleased')).toBe('unreleased');
+    expect(normalizeReleaseStatusFilter('all')).toBe('all');
+    expect(normalizeReleaseStatusFilter('soon')).toBe('all');
+    expect(normalizeReleaseStatusFilter(true)).toBe('all');
+    expect(normalizeReleaseStatusFilter(undefined)).toBe('all');
   });
 
   it('normalizes tag filter list and keeps none first', () => {

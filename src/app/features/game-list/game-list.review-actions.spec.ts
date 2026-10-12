@@ -1044,13 +1044,20 @@ describe('game-list review actions', () => {
   });
 
   describe('releasing soon day rollover', () => {
-    function createListPipeline(sortField: GameListFilters['sortField']): GameListComponent {
+    function createListPipeline(
+      sortField: GameListFilters['sortField'],
+      filterOverrides: Partial<GameListFilters> = {}
+    ): GameListComponent {
       const emitter = { emit: vi.fn() };
       const page = Object.create(GameListComponent.prototype) as GameListComponent;
       Object.assign(page, {
         listType: 'wishlist',
         listType$: new BehaviorSubject<'collection' | 'wishlist' | null>(null),
-        filters$: new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS, sortField }),
+        filters$: new BehaviorSubject<GameListFilters>({
+          ...DEFAULT_GAME_LIST_FILTERS,
+          sortField,
+          ...filterOverrides,
+        }),
         searchQuery$: new BehaviorSubject(''),
         groupBy$: new BehaviorSubject('none'),
         filteringEngine: new GameListFilteringEngine('__none__'),
@@ -1070,8 +1077,18 @@ describe('game-list review actions', () => {
         gameShelfService: {
           watchList: () =>
             of([
-              createGame({ igdbGameId: '1', title: 'June', releaseDate: '2026-06-15' }),
-              createGame({ igdbGameId: '2', title: 'July', releaseDate: '2026-07-20' }),
+              createGame({
+                igdbGameId: '1',
+                title: 'June',
+                listType: 'wishlist',
+                releaseDate: '2026-06-15',
+              }),
+              createGame({
+                igdbGameId: '2',
+                title: 'July',
+                listType: 'wishlist',
+                releaseDate: '2026-07-20',
+              }),
             ]),
         },
         timePreferenceService: { timePreference$: of(15) },
@@ -1103,6 +1120,30 @@ describe('game-list review actions', () => {
           ['June', 'July'],
           ['July', 'June'],
         ]);
+
+        subscription.unsubscribe();
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('re-filters an idle released list when the local day changes', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 5, 14, 23, 59));
+
+      try {
+        const emissions: string[][] = [];
+        const subscription = createListPipeline('title', {
+          releaseStatus: 'released',
+        }).games$.subscribe((games) => {
+          emissions.push(games.map((game) => game.title));
+        });
+
+        expect(emissions).toEqual([[]]);
+
+        vi.advanceTimersByTime(60 * 1000);
+        expect(emissions).toEqual([[], ['June']]);
 
         subscription.unsubscribe();
         expect(vi.getTimerCount()).toBe(0);

@@ -681,6 +681,104 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
   });
 
+  it('filters wishlist games by release status relative to the local date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15, 12));
+
+    try {
+      const games: GameEntry[] = [
+        makeGame({
+          igdbGameId: '1',
+          platformIgdbId: 130,
+          title: 'Past',
+          listType: 'wishlist',
+          releaseDate: '2020-01-01T00:00:00.000Z',
+        }),
+        makeGame({
+          igdbGameId: '2',
+          platformIgdbId: 130,
+          title: 'Today',
+          listType: 'wishlist',
+          releaseDate: '2026-06-15',
+        }),
+        makeGame({
+          igdbGameId: '3',
+          platformIgdbId: 130,
+          title: 'Tomorrow',
+          listType: 'wishlist',
+          releaseDate: '2026-06-16',
+        }),
+        makeGame({
+          igdbGameId: '4',
+          platformIgdbId: 130,
+          title: 'Undated',
+          listType: 'wishlist',
+          releaseDate: null,
+        }),
+        makeGame({
+          igdbGameId: '5',
+          platformIgdbId: 130,
+          title: 'Malformed',
+          listType: 'wishlist',
+          releaseDate: 'not-a-date',
+        }),
+        makeGame({
+          igdbGameId: '6',
+          platformIgdbId: 130,
+          title: 'Collection Future',
+          listType: 'collection',
+          releaseDate: '2027-01-01',
+        }),
+      ];
+      const titlesFor = (releaseStatus: GameListFilters['releaseStatus']): string[] =>
+        engine
+          .applyFiltersAndSort(games, { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus }, '')
+          .map((game) => game.title);
+
+      expect(titlesFor('released')).toEqual(['Collection Future', 'Past', 'Today']);
+      expect(titlesFor('unreleased')).toEqual([
+        'Collection Future',
+        'Malformed',
+        'Tomorrow',
+        'Undated',
+      ]);
+      expect(titlesFor('all')).toHaveLength(games.length);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-evaluates release status when the local date rolls over', () => {
+    vi.useFakeTimers();
+
+    try {
+      const games: GameEntry[] = [
+        makeGame({
+          igdbGameId: '1',
+          platformIgdbId: 130,
+          title: 'Launch Day',
+          listType: 'wishlist',
+          releaseDate: '2026-06-15',
+        }),
+      ];
+      const released: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus: 'released' };
+      const unreleased: GameListFilters = {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        releaseStatus: 'unreleased',
+      };
+
+      vi.setSystemTime(new Date(2026, 5, 14, 23, 59, 59));
+      expect(engine.applyFiltersAndSort(games, released, '')).toEqual([]);
+      expect(engine.applyFiltersAndSort(games, unreleased, '')).toHaveLength(1);
+
+      vi.setSystemTime(new Date(2026, 5, 15, 0, 0, 1));
+      expect(engine.applyFiltersAndSort(games, released, '')).toHaveLength(1);
+      expect(engine.applyFiltersAndSort(games, unreleased, '')).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('excludes games that match exclusion filters', () => {
     const games: GameEntry[] = [
       makeGame({

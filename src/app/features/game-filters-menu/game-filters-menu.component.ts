@@ -34,6 +34,7 @@ import {
   GameStatusFilterOption,
   GameType,
   ListType,
+  ReleaseStatusFilterOption,
 } from '../../core/models/game.models';
 import {
   normalizeBooleanFilter,
@@ -41,6 +42,7 @@ import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
 } from '../../core/utils/game-filter-utils';
 import { isTasFeatureEnabled } from '../../core/config/runtime-config';
@@ -130,6 +132,11 @@ export class GameFiltersMenuComponent implements OnChanges {
     { value: 'publisher', label: 'Publisher' },
     { value: 'releaseYear', label: 'Release Year' },
   ];
+  readonly releaseStatusOptions: { value: ReleaseStatusFilterOption; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'released', label: 'Released' },
+    { value: 'unreleased', label: 'Unreleased' },
+  ];
   readonly tasEnabled = isTasFeatureEnabled();
 
   @Input({ required: true }) menuId!: string;
@@ -171,6 +178,9 @@ export class GameFiltersMenuComponent implements OnChanges {
       sortField: normalizedSortField,
       ...(normalizedSortField === 'releasingSoon' ? { sortDirection: 'asc' as const } : {}),
       discounted: this.showDiscountedFilter && normalizeBooleanFilter(this.filters.discounted),
+      releaseStatus: this.showReleaseStatusFilter
+        ? normalizeReleaseStatusFilter(this.filters.releaseStatus)
+        : 'all',
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =
@@ -179,7 +189,8 @@ export class GameFiltersMenuComponent implements OnChanges {
     if (
       this.filters.sortField !== normalizedSortField ||
       this.filters.sortDirection !== normalizedFilters.sortDirection ||
-      this.filters.discounted !== normalizedFilters.discounted
+      this.filters.discounted !== normalizedFilters.discounted ||
+      this.filters.releaseStatus !== normalizedFilters.releaseStatus
     ) {
       this.filtersChange.emit({ ...normalizedFilters });
     }
@@ -248,6 +259,14 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       discounted: value,
+    };
+    this.updateFilters();
+  }
+
+  onReleaseStatusChange(value: ReleaseStatusFilterOption | null | undefined): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      releaseStatus: normalizeReleaseStatusFilter(value),
     };
     this.updateFilters();
   }
@@ -606,6 +625,10 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   get showDiscountedFilter(): boolean {
+    return this.listType === 'wishlist';
+  }
+
+  get showReleaseStatusFilter(): boolean {
     return this.listType === 'wishlist';
   }
 }

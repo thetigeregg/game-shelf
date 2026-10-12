@@ -15,6 +15,7 @@ import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
   normalizeTagFilterList,
 } from '../../core/utils/game-filter-utils';
@@ -272,6 +273,7 @@ export class GameListFilteringEngine {
           ? hltbMainHoursMin
           : hltbMainHoursMax,
       discounted: normalizeBooleanFilter(filters.discounted),
+      releaseStatus: normalizeReleaseStatusFilter(filters.releaseStatus),
     };
   }
 
@@ -362,8 +364,18 @@ export class GameListFilteringEngine {
       return sortedGames;
     }
 
+    // The release status filter follows the device's local calendar date, not UTC.
+    const localToday = filters.releaseStatus !== 'all' ? this.getLocalDateOnly() : null;
+
     return sortedGames.filter((game) =>
-      this.matchesFilters(game, filters, normalizedSearchQuery, minMainHours, maxMainHours)
+      this.matchesFilters(
+        game,
+        filters,
+        normalizedSearchQuery,
+        minMainHours,
+        maxMainHours,
+        localToday
+      )
     );
   }
 
@@ -627,7 +639,8 @@ export class GameListFilteringEngine {
     filters: GameListFilters,
     normalizedSearchQuery: string,
     minMainHours: number | null,
-    maxMainHours: number | null
+    maxMainHours: number | null,
+    localToday: string | null
   ): boolean {
     const normalized = this.getNormalizedFilterGame(game);
 
@@ -651,6 +664,18 @@ export class GameListFilteringEngine {
 
     if (filters.discounted && game.listType === 'wishlist' && !isGameOnDiscount(game)) {
       return false;
+    }
+
+    if (filters.releaseStatus !== 'all' && game.listType === 'wishlist') {
+      // Games without a usable release date are treated as unreleased.
+      const isReleased =
+        normalized.releaseDate !== null &&
+        localToday !== null &&
+        normalized.releaseDate <= localToday;
+
+      if (isReleased !== (filters.releaseStatus === 'released')) {
+        return false;
+      }
     }
 
     if (
@@ -928,7 +953,8 @@ export class GameListFilteringEngine {
       maxMainHours !== null ||
       !!filters.releaseDateFrom ||
       !!filters.releaseDateTo ||
-      filters.discounted
+      filters.discounted ||
+      filters.releaseStatus !== 'all'
     );
   }
 
@@ -1131,6 +1157,14 @@ export class GameListFilteringEngine {
 
     // Day 0 of the following month is the last day of this one.
     return day <= new Date(Date.UTC(year, month, 0)).getUTCDate() ? dateOnly : null;
+  }
+
+  private getLocalDateOnly(now: Date = new Date()): string {
+    const year = String(now.getFullYear()).padStart(4, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
   private resolveReleaseDateStatus(

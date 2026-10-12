@@ -5,6 +5,7 @@ import {
   GameRatingFilterOption,
   GameStatusFilterOption,
   GameType,
+  ReleaseStatusFilterOption,
   isGameRating,
 } from '../models/game.models';
 
@@ -138,6 +139,10 @@ export function normalizeNonNegativeNumber(value: unknown): number | null {
 
 export function normalizeBooleanFilter(value: unknown): boolean {
   return value === true;
+}
+
+export function normalizeReleaseStatusFilter(value: unknown): ReleaseStatusFilterOption {
+  return value === 'released' || value === 'unreleased' ? value : 'all';
 }
 
 export function normalizeTagFilterList(value: unknown, noneTagFilterValue: string): string[] {

@@ -964,6 +964,10 @@ export class ListPageComponent {
       count += 1;
     }
 
+    if (this.filters.releaseStatus !== 'all') {
+      count += 1;
+    }
+
     return count;
   }
 

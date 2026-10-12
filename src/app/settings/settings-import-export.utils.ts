@@ -10,7 +10,10 @@ import type {
   Tag,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
-import { normalizeCompatibilityFilterList } from '../core/utils/game-filter-utils';
+import {
+  normalizeCompatibilityFilterList,
+  normalizeReleaseStatusFilter,
+} from '../core/utils/game-filter-utils';
 import { sanitizeExternalHttpUrlString } from '../core/utils/url-host.util';
 import { normalizeTagIds } from '../features/game-list/game-list-detail-actions';
 
@@ -386,7 +389,10 @@ export function parseFilters(
       releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
       releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null,
       discounted: options?.listType === 'wishlist' && parsed.discounted === true,
-      released: options?.listType === 'wishlist' && parsed.released === true,
+      releaseStatus:
+        options?.listType === 'wishlist'
+          ? normalizeReleaseStatusFilter(parsed.releaseStatus)
+          : 'all',
     };
   } catch {
     return null;

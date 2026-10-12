@@ -15,6 +15,7 @@ import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
   normalizeTagFilterList,
 } from '../../core/utils/game-filter-utils';
@@ -272,7 +273,7 @@ export class GameListFilteringEngine {
           ? hltbMainHoursMin
           : hltbMainHoursMax,
       discounted: normalizeBooleanFilter(filters.discounted),
-      released: normalizeBooleanFilter(filters.released),
+      releaseStatus: normalizeReleaseStatusFilter(filters.releaseStatus),
     };
   }
 
@@ -363,8 +364,8 @@ export class GameListFilteringEngine {
       return sortedGames;
     }
 
-    // The released filter follows the device's local calendar date, not UTC.
-    const localToday = filters.released ? this.getLocalDateOnly() : null;
+    // The release status filter follows the device's local calendar date, not UTC.
+    const localToday = filters.releaseStatus !== 'all' ? this.getLocalDateOnly() : null;
 
     return sortedGames.filter((game) =>
       this.matchesFilters(
@@ -665,14 +666,16 @@ export class GameListFilteringEngine {
       return false;
     }
 
-    if (
-      filters.released &&
-      game.listType === 'wishlist' &&
-      (normalized.releaseDate === null ||
-        localToday === null ||
-        normalized.releaseDate > localToday)
-    ) {
-      return false;
+    if (filters.releaseStatus !== 'all' && game.listType === 'wishlist') {
+      // Games without a usable release date are treated as unreleased.
+      const isReleased =
+        normalized.releaseDate !== null &&
+        localToday !== null &&
+        normalized.releaseDate <= localToday;
+
+      if (isReleased !== (filters.releaseStatus === 'released')) {
+        return false;
+      }
     }
 
     if (
@@ -951,7 +954,7 @@ export class GameListFilteringEngine {
       !!filters.releaseDateFrom ||
       !!filters.releaseDateTo ||
       filters.discounted ||
-      filters.released
+      filters.releaseStatus !== 'all'
     );
   }
 

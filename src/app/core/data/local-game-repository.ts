@@ -24,6 +24,7 @@ import {
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
+  normalizeReleaseStatusFilter,
   normalizeStringList,
 } from '../utils/game-filter-utils';
 import { detectReviewSourceFromUrl, sanitizeExternalHttpUrlString } from '../utils/url-host.util';
@@ -1823,7 +1824,8 @@ export class LocalGameRepository implements GameRepository {
       releaseDateFrom,
       releaseDateTo,
       discounted: listType === 'wishlist' && normalizeBooleanFilter(source.discounted),
-      released: listType === 'wishlist' && normalizeBooleanFilter(source.released),
+      releaseStatus:
+        listType === 'wishlist' ? normalizeReleaseStatusFilter(source.releaseStatus) : 'all',
     };
   }
 

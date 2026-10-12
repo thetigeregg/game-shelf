@@ -681,7 +681,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
   });
 
-  it('filters wishlist games to those released on or before the local date', () => {
+  it('filters wishlist games by release status relative to the local date', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 5, 15, 12));
 
@@ -730,22 +730,25 @@ describe('GameListFilteringEngine UI behavior', () => {
           releaseDate: '2027-01-01',
         }),
       ];
-      const filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS, released: true };
+      const titlesFor = (releaseStatus: GameListFilters['releaseStatus']): string[] =>
+        engine
+          .applyFiltersAndSort(games, { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus }, '')
+          .map((game) => game.title);
 
-      expect(engine.applyFiltersAndSort(games, filters, '').map((game) => game.title)).toEqual([
+      expect(titlesFor('released')).toEqual(['Collection Future', 'Past', 'Today']);
+      expect(titlesFor('unreleased')).toEqual([
         'Collection Future',
-        'Past',
-        'Today',
+        'Malformed',
+        'Tomorrow',
+        'Undated',
       ]);
-      expect(
-        engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, '').map((game) => game.title)
-      ).toHaveLength(games.length);
+      expect(titlesFor('all')).toHaveLength(games.length);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('re-evaluates the released filter when the local date rolls over', () => {
+  it('re-evaluates release status when the local date rolls over', () => {
     vi.useFakeTimers();
 
     try {
@@ -758,15 +761,19 @@ describe('GameListFilteringEngine UI behavior', () => {
           releaseDate: '2026-06-15',
         }),
       ];
-      const filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS, released: true };
+      const released: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus: 'released' };
+      const unreleased: GameListFilters = {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        releaseStatus: 'unreleased',
+      };
 
       vi.setSystemTime(new Date(2026, 5, 14, 23, 59, 59));
-      expect(engine.applyFiltersAndSort(games, filters, '')).toEqual([]);
+      expect(engine.applyFiltersAndSort(games, released, '')).toEqual([]);
+      expect(engine.applyFiltersAndSort(games, unreleased, '')).toHaveLength(1);
 
       vi.setSystemTime(new Date(2026, 5, 15, 0, 0, 1));
-      expect(engine.applyFiltersAndSort(games, filters, '').map((game) => game.title)).toEqual([
-        'Launch Day',
-      ]);
+      expect(engine.applyFiltersAndSort(games, released, '')).toHaveLength(1);
+      expect(engine.applyFiltersAndSort(games, unreleased, '')).toEqual([]);
     } finally {
       vi.useRealTimers();
     }

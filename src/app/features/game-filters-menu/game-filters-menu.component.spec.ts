@@ -144,49 +144,54 @@ describe('GameFiltersMenuComponent', () => {
     expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ discounted: true }));
   });
 
-  it('shows the released filter only on the wishlist list type', () => {
+  it('shows the release status filter only on the wishlist list type', () => {
     const component = createComponent();
 
     component.listType = 'collection';
-    expect(component.showReleasedFilter).toBe(false);
+    expect(component.showReleaseStatusFilter).toBe(false);
 
     component.listType = 'wishlist';
-    expect(component.showReleasedFilter).toBe(true);
+    expect(component.showReleaseStatusFilter).toBe(true);
   });
 
-  it('clears a stale released filter outside wishlist and emits corrected filters', () => {
+  it('resets a stale release status outside wishlist and emits corrected filters', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');
 
-    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, released: true };
+    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus: 'unreleased' };
     component.listType = 'collection';
     component.ngOnChanges();
 
-    expect(component.draftFilters.released).toBe(false);
-    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ released: false }));
+    expect(component.draftFilters.releaseStatus).toBe('all');
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ releaseStatus: 'all' }));
   });
 
-  it('keeps the released filter on wishlist without re-emitting', () => {
+  it('keeps the release status on wishlist without re-emitting', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');
 
-    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, released: true };
+    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus: 'released' };
     component.listType = 'wishlist';
     component.ngOnChanges();
 
-    expect(component.draftFilters.released).toBe(true);
+    expect(component.draftFilters.releaseStatus).toBe('released');
     expect(emitSpy).not.toHaveBeenCalled();
   });
 
-  it('updates released via onReleasedFilterChange', () => {
+  it('updates release status via onReleaseStatusChange', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');
 
     component.listType = 'wishlist';
-    component.onReleasedFilterChange(true);
+    component.onReleaseStatusChange('unreleased');
 
-    expect(component.draftFilters.released).toBe(true);
-    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ released: true }));
+    expect(component.draftFilters.releaseStatus).toBe('unreleased');
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ releaseStatus: 'unreleased' }));
+
+    component.onReleaseStatusChange(null);
+
+    expect(component.draftFilters.releaseStatus).toBe('all');
+    expect(emitSpy).toHaveBeenLastCalledWith(expect.objectContaining({ releaseStatus: 'all' }));
   });
 
   it('does not emit when incoming sort field is already valid', () => {

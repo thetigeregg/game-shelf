@@ -1134,11 +1134,11 @@ describe('game-list review actions', () => {
 
       try {
         const emissions: string[][] = [];
-        const subscription = createListPipeline('title', { released: true }).games$.subscribe(
-          (games) => {
-            emissions.push(games.map((game) => game.title));
-          }
-        );
+        const subscription = createListPipeline('title', {
+          releaseStatus: 'released',
+        }).games$.subscribe((games) => {
+          emissions.push(games.map((game) => game.title));
+        });
 
         expect(emissions).toEqual([[]]);
 

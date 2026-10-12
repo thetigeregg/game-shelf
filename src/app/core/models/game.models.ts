@@ -565,8 +565,10 @@ export interface GameListFilters {
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
   discounted: boolean;
-  released: boolean;
+  releaseStatus: ReleaseStatusFilterOption;
 }
+
+export type ReleaseStatusFilterOption = 'all' | 'released' | 'unreleased';
 
 export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortField: 'title',
@@ -593,7 +595,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   releaseDateFrom: null,
   releaseDateTo: null,
   discounted: false,
-  released: false,
+  releaseStatus: 'all',
 };
 
 export interface GameListView {

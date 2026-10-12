@@ -685,10 +685,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
               ? watchUtcDayChanges().pipe(startWith(undefined))
               : of(undefined);
 
-          // The released filter depends on today's local date, so re-filter an idle list at rollover.
-          const localDayChange$ = filters.released
-            ? watchLocalDayChanges().pipe(startWith(undefined))
-            : of(undefined);
+          // Release status depends on today's local date, so re-filter an idle list at rollover.
+          const localDayChange$ =
+            filters.releaseStatus !== 'all'
+              ? watchLocalDayChanges().pipe(startWith(undefined))
+              : of(undefined);
 
           return combineLatest([pricePreference$, utcDayChange$, localDayChange$]).pipe(
             map(([pricePreference]) =>

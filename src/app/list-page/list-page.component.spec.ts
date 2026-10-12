@@ -1028,6 +1028,13 @@ describe('ListPageComponent', () => {
     };
 
     expect(component.getActiveFilterCount()).toBe(17);
+
+    component.filters = { ...component.filters, releaseStatus: 'released' };
+    expect(component.getActiveFilterCount()).toBe(18);
+
+    component.filters = { ...DEFAULT_GAME_LIST_FILTERS, releaseStatus: 'unreleased' };
+    expect(component.getActiveFilterCount()).toBe(1);
+
     expect(component.getSelectionHeaderLabel()).toBe('2 selected');
     expect(component.getMoveTargetLabel()).toBe('Collection');
     expect(component.getHeaderActionsAriaLabel()).toBe('Open wishlist actions');

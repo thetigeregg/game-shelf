@@ -4292,3 +4292,7 @@
 ## v1.86.1 - 2026-10-11
 
 - 87d371e2 Title: chore(deps): bump dependencies across app, server, scrapers, iOS (#618)
+
+## v1.87.0 - 2026-10-12
+
+- ac50475c feat(wishlist): add release status filter to wishlist filters (#621)

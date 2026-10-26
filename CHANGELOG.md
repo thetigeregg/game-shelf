@@ -4296,3 +4296,7 @@
 ## v1.87.0 - 2026-10-12
 
 - ac50475c feat(wishlist): add release status filter to wishlist filters (#621)
+
+## v1.87.1 - 2026-10-26
+
+- 66bfcac9 chore(deps): bump dependencies and Playwright to v1.64.1 (#637)

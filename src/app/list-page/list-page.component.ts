@@ -1310,6 +1310,9 @@ export class ListPageComponent implements AfterViewInit {
     rawGameId: string | null,
     rawPlatformId: string | null
   ): Promise<void> {
+    // Bumped before validating: a same-page navigation that drops or invalidates
+    // the target (e.g. re-tapping the tab) must also supersede a pending request.
+    const requestId = ++this.openGameRequestId;
     const igdbGameId = rawGameId?.trim() ?? '';
     const platformIgdbId = parseOpenGamePlatformId(rawPlatformId);
 
@@ -1317,7 +1320,6 @@ export class ListPageComponent implements AfterViewInit {
       return;
     }
 
-    const requestId = ++this.openGameRequestId;
     const isCurrent = (): boolean => requestId === this.openGameRequestId;
 
     try {

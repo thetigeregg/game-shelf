@@ -1170,6 +1170,25 @@ describe('ListPageComponent', () => {
       expect(routerMock.navigate).not.toHaveBeenCalled();
     });
 
+    it('neither opens nor navigates back when the params are removed while the lookup is pending', async () => {
+      const { component, gameListComponentMock } = setUp();
+      const list$ = new Subject<(typeof target)[]>();
+      gameShelfServiceMock.watchList.mockReturnValue(list$);
+      component.ngAfterViewInit();
+      const open = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams.bind(
+        component
+      );
+
+      const pending = open('123', '167');
+      await Promise.resolve();
+      await open(null, null);
+      list$.next([target]);
+      await pending;
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
     it('lets only the latest request open the detail and clear the params', async () => {
       const { component, gameListComponentMock } = setUp();
       const firstList$ = new Subject<(typeof target)[]>();

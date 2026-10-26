@@ -1342,6 +1342,17 @@ export class ListPageComponent implements AfterViewInit {
         return;
       }
 
+      // A tap while editing another game (app already open) leaves that editor
+      // alone rather than switching `selectedGame` underneath its pending save.
+      if (this.gameListComponent?.hasSelectedGameModalOpen) {
+        this.debugLogService.trace('list_page.open_game.skipped_modal_open', {
+          listType: this.listType,
+          igdbGameId,
+          platformIgdbId,
+        });
+        return;
+      }
+
       this.gameListComponent?.openGameDetail(game);
     } finally {
       if (isCurrent()) {

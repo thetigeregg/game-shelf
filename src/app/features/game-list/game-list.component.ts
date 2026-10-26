@@ -1304,6 +1304,28 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openGameDetailInternal(game);
   }
 
+  /**
+   * True while a modal stacked on the detail acts on `selectedGame` (editors,
+   * pickers, fix match). Opening another game's detail then would retarget that
+   * modal's pending save to the new game.
+   */
+  get hasSelectedGameModalOpen(): boolean {
+    return (
+      this.isEditMetadataModalOpen ||
+      this.isEditMetadataSaving ||
+      this.isFixMatchModalOpen ||
+      this.isImagePickerModalOpen ||
+      this.isHltbPickerModalOpen ||
+      this.isReviewPickerModalOpen ||
+      this.isPricingPickerModalOpen ||
+      this.isManualPickerModalOpen ||
+      this.isRomPickerModalOpen ||
+      this.isExternalMetadataModalOpen ||
+      this.isEmulatorJsModalOpen ||
+      this.isNotesModalOpen
+    );
+  }
+
   goBackInDetailNavigation(): void {
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
       void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');

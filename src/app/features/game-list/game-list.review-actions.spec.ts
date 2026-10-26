@@ -1043,6 +1043,40 @@ describe('game-list review actions', () => {
     }
   });
 
+  it('hasSelectedGameModalOpen flags each modal that acts on the selected game', () => {
+    const flags = [
+      'isEditMetadataModalOpen',
+      'isEditMetadataSaving',
+      'isFixMatchModalOpen',
+      'isImagePickerModalOpen',
+      'isHltbPickerModalOpen',
+      'isReviewPickerModalOpen',
+      'isPricingPickerModalOpen',
+      'isManualPickerModalOpen',
+      'isRomPickerModalOpen',
+      'isExternalMetadataModalOpen',
+      'isEmulatorJsModalOpen',
+      'isNotesModalOpen',
+    ] as const;
+    const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    const closeAll = (): void => {
+      Object.assign(page, Object.fromEntries(flags.map((flag) => [flag, false])), {
+        isGameDetailModalOpen: true,
+        isRatingModalOpen: true,
+        isVideosModalOpen: true,
+      });
+    };
+
+    closeAll();
+    expect(page.hasSelectedGameModalOpen).toBe(false);
+
+    for (const flag of flags) {
+      closeAll();
+      Object.assign(page, { [flag]: true });
+      expect(page.hasSelectedGameModalOpen, flag).toBe(true);
+    }
+  });
+
   describe('releasing soon day rollover', () => {
     function createListPipeline(
       sortField: GameListFilters['sortField'],

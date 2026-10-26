@@ -1131,6 +1131,19 @@ describe('ListPageComponent', () => {
       expect(routerMock.navigate).toHaveBeenCalledOnce();
     });
 
+    it("leaves another game's open editor alone and still clears the params", async () => {
+      const { component, gameListComponentMock } = setUp();
+      (gameListComponentMock as { hasSelectedGameModalOpen?: boolean }).hasSelectedGameModalOpen =
+        true;
+      gameShelfServiceMock.watchList.mockReturnValue(of([target]));
+      component.ngAfterViewInit();
+
+      await (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams('123', '167');
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).toHaveBeenCalledOnce();
+    });
+
     it('ignores absent or invalid params without looking up or navigating', async () => {
       const { component, gameListComponentMock } = setUp();
       component.ngAfterViewInit();

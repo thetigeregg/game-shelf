@@ -1090,12 +1090,14 @@ describe('ListPageComponent', () => {
       gameListComponentMock: {
         openGameDetail: ReturnType<typeof vi.fn>;
         isSelectedGameBusy: ReturnType<typeof vi.fn>;
+        hasSelectedGameModalOpen: boolean;
       };
     } {
       const component = createComponent();
       const gameListComponentMock = {
         openGameDetail: vi.fn(),
         isSelectedGameBusy: vi.fn().mockResolvedValue(false),
+        hasSelectedGameModalOpen: false,
       };
       (component as { gameListComponent: unknown }).gameListComponent = gameListComponentMock;
       return { component, gameListComponentMock };
@@ -1144,6 +1146,33 @@ describe('ListPageComponent', () => {
       component.ngAfterViewInit();
 
       await (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams('123', '167');
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).toHaveBeenCalledOnce();
+    });
+
+    it('leaves an editor alone that finished opening during the busy check', async () => {
+      const { component, gameListComponentMock } = setUp();
+      let resolveBusy!: (value: boolean) => void;
+      gameListComponentMock.isSelectedGameBusy.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          resolveBusy = resolve;
+        })
+      );
+      gameShelfServiceMock.watchList.mockReturnValue(of([target]));
+      component.ngAfterViewInit();
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await vi.waitFor(() => {
+        expect(gameListComponentMock.isSelectedGameBusy).toHaveBeenCalledOnce();
+      });
+      // The flags read false when the check started; the editor opened mid-await.
+      gameListComponentMock.hasSelectedGameModalOpen = true;
+      resolveBusy(false);
+      await pending;
 
       expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
       expect(routerMock.navigate).toHaveBeenCalledOnce();

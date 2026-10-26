@@ -1348,7 +1348,10 @@ export class ListPageComponent implements AfterViewInit {
       if (!isCurrent()) {
         return;
       }
-      if (isBusy) {
+      // Re-read the modal flags in the same turn as the switch: an editor whose
+      // async init (e.g. the edit-metadata platform lookup) finished during the
+      // busy check's await is open now but wasn't when the flags were read.
+      if (isBusy || this.gameListComponent?.hasSelectedGameModalOpen) {
         this.debugLogService.trace('list_page.open_game.skipped_modal_open', {
           listType: this.listType,
           igdbGameId,

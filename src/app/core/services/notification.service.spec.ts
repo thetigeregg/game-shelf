@@ -547,6 +547,26 @@ describe('NotificationService', () => {
     );
   });
 
+  it('merges open-game params into an existing query string and accepts numeric platform ids', async () => {
+    await service.initialize();
+
+    const actionListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationActionPerformed'
+    )?.[1];
+
+    actionListener?.({
+      actionId: 'tap',
+      notification: {
+        data: { route: '/tabs/wishlist?applyView=7', igdbGameId: ' 123 ', platformIgdbId: 167 },
+      },
+    });
+    await Promise.resolve();
+
+    expect(router.navigateByUrl).toHaveBeenCalledWith(
+      '/tabs/wishlist?applyView=7&openGame=123&openGamePlatform=167'
+    );
+  });
+
   it('keeps the plain route when game ids are unusable or the route is not a list page', async () => {
     await service.initialize();
 

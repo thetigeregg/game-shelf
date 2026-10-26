@@ -4304,3 +4304,7 @@
 ## v1.87.2 - 2026-10-26
 
 - ef3feefd chore(deps): update body-parser and related dependencies to latest versions (#641)
+
+## v1.88.0 - 2026-10-26
+
+- 50408079 feat(notifications): open tapped game's detail in its list (#643)

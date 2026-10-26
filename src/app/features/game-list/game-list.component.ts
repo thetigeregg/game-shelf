@@ -1304,6 +1304,46 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openGameDetailInternal(game);
   }
 
+  /**
+   * True while a modal stacked on the detail acts on `selectedGame` (editors,
+   * pickers, fix match). Opening another game's detail then would retarget that
+   * modal's pending save to the new game.
+   */
+  get hasSelectedGameModalOpen(): boolean {
+    return (
+      this.isEditMetadataModalOpen ||
+      this.isEditMetadataSaving ||
+      this.isFixMatchModalOpen ||
+      this.isImagePickerModalOpen ||
+      this.isHltbPickerModalOpen ||
+      this.isReviewPickerModalOpen ||
+      this.isPricingPickerModalOpen ||
+      this.isManualPickerModalOpen ||
+      this.isRomPickerModalOpen ||
+      this.isExternalMetadataModalOpen ||
+      this.isEmulatorJsModalOpen ||
+      this.isNotesModalOpen
+    );
+  }
+
+  /**
+   * True while opening another game's detail would retarget pending work on
+   * `selectedGame`: a stacked modal (see `hasSelectedGameModalOpen`) or any
+   * presented alert/popover — e.g. the detail's Status select or a tags/rating
+   * picker, whose confirm handlers act on `selectedGame`.
+   */
+  async isSelectedGameBusy(): Promise<boolean> {
+    if (this.hasSelectedGameModalOpen) {
+      return true;
+    }
+
+    const [alert, popover] = await Promise.all([
+      this.alertController.getTop(),
+      this.popoverController.getTop(),
+    ]);
+    return alert !== undefined || popover !== undefined;
+  }
+
   goBackInDetailNavigation(): void {
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
       void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
@@ -2317,9 +2357,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async openEditMetadataModal(): Promise<void> {
-    const game = this.selectedGame;
+    const requestedGame = this.selectedGame;
 
-    if (!game || this.isEditMetadataSaving) {
+    if (!requestedGame || this.isEditMetadataSaving) {
       return;
     }
 
@@ -2331,6 +2371,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
     } catch {
       this.editMetadataPlatformOptions = [];
       await this.presentToast('Unable to load platforms.', 'danger');
+      return;
+    }
+
+    // The detail may have switched games during the lookup (e.g. a tapped push);
+    // opening now would prefill this game's fields but save them to the other.
+    const game = this.selectedGame;
+    if (!game || this.getGameKey(game) !== this.getGameKey(requestedGame)) {
       return;
     }
 

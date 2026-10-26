@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -28,7 +28,7 @@ import {
   IonSplitPane,
   IonText,
 } from '@ionic/angular/standalone';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameCatalogResult,
@@ -87,6 +87,11 @@ import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
 import { openExternalUrl } from '../core/utils/open-external-url';
+import {
+  OPEN_GAME_PLATFORM_QUERY_PARAM,
+  OPEN_GAME_QUERY_PARAM,
+  parseOpenGamePlatformId,
+} from '../core/utils/open-game-query-params';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
@@ -114,6 +119,10 @@ type ListPageConfig = {
 };
 
 type BulkExternalMetadataProvider = 'igdb' | 'hltb' | 'review' | 'pricing';
+
+function stripQuery(url: string): string {
+  return url.replace(/[?#].*$/, '');
+}
 
 function buildConfig(listType: ListType): ListPageConfig {
   if (listType === 'wishlist') {
@@ -173,7 +182,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonText,
   ],
 })
-export class ListPageComponent {
+export class ListPageComponent implements AfterViewInit {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
   static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
   readonly noneTagFilterValue = '__none__';
@@ -246,6 +255,18 @@ export class ListPageComponent {
   private initialLoadProgressWasActive = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
+  // queryParamMap emits in the constructor, before @ViewChild(GameListComponent)
+  // is set — open-game requests wait on this before opening the detail.
+  private markViewReady!: () => void;
+  private readonly viewReady = new Promise<void>((resolve) => {
+    this.markViewReady = resolve;
+  });
+  // Bumped per open-game request and on leaving the page (Ionic caches tab
+  // pages, so they aren't destroyed): a superseded request must neither open its
+  // detail nor clean up params by navigating back to this page. Leaving bumps it
+  // at NavigationStart, since `ionViewWillLeave` fires only after a lazy target
+  // route has loaded.
+  private openGameRequestId = 0;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'] as unknown;
@@ -263,6 +284,20 @@ export class ListPageComponent {
     });
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
+      void this.openGameFromQueryParams(
+        params.get(OPEN_GAME_QUERY_PARAM),
+        params.get(OPEN_GAME_PLATFORM_QUERY_PARAM)
+      );
+    });
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      // Same-path navigations (an incoming push for this list, or the params
+      // cleanup) are handled by the queryParamMap subscription above.
+      if (
+        event instanceof NavigationStart &&
+        stripQuery(event.url) !== stripQuery(this.router.url)
+      ) {
+        this.openGameRequestId += 1;
+      }
     });
     toObservable(this.syncBootstrapProgress.progress)
       .pipe(takeUntilDestroyed())
@@ -295,6 +330,14 @@ export class ListPageComponent {
       link,
       film,
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.markViewReady();
+  }
+
+  ionViewWillLeave(): void {
+    this.openGameRequestId += 1;
   }
 
   onFiltersChange(filters: GameListFilters): void {
@@ -1271,6 +1314,83 @@ export class ListPageComponent {
         replaceUrl: true,
       });
     }
+  }
+
+  /**
+   * Opens a game's detail as if tapped in the list (a tapped push notification,
+   * see NotificationService). Looks the game up in the full list rather than
+   * `displayedGames`, so current filters/search can't hide it. A game no longer
+   * in this list just leaves the user on the list.
+   */
+  private async openGameFromQueryParams(
+    rawGameId: string | null,
+    rawPlatformId: string | null
+  ): Promise<void> {
+    // Bumped before validating: a same-page navigation that drops or invalidates
+    // the target (e.g. re-tapping the tab) must also supersede a pending request.
+    const requestId = ++this.openGameRequestId;
+    const igdbGameId = rawGameId?.trim() ?? '';
+    const platformIgdbId = parseOpenGamePlatformId(rawPlatformId);
+
+    if (igdbGameId.length === 0 || platformIgdbId === null) {
+      return;
+    }
+
+    const isCurrent = (): boolean => requestId === this.openGameRequestId;
+
+    try {
+      await this.viewReady;
+      const games = await firstValueFrom(this.gameShelfService.watchList(this.listType));
+      if (!isCurrent()) {
+        return;
+      }
+
+      const game = games.find(
+        (entry) => entry.igdbGameId === igdbGameId && entry.platformIgdbId === platformIgdbId
+      );
+
+      if (!game) {
+        this.debugLogService.trace('list_page.open_game.not_found', {
+          listType: this.listType,
+          igdbGameId,
+          platformIgdbId,
+        });
+        return;
+      }
+
+      // A tap while editing another game (app already open) leaves that editor
+      // or picker alone rather than switching `selectedGame` underneath its save.
+      const isBusy = (await this.gameListComponent?.isSelectedGameBusy()) ?? false;
+      if (!isCurrent()) {
+        return;
+      }
+      // Re-read the modal flags in the same turn as the switch: an editor whose
+      // async init (e.g. the edit-metadata platform lookup) finished during the
+      // busy check's await is open now but wasn't when the flags were read.
+      if (isBusy || this.gameListComponent?.hasSelectedGameModalOpen) {
+        this.debugLogService.trace('list_page.open_game.skipped_modal_open', {
+          listType: this.listType,
+          igdbGameId,
+          platformIgdbId,
+        });
+        return;
+      }
+
+      this.gameListComponent?.openGameDetail(game);
+    } finally {
+      if (isCurrent()) {
+        this.clearOpenGameQueryParams();
+      }
+    }
+  }
+
+  private clearOpenGameQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { [OPEN_GAME_QUERY_PARAM]: null, [OPEN_GAME_PLATFORM_QUERY_PARAM]: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private buildCatalogIdentityKey(

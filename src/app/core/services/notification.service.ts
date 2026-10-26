@@ -9,12 +9,18 @@ import { getAppVersion } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
 import { getNativePlatform, isNativePlatform } from '../utils/native-platform.util';
+import {
+  OPEN_GAME_PLATFORM_QUERY_PARAM,
+  OPEN_GAME_QUERY_PARAM,
+  parseOpenGamePlatformId,
+} from '../utils/open-game-query-params';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { DebugLogService } from './debug-log.service';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
 const FCM_DEVICE_TOKEN_STORAGE_KEY = 'game-shelf:notifications:fcm-token';
+const GAME_TARGET_LIST_ROUTES = new Set(['/tabs/wishlist', '/tabs/collection']);
 
 export interface ReleaseNotificationEventsPreference {
   set: boolean;
@@ -400,9 +406,12 @@ export class NotificationService {
     await FirebaseMessaging.addListener(
       'notificationActionPerformed',
       (event: FirebaseNotificationListenerEvent) => {
-        const route = this.extractRoute(event.notification.data);
+        const baseRoute = this.extractRoute(event.notification.data);
+        const route =
+          baseRoute !== null ? this.withGameTarget(baseRoute, event.notification.data) : null;
         this.debugLogService.trace('notifications.action_performed', {
           hasRoute: route !== null,
+          hasGameTarget: route !== baseRoute,
           route: route?.replace(/[?#].*$/, '') ?? null,
         });
         if (route !== null) {
@@ -419,6 +428,38 @@ export class NotificationService {
     });
 
     this.debugLogService.trace('notifications.listeners.attached');
+  }
+
+  /**
+   * Adds open-game query params to a tapped notification's route when it targets
+   * a list page and carries game ids (release, sale, and compat-status pushes),
+   * so the list page opens that game's detail on arrival. Otherwise returns
+   * `route` unchanged.
+   */
+  private withGameTarget(route: string, data: unknown): string {
+    const path = route.replace(/[?#].*$/, '');
+    if (!GAME_TARGET_LIST_ROUTES.has(path)) {
+      return route;
+    }
+
+    const record = data as Record<string, unknown>;
+    const igdbGameId = record['igdbGameId'];
+    const platformIgdbId = parseOpenGamePlatformId(record['platformIgdbId']);
+    if (
+      typeof igdbGameId !== 'string' ||
+      igdbGameId.trim().length === 0 ||
+      platformIgdbId === null
+    ) {
+      return route;
+    }
+
+    const tree = this.router.parseUrl(route);
+    tree.queryParams = {
+      ...tree.queryParams,
+      [OPEN_GAME_QUERY_PARAM]: igdbGameId.trim(),
+      [OPEN_GAME_PLATFORM_QUERY_PARAM]: String(platformIgdbId),
+    };
+    return this.router.serializeUrl(tree);
   }
 
   private extractRoute(data: unknown): string | null {

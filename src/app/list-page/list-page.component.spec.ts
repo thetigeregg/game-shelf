@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router, convertToParamMap } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -89,6 +89,8 @@ describe('ListPageComponent', () => {
   const routerMock = {
     navigate: vi.fn().mockResolvedValue(true),
     navigateByUrl: vi.fn().mockResolvedValue(true),
+    events: new Subject<unknown>(),
+    url: '/tabs/collection',
   };
   const routeMock = {
     snapshot: { data: { listType: 'collection' } },
@@ -1241,6 +1243,45 @@ describe('ListPageComponent', () => {
 
       expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
       expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('neither opens nor navigates back when navigating away starts while the lookup is pending', async () => {
+      const { component, gameListComponentMock } = setUp();
+      const list$ = new Subject<(typeof target)[]>();
+      gameShelfServiceMock.watchList.mockReturnValue(list$);
+      component.ngAfterViewInit();
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await Promise.resolve();
+      // A lazy route (e.g. /settings) is still loading: ionViewWillLeave hasn't fired.
+      routerMock.events.next(new NavigationStart(2, '/settings'));
+      list$.next([target]);
+      await pending;
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('keeps the pending request through a navigation to this same list', async () => {
+      const { component, gameListComponentMock } = setUp();
+      const list$ = new Subject<(typeof target)[]>();
+      gameShelfServiceMock.watchList.mockReturnValue(list$);
+      component.ngAfterViewInit();
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await Promise.resolve();
+      routerMock.events.next(new NavigationStart(2, '/tabs/collection?applyView=7'));
+      list$.next([target]);
+      await pending;
+
+      expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(target);
+      expect(routerMock.navigate).toHaveBeenCalledOnce();
     });
 
     it('neither opens nor navigates back when the params are removed while the lookup is pending', async () => {

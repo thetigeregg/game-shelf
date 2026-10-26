@@ -28,7 +28,7 @@ import {
   IonSplitPane,
   IonText,
 } from '@ionic/angular/standalone';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameCatalogResult,
@@ -119,6 +119,10 @@ type ListPageConfig = {
 };
 
 type BulkExternalMetadataProvider = 'igdb' | 'hltb' | 'review' | 'pricing';
+
+function stripQuery(url: string): string {
+  return url.replace(/[?#].*$/, '');
+}
 
 function buildConfig(listType: ListType): ListPageConfig {
   if (listType === 'wishlist') {
@@ -259,7 +263,9 @@ export class ListPageComponent implements AfterViewInit {
   });
   // Bumped per open-game request and on leaving the page (Ionic caches tab
   // pages, so they aren't destroyed): a superseded request must neither open its
-  // detail nor clean up params by navigating back to this page.
+  // detail nor clean up params by navigating back to this page. Leaving bumps it
+  // at NavigationStart, since `ionViewWillLeave` fires only after a lazy target
+  // route has loaded.
   private openGameRequestId = 0;
 
   constructor() {
@@ -282,6 +288,16 @@ export class ListPageComponent implements AfterViewInit {
         params.get(OPEN_GAME_QUERY_PARAM),
         params.get(OPEN_GAME_PLATFORM_QUERY_PARAM)
       );
+    });
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      // Same-path navigations (an incoming push for this list, or the params
+      // cleanup) are handled by the queryParamMap subscription above.
+      if (
+        event instanceof NavigationStart &&
+        stripQuery(event.url) !== stripQuery(this.router.url)
+      ) {
+        this.openGameRequestId += 1;
+      }
     });
     toObservable(this.syncBootstrapProgress.progress)
       .pipe(takeUntilDestroyed())

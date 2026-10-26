@@ -584,6 +584,16 @@ describe('NotificationService', () => {
     });
     actionListener?.({
       actionId: 'tap',
+      notification: {
+        data: { route: '/tabs/wishlist', igdbGameId: '123', platformIgdbId: '167junk' },
+      },
+    });
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/tabs/wishlist', igdbGameId: '123', platformIgdbId: 167.5 } },
+    });
+    actionListener?.({
+      actionId: 'tap',
       notification: { data: { route: '/tabs/wishlist', igdbGameId: '123' } },
     });
     actionListener?.({
@@ -593,6 +603,8 @@ describe('NotificationService', () => {
     await Promise.resolve();
 
     expect(router.navigateByUrl.mock.calls.map(([url]) => url as string)).toEqual([
+      '/tabs/wishlist',
+      '/tabs/wishlist',
       '/tabs/wishlist',
       '/tabs/wishlist',
       '/tabs/wishlist',

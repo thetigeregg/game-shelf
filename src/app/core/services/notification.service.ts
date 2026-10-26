@@ -12,6 +12,7 @@ import { getNativePlatform, isNativePlatform } from '../utils/native-platform.ut
 import {
   OPEN_GAME_PLATFORM_QUERY_PARAM,
   OPEN_GAME_QUERY_PARAM,
+  parseOpenGamePlatformId,
 } from '../utils/open-game-query-params';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
 import { DebugLogService } from './debug-log.service';
@@ -443,16 +444,11 @@ export class NotificationService {
 
     const record = data as Record<string, unknown>;
     const igdbGameId = record['igdbGameId'];
-    const rawPlatformIgdbId = record['platformIgdbId'];
-    const platformIgdbId =
-      typeof rawPlatformIgdbId === 'string' || typeof rawPlatformIgdbId === 'number'
-        ? Number.parseInt(String(rawPlatformIgdbId), 10)
-        : Number.NaN;
+    const platformIgdbId = parseOpenGamePlatformId(record['platformIgdbId']);
     if (
       typeof igdbGameId !== 'string' ||
       igdbGameId.trim().length === 0 ||
-      !Number.isInteger(platformIgdbId) ||
-      platformIgdbId <= 0
+      platformIgdbId === null
     ) {
       return route;
     }

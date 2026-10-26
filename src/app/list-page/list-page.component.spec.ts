@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@ionic/angular/standalone', () => {
@@ -1143,10 +1143,54 @@ describe('ListPageComponent', () => {
       await open('123', null);
       await open('123', 'abc');
       await open('123', '0');
+      await open('123', '167junk');
+      await open('123', '167.5');
 
       expect(gameShelfServiceMock.watchList).not.toHaveBeenCalled();
       expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
       expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('neither opens nor navigates back when the page is left while the lookup is pending', async () => {
+      const { component, gameListComponentMock } = setUp();
+      const list$ = new Subject<(typeof target)[]>();
+      gameShelfServiceMock.watchList.mockReturnValue(list$);
+      component.ngAfterViewInit();
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await Promise.resolve();
+      component.ionViewWillLeave();
+      list$.next([target]);
+      await pending;
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('lets only the latest request open the detail and clear the params', async () => {
+      const { component, gameListComponentMock } = setUp();
+      const firstList$ = new Subject<(typeof target)[]>();
+      gameShelfServiceMock.watchList
+        .mockReturnValueOnce(firstList$)
+        .mockReturnValueOnce(of([otherPlatform, target]));
+      component.ngAfterViewInit();
+      const open = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams.bind(
+        component
+      );
+
+      const first = open('123', '130');
+      await Promise.resolve();
+      const second = open('123', '167');
+      await second;
+      firstList$.next([otherPlatform, target]);
+      await first;
+
+      expect(gameListComponentMock.openGameDetail).toHaveBeenCalledOnce();
+      expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(target);
+      expect(routerMock.navigate).toHaveBeenCalledOnce();
     });
   });
 });

@@ -90,6 +90,7 @@ import { openExternalUrl } from '../core/utils/open-external-url';
 import {
   OPEN_GAME_PLATFORM_QUERY_PARAM,
   OPEN_GAME_QUERY_PARAM,
+  parseOpenGamePlatformId,
 } from '../core/utils/open-game-query-params';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
@@ -256,6 +257,10 @@ export class ListPageComponent implements AfterViewInit {
   private readonly viewReady = new Promise<void>((resolve) => {
     this.markViewReady = resolve;
   });
+  // Bumped per open-game request and on leaving the page (Ionic caches tab
+  // pages, so they aren't destroyed): a superseded request must neither open its
+  // detail nor clean up params by navigating back to this page.
+  private openGameRequestId = 0;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'] as unknown;
@@ -313,6 +318,10 @@ export class ListPageComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.markViewReady();
+  }
+
+  ionViewWillLeave(): void {
+    this.openGameRequestId += 1;
   }
 
   onFiltersChange(filters: GameListFilters): void {
@@ -1302,15 +1311,22 @@ export class ListPageComponent implements AfterViewInit {
     rawPlatformId: string | null
   ): Promise<void> {
     const igdbGameId = rawGameId?.trim() ?? '';
-    const platformIgdbId = Number.parseInt(rawPlatformId ?? '', 10);
+    const platformIgdbId = parseOpenGamePlatformId(rawPlatformId);
 
-    if (igdbGameId.length === 0 || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+    if (igdbGameId.length === 0 || platformIgdbId === null) {
       return;
     }
+
+    const requestId = ++this.openGameRequestId;
+    const isCurrent = (): boolean => requestId === this.openGameRequestId;
 
     try {
       await this.viewReady;
       const games = await firstValueFrom(this.gameShelfService.watchList(this.listType));
+      if (!isCurrent()) {
+        return;
+      }
+
       const game = games.find(
         (entry) => entry.igdbGameId === igdbGameId && entry.platformIgdbId === platformIgdbId
       );
@@ -1326,13 +1342,19 @@ export class ListPageComponent implements AfterViewInit {
 
       this.gameListComponent?.openGameDetail(game);
     } finally {
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { [OPEN_GAME_QUERY_PARAM]: null, [OPEN_GAME_PLATFORM_QUERY_PARAM]: null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
+      if (isCurrent()) {
+        this.clearOpenGameQueryParams();
+      }
     }
+  }
+
+  private clearOpenGameQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { [OPEN_GAME_QUERY_PARAM]: null, [OPEN_GAME_PLATFORM_QUERY_PARAM]: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private buildCatalogIdentityKey(

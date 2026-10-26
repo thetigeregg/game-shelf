@@ -1,4 +1,4 @@
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -1075,6 +1075,66 @@ describe('game-list review actions', () => {
       Object.assign(page, { [flag]: true });
       expect(page.hasSelectedGameModalOpen, flag).toBe(true);
     }
+  });
+
+  it('isSelectedGameBusy flags a stacked modal or any presented alert/popover', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent;
+    const alertGetTop = vi.fn().mockResolvedValue(undefined);
+    const popoverGetTop = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(page, 'hasSelectedGameModalOpen', { value: false, writable: true });
+    Object.assign(page, {
+      alertController: { getTop: alertGetTop },
+      popoverController: { getTop: popoverGetTop },
+    });
+
+    await expect(page.isSelectedGameBusy()).resolves.toBe(false);
+
+    // e.g. the detail's Status select, presented as an alert
+    alertGetTop.mockResolvedValueOnce({});
+    await expect(page.isSelectedGameBusy()).resolves.toBe(true);
+
+    popoverGetTop.mockResolvedValueOnce({});
+    await expect(page.isSelectedGameBusy()).resolves.toBe(true);
+
+    Object.assign(page, { hasSelectedGameModalOpen: true });
+    alertGetTop.mockClear();
+    await expect(page.isSelectedGameBusy()).resolves.toBe(true);
+    expect(alertGetTop).not.toHaveBeenCalled();
+  });
+
+  it('openEditMetadataModal opens only for the game still selected after the platform lookup', async () => {
+    const first = createGame({ igdbGameId: '10', platformIgdbId: 6, title: 'First' });
+    const second = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Second' });
+    const createPage = (platforms$: Observable<Array<{ id: number; name: string }>>) => {
+      const page = Object.create(GameListComponent.prototype) as GameListComponent;
+      Object.assign(page, {
+        selectedGame: first,
+        isEditMetadataSaving: false,
+        isEditMetadataModalOpen: false,
+        gameShelfService: { listSearchPlatforms: () => platforms$ },
+        debugLogService: { trace: vi.fn() },
+        changeDetectorRef: { markForCheck: vi.fn() },
+      });
+      return page;
+    };
+
+    const platforms$ = new Subject<Array<{ id: number; name: string }>>();
+    const delayed = createPage(platforms$);
+    const pending = delayed.openEditMetadataModal();
+    Object.assign(delayed, { selectedGame: second });
+    platforms$.next([{ id: 6, name: 'PC' }]);
+    await pending;
+
+    expect(delayed.isEditMetadataModalOpen).toBe(false);
+    expect(delayed.editMetadataTitle).not.toBe('First');
+
+    // An updated copy of the same game (e.g. a sync refresh) still opens.
+    const immediate = createPage(of([{ id: 6, name: 'PC' }]));
+    const pendingSame = immediate.openEditMetadataModal();
+    Object.assign(immediate, { selectedGame: { ...first, title: 'First (refreshed)' } });
+    await pendingSame;
+
+    expect(immediate.isEditMetadataModalOpen).toBe(true);
   });
 
   describe('releasing soon day rollover', () => {

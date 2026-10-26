@@ -1343,8 +1343,12 @@ export class ListPageComponent implements AfterViewInit {
       }
 
       // A tap while editing another game (app already open) leaves that editor
-      // alone rather than switching `selectedGame` underneath its pending save.
-      if (this.gameListComponent?.hasSelectedGameModalOpen) {
+      // or picker alone rather than switching `selectedGame` underneath its save.
+      const isBusy = (await this.gameListComponent?.isSelectedGameBusy()) ?? false;
+      if (!isCurrent()) {
+        return;
+      }
+      if (isBusy) {
         this.debugLogService.trace('list_page.open_game.skipped_modal_open', {
           listType: this.listType,
           igdbGameId,

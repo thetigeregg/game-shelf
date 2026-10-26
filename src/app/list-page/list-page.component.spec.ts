@@ -1087,10 +1087,16 @@ describe('ListPageComponent', () => {
 
     function setUp(): {
       component: ListPageComponent;
-      gameListComponentMock: { openGameDetail: ReturnType<typeof vi.fn> };
+      gameListComponentMock: {
+        openGameDetail: ReturnType<typeof vi.fn>;
+        isSelectedGameBusy: ReturnType<typeof vi.fn>;
+      };
     } {
       const component = createComponent();
-      const gameListComponentMock = { openGameDetail: vi.fn() };
+      const gameListComponentMock = {
+        openGameDetail: vi.fn(),
+        isSelectedGameBusy: vi.fn().mockResolvedValue(false),
+      };
       (component as { gameListComponent: unknown }).gameListComponent = gameListComponentMock;
       return { component, gameListComponentMock };
     }
@@ -1131,10 +1137,9 @@ describe('ListPageComponent', () => {
       expect(routerMock.navigate).toHaveBeenCalledOnce();
     });
 
-    it("leaves another game's open editor alone and still clears the params", async () => {
+    it("leaves another game's open editor or picker alone and still clears the params", async () => {
       const { component, gameListComponentMock } = setUp();
-      (gameListComponentMock as { hasSelectedGameModalOpen?: boolean }).hasSelectedGameModalOpen =
-        true;
+      gameListComponentMock.isSelectedGameBusy.mockResolvedValue(true);
       gameShelfServiceMock.watchList.mockReturnValue(of([target]));
       component.ngAfterViewInit();
 
@@ -1142,6 +1147,32 @@ describe('ListPageComponent', () => {
 
       expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
       expect(routerMock.navigate).toHaveBeenCalledOnce();
+    });
+
+    it('neither opens nor navigates back when the page is left during the busy check', async () => {
+      const { component, gameListComponentMock } = setUp();
+      let resolveBusy!: (value: boolean) => void;
+      gameListComponentMock.isSelectedGameBusy.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          resolveBusy = resolve;
+        })
+      );
+      gameShelfServiceMock.watchList.mockReturnValue(of([target]));
+      component.ngAfterViewInit();
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await vi.waitFor(() => {
+        expect(gameListComponentMock.isSelectedGameBusy).toHaveBeenCalledOnce();
+      });
+      component.ionViewWillLeave();
+      resolveBusy(false);
+      await pending;
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
     });
 
     it('ignores absent or invalid params without looking up or navigating', async () => {

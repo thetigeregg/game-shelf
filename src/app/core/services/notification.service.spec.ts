@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { Router } from '@angular/router';
+import { DefaultUrlSerializer, Router, UrlTree } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { DebugLogService } from './debug-log.service';
@@ -67,6 +67,7 @@ describe('NotificationService', () => {
   let preferenceStorage: PreferenceStorageService;
   let debugLogService: DebugLogService;
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
+  const urlSerializer = new DefaultUrlSerializer();
   let httpClient: HttpClient;
 
   beforeEach(async () => {
@@ -94,6 +95,8 @@ describe('NotificationService', () => {
           provide: Router,
           useValue: {
             navigateByUrl: vi.fn().mockResolvedValue(true),
+            parseUrl: (url: string) => urlSerializer.parse(url),
+            serializeUrl: (tree: UrlTree) => urlSerializer.serialize(tree),
           },
         },
         { provide: SYNC_OUTBOX_WRITER, useValue: null },
@@ -501,6 +504,80 @@ describe('NotificationService', () => {
     await Promise.resolve();
 
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
+  });
+
+  it('adds open-game params when a list-page tap carries game ids', async () => {
+    await service.initialize();
+
+    const actionListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationActionPerformed'
+    )?.[1];
+
+    actionListener?.({
+      actionId: 'tap',
+      notification: {
+        data: {
+          eventType: 'release_day',
+          route: '/tabs/wishlist',
+          igdbGameId: '123',
+          platformIgdbId: '167',
+        },
+      },
+    });
+    actionListener?.({
+      actionId: 'tap',
+      notification: {
+        data: {
+          eventType: 'compat_status_changed',
+          route: '/tabs/collection',
+          igdbGameId: '456',
+          platformIgdbId: '19',
+        },
+      },
+    });
+    await Promise.resolve();
+
+    expect(router.navigateByUrl).toHaveBeenNthCalledWith(
+      1,
+      '/tabs/wishlist?openGame=123&openGamePlatform=167'
+    );
+    expect(router.navigateByUrl).toHaveBeenNthCalledWith(
+      2,
+      '/tabs/collection?openGame=456&openGamePlatform=19'
+    );
+  });
+
+  it('keeps the plain route when game ids are unusable or the route is not a list page', async () => {
+    await service.initialize();
+
+    const actionListener = addListenerMock.mock.calls.find(
+      ([eventName]) => eventName === 'notificationActionPerformed'
+    )?.[1];
+
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/tabs/wishlist', igdbGameId: '', platformIgdbId: '167' } },
+    });
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/tabs/wishlist', igdbGameId: '123', platformIgdbId: 'x' } },
+    });
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/tabs/wishlist', igdbGameId: '123' } },
+    });
+    actionListener?.({
+      actionId: 'tap',
+      notification: { data: { route: '/settings', igdbGameId: '123', platformIgdbId: '167' } },
+    });
+    await Promise.resolve();
+
+    expect(router.navigateByUrl.mock.calls.map(([url]) => url as string)).toEqual([
+      '/tabs/wishlist',
+      '/tabs/wishlist',
+      '/tabs/wishlist',
+      '/settings',
+    ]);
   });
 
   it('ignores notification taps without a usable route', async () => {

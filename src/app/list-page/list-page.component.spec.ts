@@ -78,6 +78,7 @@ describe('ListPageComponent', () => {
     findGameByIdentity: vi.fn(),
     getView: vi.fn(),
     listViews: vi.fn(),
+    watchList: vi.fn(),
   };
   const igdbProxyServiceMock = {
     getGameById: vi.fn(),
@@ -106,6 +107,7 @@ describe('ListPageComponent', () => {
     gameShelfServiceMock.findGameByIdentity.mockResolvedValue(null);
     gameShelfServiceMock.getView.mockResolvedValue(null);
     gameShelfServiceMock.listViews.mockResolvedValue([]);
+    gameShelfServiceMock.watchList.mockReturnValue(of([]));
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({ status: 'added' });
 
@@ -1071,5 +1073,80 @@ describe('ListPageComponent', () => {
     await component.pickRandomGameFromPopover();
 
     expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(component.displayedGames[0]);
+  });
+
+  describe('opening a game from query params', () => {
+    type OpenGameFromQueryParams = {
+      openGameFromQueryParams(
+        rawGameId: string | null,
+        rawPlatformId: string | null
+      ): Promise<void>;
+    };
+    const target = { igdbGameId: '123', platformIgdbId: 167, title: 'Hollow Knight: Silksong' };
+    const otherPlatform = { igdbGameId: '123', platformIgdbId: 130, title: 'Silksong (Switch)' };
+
+    function setUp(): {
+      component: ListPageComponent;
+      gameListComponentMock: { openGameDetail: ReturnType<typeof vi.fn> };
+    } {
+      const component = createComponent();
+      const gameListComponentMock = { openGameDetail: vi.fn() };
+      (component as { gameListComponent: unknown }).gameListComponent = gameListComponentMock;
+      return { component, gameListComponentMock };
+    }
+
+    it('opens the matching entry from the full list once the view is ready', async () => {
+      const { component, gameListComponentMock } = setUp();
+      gameShelfServiceMock.watchList.mockReturnValue(of([otherPlatform, target]));
+
+      const pending = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams(
+        '123',
+        '167'
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+
+      component.ngAfterViewInit();
+      await pending;
+
+      expect(gameShelfServiceMock.watchList).toHaveBeenCalledWith('collection');
+      expect(gameListComponentMock.openGameDetail).toHaveBeenCalledWith(target);
+      expect(routerMock.navigate).toHaveBeenCalledWith([], {
+        relativeTo: routeMock,
+        queryParams: { openGame: null, openGamePlatform: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    });
+
+    it('stays on the list and still clears the params when the game is not in it', async () => {
+      const { component, gameListComponentMock } = setUp();
+      gameShelfServiceMock.watchList.mockReturnValue(of([otherPlatform]));
+      component.ngAfterViewInit();
+
+      await (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams('123', '167');
+
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).toHaveBeenCalledOnce();
+    });
+
+    it('ignores absent or invalid params without looking up or navigating', async () => {
+      const { component, gameListComponentMock } = setUp();
+      component.ngAfterViewInit();
+      const open = (component as unknown as OpenGameFromQueryParams).openGameFromQueryParams.bind(
+        component
+      );
+
+      await open(null, null);
+      await open('  ', '167');
+      await open('123', null);
+      await open('123', 'abc');
+      await open('123', '0');
+
+      expect(gameShelfServiceMock.watchList).not.toHaveBeenCalled();
+      expect(gameListComponentMock.openGameDetail).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
   });
 });

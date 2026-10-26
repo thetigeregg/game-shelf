@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -87,6 +87,10 @@ import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { applyGameCatalogPlatformContext } from '../core/utils/game-catalog-platform-context';
 import { openExternalUrl } from '../core/utils/open-external-url';
+import {
+  OPEN_GAME_PLATFORM_QUERY_PARAM,
+  OPEN_GAME_QUERY_PARAM,
+} from '../core/utils/open-game-query-params';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
@@ -173,7 +177,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonText,
   ],
 })
-export class ListPageComponent {
+export class ListPageComponent implements AfterViewInit {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
   static readonly VIEWS_COUNT_DIAGNOSTIC_TIMEOUT_MS = 2000;
   readonly noneTagFilterValue = '__none__';
@@ -246,6 +250,12 @@ export class ListPageComponent {
   private initialLoadProgressWasActive = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
+  // queryParamMap emits in the constructor, before @ViewChild(GameListComponent)
+  // is set — open-game requests wait on this before opening the detail.
+  private markViewReady!: () => void;
+  private readonly viewReady = new Promise<void>((resolve) => {
+    this.markViewReady = resolve;
+  });
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'] as unknown;
@@ -263,6 +273,10 @@ export class ListPageComponent {
     });
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
+      void this.openGameFromQueryParams(
+        params.get(OPEN_GAME_QUERY_PARAM),
+        params.get(OPEN_GAME_PLATFORM_QUERY_PARAM)
+      );
     });
     toObservable(this.syncBootstrapProgress.progress)
       .pipe(takeUntilDestroyed())
@@ -295,6 +309,10 @@ export class ListPageComponent {
       link,
       film,
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.markViewReady();
   }
 
   onFiltersChange(filters: GameListFilters): void {
@@ -1267,6 +1285,50 @@ export class ListPageComponent {
       void this.router.navigate([], {
         relativeTo: this.route,
         queryParams: { applyView: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+  }
+
+  /**
+   * Opens a game's detail as if tapped in the list (a tapped push notification,
+   * see NotificationService). Looks the game up in the full list rather than
+   * `displayedGames`, so current filters/search can't hide it. A game no longer
+   * in this list just leaves the user on the list.
+   */
+  private async openGameFromQueryParams(
+    rawGameId: string | null,
+    rawPlatformId: string | null
+  ): Promise<void> {
+    const igdbGameId = rawGameId?.trim() ?? '';
+    const platformIgdbId = Number.parseInt(rawPlatformId ?? '', 10);
+
+    if (igdbGameId.length === 0 || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+      return;
+    }
+
+    try {
+      await this.viewReady;
+      const games = await firstValueFrom(this.gameShelfService.watchList(this.listType));
+      const game = games.find(
+        (entry) => entry.igdbGameId === igdbGameId && entry.platformIgdbId === platformIgdbId
+      );
+
+      if (!game) {
+        this.debugLogService.trace('list_page.open_game.not_found', {
+          listType: this.listType,
+          igdbGameId,
+          platformIgdbId,
+        });
+        return;
+      }
+
+      this.gameListComponent?.openGameDetail(game);
+    } finally {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { [OPEN_GAME_QUERY_PARAM]: null, [OPEN_GAME_PLATFORM_QUERY_PARAM]: null },
         queryParamsHandling: 'merge',
         replaceUrl: true,
       });

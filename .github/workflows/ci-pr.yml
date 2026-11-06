@@ -54,6 +54,15 @@ jobs:
       - name: Install backend package dependencies
         run: npm --prefix server ci && npm --prefix worker ci
 
+      # Root lint resolves each scraper's imports (express, playwright, cheerio)
+      # with import-x/no-unresolved, so install their own dependencies rather
+      # than relying on whatever happens to be hoisted into the root node_modules.
+      - name: Install scraper package dependencies
+        run: |
+          for scraper in compat-scraper hltb-scraper metacritic-scraper psprices-scraper; do
+            npm --prefix "$scraper" ci
+          done
+
       - name: Validate Postman collections JSON
         run: |
           for file in postman/*.postman_collection.json; do

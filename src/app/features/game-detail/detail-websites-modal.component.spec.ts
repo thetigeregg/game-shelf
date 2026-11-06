@@ -3,7 +3,7 @@ import { DetailWebsitesModalComponent } from './detail-websites-modal.component'
 
 const { addIconsMock } = vi.hoisted(() => ({ addIconsMock: vi.fn() }));
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Stub = () => null;
   return {
     IonModal: Stub,

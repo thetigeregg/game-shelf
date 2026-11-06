@@ -11,7 +11,7 @@ import {
   IonModal,
   IonTitle,
   IonToolbar,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import { globe, library, link, logoXbox } from 'ionicons/icons';
 import {

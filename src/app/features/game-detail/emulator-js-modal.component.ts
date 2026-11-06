@@ -10,7 +10,7 @@ import {
   ViewChild,
   inject,
 } from '@angular/core';
-import { IonContent, IonModal } from '@ionic/angular/standalone';
+import { IonContent, IonModal } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 /** Must match `postMessage` payload in `assets/emulatorjs/play.html`. */

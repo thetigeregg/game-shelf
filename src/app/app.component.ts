@@ -7,7 +7,7 @@ import {
   IonProgressBar,
   IonRouterOutlet,
   ToastController,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';

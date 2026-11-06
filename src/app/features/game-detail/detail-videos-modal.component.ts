@@ -10,7 +10,7 @@ import {
   IonModal,
   IonTitle,
   IonToolbar,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { GameVideo } from '../../core/models/game.models';
 import { isValidYouTubeVideoId } from '../../core/utils/youtube-video.util';

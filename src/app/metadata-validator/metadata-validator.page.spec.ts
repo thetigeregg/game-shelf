@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { LoadingController, ToastController } from '@ionic/angular/standalone';
+import { LoadingController, ToastController } from '@ionic/angular';
 import type {
   GameEntry,
   HltbMatchCandidate,
@@ -11,7 +11,7 @@ import type {
   ReviewMatchCandidate,
 } from '../core/models/game.models';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Stub = () => null;
 
   return {

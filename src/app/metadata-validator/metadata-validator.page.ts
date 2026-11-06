@@ -26,7 +26,7 @@ import {
   IonToolbar,
   LoadingController,
   ToastController,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { addIcons } from 'ionicons';

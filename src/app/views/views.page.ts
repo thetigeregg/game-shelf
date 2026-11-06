@@ -22,7 +22,7 @@ import {
   IonModal,
   IonInput,
   IonNote,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Observable, tap } from 'rxjs';
 import {
   DEFAULT_GAME_LIST_FILTERS,

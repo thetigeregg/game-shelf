@@ -37,7 +37,7 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';

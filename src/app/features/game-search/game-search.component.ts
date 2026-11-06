@@ -23,7 +23,7 @@ import {
   IonSpinner,
   IonBadge,
   IonButton,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Subject, firstValueFrom, merge, of } from 'rxjs';
 import {
   catchError,

@@ -23,7 +23,7 @@ import {
   IonAccordionGroup,
   IonAccordion,
   IonCheckbox,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import {
   CompatibilityFilterOption,
   DEFAULT_GAME_LIST_FILTERS,

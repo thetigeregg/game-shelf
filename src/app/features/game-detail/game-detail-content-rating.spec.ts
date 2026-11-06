@@ -7,7 +7,7 @@ vi.mock('ionicons', () => ({
   addIcons: vi.fn(),
 }));
 
-vi.mock('@ionic/angular/standalone', () => ({
+vi.mock('@ionic/angular', () => ({
   IonGrid: {},
   IonRow: {},
   IonCol: {},
@@ -923,8 +923,7 @@ describe('GameDetailContentComponent rating display', () => {
     expect(resizeObservers[0]?.disconnect).toHaveBeenCalledOnce();
 
     const queuedCallback = requestAnimationFrameSpy.mock.calls[0]?.[0] as
-      | FrameRequestCallback
-      | undefined;
+      FrameRequestCallback | undefined;
     queuedCallback?.(0);
     expect(swiper.update).not.toHaveBeenCalled();
     expect(swiperConstructorMock).toHaveBeenCalledTimes(1);

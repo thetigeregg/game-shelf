@@ -10,7 +10,7 @@ import {
   IonList,
   IonTitle,
   IonToolbar,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { AsyncPipe } from '@angular/common';
 import {
   RecommendationIgnoreService,

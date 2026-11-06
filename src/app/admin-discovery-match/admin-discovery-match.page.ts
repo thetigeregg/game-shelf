@@ -23,7 +23,7 @@ import {
   IonTitle,
   IonToolbar,
   ToastController,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { firstValueFrom } from 'rxjs';
 import {
   HltbMatchCandidate,

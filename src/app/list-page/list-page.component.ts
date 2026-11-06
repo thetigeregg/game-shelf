@@ -27,7 +27,7 @@ import {
   IonFabList,
   IonSplitPane,
   IonText,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,

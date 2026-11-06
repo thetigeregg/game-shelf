@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { IonBadge, IonItem, IonLabel } from '@ionic/angular/standalone';
+import { IonBadge, IonItem, IonLabel } from '@ionic/angular';
 
 export interface SimilarGameRowBadge {
   text: string;

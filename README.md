@@ -27,7 +27,7 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 
 ## Prerequisites
 
-- Node.js `24.14.0` (see `.nvmrc`)
+- Node.js `24.22.2` (see `.nvmrc`)
 - npm
 - Docker + Docker Compose (for local dependency containers and production stack)
 

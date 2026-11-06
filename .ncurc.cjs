@@ -27,6 +27,13 @@ module.exports = {
       return 'patch';
     }
 
+    // Only installed to satisfy @capacitor-firebase/messaging's (optional) peer —
+    // its web.js imports firebase/messaging, so it must stay a direct dep. The
+    // plugin peers on firebase ^12, so hold the major until it accepts the next.
+    if (name === 'firebase') {
+      return 'minor';
+    }
+
     return base.target(name);
   },
 };

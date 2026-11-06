@@ -64,7 +64,7 @@ import {
   IonSplitPane,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Editor } from '@tiptap/core';
 import tiptapStarterKit from '@tiptap/starter-kit';
 import tiptapUnderline from '@tiptap/extension-underline';

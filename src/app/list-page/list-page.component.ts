@@ -1,4 +1,11 @@
-import { AfterViewInit, Component, ViewChild, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ViewChild,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -27,7 +34,7 @@ import {
   IonFabList,
   IonSplitPane,
   IonText,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -151,6 +158,7 @@ function buildConfig(listType: ListType): ListPageConfig {
   templateUrl: './list-page.component.html',
   styleUrls: ['./list-page.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

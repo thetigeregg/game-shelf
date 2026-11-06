@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const AlertControllerToken = function AlertController() {
     return undefined;
   };
@@ -43,7 +43,7 @@ vi.mock('ionicons/icons', () => ({
   add: {},
 }));
 
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular';
 import { ViewsPage } from './views.page';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { DebugLogService } from '../core/services/debug-log.service';

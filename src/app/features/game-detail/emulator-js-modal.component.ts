@@ -9,8 +9,9 @@ import {
   Output,
   ViewChild,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
-import { IonContent, IonModal } from '@ionic/angular/standalone';
+import { IonContent, IonModal } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 /** Must match `postMessage` payload in `assets/emulatorjs/play.html`. */
@@ -58,6 +59,7 @@ export function shouldHandleEmulatorJsExitMessage(
   standalone: true,
   templateUrl: './emulator-js-modal.component.html',
   styleUrls: ['./emulator-js-modal.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [IonModal, IonContent],
 })
 export class EmulatorJsModalComponent implements OnChanges {

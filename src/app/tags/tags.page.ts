@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import {
   AlertController,
   PopoverController,
@@ -19,7 +19,7 @@ import {
   IonPopover,
   IonModal,
   IonInput,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -34,6 +34,7 @@ import { ellipsisVertical, add } from 'ionicons/icons';
   templateUrl: './tags.page.html',
   styleUrls: ['./tags.page.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

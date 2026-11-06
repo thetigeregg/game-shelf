@@ -7,7 +7,7 @@ import {
   type GameListFilters,
 } from '../../core/models/game.models';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Stub = () => null;
   return {
     AlertController: Stub,

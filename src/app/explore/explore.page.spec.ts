@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import type { GameCatalogResult } from '../core/models/game.models';
@@ -15,7 +15,7 @@ import { RecommendationIgnoreService } from '../core/services/recommendation-ign
 
 const swiperConstructorMock = vi.hoisted(() => vi.fn());
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Dummy = () => null;
   const AlertControllerToken = function AlertController() {
     return undefined;

@@ -1,4 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +30,7 @@ import {
   IonAccordionGroup,
   IonAccordion,
   IonCheckbox,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import {
   CompatibilityFilterOption,
   DEFAULT_GAME_LIST_FILTERS,
@@ -75,6 +82,7 @@ type FiltersPresentation = 'menu' | 'split';
   templateUrl: './game-filters-menu.component.html',
   styleUrls: ['./game-filters-menu.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

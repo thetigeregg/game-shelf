@@ -3,7 +3,7 @@ import { ActivatedRoute, NavigationStart, Router, convertToParamMap } from '@ang
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Dummy = () => null;
   const AlertControllerToken = function AlertController() {
     return undefined;
@@ -69,7 +69,7 @@ import { GameShelfService } from '../core/services/game-shelf.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { DEFAULT_GAME_LIST_FILTERS, type GameCatalogResult } from '../core/models/game.models';
-import { AlertController, MenuController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, MenuController, ToastController } from '@ionic/angular';
 import { serializeListPagePreferences } from './list-page-preferences';
 import { ViewsContextService } from '../views/views-context.service';
 

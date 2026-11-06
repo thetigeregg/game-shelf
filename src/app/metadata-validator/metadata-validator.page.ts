@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -26,7 +26,7 @@ import {
   IonToolbar,
   LoadingController,
   ToastController,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { addIcons } from 'ionicons';
@@ -51,6 +51,7 @@ type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesD
   templateUrl: './metadata-validator.page.html',
   styleUrls: ['./metadata-validator.page.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

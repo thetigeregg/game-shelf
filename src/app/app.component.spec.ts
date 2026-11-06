@@ -3,7 +3,7 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Subject } from 'rxjs';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Dummy = () => null;
   const AlertControllerToken = function AlertController() {
     return undefined;
@@ -41,7 +41,7 @@ vi.mock('./core/utils/native-platform.util', () => ({
   isNativePlatform: vi.fn(() => false),
 }));
 
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular';
 import { AppComponent } from './app.component';
 import {
   getAppVersionInfo,

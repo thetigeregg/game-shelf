@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, inject, ChangeDetectionStrategy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { SplashScreen } from '@capacitor/splash-screen';
 import {
@@ -7,7 +7,7 @@ import {
   IonProgressBar,
   IonRouterOutlet,
   ToastController,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
@@ -35,6 +35,7 @@ const MIN_SPLASH_VISIBLE_MS = 300;
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [IonApp, IonRouterOutlet, IonProgressBar],
 })
 export class AppComponent implements OnDestroy {

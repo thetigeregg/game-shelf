@@ -1,4 +1,4 @@
-FROM node:24.15.0-alpine
+FROM node:24.22.2-alpine
 
 WORKDIR /app/server
 ENV TZ=Europe/Zurich

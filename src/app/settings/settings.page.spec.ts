@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   class MockAlertController {
     readonly __mock = true;
   }
@@ -86,7 +86,7 @@ vi.mock('../core/utils/share-file.util', () => ({
   presentShareFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular';
 import { SettingsPage } from './settings.page';
 import { GAME_REPOSITORY } from '../core/data/game-repository';
 import { SYNC_OUTBOX_WRITER } from '../core/data/sync-outbox-writer';

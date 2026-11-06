@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { LoadingController } from '@ionic/angular/standalone';
+import type { LoadingController } from '@ionic/angular';
 import type { GameEntry } from '../../core/models/game.models';
 import { runBulkActionWithRetry } from './game-list-bulk-actions';
 

@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { IonBadge, IonItem, IonLabel } from '@ionic/angular/standalone';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
+import { IonBadge, IonItem, IonLabel } from '@ionic/angular';
 
 export interface SimilarGameRowBadge {
   text: string;
@@ -44,6 +44,7 @@ export interface SimilarGameRowBadge {
       </ion-label>
     </ion-item>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       ion-item {

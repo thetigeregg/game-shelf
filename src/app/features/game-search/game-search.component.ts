@@ -10,6 +10,7 @@ import {
   Output,
   SimpleChanges,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 
 import {
@@ -23,7 +24,7 @@ import {
   IonSpinner,
   IonBadge,
   IonButton,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Subject, firstValueFrom, merge, of } from 'rxjs';
 import {
   catchError,
@@ -57,6 +58,7 @@ interface SelectedPlatform {
   templateUrl: './game-search.component.html',
   styleUrls: ['./game-search.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     IonItem,
     IonSelect,

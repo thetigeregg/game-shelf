@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { of, throwError } from 'rxjs';
 
-vi.mock('@ionic/angular/standalone', () => {
+vi.mock('@ionic/angular', () => {
   const Stub = () => null;
 
   return {

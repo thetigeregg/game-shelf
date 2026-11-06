@@ -9,7 +9,7 @@ vi.mock('ionicons', () => ({
   addIcons: vi.fn(),
 }));
 
-vi.mock('@ionic/angular/standalone', () => ({
+vi.mock('@ionic/angular', () => ({
   IonGrid: {},
   IonRow: {},
   IonCol: {},

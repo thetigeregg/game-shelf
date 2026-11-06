@@ -78,6 +78,39 @@ test('mergeInfoPlistVariant merges shared and overlay plists from repo', () => {
   assert.equal(merged.CAPACITOR_DEBUG, '$(CAPACITOR_DEBUG)');
 });
 
+test('mergeInfoPlistVariant keeps the UIScene manifest in both variants', () => {
+  // The iOS 27 SDK refuses to launch apps without a scene manifest, so both the
+  // dev and prod builds must carry it through the shared plist.
+  const repoRoot = process.cwd();
+
+  for (const variant of ['dev', 'prod']) {
+    const merged = mergeInfoPlistVariant({
+      sharedPath: path.join(repoRoot, 'ios/App/App/Info.shared.plist'),
+      overlayPath: path.join(repoRoot, `ios/App/App/Info.${variant}.overlay.plist`),
+    });
+    const manifest = merged.UIApplicationSceneManifest;
+
+    assert.equal(manifest?.UIApplicationSupportsMultipleScenes, false, variant);
+    assert.deepEqual(
+      manifest?.UISceneConfigurations?.UIWindowSceneSessionRoleApplication,
+      [
+        {
+          UISceneConfigurationName: 'Default Configuration',
+          UISceneDelegateClassName: '$(PRODUCT_MODULE_NAME).SceneDelegate',
+          UISceneStoryboardFile: 'Main',
+        },
+      ],
+      variant
+    );
+
+    const keys = Object.keys(merged);
+    assert.ok(
+      keys.indexOf('UIApplicationSceneManifest') < keys.indexOf('UIBackgroundModes'),
+      `${variant}: UIApplicationSceneManifest should precede UIBackgroundModes`
+    );
+  }
+});
+
 test('generateIosInfoPlists writes outputs matching committed Info plists', () => {
   const repoRoot = process.cwd();
   const tempDir = mkdtempSync(path.join(os.tmpdir(), 'ios-info-plist-'));

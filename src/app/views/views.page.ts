@@ -1,4 +1,13 @@
-import { Component, DoCheck, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import {
+  Component,
+  DoCheck,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  inject,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -22,7 +31,7 @@ import {
   IonModal,
   IonInput,
   IonNote,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { Observable, tap } from 'rxjs';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -43,6 +52,7 @@ import { isTasFeatureEnabled } from '../core/config/runtime-config';
   templateUrl: './views.page.html',
   styleUrls: ['./views.page.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

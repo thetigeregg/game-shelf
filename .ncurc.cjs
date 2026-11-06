@@ -1,25 +1,29 @@
 const base = require('@thetigeregg/ncu-config');
 
-const ANGULAR_MAJOR = 21;
-const IONIC_MAJOR = 8;
-
 const isAngularPackage = (name) =>
-  name.startsWith('@angular/') || name.startsWith('@angular-eslint/');
+  name.startsWith('@angular/') ||
+  name.startsWith('@angular-devkit/') ||
+  name.startsWith('@angular-eslint/') ||
+  name === 'angular-eslint';
 
-const isIonicPackage = (name) => name.startsWith('@ionic/') && name !== '@ionic/angular-toolkit';
+const isIonicPackage = (name) => name.startsWith('@ionic/');
 
 module.exports = {
   ...base,
-  reject: (name) => name === 'typescript',
-  filterResults: (packageName, { upgradedVersionSemver }) => {
-    if (isAngularPackage(packageName)) {
-      return parseInt(upgradedVersionSemver?.major, 10) === ANGULAR_MAJOR;
+  target: (name) => {
+    // Majors for these move together via `ng update` / `@ionic/migrate`, so ncu
+    // only proposes minors and patches within the installed major.
+    if (isAngularPackage(name) || isIonicPackage(name)) {
+      return 'minor';
     }
 
-    if (isIonicPackage(packageName)) {
-      return parseInt(upgradedVersionSemver?.major, 10) === IONIC_MAJOR;
+    // Angular 22 (@angular/build, @angular/compiler-cli) peers on
+    // typescript >=6.0 <6.1 and typescript-eslint on <6.1.0, and TypeScript
+    // minors can break — stay on patches.
+    if (name === 'typescript') {
+      return 'patch';
     }
 
-    return true;
+    return base.target(name);
   },
 };

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import {
   AlertController,
   ToastController,
@@ -26,7 +26,7 @@ import {
   IonInput,
   IonToggle,
   IonSpinner,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -234,6 +234,7 @@ interface PlatformCustomizationItem extends GameCatalogPlatformOption {
   templateUrl: './settings.page.html',
   styleUrls: ['./settings.page.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

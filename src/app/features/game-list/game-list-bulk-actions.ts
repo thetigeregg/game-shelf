@@ -1,4 +1,4 @@
-import type { LoadingController } from '@ionic/angular/standalone';
+import type { LoadingController } from '@ionic/angular';
 import { GameEntry } from '../../core/models/game.models';
 import type { DebugLogService } from '../../core/services/debug-log.service';
 import {

@@ -12,6 +12,7 @@ import {
   SimpleChanges,
   ViewChild,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import {
   IonBadge,
@@ -27,7 +28,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonToolbar,
-} from '@ionic/angular/standalone';
+} from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
   add,
@@ -79,6 +80,7 @@ type DetailTextField = 'summary' | 'storyline';
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     DetailMediaSlideComponent,
     IonGrid,

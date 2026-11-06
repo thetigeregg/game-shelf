@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import {
   getDetailMediaPlaceholderSrc,
   toDetailMediaBackdropUrl,
@@ -9,6 +9,7 @@ import {
   selector: 'app-detail-media-slide',
   templateUrl: './detail-media-slide.component.html',
   styleUrls: ['./detail-media-slide.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
 })
 export class DetailMediaSlideComponent {

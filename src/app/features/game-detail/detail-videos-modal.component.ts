@@ -1,4 +1,12 @@
-import { Component, EventEmitter, Input, OnChanges, Output, inject } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  inject,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import {
   IonButton,
   IonButtons,
@@ -27,6 +35,7 @@ interface DetailVideoViewModel {
   standalone: true,
   templateUrl: './detail-videos-modal.component.html',
   styleUrls: ['./detail-videos-modal.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     IonModal,
     IonHeader,

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import {
   IonBackButton,
   IonButton,
@@ -22,6 +22,7 @@ import {
   templateUrl: './ignored-recommendations.page.html',
   styleUrls: ['./ignored-recommendations.page.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     AsyncPipe,
     IonHeader,

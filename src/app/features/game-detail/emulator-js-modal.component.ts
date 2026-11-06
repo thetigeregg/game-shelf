@@ -9,6 +9,7 @@ import {
   Output,
   ViewChild,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { IonContent, IonModal } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -58,6 +59,7 @@ export function shouldHandleEmulatorJsExitMessage(
   standalone: true,
   templateUrl: './emulator-js-modal.component.html',
   styleUrls: ['./emulator-js-modal.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [IonModal, IonContent],
 })
 export class EmulatorJsModalComponent implements OnChanges {

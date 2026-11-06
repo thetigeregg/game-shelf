@@ -1,21 +1,35 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import js from '@eslint/js';
-import { FlatCompat } from '@eslint/eslintrc';
+import { configs as angularConfigs, processInlineTemplates } from 'angular-eslint';
 import { importX } from 'eslint-plugin-import-x';
 import unusedImports from 'eslint-plugin-unused-imports';
 import { configs as tseslintConfigs } from 'typescript-eslint';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all,
-});
 const jsTsFiles = ['**/*.{js,mjs,cjs,jsx,mjsx,ts,tsx,mtsx}'];
 const tsFiles = ['**/*.{ts,tsx,mts,cts}'];
+
+// Angular 22's `ng update` pinned these pre-existing components to
+// ChangeDetectionStrategy.Eager to preserve their zone-driven behavior. Moving
+// them to OnPush is a separate refactor; the rule stays on for everything else,
+// so new components can't opt into Eager unnoticed. Remove entries as they move.
+const eagerChangeDetectionComponents = [
+  'src/app/admin-discovery-match/admin-discovery-match.page.ts',
+  'src/app/app.component.ts',
+  'src/app/explore/explore.page.ts',
+  'src/app/features/game-detail/detail-media-slide.component.ts',
+  'src/app/features/game-detail/detail-videos-modal.component.ts',
+  'src/app/features/game-detail/emulator-js-modal.component.ts',
+  'src/app/features/game-detail/game-detail-content.component.ts',
+  'src/app/features/game-detail/similar-game-row.component.ts',
+  'src/app/features/game-filters-menu/game-filters-menu.component.ts',
+  'src/app/features/game-search/game-search.component.ts',
+  'src/app/list-page/list-page.component.ts',
+  'src/app/metadata-validator/metadata-validator.page.ts',
+  'src/app/settings/ignored-recommendations.page.ts',
+  'src/app/settings/settings.page.ts',
+  'src/app/tabs/tabs.page.ts',
+  'src/app/tags/tags.page.ts',
+  'src/app/views/views.page.ts',
+];
 
 export default defineConfig([
   globalIgnores([
@@ -46,10 +60,8 @@ export default defineConfig([
   {
     files: ['**/*.ts', '**/*.mts', '**/*.cts'],
 
-    extends: compat.extends(
-      'plugin:@angular-eslint/recommended',
-      'plugin:@angular-eslint/template/process-inline-templates'
-    ),
+    extends: [...angularConfigs.tsRecommended],
+    processor: processInlineTemplates,
 
     plugins: {
       'import-x': importX,
@@ -62,7 +74,7 @@ export default defineConfig([
 
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
 
@@ -125,8 +137,14 @@ export default defineConfig([
     },
   },
   {
+    files: eagerChangeDetectionComponents,
+    rules: {
+      '@angular-eslint/prefer-on-push-component-change-detection': 'off',
+    },
+  },
+  {
     files: ['**/*.html'],
-    extends: compat.extends('plugin:@angular-eslint/template/recommended'),
+    extends: [...angularConfigs.templateRecommended],
     rules: {},
   },
 ]);

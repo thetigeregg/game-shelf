@@ -10,6 +10,7 @@ import {
   Output,
   SimpleChanges,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 
 import {
@@ -57,6 +58,7 @@ interface SelectedPlatform {
   templateUrl: './game-search.component.html',
   styleUrls: ['./game-search.component.scss'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     IonItem,
     IonSelect,

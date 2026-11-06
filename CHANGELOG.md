@@ -4308,3 +4308,7 @@
 ## v1.88.0 - 2026-10-26
 
 - 50408079 feat(notifications): open tapped game's detail in its list (#643)
+
+## v1.88.1 - 2026-11-06
+
+- a0246115 build(deps): upgrade to Ionic 9, Angular 22 and TypeScript 6.0 (#649)

@@ -4312,3 +4312,7 @@
 ## v1.88.1 - 2026-11-06
 
 - a0246115 build(deps): upgrade to Ionic 9, Angular 22 and TypeScript 6.0 (#649)
+
+## v1.88.2 - 2026-11-06
+
+- 0f6a5a98 build(deps): bump vitest 5, jsdom 31, ngx-tiptap 15 and Playwright 1.65 (#651)

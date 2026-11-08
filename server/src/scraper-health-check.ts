@@ -32,6 +32,12 @@ export interface ScraperHealthProbe {
   baseUrl: string;
   token: string;
   path: string;
+  /**
+   * Append `path` to the base URL, keeping any path prefix it has, instead of resolving it as an
+   * absolute path. Set to match how the API's own client for that scraper builds its URLs, so
+   * the check requests exactly what real lookups do.
+   */
+  keepBasePath?: boolean;
   query: Record<string, string>;
   /** Decides whether the scraper's JSON response is the expected result. */
   check: (body: unknown) => ScraperHealthVerdict;
@@ -197,6 +203,8 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
       baseUrl: config.compatScraperBaseUrl,
       token: config.compatScraperToken,
       path: '/v1/compat/11',
+      // fetchCompatList appends its path to COMPAT_SCRAPER_BASE_URL, keeping any prefix.
+      keepBasePath: true,
       query: {},
       check: (body) => {
         const entries = asRecord(body)?.['entries'];
@@ -258,7 +266,9 @@ async function runProbe(
   let text: string;
   try {
     // Built inside the try so a malformed base URL fails this check, not the whole run.
-    const url = new URL(probe.path, probe.baseUrl);
+    const url = probe.keepBasePath
+      ? new URL(`${probe.baseUrl.replace(/\/+$/, '')}${probe.path}`)
+      : new URL(probe.path, probe.baseUrl);
     for (const [key, value] of Object.entries(probe.query)) {
       url.searchParams.set(key, value);
     }

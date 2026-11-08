@@ -345,7 +345,7 @@ A Cloudflare block on HLTB or Metacritic shows up as no match. A psprices block 
 
 - **Setting it up:** in Healthchecks.io, open your project's settings and create a ping key. Save it as `${SECRETS_HOST_DIR}/healthchecks_ping_key` and redeploy. The checks are created automatically the first time they're pinged, about two minutes after `worker-general` starts.
 - **Schedule:** the lookups run every `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (default 360, 6 hours; capped at 10080, 7 days). Auto-created checks expect a ping once a day with a 1-hour grace period, which only affects how soon a _missing_ ping alerts; a failed lookup alerts straight away. To be alerted sooner when pings stop (worker or stack down), set each check's period to the interval in Healthchecks.io.
-- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings.
+- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings. Then pause or delete the four checks in Healthchecks.io: otherwise each goes overdue once its period and grace time pass without a ping, and alerts. A paused check resumes by itself on its next ping. The same applies to a single check if you remove that scraper's base URL, since the worker then skips it.
 - **Self-hosted Healthchecks:** set `HEALTHCHECKS_PING_BASE_URL` to your instance's ping URL.
 - **Logs:** each lookup logs `[scraper-health-check] passed` or `failed` with the same message as the ping.
 

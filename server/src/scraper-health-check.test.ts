@@ -214,6 +214,40 @@ void test('scraper health check fails one check for a malformed base URL and run
   assert.equal(pings()[1]?.url, `${PING_BASE_URL}/${PING_KEY}/ok?create=1`);
 });
 
+void test('scraper health check keeps a base URL path prefix when the probe asks to', async () => {
+  const { fetchImpl, requests } = fakeFetch(() => jsonResponse({ item: {} }));
+  await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    probes: [
+      probe({ slug: 'kept', baseUrl: 'http://proxy:8080/compat', keepBasePath: true }),
+      probe({ slug: 'kept-slash', baseUrl: 'http://proxy:8080/compat/', keepBasePath: true }),
+      probe({ slug: 'resolved', baseUrl: 'http://proxy:8080/compat' }),
+    ],
+    fetchImpl,
+  });
+  const lookups = requests.filter((request) => !isPing(request.url)).map((request) => request.url);
+  assert.deepEqual(lookups, [
+    'http://proxy:8080/compat/v1/test/search?q=Hades',
+    'http://proxy:8080/compat/v1/test/search?q=Hades',
+    // Without the flag the path resolves from the root, as the HLTB, Metacritic and psprices
+    // clients do.
+    'http://proxy:8080/v1/test/search?q=Hades',
+  ]);
+});
+
+void test('scraper health probes build URLs the way each API client does', () => {
+  assert.deepEqual(
+    buildScraperHealthProbes().map((entry) => [entry.slug, entry.keepBasePath === true]),
+    [
+      ['gameshelf-psprices', false],
+      ['gameshelf-hltb', false],
+      ['gameshelf-metacritic', false],
+      ['gameshelf-compat', true],
+    ]
+  );
+});
+
 void test('scraper health check reports a lookup that outlasts the timeout', async () => {
   const { fetchImpl, pings } = fakeFetch(
     (_url, init) =>

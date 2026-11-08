@@ -68,9 +68,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function isNumberInRange(value: unknown, min: number, max: number): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
 /**
- * Checks that the response's `item` is the expected game. The scrapers return their closest
- * candidate even when it's only loosely similar, so any item isn't enough.
+ * Checks that the response's `item` is the expected game and carries the data the scraper exists
+ * to provide. The scrapers return their closest candidate even when it's only loosely similar, so
+ * any item isn't enough; and they keep a matched game whose price, score or playtime failed to
+ * parse, so the right game isn't enough either.
  */
 function checkItem(
   body: unknown,
@@ -78,6 +84,9 @@ function checkItem(
     fields: string[];
     expected: string;
     isExpected: (item: Record<string, unknown>) => boolean;
+    /** What a healthy match must include, e.g. "a price". */
+    requiredData: string;
+    hasRequiredData: (item: Record<string, unknown>) => boolean;
   }
 ): ScraperHealthVerdict {
   const item = asRecord(asRecord(body)?.['item']);
@@ -92,6 +101,12 @@ function checkItem(
     return {
       ok: false,
       reason: `matched the wrong result (${details || 'no details'}), expected ${params.expected}`,
+    };
+  }
+  if (!params.hasRequiredData(item)) {
+    return {
+      ok: false,
+      reason: `matched the expected game without ${params.requiredData} (${details})`,
     };
   }
   return { ok: true, detail: `matched (${details})` };
@@ -127,6 +142,9 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
               title.replace(/\s+/g, ' ').trim().toLowerCase() === 'hades ii'
             );
           },
+          // Zero is a valid price: the scraper reports free games as 0.
+          requiredData: 'a price',
+          hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
         });
       },
     },
@@ -142,6 +160,9 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
           fields: ['hltbGameId', 'hltbMainHours'],
           expected: 'hltbGameId 62941',
           isExpected: (item) => Number(item['hltbGameId']) === 62941,
+          requiredData: 'a main-story time',
+          hasRequiredData: (item) =>
+            isNumberInRange(item['hltbMainHours'], Number.MIN_VALUE, Number.MAX_SAFE_INTEGER),
         }),
     },
     {
@@ -164,6 +185,8 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
             const url = item['metacriticUrl'];
             return typeof url === 'string' && /\/game\/hades\/?$/.test(url);
           },
+          requiredData: 'a score',
+          hasRequiredData: (item) => isNumberInRange(item['metacriticScore'], 1, 100),
         }),
     },
     {

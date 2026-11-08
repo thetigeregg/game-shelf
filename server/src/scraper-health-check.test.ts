@@ -11,6 +11,12 @@ import {
 
 const PING_KEY = 'test-ping-key';
 const PING_BASE_URL = 'https://hc-ping.example';
+const PING_ORIGIN = new URL(PING_BASE_URL).origin;
+
+/** Pings are told apart from scraper lookups by origin. */
+function isPing(url: string): boolean {
+  return new URL(url).origin === PING_ORIGIN;
+}
 
 interface RecordedRequest {
   url: string;
@@ -41,7 +47,7 @@ function fakeFetch(scraperReply: (url: string, init?: RequestInit) => Promise<Re
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
       body: typeof init?.body === 'string' ? init.body : null,
     });
-    if (url.startsWith(PING_BASE_URL)) {
+    if (isPing(url)) {
       return new Response('OK', { status: 200 });
     }
     return scraperReply(url, init);
@@ -49,7 +55,7 @@ function fakeFetch(scraperReply: (url: string, init?: RequestInit) => Promise<Re
   return {
     fetchImpl,
     requests,
-    pings: () => requests.filter((request) => request.url.startsWith(PING_BASE_URL)),
+    pings: () => requests.filter((request) => isPing(request.url)),
   };
 }
 
@@ -255,7 +261,7 @@ void test('scraper health check skips scrapers without a base URL and sends no p
 void test('scraper health check keeps going when a ping fails', async () => {
   let pingCalls = 0;
   const fetchImpl = ((input: Parameters<typeof fetch>[0]) => {
-    if (toUrl(input).startsWith(PING_BASE_URL)) {
+    if (isPing(toUrl(input))) {
       pingCalls += 1;
       return Promise.reject(new TypeError('fetch failed', { cause: new Error('ECONNRESET') }));
     }
@@ -375,6 +381,52 @@ void test('scraper health probes reject a match on the wrong game', () => {
     ok: false,
     reason: 'matched the wrong result (no details), expected hltbGameId 62941',
   });
+});
+
+void test('scraper health probes reject the expected game without its data', () => {
+  assert.deepEqual(
+    probeVerdict('gameshelf-psprices', {
+      item: { title: 'Hades II', amount: null, url: 'https://psprices.com/x' },
+    }),
+    {
+      ok: false,
+      reason:
+        'matched the expected game without a price (title=Hades II, url=https://psprices.com/x)',
+    }
+  );
+  assert.deepEqual(probeVerdict('gameshelf-hltb', { item: { hltbGameId: 62941 } }), {
+    ok: false,
+    reason: 'matched the expected game without a main-story time (hltbGameId=62941)',
+  });
+  assert.equal(
+    probeVerdict('gameshelf-hltb', { item: { hltbGameId: 62941, hltbMainHours: 0 } }).ok,
+    false
+  );
+  const metacritic = (metacriticScore: unknown) =>
+    probeVerdict('gameshelf-metacritic', {
+      item: { metacriticScore, metacriticUrl: 'https://www.metacritic.com/game/hades/' },
+    });
+  assert.deepEqual(metacritic(null), {
+    ok: false,
+    reason:
+      'matched the expected game without a score (metacriticUrl=https://www.metacritic.com/game/hades/)',
+  });
+  for (const score of [0, 101, '93', Number.NaN]) {
+    assert.equal(metacritic(score).ok, false, String(score));
+  }
+  assert.equal(metacritic(1).ok, true);
+  assert.equal(metacritic(100).ok, true);
+});
+
+void test('scraper health psprices probe accepts a free price', () => {
+  assert.equal(
+    probeVerdict('gameshelf-psprices', { item: { title: 'Hades II', amount: 0 } }).ok,
+    true
+  );
+  assert.equal(
+    probeVerdict('gameshelf-psprices', { item: { title: 'Hades II', amount: -1 } }).ok,
+    false
+  );
 });
 
 void test('scraper health psprices probe fails an incomplete search even when it matched', () => {

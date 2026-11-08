@@ -1482,13 +1482,18 @@ async function main(): Promise<void> {
     void runPricingRefreshCycle('startup');
 
     if (scraperHealthCheckSchedule.enabled) {
-      // Give the scrapers time to start after a deploy before the first run.
+      // Give the scrapers time to start after a deploy before the first run. The repeating timer
+      // starts only then, so a short interval can't fire before the delay is over.
       scraperHealthCheckStartupTimer = setTimeout(() => {
+        scraperHealthCheckStartupTimer = null;
+        if (shuttingDown) {
+          return;
+        }
         void runScraperHealthCheckTick();
+        scraperHealthCheckTimer = setInterval(() => {
+          void runScraperHealthCheckTick();
+        }, scraperHealthCheckSchedule.intervalMs);
       }, SCRAPER_HEALTH_CHECK_STARTUP_DELAY_MS);
-      scraperHealthCheckTimer = setInterval(() => {
-        void runScraperHealthCheckTick();
-      }, scraperHealthCheckSchedule.intervalMs);
     }
   }
 

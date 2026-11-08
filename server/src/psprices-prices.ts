@@ -404,6 +404,28 @@ export async function registerPsPricesRoute(
           show: config.pspricesShow,
           preferredUrl: preferredPsPricesUrl,
         });
+        if (pspricesLookup.incompleteNoMatch) {
+          if (!includeCandidates) {
+            throw new Error(INCOMPLETE_NO_MATCH_ERROR);
+          }
+          // The manual picker can still choose from the candidates that came back. Nothing is
+          // saved, so the next lookup searches again.
+          const incompletePayload: PsPricesRouteResponse = {
+            status: 'unavailable',
+            igdbGameId,
+            platformIgdbId,
+            platform: pspricesPlatform,
+            region: config.pspricesRegionPath,
+            show: config.pspricesShow,
+            cached: false,
+            bestPrice: null,
+            match: pspricesLookup.match,
+            candidates: pspricesLookup.candidates,
+          };
+          reply.header('X-GameShelf-PSPrices-Cache', 'MISS');
+          reply.code(200).send(incompletePayload);
+          return;
+        }
         const pspricesSnapshot = pspricesLookup.snapshot;
 
         try {
@@ -688,6 +710,7 @@ function schedulePspricesPriceRevalidation(params: {
         show: config.pspricesShow,
         preferredUrl: params.preferredPsPricesUrl,
       });
+      assertSavablePsPricesLookup(pspricesLookup);
 
       await persistPsPricesSnapshot(params.pool, {
         igdbGameId: params.igdbGameId,
@@ -733,10 +756,28 @@ interface PsPricesLookup {
   candidates: PsPricesCandidate[];
 }
 
+interface FetchedPsPricesLookup extends PsPricesLookup {
+  /**
+   * The scraper flagged a failed title variant and nothing matched. The failed variant may have
+   * been the one that matched, so this "no match" mustn't be saved.
+   */
+  incompleteNoMatch: boolean;
+}
+
+const INCOMPLETE_NO_MATCH_ERROR =
+  'PSPrices search incomplete: a title variant failed and nothing matched';
+
+/** Revalidation saves whatever it fetched, so an incomplete no-match fails it to be retried. */
+function assertSavablePsPricesLookup(lookup: FetchedPsPricesLookup): void {
+  if (lookup.incompleteNoMatch) {
+    throw new Error(INCOMPLETE_NO_MATCH_ERROR);
+  }
+}
+
 async function fetchPsPricesSnapshot(
   fetchImpl: typeof fetch,
   params: PsPricesLookupParams
-): Promise<PsPricesLookup> {
+): Promise<FetchedPsPricesLookup> {
   const endpoint = new URL('/v1/psprices/search', config.pspricesScraperBaseUrl);
   endpoint.searchParams.set('q', params.title);
   endpoint.searchParams.set('platform', params.platform);
@@ -764,12 +805,10 @@ async function fetchPsPricesSnapshot(
 
   const payload: unknown = await response.json();
   const lookup = buildPsPricesLookup(payload, params);
-  // The scraper flags a search where a title variant failed. A "no match" from it might be wrong,
-  // since the failed variant may have been the one that matched, so it mustn't be saved.
-  if (lookup.snapshot === null && isIncompletePsPricesSearch(payload)) {
-    throw new Error('PSPrices search incomplete: a title variant failed and nothing matched');
-  }
-  return lookup;
+  return {
+    ...lookup,
+    incompleteNoMatch: lookup.snapshot === null && isIncompletePsPricesSearch(payload),
+  };
 }
 
 function isIncompletePsPricesSearch(payload: unknown): boolean {
@@ -1813,6 +1852,7 @@ export async function processQueuedPspricesPriceRevalidation(
     show: config.pspricesShow,
     preferredUrl: preferredPsPricesUrl,
   });
+  assertSavablePsPricesLookup(pspricesLookup);
 
   const retryState = isDiscoveryGame
     ? nextProviderRetryState({

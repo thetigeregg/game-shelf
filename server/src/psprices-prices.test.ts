@@ -495,6 +495,87 @@ void test('PSPrices route refuses an incomplete scraper search that found nothin
   await app.close();
 });
 
+void test('PSPrices route returns unsaved candidates from an incomplete search to the picker', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, { title: 'Monster Train 2' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      scraperResponse({
+        item: null,
+        candidates: [
+          {
+            title: 'Different Game Name',
+            priceAmount: 19.9,
+            currency: 'CHF',
+            url: 'https://psprices.com/region-ch/game/99/different-game-name',
+          },
+        ],
+        incomplete: true,
+      }),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'MISS');
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unavailable');
+  assert.equal(body['bestPrice'], null);
+  assert.equal(body['cached'], false);
+  assert.deepEqual(readCandidateTitles(body), ['Different Game Name']);
+  assert.equal(body['incompleteNoMatch'], undefined);
+  assert.equal(pool.getPayload('332273', 167)?.['psPricesFetchedAt'], undefined);
+
+  await app.close();
+});
+
+void test('PSPrices stale revalidation keeps the cached result after an incomplete no-match', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 130, {
+    title: 'Pokemon Violet',
+    psPricesFetchedAt: '2026-03-08T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'Switch',
+    psPricesTitle: 'Pokemon Violet',
+    psPricesPriceAmount: 59.9,
+    psPricesPriceCurrency: 'CHF',
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
+  });
+  const tasks: (() => Promise<void>)[] = [];
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    scheduleBackgroundRefresh: (task) => {
+      tasks.push(task);
+    },
+    fetchImpl: () => scraperResponse({ item: null, candidates: [], incomplete: true }),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_STALE');
+  assert.equal(tasks.length, 1);
+  await tasks[0]?.();
+
+  const persisted = pool.getPayload('5263323', 130);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesFetchedAt'], '2026-03-08T10:00:00.000Z');
+  assert.equal(persisted['psPricesPriceAmount'], 59.9);
+
+  await app.close();
+});
+
 void test('PSPrices route saves a match from an incomplete scraper search', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

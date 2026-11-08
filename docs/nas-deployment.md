@@ -15,6 +15,8 @@
 
 Use `docker-compose.portainer.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
 
+`docker-compose.portainer.yml` attaches `psprices-scraper` to an external Docker network, `flarenet`, which must exist or the deploy fails, even with the FlareSolverr fallback off. Deploy the FlareSolverr stack first (see "FlareSolverr fallback (PSPrices)" below), or if you don't use it, run `docker network create flarenet` once.
+
 Before first deploy, publish images from GitHub Actions:
 
 1. Push to `main` (release workflow publishes only images whose code changed since the previous tag).
@@ -78,6 +80,8 @@ Common stack env vars:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
+- `PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS` (optional; defaults `60000`; how long `api` and `worker-general` wait for `psprices-scraper`)
+- `FLARESOLVERR_ENABLED` (optional; defaults `false`), `FLARESOLVERR_URL` (optional; defaults `http://flaresolverr:8191`) — consumed by `psprices-scraper`; see "FlareSolverr fallback (PSPrices)" below
 - `COMPAT_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `COMPAT_SCRAPER_TOKEN_FILE` (optional, but recommended)
 - `COMPAT_DUMP_DIR` (optional; defaults `/data/compat-dumps`; consumed by `compat-scraper`)
@@ -310,6 +314,17 @@ ROM files:
 - For multi-file ROM folders, automatic `/v1/roms/resolve` matching is intentionally disabled.
 - Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
 - **ROM resolve aliases:** the API treats some IGDB platform ids as equivalent when matching ROMs (folder `__pid-` may use either side). Pairs: `99`/`51` → `18` (Famicom / FDS → NES), `58` → `19` (Super Famicom → SNES), `137` → `37` (New 3DS → 3DS), `159` → `20` (DSi → DS), `510` → `24` (e-Reader → GBA). In-browser play still uses the **canonical** platform id from the library entry after `resolveCanonicalPlatformIgdbId` in the app.
+
+### FlareSolverr fallback (PSPrices)
+
+Cloudflare can block `psprices-scraper`'s headless browser with a challenge. The scraper logs `request_failed` with `blocked by Cloudflare: challenge` and the API returns `502` for that lookup, so a block never overwrites saved pricing data. With `FLARESOLVERR_ENABLED=true`, a blocked search is retried through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) container, which loads the page in its own browser. Every search still tries PSPrices directly first, so the fallback stops being used by itself once a block lifts. This works around PSPrices' bot protection and could get the NAS's IP banned.
+
+FlareSolverr runs as its own stack, which creates the `flarenet` network that `psprices-scraper` joins. Keep its port off the LAN, since anyone who can reach it can browse the web from the NAS.
+
+- **Turning it on or off:** set `FLARESOLVERR_ENABLED` to `true` or `false` and redeploy the stack, since the container has to be recreated to pick it up. The scraper logs `FlareSolverr fallback enabled via <url>` at startup when it's on.
+- **Checking whether it's in use:** a successful fallback looks healthy in the app. The log line `cloudflare_blocked_retrying_via_flaresolverr` shows the block is still there. A failed fallback logs both the block and FlareSolverr's error, e.g. `ENOTFOUND` when the scraper isn't on `flarenet`, or `it returned a page that isn't PSPrices search results` for an error or maintenance page: as `variant_failed` when another title variant still found results, or as `request_failed` (and a `502`, so nothing is saved) when none did. A search with a failed variant is never saved as a no-match. If nothing in it matches, the API saves nothing: a price lookup fails with `psprices_fetch_failed`, background refreshes fail and are retried, and the manual match picker still gets the candidates that came back.
+- **Timing:** each blocked search takes a few seconds longer, once per title variant. Once a request is blocked, its remaining variants go straight to FlareSolverr. The scraper gives each request a 50-second budget across all variants, capping page loads and FlareSolverr solves (20 seconds at most each) by what's left, so it answers before the API's `PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS` (default 60 seconds) runs out. Keep that timeout above 50 seconds.
+- **Removing FlareSolverr entirely:** Docker won't remove `flarenet` while `psprices-scraper` is attached, so detach it first. Delete the `flarenet` entries from `docker-compose.portainer.yml` and redeploy, then delete the FlareSolverr stack. To keep the compose file unchanged instead: stop this stack, delete the FlareSolverr stack, run `docker network create flarenet`, then redeploy this stack so its containers are recreated on the new network.
 
 ### EmulatorJS: supported IGDB platforms (in-browser)
 

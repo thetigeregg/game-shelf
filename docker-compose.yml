@@ -96,6 +96,7 @@ services:
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
       PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
+      PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS: ${PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS:-60000}
       PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
       PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
       PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
@@ -286,6 +287,7 @@ services:
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
       PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
+      PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS: ${PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS:-60000}
       PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
       PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
       PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
@@ -502,6 +504,12 @@ services:
       PSPRICES_SCRAPER_BROWSER_IDLE_MS: ${PSPRICES_SCRAPER_BROWSER_IDLE_MS:-30000}
       PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
       DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
+      # Retry searches Cloudflare blocks through FlareSolverr. Off unless "true"; the URL
+      # defaults to http://flaresolverr:8191. See docs/nas-deployment.md,
+      # "FlareSolverr fallback (PSPrices)". This file doesn't join flarenet, so when enabling it here
+      # set FLARESOLVERR_URL to an address this container can reach.
+      FLARESOLVERR_ENABLED: ${FLARESOLVERR_ENABLED:-false}
+      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped

@@ -1,3 +1,6 @@
+// The search results list, present on a search page whether or not anything matched.
+export const SEARCH_RESULTS_CONTAINER_SELECTOR = '[data-list-results]';
+
 export const RESULT_CARD_COVER_IMAGE_SELECTOR =
   'a[href*="/game/"] .card-wrapper .aspect-square img.object-contain';
 

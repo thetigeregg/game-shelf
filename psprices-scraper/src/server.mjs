@@ -4,6 +4,17 @@ import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
+import { searchTitleVariants } from './search-variants.mjs';
+import {
+  CloudflareBlockError,
+  assertSearchResponseOk,
+  assertSearchResultsPage,
+  fetchHtmlViaFlareSolverr,
+  flareSolverrTimeoutWithin,
+  isFlareSolverrEnabled,
+  resolveFlareSolverrUrl,
+  withHtmlPage,
+} from './flaresolverr.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -33,6 +44,12 @@ const defaultRegionPath = String(process.env.PSPRICES_REGION_PATH ?? 'region-ch'
 const defaultShow = String(process.env.PSPRICES_SHOW ?? 'games').trim();
 const debugLogsEnabled =
   String(process.env.DEBUG_PSPRICES_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
+const flareSolverrEnabled = isFlareSolverrEnabled();
+const flareSolverrUrl = resolveFlareSolverrUrl();
+// Time one search request may spend across all its title variants, kept under the API's
+// PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS (60s by default) so a slow variant fails on its own here,
+// keeping what the others found, rather than the API giving up on the whole request.
+const REQUEST_BUDGET_MS = 50_000;
 
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
@@ -132,7 +149,13 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   return score;
 }
 
-async function searchPsPricesInBrowser(page, query, platform, regionPath, show) {
+/**
+ * `requestState` is shared by one request's title variants. `blockError` carries a Cloudflare block
+ * across them: once a variant is blocked, the rest go straight to FlareSolverr instead of being
+ * blocked again. `deadline` ends the request's time budget; navigation and FlareSolverr calls are
+ * capped by what is left of it.
+ */
+async function searchPsPricesInBrowser(page, query, platform, regionPath, show, requestState) {
   const endpoint = new URL(`/${regionPath}/games/`, pspricesBaseUrl);
   endpoint.searchParams.set('q', query);
   endpoint.searchParams.set('show', show);
@@ -140,13 +163,53 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
     endpoint.searchParams.set('platform', platform);
   }
 
-  await page.goto(endpoint.toString(), {
-    waitUntil: 'domcontentloaded',
-    timeout: browserTimeoutMs,
-  });
-  await page.waitForTimeout(1000);
+  const url = endpoint.toString();
+  if (!requestState.blockError) {
+    const navigationTimeoutMs = Math.min(browserTimeoutMs, requestState.deadline - Date.now());
+    if (navigationTimeoutMs <= 0) {
+      throw new Error(`PSPrices: request time budget used up before searching ${url}`);
+    }
+    const response = await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: navigationTimeoutMs,
+    });
 
-  const candidates = await page.evaluate((coverImageSelector) => {
+    try {
+      assertSearchResponseOk(response, url);
+      await page.waitForTimeout(1000);
+      return await extractSearchCandidates(page);
+    } catch (error) {
+      if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
+        throw error;
+      }
+      requestState.blockError = error;
+      // A successful fallback looks healthy to the API, so this line is how to tell the block is
+      // still there.
+      console.warn('[psprices-scraper] cloudflare_blocked_retrying_via_flaresolverr', { query });
+    }
+  }
+
+  const maxTimeoutMs = flareSolverrTimeoutWithin(requestState.deadline - Date.now());
+  if (maxTimeoutMs === null) {
+    throw new Error(
+      `${requestState.blockError.message}; FlareSolverr skipped: request time budget used up`
+    );
+  }
+
+  try {
+    const html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, maxTimeoutMs });
+    return await withHtmlPage(page.context().browser(), url, html, async (fallbackPage) => {
+      await assertSearchResultsPage(fallbackPage);
+      return await extractSearchCandidates(fallbackPage);
+    });
+  } catch (fallbackError) {
+    const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+    throw new Error(`${requestState.blockError.message}; FlareSolverr failed: ${reason}`);
+  }
+}
+
+async function extractSearchCandidates(page) {
+  return await page.evaluate((coverImageSelector) => {
     function normalizeText(value) {
       return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
     }
@@ -214,8 +277,6 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
       })
       .filter((item) => item !== null);
   }, RESULT_CARD_COVER_IMAGE_SELECTOR);
-
-  return candidates;
 }
 
 app.get('/health', (_req, res) => {
@@ -246,6 +307,8 @@ app.get('/v1/psprices/search', async (req, res) => {
 
   try {
     const titleVariants = buildSearchTitleVariants(query);
+    // Starts before the browser is acquired, since a cold launch counts against the API's timeout.
+    const deadline = Date.now() + REQUEST_BUDGET_MS;
     const browser = await acquireSharedBrowser();
     let context = null;
     try {
@@ -256,18 +319,26 @@ app.get('/v1/psprices/search', async (req, res) => {
       const page = await context.newPage();
       const merged = [];
       const seen = new Set();
+      const requestState = { blockError: null, deadline };
 
-      for (const variant of titleVariants) {
-        const candidates = await searchPsPricesInBrowser(page, variant, platform, regionPath, show);
+      const { candidates, failures } = await searchTitleVariants(titleVariants, (variant) =>
+        searchPsPricesInBrowser(page, variant, platform, regionPath, show, requestState)
+      );
+      for (const { variant, error } of failures) {
+        console.warn('[psprices-scraper] variant_failed', {
+          query,
+          variant,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
 
-        for (const candidate of candidates) {
-          const key = `${candidate.url ?? ''}::${candidate.title ?? ''}`;
-          if (seen.has(key)) {
-            continue;
-          }
-          seen.add(key);
-          merged.push(candidate);
+      for (const candidate of candidates) {
+        const key = `${candidate.url ?? ''}::${candidate.title ?? ''}`;
+        if (seen.has(key)) {
+          continue;
         }
+        seen.add(key);
+        merged.push(candidate);
       }
 
       const ranked = merged
@@ -281,6 +352,9 @@ app.get('/v1/psprices/search', async (req, res) => {
         .slice(0, 20);
 
       const item = ranked[0] ?? null;
+      // A failed variant leaves the search incomplete. The API won't save a "no match" from it,
+      // since the failed variant may have been the one that matched.
+      const incomplete = failures.length > 0;
       if (debugLogsEnabled) {
         console.info('[psprices-scraper] request_complete', {
           query,
@@ -289,13 +363,15 @@ app.get('/v1/psprices/search', async (req, res) => {
           show,
           candidateCount: ranked.length,
           matched: item !== null,
+          incomplete,
         });
       }
 
+      const responseContext = { regionPath, show, platform: platform || null };
       res.json(
         includeCandidates
-          ? { item, candidates: ranked, context: { regionPath, show, platform: platform || null } }
-          : { item, context: { regionPath, show, platform: platform || null } }
+          ? { item, candidates: ranked, incomplete, context: responseContext }
+          : { item, incomplete, context: responseContext }
       );
     } finally {
       if (context) {
@@ -314,6 +390,9 @@ app.get('/v1/psprices/search', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`[psprices-scraper] listening on http://localhost:${port}`);
+  if (flareSolverrEnabled) {
+    console.log(`[psprices-scraper] FlareSolverr fallback enabled via ${flareSolverrUrl}`);
+  }
 });
 
 async function getSharedBrowser() {

@@ -230,6 +230,7 @@ export class ListPageComponent implements AfterViewInit {
   isAddGameDetailLoading = false;
   addGameDetailErrorMessage = '';
   isAddGameDetailInLibrary = false;
+  addGameDetailLibraryListType: ListType | null = null;
   isAddGameDetailAddLoading = false;
   isAddGameVideosModalOpen = false;
   isAddGameWebsitesModalOpen = false;
@@ -663,6 +664,7 @@ export class ListPageComponent implements AfterViewInit {
     this.isAddGameDetailLoading = true;
     this.addGameDetailErrorMessage = '';
     this.isAddGameDetailInLibrary = false;
+    this.addGameDetailLibraryListType = null;
     this.isAddGameDetailAddLoading = false;
     let existingEntryPromise: ReturnType<typeof this.gameShelfService.findGameByIdentity> | null =
       null;
@@ -687,6 +689,7 @@ export class ListPageComponent implements AfterViewInit {
 
       this.selectedAddGameDetail = applyGameCatalogPlatformContext(hydratedCatalog, platformIgdbId);
       this.isAddGameDetailInLibrary = Boolean(existingEntry);
+      this.addGameDetailLibraryListType = existingEntry?.listType ?? null;
     } catch (error) {
       if (!this.hasRequestedAddGameDetail(requestedIdentityKey)) {
         return;
@@ -701,6 +704,7 @@ export class ListPageComponent implements AfterViewInit {
           .then((existingEntry) => {
             if (this.hasRequestedAddGameDetail(requestedIdentityKey)) {
               this.isAddGameDetailInLibrary = Boolean(existingEntry);
+              this.addGameDetailLibraryListType = existingEntry?.listType ?? null;
             }
           })
           .catch(() => undefined);
@@ -720,6 +724,7 @@ export class ListPageComponent implements AfterViewInit {
     this.isAddGameDetailLoading = false;
     this.addGameDetailErrorMessage = '';
     this.isAddGameDetailInLibrary = false;
+    this.addGameDetailLibraryListType = null;
     this.isAddGameDetailAddLoading = false;
     this.isAddGameVideosModalOpen = false;
     this.isAddGameWebsitesModalOpen = false;
@@ -747,6 +752,10 @@ export class ListPageComponent implements AfterViewInit {
       }
 
       if (addResult.status === 'added') {
+        this.addGameDetailLibraryListType = addResult.entry?.listType ?? this.listType;
+      }
+
+      if (addResult.status === 'added') {
         this.closeAddGameDetailModal();
       }
     } finally {
@@ -768,7 +777,12 @@ export class ListPageComponent implements AfterViewInit {
     return buildDetailWebsiteModalItems({
       websites: this.addGameDetailWebsites,
       buildSearchUrl: (provider) => this.openAddGameDetailShortcutSearchUrl(provider),
-      psPricesUrl: buildDetailPsPricesUrl(this.selectedAddGameDetail),
+      psPricesUrl: this.selectedAddGameDetail
+        ? buildDetailPsPricesUrl({
+            ...this.selectedAddGameDetail,
+            listType: this.addGameDetailLibraryListType ?? undefined,
+          })
+        : null,
     });
   }
 

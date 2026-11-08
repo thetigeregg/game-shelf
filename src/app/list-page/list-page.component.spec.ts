@@ -430,6 +430,41 @@ describe('ListPageComponent', () => {
     expect(component.addGameDetailWebsiteItems.map((item) => item.label)).not.toContain('PSPrices');
   });
 
+  it('hides the add-game PSPrices link only when the result is already in the collection', () => {
+    const component = createComponent();
+    const labels = () => component.addGameDetailWebsiteItems.map((item) => item.label);
+    component.selectedAddGameDetail = makeResult({
+      title: 'Hades',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+    });
+
+    component.addGameDetailLibraryListType = 'wishlist';
+    expect(labels()).toContain('PSPrices');
+
+    component.addGameDetailLibraryListType = 'collection';
+    expect(labels()).not.toContain('PSPrices');
+
+    component.addGameDetailLibraryListType = null;
+    expect(labels()).toContain('PSPrices');
+  });
+
+  it('tracks the existing library list type when opening an add-game detail', async () => {
+    const component = createComponent();
+    const result = makeResult({ title: 'Hades', platform: 'PlayStation 5', platformIgdbId: 167 });
+    gameShelfServiceMock.findGameByIdentity.mockResolvedValueOnce({ listType: 'collection' });
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(result));
+
+    await component.openAddGameDetail(result);
+
+    expect(component.isAddGameDetailInLibrary).toBe(true);
+    expect(component.addGameDetailLibraryListType).toBe('collection');
+    expect(component.addGameDetailWebsiteItems.map((item) => item.label)).not.toContain('PSPrices');
+
+    component.closeAddGameDetailModal();
+    expect(component.addGameDetailLibraryListType).toBeNull();
+  });
+
   it('toggles the add-game videos modal only when a valid YouTube video is present', () => {
     const component = createComponent();
 

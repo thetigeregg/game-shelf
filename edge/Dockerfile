@@ -15,6 +15,7 @@ RUN npm run build
 ARG BUILD_IOS_LIVE_UPDATE=false
 ARG IOS_OTA_NATIVE_BUILD_NUMBER
 ARG FEATURE_TAS=false
+ARG PSPRICES_REGION_PATH=region-ch
 
 RUN --mount=type=secret,id=IOS_LIVE_UPDATE_PRIVATE_KEY,required=false \
     --mount=type=secret,id=IOS_BACKEND_ORIGIN_PROD,required=false \
@@ -36,6 +37,7 @@ RUN --mount=type=secret,id=IOS_LIVE_UPDATE_PRIVATE_KEY,required=false \
     export IOS_OTA_NATIVE_BUILD_NUMBER="$IOS_OTA_NATIVE_BUILD_NUMBER"; \
     export IOS_LIVE_UPDATE_PRIVATE_KEY_PATH="/run/secrets/IOS_LIVE_UPDATE_PRIVATE_KEY"; \
     export FEATURE_TAS="$FEATURE_TAS"; \
+    export PSPRICES_REGION_PATH="$PSPRICES_REGION_PATH"; \
     node scripts/build-ios-live-update-artifacts.mjs; \
   else \
     mkdir -p ota/ios; \

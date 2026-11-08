@@ -227,7 +227,7 @@ type DetailPsPricesGame = Pick<
  */
 export function buildDetailPsPricesUrl(
   game: DetailPsPricesGame | null | undefined,
-  regionPath: string = getPsPricesRegionPath()
+  regionPath?: string
 ): string | null {
   if (!game || game.listType === 'collection') {
     return null;
@@ -255,7 +255,8 @@ export function buildDetailPsPricesUrl(
     return null;
   }
 
-  const searchUrl = new URL(`https://psprices.com/${encodeURIComponent(regionPath)}/games/`);
+  const region = regionPath ?? getPsPricesRegionPath();
+  const searchUrl = new URL(`https://psprices.com/${encodeURIComponent(region)}/games/`);
   searchUrl.searchParams.set('q', title);
   searchUrl.searchParams.set('platform', platform);
   return sanitizeExternalHttpUrlString(searchUrl.toString(), {

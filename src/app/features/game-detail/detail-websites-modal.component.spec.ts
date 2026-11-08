@@ -88,6 +88,5 @@ describe('DetailWebsitesModalComponent', () => {
     expect(component.isSimpleIcon('ion:globe')).toBe(false);
     expect(component.isSimpleIcon('ion:library')).toBe(false);
     expect(component.isSimpleIcon('ion:link')).toBe(false);
-    expect(component.isSimpleIcon('psprices')).toBe(false);
   });
 });

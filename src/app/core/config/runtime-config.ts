@@ -3,7 +3,7 @@ import { readPreference, writePreference } from '../storage/preference-storage.s
 
 const PERSISTED_RUNTIME_CONFIG_STORAGE_KEY = 'game-shelf:runtime-config:v1';
 /** Fallback when runtime config omits `psPricesRegionPath`; mirrors the `PSPRICES_REGION_PATH` default. */
-export const DEFAULT_PSPRICES_REGION_PATH = 'region-ch';
+const DEFAULT_PSPRICES_REGION_PATH = 'region-ch';
 const PSPRICES_REGION_PATH_PATTERN = /^[a-z0-9-]+$/;
 
 interface RuntimeFeatureFlags {
@@ -236,10 +236,7 @@ export function getAppVersionInfo(): AppVersionInfo {
 
 /** PSPrices region path segment (e.g. `region-ch`), shared with the API via `PSPRICES_REGION_PATH`. */
 export function getPsPricesRegionPath(): string {
-  return (
-    normalizePsPricesRegionPath(resolveRuntimeConfig().config?.psPricesRegionPath) ??
-    DEFAULT_PSPRICES_REGION_PATH
-  );
+  return resolveRuntimeConfig().config?.psPricesRegionPath ?? DEFAULT_PSPRICES_REGION_PATH;
 }
 
 export function isRecommendationsExploreEnabled(): boolean {

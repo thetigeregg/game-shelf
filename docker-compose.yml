@@ -14,8 +14,8 @@ services:
       case \"$$feature_raw_mgc\" in 1|true|yes|on) feature_mgc_bool=true ;; *) feature_mgc_bool=false ;; esac;
       feature_raw_tas=$$(printf '%s' \"$${FEATURE_TAS:-false}\" | tr '[:upper:]' '[:lower:]');
       case \"$$feature_raw_tas\" in 1|true|yes|on) feature_tas_bool=true ;; *) feature_tas_bool=false ;; esac;
-      psprices_region=$$(printf '%s' \"$${PSPRICES_REGION_PATH:-region-ch}\" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-');
-      [ -n \"$$psprices_region\" ] || psprices_region=region-ch;
+      psprices_region=$$(printf '%s' \"$${PSPRICES_REGION_PATH:-region-ch}\" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$$//');
+      case \"$$psprices_region\" in ''|*[!a-z0-9-]*) psprices_region=region-ch ;; esac;
       mkdir -p /srv/assets;
       config_path=/srv/assets/runtime-config.js;
       tmp_path=/tmp/runtime-config.js;

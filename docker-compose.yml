@@ -296,6 +296,12 @@ services:
       PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS:-7776000}
       COMPAT_SCRAPER_BASE_URL: ${COMPAT_SCRAPER_BASE_URL:-http://compat-scraper:8791}
       COMPAT_SCRAPER_TOKEN_FILE: ${COMPAT_SCRAPER_TOKEN_FILE:-/run/secrets/compat_scraper_token}
+      # Scheduled scraper test lookups reported to Healthchecks.io. Off until the
+      # healthchecks_ping_key secret exists. See docs/nas-deployment.md,
+      # "Scraper health checks (Healthchecks.io)".
+      HEALTHCHECKS_PING_KEY_FILE: ${HEALTHCHECKS_PING_KEY_FILE:-/run/secrets/healthchecks_ping_key}
+      HEALTHCHECKS_PING_BASE_URL: ${HEALTHCHECKS_PING_BASE_URL:-https://hc-ping.com}
+      SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES: ${SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES:-360}
       COMPAT_SCRAPER_REQUEST_TIMEOUT_MS: ${COMPAT_SCRAPER_REQUEST_TIMEOUT_MS:-25000}
       COMPAT_PERIODIC_REFRESH_DAYS: ${COMPAT_PERIODIC_REFRESH_DAYS:-7}
       COMPAT_FAILURE_BACKOFF_BASE_MINUTES: ${COMPAT_FAILURE_BACKOFF_BASE_MINUTES:-60}

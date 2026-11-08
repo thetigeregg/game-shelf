@@ -49,6 +49,7 @@ Required app secrets (one secret per file):
 - `hltb_scraper_token` (optional)
 - `psprices_scraper_token` (optional)
 - `compat_scraper_token` (optional)
+- `healthchecks_ping_key` (optional; turns on scraper health checks, see "Scraper health checks (Healthchecks.io)" below)
 - `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
 - `postgres_password`
@@ -84,6 +85,7 @@ Common stack env vars:
 - `FLARESOLVERR_ENABLED` (optional; defaults `false`), `FLARESOLVERR_URL` (optional; defaults `http://flaresolverr:8191`) — consumed by `psprices-scraper`; see "FlareSolverr fallback (PSPrices)" below
 - `COMPAT_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `COMPAT_SCRAPER_TOKEN_FILE` (optional, but recommended)
+- `HEALTHCHECKS_PING_KEY_FILE` (optional; defaults `/run/secrets/healthchecks_ping_key`), `HEALTHCHECKS_PING_BASE_URL` (optional; defaults `https://hc-ping.com`), `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (optional; defaults `360`) — consumed by `worker-general`; see "Scraper health checks (Healthchecks.io)" below
 - `COMPAT_DUMP_DIR` (optional; defaults `/data/compat-dumps`; consumed by `compat-scraper`)
 - `PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
 - `PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
@@ -325,6 +327,25 @@ FlareSolverr runs as its own stack, which creates the `flarenet` network that `p
 - **Checking whether it's in use:** a successful fallback looks healthy in the app. The log line `cloudflare_blocked_retrying_via_flaresolverr` shows the block is still there. A failed fallback logs both the block and FlareSolverr's error, e.g. `ENOTFOUND` when the scraper isn't on `flarenet`, or `it returned a page that isn't PSPrices search results` for an error or maintenance page: as `variant_failed` when another title variant still found results, or as `request_failed` (and a `502`, so nothing is saved) when none did. A search with a failed variant is never saved as a no-match. If nothing in it matches, the API saves nothing: a price lookup fails with `psprices_fetch_failed`, background refreshes fail and are retried, and the manual match picker still gets the candidates that came back.
 - **Timing:** each blocked search takes a few seconds longer, once per title variant. Once a request is blocked, its remaining variants go straight to FlareSolverr. The scraper gives each request a 50-second budget across all variants, capping page loads and FlareSolverr solves (20 seconds at most each) by what's left, so it answers before the API's `PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS` (default 60 seconds) runs out. Keep that timeout above 50 seconds.
 - **Removing FlareSolverr entirely:** Docker won't remove `flarenet` while `psprices-scraper` is attached, so detach it first. Delete the `flarenet` entries from `docker-compose.portainer.yml` and redeploy, then delete the FlareSolverr stack. To keep the compose file unchanged instead: stop this stack, delete the FlareSolverr stack, run `docker network create flarenet`, then redeploy this stack so its containers are recreated on the new network.
+
+### Scraper health checks (Healthchecks.io)
+
+A scraper failure doesn't show up anywhere obvious: a blocked or broken scraper mostly looks like games without a price, score or playtime. To get alerted instead, `worker-general` can look up a title that should always match on each scraper and report the result to [Healthchecks.io](https://healthchecks.io), which sends the alert (email, push, Telegram and so on, as configured there).
+
+| Check                  | Test lookup                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `gameshelf-psprices`   | Hades II on PS5, in `PSPRICES_REGION_PATH`                                                |
+| `gameshelf-hltb`       | Hades (2020, PC)                                                                          |
+| `gameshelf-metacritic` | Hades (2020, PC)                                                                          |
+| `gameshelf-compat`     | The Xbox (xemu) list, a single small file; the full set of lists is only refreshed weekly |
+
+The lookups call each scraper directly, so the API's caches can't hide a failure. A match sends a success ping. An error, a timeout or no match sends a failure ping with the reason (for example `HTTP 502` or `connect ECONNREFUSED`), which Healthchecks.io includes in the alert. A Cloudflare block on HLTB or Metacritic shows up as no match, and a psprices block that the FlareSolverr fallback gets past still passes.
+
+- **Setting it up:** in Healthchecks.io, open your project's settings and create a ping key. Save it as `${SECRETS_HOST_DIR}/healthchecks_ping_key` and redeploy. The checks are created automatically the first time they're pinged, about two minutes after `worker-general` starts.
+- **Schedule:** the lookups run every `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (default 360, 6 hours). Auto-created checks expect a ping once a day with a 1-hour grace period, which only affects how soon a _missing_ ping alerts; a failed lookup alerts straight away. To be alerted sooner when pings stop (worker or stack down), set each check's period to the interval in Healthchecks.io.
+- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings.
+- **Self-hosted Healthchecks:** set `HEALTHCHECKS_PING_BASE_URL` to your instance's ping URL.
+- **Logs:** each lookup logs `[scraper-health-check] passed` or `failed` with the same message as the ping.
 
 ### EmulatorJS: supported IGDB platforms (in-browser)
 

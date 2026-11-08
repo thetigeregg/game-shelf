@@ -120,6 +120,9 @@ export interface AppConfig {
   compatScraperBaseUrl: string;
   compatScraperToken: string;
   compatScraperRequestTimeoutMs: number;
+  healthchecksPingKey: string;
+  healthchecksPingBaseUrl: string;
+  scraperHealthCheckIntervalMinutes: number;
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
@@ -616,6 +619,10 @@ export const config: AppConfig = {
   compatScraperBaseUrl: readEnv('COMPAT_SCRAPER_BASE_URL', ''),
   compatScraperToken: readSecretFile('COMPAT_SCRAPER_TOKEN', 'compat_scraper_token'),
   compatScraperRequestTimeoutMs: readIntegerEnv('COMPAT_SCRAPER_REQUEST_TIMEOUT_MS', 25_000),
+  // Scraper health checks (worker-general) run only when the Healthchecks.io ping key is set.
+  healthchecksPingKey: readSecretFile('HEALTHCHECKS_PING_KEY', 'healthchecks_ping_key'),
+  healthchecksPingBaseUrl: readEnv('HEALTHCHECKS_PING_BASE_URL') || 'https://hc-ping.com',
+  scraperHealthCheckIntervalMinutes: readIntegerEnv('SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES', 360),
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

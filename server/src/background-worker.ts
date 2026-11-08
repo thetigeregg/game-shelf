@@ -38,9 +38,11 @@ import {
 } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
 import { installSingleLineConsole } from './single-line-console.js';
+import { runScraperHealthChecks } from './scraper-health-check.js';
 import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
+const SCRAPER_HEALTH_CHECK_STARTUP_DELAY_MS = 2 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
 const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT', 'LONG'];
 const POPULARITY_PRIMITIVE_LIMIT = 500;
@@ -334,6 +336,7 @@ export function readBackgroundWorkerMode(): BackgroundWorkerMode {
 async function main(): Promise<void> {
   const workerMode = readBackgroundWorkerMode();
   const runGeneralWork = workerMode === 'all' || workerMode === 'general';
+  const scraperHealthCheckEnabled = runGeneralWork && config.healthchecksPingKey.length > 0;
   const runRecommendationRebuildWork = workerMode === 'all' || workerMode === 'recommendations';
   console.info('[background-worker] starting', {
     pid: process.pid,
@@ -517,6 +520,9 @@ async function main(): Promise<void> {
   let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
   let staleJobRecoveryTimer: ReturnType<typeof setInterval> | null = null;
   let pricingRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  let scraperHealthCheckStartupTimer: ReturnType<typeof setTimeout> | null = null;
+  let scraperHealthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  let scraperHealthCheckRunning = false;
   let lastWishlistPricingRefreshRunMs = 0;
   let lastDiscoveryPricingRefreshRunMs = 0;
 
@@ -557,6 +563,14 @@ async function main(): Promise<void> {
       clearInterval(pricingRefreshTimer);
       pricingRefreshTimer = null;
     }
+    if (scraperHealthCheckStartupTimer) {
+      clearTimeout(scraperHealthCheckStartupTimer);
+      scraperHealthCheckStartupTimer = null;
+    }
+    if (scraperHealthCheckTimer) {
+      clearInterval(scraperHealthCheckTimer);
+      scraperHealthCheckTimer = null;
+    }
   };
 
   const stop = async (signal: string): Promise<void> => {
@@ -594,6 +608,26 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => {
     void stop('SIGTERM').finally(() => process.exit(0));
   });
+
+  const runScraperHealthCheckTick = async (): Promise<void> => {
+    // A slow run (e.g. psprices falling back to FlareSolverr) must not overlap the next one.
+    if (shuttingDown || scraperHealthCheckRunning) {
+      return;
+    }
+    scraperHealthCheckRunning = true;
+    try {
+      await runScraperHealthChecks({
+        pingKey: config.healthchecksPingKey,
+        pingBaseUrl: config.healthchecksPingBaseUrl,
+      });
+    } catch (error) {
+      console.error('[background-worker] scraper_health_check_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      scraperHealthCheckRunning = false;
+    }
+  };
 
   const runRecommendationSchedulerTick = async (): Promise<void> => {
     if (shuttingDown || !config.recommendationsSchedulerEnabled) {
@@ -1439,6 +1473,19 @@ async function main(): Promise<void> {
       pricingRefreshCycleIntervalMinutes * 60 * 1000
     );
     void runPricingRefreshCycle('startup');
+
+    if (scraperHealthCheckEnabled) {
+      // Give the scrapers time to start after a deploy before the first run.
+      scraperHealthCheckStartupTimer = setTimeout(() => {
+        void runScraperHealthCheckTick();
+      }, SCRAPER_HEALTH_CHECK_STARTUP_DELAY_MS);
+      scraperHealthCheckTimer = setInterval(
+        () => {
+          void runScraperHealthCheckTick();
+        },
+        Math.max(1, config.scraperHealthCheckIntervalMinutes) * 60 * 1000
+      );
+    }
   }
 
   console.info('[background-worker] started', {
@@ -1464,6 +1511,8 @@ async function main(): Promise<void> {
     recommendationRunRecoveryMinutes,
     backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
+    scraperHealthCheckEnabled,
+    scraperHealthCheckIntervalMinutes: config.scraperHealthCheckIntervalMinutes,
     pricingRefreshCycleEnabled:
       config.pricingRefreshEnabled || config.discoveryPricingRefreshEnabled,
     pricingRefreshEnabled: config.pricingRefreshEnabled,

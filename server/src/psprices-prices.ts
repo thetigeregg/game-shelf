@@ -719,20 +719,24 @@ function schedulePspricesPriceRevalidation(params: {
   return true;
 }
 
-async function fetchPsPricesSnapshot(
-  fetchImpl: typeof fetch,
-  params: {
-    title: string;
-    platform: string;
-    regionPath: string;
-    show: string;
-    preferredUrl?: string | null;
-  }
-): Promise<{
+interface PsPricesLookupParams {
+  title: string;
+  platform: string;
+  regionPath: string;
+  show: string;
+  preferredUrl?: string | null;
+}
+
+interface PsPricesLookup {
   snapshot: PsPricesSnapshot | null;
   match: PsPricesMatchInfo;
   candidates: PsPricesCandidate[];
-}> {
+}
+
+async function fetchPsPricesSnapshot(
+  fetchImpl: typeof fetch,
+  params: PsPricesLookupParams
+): Promise<PsPricesLookup> {
   const endpoint = new URL('/v1/psprices/search', config.pspricesScraperBaseUrl);
   endpoint.searchParams.set('q', params.title);
   endpoint.searchParams.set('platform', params.platform);
@@ -759,6 +763,25 @@ async function fetchPsPricesSnapshot(
   }
 
   const payload: unknown = await response.json();
+  const lookup = buildPsPricesLookup(payload, params);
+  // The scraper flags a search where a title variant failed. A "no match" from it might be wrong,
+  // since the failed variant may have been the one that matched, so it mustn't be saved.
+  if (lookup.snapshot === null && isIncompletePsPricesSearch(payload)) {
+    throw new Error('PSPrices search incomplete: a title variant failed and nothing matched');
+  }
+  return lookup;
+}
+
+function isIncompletePsPricesSearch(payload: unknown): boolean {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    !Array.isArray(payload) &&
+    (payload as Record<string, unknown>)['incomplete'] === true
+  );
+}
+
+function buildPsPricesLookup(payload: unknown, params: PsPricesLookupParams): PsPricesLookup {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return {
       snapshot: null,

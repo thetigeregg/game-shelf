@@ -438,6 +438,129 @@ void test('PSPrices route preserves existing unified price data when lookup is u
   await app.close();
 });
 
+function scraperResponse(body: Record<string, unknown>): Promise<Response> {
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  );
+}
+
+void test('PSPrices route refuses to save a no-match from an incomplete scraper search', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, { title: 'Monster Train 2' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      scraperResponse({
+        item: { title: 'Different Game Name', priceAmount: 19.9, currency: 'CHF' },
+        candidates: [],
+        incomplete: true,
+      }),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+  });
+
+  assert.equal(response.statusCode, 502);
+  const persisted = pool.getPayload('332273', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesFetchedAt'], undefined);
+  assert.equal(persisted['psPricesMatchConfidence'], undefined);
+
+  await app.close();
+});
+
+void test('PSPrices route refuses an incomplete scraper search that found nothing', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, { title: 'Monster Train 2' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () => scraperResponse({ item: null, candidates: [], incomplete: true }),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+  });
+
+  assert.equal(response.statusCode, 502);
+  assert.equal(pool.getPayload('332273', 167)?.['psPricesFetchedAt'], undefined);
+
+  await app.close();
+});
+
+void test('PSPrices route saves a match from an incomplete scraper search', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, { title: 'Monster Train 2' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      scraperResponse({
+        item: {
+          title: 'Monster Train 2',
+          priceAmount: 49.9,
+          currency: 'CHF',
+          url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+        },
+        incomplete: true,
+      }),
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(parseJsonRecord(response.body)['status'], 'ok');
+  const persisted = pool.getPayload('332273', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesPriceAmount'], 49.9);
+  assert.equal(typeof persisted['psPricesFetchedAt'], 'string');
+
+  await app.close();
+});
+
+void test('queued PSPrices revalidation fails instead of saving an incomplete no-match', async () => {
+  const originalFetch = globalThis.fetch;
+  const pool = new GamePoolMock();
+  pool.seed('700', 167, {
+    listType: 'discovery',
+    title: 'Unknown PS Game',
+    platform: 'PlayStation 5',
+    releaseYear: 2026,
+  });
+
+  globalThis.fetch = () => scraperResponse({ item: null, candidates: [], incomplete: true });
+
+  try {
+    await assert.rejects(
+      processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
+        cacheKey: 'pricing-refresh:discovery:700:167:region-ch:games',
+        igdbGameId: '700',
+        platformIgdbId: 167,
+        title: 'Unknown PS Game',
+        psPricesUrl: null,
+      }),
+      { message: 'PSPrices search incomplete: a title variant failed and nothing matched' }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const persisted = pool.getPayload('700', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesFetchedAt'], undefined);
+  assert.equal(persisted['enrichmentRetry'], undefined);
+});
+
 void test('PSPrices route reaches wishlist sale notification checks during discount transition', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

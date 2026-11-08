@@ -352,6 +352,9 @@ app.get('/v1/psprices/search', async (req, res) => {
         .slice(0, 20);
 
       const item = ranked[0] ?? null;
+      // A failed variant leaves the search incomplete. The API won't save a "no match" from it,
+      // since the failed variant may have been the one that matched.
+      const incomplete = failures.length > 0;
       if (debugLogsEnabled) {
         console.info('[psprices-scraper] request_complete', {
           query,
@@ -360,13 +363,15 @@ app.get('/v1/psprices/search', async (req, res) => {
           show,
           candidateCount: ranked.length,
           matched: item !== null,
+          incomplete,
         });
       }
 
+      const responseContext = { regionPath, show, platform: platform || null };
       res.json(
         includeCandidates
-          ? { item, candidates: ranked, context: { regionPath, show, platform: platform || null } }
-          : { item, context: { regionPath, show, platform: platform || null } }
+          ? { item, candidates: ranked, incomplete, context: responseContext }
+          : { item, incomplete, context: responseContext }
       );
     } finally {
       if (context) {

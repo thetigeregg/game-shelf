@@ -1,11 +1,13 @@
 import { config } from './config.js';
+import { describeErrorCause } from './emulation-compat/refresh.js';
 
 /**
  * Scheduled test lookups against each scraper, reported to Healthchecks.io. Each scraper is
  * searched for a title that should always match, calling it directly so the API's caches can't
- * hide a failure. A match sends a success ping; an error or no match sends a `/fail` ping with the
- * reason, which Healthchecks.io includes in its alert. Missed pings alert too, which catches the
- * worker or the whole stack being down.
+ * hide a failure, and the result must be the specific game verified for that scraper. A match sends
+ * a success ping; an error, no match or the wrong game sends a `/fail` ping with the reason, which
+ * Healthchecks.io includes in its alert. Missed pings alert too, which catches the worker or the
+ * whole stack being down.
  *
  * Checks are addressed by slug under the project's ping key and created on first ping
  * (`?create=1`), so the only setup is the ping key secret.
@@ -13,9 +15,15 @@ import { config } from './config.js';
 
 // Generous: a psprices lookup can spend up to ~50s in its FlareSolverr fallback.
 export const SCRAPER_HEALTH_CHECK_TIMEOUT_MS = 90_000;
+// Node can't hold a timer longer than ~24.8 days (it fires after 1ms instead), so the interval is
+// capped well below that.
+export const MAX_SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES = 7 * 24 * 60;
 const PING_TIMEOUT_MS = 10_000;
 // Healthchecks.io stores up to 100kB of a ping body; reasons are kept far shorter.
 const MAX_PING_BODY_LENGTH = 1_000;
+const MAX_ERROR_DETAIL_LENGTH = 200;
+
+export type ScraperHealthVerdict = { ok: true; detail: string } | { ok: false; reason: string };
 
 export interface ScraperHealthProbe {
   /** Healthchecks.io check slug. */
@@ -25,8 +33,8 @@ export interface ScraperHealthProbe {
   token: string;
   path: string;
   query: Record<string, string>;
-  /** Returns a description of the match, or null when the response doesn't contain one. */
-  describeMatch: (body: unknown) => string | null;
+  /** Decides whether the scraper's JSON response is the expected result. */
+  check: (body: unknown) => ScraperHealthVerdict;
 }
 
 export interface ScraperHealthResult {
@@ -35,21 +43,58 @@ export interface ScraperHealthResult {
   message: string;
 }
 
+/**
+ * Whether the health check runs in this worker, and how often. It runs only in the general worker
+ * and only once the Healthchecks.io ping key is set.
+ */
+export function resolveScraperHealthCheckSchedule(params: {
+  runGeneralWork: boolean;
+  pingKey: string;
+  intervalMinutes: number;
+}): { enabled: boolean; intervalMs: number } {
+  const intervalMinutes = Math.min(
+    MAX_SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES,
+    Math.max(1, Math.floor(params.intervalMinutes))
+  );
+  return {
+    enabled: params.runGeneralWork && params.pingKey.trim().length > 0,
+    intervalMs: intervalMinutes * 60 * 1000,
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
 
-function describeItem(body: unknown, fields: string[]): string | null {
+/**
+ * Checks that the response's `item` is the expected game. The scrapers return their closest
+ * candidate even when it's only loosely similar, so any item isn't enough.
+ */
+function checkItem(
+  body: unknown,
+  params: {
+    fields: string[];
+    expected: string;
+    isExpected: (item: Record<string, unknown>) => boolean;
+  }
+): ScraperHealthVerdict {
   const item = asRecord(asRecord(body)?.['item']);
   if (!item) {
-    return null;
+    return { ok: false, reason: 'no match for a title that should always match' };
   }
-  const details = fields
+  const details = params.fields
     .filter((field) => item[field] !== undefined && item[field] !== null)
-    .map((field) => `${field}=${String(item[field])}`);
-  return details.length > 0 ? `matched (${details.join(', ')})` : null;
+    .map((field) => `${field}=${String(item[field])}`)
+    .join(', ');
+  if (!params.isExpected(item)) {
+    return {
+      ok: false,
+      reason: `matched the wrong result (${details || 'no details'}), expected ${params.expected}`,
+    };
+  }
+  return { ok: true, detail: `matched (${details})` };
 }
 
 export function buildScraperHealthProbes(): ScraperHealthProbe[] {
@@ -66,7 +111,24 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
         region: config.pspricesRegionPath,
         show: config.pspricesShow,
       },
-      describeMatch: (body) => describeItem(body, ['title', 'amount', 'url']),
+      check: (body) => {
+        // A failed title variant means the scraper is partly broken (e.g. FlareSolverr failing),
+        // even when this lookup still matched.
+        if (asRecord(body)?.['incomplete'] === true) {
+          return { ok: false, reason: 'search incomplete: a title variant failed in the scraper' };
+        }
+        return checkItem(body, {
+          fields: ['title', 'amount', 'url'],
+          expected: 'title "Hades II"',
+          isExpected: (item) => {
+            const title = item['title'];
+            return (
+              typeof title === 'string' &&
+              title.replace(/\s+/g, ' ').trim().toLowerCase() === 'hades ii'
+            );
+          },
+        });
+      },
     },
     {
       slug: 'gameshelf-hltb',
@@ -75,7 +137,12 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
       token: config.hltbScraperToken,
       path: '/v1/hltb/search',
       query: { q: 'Hades', releaseYear: '2020', platform: 'PC (Microsoft Windows)' },
-      describeMatch: (body) => describeItem(body, ['hltbGameId', 'hltbMainHours']),
+      check: (body) =>
+        checkItem(body, {
+          fields: ['hltbGameId', 'hltbMainHours'],
+          expected: 'hltbGameId 62941',
+          isExpected: (item) => Number(item['hltbGameId']) === 62941,
+        }),
     },
     {
       slug: 'gameshelf-metacritic',
@@ -89,7 +156,15 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
         platform: 'PC (Microsoft Windows)',
         platformIgdbId: '6',
       },
-      describeMatch: (body) => describeItem(body, ['metacriticScore', 'metacriticUrl']),
+      check: (body) =>
+        checkItem(body, {
+          fields: ['metacriticScore', 'metacriticUrl'],
+          expected: 'metacritic.com/game/hades/',
+          isExpected: (item) => {
+            const url = item['metacriticUrl'];
+            return typeof url === 'string' && /\/game\/hades\/?$/.test(url);
+          },
+        }),
     },
     {
       // One lightweight live source (a single JSON file): the full set of compat lists is
@@ -100,23 +175,47 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
       token: config.compatScraperToken,
       path: '/v1/compat/11',
       query: {},
-      describeMatch: (body) => {
+      check: (body) => {
         const entries = asRecord(body)?.['entries'];
         return Array.isArray(entries) && entries.length > 0
-          ? `served ${String(entries.length)} Xbox entries`
-          : null;
+          ? { ok: true, detail: `served ${String(entries.length)} Xbox entries` }
+          : { ok: false, reason: 'served no Xbox entries' };
       },
     },
   ];
 }
 
 function errorMessage(error: unknown): string {
-  // Node's fetch only says "fetch failed"; the cause names the actual problem, e.g. ENOTFOUND.
-  const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
-  if (cause instanceof Error && cause.name === 'TimeoutError') {
+  if (error instanceof Error && error.name === 'TimeoutError') {
     return 'timed out';
   }
-  return cause instanceof Error ? cause.message : String(cause);
+  // Node's fetch only says "fetch failed"; the cause names the actual problem. Its message can be
+  // empty (e.g. an AggregateError when every address of a host refused), so fall back to its name
+  // and add the error code.
+  const { cause, causeCode } = describeErrorCause(error);
+  if (cause !== undefined) {
+    return causeCode !== undefined && !cause.includes(causeCode)
+      ? `${cause} (${causeCode})`
+      : cause;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * A failed lookup's reason for the ping. The ping goes to a third-party service, so only the
+ * scraper's own JSON `error` message is included, never raw response text.
+ */
+function describeHttpFailure(status: number, text: string): string {
+  let detail = '';
+  try {
+    const error = asRecord(JSON.parse(text) as unknown)?.['error'];
+    if (typeof error === 'string' && error.trim().length > 0) {
+      detail = `: ${error.trim().slice(0, MAX_ERROR_DETAIL_LENGTH)}`;
+    }
+  } catch {
+    // Not JSON: report the status only.
+  }
+  return `HTTP ${String(status)}${detail}`;
 }
 
 async function runProbe(
@@ -124,12 +223,8 @@ async function runProbe(
   fetchImpl: typeof fetch,
   timeoutMs: number
 ): Promise<ScraperHealthResult> {
-  const url = new URL(probe.path, probe.baseUrl);
-  for (const [key, value] of Object.entries(probe.query)) {
-    url.searchParams.set(key, value);
-  }
-  const lookup = `${probe.name} lookup ${url.pathname}${url.search}`;
   const startedAt = Date.now();
+  let lookup = `${probe.name} lookup ${probe.path}`;
   const fail = (reason: string): ScraperHealthResult => ({
     slug: probe.slug,
     ok: false,
@@ -139,6 +234,12 @@ async function runProbe(
   let response: Response;
   let text: string;
   try {
+    // Built inside the try so a malformed base URL fails this check, not the whole run.
+    const url = new URL(probe.path, probe.baseUrl);
+    for (const [key, value] of Object.entries(probe.query)) {
+      url.searchParams.set(key, value);
+    }
+    lookup = `${probe.name} lookup ${url.pathname}${url.search}`;
     response = await fetchImpl(url, {
       headers: {
         Accept: 'application/json',
@@ -152,7 +253,7 @@ async function runProbe(
   }
 
   if (!response.ok) {
-    return fail(`HTTP ${String(response.status)} ${text.slice(0, 200)}`.trim());
+    return fail(describeHttpFailure(response.status, text));
   }
 
   let body: unknown;
@@ -162,13 +263,13 @@ async function runProbe(
     return fail('response is not JSON');
   }
 
-  const match = probe.describeMatch(body);
-  if (match === null) {
-    return fail('no match for a title that should always match');
+  const verdict = probe.check(body);
+  if (!verdict.ok) {
+    return fail(verdict.reason);
   }
 
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-  return { slug: probe.slug, ok: true, message: `${lookup} ${match} in ${seconds}s` };
+  return { slug: probe.slug, ok: true, message: `${lookup} ${verdict.detail} in ${seconds}s` };
 }
 
 /** Never throws: a failed ping is logged, so one unreachable check doesn't stop the others. */
@@ -176,9 +277,9 @@ async function sendPing(
   result: ScraperHealthResult,
   options: { pingKey: string; pingBaseUrl: string; fetchImpl: typeof fetch }
 ): Promise<void> {
-  const base = options.pingBaseUrl.replace(/\/+$/, '');
-  const pingUrl = `${base}/${options.pingKey}/${result.slug}${result.ok ? '' : '/fail'}?create=1`;
   try {
+    const base = options.pingBaseUrl.replace(/\/+$/, '');
+    const pingUrl = `${base}/${options.pingKey}/${result.slug}${result.ok ? '' : '/fail'}?create=1`;
     const response = await options.fetchImpl(pingUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

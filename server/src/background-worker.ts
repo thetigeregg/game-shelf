@@ -38,7 +38,10 @@ import {
 } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
 import { installSingleLineConsole } from './single-line-console.js';
-import { runScraperHealthChecks } from './scraper-health-check.js';
+import {
+  resolveScraperHealthCheckSchedule,
+  runScraperHealthChecks,
+} from './scraper-health-check.js';
 import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
@@ -336,7 +339,11 @@ export function readBackgroundWorkerMode(): BackgroundWorkerMode {
 async function main(): Promise<void> {
   const workerMode = readBackgroundWorkerMode();
   const runGeneralWork = workerMode === 'all' || workerMode === 'general';
-  const scraperHealthCheckEnabled = runGeneralWork && config.healthchecksPingKey.length > 0;
+  const scraperHealthCheckSchedule = resolveScraperHealthCheckSchedule({
+    runGeneralWork,
+    pingKey: config.healthchecksPingKey,
+    intervalMinutes: config.scraperHealthCheckIntervalMinutes,
+  });
   const runRecommendationRebuildWork = workerMode === 'all' || workerMode === 'recommendations';
   console.info('[background-worker] starting', {
     pid: process.pid,
@@ -1474,17 +1481,14 @@ async function main(): Promise<void> {
     );
     void runPricingRefreshCycle('startup');
 
-    if (scraperHealthCheckEnabled) {
+    if (scraperHealthCheckSchedule.enabled) {
       // Give the scrapers time to start after a deploy before the first run.
       scraperHealthCheckStartupTimer = setTimeout(() => {
         void runScraperHealthCheckTick();
       }, SCRAPER_HEALTH_CHECK_STARTUP_DELAY_MS);
-      scraperHealthCheckTimer = setInterval(
-        () => {
-          void runScraperHealthCheckTick();
-        },
-        Math.max(1, config.scraperHealthCheckIntervalMinutes) * 60 * 1000
-      );
+      scraperHealthCheckTimer = setInterval(() => {
+        void runScraperHealthCheckTick();
+      }, scraperHealthCheckSchedule.intervalMs);
     }
   }
 
@@ -1511,8 +1515,8 @@ async function main(): Promise<void> {
     recommendationRunRecoveryMinutes,
     backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
-    scraperHealthCheckEnabled,
-    scraperHealthCheckIntervalMinutes: config.scraperHealthCheckIntervalMinutes,
+    scraperHealthCheckEnabled: scraperHealthCheckSchedule.enabled,
+    scraperHealthCheckIntervalMinutes: scraperHealthCheckSchedule.intervalMs / 60_000,
     pricingRefreshCycleEnabled:
       config.pricingRefreshEnabled || config.discoveryPricingRefreshEnabled,
     pricingRefreshEnabled: config.pricingRefreshEnabled,

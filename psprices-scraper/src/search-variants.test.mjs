@@ -42,16 +42,25 @@ test('searchTitleVariants keeps later results when an earlier variant fails', as
   assert.deepEqual(result.failures, [{ variant: 'first', error: failure }]);
 });
 
-test('searchTitleVariants treats a variant with no matches as a success', async () => {
-  const result = await searchTitleVariants(['first', 'second'], async (variant) => {
-    if (variant === 'first') {
-      throw new Error('blocked');
-    }
-    return [];
-  });
+test('searchTitleVariants fails when nothing was found and a variant failed', async () => {
+  // The failed variant might have been the one that matched, so this isn't a real "no match".
+  const failure = new Error('blocked');
+  await assert.rejects(
+    searchTitleVariants(['first', 'second'], async (variant) => {
+      if (variant === 'first') {
+        throw failure;
+      }
+      return [];
+    }),
+    (error) => error === failure
+  );
+});
 
-  assert.deepEqual(result.candidates, []);
-  assert.equal(result.failures.length, 1);
+test('searchTitleVariants reports no match when every variant succeeded empty', async () => {
+  assert.deepEqual(await searchTitleVariants(['first', 'second'], async () => []), {
+    candidates: [],
+    failures: [],
+  });
 });
 
 test('searchTitleVariants throws the first error when every variant fails', async () => {

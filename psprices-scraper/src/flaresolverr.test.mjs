@@ -4,9 +4,12 @@ import { chromium } from 'playwright';
 import {
   CloudflareBlockError,
   DEFAULT_FLARESOLVERR_URL,
+  FLARESOLVERR_REQUEST_GRACE_MS,
   FLARESOLVERR_TIMEOUT_MS,
   assertSearchResponseOk,
+  assertSearchResultsPage,
   fetchHtmlViaFlareSolverr,
+  flareSolverrTimeoutWithin,
   isFlareSolverrEnabled,
   resolveFlareSolverrUrl,
   withHtmlPage,
@@ -95,6 +98,32 @@ test('fetchHtmlViaFlareSolverr posts a request.get and returns the rendered page
     url: SEARCH_URL,
     maxTimeout: FLARESOLVERR_TIMEOUT_MS,
   });
+});
+
+test('fetchHtmlViaFlareSolverr passes a shorter timeout through to FlareSolverr', async () => {
+  const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply('<html></html>'));
+  await fetchHtmlViaFlareSolverr(SEARCH_URL, {
+    flareSolverrUrl: FLARESOLVERR_URL,
+    maxTimeoutMs: 7_000,
+    fetchImpl,
+  });
+  assert.equal(JSON.parse(calls[0].init.body).maxTimeout, 7_000);
+});
+
+test('flareSolverrTimeoutWithin caps the solve at the default and the remaining budget', () => {
+  assert.equal(flareSolverrTimeoutWithin(50_000), FLARESOLVERR_TIMEOUT_MS);
+  assert.equal(
+    flareSolverrTimeoutWithin(FLARESOLVERR_TIMEOUT_MS + FLARESOLVERR_REQUEST_GRACE_MS),
+    FLARESOLVERR_TIMEOUT_MS
+  );
+  assert.equal(flareSolverrTimeoutWithin(15_000), 15_000 - FLARESOLVERR_REQUEST_GRACE_MS);
+  assert.equal(flareSolverrTimeoutWithin(FLARESOLVERR_REQUEST_GRACE_MS + 5_000), 5_000);
+});
+
+test('flareSolverrTimeoutWithin skips the call when too little budget is left', () => {
+  assert.equal(flareSolverrTimeoutWithin(FLARESOLVERR_REQUEST_GRACE_MS + 4_999), null);
+  assert.equal(flareSolverrTimeoutWithin(0), null);
+  assert.equal(flareSolverrTimeoutWithin(-1_000), null);
 });
 
 test('fetchHtmlViaFlareSolverr reports FlareSolverr errors from an error status', async () => {
@@ -192,6 +221,37 @@ test('withHtmlPage serves the HTML at its real URL with scripts and requests blo
       scripted: null,
     });
     assert.equal(browser.contexts().length, 0, 'the fallback context is closed afterwards');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('assertSearchResultsPage accepts search pages with and without results', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const withResults = `<div data-list-results><div class="listing-card-grid">
+      <div class="game-fragment"><h3>Hades II</h3></div></div></div>`;
+    const noResults = `<div data-list-results><div class="listing-card-grid"></div></div>
+      <h2>No Games Found</h2>`;
+    for (const html of [withResults, noResults]) {
+      await withHtmlPage(browser, SEARCH_URL, html, async (page) => {
+        await assert.doesNotReject(assertSearchResultsPage(page));
+      });
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('assertSearchResultsPage rejects pages that are not search results', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const errorPage = '<html><head><title>PSPrices</title></head><body><h1>404</h1></body></html>';
+    await withHtmlPage(browser, SEARCH_URL, errorPage, async (page) => {
+      await assert.rejects(assertSearchResultsPage(page), {
+        message: "it returned a page that isn't PSPrices search results",
+      });
+    });
   } finally {
     await browser.close();
   }

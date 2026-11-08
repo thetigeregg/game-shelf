@@ -8,7 +8,9 @@ import { searchTitleVariants } from './search-variants.mjs';
 import {
   CloudflareBlockError,
   assertSearchResponseOk,
+  assertSearchResultsPage,
   fetchHtmlViaFlareSolverr,
+  flareSolverrTimeoutWithin,
   isFlareSolverrEnabled,
   resolveFlareSolverrUrl,
   withHtmlPage,
@@ -44,6 +46,10 @@ const debugLogsEnabled =
   String(process.env.DEBUG_PSPRICES_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const flareSolverrEnabled = isFlareSolverrEnabled();
 const flareSolverrUrl = resolveFlareSolverrUrl();
+// Time one search request may spend across all its title variants, kept under the API's
+// PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS (60s by default) so a slow variant fails on its own here,
+// keeping what the others found, rather than the API giving up on the whole request.
+const REQUEST_BUDGET_MS = 50_000;
 
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
@@ -144,8 +150,10 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
 }
 
 /**
- * `requestState.blockError` carries a Cloudflare block across one request's title variants: once
- * a variant is blocked, the rest go straight to FlareSolverr instead of being blocked again.
+ * `requestState` is shared by one request's title variants. `blockError` carries a Cloudflare block
+ * across them: once a variant is blocked, the rest go straight to FlareSolverr instead of being
+ * blocked again. `deadline` ends the request's time budget; navigation and FlareSolverr calls are
+ * capped by what is left of it.
  */
 async function searchPsPricesInBrowser(page, query, platform, regionPath, show, requestState) {
   const endpoint = new URL(`/${regionPath}/games/`, pspricesBaseUrl);
@@ -157,9 +165,13 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
 
   const url = endpoint.toString();
   if (!requestState.blockError) {
+    const navigationTimeoutMs = Math.min(browserTimeoutMs, requestState.deadline - Date.now());
+    if (navigationTimeoutMs <= 0) {
+      throw new Error(`PSPrices: request time budget used up before searching ${url}`);
+    }
     const response = await page.goto(url, {
       waitUntil: 'domcontentloaded',
-      timeout: browserTimeoutMs,
+      timeout: navigationTimeoutMs,
     });
 
     try {
@@ -177,14 +189,23 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
     }
   }
 
-  let html;
+  const maxTimeoutMs = flareSolverrTimeoutWithin(requestState.deadline - Date.now());
+  if (maxTimeoutMs === null) {
+    throw new Error(
+      `${requestState.blockError.message}; FlareSolverr skipped: request time budget used up`
+    );
+  }
+
   try {
-    html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl });
+    const html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, maxTimeoutMs });
+    return await withHtmlPage(page.context().browser(), url, html, async (fallbackPage) => {
+      await assertSearchResultsPage(fallbackPage);
+      return await extractSearchCandidates(fallbackPage);
+    });
   } catch (fallbackError) {
     const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
     throw new Error(`${requestState.blockError.message}; FlareSolverr failed: ${reason}`);
   }
-  return await withHtmlPage(page.context().browser(), url, html, extractSearchCandidates);
 }
 
 async function extractSearchCandidates(page) {
@@ -286,6 +307,8 @@ app.get('/v1/psprices/search', async (req, res) => {
 
   try {
     const titleVariants = buildSearchTitleVariants(query);
+    // Starts before the browser is acquired, since a cold launch counts against the API's timeout.
+    const deadline = Date.now() + REQUEST_BUDGET_MS;
     const browser = await acquireSharedBrowser();
     let context = null;
     try {
@@ -296,7 +319,7 @@ app.get('/v1/psprices/search', async (req, res) => {
       const page = await context.newPage();
       const merged = [];
       const seen = new Set();
-      const requestState = { blockError: null };
+      const requestState = { blockError: null, deadline };
 
       const { candidates, failures } = await searchTitleVariants(titleVariants, (variant) =>
         searchPsPricesInBrowser(page, variant, platform, regionPath, show, requestState)

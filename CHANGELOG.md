@@ -4316,3 +4316,7 @@
 ## v1.88.2 - 2026-11-06
 
 - 0f6a5a98 build(deps): bump vitest 5, jsdom 31, ngx-tiptap 15 and Playwright 1.65 (#651)
+
+## v1.89.0 - 2026-11-08
+
+- c0ae6124 feat(psprices): fall back to FlareSolverr on Cloudflare blocks (#652)

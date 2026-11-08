@@ -4320,3 +4320,7 @@
 ## v1.89.0 - 2026-11-08
 
 - c0ae6124 feat(psprices): fall back to FlareSolverr on Cloudflare blocks (#652)
+
+## v1.90.0 - 2026-11-08
+
+- 16041006 feat(worker): report scraper health to Healthchecks.io (#653)

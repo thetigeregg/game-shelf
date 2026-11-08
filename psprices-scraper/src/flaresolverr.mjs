@@ -1,10 +1,12 @@
 // Cloudflare fallback for the PSPrices search page. With FLARESOLVERR_ENABLED=true, a search
 // Cloudflare's bot protection blocks is retried through FlareSolverr, whose browser gets past the
-// challenge that blocks this scraper's headless Chromium. Every search still goes direct first, so
+// challenge that blocks this scraper's headless Chromium. Every request still goes direct first, so
 // the fallback stops being used by itself once a block lifts.
 
 export const DEFAULT_FLARESOLVERR_URL = 'http://flaresolverr:8191';
-export const FLARESOLVERR_TIMEOUT_MS = 60_000;
+// Kept short so a request that falls back for both title variants still finishes inside the API's
+// PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS (60s by default).
+export const FLARESOLVERR_TIMEOUT_MS = 20_000;
 // Headroom over FlareSolverr's own timeout, so it can report a failed solve before we give up.
 const FLARESOLVERR_REQUEST_GRACE_MS = 10_000;
 
@@ -56,12 +58,11 @@ export function assertSearchResponseOk(response, url) {
  * own failures as JSON under an error status, so its body is read whatever the status.
  * `solution.status` isn't checked: FlareSolverr v3 always reports 200, whatever the page returned.
  */
-export async function fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, fetchImpl = fetch } = {}) {
-  const baseUrl = flareSolverrUrl || DEFAULT_FLARESOLVERR_URL;
+export async function fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, fetchImpl = fetch }) {
   let response;
   let text;
   try {
-    response = await fetchImpl(new URL('/v1', baseUrl), {
+    response = await fetchImpl(new URL('/v1', flareSolverrUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cmd: 'request.get', url, maxTimeout: FLARESOLVERR_TIMEOUT_MS }),
@@ -80,7 +81,7 @@ export async function fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, fetchImpl
     result = JSON.parse(text);
   } catch {
     throw new Error(
-      `${String(response.status)} with a non-JSON reply from ${baseUrl}, check FLARESOLVERR_URL`
+      `${String(response.status)} with a non-JSON reply from ${flareSolverrUrl}, check FLARESOLVERR_URL`
     );
   }
 

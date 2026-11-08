@@ -13,6 +13,7 @@ import {
 } from './flaresolverr.mjs';
 
 const SEARCH_URL = 'https://psprices.com/region-ch/games/?q=Hades+II&show=games&platform=PS5';
+const FLARESOLVERR_URL = 'http://flaresolverr:8191';
 
 function fakeResponse(status, headers = {}) {
   return { status: () => status, headers: () => headers };
@@ -81,7 +82,7 @@ test('fetchHtmlViaFlareSolverr posts a request.get and returns the rendered page
   const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply(html));
 
   const result = await fetchHtmlViaFlareSolverr(SEARCH_URL, {
-    flareSolverrUrl: 'http://flaresolverr:8191',
+    flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl,
   });
 
@@ -96,27 +97,27 @@ test('fetchHtmlViaFlareSolverr posts a request.get and returns the rendered page
   });
 });
 
-test('fetchHtmlViaFlareSolverr uses the default URL when none is given', async () => {
-  const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply('<html></html>'));
-  await fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl });
-  assert.equal(calls[0].url, `${DEFAULT_FLARESOLVERR_URL}/v1`);
-});
-
 test('fetchHtmlViaFlareSolverr reports FlareSolverr errors from an error status', async () => {
   const { fetchImpl } = fakeFetch(
     500,
     JSON.stringify({ status: 'error', message: 'Error: Error solving the challenge. Timeout' })
   );
-  await assert.rejects(fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl }), {
-    message: 'Error: Error solving the challenge. Timeout',
-  });
+  await assert.rejects(
+    fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
+    {
+      message: 'Error: Error solving the challenge. Timeout',
+    }
+  );
 });
 
 test('fetchHtmlViaFlareSolverr rejects an ok reply without a solution', async () => {
   const { fetchImpl } = fakeFetch(200, JSON.stringify({ status: 'ok' }));
-  await assert.rejects(fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl }), {
-    message: 'no solution returned',
-  });
+  await assert.rejects(
+    fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
+    {
+      message: 'no solution returned',
+    }
+  );
 });
 
 test('fetchHtmlViaFlareSolverr names the status and URL on a non-JSON reply', async () => {
@@ -133,16 +134,22 @@ test('fetchHtmlViaFlareSolverr surfaces the underlying cause of a network failur
       cause: new Error('getaddrinfo ENOTFOUND flaresolverr'),
     });
   };
-  await assert.rejects(fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl }), {
-    message: 'getaddrinfo ENOTFOUND flaresolverr',
-  });
+  await assert.rejects(
+    fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
+    {
+      message: 'getaddrinfo ENOTFOUND flaresolverr',
+    }
+  );
 });
 
 test('fetchHtmlViaFlareSolverr rejects an empty page', async () => {
   const { fetchImpl } = fakeFetch(200, flareSolverrReply('   '));
-  await assert.rejects(fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl }), {
-    message: 'it returned an empty page',
-  });
+  await assert.rejects(
+    fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
+    {
+      message: 'it returned an empty page',
+    }
+  );
 });
 
 test('fetchHtmlViaFlareSolverr rejects a page that is still the Cloudflare challenge', async () => {
@@ -150,9 +157,12 @@ test('fetchHtmlViaFlareSolverr rejects a page that is still the Cloudflare chall
     200,
     flareSolverrReply('<html><head><title>Just a moment...</title></head></html>')
   );
-  await assert.rejects(fetchHtmlViaFlareSolverr(SEARCH_URL, { fetchImpl }), {
-    message: 'it returned the Cloudflare challenge page',
-  });
+  await assert.rejects(
+    fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
+    {
+      message: 'it returned the Cloudflare challenge page',
+    }
+  );
 });
 
 test('withHtmlPage serves the HTML at its real URL with scripts and requests blocked', async () => {

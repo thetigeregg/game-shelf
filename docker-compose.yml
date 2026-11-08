@@ -506,7 +506,8 @@ services:
       DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
       # Retry searches Cloudflare blocks through FlareSolverr. Off unless "true"; the URL
       # defaults to http://flaresolverr:8191. See docs/nas-deployment.md,
-      # "FlareSolverr fallback (PSPrices)".
+      # "FlareSolverr fallback (PSPrices)". This file doesn't join flarenet, so when enabling it here
+      # set FLARESOLVERR_URL to an address this container can reach.
       FLARESOLVERR_ENABLED: ${FLARESOLVERR_ENABLED:-false}
       FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
     volumes:

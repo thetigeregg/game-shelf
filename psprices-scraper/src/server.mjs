@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
+import { searchTitleVariants } from './search-variants.mjs';
 import {
   CloudflareBlockError,
   assertSearchResponseOk,
@@ -142,7 +143,11 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   return score;
 }
 
-async function searchPsPricesInBrowser(page, query, platform, regionPath, show) {
+/**
+ * `requestState.blockError` carries a Cloudflare block across one request's title variants: once
+ * a variant is blocked, the rest go straight to FlareSolverr instead of being blocked again.
+ */
+async function searchPsPricesInBrowser(page, query, platform, regionPath, show, requestState) {
   const endpoint = new URL(`/${regionPath}/games/`, pspricesBaseUrl);
   endpoint.searchParams.set('q', query);
   endpoint.searchParams.set('show', show);
@@ -151,32 +156,35 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
   }
 
   const url = endpoint.toString();
-  const response = await page.goto(url, {
-    waitUntil: 'domcontentloaded',
-    timeout: browserTimeoutMs,
-  });
+  if (!requestState.blockError) {
+    const response = await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: browserTimeoutMs,
+    });
 
-  try {
-    assertSearchResponseOk(response, url);
-  } catch (error) {
-    if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
-      throw error;
-    }
-    // A successful fallback looks healthy to the API, so this line is how to tell the block is
-    // still there.
-    console.warn('[psprices-scraper] cloudflare_blocked_retrying_via_flaresolverr', { query });
-    let html;
     try {
-      html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl });
-    } catch (fallbackError) {
-      const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      throw new Error(`${error.message}; FlareSolverr failed: ${reason}`);
+      assertSearchResponseOk(response, url);
+      await page.waitForTimeout(1000);
+      return await extractSearchCandidates(page);
+    } catch (error) {
+      if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
+        throw error;
+      }
+      requestState.blockError = error;
+      // A successful fallback looks healthy to the API, so this line is how to tell the block is
+      // still there.
+      console.warn('[psprices-scraper] cloudflare_blocked_retrying_via_flaresolverr', { query });
     }
-    return await withHtmlPage(page.context().browser(), url, html, extractSearchCandidates);
   }
 
-  await page.waitForTimeout(1000);
-  return await extractSearchCandidates(page);
+  let html;
+  try {
+    html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl });
+  } catch (fallbackError) {
+    const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+    throw new Error(`${requestState.blockError.message}; FlareSolverr failed: ${reason}`);
+  }
+  return await withHtmlPage(page.context().browser(), url, html, extractSearchCandidates);
 }
 
 async function extractSearchCandidates(page) {
@@ -288,18 +296,26 @@ app.get('/v1/psprices/search', async (req, res) => {
       const page = await context.newPage();
       const merged = [];
       const seen = new Set();
+      const requestState = { blockError: null };
 
-      for (const variant of titleVariants) {
-        const candidates = await searchPsPricesInBrowser(page, variant, platform, regionPath, show);
+      const { candidates, failures } = await searchTitleVariants(titleVariants, (variant) =>
+        searchPsPricesInBrowser(page, variant, platform, regionPath, show, requestState)
+      );
+      for (const { variant, error } of failures) {
+        console.warn('[psprices-scraper] variant_failed', {
+          query,
+          variant,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
 
-        for (const candidate of candidates) {
-          const key = `${candidate.url ?? ''}::${candidate.title ?? ''}`;
-          if (seen.has(key)) {
-            continue;
-          }
-          seen.add(key);
-          merged.push(candidate);
+      for (const candidate of candidates) {
+        const key = `${candidate.url ?? ''}::${candidate.title ?? ''}`;
+        if (seen.has(key)) {
+          continue;
         }
+        seen.add(key);
+        merged.push(candidate);
       }
 
       const ranked = merged

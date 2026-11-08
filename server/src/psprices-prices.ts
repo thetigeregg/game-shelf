@@ -748,7 +748,12 @@ async function fetchPsPricesSnapshot(
     headers['Authorization'] = `Bearer ${config.pspricesScraperToken}`;
   }
 
-  const response = await fetchWithTimeout(fetchImpl, endpoint.toString(), headers, 15_000);
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    endpoint.toString(),
+    headers,
+    config.pspricesScraperRequestTimeoutMs
+  );
   if (!response.ok) {
     throw new Error(`PSPrices request failed with status ${String(response.status)}`);
   }

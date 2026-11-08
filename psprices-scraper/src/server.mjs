@@ -4,6 +4,14 @@ import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
+import {
+  CloudflareBlockError,
+  assertSearchResponseOk,
+  fetchHtmlViaFlareSolverr,
+  isFlareSolverrEnabled,
+  resolveFlareSolverrUrl,
+  withHtmlPage,
+} from './flaresolverr.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -33,6 +41,8 @@ const defaultRegionPath = String(process.env.PSPRICES_REGION_PATH ?? 'region-ch'
 const defaultShow = String(process.env.PSPRICES_SHOW ?? 'games').trim();
 const debugLogsEnabled =
   String(process.env.DEBUG_PSPRICES_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
+const flareSolverrEnabled = isFlareSolverrEnabled();
+const flareSolverrUrl = resolveFlareSolverrUrl();
 
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
@@ -140,13 +150,37 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
     endpoint.searchParams.set('platform', platform);
   }
 
-  await page.goto(endpoint.toString(), {
+  const url = endpoint.toString();
+  const response = await page.goto(url, {
     waitUntil: 'domcontentloaded',
     timeout: browserTimeoutMs,
   });
-  await page.waitForTimeout(1000);
 
-  const candidates = await page.evaluate((coverImageSelector) => {
+  try {
+    assertSearchResponseOk(response, url);
+  } catch (error) {
+    if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
+      throw error;
+    }
+    // A successful fallback looks healthy to the API, so this line is how to tell the block is
+    // still there.
+    console.warn('[psprices-scraper] cloudflare_blocked_retrying_via_flaresolverr', { query });
+    let html;
+    try {
+      html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl });
+    } catch (fallbackError) {
+      const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(`${error.message}; FlareSolverr failed: ${reason}`);
+    }
+    return await withHtmlPage(page.context().browser(), url, html, extractSearchCandidates);
+  }
+
+  await page.waitForTimeout(1000);
+  return await extractSearchCandidates(page);
+}
+
+async function extractSearchCandidates(page) {
+  return await page.evaluate((coverImageSelector) => {
     function normalizeText(value) {
       return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
     }
@@ -214,8 +248,6 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
       })
       .filter((item) => item !== null);
   }, RESULT_CARD_COVER_IMAGE_SELECTOR);
-
-  return candidates;
 }
 
 app.get('/health', (_req, res) => {
@@ -314,6 +346,9 @@ app.get('/v1/psprices/search', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`[psprices-scraper] listening on http://localhost:${port}`);
+  if (flareSolverrEnabled) {
+    console.log(`[psprices-scraper] FlareSolverr fallback enabled via ${flareSolverrUrl}`);
+  }
 });
 
 async function getSharedBrowser() {

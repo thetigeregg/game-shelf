@@ -141,6 +141,7 @@ export interface AppConfig {
   steamPriceCacheStaleTtlSeconds: number;
   pspricesScraperBaseUrl: string;
   pspricesScraperToken: string;
+  pspricesScraperRequestTimeoutMs: number;
   pspricesRegionPath: string;
   pspricesShow: string;
   pspricesPriceCacheEnableStaleWhileRevalidate: boolean;
@@ -648,6 +649,8 @@ export const config: AppConfig = {
   steamPriceCacheStaleTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   pspricesScraperBaseUrl: readEnv('PSPRICES_SCRAPER_BASE_URL', 'http://psprices-scraper:8790'),
   pspricesScraperToken: readSecretFile('PSPRICES_SCRAPER_TOKEN', 'psprices_scraper_token'),
+  // Room for the scraper's FlareSolverr fallback, which can take a few seconds per title variant.
+  pspricesScraperRequestTimeoutMs: readIntegerEnv('PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS', 60_000),
   pspricesRegionPath: readEnv('PSPRICES_REGION_PATH', 'region-ch'),
   pspricesShow: readEnv('PSPRICES_SHOW', 'games'),
   pspricesPriceCacheEnableStaleWhileRevalidate: readBooleanEnv(

@@ -161,6 +161,7 @@ import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
   buildDetailWebsiteSearchUrl,
+  buildDetailPsPricesUrl,
   buildDetailWebsiteModalItems,
 } from '../game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
@@ -3316,6 +3317,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return buildDetailWebsiteModalItems({
       websites: this.getActiveDetailWebsites(),
       buildSearchUrl: (provider) => this.buildShortcutSearchUrl(provider),
+      psPricesUrl: buildDetailPsPricesUrl(this.getActiveDetailGameForUi()),
     });
   }
 

@@ -2,6 +2,9 @@ import { environment } from '../../../environments/environment';
 import { readPreference, writePreference } from '../storage/preference-storage.service';
 
 const PERSISTED_RUNTIME_CONFIG_STORAGE_KEY = 'game-shelf:runtime-config:v1';
+/** Fallback when runtime config omits `psPricesRegionPath`; mirrors the `PSPRICES_REGION_PATH` default. */
+export const DEFAULT_PSPRICES_REGION_PATH = 'region-ch';
+const PSPRICES_REGION_PATH_PATTERN = /^[a-z0-9-]+$/;
 
 interface RuntimeFeatureFlags {
   showMgcImport?: boolean;
@@ -13,6 +16,7 @@ interface RuntimeFeatureFlags {
 
 interface RuntimeConfig {
   appVersion?: string;
+  psPricesRegionPath?: string;
   featureFlags?: RuntimeFeatureFlags;
 }
 
@@ -61,6 +65,11 @@ function normalizeRuntimeString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizePsPricesRegionPath(value: unknown): string | null {
+  const normalized = normalizeRuntimeString(value)?.toLowerCase() ?? null;
+  return normalized !== null && PSPRICES_REGION_PATH_PATTERN.test(normalized) ? normalized : null;
+}
+
 function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -68,6 +77,7 @@ function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
 
   const candidate = value as RuntimeConfig;
   const appVersion = normalizeRuntimeString(candidate.appVersion) ?? undefined;
+  const psPricesRegionPath = normalizePsPricesRegionPath(candidate.psPricesRegionPath) ?? undefined;
   const featureFlagsCandidate = candidate.featureFlags;
   const featureFlags =
     featureFlagsCandidate && typeof featureFlagsCandidate === 'object'
@@ -93,12 +103,13 @@ function normalizeRuntimeConfig(value: unknown): RuntimeConfig | null {
         }
       : undefined;
 
-  if (appVersion === undefined && featureFlags === undefined) {
+  if (appVersion === undefined && psPricesRegionPath === undefined && featureFlags === undefined) {
     return {};
   }
 
   return {
     ...(appVersion !== undefined ? { appVersion } : {}),
+    ...(psPricesRegionPath !== undefined ? { psPricesRegionPath } : {}),
     ...(featureFlags !== undefined ? { featureFlags } : {}),
   };
 }
@@ -221,6 +232,14 @@ export function getAppVersionInfo(): AppVersionInfo {
     source,
     isFallback: value === '0.0.0',
   };
+}
+
+/** PSPrices region path segment (e.g. `region-ch`), shared with the API via `PSPRICES_REGION_PATH`. */
+export function getPsPricesRegionPath(): string {
+  return (
+    normalizePsPricesRegionPath(resolveRuntimeConfig().config?.psPricesRegionPath) ??
+    DEFAULT_PSPRICES_REGION_PATH
+  );
 }
 
 export function isRecommendationsExploreEnabled(): boolean {

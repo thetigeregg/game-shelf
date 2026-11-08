@@ -145,6 +145,8 @@ export class DetailWebsitesModalComponent {
   }
 
   isSimpleIcon(icon: DetailWebsiteModalIcon): boolean {
-    return icon !== 'ion:globe' && icon !== 'ion:library' && icon !== 'ion:link';
+    return (
+      icon !== 'ion:globe' && icon !== 'ion:library' && icon !== 'ion:link' && icon !== 'psprices'
+    );
   }
 }

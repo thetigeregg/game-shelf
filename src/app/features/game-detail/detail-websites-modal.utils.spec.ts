@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameWebsite } from '../../core/models/game.models';
 import {
   DetailWebsiteModalItem,
+  buildDetailPsPricesUrl,
   buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from './detail-websites-modal.utils';
@@ -517,5 +518,172 @@ describe('buildDetailWebsiteModalItems', () => {
     expect(items.find((item) => item.url.includes('youtu.be'))?.icon).toBe('youtube');
     expect(items.find((item) => item.url.includes('twitch.tv'))?.icon).toBe('twitch');
     expect(items.find((item) => item.url.includes('discord.com/invite'))?.icon).toBe('discord');
+  });
+});
+
+describe('PSPrices detail link', () => {
+  const matchedUrl = 'https://psprices.com/region-ch/game/1234/monster-train-2';
+
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+    localStorage.clear();
+  });
+
+  it('appends the PSPrices item after google when a url is provided', () => {
+    const items = buildDetailWebsiteModalItems({
+      websites: [],
+      buildSearchUrl: (provider) => `https://search.example/${provider}`,
+      psPricesUrl: matchedUrl,
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      'Wikipedia',
+      'GameFAQs',
+      'YouTube',
+      'Google',
+      'PSPrices',
+    ]);
+    expect(items.at(-1)).toEqual({
+      key: 'fixed:psprices',
+      label: 'PSPrices',
+      url: matchedUrl,
+      icon: 'psprices',
+    });
+  });
+
+  it('omits the PSPrices item when no url is provided', () => {
+    for (const psPricesUrl of [undefined, null, '']) {
+      const items = buildDetailWebsiteModalItems({
+        websites: [],
+        buildSearchUrl: () => null,
+        psPricesUrl,
+      });
+
+      expect(items).toEqual([]);
+    }
+  });
+
+  it('prefers the matched PSPrices page for non-collection games', () => {
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Monster Train 2',
+        platformIgdbId: 167,
+        priceSource: 'psprices',
+        priceUrl: ` ${matchedUrl} `,
+        listType: 'wishlist',
+      })
+    ).toBe(matchedUrl);
+  });
+
+  it('falls back to a platform-scoped search for catalog games without a match', () => {
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Pokémon Violet & Scarlet',
+        platformIgdbId: 130,
+        priceSource: null,
+        priceUrl: null,
+      })
+    ).toBe(
+      'https://psprices.com/region-ch/games/?q=Pok%C3%A9mon+Violet+%26+Scarlet&platform=Switch'
+    );
+  });
+
+  it('builds the search fallback in the provided PSPrices region', () => {
+    expect(
+      buildDetailPsPricesUrl(
+        { title: 'Hades', platformIgdbId: 48, priceSource: null, priceUrl: null },
+        'region-us'
+      )
+    ).toBe('https://psprices.com/region-us/games/?q=Hades&platform=PS4');
+  });
+
+  it('uses the runtime-configured PSPrices region by default', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { psPricesRegionPath: 'region-gb' };
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: 167,
+        priceSource: null,
+        priceUrl: null,
+      })
+    ).toBe('https://psprices.com/region-gb/games/?q=Hades&platform=PS5');
+  });
+
+  it('maps every supported platform to its PSPrices platform filter', () => {
+    const platforms = [
+      [48, 'PS4'],
+      [167, 'PS5'],
+      [130, 'Switch'],
+      [508, 'Switch2'],
+    ] as const;
+
+    for (const [platformIgdbId, platform] of platforms) {
+      const url = buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId,
+        priceSource: null,
+        priceUrl: null,
+      });
+      expect(url ? new URL(url).searchParams.get('platform') : null).toBe(platform);
+    }
+  });
+
+  it('ignores non-PSPrices or off-domain price urls and uses the search fallback', () => {
+    const expectedSearch = 'https://psprices.com/region-ch/games/?q=Hades&platform=PS5';
+
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: 167,
+        priceSource: 'steam_store',
+        priceUrl: 'https://store.steampowered.com/app/1145360',
+      })
+    ).toBe(expectedSearch);
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: 167,
+        priceSource: 'psprices',
+        priceUrl: 'https://psprices.com.evil.example/game/1',
+      })
+    ).toBe(expectedSearch);
+  });
+
+  it('returns null for collection games, unsupported platforms, and missing titles', () => {
+    expect(buildDetailPsPricesUrl(null)).toBeNull();
+    expect(buildDetailPsPricesUrl(undefined)).toBeNull();
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: 167,
+        priceSource: 'psprices',
+        priceUrl: matchedUrl,
+        listType: 'collection',
+      })
+    ).toBeNull();
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: 6,
+        priceSource: 'steam_store',
+        priceUrl: 'https://store.steampowered.com/app/1145360',
+      })
+    ).toBeNull();
+    expect(
+      buildDetailPsPricesUrl({
+        title: 'Hades',
+        platformIgdbId: null,
+        priceSource: null,
+        priceUrl: null,
+      })
+    ).toBeNull();
+    expect(
+      buildDetailPsPricesUrl({
+        title: '   ',
+        platformIgdbId: 167,
+        priceSource: null,
+        priceUrl: null,
+      })
+    ).toBeNull();
   });
 });

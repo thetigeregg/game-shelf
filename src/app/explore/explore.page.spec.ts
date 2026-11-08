@@ -1894,6 +1894,33 @@ describe('ExplorePage explore modes UX', () => {
     expect(img.src).toContain('assets/icon/placeholder.png');
   });
 
+  it('adds a PSPrices website link last for non-collection details only', () => {
+    const page = createPage() as unknown as {
+      selectedGameDetail: Record<string, unknown> | null;
+      detailWebsiteItems: Array<{ label: string; url: string }>;
+    };
+    const psPricesUrl = 'https://psprices.com/region-ch/game/1234/monster-train-2';
+
+    page.selectedGameDetail = {
+      title: 'Monster Train 2',
+      platformIgdbId: 167,
+      priceSource: 'psprices',
+      priceUrl: psPricesUrl,
+      websites: [],
+    };
+    expect(page.detailWebsiteItems.at(-1)).toMatchObject({ label: 'PSPrices', url: psPricesUrl });
+
+    page.selectedGameDetail = {
+      title: 'Monster Train 2',
+      platformIgdbId: 167,
+      priceSource: 'psprices',
+      priceUrl: psPricesUrl,
+      listType: 'collection',
+      websites: [],
+    };
+    expect(page.detailWebsiteItems.map((item) => item.label)).not.toContain('PSPrices');
+  });
+
   it('exposes detail videos and opens/closes videos modal based on active detail game', () => {
     const page = createPage();
 

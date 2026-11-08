@@ -66,6 +66,7 @@ import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
   buildDetailWebsiteSearchUrl,
+  buildDetailPsPricesUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -767,6 +768,7 @@ export class ListPageComponent implements AfterViewInit {
     return buildDetailWebsiteModalItems({
       websites: this.addGameDetailWebsites,
       buildSearchUrl: (provider) => this.openAddGameDetailShortcutSearchUrl(provider),
+      psPricesUrl: buildDetailPsPricesUrl(this.selectedAddGameDetail),
     });
   }
 

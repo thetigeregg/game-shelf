@@ -1,6 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAppVersion, getRuntimeConfigSource, isAuthRequired } from '../config/runtime-config';
+import {
+  getAppVersion,
+  getPsPricesRegionPath,
+  getRuntimeConfigSource,
+  isAuthRequired,
+} from '../config/runtime-config';
 import { NetworkConnectivityService } from './network-connectivity.service';
 import { RuntimeAvailabilityService } from './runtime-availability.service';
 
@@ -161,6 +166,24 @@ describe('RuntimeAvailabilityService', () => {
     await service.refresh();
 
     expect(isAuthRequired()).toBe(false);
+  });
+
+  it('parses the last psPricesRegionPath from the runtime config script', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi
+        .fn()
+        .mockResolvedValue(
+          [
+            `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = { psPricesRegionPath: "region-ch" };`,
+            `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { psPricesRegionPath: 'region-us' });`,
+          ].join('\n')
+        ),
+    });
+
+    await service.refresh();
+
+    expect(getPsPricesRegionPath()).toBe('region-us');
   });
 
   it('probes the API health endpoint instead of runtime config on native platforms', async () => {

@@ -1,4 +1,5 @@
-import { GameWebsite } from '../../core/models/game.models';
+import { getPsPricesRegionPath } from '../../core/config/runtime-config';
+import { GameCatalogResult, GameEntry, GameWebsite } from '../../core/models/game.models';
 import {
   hostIsDomainOrSubdomain,
   sanitizeExternalHttpUrl,
@@ -23,6 +24,14 @@ const SEARCH_PROVIDER_ALLOWED_DOMAINS: Record<DetailWebsiteSearchProvider, reado
   wikipedia: ['wikipedia.org'],
   gamefaqs: ['gamefaqs.gamespot.com'],
 };
+
+const PSPRICES_ALLOWED_DOMAINS = ['psprices.com'] as const;
+const PSPRICES_PLATFORM_BY_IGDB_ID: ReadonlyMap<number, string> = new Map([
+  [48, 'PS4'],
+  [167, 'PS5'],
+  [130, 'Switch'],
+  [508, 'Switch2'],
+]);
 
 const SAFE_UNTRUSTED_WEBSITE_DOMAINS = [
   'apps.apple.com',
@@ -75,6 +84,7 @@ export type DetailWebsiteModalIcon =
   | 'googleplay'
   | 'itchdotio'
   | 'gogdotcom'
+  | 'psprices'
   | 'ion:globe'
   | 'ion:library'
   | 'ion:link';
@@ -93,6 +103,7 @@ const ALLOWED_MODAL_TYPE_IDS = new Set([
 export function buildDetailWebsiteModalItems(options: {
   websites: GameWebsite[] | null | undefined;
   buildSearchUrl: (provider: DetailWebsiteSearchProvider) => string | null;
+  psPricesUrl?: string | null;
 }): DetailWebsiteModalItem[] {
   let googleItem: DetailWebsiteModalItem | null = null;
   let gameFaqsItem: DetailWebsiteModalItem | null = null;
@@ -199,7 +210,66 @@ export function buildDetailWebsiteModalItems(options: {
     ...(gameFaqsItem ? [gameFaqsItem] : []),
     ...remainingItems,
     ...(googleItem ? [googleItem] : []),
+    ...(options.psPricesUrl ? [buildPsPricesItem(options.psPricesUrl)] : []),
   ];
+}
+
+type DetailPsPricesGame = Pick<
+  GameCatalogResult,
+  'title' | 'platformIgdbId' | 'priceSource' | 'priceUrl'
+> &
+  Partial<Pick<GameEntry, 'listType'>>;
+
+/**
+ * Resolves the PSPrices link for a game detail view. Collection games and platforms PSPrices
+ * does not cover get no link. A matched PSPrices page is preferred; otherwise a platform-scoped
+ * PSPrices search for the title is returned.
+ */
+export function buildDetailPsPricesUrl(
+  game: DetailPsPricesGame | null | undefined,
+  regionPath: string = getPsPricesRegionPath()
+): string | null {
+  if (!game || game.listType === 'collection') {
+    return null;
+  }
+
+  const platform =
+    typeof game.platformIgdbId === 'number'
+      ? PSPRICES_PLATFORM_BY_IGDB_ID.get(game.platformIgdbId)
+      : undefined;
+  if (!platform) {
+    return null;
+  }
+
+  if (game.priceSource === 'psprices' && typeof game.priceUrl === 'string') {
+    const matchedUrl = sanitizeExternalHttpUrlString(game.priceUrl.trim(), {
+      allowedDomains: PSPRICES_ALLOWED_DOMAINS,
+    });
+    if (matchedUrl) {
+      return matchedUrl;
+    }
+  }
+
+  const title = typeof game.title === 'string' ? game.title.trim() : '';
+  if (title.length === 0) {
+    return null;
+  }
+
+  const searchUrl = new URL(`https://psprices.com/${encodeURIComponent(regionPath)}/games/`);
+  searchUrl.searchParams.set('q', title);
+  searchUrl.searchParams.set('platform', platform);
+  return sanitizeExternalHttpUrlString(searchUrl.toString(), {
+    allowedDomains: PSPRICES_ALLOWED_DOMAINS,
+  });
+}
+
+function buildPsPricesItem(url: string): DetailWebsiteModalItem {
+  return {
+    key: 'fixed:psprices',
+    label: 'PSPrices',
+    url,
+    icon: 'psprices',
+  };
 }
 
 export function buildDetailWebsiteSearchUrl(

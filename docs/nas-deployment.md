@@ -73,7 +73,7 @@ Common stack env vars:
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
 - `PSPRICES_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `PSPRICES_SCRAPER_TOKEN_FILE` (optional, but recommended)
-- `PSPRICES_REGION_PATH` (optional; defaults `region-ch`)
+- `PSPRICES_REGION_PATH` (optional; defaults `region-ch`; also passed to `edge` runtime config so app PSPrices links use the same region)
 - `PSPRICES_SHOW` (optional; defaults `games`)
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)

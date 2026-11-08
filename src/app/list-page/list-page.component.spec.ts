@@ -413,6 +413,23 @@ describe('ListPageComponent', () => {
     expect(openSpy).not.toHaveBeenCalled();
   });
 
+  it('appends a PSPrices website link for supported add-game detail platforms only', () => {
+    const component = createComponent();
+
+    component.selectedAddGameDetail = makeResult({
+      title: 'Hades',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+    });
+    expect(component.addGameDetailWebsiteItems.at(-1)).toMatchObject({
+      label: 'PSPrices',
+      url: 'https://psprices.com/region-ch/games/?q=Hades&platform=PS5',
+    });
+
+    component.selectedAddGameDetail = makeResult();
+    expect(component.addGameDetailWebsiteItems.map((item) => item.label)).not.toContain('PSPrices');
+  });
+
   it('toggles the add-game videos modal only when a valid YouTube video is present', () => {
     const component = createComponent();
 

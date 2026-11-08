@@ -69,6 +69,7 @@ import {
   DetailWebsiteModalItem,
   DetailWebsiteSearchProvider,
   buildDetailWebsiteSearchUrl,
+  buildDetailPsPricesUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
 import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
@@ -1323,6 +1324,7 @@ export class ExplorePage implements OnInit {
     this.cachedDetailWebsiteItems = buildDetailWebsiteModalItems({
       websites,
       buildSearchUrl: (provider) => this.buildShortcutSearchUrl(provider),
+      psPricesUrl: buildDetailPsPricesUrl(this.selectedGameDetail),
     });
 
     return this.cachedDetailWebsiteItems;

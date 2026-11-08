@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getAppVersion,
   getAppVersionInfo,
+  getPsPricesRegionPath,
   getRuntimeConfigSource,
   hasLiveRuntimeConfig,
   isAuthRequired,
@@ -214,6 +215,31 @@ describe('runtime-config', () => {
       };
 
       expect(isRecommendationsExploreEnabled()).toBe(true);
+    });
+  });
+
+  describe('getPsPricesRegionPath()', () => {
+    it('returns the default region when no runtime config is set', () => {
+      expect(getPsPricesRegionPath()).toBe('region-ch');
+    });
+
+    it('returns the normalized runtime region', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { psPricesRegionPath: ' Region-US ' };
+      expect(getPsPricesRegionPath()).toBe('region-us');
+    });
+
+    it('falls back to the default for unsafe or blank regions', () => {
+      for (const value of ['region/us', "region-us'", '   ', 42]) {
+        window.__GAME_SHELF_RUNTIME_CONFIG__ = {
+          psPricesRegionPath: value as unknown as string,
+        };
+        expect(getPsPricesRegionPath()).toBe('region-ch');
+      }
+    });
+
+    it('uses the persisted region when live runtime config is unavailable', () => {
+      persistRuntimeConfig({ psPricesRegionPath: 'region-gb' });
+      expect(getPsPricesRegionPath()).toBe('region-gb');
     });
   });
 

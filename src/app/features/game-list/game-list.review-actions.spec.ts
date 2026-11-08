@@ -1002,6 +1002,49 @@ describe('game-list review actions', () => {
     expect(page.hasDetailVideosShortcut).toBe(false);
   });
 
+  it('adds the PSPrices website link last for wishlist and similar details, not collection', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isSimilarDiscoveryDetailModalOpen: boolean;
+      similarDiscoveryDetail: GameCatalogResult | GameEntry | null;
+    };
+    const psPricesUrl = 'https://psprices.com/region-ch/game/1234/monster-train-2';
+    const pricedGame = (listType: GameEntry['listType']): GameEntry => ({
+      ...createGame({ title: 'Monster Train 2', platformIgdbId: 167, listType }),
+      priceSource: 'psprices',
+      priceUrl: psPricesUrl,
+    });
+
+    Object.assign(page, {
+      selectedGame: pricedGame('wishlist'),
+      isSimilarDiscoveryDetailModalOpen: false,
+      similarDiscoveryDetail: null,
+    });
+    expect(page.detailWebsiteItems.at(-1)).toMatchObject({ label: 'PSPrices', url: psPricesUrl });
+
+    Object.assign(page, { selectedGame: pricedGame('collection') });
+    expect(page.detailWebsiteItems.map((item) => item.label)).not.toContain('PSPrices');
+
+    Object.assign(page, {
+      isSimilarDiscoveryDetailModalOpen: true,
+      similarDiscoveryDetail: {
+        igdbGameId: '2',
+        title: 'Hades',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'Switch',
+        platformIgdbId: 130,
+        platforms: ['Switch'],
+        releaseDate: null,
+        releaseYear: null,
+      } satisfies GameCatalogResult,
+    });
+    expect(page.detailWebsiteItems.at(-1)).toMatchObject({
+      label: 'PSPrices',
+      url: 'https://psprices.com/region-ch/games/?q=Hades&platform=Switch',
+    });
+  });
+
   it('formats row price as CHF for wishlist rows', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       listType: 'collection' | 'wishlist';

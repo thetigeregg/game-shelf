@@ -167,6 +167,7 @@ export class RuntimeAvailabilityService {
     }
 
     const appVersion = this.matchLastString(script, 'appVersion');
+    const psPricesRegionPath = this.matchLastString(script, 'psPricesRegionPath');
     const showMgcImport = this.matchLastBoolean(script, 'showMgcImport');
     const e2eFixtures = this.matchLastBoolean(script, 'e2eFixtures');
     const recommendationsExploreEnabled = this.matchLastBoolean(
@@ -178,6 +179,7 @@ export class RuntimeAvailabilityService {
 
     if (
       appVersion === null &&
+      psPricesRegionPath === null &&
       showMgcImport === null &&
       e2eFixtures === null &&
       recommendationsExploreEnabled === null &&
@@ -189,6 +191,7 @@ export class RuntimeAvailabilityService {
 
     return {
       ...(appVersion !== null ? { appVersion } : {}),
+      ...(psPricesRegionPath !== null ? { psPricesRegionPath } : {}),
       ...(showMgcImport !== null ||
       e2eFixtures !== null ||
       recommendationsExploreEnabled !== null ||

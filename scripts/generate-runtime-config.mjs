@@ -28,6 +28,11 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function parsePsPricesRegionPath(value, fallback = 'region-ch') {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return /^[a-z0-9-]+$/.test(normalized) ? normalized : fallback;
+}
+
 let appVersion = '0.0.0';
 
 try {
@@ -45,12 +50,14 @@ const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
 const tasEnabled = parseBoolean(envValues.FEATURE_TAS, false);
 const requireAuth = parseBoolean(envValues.REQUIRE_AUTH, true);
+const psPricesRegionPath = parsePsPricesRegionPath(envValues.PSPRICES_REGION_PATH);
 
 const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
   globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
   {
     appVersion: ${JSON.stringify(appVersion)},
+    psPricesRegionPath: ${JSON.stringify(psPricesRegionPath)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
       e2eFixtures: ${e2eFixtures},

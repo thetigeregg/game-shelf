@@ -163,11 +163,12 @@ void test('scraper health check keeps raw response text out of the ping', async 
   assert.match(pings()[0]?.body ?? '', /failed: HTTP 503$/);
 });
 
-void test('scraper health check reports the cause of a network failure', async () => {
+void test('scraper health check reports the error code of a network failure', async () => {
+  const cause = Object.assign(new Error('getaddrinfo ENOTFOUND test-scraper'), {
+    code: 'ENOTFOUND',
+  });
   const { fetchImpl, pings } = fakeFetch(() =>
-    Promise.reject(
-      new TypeError('fetch failed', { cause: new Error('getaddrinfo ENOTFOUND test-scraper') })
-    )
+    Promise.reject(new TypeError('fetch failed', { cause }))
   );
   await runScraperHealthChecks({
     pingKey: PING_KEY,
@@ -175,7 +176,7 @@ void test('scraper health check reports the cause of a network failure', async (
     probes: [probe()],
     fetchImpl,
   });
-  assert.match(pings()[0]?.body ?? '', /failed: getaddrinfo ENOTFOUND test-scraper$/);
+  assert.match(pings()[0]?.body ?? '', /failed: ENOTFOUND$/);
 });
 
 void test('scraper health check names the error code when the cause has no message', async () => {
@@ -190,7 +191,7 @@ void test('scraper health check names the error code when the cause has no messa
     probes: [probe()],
     fetchImpl,
   });
-  assert.match(pings()[0]?.body ?? '', /failed: AggregateError \(ECONNREFUSED\)$/);
+  assert.match(pings()[0]?.body ?? '', /failed: ECONNREFUSED$/);
 });
 
 void test('scraper health check fails one check for a malformed base URL and runs the rest', async () => {
@@ -246,6 +247,88 @@ void test('scraper health probes build URLs the way each API client does', () =>
       ['gameshelf-compat', true],
     ]
   );
+});
+
+/** Lookups answer with a match; pings go through Node's real fetch, recording what's logged. */
+async function runWithRealPingFetch(params: {
+  pingBaseUrl: string;
+  probes: ScraperHealthProbe[];
+  lookupFetch?: typeof fetch;
+}): Promise<{ warnings: string }> {
+  const warn = console.warn;
+  const logged: unknown[][] = [];
+  console.warn = (...args: unknown[]) => {
+    logged.push(args);
+  };
+  try {
+    await runScraperHealthChecks({
+      pingKey: 'SECRET-PING-KEY',
+      pingBaseUrl: params.pingBaseUrl,
+      probes: params.probes,
+      fetchImpl: (input, init) => {
+        const url = toUrl(input);
+        if (url.includes('SECRET-PING-KEY')) {
+          return fetch(input, init);
+        }
+        return params.lookupFetch
+          ? params.lookupFetch(input, init)
+          : jsonResponse({ item: { title: 'x' } });
+      },
+    });
+  } finally {
+    console.warn = warn;
+  }
+  return { warnings: JSON.stringify(logged) };
+}
+
+void test('scraper health check keeps credentials and the ping key out of ping failure logs', async () => {
+  for (const pingBaseUrl of ['https://user:hunter2@hc.example', 'hc-ping.example']) {
+    const { warnings } = await runWithRealPingFetch({ pingBaseUrl, probes: [probe()] });
+    assert.match(warnings, /ping_failed/, pingBaseUrl);
+    assert.doesNotMatch(warnings, /SECRET-PING-KEY|hunter2|user:/, pingBaseUrl);
+  }
+  const { warnings } = await runWithRealPingFetch({
+    pingBaseUrl: 'https://user:hunter2@hc.example',
+    probes: [probe()],
+  });
+  assert.match(warnings, /URL includes credentials, which fetch rejects/);
+});
+
+void test('scraper health check keeps scraper URL credentials out of the ping body', async () => {
+  const { fetchImpl, pings } = fakeFetch((url, init) => fetch(url, init));
+  await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    probes: [probe({ baseUrl: 'http://user:hunter2@test-scraper:8000' })],
+    fetchImpl,
+  });
+  const body = pings()[0]?.body ?? '';
+  assert.match(body, /failed: URL includes credentials, which fetch rejects$/);
+  assert.doesNotMatch(body, /hunter2|user:/);
+});
+
+void test('scraper health check reports only the error name for an unrecognised error', async () => {
+  const { fetchImpl, pings } = fakeFetch(() =>
+    Promise.reject(new RangeError('bad thing at https://user:hunter2@test-scraper/SECRET'))
+  );
+  await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    probes: [probe()],
+    fetchImpl,
+  });
+  assert.match(pings()[0]?.body ?? '', /failed: RangeError$/);
+});
+
+void test('scraper health check reports a malformed base URL as invalid', async () => {
+  const { fetchImpl, pings } = fakeFetch(() => jsonResponse({ item: {} }));
+  await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    probes: [probe({ baseUrl: 'metacritic-scraper:8789' })],
+    fetchImpl,
+  });
+  assert.match(pings()[0]?.body ?? '', /failed: invalid URL$/);
 });
 
 void test('scraper health check reports a lookup that outlasts the timeout', async () => {

@@ -1,5 +1,4 @@
 import { config } from './config.js';
-import { describeErrorCause } from './emulation-compat/refresh.js';
 
 /**
  * Scheduled test lookups against each scraper, reported to Healthchecks.io. Each scraper is
@@ -216,20 +215,36 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
   ];
 }
 
+function errorCode(error: unknown): string | null {
+  const code: unknown = error instanceof Error ? (error as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && code.length > 0 ? code : null;
+}
+
+/**
+ * A safe reason for a failed request. Error messages can quote the request URL, including any
+ * credentials in it and, for pings, the ping key; and these reasons are logged and sent to
+ * Healthchecks.io. So only error codes, error names and fixed descriptions are used, never a
+ * message.
+ */
 function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.name === 'TimeoutError') {
+  if (!(error instanceof Error)) {
+    return 'unknown error';
+  }
+  if (error.name === 'TimeoutError') {
     return 'timed out';
   }
-  // Node's fetch only says "fetch failed"; the cause names the actual problem. Its message can be
-  // empty (e.g. an AggregateError when every address of a host refused), so fall back to its name
-  // and add the error code.
-  const { cause, causeCode } = describeErrorCause(error);
-  if (cause !== undefined) {
-    return causeCode !== undefined && !cause.includes(causeCode)
-      ? `${cause} (${causeCode})`
-      : cause;
+  // Node's fetch rejects such URLs with a message that quotes the whole URL.
+  if (error instanceof TypeError && error.message.includes('URL that includes credentials')) {
+    return 'URL includes credentials, which fetch rejects';
   }
-  return error instanceof Error ? error.message : String(error);
+  // Node's fetch only says "fetch failed"; the cause's code names the actual problem, e.g.
+  // ECONNREFUSED or ENOTFOUND.
+  const cause = error.cause instanceof Error ? error.cause : null;
+  const code = errorCode(cause) ?? errorCode(error);
+  if (code === 'ERR_INVALID_URL') {
+    return 'invalid URL';
+  }
+  return code ?? (cause ?? error).name;
 }
 
 /**

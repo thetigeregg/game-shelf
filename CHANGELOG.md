@@ -4324,3 +4324,7 @@
 ## v1.90.0 - 2026-11-08
 
 - 16041006 feat(worker): report scraper health to Healthchecks.io (#653)
+
+## v1.90.1 - 2026-11-09
+
+- f9c1865c fix(psprices): queue FlareSolverr calls in one session (#655)

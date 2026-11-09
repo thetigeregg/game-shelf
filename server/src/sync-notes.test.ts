@@ -250,31 +250,29 @@ void test('sync push keeps server Switch prices when a client sends a non-eShop 
   }
 });
 
-void test('sync push accepts store prices for their platforms and any price elsewhere', async () => {
-  const store = await pushGame({
-    igdbGameId: '126',
-    platformIgdbId: 48,
-    title: 'Game',
-    platform: 'PlayStation 4',
-    listType: 'wishlist',
-    priceSource: 'playstation_store',
-    priceAmount: 49.62,
-  });
-  assert.equal(store['priceSource'], 'playstation_store');
-  assert.equal(store['priceAmount'], 49.62);
+void test('sync push keeps server store prices even when a client sends the same source', async () => {
+  // A current app can push a store price it saved before going offline, older than the server's.
+  for (const [platformIgdbId, priceSource] of [
+    [48, 'playstation_store'],
+    [130, 'nintendo_eshop'],
+  ] as const) {
+    const normalized = await pushGame({
+      igdbGameId: '126',
+      platformIgdbId,
+      title: 'Game',
+      platform: 'Console',
+      listType: 'wishlist',
+      priceSource,
+      priceAmount: 49.62,
+      priceFetchedAt: '2026-01-01T00:00:00.000Z',
+    });
+    for (const key of ['priceSource', 'priceAmount', 'priceFetchedAt']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(normalized, key), false, key);
+    }
+  }
+});
 
-  const switchGame = await pushGame({
-    igdbGameId: '127',
-    platformIgdbId: 130,
-    title: 'Game',
-    platform: 'Switch',
-    listType: 'wishlist',
-    priceSource: 'nintendo_eshop',
-    priceAmount: 32.5,
-  });
-  assert.equal(switchGame['priceSource'], 'nintendo_eshop');
-  assert.equal(switchGame['priceAmount'], 32.5);
-
+void test('sync push accepts client prices for platforms the server does not price', async () => {
   const steamGame = await pushGame({
     igdbGameId: '129',
     platformIgdbId: 6,

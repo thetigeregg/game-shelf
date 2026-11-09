@@ -51,7 +51,7 @@ class GamePoolMock {
       const payload = this.rows.get(key);
       return Promise.resolve({ rows: payload ? [{ payload }] : [] });
     }
-    if (normalized.startsWith('with current_row as ( select payload from games')) {
+    if (normalized.startsWith('with current_row as ( select payload')) {
       const existing = this.rows.get(key) ?? {};
       // The guard an automatic refresh writes under: pin and lock unchanged since it started.
       const isGuarded = params[3] === true;
@@ -65,6 +65,20 @@ class GamePoolMock {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
       const merged = { ...existing, ...(JSON.parse(String(params[2])) as Record<string, unknown>) };
+      // The retry merge: only this source's entry changes, against the row's current entries.
+      if (params[6] === true) {
+        const current = existing['enrichmentRetry'];
+        const retry: Record<string, unknown> =
+          current && typeof current === 'object' && !Array.isArray(current)
+            ? { ...(current as Record<string, unknown>) }
+            : {};
+        delete retry['nintendoEshop'];
+        Object.assign(
+          retry,
+          typeof params[7] === 'string' ? (JSON.parse(params[7]) as Record<string, unknown>) : {}
+        );
+        merged['enrichmentRetry'] = Object.keys(retry).length > 0 ? retry : null;
+      }
       if (JSON.stringify(existing) === JSON.stringify(merged)) {
         return Promise.resolve({ rows: [], rowCount: 0 });
       }
@@ -406,6 +420,39 @@ void test('an automatic refresh is discarded when an admin changed the pin durin
   assert.equal(stored['nintendoEshopNsuid'], HADES_II);
   assert.equal(stored['priceAmount'], 30);
   assert.equal(pool.syncEvents, 0);
+});
+
+void test("a queued refresh writes only its own retry entry, keeping other providers' entries", async () => {
+  const pool = new GamePoolMock();
+  pool.seed('24', 130, { title: 'Hades II', listType: 'discovery' });
+  const hltbRetry = {
+    attempts: 6,
+    lastTriedAt: '2026-03-10T09:00:00.000Z',
+    nextTryAt: null,
+    permanentMiss: true,
+  };
+  const eshop = fakeEshop({ search: {} });
+  // Discovery enrichment records an HLTB permanent miss while the eShop lookup is in flight.
+  const racingFetch: typeof fetch = async (input, init) => {
+    pool.seed('24', 130, {
+      ...pool.getPayload('24', 130),
+      enrichmentRetry: { hltb: hltbRetry },
+    });
+    return eshop.fetchImpl(input, init);
+  };
+
+  await processQueuedNintendoEshopPriceRevalidation(
+    pool as unknown as Pool,
+    { cacheKey: 'k', igdbGameId: '24', platformIgdbId: 130, title: 'Hades II' },
+    { fetchImpl: racingFetch }
+  );
+
+  const retry = pool.getPayload('24', 130)['enrichmentRetry'] as Record<
+    string,
+    Record<string, unknown>
+  >;
+  assert.deepEqual(retry['hltb'], hltbRetry);
+  assert.equal(retry['nintendoEshop']['attempts'], 1);
 });
 
 void test('a queued refresh reads a release year stored as text, like the scheduler', async () => {

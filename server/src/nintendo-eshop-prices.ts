@@ -872,21 +872,14 @@ async function persistNintendoEshopSnapshot(
   if (typeof params.matchLocked === 'boolean') {
     patchPayload['nintendoEshopMatchLocked'] = params.matchLocked;
   }
-  if (params.retryState !== undefined) {
-    const existingRetry =
-      params.payload['enrichmentRetry'] &&
-      typeof params.payload['enrichmentRetry'] === 'object' &&
-      !Array.isArray(params.payload['enrichmentRetry'])
-        ? { ...(params.payload['enrichmentRetry'] as Record<string, unknown>) }
-        : {};
-    const parsedRetryState = parseProviderRetryState(params.retryState);
-    if (hasMeaningfulRetryState(parsedRetryState)) {
-      existingRetry['nintendoEshop'] = parsedRetryState;
-    } else {
-      delete existingRetry['nintendoEshop'];
-    }
-    patchPayload['enrichmentRetry'] = Object.keys(existingRetry).length > 0 ? existingRetry : null;
-  }
+  // Only this source's retry entry is written, merged into the row's current enrichmentRetry in
+  // the update itself: discovery enrichment may have changed other providers' entries meanwhile.
+  const parsedRetryState =
+    params.retryState !== undefined ? parseProviderRetryState(params.retryState) : null;
+  const retryEntry =
+    parsedRetryState && hasMeaningfulRetryState(parsedRetryState)
+      ? JSON.stringify({ nintendoEshop: parsedRetryState })
+      : null;
   if (snapshot === null) {
     // Nothing for sale matched, so the store's cached price (e.g. a delisted pinned game) is
     // no longer current and mustn't be served as a fresh hit. The pin stays.
@@ -951,11 +944,28 @@ async function persistNintendoEshopSnapshot(
   const updateResult = await pool.query<{ previous_payload: unknown; next_payload: unknown }>(
     `
       WITH current_row AS (
-        SELECT payload
+        SELECT
+          payload,
+          CASE
+            WHEN $7::boolean THEN
+              (payload || $3::jsonb) || jsonb_build_object(
+                'enrichmentRetry',
+                NULLIF(
+                  (
+                    CASE
+                      WHEN jsonb_typeof(payload->'enrichmentRetry') = 'object'
+                        THEN payload->'enrichmentRetry'
+                      ELSE '{}'::jsonb
+                    END - 'nintendoEshop'
+                  ) || COALESCE($8::jsonb, '{}'::jsonb),
+                  '{}'::jsonb
+                )
+              )
+            ELSE payload || $3::jsonb
+          END AS next_payload
         FROM games
         WHERE igdb_game_id = $1
           AND platform_igdb_id = $2
-          AND payload IS DISTINCT FROM (payload || $3::jsonb)
           AND (
             NOT $4::boolean
             OR (
@@ -966,10 +976,11 @@ async function persistNintendoEshopSnapshot(
         FOR UPDATE
       )
       UPDATE games AS g
-      SET payload = g.payload || $3::jsonb, updated_at = NOW()
+      SET payload = current_row.next_payload, updated_at = NOW()
       FROM current_row
       WHERE g.igdb_game_id = $1
         AND g.platform_igdb_id = $2
+        AND current_row.payload IS DISTINCT FROM current_row.next_payload
       RETURNING current_row.payload AS previous_payload, g.payload AS next_payload
     `,
     [
@@ -982,6 +993,8 @@ async function persistNintendoEshopSnapshot(
       params.matchLocked === undefined,
       normalizeNonEmptyString(params.payload['nintendoEshopNsuid']) ?? '',
       params.payload['nintendoEshopMatchLocked'] === true,
+      parsedRetryState !== null,
+      retryEntry,
     ]
   );
 

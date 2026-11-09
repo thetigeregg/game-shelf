@@ -1061,11 +1061,10 @@ function normalizeGamePayload(
   };
 
   // PS4/PS5 prices are set by the server from the PlayStation Store, Switch/Switch 2 prices from
-  // the Nintendo eShop. A client that doesn't know the platform's source (an older app version)
-  // would push back `null` or an old psprices price; dropping those fields makes the upsert keep
-  // the server's values instead.
-  const serverPriceSource = resolveServerPriceSource(platformIgdbId);
-  if (serverPriceSource !== null && normalized['priceSource'] !== serverPriceSource) {
+  // the Nintendo eShop, so a client's copy is never newer than the server's: an older app version
+  // pushes back `null` or an old psprices price, and a current one can push a store price it saved
+  // before going offline. Dropping those fields makes the upsert keep the server's values.
+  if (isServerPricedPlatform(platformIgdbId)) {
     for (const key of [...UNIFIED_PRICE_KEYS, ...LEGACY_PSPRICES_PIN_KEYS]) {
       Reflect.deleteProperty(normalized, key);
     }
@@ -1073,14 +1072,12 @@ function normalizeGamePayload(
   return normalized;
 }
 
-/** The store the server prices a platform from, when the server owns its prices. */
-function resolveServerPriceSource(
-  platformIgdbId: number
-): 'playstation_store' | 'nintendo_eshop' | null {
-  if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
-    return 'playstation_store';
-  }
-  return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'nintendo_eshop' : null;
+/** Platforms whose prices the server sets from their store (the client only displays them). */
+function isServerPricedPlatform(platformIgdbId: number): boolean {
+  return (
+    PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) ||
+    NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId)
+  );
 }
 
 function normalizeGameIdentityPayload(value: unknown): {

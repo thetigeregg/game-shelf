@@ -4328,3 +4328,7 @@
 ## v1.90.1 - 2026-11-09
 
 - f9c1865c fix(psprices): queue FlareSolverr calls in one session (#655)
+
+## v1.90.2 - 2026-11-09
+
+- a3d1e904 refactor(server): extract store price title matcher (#656)

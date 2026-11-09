@@ -52,6 +52,11 @@ interface RankedTitleMatchCandidate<T extends TitleMatchCandidate = TitleMatchCa
   suffixRank: number;
   hasPlatformSuffix: boolean;
   hasContextPlatformSuffix: boolean;
+  /**
+   * Strong (core score at least SUFFIX_RANK_STRONG_CORE_THRESHOLD) and within TITLE_MATCH_MIN_GAP
+   * of the best core score among all candidates. Inside this group the edition decides the order.
+   */
+  inTopGroup: boolean;
 }
 
 type PlatformMarkerContext = 'playstation' | 'switch' | 'xbox' | null;
@@ -160,29 +165,42 @@ export function matchCandidatesByTitle<T extends TitleMatchCandidate>(
 
   const platformContext = derivePlatformMarkerContext(platform);
   const expectedCore = buildCoreTitleForScoring(queryTitle, platformContext).coreTitle;
-  const ranked = candidates
-    .map((candidate) => {
-      const titleValue = candidate.title ?? '';
-      const candidateCore = buildCoreTitleForScoring(titleValue, platformContext);
-      const coreScore = scoreCoreTitleMatch(expectedCore, candidateCore.coreTitle);
-      const suffixClass = classifyTitleSuffixClass(candidateCore.suffixInspectionTitle);
-      const score = round2(
-        applySuffixShaping({
-          coreScore,
-          suffixClass,
-          strongCoreThreshold: SUFFIX_RANK_STRONG_CORE_THRESHOLD,
-        })
-      );
-      return {
-        candidate,
-        score,
+  const scored = candidates.map((candidate) => {
+    const titleValue = candidate.title ?? '';
+    const candidateCore = buildCoreTitleForScoring(titleValue, platformContext);
+    const coreScore = scoreCoreTitleMatch(expectedCore, candidateCore.coreTitle);
+    const suffixClass = classifyTitleSuffixClass(candidateCore.suffixInspectionTitle);
+    const score = round2(
+      applySuffixShaping({
         coreScore,
         suffixClass,
-        suffixRank: resolveSuffixRank(suffixClass),
-        hasPlatformSuffix: candidateCore.hasPlatformSuffix,
-        hasContextPlatformSuffix: candidateCore.hasContextPlatformSuffix,
-      } satisfies RankedTitleMatchCandidate<T>;
-    })
+        strongCoreThreshold: SUFFIX_RANK_STRONG_CORE_THRESHOLD,
+      })
+    );
+    return {
+      candidate,
+      score,
+      coreScore,
+      suffixClass,
+      suffixRank: resolveSuffixRank(suffixClass),
+      hasPlatformSuffix: candidateCore.hasPlatformSuffix,
+      hasContextPlatformSuffix: candidateCore.hasContextPlatformSuffix,
+    };
+  });
+  // Membership of the top group is measured against one reference, the best core score, so the
+  // order below is consistent. Comparing pairs directly ("within 8 points of each other") isn't:
+  // A can beat B and B beat C on edition while C beats A on core score.
+  const bestCoreScore = Math.max(...scored.map((entry) => entry.coreScore));
+  const ranked = scored
+    .map(
+      (entry) =>
+        ({
+          ...entry,
+          inTopGroup:
+            entry.coreScore >= SUFFIX_RANK_STRONG_CORE_THRESHOLD &&
+            bestCoreScore - entry.coreScore <= TITLE_MATCH_MIN_GAP,
+        }) satisfies RankedTitleMatchCandidate<T>
+    )
     .sort((left, right) => compareRankedTitleMatchCandidates(left, right));
   const rankedCandidates = ranked.slice(0, maxCandidates).map((entry) => ({
     ...entry.candidate,
@@ -362,14 +380,12 @@ function compareRankedTitleMatchCandidates(
   left: RankedTitleMatchCandidate,
   right: RankedTitleMatchCandidate
 ): number {
-  if (
-    left.coreScore >= SUFFIX_RANK_STRONG_CORE_THRESHOLD &&
-    right.coreScore >= SUFFIX_RANK_STRONG_CORE_THRESHOLD
-  ) {
-    const coreGap = Math.abs(left.coreScore - right.coreScore);
-    if (coreGap > TITLE_MATCH_MIN_GAP) {
-      return right.coreScore - left.coreScore;
-    }
+  if (left.inTopGroup !== right.inTopGroup) {
+    return left.inTopGroup ? -1 : 1;
+  }
+  if (left.inTopGroup) {
+    // Every top-group member is within TITLE_MATCH_MIN_GAP of the best, so these are all close
+    // matches of the same title: the base game beats its editions.
     if (left.suffixRank !== right.suffixRank) {
       return left.suffixRank - right.suffixRank;
     }

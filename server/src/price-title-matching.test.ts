@@ -138,3 +138,31 @@ void test('matchCandidatesByTitle keeps the candidate type and limits the ranked
   assert.equal(result.candidates.length, 2);
   assert.equal(result.candidates[0].productId, 'P3');
 });
+
+void test('matchCandidatesByTitle ranks the same whatever order the store returns', () => {
+  // Core scores 100, ~93 and ~87, with the editions ranked the other way round. Compared in pairs,
+  // a=deluxe loses to b=ultimate and b to c=complete on edition (each within 8 points), while c
+  // loses to a on core score (13 points apart): a loop that made the winner depend on input order.
+  const query = 'Red Orange Yellow Green Blue Indigo Violet Black White Grey';
+  const a = candidate(`${query} Deluxe Edition`, { url: 'a' });
+  const b = candidate(`${query} Extra Ultimate Edition`, { url: 'b' });
+  const c = candidate(`${query} Extra More Complete Edition`, { url: 'c' });
+  const orders = [
+    [a, b, c],
+    [a, c, b],
+    [b, a, c],
+    [b, c, a],
+    [c, a, b],
+    [c, b, a],
+  ];
+
+  const rankings = orders.map((order) =>
+    matchCandidatesByTitle(query, 'PS5', order).candidates.map((entry) => entry.url)
+  );
+  for (const ranking of rankings) {
+    assert.deepEqual(ranking, rankings[0]);
+  }
+  // a and b are the top group (within 8 of the best core score), where the lower edition rank
+  // wins; c is more than 8 behind, so it ranks after them on core score alone.
+  assert.deepEqual(rankings[0], ['b', 'a', 'c']);
+});

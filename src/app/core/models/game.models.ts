@@ -28,7 +28,7 @@ export type GameType =
   | 'pack'
   | 'update';
 export type ReviewSource = 'metacritic' | 'mobygames';
-export type PriceSource = 'steam_store' | 'psprices';
+export type PriceSource = 'steam_store' | 'playstation_store' | 'psprices';
 export type GameWebsiteProvider =
   | 'steam'
   | 'playstation'
@@ -439,7 +439,7 @@ export interface PriceMatchCandidate {
   isFree: boolean | null;
   url: string | null;
   score: number | null;
-  source?: 'steam_store' | 'psprices';
+  source?: PriceSource;
   isRecommended?: boolean;
   imageUrl?: string | null;
 }

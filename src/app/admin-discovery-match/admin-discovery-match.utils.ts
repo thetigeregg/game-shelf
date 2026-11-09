@@ -126,12 +126,20 @@ function pickEarliestIso(values: Array<string | null>): string | null {
 export function resolveAdminPricingSource(
   platformIgdbId: number | null | undefined,
   priceSource?: string | null
-): 'steam_store' | 'psprices' {
-  if (priceSource === 'steam_store' || priceSource === 'psprices') {
+): 'steam_store' | 'playstation_store' | 'psprices' {
+  if (
+    priceSource === 'steam_store' ||
+    priceSource === 'playstation_store' ||
+    priceSource === 'psprices'
+  ) {
     return priceSource;
   }
 
-  return platformIgdbId === 6 ? 'steam_store' : 'psprices';
+  if (platformIgdbId === 6) {
+    return 'steam_store';
+  }
+  // PS4 and PS5 are priced from the PlayStation Store; psprices covers Switch.
+  return platformIgdbId === 48 || platformIgdbId === 167 ? 'playstation_store' : 'psprices';
 }
 
 export function buildAdminQueueFeedback(

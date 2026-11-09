@@ -5241,7 +5241,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
     if (!this.isPsPricesPlatform(this.selectedGame)) {
       await this.presentToast(
-        'Fix pricing match is only available for PSPrices platforms.',
+        'Fix pricing match is only available for PlayStation and Nintendo Switch games.',
         'warning'
       );
       return;
@@ -5469,13 +5469,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return [...byKey.values()];
   }
 
+  /** PS4/PS5 (PlayStation Store) and Switch (psprices): prices with candidates to pick from. */
   isPsPricesPlatform(game: Pick<GameEntry, 'platformIgdbId'>): boolean {
-    return (
-      game.platformIgdbId === 48 ||
-      game.platformIgdbId === 167 ||
-      game.platformIgdbId === 130 ||
-      game.platformIgdbId === 508
-    );
+    return GameShelfService.hasPriceCandidates(game.platformIgdbId);
   }
 
   shouldShowExternalMetadataPricingOption(): boolean {

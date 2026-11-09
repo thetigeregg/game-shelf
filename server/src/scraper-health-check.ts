@@ -1,9 +1,12 @@
 import { config } from './config.js';
+import { resolvePlayStationStoreLocale } from './playstation-store-client.js';
+import { lookupPlayStationStorePrice } from './playstation-store-prices.js';
 
 /**
- * Scheduled test lookups against each scraper, reported to Healthchecks.io. Each scraper is
- * searched for a title that should always match, calling it directly so the API's caches can't
- * hide a failure, and the result must be the specific game verified for that scraper. A match sends
+ * Scheduled test lookups against each scraper (and the PlayStation Store, which the API calls
+ * directly), reported to Healthchecks.io. Each is searched for a title that should always match,
+ * bypassing the API's caches so they can't hide a failure, and the result must be the specific game
+ * verified for that source. A match sends
  * a success ping; an error, no match or the wrong game sends a `/fail` ping with the reason, which
  * Healthchecks.io includes in its alert. Missed pings alert too, which catches the worker or the
  * whole stack being down.
@@ -38,9 +41,18 @@ export interface ScraperHealthProbe {
    */
   keepBasePath?: boolean;
   query: Record<string, string>;
+  /**
+   * Runs the lookup in code instead of a GET to `baseUrl` + `path`, for a source the API calls
+   * itself rather than through a scraper. `path` then only labels the lookup in messages, and the
+   * result goes to `check`.
+   */
+  run?: (fetchImpl: typeof fetch) => Promise<unknown>;
   /** Decides whether the scraper's JSON response is the expected result. */
   check: (body: unknown) => ScraperHealthVerdict;
 }
+
+/** The product verified for the PlayStation Store probe: Hades II for PS5 in the store's locale. */
+const PLAYSTATION_STORE_PROBE_PRODUCT_ID = 'EP4484-PPSA36082_00-0912328937643383';
 
 export interface ScraperHealthResult {
   slug: string;
@@ -120,6 +132,7 @@ function checkItem(
 export function buildScraperHealthProbes(): ScraperHealthProbe[] {
   return [
     {
+      // psprices only prices Switch and Switch 2 now; PS4/PS5 come from the PlayStation Store.
       slug: 'gameshelf-psprices',
       name: 'psprices-scraper',
       baseUrl: config.pspricesScraperBaseUrl,
@@ -127,7 +140,7 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
       path: '/v1/psprices/search',
       query: {
         q: 'Hades II',
-        platform: 'PS5',
+        platform: 'Switch',
         region: config.pspricesRegionPath,
         show: config.pspricesShow,
       },
@@ -152,6 +165,34 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
           hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
         });
       },
+    },
+    {
+      // Search, title match and exact price: both of the store's persisted queries, so a query
+      // Sony has changed (and stopped accepting) shows up here.
+      slug: 'gameshelf-playstation-store',
+      name: 'playstation-store',
+      baseUrl: config.playstationStoreApiBaseUrl,
+      token: '',
+      path: 'Hades II (PS5)',
+      query: {},
+      run: async (fetchImpl) => {
+        const lookup = await lookupPlayStationStorePrice({
+          title: 'Hades II',
+          platform: 'PS5',
+          preferredProductId: null,
+          locale: resolvePlayStationStoreLocale(),
+          fetchImpl,
+        });
+        return { item: lookup.snapshot };
+      },
+      check: (body) =>
+        checkItem(body, {
+          fields: ['productId', 'title', 'amount'],
+          expected: `product ${PLAYSTATION_STORE_PROBE_PRODUCT_ID}`,
+          isExpected: (item) => item['productId'] === PLAYSTATION_STORE_PROBE_PRODUCT_ID,
+          requiredData: 'a price',
+          hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
+        }),
     },
     {
       slug: 'gameshelf-hltb',
@@ -276,6 +317,25 @@ async function runProbe(
     ok: false,
     message: `${lookup} failed: ${reason}`,
   });
+
+  if (probe.run) {
+    let body: unknown;
+    try {
+      body = await probe.run(fetchImpl);
+    } catch (error) {
+      return fail(
+        error instanceof Error && error.name === 'PlayStationStoreQueryRejectedError'
+          ? 'query not whitelisted: the PlayStation Store query hash needs updating'
+          : errorMessage(error)
+      );
+    }
+    const verdict = probe.check(body);
+    if (!verdict.ok) {
+      return fail(verdict.reason);
+    }
+    const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+    return { slug: probe.slug, ok: true, message: `${lookup} ${verdict.detail} in ${seconds}s` };
+  }
 
   let response: Response;
   let text: string;

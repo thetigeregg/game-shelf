@@ -298,6 +298,28 @@ async function applyGameOperation(
         'steamEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'steamEnrichmentStatus', games.payload -> 'steamEnrichmentStatus'),
         'metadataSyncEnqueuedAt', COALESCE(EXCLUDED.payload -> 'metadataSyncEnqueuedAt', games.payload -> 'metadataSyncEnqueuedAt'),
         'compatStatus', COALESCE(NULLIF(EXCLUDED.payload -> 'compatStatus', 'null'::jsonb), games.payload -> 'compatStatus')
+      ) || jsonb_build_object(
+        'playstationStoreFetchedAt', COALESCE(EXCLUDED.payload -> 'playstationStoreFetchedAt', games.payload -> 'playstationStoreFetchedAt'),
+        'playstationStoreSource', COALESCE(EXCLUDED.payload -> 'playstationStoreSource', games.payload -> 'playstationStoreSource'),
+        'playstationStoreCountry', COALESCE(EXCLUDED.payload -> 'playstationStoreCountry', games.payload -> 'playstationStoreCountry'),
+        'playstationStoreLanguage', COALESCE(EXCLUDED.payload -> 'playstationStoreLanguage', games.payload -> 'playstationStoreLanguage'),
+        'playstationStorePlatform', COALESCE(EXCLUDED.payload -> 'playstationStorePlatform', games.payload -> 'playstationStorePlatform'),
+        'playstationStoreProductId', COALESCE(EXCLUDED.payload -> 'playstationStoreProductId', games.payload -> 'playstationStoreProductId'),
+        'playstationStoreTitle', COALESCE(EXCLUDED.payload -> 'playstationStoreTitle', games.payload -> 'playstationStoreTitle'),
+        'playstationStoreUrl', COALESCE(EXCLUDED.payload -> 'playstationStoreUrl', games.payload -> 'playstationStoreUrl'),
+        'playstationStoreImageUrl', COALESCE(EXCLUDED.payload -> 'playstationStoreImageUrl', games.payload -> 'playstationStoreImageUrl'),
+        'playstationStorePriceAmount', COALESCE(EXCLUDED.payload -> 'playstationStorePriceAmount', games.payload -> 'playstationStorePriceAmount'),
+        'playstationStorePriceCurrency', COALESCE(EXCLUDED.payload -> 'playstationStorePriceCurrency', games.payload -> 'playstationStorePriceCurrency'),
+        'playstationStoreRegularPriceAmount', COALESCE(EXCLUDED.payload -> 'playstationStoreRegularPriceAmount', games.payload -> 'playstationStoreRegularPriceAmount'),
+        'playstationStoreDiscountPercent', COALESCE(EXCLUDED.payload -> 'playstationStoreDiscountPercent', games.payload -> 'playstationStoreDiscountPercent'),
+        'playstationStoreIsFree', COALESCE(EXCLUDED.payload -> 'playstationStoreIsFree', games.payload -> 'playstationStoreIsFree'),
+        'playstationStoreSaleEndsAt', COALESCE(EXCLUDED.payload -> 'playstationStoreSaleEndsAt', games.payload -> 'playstationStoreSaleEndsAt'),
+        'playstationStoreMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchQueryTitle', games.payload -> 'playstationStoreMatchQueryTitle'),
+        'playstationStoreMatchTitle', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchTitle', games.payload -> 'playstationStoreMatchTitle'),
+        'playstationStoreMatchScore', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchScore', games.payload -> 'playstationStoreMatchScore'),
+        'playstationStoreMatchConfidence', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchConfidence', games.payload -> 'playstationStoreMatchConfidence'),
+        'playstationStoreCandidates', COALESCE(EXCLUDED.payload -> 'playstationStoreCandidates', games.payload -> 'playstationStoreCandidates'),
+        'playstationStoreMatchLocked', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchLocked', games.payload -> 'playstationStoreMatchLocked')
       )
     ), updated_at = NOW()
     RETURNING payload
@@ -655,8 +677,12 @@ function parseFiniteNumber(value: unknown): number {
   return Number.NaN;
 }
 
-function normalizePriceSource(value: unknown): 'steam_store' | 'psprices' | null {
-  return value === 'steam_store' || value === 'psprices' ? value : null;
+function normalizePriceSource(
+  value: unknown
+): 'steam_store' | 'playstation_store' | 'psprices' | null {
+  return value === 'steam_store' || value === 'playstation_store' || value === 'psprices'
+    ? value
+    : null;
 }
 
 function normalizePriceFetchedAt(value: unknown): string | null {

@@ -79,6 +79,8 @@ export interface AdminDiscoveryDetailResponse extends AdminDiscoveryListItem {
       psPricesUrl: string | null;
       psPricesTitle: string | null;
       psPricesPlatform: string | null;
+      playstationStoreProductId?: string | null;
+      playstationStoreTitle?: string | null;
     };
   };
 }
@@ -115,6 +117,8 @@ export interface AdminDiscoveryUpdateMatchRequest {
   psPricesUrl?: string | null;
   psPricesTitle?: string | null;
   psPricesPlatform?: string | null;
+  /** A PlayStation Store product ID or product URL. */
+  playstationStoreProductId?: string | null;
   queryTitle?: string | null;
   queryReleaseYear?: number | null;
   queryPlatform?: string | null;

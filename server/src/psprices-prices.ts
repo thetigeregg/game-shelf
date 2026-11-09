@@ -76,9 +76,8 @@ export interface PspricesPriceRevalidationPayload extends Record<string, unknown
   psPricesUrl?: string | null;
 }
 
+// PS4 and PS5 are priced from the PlayStation Store (playstation-store-prices.ts).
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
-  [48, 'PS4'],
-  [167, 'PS5'],
   [130, 'Switch'],
   [508, 'Switch2'],
 ]);

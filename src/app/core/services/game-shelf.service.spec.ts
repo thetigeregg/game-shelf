@@ -70,6 +70,8 @@ describe('GameShelfService', () => {
       lookupSteamPrice: vi.fn(),
       lookupPsPrices: vi.fn(),
       lookupPsPricesCandidates: vi.fn(),
+      lookupPlayStationStorePrice: vi.fn(),
+      lookupPlayStationStoreCandidates: vi.fn(),
     };
 
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
@@ -2168,14 +2170,104 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('prices PS4 and PS5 games from the PlayStation Store, passing a picked product URL', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '200',
+      title: 'Astro Bot',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: 2024,
+      listType: 'wishlist',
+      psPricesMatchLocked: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const productUrl =
+      'https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000';
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    searchApi.lookupPlayStationStorePrice.mockReturnValue(
+      of({
+        status: 'ok',
+        bestPrice: {
+          title: 'ASTRO BOT',
+          amount: 49.62,
+          currency: 'CHF',
+          regularAmount: 69.9,
+          discountPercent: 29,
+          isFree: false,
+          url: productUrl,
+        },
+      })
+    );
+
+    await service.refreshGamePricingWithQuery('200', 167, {
+      title: 'Astro Bot',
+      preferredUrl: productUrl,
+    });
+
+    expect(searchApi.lookupPlayStationStorePrice).toHaveBeenCalledWith('200', 167, {
+      title: 'Astro Bot',
+      productId: productUrl,
+    });
+    expect(searchApi.lookupPsPrices).not.toHaveBeenCalled();
+    const catalog = repository.upsertFromCatalog.mock.calls[0][0] as GameCatalogResult;
+    expect(catalog.priceSource).toBe('playstation_store');
+    expect(catalog.priceAmount).toBe(49.62);
+    expect(catalog.priceDiscountPercent).toBe(29);
+    // The server keeps the PlayStation Store lock; the psprices lock isn't set for a PS game.
+    expect(catalog.psPricesMatchLocked).toBeNull();
+  });
+
+  it('searches PlayStation Store candidates for PS games and marks the best one', async () => {
+    searchApi.lookupPlayStationStoreCandidates.mockReturnValue(
+      of({
+        status: 'ok',
+        bestPrice: { title: 'Hades II', url: 'https://store.playstation.com/de-ch/product/B' },
+        candidates: [
+          {
+            title: 'Hades',
+            amount: 24.9,
+            currency: 'CHF',
+            isFree: false,
+            url: 'https://store.playstation.com/de-ch/product/A',
+            score: 66.67,
+          },
+          {
+            title: 'Hades II',
+            amount: 29.9,
+            currency: 'CHF',
+            isFree: false,
+            url: 'https://store.playstation.com/de-ch/product/B',
+            score: 100,
+          },
+        ],
+      })
+    );
+
+    const candidates = await firstValueFrom(service.searchPricingCandidates('300', 48, 'Hades II'));
+
+    expect(searchApi.lookupPlayStationStoreCandidates).toHaveBeenCalledWith('300', 48, 'Hades II');
+    expect(searchApi.lookupPsPricesCandidates).not.toHaveBeenCalled();
+    expect(
+      candidates.map((candidate) => [candidate.title, candidate.source, candidate.isRecommended])
+    ).toEqual([
+      ['Hades', 'playstation_store', false],
+      ['Hades II', 'playstation_store', true],
+    ]);
+  });
+
   it('passes preferred psprices url through manual pricing refresh queries', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '10148',
       title: 'Night In The Woods',
       coverUrl: null,
       coverSource: 'none',
-      platform: 'PlayStation 5',
-      platformIgdbId: 167,
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: null,
       releaseYear: 2017,
       listType: 'wishlist',
@@ -2207,12 +2299,12 @@ describe('GameShelfService', () => {
       })
     );
 
-    const result = await service.refreshGamePricingWithQuery('10148', 167, {
+    const result = await service.refreshGamePricingWithQuery('10148', 130, {
       title: 'Night In The Woods',
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
+    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
       title: 'Night In The Woods',
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
     });
@@ -2225,8 +2317,8 @@ describe('GameShelfService', () => {
       title: 'Night In The Woods',
       coverUrl: null,
       coverSource: 'none',
-      platform: 'PlayStation 5',
-      platformIgdbId: 167,
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: null,
       releaseYear: 2017,
       psPricesMatchLocked: null,
@@ -2249,11 +2341,11 @@ describe('GameShelfService', () => {
       })
     );
 
-    await service.refreshGamePricingWithQuery('10148', 167, {
+    await service.refreshGamePricingWithQuery('10148', 130, {
       preferredUrl: '  https://psprices.com/region-ch/game/5825037/night-in-the-woods  ',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
+    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
       title: null,
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
     });
@@ -2271,8 +2363,8 @@ describe('GameShelfService', () => {
       title: 'Night In The Woods',
       coverUrl: null,
       coverSource: 'none',
-      platform: 'PlayStation 5',
-      platformIgdbId: 167,
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: null,
       releaseYear: 2017,
       listType: 'wishlist',
@@ -2289,11 +2381,11 @@ describe('GameShelfService', () => {
       })
     );
 
-    await service.refreshGamePricingWithQuery('10148', 167, {
+    await service.refreshGamePricingWithQuery('10148', 130, {
       title: '  Night In The Woods  ',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
+    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
       title: 'Night In The Woods',
       preferredUrl: null,
     });
@@ -2411,7 +2503,7 @@ describe('GameShelfService', () => {
   });
 
   it('covers pricing candidate search guards and candidate normalization branches', async () => {
-    await expect(firstValueFrom(service.searchPricingCandidates('100', 167, 'x'))).resolves.toEqual(
+    await expect(firstValueFrom(service.searchPricingCandidates('100', 130, 'x'))).resolves.toEqual(
       []
     );
     await expect(
@@ -2464,7 +2556,7 @@ describe('GameShelfService', () => {
       }
     ).lookupPsPricesCandidates = undefined;
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+      firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([]);
     searchApi.lookupPsPricesCandidates = originalLookup;
 
@@ -2505,7 +2597,7 @@ describe('GameShelfService', () => {
     );
 
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, '  Valid Title  '))
+      firstValueFrom(service.searchPricingCandidates('100', 130, '  Valid Title  '))
     ).resolves.toEqual([
       {
         title: 'Candidate A',
@@ -2533,7 +2625,7 @@ describe('GameShelfService', () => {
         isRecommended: false,
       },
     ]);
-    expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');
+    expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 130, 'Valid Title');
   });
 
   it('marks recommended pricing candidate by title fallback when bestPrice url is unavailable', async () => {
@@ -2569,7 +2661,7 @@ describe('GameShelfService', () => {
     );
 
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+      firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([
       {
         title: 'Candidate A',
@@ -2641,7 +2733,7 @@ describe('GameShelfService', () => {
     );
 
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+      firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([
       {
         title: 'Candidate A',
@@ -2694,7 +2786,7 @@ describe('GameShelfService', () => {
     );
 
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+      firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([]);
   });
 
@@ -2731,7 +2823,7 @@ describe('GameShelfService', () => {
     );
 
     await expect(
-      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+      firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([
       {
         title: 'Candidate A',
@@ -2826,7 +2918,7 @@ describe('GameShelfService', () => {
             preferredUrl?: string | null
           ) => Promise<unknown>;
         }
-      ).lookupUnifiedPrice('100', 167, null, 'https://psprices.com/region-ch/game/123')
+      ).lookupUnifiedPrice('100', 130, null, 'https://psprices.com/region-ch/game/123')
     ).resolves.toBeNull();
 
     (searchApi as Partial<GameSearchApi>).lookupPsPrices = originalLookupPsPrices;

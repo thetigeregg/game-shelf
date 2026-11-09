@@ -269,7 +269,7 @@ void test('PSPrices revalidation URL prefers psPricesUrl and falls back to pspri
 void test('PSPrices refresh job builder keeps locked rows eligible for background refresh', () => {
   const result = __backgroundWorkerTestables.buildPspricesRefreshJob({
     igdbGameId: '332273',
-    platformIgdbId: 167,
+    platformIgdbId: 130,
     payload: {
       listType: 'wishlist',
       title: 'Monster Train 2',
@@ -288,11 +288,11 @@ void test('PSPrices refresh job builder keeps locked rows eligible for backgroun
 
   assert.deepEqual(result, {
     kind: 'enqueue',
-    dedupeKey: 'pricing-refresh:wishlist:psprices:332273:167:region-ch:games',
+    dedupeKey: 'pricing-refresh:wishlist:psprices:332273:130:region-ch:games',
     payload: {
-      cacheKey: 'pricing-refresh:wishlist:332273:167:region-ch:games',
+      cacheKey: 'pricing-refresh:wishlist:332273:130:region-ch:games',
       igdbGameId: '332273',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Monster Train 2 Corrected',
       psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
     },
@@ -324,7 +324,7 @@ void test('PSPrices refresh job builder reports unsupported, backoff, and missin
   assert.deepEqual(
     __backgroundWorkerTestables.buildPspricesRefreshJob({
       igdbGameId: '332273',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       payload: {
         listType: 'discovery',
         title: 'Monster Train 2',
@@ -352,7 +352,7 @@ void test('PSPrices refresh job builder reports unsupported, backoff, and missin
   assert.deepEqual(
     __backgroundWorkerTestables.buildPspricesRefreshJob({
       igdbGameId: '332273',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       payload: {
         listType: 'wishlist',
         title: '   ',
@@ -411,7 +411,7 @@ void test('PSPrices scheduler helper respects retry backoff and rearms recent re
   assert.equal(
     __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
       payload: payloadWithFutureBackoff,
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
       maxAttempts: 6,
       rearmAfterDays: 30,
@@ -436,7 +436,7 @@ void test('PSPrices scheduler helper respects retry backoff and rearms recent re
   assert.equal(
     __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
       payload: payloadEligibleAfterRearm,
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
       maxAttempts: 6,
       rearmAfterDays: 30,
@@ -463,12 +463,107 @@ void test('PSPrices scheduler helper ignores discovery retry backoff for wishlis
   assert.equal(
     __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
       payload: wishlistPayload,
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
       maxAttempts: 6,
       rearmAfterDays: 30,
       rearmRecentReleaseYears: 1,
     }),
     true
+  );
+});
+
+void test('resolvePriceFetchedAtMs treats a price from another source as stale', () => {
+  const payload = {
+    priceSource: 'psprices',
+    priceAmount: 29.9,
+    priceFetchedAt: '2026-03-10T09:00:00.000Z',
+  };
+  const fetchedAtMs = Date.parse('2026-03-10T09:00:00.000Z');
+
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(payload), fetchedAtMs);
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(payload, 'psprices'),
+    fetchedAtMs
+  );
+  // PS4/PS5 moved to the PlayStation Store: an old psprices price is re-fetched there now.
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(payload, 'playstation_store'),
+    null
+  );
+});
+
+void test('PlayStation Store refresh job builder enqueues PS games and skips the rest', () => {
+  const base = {
+    dedupePrefix: 'pricing-refresh:wishlist',
+    country: 'ch',
+    language: 'de',
+    nowMs: Date.parse('2026-03-10T10:00:00.000Z'),
+    maxAttempts: 6,
+    rearmAfterDays: 30,
+    rearmRecentReleaseYears: 1,
+  };
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
+      ...base,
+      igdbGameId: '1',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Hades 2',
+        playstationStoreMatchQueryTitle: 'Hades II',
+        playstationStoreProductId: 'EP4484-PPSA36082_00-0912328937643383',
+      },
+    }),
+    {
+      kind: 'enqueue',
+      dedupeKey: 'pricing-refresh:wishlist:playstation-store:1:167:ch:de',
+      payload: {
+        cacheKey: 'pricing-refresh:wishlist:1:167:ch:de',
+        igdbGameId: '1',
+        platformIgdbId: 167,
+        title: 'Hades II',
+        productId: 'EP4484-PPSA36082_00-0912328937643383',
+      },
+    }
+  );
+
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
+      ...base,
+      igdbGameId: '2',
+      platformIgdbId: 130,
+      payload: { title: 'Switch Game' },
+    }),
+    { kind: 'skip', reason: 'unsupported-platform' }
+  );
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
+      ...base,
+      igdbGameId: '3',
+      platformIgdbId: 48,
+      payload: {},
+    }),
+    { kind: 'skip', reason: 'missing-data' }
+  );
+  assert.deepEqual(
+    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
+      ...base,
+      igdbGameId: '4',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Backed Off',
+        listType: 'discovery',
+        enrichmentRetry: {
+          playstationStore: {
+            attempts: 6,
+            lastTriedAt: '2026-03-10T09:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true,
+          },
+        },
+      },
+    }),
+    { kind: 'skip', reason: 'backoff' }
   );
 });

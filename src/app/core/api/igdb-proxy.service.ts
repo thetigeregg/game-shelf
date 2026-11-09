@@ -173,6 +173,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly gamesRecentUrl = `${environment.gameApiBaseUrl}/v1/games/recent`;
   private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
   private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
+  private readonly playstationStorePricesUrl = `${environment.gameApiBaseUrl}/v1/playstation-store/prices`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -1115,6 +1116,76 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupPlayStationStorePrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: {
+      title?: string | null;
+      productId?: string | null;
+    }
+  ): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PlayStation Store lookup request.'));
+    }
+
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+    const normalizedTitle = typeof query?.title === 'string' ? query.title.trim() : '';
+    if (normalizedTitle.length > 0) {
+      params = params.set('title', normalizedTitle);
+    }
+    // A product ID or a store product URL; the server validates it.
+    const normalizedProductId = typeof query?.productId === 'string' ? query.productId.trim() : '';
+    if (normalizedProductId.length > 0) {
+      params = params.set('productId', normalizedProductId);
+    }
+
+    return this.getPlayStationStorePrices(params);
+  }
+
+  lookupPlayStationStoreCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown> {
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < 2) {
+      return of({ status: 'unavailable', candidates: [] });
+    }
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PlayStation Store lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId))
+      .set('title', normalizedTitle)
+      .set('includeCandidates', '1');
+    return this.getPlayStationStorePrices(params);
+  }
+
+  private getPlayStationStorePrices(params: HttpParams): Observable<unknown> {
+    const cooldownError = this.createCooldownErrorIfActive();
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.playstationStorePricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+        return throwError(() => new Error('Unable to load PlayStation Store prices.'));
+      })
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const igdbGameId =
@@ -1288,8 +1359,10 @@ export class IgdbProxyService implements GameSearchApi {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private normalizePriceSource(value: unknown): 'steam_store' | 'psprices' | null {
-    if (value === 'steam_store' || value === 'psprices') {
+  private normalizePriceSource(
+    value: unknown
+  ): 'steam_store' | 'playstation_store' | 'psprices' | null {
+    if (value === 'steam_store' || value === 'playstation_store' || value === 'psprices') {
       return value;
     }
 

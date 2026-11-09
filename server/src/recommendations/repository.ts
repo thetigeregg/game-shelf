@@ -261,6 +261,28 @@ export class RecommendationRepository {
                   'psPricesMatchConfidence', games.payload->'psPricesMatchConfidence',
                   'psPricesCandidates', games.payload->'psPricesCandidates',
                   'enrichmentRetry', games.payload->'enrichmentRetry'
+                ) || jsonb_build_object(
+                  'playstationStoreFetchedAt', games.payload->'playstationStoreFetchedAt',
+                  'playstationStoreSource', games.payload->'playstationStoreSource',
+                  'playstationStoreCountry', games.payload->'playstationStoreCountry',
+                  'playstationStoreLanguage', games.payload->'playstationStoreLanguage',
+                  'playstationStorePlatform', games.payload->'playstationStorePlatform',
+                  'playstationStoreProductId', games.payload->'playstationStoreProductId',
+                  'playstationStoreTitle', games.payload->'playstationStoreTitle',
+                  'playstationStoreUrl', games.payload->'playstationStoreUrl',
+                  'playstationStoreImageUrl', games.payload->'playstationStoreImageUrl',
+                  'playstationStorePriceAmount', games.payload->'playstationStorePriceAmount',
+                  'playstationStorePriceCurrency', games.payload->'playstationStorePriceCurrency',
+                  'playstationStoreRegularPriceAmount', games.payload->'playstationStoreRegularPriceAmount',
+                  'playstationStoreDiscountPercent', games.payload->'playstationStoreDiscountPercent',
+                  'playstationStoreIsFree', games.payload->'playstationStoreIsFree',
+                  'playstationStoreSaleEndsAt', games.payload->'playstationStoreSaleEndsAt',
+                  'playstationStoreMatchQueryTitle', games.payload->'playstationStoreMatchQueryTitle',
+                  'playstationStoreMatchTitle', games.payload->'playstationStoreMatchTitle',
+                  'playstationStoreMatchScore', games.payload->'playstationStoreMatchScore',
+                  'playstationStoreMatchConfidence', games.payload->'playstationStoreMatchConfidence',
+                  'playstationStoreCandidates', games.payload->'playstationStoreCandidates',
+                  'playstationStoreMatchLocked', games.payload->'playstationStoreMatchLocked'
                 )
               ),
               updated_at = NOW()

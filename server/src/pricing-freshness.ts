@@ -23,9 +23,21 @@ export function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean 
   return false;
 }
 
-export function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
+/**
+ * When the game's unified price was last fetched successfully, or null when it should be fetched
+ * now. With `expectedSource`, a price from another source also counts as missing: the platform's
+ * prices have moved to a new source (e.g. PS4/PS5 from psprices to the PlayStation Store), so the
+ * game is matched on the new source at the next refresh rather than once the old price ages out.
+ */
+export function resolvePriceFetchedAtMs(
+  payload: Record<string, unknown>,
+  expectedSource?: string | null
+): number | null {
   // Freshness should track successful unified pricing snapshots, not fetch attempts.
   if (!hasUnifiedPriceValue(payload)) {
+    return null;
+  }
+  if (expectedSource && payload['priceSource'] !== expectedSource) {
     return null;
   }
 

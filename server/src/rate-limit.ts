@@ -41,6 +41,7 @@ export type RateLimitPolicyName =
   | 'popularity_feed'
   | 'steam_prices'
   | 'psprices_prices'
+  | 'playstation_store_prices'
   | 'hltb_search'
   | 'metacritic_search'
   | 'mobygames_search';

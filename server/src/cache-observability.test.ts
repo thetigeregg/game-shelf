@@ -24,6 +24,7 @@ type CacheStatsPayload = {
     mobygamesEntries: number | null;
     steamPriceEntries: number | null;
     pspricesPriceEntries: number | null;
+    playstationStorePriceEntries: number | null;
   };
   metrics: CacheMetricSnapshot;
   dbError: string | null;
@@ -61,6 +62,9 @@ class CacheStatsPoolMock {
     }
     if (normalized.includes("payload->>'pspricesfetchedat'")) {
       return Promise.resolve({ rows: [{ count: '29' }] });
+    }
+    if (normalized.includes("payload->>'playstationstorefetchedat'")) {
+      return Promise.resolve({ rows: [{ count: '31' }] });
     }
 
     throw new Error(`Unsupported SQL in CacheStatsPoolMock: ${sql}`);
@@ -113,6 +117,7 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(payload.counts.mobygamesEntries, 19);
   assert.equal(payload.counts.steamPriceEntries, 23);
   assert.equal(payload.counts.pspricesPriceEntries, 29);
+  assert.equal(payload.counts.playstationStorePriceEntries, 31);
   assert.equal(payload.metrics.image.hits, 1);
   assert.equal(payload.metrics.image.misses, 1);
   assert.equal(payload.metrics.igdb.hits, 1);

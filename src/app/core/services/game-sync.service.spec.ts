@@ -3065,4 +3065,14 @@ describe('GameSyncService', () => {
     const attemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
     expect(attemptMeta?.value).toBeTruthy();
   });
+
+  it('keeps every known price source, including the PlayStation Store', () => {
+    const normalizePriceSource = (
+      service as unknown as { normalizePriceSource: (value: unknown) => unknown }
+    ).normalizePriceSource.bind(service);
+    expect(normalizePriceSource('steam_store')).toBe('steam_store');
+    expect(normalizePriceSource('playstation_store')).toBe('playstation_store');
+    expect(normalizePriceSource('psprices')).toBe('psprices');
+    expect(normalizePriceSource('epic_games')).toBeNull();
+  });
 });

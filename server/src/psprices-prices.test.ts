@@ -196,7 +196,7 @@ void test('PSPrices route returns 404 when game row does not exist', async () =>
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=999&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=999&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 404);
@@ -209,7 +209,7 @@ void test('PSPrices route returns 404 when game row does not exist', async () =>
 void test('PSPrices route fetches scraper result and persists normalized fields', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
   });
   const requestUrls: string[] = [];
@@ -221,7 +221,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
       requestUrls.push(url.href);
       assert.equal(url.pathname, '/v1/psprices/search');
       assert.equal(url.searchParams.get('q'), 'Monster Train 2');
-      assert.equal(url.searchParams.get('platform'), 'PS5');
+      assert.equal(url.searchParams.get('platform'), 'Switch');
       assert.equal(url.searchParams.get('region'), 'region-ch');
       assert.equal(url.searchParams.get('show'), 'games');
       assert.equal(url.searchParams.get('includeCandidates'), '1');
@@ -250,7 +250,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -258,7 +258,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   const body = parseJsonRecord(response.body);
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], false);
-  assert.equal(body['platform'], 'PS5');
+  assert.equal(body['platform'], 'Switch');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
   assert.equal(bestPrice['amount'], 49.9);
@@ -267,11 +267,11 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   assert.equal(bestPrice['discountPercent'], 28);
   assert.equal(bestPrice['url'], 'https://psprices.com/region-ch/game/1234/monster-train-2');
 
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesRegionPath'], 'region-ch');
   assert.equal(persisted['psPricesShow'], 'games');
-  assert.equal(persisted['psPricesPlatform'], 'PS5');
+  assert.equal(persisted['psPricesPlatform'], 'Switch');
   assert.equal(persisted['psPricesPriceAmount'], 49.9);
   assert.equal(persisted['psPricesPriceCurrency'], 'CHF');
   assert.equal(persisted['priceSource'], 'psprices');
@@ -290,7 +290,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
 void test('PSPrices route falls back currency from region when scraper omits it', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
   });
 
@@ -318,7 +318,7 @@ void test('PSPrices route falls back currency from region when scraper omits it'
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -326,7 +326,7 @@ void test('PSPrices route falls back currency from region when scraper omits it'
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
   assert.equal(bestPrice['currency'], 'CHF');
 
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesPriceCurrency'], 'CHF');
   assert.equal(persisted['priceCurrency'], 'CHF');
@@ -337,7 +337,7 @@ void test('PSPrices route falls back currency from region when scraper omits it'
 void test('PSPrices route suppresses sync event writes for discovery rows', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     listType: 'discovery',
     title: 'Monster Train 2',
   });
@@ -367,7 +367,7 @@ void test('PSPrices route suppresses sync event writes for discovery rows', asyn
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -379,7 +379,7 @@ void test('PSPrices route suppresses sync event writes for discovery rows', asyn
 void test('PSPrices route preserves existing unified price data when lookup is unavailable', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
     priceSource: 'psprices',
     priceAmount: 49.9,
@@ -418,7 +418,7 @@ void test('PSPrices route preserves existing unified price data when lookup is u
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -426,7 +426,7 @@ void test('PSPrices route preserves existing unified price data when lookup is u
   assert.equal(body['status'], 'unavailable');
   assert.equal(body['bestPrice'], null);
 
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.ok(persisted);
   assert.equal(persisted['priceSource'], 'psprices');
   assert.equal(persisted['priceAmount'], 49.9);
@@ -450,7 +450,7 @@ function scraperResponse(body: Record<string, unknown>): Promise<Response> {
 void test('PSPrices route refuses to save a no-match from an incomplete scraper search', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, { title: 'Monster Train 2' });
+  pool.seed('332273', 130, { title: 'Monster Train 2' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -463,11 +463,11 @@ void test('PSPrices route refuses to save a no-match from an incomplete scraper 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 502);
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesFetchedAt'], undefined);
   assert.equal(persisted['psPricesMatchConfidence'], undefined);
@@ -478,7 +478,7 @@ void test('PSPrices route refuses to save a no-match from an incomplete scraper 
 void test('PSPrices route refuses an incomplete scraper search that found nothing', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, { title: 'Monster Train 2' });
+  pool.seed('332273', 130, { title: 'Monster Train 2' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () => scraperResponse({ item: null, candidates: [], incomplete: true }),
@@ -486,11 +486,11 @@ void test('PSPrices route refuses an incomplete scraper search that found nothin
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 502);
-  assert.equal(pool.getPayload('332273', 167)?.['psPricesFetchedAt'], undefined);
+  assert.equal(pool.getPayload('332273', 130)?.['psPricesFetchedAt'], undefined);
 
   await app.close();
 });
@@ -498,7 +498,7 @@ void test('PSPrices route refuses an incomplete scraper search that found nothin
 void test('PSPrices route returns unsaved candidates from an incomplete search to the picker', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, { title: 'Monster Train 2' });
+  pool.seed('332273', 130, { title: 'Monster Train 2' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -518,7 +518,7 @@ void test('PSPrices route returns unsaved candidates from an incomplete search t
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -529,7 +529,7 @@ void test('PSPrices route returns unsaved candidates from an incomplete search t
   assert.equal(body['cached'], false);
   assert.deepEqual(readCandidateTitles(body), ['Different Game Name']);
   assert.equal(body['incompleteNoMatch'], undefined);
-  assert.equal(pool.getPayload('332273', 167)?.['psPricesFetchedAt'], undefined);
+  assert.equal(pool.getPayload('332273', 130)?.['psPricesFetchedAt'], undefined);
 
   await app.close();
 });
@@ -579,7 +579,7 @@ void test('PSPrices stale revalidation keeps the cached result after an incomple
 void test('PSPrices route saves a match from an incomplete scraper search', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, { title: 'Monster Train 2' });
+  pool.seed('332273', 130, { title: 'Monster Train 2' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -596,12 +596,12 @@ void test('PSPrices route saves a match from an incomplete scraper search', asyn
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
   assert.equal(parseJsonRecord(response.body)['status'], 'ok');
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesPriceAmount'], 49.9);
   assert.equal(typeof persisted['psPricesFetchedAt'], 'string');
@@ -612,7 +612,7 @@ void test('PSPrices route saves a match from an incomplete scraper search', asyn
 void test('queued PSPrices revalidation fails instead of saving an incomplete no-match', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('700', 167, {
+  pool.seed('700', 130, {
     listType: 'discovery',
     title: 'Unknown PS Game',
     platform: 'PlayStation 5',
@@ -624,9 +624,9 @@ void test('queued PSPrices revalidation fails instead of saving an incomplete no
   try {
     await assert.rejects(
       processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-        cacheKey: 'pricing-refresh:discovery:700:167:region-ch:games',
+        cacheKey: 'pricing-refresh:discovery:700:130:region-ch:games',
         igdbGameId: '700',
-        platformIgdbId: 167,
+        platformIgdbId: 130,
         title: 'Unknown PS Game',
         psPricesUrl: null,
       }),
@@ -636,7 +636,7 @@ void test('queued PSPrices revalidation fails instead of saving an incomplete no
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('700', 167);
+  const persisted = pool.getPayload('700', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesFetchedAt'], undefined);
   assert.equal(persisted['enrichmentRetry'], undefined);
@@ -645,7 +645,7 @@ void test('queued PSPrices revalidation fails instead of saving an incomplete no
 void test('PSPrices route reaches wishlist sale notification checks during discount transition', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
     listType: 'wishlist',
     priceAmount: 69.9,
@@ -679,7 +679,7 @@ void test('PSPrices route reaches wishlist sale notification checks during disco
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -833,12 +833,12 @@ void test('PSPrices route bypasses fresh cache when title override is provided',
 void test('PSPrices route honors preferredPsPricesUrl query override and bypasses fresh cache', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('5263323', 167, {
+  pool.seed('5263323', 130, {
     title: 'Night In The Woods',
     psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
-    psPricesPlatform: 'PS5',
+    psPricesPlatform: 'Switch',
     psPricesTitle: 'Night In The Woods',
     psPricesPriceAmount: 25.5,
     psPricesPriceCurrency: 'CHF',
@@ -894,7 +894,7 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
   const response = await app.inject({
     method: 'GET',
     url:
-      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&preferredPsPricesUrl=' +
       encodeURIComponent('https://psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
@@ -914,12 +914,12 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
 void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query overrides', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('5263323', 167, {
+  pool.seed('5263323', 130, {
     title: 'Night In The Woods',
     psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
-    psPricesPlatform: 'PS5',
+    psPricesPlatform: 'Switch',
     psPricesTitle: 'Night In The Woods',
     psPricesPriceAmount: 25.5,
     psPricesPriceCurrency: 'CHF',
@@ -973,7 +973,7 @@ void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query o
   const response = await app.inject({
     method: 'GET',
     url:
-      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&preferredPsPricesUrl=' +
       encodeURIComponent('//psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
@@ -989,12 +989,12 @@ void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query o
 void test('PSPrices route canonicalizes www preferredPsPricesUrl hostnames', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('5263323', 167, {
+  pool.seed('5263323', 130, {
     title: 'Night In The Woods',
     psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
-    psPricesPlatform: 'PS5',
+    psPricesPlatform: 'Switch',
     psPricesTitle: 'Night In The Woods',
     psPricesPriceAmount: 25.5,
     psPricesPriceCurrency: 'CHF',
@@ -1034,7 +1034,7 @@ void test('PSPrices route canonicalizes www preferredPsPricesUrl hostnames', asy
   const response = await app.inject({
     method: 'GET',
     url:
-      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&preferredPsPricesUrl=' +
       encodeURIComponent('https://www.psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
@@ -1049,12 +1049,12 @@ void test('PSPrices route canonicalizes www preferredPsPricesUrl hostnames', asy
 void test('PSPrices route ignores invalid external preferredPsPricesUrl overrides', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('5263323', 167, {
+  pool.seed('5263323', 130, {
     title: 'Night In The Woods',
     psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
-    psPricesPlatform: 'PS5',
+    psPricesPlatform: 'Switch',
     psPricesTitle: 'Night In The Woods',
     psPricesPriceAmount: 25.5,
     psPricesPriceCurrency: 'CHF',
@@ -1101,7 +1101,7 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
   const invalidPreferredResponse = await app.inject({
     method: 'GET',
     url:
-      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&preferredPsPricesUrl=' +
       encodeURIComponent('https://example.com/not-psprices'),
   });
   assert.equal(invalidPreferredResponse.statusCode, 200);
@@ -1109,7 +1109,7 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
 
   const plainResponse = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
   });
   assert.equal(plainResponse.statusCode, 200);
   assert.equal(plainResponse.headers['x-gameshelf-psprices-cache'], 'HIT_FRESH');
@@ -1121,7 +1121,7 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
 void test('queued PSPrices revalidation stores retry state after a no-match discovery lookup', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('700', 167, {
+  pool.seed('700', 130, {
     listType: 'discovery',
     title: 'Unknown PS Game',
     platform: 'PlayStation 5',
@@ -1138,9 +1138,9 @@ void test('queued PSPrices revalidation stores retry state after a no-match disc
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:discovery:700:167:region-ch:games',
+      cacheKey: 'pricing-refresh:discovery:700:130:region-ch:games',
       igdbGameId: '700',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Unknown PS Game',
       psPricesUrl: null,
     });
@@ -1148,7 +1148,7 @@ void test('queued PSPrices revalidation stores retry state after a no-match disc
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('700', 167);
+  const persisted = pool.getPayload('700', 130);
   assert.ok(persisted);
   assert.deepEqual(persisted['enrichmentRetry'], {
     psprices: {
@@ -1189,7 +1189,7 @@ void test('queued PSPrices revalidation stores retry state after a no-match disc
 void test('queued PSPrices revalidation clears retry state after a successful discovery lookup', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('701', 167, {
+  pool.seed('701', 130, {
     listType: 'discovery',
     title: 'Known PS Game',
     platform: 'PlayStation 5',
@@ -1224,9 +1224,9 @@ void test('queued PSPrices revalidation clears retry state after a successful di
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:discovery:701:167:region-ch:games',
+      cacheKey: 'pricing-refresh:discovery:701:130:region-ch:games',
       igdbGameId: '701',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Known PS Game',
       psPricesUrl: null,
     });
@@ -1234,7 +1234,7 @@ void test('queued PSPrices revalidation clears retry state after a successful di
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('701', 167);
+  const persisted = pool.getPayload('701', 130);
   assert.ok(persisted);
   const retry =
     persisted['enrichmentRetry'] &&
@@ -1251,7 +1251,7 @@ void test('queued PSPrices revalidation clears retry state after a successful di
 void test('queued PSPrices revalidation does not write retry state after a wishlist miss', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('1700', 167, {
+  pool.seed('1700', 130, {
     listType: 'wishlist',
     title: 'Wishlist PS Game',
     platform: 'PlayStation 5',
@@ -1268,9 +1268,9 @@ void test('queued PSPrices revalidation does not write retry state after a wishl
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:wishlist:1700:167:region-ch:games',
+      cacheKey: 'pricing-refresh:wishlist:1700:130:region-ch:games',
       igdbGameId: '1700',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Wishlist PS Game',
       psPricesUrl: null,
     });
@@ -1278,7 +1278,7 @@ void test('queued PSPrices revalidation does not write retry state after a wishl
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('1700', 167);
+  const persisted = pool.getPayload('1700', 130);
   assert.ok(persisted);
   assert.equal(persisted['enrichmentRetry'] ?? null, null);
 });
@@ -1286,7 +1286,7 @@ void test('queued PSPrices revalidation does not write retry state after a wishl
 void test('queued PSPrices revalidation clears stale retry state after a wishlist refresh', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('1701', 167, {
+  pool.seed('1701', 130, {
     listType: 'wishlist',
     title: 'Wishlist PS Game',
     platform: 'PlayStation 5',
@@ -1321,9 +1321,9 @@ void test('queued PSPrices revalidation clears stale retry state after a wishlis
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:wishlist:1701:167:region-ch:games',
+      cacheKey: 'pricing-refresh:wishlist:1701:130:region-ch:games',
       igdbGameId: '1701',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Wishlist PS Game',
       psPricesUrl: null,
     });
@@ -1331,7 +1331,7 @@ void test('queued PSPrices revalidation clears stale retry state after a wishlis
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('1701', 167);
+  const persisted = pool.getPayload('1701', 130);
   assert.ok(persisted);
   assert.equal(persisted['enrichmentRetry'] ?? null, null);
 });
@@ -1339,7 +1339,7 @@ void test('queued PSPrices revalidation clears stale retry state after a wishlis
 void test('queued PSPrices revalidation refreshes locked games using the saved match', async () => {
   const originalFetch = globalThis.fetch;
   const pool = new GamePoolMock();
-  pool.seed('1702', 167, {
+  pool.seed('1702', 130, {
     listType: 'wishlist',
     title: 'Original Title',
     psPricesMatchLocked: true,
@@ -1367,9 +1367,9 @@ void test('queued PSPrices revalidation refreshes locked games using the saved m
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:wishlist:1702:167:region-ch:games',
+      cacheKey: 'pricing-refresh:wishlist:1702:130:region-ch:games',
       igdbGameId: '1702',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: '',
       psPricesUrl: null,
     });
@@ -1377,7 +1377,7 @@ void test('queued PSPrices revalidation refreshes locked games using the saved m
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('1702', 167);
+  const persisted = pool.getPayload('1702', 130);
   assert.ok(persisted);
   assert.equal(persisted['psPricesMatchQueryTitle'], 'Corrected Title');
   assert.equal(persisted['psPricesTitle'], 'Corrected Title');
@@ -1394,7 +1394,7 @@ void test('queued PSPrices revalidation rearms capped retry state before persist
   const originalRearmRecentReleaseYears =
     config.recommendationsDiscoveryEnrichRearmRecentReleaseYears;
   const pool = new GamePoolMock();
-  pool.seed('702', 167, {
+  pool.seed('702', 130, {
     listType: 'discovery',
     title: 'Rearmer PS Game',
     platform: 'PlayStation 5',
@@ -1422,9 +1422,9 @@ void test('queued PSPrices revalidation rearms capped retry state before persist
 
   try {
     await processQueuedPspricesPriceRevalidation(pool as unknown as Pool, {
-      cacheKey: 'pricing-refresh:discovery:702:167:region-ch:games',
+      cacheKey: 'pricing-refresh:discovery:702:130:region-ch:games',
       igdbGameId: '702',
-      platformIgdbId: 167,
+      platformIgdbId: 130,
       title: 'Rearmer PS Game',
       psPricesUrl: null,
     });
@@ -1435,7 +1435,7 @@ void test('queued PSPrices revalidation rearms capped retry state before persist
     globalThis.fetch = originalFetch;
   }
 
-  const persisted = pool.getPayload('702', 167);
+  const persisted = pool.getPayload('702', 130);
   assert.ok(persisted);
   assert.deepEqual(persisted['enrichmentRetry'], {
     psprices: {
@@ -1476,12 +1476,12 @@ void test('queued PSPrices revalidation rearms capped retry state before persist
 void test('PSPrices route clears persisted preferred url when a title override is provided', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('5263323', 167, {
+  pool.seed('5263323', 130, {
     title: 'Night In The Woods',
     psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
-    psPricesPlatform: 'PS5',
+    psPricesPlatform: 'Switch',
     psPricesTitle: 'Night In The Woods',
     psPricesPriceAmount: 25.5,
     psPricesPriceCurrency: 'CHF',
@@ -1527,7 +1527,7 @@ void test('PSPrices route clears persisted preferred url when a title override i
   const response = await app.inject({
     method: 'GET',
     url:
-      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&title=' +
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&title=' +
       encodeURIComponent('Night In The Woods Deluxe'),
   });
 
@@ -1704,7 +1704,7 @@ void test('PSPrices route schedules stale revalidation when psPrices match is lo
 void test('PSPrices route sets psPricesMatchLocked when title override is used', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
   });
 
@@ -1731,11 +1731,11 @@ void test('PSPrices route sets psPricesMatchLocked when title override is used',
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&title=Monster%20Train%202',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130&title=Monster%20Train%202',
   });
 
   assert.equal(response.statusCode, 200);
-  const persisted = pool.getPayload('332273', 167);
+  const persisted = pool.getPayload('332273', 130);
   assert.equal(persisted?.['psPricesMatchLocked'], true);
 
   await app.close();
@@ -1801,7 +1801,7 @@ void test('PSPrices route prefers persisted psPricesUrl candidate over fuzzy tit
 void test('PSPrices route can return ranked candidates for manual picker workflows', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('332273', 167, {
+  pool.seed('332273', 130, {
     title: 'Monster Train 2',
   });
 
@@ -1851,7 +1851,7 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=130&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1937,7 +1937,7 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
 void test('PSPrices scoring treats complete edition as neutral for title confidence', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('777777', 167, {
+  pool.seed('777777', 130, {
     title: 'Nioh 2',
   });
 
@@ -1972,7 +1972,7 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=777777&platformIgdbId=167&title=Nioh%202&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=777777&platformIgdbId=130&title=Nioh%202&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1994,7 +1994,7 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
 void test('PSPrices scoring treats roman and arabic sequel numerals as equivalent', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('119171', 167, {
+  pool.seed('119171', 130, {
     title: "Baldur's Gate III",
   });
 
@@ -2031,7 +2031,7 @@ void test('PSPrices scoring treats roman and arabic sequel numerals as equivalen
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=119171&platformIgdbId=167&title=Baldur%27s%20Gate%20III&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=119171&platformIgdbId=130&title=Baldur%27s%20Gate%20III&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -2052,7 +2052,7 @@ void test('PSPrices scoring treats roman and arabic sequel numerals as equivalen
 void test('PSPrices scoring treats roman and arabic numerals equivalently for sequel tokens', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('111111', 167, {
+  pool.seed('111111', 130, {
     title: 'Resident Evil VII',
   });
 
@@ -2089,7 +2089,7 @@ void test('PSPrices scoring treats roman and arabic numerals equivalently for se
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=111111&platformIgdbId=167&title=Resident%20Evil%20VII&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=111111&platformIgdbId=130&title=Resident%20Evil%20VII&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -2107,7 +2107,7 @@ void test('PSPrices scoring treats roman and arabic numerals equivalently for se
 void test('PSPrices scoring treats ampersand and and as equivalent', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('999991', 167, {
+  pool.seed('999991', 130, {
     title: 'Ratchet & Clank: Rift Apart',
   });
 
@@ -2144,7 +2144,7 @@ void test('PSPrices scoring treats ampersand and and as equivalent', async () =>
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=999991&platformIgdbId=167&title=Ratchet%20%26%20Clank%3A%20Rift%20Apart&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=999991&platformIgdbId=130&title=Ratchet%20%26%20Clank%3A%20Rift%20Apart&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -2162,7 +2162,7 @@ void test('PSPrices scoring treats ampersand and and as equivalent', async () =>
 void test('PSPrices scoring resolves duplicate title ties using metadata quality signals', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('36952', 48, {
+  pool.seed('36952', 508, {
     title: 'Wolfenstein II: The New Colossus',
   });
 
@@ -2208,7 +2208,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=36952&platformIgdbId=48&title=Wolfenstein%20II%3A%20The%20New%20Colossus&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=36952&platformIgdbId=508&title=Wolfenstein%20II%3A%20The%20New%20Colossus&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -2232,7 +2232,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
 void test('PSPrices suffix taxonomy enforces baseline variant ordering for Diablo IV', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('125165', 167, { title: 'Diablo IV' });
+  pool.seed('125165', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2310,7 +2310,7 @@ void test('PSPrices suffix taxonomy enforces baseline variant ordering for Diabl
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -2333,7 +2333,7 @@ void test('PSPrices suffix taxonomy enforces baseline variant ordering for Diabl
 void test('PSPrices treats missing Edition labels as same suffix class behavior', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('125165', 167, { title: 'Diablo IV' });
+  pool.seed('125165', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2359,7 +2359,7 @@ void test('PSPrices treats missing Edition labels as same suffix class behavior'
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2448,7 +2448,7 @@ void test('PSPrices ranks ultimate or gold above deluxe for strong core title ma
 void test('PSPrices suppresses expansion style variants below deluxe for same core title', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('1930', 167, { title: 'Cyberpunk 2077' });
+  pool.seed('1930', 130, { title: 'Cyberpunk 2077' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2470,7 +2470,7 @@ void test('PSPrices suppresses expansion style variants below deluxe for same co
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=1930&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=1930&platformIgdbId=130&title=Cyberpunk%202077&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2492,7 +2492,7 @@ void test('PSPrices suppresses expansion style variants below deluxe for same co
 void test('PSPrices keeps collection variants below closest single-game title', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('91011', 167, { title: 'BioShock' });
+  pool.seed('91011', 130, { title: 'BioShock' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2513,7 +2513,7 @@ void test('PSPrices keeps collection variants below closest single-game title', 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=91011&platformIgdbId=167&title=BioShock&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=91011&platformIgdbId=130&title=BioShock&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2526,7 +2526,7 @@ void test('PSPrices keeps collection variants below closest single-game title', 
 void test('PSPrices classifier treats deluxe separators and parentheses consistently', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('1200', 167, { title: 'Resident Evil 4' });
+  pool.seed('1200', 130, { title: 'Resident Evil 4' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2548,7 +2548,7 @@ void test('PSPrices classifier treats deluxe separators and parentheses consiste
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=1200&platformIgdbId=167&title=Resident%20Evil%204&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=1200&platformIgdbId=130&title=Resident%20Evil%204&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2563,7 +2563,7 @@ void test('PSPrices classifier treats deluxe separators and parentheses consiste
 void test('PSPrices keeps metadata tie-break behavior within same suffix class', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('125165', 167, { title: 'Diablo IV' });
+  pool.seed('125165', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2598,7 +2598,7 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2611,7 +2611,7 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
 void test('PSPrices prefers parseable gameId when other tie-break signals are equal', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991007', 167, { title: 'Diablo IV' });
+  pool.seed('991007', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2631,7 +2631,7 @@ void test('PSPrices prefers parseable gameId when other tie-break signals are eq
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991007&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991007&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2644,7 +2644,7 @@ void test('PSPrices prefers parseable gameId when other tie-break signals are eq
 void test('PSPrices strong-core guardrail keeps stronger core match above weak standard variant', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('125165', 167, { title: 'Diablo IV' });
+  pool.seed('125165', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2674,7 +2674,7 @@ void test('PSPrices strong-core guardrail keeps stronger core match above weak s
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2687,7 +2687,7 @@ void test('PSPrices strong-core guardrail keeps stronger core match above weak s
 void test('PSPrices keeps high confidence for strong base vs standard ties', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991006', 167, { title: 'Diablo IV' });
+  pool.seed('991006', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2712,7 +2712,7 @@ void test('PSPrices keeps high confidence for strong base vs standard ties', asy
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991006&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991006&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2731,7 +2731,7 @@ void test('PSPrices keeps high confidence for strong base vs standard ties', asy
 void test('PSPrices does not auto-promote high confidence for non-base equivalent strong-core ties', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991021', 167, { title: 'Diablo IV' });
+  pool.seed('991021', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2761,7 +2761,7 @@ void test('PSPrices does not auto-promote high confidence for non-base equivalen
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991021&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991021&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2777,7 +2777,7 @@ void test('PSPrices does not auto-promote high confidence for non-base equivalen
 void test('PSPrices keeps platform markers neutral relative to edition ranking', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991001', 167, { title: 'Hogwarts Legacy' });
+  pool.seed('991001', 130, { title: 'Hogwarts Legacy' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2793,7 +2793,7 @@ void test('PSPrices keeps platform markers neutral relative to edition ranking',
                 isFree: false,
                 url: 's2',
               },
-              { title: 'Hogwarts Legacy PS5', amount: 59.9, isFree: false, url: 'ps5' },
+              { title: 'Hogwarts Legacy Switch', amount: 59.9, isFree: false, url: 'ps5' },
               { title: 'Hogwarts Legacy', amount: 49.9, isFree: false, url: 'base' },
             ],
           }),
@@ -2804,12 +2804,12 @@ void test('PSPrices keeps platform markers neutral relative to edition ranking',
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991001&platformIgdbId=167&title=Hogwarts%20Legacy&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991001&platformIgdbId=130&title=Hogwarts%20Legacy&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
   assert.equal(titles[0], 'Hogwarts Legacy');
-  assert.equal(titles[1], 'Hogwarts Legacy PS5');
+  assert.equal(titles[1], 'Hogwarts Legacy Switch');
   assert.equal(titles[2], 'Hogwarts Legacy Nintendo Switch 2 Edition');
   assert.equal(titles[3], 'Hogwarts Legacy Deluxe Edition');
 
@@ -2819,7 +2819,7 @@ void test('PSPrices keeps platform markers neutral relative to edition ranking',
 void test('PSPrices applies platform neutrality alongside edition ordering', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991002', 167, { title: 'Cyberpunk 2077' });
+  pool.seed('991002', 130, { title: 'Cyberpunk 2077' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2829,7 +2829,7 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
             item: null,
             candidates: [
               {
-                title: 'Cyberpunk 2077 PS5 Deluxe Edition',
+                title: 'Cyberpunk 2077 Switch Deluxe Edition',
                 amount: 74.9,
                 isFree: false,
                 url: 'ps5-deluxe',
@@ -2840,7 +2840,7 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
                 isFree: false,
                 url: 'deluxe',
               },
-              { title: 'Cyberpunk 2077 PS5', amount: 59.9, isFree: false, url: 'ps5' },
+              { title: 'Cyberpunk 2077 Switch', amount: 59.9, isFree: false, url: 'ps5' },
               { title: 'Cyberpunk 2077', amount: 49.9, isFree: false, url: 'base' },
             ],
           }),
@@ -2851,14 +2851,14 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991002&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991002&platformIgdbId=130&title=Cyberpunk%202077&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
   assert.equal(titles[0], 'Cyberpunk 2077');
-  assert.equal(titles[1], 'Cyberpunk 2077 PS5');
+  assert.equal(titles[1], 'Cyberpunk 2077 Switch');
   assert.equal(titles[2], 'Cyberpunk 2077 Deluxe Edition');
-  assert.equal(titles[3], 'Cyberpunk 2077 PS5 Deluxe Edition');
+  assert.equal(titles[3], 'Cyberpunk 2077 Switch Deluxe Edition');
 
   await app.close();
 });
@@ -2866,7 +2866,7 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
 void test('PSPrices keeps strong confidence when platform marker precedes edition suffix', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991020', 167, { title: 'Diablo IV' });
+  pool.seed('991020', 130, { title: 'Diablo IV' });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2876,7 +2876,7 @@ void test('PSPrices keeps strong confidence when platform marker precedes editio
             item: null,
             candidates: [
               {
-                title: 'Diablo IV PS5 Deluxe Edition',
+                title: 'Diablo IV Switch Deluxe Edition',
                 amount: 69.9,
                 isFree: false,
                 url: 'ps5-deluxe',
@@ -2890,7 +2890,7 @@ void test('PSPrices keeps strong confidence when platform marker precedes editio
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991020&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991020&platformIgdbId=130&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2900,7 +2900,7 @@ void test('PSPrices keeps strong confidence when platform marker precedes editio
   assert.equal(match['confidence'], 'high');
   const bestPrice = body['bestPrice'] as Record<string, unknown> | null;
   assert.notEqual(bestPrice, null);
-  assert.equal(bestPrice?.['title'], 'Diablo IV PS5 Deluxe Edition');
+  assert.equal(bestPrice?.['title'], 'Diablo IV Switch Deluxe Edition');
 
   await app.close();
 });
@@ -2908,7 +2908,7 @@ void test('PSPrices keeps strong confidence when platform marker precedes editio
 void test('PSPrices classifies platform upgrade variants as expansion-style content', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
-  pool.seed('991003', 167, { title: "No Man's Sky" });
+  pool.seed('991003', 130, { title: "No Man's Sky" });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
     fetchImpl: () =>
@@ -2917,8 +2917,8 @@ void test('PSPrices classifies platform upgrade variants as expansion-style cont
           JSON.stringify({
             item: null,
             candidates: [
-              { title: "No Man's Sky PS5 Upgrade", amount: 9.9, isFree: false, url: 'upgrade' },
-              { title: "No Man's Sky PS5", amount: 39.9, isFree: false, url: 'ps5' },
+              { title: "No Man's Sky Switch Upgrade", amount: 9.9, isFree: false, url: 'upgrade' },
+              { title: "No Man's Sky Switch", amount: 39.9, isFree: false, url: 'ps5' },
               { title: "No Man's Sky", amount: 29.9, isFree: false, url: 'base' },
             ],
           }),
@@ -2929,13 +2929,13 @@ void test('PSPrices classifies platform upgrade variants as expansion-style cont
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991003&platformIgdbId=167&title=No%20Man%27s%20Sky&includeCandidates=1',
+    url: '/v1/psprices/prices?igdbGameId=991003&platformIgdbId=130&title=No%20Man%27s%20Sky&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
   assert.equal(titles[0], "No Man's Sky");
-  assert.equal(titles[1], "No Man's Sky PS5");
-  assert.equal(titles[2], "No Man's Sky PS5 Upgrade");
+  assert.equal(titles[1], "No Man's Sky Switch");
+  assert.equal(titles[2], "No Man's Sky Switch Upgrade");
 
   await app.close();
 });
@@ -2975,5 +2975,31 @@ void test('PSPrices does not strip platform words when they are part of canonica
   assert.equal(titles[0], 'Nintendo Switch Sports');
   assert.equal(titles[1], 'Nintendo Switch Sports Deluxe Edition');
 
+  await app.close();
+});
+
+void test('PSPrices route no longer prices PS4 and PS5, which use the PlayStation Store', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, { title: 'Monster Train 2' });
+  pool.seed('332273', 48, { title: 'Monster Train 2' });
+  let fetchCalls = 0;
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    },
+  });
+
+  for (const platformIgdbId of [48, 167]) {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/psprices/prices?igdbGameId=332273&platformIgdbId=${String(platformIgdbId)}`,
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(parseJsonRecord(response.body)['status'], 'unsupported_platform');
+  }
+  assert.equal(fetchCalls, 0);
+  assert.equal(pool.getPayload('332273', 167)?.['priceSource'], undefined);
   await app.close();
 });

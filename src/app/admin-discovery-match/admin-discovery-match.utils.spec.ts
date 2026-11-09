@@ -176,8 +176,12 @@ describe('adminDiscoveryMatchUtils', () => {
 
   it('defaults pricing source by platform when no stored source exists', () => {
     expect(resolveAdminPricingSource(6, null)).toBe('steam_store');
-    expect(resolveAdminPricingSource(48, null)).toBe('psprices');
+    expect(resolveAdminPricingSource(48, null)).toBe('playstation_store');
+    expect(resolveAdminPricingSource(167, null)).toBe('playstation_store');
+    expect(resolveAdminPricingSource(130, null)).toBe('psprices');
+    expect(resolveAdminPricingSource(508, null)).toBe('psprices');
     expect(resolveAdminPricingSource(48, 'steam_store')).toBe('steam_store');
+    expect(resolveAdminPricingSource(48, 'playstation_store')).toBe('playstation_store');
   });
 
   it('parses only positive admin integers for ids and years', () => {

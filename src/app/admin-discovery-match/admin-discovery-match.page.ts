@@ -60,7 +60,7 @@ import { ClientWriteAuthService } from '../core/services/client-write-auth.servi
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
-type PricingSource = 'steam_store' | 'psprices';
+type PricingSource = 'steam_store' | 'playstation_store' | 'psprices';
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -114,6 +114,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
 
   readonly pricingSourceOptions: Array<{ value: PricingSource; label: string }> = [
     { value: 'steam_store', label: 'Steam Store' },
+    { value: 'playstation_store', label: 'PlayStation Store' },
     { value: 'psprices', label: 'PSPrices' },
   ];
 
@@ -190,6 +191,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
     psPricesUrl: string;
     psPricesTitle: string;
     psPricesPlatform: string;
+    playstationStoreProduct: string;
   } = {
     priceSource: 'psprices',
     priceFetchedAt: '',
@@ -202,6 +204,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
     psPricesUrl: '',
     psPricesTitle: '',
     psPricesPlatform: '',
+    playstationStoreProduct: '',
   };
 
   private readonly adminMatchService = inject(AdminDiscoveryMatchService);
@@ -267,6 +270,10 @@ export class AdminDiscoveryMatchPage implements OnInit {
 
   get showPsPricesFields(): boolean {
     return this.isPsPricesSource(this.pricingForm.priceSource);
+  }
+
+  get showPlayStationStoreFields(): boolean {
+    return this.pricingForm.priceSource === 'playstation_store';
   }
 
   async loadItems(): Promise<void> {
@@ -589,6 +596,8 @@ export class AdminDiscoveryMatchPage implements OnInit {
       psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
       psPricesTitle: isPsPricesSource ? candidate.title : '',
       psPricesPlatform: isPsPricesSource ? this.pricingForm.psPricesPlatform : '',
+      // The candidate's URL is its store product page, which identifies the product.
+      playstationStoreProduct: source === 'playstation_store' ? (candidate.url ?? '') : '',
     };
   }
 
@@ -640,6 +649,13 @@ export class AdminDiscoveryMatchPage implements OnInit {
       psPricesPlatform: isPsPricesSource
         ? normalizeAdminString(this.pricingForm.psPricesPlatform)
         : null,
+      ...(this.pricingForm.priceSource === 'playstation_store'
+        ? {
+            playstationStoreProductId: normalizeAdminString(
+              this.pricingForm.playstationStoreProduct
+            ),
+          }
+        : {}),
     };
   }
 
@@ -686,12 +702,21 @@ export class AdminDiscoveryMatchPage implements OnInit {
       psPricesUrl: isPsPricesSource ? (detail.providers.pricing.psPricesUrl ?? '') : '',
       psPricesTitle: isPsPricesSource ? (detail.providers.pricing.psPricesTitle ?? '') : '',
       psPricesPlatform: isPsPricesSource ? (detail.providers.pricing.psPricesPlatform ?? '') : '',
+      playstationStoreProduct:
+        priceSource === 'playstation_store'
+          ? (detail.providers.pricing.playstationStoreProductId ?? '')
+          : '',
     };
 
     this.hltbSearchQuery = detail.providers.hltb.queryTitle ?? detail.title ?? '';
     this.reviewSearchQuery = detail.providers.review.queryTitle ?? detail.title ?? '';
     this.pricingSearchQuery =
-      (isPsPricesSource ? detail.providers.pricing.psPricesTitle : null) ?? detail.title ?? '';
+      (isPsPricesSource ? detail.providers.pricing.psPricesTitle : null) ??
+      (priceSource === 'playstation_store'
+        ? detail.providers.pricing.playstationStoreTitle
+        : null) ??
+      detail.title ??
+      '';
     this.resetCandidateSearchResults();
   }
 

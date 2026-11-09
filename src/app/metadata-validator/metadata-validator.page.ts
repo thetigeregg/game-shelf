@@ -1341,13 +1341,9 @@ export class MetadataValidatorPage {
     return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
   }
 
+  /** PS4/PS5 (PlayStation Store) and Switch (psprices): prices with candidates to pick from. */
   private isPsPricesPlatform(game: GameEntry): boolean {
-    return (
-      game.platformIgdbId === 48 ||
-      game.platformIgdbId === 167 ||
-      game.platformIgdbId === 130 ||
-      game.platformIgdbId === 508
-    );
+    return GameShelfService.hasPriceCandidates(game.platformIgdbId);
   }
 
   private async delay(ms: number): Promise<void> {

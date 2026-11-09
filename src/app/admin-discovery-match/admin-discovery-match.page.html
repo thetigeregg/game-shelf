@@ -651,6 +651,16 @@
                 (ionInput)="pricingForm.priceUrl = $any($event).detail.value || ''"
               ></ion-input>
             </ion-item>
+            @if (showPlayStationStoreFields) {
+              <ion-item>
+                <ion-input
+                  label="PlayStation Store product (URL or ID)"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.playstationStoreProduct"
+                  (ionInput)="pricingForm.playstationStoreProduct = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+            }
             @if (showPsPricesFields) {
               <ion-item>
                 <ion-input

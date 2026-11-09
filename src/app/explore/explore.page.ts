@@ -2610,6 +2610,7 @@ export class ExplorePage implements OnInit {
     try {
       const titleHint = this.getRecommendationTitleHint(item);
 
+      // The PlayStation Store (PS4/PS5) and psprices (Switch) answer in the same shape.
       const result =
         item.platformIgdbId === 6
           ? this.parseSteamPriceLookupResponse(
@@ -2619,9 +2620,15 @@ export class ExplorePage implements OnInit {
             )
           : this.parsePsPricesLookupResponse(
               await firstValueFrom(
-                this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
-                  title: titleHint,
-                })
+                item.platformIgdbId === 48 || item.platformIgdbId === 167
+                  ? this.igdbProxyService.lookupPlayStationStorePrice(
+                      item.igdbGameId,
+                      item.platformIgdbId,
+                      { title: titleHint }
+                    )
+                  : this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
+                      title: titleHint,
+                    })
               )
             );
 

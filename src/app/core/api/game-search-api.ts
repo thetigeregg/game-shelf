@@ -80,6 +80,20 @@ export interface GameSearchApi {
     platformIgdbId: number,
     title: string
   ): Observable<unknown>;
+  lookupPlayStationStorePrice?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: {
+      title?: string | null;
+      /** A PlayStation Store product ID or product URL to price instead of searching. */
+      productId?: string | null;
+    }
+  ): Observable<unknown>;
+  lookupPlayStationStoreCandidates?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown>;
 }
 
 export const GAME_SEARCH_API = new InjectionToken<GameSearchApi>('GAME_SEARCH_API');

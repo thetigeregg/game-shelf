@@ -101,14 +101,14 @@ Pricing is considered matched when either of these is true:
 - `priceAmount` exists
 - `priceIsFree === true`
 
-If no pricing match exists, the state is derived from `payload.enrichmentRetry.psprices` for supported pricing platforms.
+If no pricing match exists, the state is derived from the pricing retry metadata for supported pricing platforms: `payload.enrichmentRetry.playstationStore` for PS4/PS5, `payload.enrichmentRetry.psprices` for the others.
 
 That means pricing can also appear as:
 
 - `retrying` when retry metadata exists but no current price match is stored
-- `permanentMiss` when PSPrices retries were exhausted and the provider is marked as permanently missed
+- `permanentMiss` when retries were exhausted and the provider is marked as permanently missed
 
-Manual pricing saves clear the stored PSPrices retry metadata and lock the pricing provider for that row until the manual match is cleared or replaced.
+Manual pricing saves clear the stored retry metadata and lock the pricing provider for that row (`playstationStoreMatchLocked` for PS4/PS5, `psPricesMatchLocked` otherwise) until the manual match is cleared or replaced. A PlayStation Store save can pin a store product (product ID or URL), so later refreshes price that product directly.
 
 ## What the status badges mean
 
@@ -135,7 +135,7 @@ Behavior:
 - when `provider` is `pricing`, the route queues pricing refresh jobs for those rows instead of a `discovery_enrichment_run`
 - when `provider` is `hltb` or `review`, the route queues a `discovery_enrichment_run` that targets only that provider and passes that provider as a forced locked refresh target
 - discovery enrichment runs are deduped with a single discovery enrichment dedupe key
-- pricing refresh jobs are deduped per queued Steam or PSPrices revalidation job
+- pricing refresh jobs are deduped per queued Steam, PlayStation Store or PSPrices revalidation job
 - if an equivalent job is already queued, the response is marked as deduped and no second job is added
 
 This action does not edit the selected rows directly. It only queues background work.
@@ -145,7 +145,8 @@ This action does not edit the selected rows directly. It only queues background 
 When the selected provider is `pricing`, this action queues pricing refresh work directly:
 
 - Steam rows queue `steam_price_revalidate`
-- supported PlayStation rows queue `psprices_price_revalidate`
+- PS4/PS5 rows queue `playstation_store_price_revalidate`
+- Switch/Switch 2 rows queue `psprices_price_revalidate`
 - pricing requeue ignores `psPricesMatchLocked`, so an admin-triggered refresh can run even when pricing was manually locked
 
 When the selected provider is `hltb` or `review`, this action queues the discovery enrichment worker for those rows.

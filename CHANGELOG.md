@@ -4340,3 +4340,7 @@
 ## v1.91.1 - 2026-11-09
 
 - 0e394645 fix(metacritic): parse current search cards and stop revalidation loop (#658)
+
+## v1.92.0 - 2026-11-09
+
+- c8a73925 feat(pricing): price Switch/Switch 2 from the Nintendo eShop (#659)

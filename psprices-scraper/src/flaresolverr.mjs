@@ -4,6 +4,7 @@
 // the direct request (see createCloudflareBlockMemory); after that they try directly again, so the
 // fallback stops being used by itself once a block lifts.
 
+import { randomUUID } from 'node:crypto';
 import { SEARCH_RESULTS_CONTAINER_SELECTOR } from './search-dom.mjs';
 
 export const DEFAULT_FLARESOLVERR_URL = 'http://flaresolverr:8191';
@@ -154,7 +155,8 @@ export async function fetchHtmlViaFlareSolverr(
  * `fetchHtml` waits its turn and then spends what is left of the caller's `deadline` (see
  * flareSolverrTimeoutWithin). It gives up waiting once too little is left to be worth a call.
  *
- * Sessions are named `${sessionPrefix}-N`. The first call removes any left in FlareSolverr by an
+ * Sessions are named `${sessionPrefix}-${runId}-N`, unique to this run and never reused, so a
+ * delayed cleanup can't hit a live session. The first call removes any left in FlareSolverr by an
  * earlier run of the scraper (a crash, or a shutdown that raced a search), since FlareSolverr never
  * closes an unused session by itself.
  */
@@ -162,6 +164,7 @@ export function createFlareSolverrClient({
   flareSolverrUrl,
   fetchImpl = fetch,
   sessionPrefix = 'gameshelf-psprices',
+  runId = randomUUID().slice(0, 8),
   idleMs = FLARESOLVERR_SESSION_IDLE_MS,
   cleanupRetryDelaysMs = FLARESOLVERR_CLEANUP_RETRY_DELAYS_MS,
   now = Date.now,
@@ -238,7 +241,10 @@ export function createFlareSolverrClient({
     leftoversRemoved = true;
     const names = Array.isArray(reply?.sessions) ? reply.sessions : [];
     const leftovers = names.filter(
-      (name) => typeof name === 'string' && name.startsWith(`${sessionPrefix}-`)
+      (name) =>
+        typeof name === 'string' &&
+        name.startsWith(`${sessionPrefix}-`) &&
+        !name.startsWith(`${sessionPrefix}-${runId}-`)
     );
     await Promise.all(leftovers.map((name) => destroyRemoteSession(name)));
   }
@@ -263,7 +269,7 @@ export function createFlareSolverrClient({
       }
       if (!session) {
         sessionNumber += 1;
-        session = `${sessionPrefix}-${String(sessionNumber)}`;
+        session = `${sessionPrefix}-${runId}-${String(sessionNumber)}`;
         sessionStartedAt = now();
       }
       try {

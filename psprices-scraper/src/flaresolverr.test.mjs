@@ -180,14 +180,14 @@ test('fetchHtmlViaFlareSolverr names the session when given one', async () => {
   const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply('<html></html>'));
   await fetchHtmlViaFlareSolverr(SEARCH_URL, {
     flareSolverrUrl: FLARESOLVERR_URL,
-    session: 'gameshelf-psprices-1',
+    session: 'gameshelf-psprices-r1-1',
     fetchImpl,
   });
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     cmd: 'request.get',
     url: SEARCH_URL,
     maxTimeout: FLARESOLVERR_TIMEOUT_MS,
-    session: 'gameshelf-psprices-1',
+    session: 'gameshelf-psprices-r1-1',
   });
 });
 
@@ -317,6 +317,7 @@ test('createFlareSolverrClient sends one request at a time, in order, in one ses
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     const first = client.fetchHtml(`${SEARCH_URL}&n=1`, { deadline: plenty() });
@@ -334,8 +335,8 @@ test('createFlareSolverrClient sends one request at a time, in order, in one ses
     assert.deepEqual(
       fake.pending.map(({ body }) => [body.url.slice(-3), body.session]),
       [
-        ['n=1', 'gameshelf-psprices-1'],
-        ['n=2', 'gameshelf-psprices-1'],
+        ['n=1', 'gameshelf-psprices-r1-1'],
+        ['n=2', 'gameshelf-psprices-r1-1'],
       ]
     );
   } finally {
@@ -348,6 +349,7 @@ test('createFlareSolverrClient starts a fresh session after a failed solve', asy
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     const failed = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -364,9 +366,9 @@ test('createFlareSolverrClient starts a fresh session after a failed solve', asy
     fake.pending[1].resolve(fake.reply('<html></html>'));
     await next;
     assert.deepEqual(fake.sessionCommands(), [
-      ['request.get', 'gameshelf-psprices-1'],
-      ['sessions.destroy', 'gameshelf-psprices-1'],
-      ['request.get', 'gameshelf-psprices-2'],
+      ['request.get', 'gameshelf-psprices-r1-1'],
+      ['sessions.destroy', 'gameshelf-psprices-r1-1'],
+      ['request.get', 'gameshelf-psprices-r1-2'],
     ]);
   } finally {
     await client.close();
@@ -378,6 +380,7 @@ test('createFlareSolverrClient retires the session when FlareSolverr gives no re
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     const failed = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -392,9 +395,9 @@ test('createFlareSolverrClient retires the session when FlareSolverr gives no re
     fake.pending[1].resolve(fake.reply('<html></html>'));
     await next;
     assert.deepEqual(fake.sessionCommands(), [
-      ['request.get', 'gameshelf-psprices-1'],
-      ['sessions.destroy', 'gameshelf-psprices-1'],
-      ['request.get', 'gameshelf-psprices-2'],
+      ['request.get', 'gameshelf-psprices-r1-1'],
+      ['sessions.destroy', 'gameshelf-psprices-r1-1'],
+      ['request.get', 'gameshelf-psprices-r1-2'],
     ]);
   } finally {
     await client.close();
@@ -406,6 +409,7 @@ test('createFlareSolverrClient stops waiting once too little budget is left, kee
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     const first = client.fetchHtml(`${SEARCH_URL}&n=1`, { deadline: plenty() });
@@ -437,6 +441,7 @@ test('createFlareSolverrClient sets aside browser start time for a cold session 
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   const inRange = (value, max) => value <= max && value > max - 1_000;
   try {
@@ -469,6 +474,7 @@ test('createFlareSolverrClient skips a cold session when the budget cannot cover
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     await assert.rejects(client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 }), {
@@ -485,6 +491,7 @@ test('createFlareSolverrClient closes an idle session', async () => {
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
     idleMs: 20,
   });
   const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -494,13 +501,13 @@ test('createFlareSolverrClient closes an idle session', async () => {
   await new Promise((resolve) => setTimeout(resolve, 60));
   assert.deepEqual(fake.commands.at(-1), {
     cmd: 'sessions.destroy',
-    session: 'gameshelf-psprices-1',
+    session: 'gameshelf-psprices-r1-1',
   });
 
   // The next call starts a new session.
   const next = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
   await fake.flush();
-  assert.equal(fake.pending[1].body.session, 'gameshelf-psprices-2');
+  assert.equal(fake.pending[1].body.session, 'gameshelf-psprices-r1-2');
   fake.pending[1].resolve(fake.reply('<html></html>'));
   await next;
   await client.close();
@@ -553,11 +560,17 @@ test('createCloudflareBlockMemory keeps a block recorded after the remembered on
 
 test('createFlareSolverrClient removes sessions an earlier run left, once', async () => {
   const fake = controlledFlareSolverr({
-    sessions: ['gameshelf-psprices-3', 'go-gather', 'gameshelf-psprices-7', 'gameshelf-pspricesX'],
+    sessions: [
+      'gameshelf-psprices-old-3',
+      'go-gather',
+      'gameshelf-psprices-old-7',
+      'gameshelf-pspricesX',
+    ],
   });
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   try {
     for (const n of [0, 1]) {
@@ -570,10 +583,10 @@ test('createFlareSolverrClient removes sessions an earlier run left, once', asyn
       fake.commands.map(({ cmd, session }) => [cmd, session]),
       [
         ['sessions.list', undefined],
-        ['sessions.destroy', 'gameshelf-psprices-3'],
-        ['sessions.destroy', 'gameshelf-psprices-7'],
-        ['request.get', 'gameshelf-psprices-1'],
-        ['request.get', 'gameshelf-psprices-1'],
+        ['sessions.destroy', 'gameshelf-psprices-old-3'],
+        ['sessions.destroy', 'gameshelf-psprices-old-7'],
+        ['request.get', 'gameshelf-psprices-r1-1'],
+        ['request.get', 'gameshelf-psprices-r1-1'],
       ]
     );
   } finally {
@@ -593,6 +606,7 @@ test('createFlareSolverrClient retries a destroy FlareSolverr does not confirm',
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
     cleanupRetryDelaysMs: [20, 20, 20],
   });
   try {
@@ -607,9 +621,9 @@ test('createFlareSolverrClient retries a destroy FlareSolverr does not confirm',
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     assert.deepEqual(fake.sessionCommands(), [
-      ['request.get', 'gameshelf-psprices-1'],
-      ['sessions.destroy', 'gameshelf-psprices-1'],
-      ['sessions.destroy', 'gameshelf-psprices-1'],
+      ['request.get', 'gameshelf-psprices-r1-1'],
+      ['sessions.destroy', 'gameshelf-psprices-r1-1'],
+      ['sessions.destroy', 'gameshelf-psprices-r1-1'],
     ]);
   } finally {
     await client.close();
@@ -623,6 +637,7 @@ test('createFlareSolverrClient gives up retrying a destroy after the last delay'
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
     cleanupRetryDelaysMs: [5, 5],
   });
   const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -637,6 +652,7 @@ test('createFlareSolverrClient gives up retrying a destroy after the last delay'
   const retrying = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
     cleanupRetryDelaysMs: [5, 5],
   });
   const failed = retrying.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -654,6 +670,7 @@ test('createFlareSolverrClient replaces a session at its maximum age, as a cold 
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
     now: () => now,
   });
   try {
@@ -680,10 +697,10 @@ test('createFlareSolverrClient replaces a session at its maximum age, as a cold 
     await renewed;
 
     assert.deepEqual(fake.sessionCommands(), [
-      ['request.get', 'gameshelf-psprices-1'],
-      ['request.get', 'gameshelf-psprices-1'],
-      ['sessions.destroy', 'gameshelf-psprices-1'],
-      ['request.get', 'gameshelf-psprices-2'],
+      ['request.get', 'gameshelf-psprices-r1-1'],
+      ['request.get', 'gameshelf-psprices-r1-1'],
+      ['sessions.destroy', 'gameshelf-psprices-r1-1'],
+      ['request.get', 'gameshelf-psprices-r1-2'],
     ]);
   } finally {
     await client.close();
@@ -695,6 +712,7 @@ test('createFlareSolverrClient close() stops queued calls from starting a sessio
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
+    runId: 'r1',
   });
   const inFlight = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
   const queued = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
@@ -712,7 +730,65 @@ test('createFlareSolverrClient close() stops queued calls from starting a sessio
 
   assert.equal(fake.pending.length, 1);
   assert.deepEqual(fake.sessionCommands(), [
-    ['request.get', 'gameshelf-psprices-1'],
-    ['sessions.destroy', 'gameshelf-psprices-1'],
+    ['request.get', 'gameshelf-psprices-r1-1'],
+    ['sessions.destroy', 'gameshelf-psprices-r1-1'],
   ]);
+});
+
+test('createFlareSolverrClient retries a failed leftover cleanup without touching its own session', async () => {
+  // By the second call FlareSolverr also lists this run's own session, from the first call.
+  const fake = controlledFlareSolverr({
+    sessions: ['gameshelf-psprices-old-2', 'gameshelf-psprices-r1-1'],
+  });
+  let listFails = true;
+  const fetchImpl = async (url, init) => {
+    if (listFails && JSON.parse(init.body).cmd === 'sessions.list') {
+      listFails = false;
+      throw new TypeError('fetch failed');
+    }
+    return await fake.fetchImpl(url, init);
+  };
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl,
+    runId: 'r1',
+  });
+  try {
+    for (const n of [0, 1]) {
+      const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+      await fake.flush();
+      fake.pending[n].resolve(fake.reply('<html></html>'));
+      await call;
+    }
+    assert.deepEqual(
+      fake.commands.map(({ cmd, session }) => [cmd, session]),
+      [
+        ['request.get', 'gameshelf-psprices-r1-1'],
+        ['sessions.list', undefined],
+        ['sessions.destroy', 'gameshelf-psprices-old-2'],
+        ['request.get', 'gameshelf-psprices-r1-1'],
+      ]
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient names sessions uniquely per run', async () => {
+  const names = [];
+  for (const _ of [0, 1]) {
+    const fake = controlledFlareSolverr();
+    const client = createFlareSolverrClient({
+      flareSolverrUrl: FLARESOLVERR_URL,
+      fetchImpl: fake.fetchImpl,
+    });
+    const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    names.push(fake.pending[0].body.session);
+    fake.pending[0].resolve(fake.reply('<html></html>'));
+    await call;
+    await client.close();
+  }
+  assert.match(names[0], /^gameshelf-psprices-[0-9a-f]{8}-1$/);
+  assert.notEqual(names[0], names[1]);
 });

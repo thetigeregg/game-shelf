@@ -287,7 +287,9 @@ function scheduleMetacriticRevalidation(
       }
 
       if (!isCacheableMetacriticPayload(normalizedQuery, payload)) {
-        incrementMetacriticMetric('revalidateFailed');
+        // No match now: keep the cached result but mark it checked (see markMetacriticEntryChecked).
+        await markMetacriticEntryChecked(pool, cacheKey);
+        incrementMetacriticMetric('revalidateSkipped');
         return;
       }
 
@@ -325,8 +327,15 @@ export async function processQueuedMetacriticCacheRevalidation(
   }
 
   const parsed = await safeReadJson(response);
-  if (parsed === null || !isCacheableMetacriticPayload(normalizedQuery, parsed)) {
-    throw new Error('Metacritic revalidation returned uncacheable payload.');
+  if (parsed === null) {
+    throw new Error('Metacritic revalidation returned a non-JSON payload.');
+  }
+  if (!isCacheableMetacriticPayload(normalizedQuery, parsed)) {
+    // No match now. Failing the job left the stale entry in place, so every read queued another
+    // revalidation (and the job's retries), looping on the scraper. Keep the cached result and
+    // mark it checked instead.
+    await markMetacriticEntryChecked(pool, payload.cacheKey);
+    return;
   }
 
   await pool.query(
@@ -429,6 +438,17 @@ async function persistMetacriticCacheEntry(
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/**
+ * Marks a cached result as just checked, without changing it, after a revalidation found no match.
+ * The scraper also finds no match while Metacritic blocks it, so the last good result is kept
+ * rather than deleted; it's checked again once its fresh TTL passes.
+ */
+async function markMetacriticEntryChecked(pool: Pool, cacheKey: string): Promise<void> {
+  await pool.query('UPDATE metacritic_search_cache SET updated_at = NOW() WHERE cache_key = $1', [
+    cacheKey,
+  ]);
 }
 
 function isCacheableMetacriticPayload(

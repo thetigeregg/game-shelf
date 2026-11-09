@@ -6,7 +6,11 @@ import path from 'node:path';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
-import { __metacriticCacheTestables, registerMetacriticCachedRoute } from './metacritic-cache.js';
+import {
+  __metacriticCacheTestables,
+  processQueuedMetacriticCacheRevalidation,
+  registerMetacriticCachedRoute,
+} from './metacritic-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 import { config } from './config.js';
 
@@ -72,6 +76,16 @@ class MetacriticPoolMock {
       return Promise.resolve({ rows: [] });
     }
 
+    if (normalized.startsWith('update metacritic_search_cache set updated_at = now()')) {
+      const key = toPrimitiveString(params[0]);
+      const row = this.rowsByKey.get(key);
+      if (row) {
+        const nowMs = this.options.now ? this.options.now() : Date.now();
+        row.updated_at = new Date(nowMs).toISOString();
+      }
+      return Promise.resolve({ rows: [] });
+    }
+
     if (normalized.startsWith('delete from metacritic_search_cache where cache_key')) {
       const key = toPrimitiveString(params[0]);
       this.rowsByKey.delete(key);
@@ -79,6 +93,10 @@ class MetacriticPoolMock {
     }
 
     throw new Error(`Unsupported SQL in MetacriticPoolMock: ${sql}`);
+  }
+
+  readUpdatedAt(cacheKey: string): string | null {
+    return this.rowsByKey.get(cacheKey)?.updated_at ?? null;
   }
 
   getEntryCount(): number {
@@ -537,10 +555,15 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
   assert.ok(taskTwo);
   await taskTwo();
 
+  pendingTask = null;
   const final = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
   assert.equal(final.statusCode, 200);
   const finalPayload = JSON.parse(final.body) as { item: { metacriticScore: number } };
   assert.equal(finalPayload.item.metacriticScore, 20);
+  // The no-match revalidation kept the result and marked it checked, so it's fresh again and no
+  // further revalidation is queued.
+  assert.equal(final.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
+  assert.equal(pendingTask, null);
 
   await app.close();
 });
@@ -1029,4 +1052,58 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
   );
   assert.equal(scheduledAgain, true);
   await scheduledTasks[1]();
+});
+
+void test('queued METACRITIC revalidation that finds no match keeps the entry and succeeds', async () => {
+  let nowMs = Date.UTC(2026, 10, 9, 12, 0, 0);
+  const pool = new MetacriticPoolMock({ now: () => nowMs });
+  const requestUrl = '/v1/metacritic/search?q=Off%20The%20Grid&releaseYear=2025';
+  const cacheKey = 'off-the-grid-key';
+  pool.seed(
+    cacheKey,
+    { item: { metacriticUrl: 'https://www.metacritic.com/game/x/' } },
+    '2026-11-01T00:00:00.000Z'
+  );
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve(
+      new Response(JSON.stringify({ item: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+  try {
+    await withEnv({ METACRITIC_SCRAPER_BASE_URL: 'http://metacritic-scraper:8789' }, async () => {
+      nowMs += 1_000;
+      await processQueuedMetacriticCacheRevalidation(pool as unknown as Pool, {
+        cacheKey,
+        requestUrl,
+      });
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(pool.getEntryCount(), 1, 'the last good result is kept');
+  assert.equal(pool.readUpdatedAt(cacheKey), new Date(nowMs).toISOString());
+});
+
+void test('queued METACRITIC revalidation still fails on a non-JSON reply', async () => {
+  const pool = new MetacriticPoolMock();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response('<html>blocked</html>', { status: 200 }));
+  try {
+    await withEnv({ METACRITIC_SCRAPER_BASE_URL: 'http://metacritic-scraper:8789' }, async () => {
+      await assert.rejects(
+        processQueuedMetacriticCacheRevalidation(pool as unknown as Pool, {
+          cacheKey: 'k',
+          requestUrl: '/v1/metacritic/search?q=Hades',
+        }),
+        { message: 'Metacritic revalidation returned a non-JSON payload.' }
+      );
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

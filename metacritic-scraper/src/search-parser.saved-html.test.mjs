@@ -128,3 +128,57 @@ test('extractMetacriticSearchResults does not infer release year from numbered t
     imageUrl: 'https://images.example/metro.jpg',
   });
 });
+
+test('extractMetacriticSearchResults reads the title from the current search-item card', () => {
+  // Trimmed from the live search page (2026-11) for an unscored, early-access game; no embedded
+  // payload, so the title must come from the card itself.
+  const html = `
+    <main>
+      <div class="search-item" data-testid="search-item">
+        <a href="/game/off-the-grid/" class="search-item__content">
+          <div><picture><img src="https://images.example/off-the-grid.jpg" alt="" /></picture></div>
+          <div class="overflow-hidden">
+            <p class="truncate mb-2 text-2xl font-bold">Off The Grid</p>
+            <div class="c-search-product-meta--search-page">
+              <ul class="global-tag-list" data-testid="tag-list"><li><span>game</span></li></ul>
+              <ul class="truncate inline list-none">
+                <li><span>TBA - Early Access</span></li>
+                <li><span><strong>PlayStation 5</strong>, and more</span></li>
+              </ul>
+              <div data-testid="product-metascore"><span>tbd</span></div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </main>
+  `;
+
+  const results = parseHtml(html);
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].title, 'Off The Grid');
+  assert.equal(results[0].metacriticScore, null);
+  assert.equal(results[0].metacriticUrl, 'https://www.metacritic.com/game/off-the-grid/');
+});
+
+test('extractMetacriticSearchResults strips card metadata glued onto a title', () => {
+  // When only the whole card text is available, the "game" tag runs straight into the release
+  // info: everything from that tag on is metadata.
+  const cases = [
+    ['Off the Grid: Bad DreamgameJune 2028PC, and moretbd', 'Off the Grid: Bad Dream'],
+    ['Schedule I: Dope Empire VRgameTBAMeta Questtbd', 'Schedule I: Dope Empire VR'],
+    ['Hades Ultimate Fighting BallgameTBA - Early AccessPCtbd', 'Hades Ultimate Fighting Ball'],
+    ['Endless Endgame', 'Endless Endgame'],
+  ];
+  for (const [glued, expected] of cases) {
+    const results = parseHtml(`
+      <main>
+        <article>
+          <a href="/game/example/"><span>${glued}</span></a>
+          <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+        </article>
+      </main>
+    `);
+    assert.equal(results[0]?.title, expected, glued);
+  }
+});

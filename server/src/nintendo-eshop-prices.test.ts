@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import {
+  __nintendoEshopPriceTestables,
   buildNintendoEshopRefreshJob,
   lookupNintendoEshopPrice,
   processQueuedNintendoEshopPriceRevalidation,
@@ -604,6 +605,125 @@ void test('Nintendo eShop route serves a stale price and queues a refresh', asyn
       nsuid: HADES_II,
     },
   ]);
+  await app.close();
+});
+
+void test('without a job queue, a stale price is refreshed in process, once at a time', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('30', 130, cachedPayload('2026-03-01T12:00:00.000Z'));
+  const eshop = fakeEshop({ search: { 'hades ii': hadesSearch }, prices: hadesPrices });
+  const tasks: Array<() => Promise<void>> = [];
+  const app = await buildApp(pool, eshop.fetchImpl, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    scheduleBackgroundRefresh: (task) => {
+      tasks.push(task);
+    },
+  });
+  const url = '/v1/nintendo-eshop/prices?igdbGameId=30&platformIgdbId=130';
+
+  const first = await app.inject({ method: 'GET', url });
+  assert.equal(first.headers['x-gameshelf-nintendo-eshop-revalidate'], 'scheduled');
+  // The same game again while its refresh hasn't run: not scheduled twice.
+  const second = await app.inject({ method: 'GET', url });
+  assert.equal(second.headers['x-gameshelf-nintendo-eshop-revalidate'], 'skipped');
+  assert.equal(tasks.length, 1);
+
+  await tasks[0]();
+  // The pinned nsuid is priced with its saved title: no search.
+  assert.deepEqual(eshop.calls.prices, [[HADES_II]]);
+  assert.equal(eshop.calls.search.length + eshop.calls.byNsuid.length, 0);
+  assert.equal(pool.getPayload('30', 130)['priceAmount'], 22.75);
+
+  await app.close();
+});
+
+void test('an in-process refresh that fails keeps the cached price', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('32', 130, cachedPayload('2026-03-01T12:00:00.000Z'));
+  const tasks: Array<() => Promise<void>> = [];
+  const app = await buildApp(pool, fakeEshop({ failWith: 503 }).fetchImpl, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    scheduleBackgroundRefresh: (task) => {
+      tasks.push(task);
+    },
+  });
+
+  await app.inject({
+    method: 'GET',
+    url: '/v1/nintendo-eshop/prices?igdbGameId=32&platformIgdbId=130',
+  });
+  await tasks[0]();
+
+  assert.equal(pool.getPayload('32', 130)['nintendoEshopPriceAmount'], 32.5);
+  await app.close();
+});
+
+void test('a cached snapshot is read only when complete, dropping unusable candidates', () => {
+  const { readSnapshotFromPayload } = __nintendoEshopPriceTestables;
+  const locale = { country: 'CH', language: 'de' };
+
+  const snapshot = readSnapshotFromPayload(
+    {
+      ...cachedPayload('2026-03-01T12:00:00.000Z'),
+      nintendoEshopMatchConfidence: 'bogus',
+      nintendoEshopCandidates: [
+        { title: 'Hades II', nsuid: HADES_II, amount: '32.5', isFree: false, score: 99.999 },
+        { title: 'Free Game', nsuid: HADES, amount: null, isFree: true },
+        { title: 'No Price', nsuid: UNRELEASED, amount: null },
+        { nsuid: HADES, amount: 1 },
+        'not a candidate',
+      ],
+    },
+    locale,
+    'Switch'
+  );
+  assert.ok(snapshot);
+  // An unknown confidence means no usable match info.
+  assert.equal(snapshot.match, null);
+  assert.deepEqual(
+    snapshot.candidates.map((candidate) => [candidate.title, candidate.amount, candidate.score]),
+    [
+      ['Hades II', 32.5, 100],
+      ['Free Game', null, 0],
+    ]
+  );
+
+  for (const broken of [
+    { nintendoEshopFetchedAt: 'not a date' },
+    { nintendoEshopFetchedAt: null },
+    { nintendoEshopLanguage: 'fr' },
+    { nintendoEshopPlatform: 'Switch 2' },
+  ]) {
+    assert.equal(
+      readSnapshotFromPayload(
+        { ...cachedPayload('2026-03-01T12:00:00.000Z'), ...broken },
+        locale,
+        'Switch'
+      ),
+      null,
+      JSON.stringify(broken)
+    );
+  }
+});
+
+void test('the route falls back to default cache lifetimes for invalid options', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('33', 130, cachedPayload('2026-03-10T00:00:00.000Z'));
+  const eshop = fakeEshop({});
+  const app = Fastify();
+  await registerNintendoEshopPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: eshop.fetchImpl,
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    freshTtlSeconds: -5,
+    staleTtlSeconds: 0,
+  });
+
+  // Twelve hours old: fresh under the configured default of a day.
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/nintendo-eshop/prices?igdbGameId=33&platformIgdbId=130',
+  });
+  assert.equal(response.headers['x-gameshelf-nintendo-eshop-cache'], 'HIT_FRESH');
   await app.close();
 });
 

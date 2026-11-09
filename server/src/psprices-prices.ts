@@ -77,8 +77,8 @@ export interface PspricesPriceRevalidationPayload extends Record<string, unknown
 }
 
 // No platform is priced from psprices any more: PS4/PS5 use the PlayStation Store and Switch /
-// Switch 2 the Nintendo eShop. This route is dormant (only an outdated app still calls it) until
-// psprices support is removed.
+// Switch 2 the Nintendo eShop. The API no longer registers this route (see index.ts); the module
+// stays until psprices support is removed, so already queued revalidation jobs still drain.
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
   [130, 'Switch'],
   [508, 'Switch2'],

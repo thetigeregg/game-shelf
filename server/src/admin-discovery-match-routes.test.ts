@@ -1390,6 +1390,53 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
+void test('admin discovery patch route rejects psprices prices for store-priced platforms', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '25',
+    platformIgdbId: 130,
+    payload: { listType: 'discovery', title: 'Switch Game', platform: 'Nintendo Switch' },
+  });
+  pool.seed({
+    igdbGameId: '25',
+    platformIgdbId: 167,
+    payload: { listType: 'discovery', title: 'PS5 Game', platform: 'PlayStation 5' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    for (const [platformIgdbId, source] of [
+      [130, 'nintendo_eshop'],
+      [167, 'playstation_store'],
+    ] as const) {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/admin/discovery/games/25/${String(platformIgdbId)}/match`,
+        headers: { authorization: 'Bearer test-admin-token' },
+        payload: { provider: 'pricing', priceSource: 'psprices', priceAmount: 9.99 },
+      });
+      assert.equal(response.statusCode, 400);
+      assert.deepEqual(response.json(), {
+        error: `This platform is priced from ${source}, not psprices.`,
+      });
+      assert.equal(pool.readPayload('25', platformIgdbId)?.['priceSource'], undefined);
+    }
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery patch route rejects unsupported pricing sources', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

@@ -307,6 +307,66 @@ void test('Nintendo eShop route prices a Switch 2 game from its Switch 2 Edition
   await app.close();
 });
 
+void test("a free Friend's Pass listed with a paid game never stands in for it", async () => {
+  const pool = new GamePoolMock();
+  pool.seed('20', 508, { title: 'Split Fiction', listType: 'wishlist' });
+  const paid = '70010000097435';
+  const friendsPass = '70010000095423';
+  // The index's order isn't guaranteed: the free pass comes first here.
+  const eshop = fakeEshop({
+    search: {
+      'split fiction': [
+        { title: 'SPLIT FICTION', nsuids: [friendsPass, paid], platforms: ['BEE'] },
+      ],
+    },
+    prices: { [friendsPass]: { regular: 0 }, [paid]: { regular: 49.9 } },
+  });
+  const app = await buildApp(pool, eshop.fetchImpl);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/nintendo-eshop/prices?igdbGameId=20&platformIgdbId=508',
+  });
+
+  const bestPrice = json(response.body)['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['nsuid'], paid);
+  assert.equal(bestPrice['amount'], 49.9);
+  assert.equal(bestPrice['isFree'], false);
+  assert.deepEqual(eshop.calls.prices, [[friendsPass, paid]]);
+  assert.equal(pool.getPayload('20', 508)['nintendoEshopNsuid'], paid);
+  await app.close();
+});
+
+void test('a queued refresh reads a release year stored as text, like the scheduler', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('21', 130, {
+    title: 'Hades II',
+    listType: 'discovery',
+    // An old release: its permanent miss isn't re-armed. Read as "no year", it would be.
+    releaseYear: '2001',
+    enrichmentRetry: {
+      nintendoEshop: {
+        attempts: 6,
+        lastTriedAt: '2020-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true,
+      },
+    },
+  });
+  const eshop = fakeEshop({ search: {} });
+
+  await processQueuedNintendoEshopPriceRevalidation(
+    pool as unknown as Pool,
+    { cacheKey: 'k', igdbGameId: '21', platformIgdbId: 130, title: 'Hades II' },
+    { fetchImpl: eshop.fetchImpl }
+  );
+
+  const retry = (
+    pool.getPayload('21', 130)['enrichmentRetry'] as Record<string, Record<string, unknown>>
+  )['nintendoEshop'];
+  assert.equal(retry['permanentMiss'], true);
+});
+
 void test('Nintendo eShop route takes over a Switch game from psprices', async () => {
   const pool = new GamePoolMock();
   pool.seed('3', 130, {

@@ -128,11 +128,18 @@ export function resolveAdminPricingSource(
   platformIgdbId: number | null | undefined,
   priceSource?: string | null
 ): 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices' {
+  // PS4/PS5 are priced from the PlayStation Store, Switch/Switch 2 from the Nintendo eShop.
+  const storeSource =
+    typeof platformIgdbId === 'number'
+      ? GameShelfService.resolveStoreSearchPriceSource(platformIgdbId)
+      : null;
   if (
     priceSource === 'steam_store' ||
     priceSource === 'playstation_store' ||
     priceSource === 'nintendo_eshop' ||
-    priceSource === 'psprices'
+    // A psprices price left on a PS or Switch game (not yet re-priced by its store) opens on the
+    // store instead: the server no longer accepts psprices prices for those platforms.
+    (priceSource === 'psprices' && storeSource === null)
   ) {
     return priceSource;
   }
@@ -140,12 +147,7 @@ export function resolveAdminPricingSource(
   if (platformIgdbId === 6) {
     return 'steam_store';
   }
-  // PS4/PS5 are priced from the PlayStation Store, Switch/Switch 2 from the Nintendo eShop.
-  return (
-    (typeof platformIgdbId === 'number'
-      ? GameShelfService.resolveStoreSearchPriceSource(platformIgdbId)
-      : null) ?? 'psprices'
-  );
+  return storeSource ?? 'psprices';
 }
 
 export function buildAdminQueueFeedback(

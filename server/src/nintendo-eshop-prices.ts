@@ -432,12 +432,12 @@ export async function lookupNintendoEshopPrice(params: {
   const prices =
     games.length > 0
       ? await fetchNintendoEshopPrices(
-          games.map((game) => game.nsuid),
+          games.flatMap((game) => game.gameNsuids),
           requestOptions
         )
       : new Map<string, NintendoEshopPrice>();
-  const matchable: MatchableGame[] = games.map((game) => {
-    const price = prices.get(game.nsuid) ?? null;
+  const matchable: MatchableGame[] = games.map((searchGame) => {
+    const { game, price } = pickPricedNsuid(searchGame, prices);
     return {
       title: game.title,
       url: buildNintendoEshopGameUrl(game.nsuid, params.locale),
@@ -449,7 +449,7 @@ export async function lookupNintendoEshopPrice(params: {
   });
   const result = matchCandidatesByTitle(params.title, params.platform, matchable, {
     isPreferred: params.preferredNsuid
-      ? (candidate) => candidate.game.nsuid === params.preferredNsuid
+      ? (candidate) => candidate.game.gameNsuids.includes(params.preferredNsuid ?? '')
       : undefined,
     maxCandidates: MAX_CANDIDATES,
   });
@@ -473,6 +473,24 @@ export async function lookupNintendoEshopPrice(params: {
     match: result.match,
     candidates,
   };
+}
+
+/**
+ * The entry's game nsuid to price: the one with the highest regular price, so a free "Friend's
+ * Pass" listed alongside a paid game never stands in for it. Without any price, the first nsuid.
+ */
+function pickPricedNsuid(
+  game: NintendoEshopSearchGame,
+  prices: ReadonlyMap<string, NintendoEshopPrice>
+): { game: NintendoEshopSearchGame; price: NintendoEshopPrice | null } {
+  let best: NintendoEshopPrice | null = null;
+  for (const nsuid of game.gameNsuids) {
+    const price = prices.get(nsuid);
+    if (price && (best === null || price.regularAmount > best.regularAmount)) {
+      best = price;
+    }
+  }
+  return { game: best ? { ...game, nsuid: best.nsuid } : game, price: best };
 }
 
 function toSnapshot(
@@ -1017,19 +1035,10 @@ export async function processQueuedNintendoEshopPriceRevalidation(
   const retryState = isDiscoveryGame
     ? nextProviderRetryState({
         current: maybeRearmProviderRetryState({
-          state: parseProviderRetryState(
-            gamePayload['enrichmentRetry'] &&
-              typeof gamePayload['enrichmentRetry'] === 'object' &&
-              !Array.isArray(gamePayload['enrichmentRetry'])
-              ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['nintendoEshop']
-              : null
-          ),
+          // The same retry state and release year the refresh job was scheduled from.
+          state: parseProviderRetryState(readRetryState(gamePayload)),
           nowMs: Date.now(),
-          releaseYear:
-            typeof gamePayload['releaseYear'] === 'number' &&
-            Number.isInteger(gamePayload['releaseYear'])
-              ? gamePayload['releaseYear']
-              : null,
+          releaseYear: readReleaseYear(gamePayload),
           rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
           rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
           maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,

@@ -59,6 +59,12 @@ const hadesSearchDocs = [
     playable_on_txt: ['BEE'],
   },
   { title: 'Hades', nsuid_txt: ['70010000033132'], playable_on_txt: ['HAC'] },
+  // A co-op game that also lists its free Friend's Pass as a game.
+  {
+    title: 'SPLIT FICTION',
+    nsuid_txt: ['70010000097435', '70010000095423'],
+    playable_on_txt: ['BEE'],
+  },
   // A retail-only game has no nsuid, and a removed one isn't sold any more.
   { title: 'Hades Boxed Edition', playable_on_txt: ['HAC'] },
   {
@@ -98,17 +104,32 @@ void test('searchNintendoEshopGames keeps games sold digitally, by their own nsu
   assert.deepEqual(games, [
     {
       nsuid: '70010000060676',
+      gameNsuids: ['70010000060676'],
       title: 'Hades II',
       platformCodes: ['HAC'],
       imageUrl: 'https://image.example/hades2.jpg',
     },
     {
       nsuid: '70010000106342',
+      gameNsuids: ['70010000106342'],
       title: 'Hades II – Nintendo Switch 2 Edition',
       platformCodes: ['BEE'],
       imageUrl: null,
     },
-    { nsuid: '70010000033132', title: 'Hades', platformCodes: ['HAC'], imageUrl: null },
+    {
+      nsuid: '70010000033132',
+      gameNsuids: ['70010000033132'],
+      title: 'Hades',
+      platformCodes: ['HAC'],
+      imageUrl: null,
+    },
+    {
+      nsuid: '70010000097435',
+      gameNsuids: ['70010000097435', '70010000095423'],
+      title: 'SPLIT FICTION',
+      platformCodes: ['BEE'],
+      imageUrl: null,
+    },
   ]);
 });
 

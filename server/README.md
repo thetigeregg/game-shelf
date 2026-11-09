@@ -15,7 +15,6 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/steam/prices`
 - `GET /v1/playstation-store/prices`
 - `GET /v1/nintendo-eshop/prices`
-- `GET /v1/psprices/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
 - `GET /v1/background-jobs/failed` (admin/debug)
@@ -63,9 +62,6 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/nintendo-eshop/prices`
   - Required: `igdbGameId`, `platformIgdbId` (supported: `130|508`, Switch/Switch 2)
   - Optional: `title`, `includeCandidates` (`1|true|yes`), `nsuid` (an eShop nsuid or eShop link to price instead of searching)
-- `GET /v1/psprices/prices`
-  - Required: `igdbGameId`, `platformIgdbId` (supported: `130|508`, Switch/Switch 2)
-  - Optional: `title`, `includeCandidates` (`1|true|yes`), `preferredPsPricesUrl`
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)

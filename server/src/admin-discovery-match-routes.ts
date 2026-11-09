@@ -992,6 +992,15 @@ function applyManualMatchPatch(
   if (requestedPriceSource !== null && priceSource === null) {
     return 'Price source must be steam_store, playstation_store, nintendo_eshop or psprices.';
   }
+  // psprices no longer prices any platform: a psprices price saved for a PS or Switch game would
+  // carry the store's lock without the store's snapshot, so the next store refresh would replace it.
+  const platformPricingSource = resolvePricingSourceForPlatform(platformIgdbId);
+  if (
+    priceSource === 'psprices' &&
+    (platformPricingSource === 'playstation_store' || platformPricingSource === 'nintendo_eshop')
+  ) {
+    return `This platform is priced from ${platformPricingSource}, not psprices.`;
+  }
   const isPsPricesSource = priceSource === 'psprices';
   const isPlayStationStoreSource = priceSource === 'playstation_store';
   const playstationStoreProductId = isPlayStationStoreSource

@@ -18,7 +18,6 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { registerSteamPricesRoute } from './steam-prices.js';
-import { registerPsPricesRoute } from './psprices-prices.js';
 import { registerPlayStationStorePricesRoute } from './playstation-store-prices.js';
 import { registerNintendoEshopPricesRoute } from './nintendo-eshop-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
@@ -360,20 +359,9 @@ async function main(): Promise<void> {
         });
       },
     });
-    await registerPsPricesRoute(app, pool, {
-      enableStaleWhileRevalidate: config.pspricesPriceCacheEnableStaleWhileRevalidate,
-      freshTtlSeconds: config.pspricesPriceCacheFreshTtlSeconds,
-      staleTtlSeconds: config.pspricesPriceCacheStaleTtlSeconds,
-      enqueueRevalidationJob: (payload) => {
-        void backgroundJobs.enqueue({
-          jobType: 'psprices_price_revalidate',
-          dedupeKey: `psprices-price-revalidate:${payload.cacheKey}`,
-          payload,
-          priority: 120,
-          maxAttempts: 3,
-        });
-      },
-    });
+    // The psprices route isn't registered: no platform is priced from psprices any more, and an
+    // outdated app still calling it for Switch games would write psprices prices over the Nintendo
+    // eShop's. Such an app gets a 404 and keeps its last price.
     await registerPlayStationStorePricesRoute(app, pool, {
       enableStaleWhileRevalidate: config.playstationStorePriceCacheEnableStaleWhileRevalidate,
       freshTtlSeconds: config.playstationStorePriceCacheFreshTtlSeconds,

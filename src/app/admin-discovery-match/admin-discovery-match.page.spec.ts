@@ -390,6 +390,8 @@ describe('AdminDiscoveryMatchPage', () => {
 
   it('applies a pricing candidate into the editable form fields', () => {
     const { page } = createPageHarness();
+    // A platform without a store source, where a psprices candidate stays psprices.
+    setField(page, 'activeDetail', { ...createDetail(), platformIgdbId: 7 });
     const candidate: PriceMatchCandidate = {
       title: 'Chrono Trigger',
       amount: 19.99,
@@ -413,6 +415,12 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.pricingForm.priceUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesUrl).toBe('https://psprices.com/us/game/chrono-trigger');
     expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
+
+    // On a PS4 game it opens on the PlayStation Store, which prices PS4 now.
+    setField(page, 'activeDetail', createDetail());
+    page.applyPricingCandidate(candidate);
+    expect(page.pricingForm.priceSource).toBe('playstation_store');
+    expect(page.pricingForm.psPricesUrl).toBe('');
   });
 
   it('defaults Switch pricing to the Nintendo eShop and sends a picked game as its nsuid', () => {

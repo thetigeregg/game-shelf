@@ -48,8 +48,13 @@ export interface NintendoEshopRequestOptions {
 
 /** A game from search results. */
 export interface NintendoEshopSearchGame {
-  /** The game's own nsuid (not an upgrade pack's or bundle's). */
+  /** The game's own nsuid (not an upgrade pack's or bundle's): the first of `gameNsuids`. */
   nsuid: string;
+  /**
+   * Every game nsuid in the entry. Usually one; some co-op games also list a free "Friend's Pass"
+   * as a game, so pricing picks among them rather than trusting the first.
+   */
+  gameNsuids: string[];
   title: string;
   /** Platform codes the game plays on: HAC for Switch, BEE for Switch 2. */
   platformCodes: string[];
@@ -264,14 +269,19 @@ function normalizeSearchGame(value: unknown): NintendoEshopSearchGame | null {
     return null;
   }
   const title = normalizeNonEmptyString(doc['title']);
-  const nsuid = readStringList(doc['nsuid_txt']).find(
-    (candidate) => candidate.startsWith(GAME_NSUID_PREFIX) && NSUID_PATTERN.test(candidate)
-  );
-  if (!title || !nsuid) {
+  const gameNsuids = [
+    ...new Set(
+      readStringList(doc['nsuid_txt']).filter(
+        (candidate) => candidate.startsWith(GAME_NSUID_PREFIX) && NSUID_PATTERN.test(candidate)
+      )
+    ),
+  ];
+  if (!title || gameNsuids.length === 0) {
     return null; // Not sold digitally: nothing to price.
   }
   return {
-    nsuid,
+    nsuid: gameNsuids[0],
+    gameNsuids,
     title,
     platformCodes: readStringList(doc['playable_on_txt']),
     imageUrl: normalizeNonEmptyString(doc['image_url_sq_s']),

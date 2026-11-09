@@ -27,6 +27,8 @@ export const FLARESOLVERR_SESSION_MAX_AGE_MS = 30 * 60_000;
 // delays. A request the client gave up on may still be starting that session's browser, and
 // FlareSolverr only registers the session once it's up; nothing else would ever close it.
 export const FLARESOLVERR_CLEANUP_RETRY_DELAYS_MS = [30_000, 60_000, 120_000];
+// The longest a session command (list or destroy) may take.
+const COMMAND_TIMEOUT_MS = 10_000;
 // An unused session is closed after this long, so FlareSolverr isn't left running an idle browser.
 export const FLARESOLVERR_SESSION_IDLE_MS = 10 * 60_000;
 // After a Cloudflare block, searches skip the direct request for this long and go straight to
@@ -168,6 +170,8 @@ export function createFlareSolverrClient({
   idleMs = FLARESOLVERR_SESSION_IDLE_MS,
   cleanupRetryDelaysMs = FLARESOLVERR_CLEANUP_RETRY_DELAYS_MS,
   now = Date.now,
+  // Seam for tests: makes the AbortSignal for a session command of up to `ms`.
+  abortAfter = (ms) => AbortSignal.timeout(ms),
 }) {
   // Settles when the latest queued call is finished with FlareSolverr; never rejects.
   let queue = Promise.resolve();
@@ -186,12 +190,12 @@ export function createFlareSolverrClient({
     }
   }
 
-  async function command(body) {
+  async function command(body, timeoutMs) {
     const response = await fetchImpl(new URL('/v1', flareSolverrUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
+      signal: abortAfter(Math.max(0, timeoutMs)),
     });
     const text = await response.text();
     try {
@@ -201,11 +205,14 @@ export function createFlareSolverrClient({
     }
   }
 
-  /** Best effort, retried later (see FLARESOLVERR_CLEANUP_RETRY_DELAYS_MS) unless confirmed. */
-  async function destroyRemoteSession(name, attempt = 0) {
+  /**
+   * Best effort, retried later (see FLARESOLVERR_CLEANUP_RETRY_DELAYS_MS) unless confirmed.
+   * `timeoutMs` caps this attempt; retries run in the background and get the full command time.
+   */
+  async function destroyRemoteSession(name, timeoutMs = COMMAND_TIMEOUT_MS, attempt = 0) {
     let reply = null;
     try {
-      reply = await command({ cmd: 'sessions.destroy', session: name });
+      reply = await command({ cmd: 'sessions.destroy', session: name }, timeoutMs);
     } catch {
       // FlareSolverr is gone or busy.
     }
@@ -215,26 +222,27 @@ export function createFlareSolverrClient({
     }
     const timer = setTimeout(() => {
       cleanupTimers.delete(timer);
-      void destroyRemoteSession(name, attempt + 1);
+      void destroyRemoteSession(name, COMMAND_TIMEOUT_MS, attempt + 1);
     }, delayMs);
     timer.unref?.();
     cleanupTimers.add(timer);
   }
 
-  async function retireSession() {
+  async function retireSession(timeoutMs = COMMAND_TIMEOUT_MS) {
     clearIdleTimer();
     if (!session) {
       return;
     }
     const retired = session;
     session = null;
-    await destroyRemoteSession(retired);
+    await destroyRemoteSession(retired, timeoutMs);
   }
 
-  async function removeLeftoverSessions() {
+  /** `timeoutMs()` gives the time each step may take, so the steps share one deadline. */
+  async function removeLeftoverSessions(timeoutMs) {
     let reply;
     try {
-      reply = await command({ cmd: 'sessions.list' });
+      reply = await command({ cmd: 'sessions.list' }, timeoutMs());
     } catch {
       return; // Tried again on the next call.
     }
@@ -246,7 +254,8 @@ export function createFlareSolverrClient({
         name.startsWith(`${sessionPrefix}-`) &&
         !name.startsWith(`${sessionPrefix}-${runId}-`)
     );
-    await Promise.all(leftovers.map((name) => destroyRemoteSession(name)));
+    const destroyTimeoutMs = timeoutMs();
+    await Promise.all(leftovers.map((name) => destroyRemoteSession(name, destroyTimeoutMs)));
   }
 
   async function fetchInSession(url, deadline) {
@@ -255,11 +264,18 @@ export function createFlareSolverrClient({
       if (closing) {
         throw new Error('the scraper is shutting down');
       }
+      // Cleanup runs on the caller's time, so it can't take longer than the caller has left.
+      const cleanupTimeoutMs = () => Math.min(COMMAND_TIMEOUT_MS, deadline - Date.now());
       if (!leftoversRemoved) {
-        await removeLeftoverSessions();
+        await removeLeftoverSessions(cleanupTimeoutMs);
       }
       if (session && now() - sessionStartedAt >= FLARESOLVERR_SESSION_MAX_AGE_MS) {
-        await retireSession();
+        await retireSession(cleanupTimeoutMs());
+      }
+      // Checked again: close() may have run during the cleanup above, when there was no session
+      // for it to destroy, and nothing would close one started now.
+      if (closing) {
+        throw new Error('the scraper is shutting down');
       }
 
       const browserStartMs = session ? 0 : FLARESOLVERR_BROWSER_START_MS;

@@ -792,3 +792,61 @@ test('createFlareSolverrClient names sessions uniquely per run', async () => {
   assert.match(names[0], /^gameshelf-psprices-[0-9a-f]{8}-1$/);
   assert.notEqual(names[0], names[1]);
 });
+
+test('createFlareSolverrClient starts no session when close() runs during the leftover cleanup', async () => {
+  const fake = controlledFlareSolverr();
+  let releaseList;
+  const listHeld = new Promise((resolve) => {
+    releaseList = resolve;
+  });
+  const fetchImpl = async (url, init) => {
+    if (JSON.parse(init.body).cmd === 'sessions.list') {
+      await listHeld;
+    }
+    return await fake.fetchImpl(url, init);
+  };
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl,
+    runId: 'r1',
+  });
+
+  const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+  await client.close();
+  releaseList();
+
+  await assert.rejects(call, { message: 'the scraper is shutting down' });
+  assert.equal(fake.pending.length, 0, 'no request.get was sent');
+});
+
+test('createFlareSolverrClient caps foreground cleanup at the caller deadline', async () => {
+  // A slow sessions.list uses up part of the budget, so the leftover's destroy after it must get
+  // only what is left before the deadline, not a fresh command timeout.
+  const fake = controlledFlareSolverr({ sessions: ['gameshelf-psprices-old-1'] });
+  const fetchImpl = async (url, init) => {
+    if (JSON.parse(init.body).cmd === 'sessions.list') {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+    return await fake.fetchImpl(url, init);
+  };
+  const requested = [];
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl,
+    runId: 'r1',
+    abortAfter: (ms) => {
+      requested.push({ ms, left: deadline - Date.now() });
+      return AbortSignal.timeout(ms);
+    },
+  });
+  const deadline = Date.now() + 10_400;
+  const call = client.fetchHtml(SEARCH_URL, { deadline });
+  await assert.rejects(call, { message: 'request time budget used up waiting for FlareSolverr' });
+  await client.close();
+
+  const [list, destroy] = requested;
+  assert.equal(list.ms, 10_000, 'the list gets the full command timeout while 10.4s are left');
+  assert.ok(destroy.ms < 10_000, `the destroy gets less: ${String(destroy.ms)}`);
+  assert.ok(destroy.ms <= destroy.left, 'and no more than what was left');
+});

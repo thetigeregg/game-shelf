@@ -10,6 +10,7 @@ import {
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface MetacriticCacheRow {
@@ -33,6 +34,8 @@ interface MetacriticCacheRouteOptions {
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+  /** Minimum time between revalidations of one cache key (revalidation-cooldown.ts). */
+  revalidationCooldownMs?: number;
 }
 
 export interface MetacriticCacheRevalidationPayload extends Record<string, unknown> {
@@ -49,6 +52,10 @@ export async function registerMetacriticCachedRoute(
   pool: Pool,
   options: MetacriticCacheRouteOptions = {}
 ): Promise<void> {
+  const revalidationCooldown = createRevalidationCooldown({
+    cooldownMs: options.revalidationCooldownMs,
+    now: options.now,
+  });
   await ensureRateLimitRegistered(app);
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
@@ -115,7 +122,8 @@ export async function registerMetacriticCachedRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh,
-                  options.enqueueRevalidationJob
+                  options.enqueueRevalidationJob,
+                  revalidationCooldown
                 );
                 reply.header('X-GameShelf-METACRITIC-Cache', 'HIT_STALE');
                 reply.header(
@@ -246,8 +254,14 @@ function scheduleMetacriticRevalidation(
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
   scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
-  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void
+  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void,
+  revalidationCooldown?: RevalidationCooldown
 ): boolean {
+  if (revalidationCooldown && !revalidationCooldown.tryAcquire(cacheKey)) {
+    incrementMetacriticMetric('revalidateSkipped');
+    return false;
+  }
+
   if (enqueueRevalidationJob) {
     incrementMetacriticMetric('revalidateScheduled');
     enqueueRevalidationJob({
@@ -325,8 +339,13 @@ export async function processQueuedMetacriticCacheRevalidation(
   }
 
   const parsed = await safeReadJson(response);
-  if (parsed === null || !isCacheableMetacriticPayload(normalizedQuery, parsed)) {
-    throw new Error('Metacritic revalidation returned uncacheable payload.');
+  if (parsed === null) {
+    throw new Error('Metacritic revalidation returned a non-JSON payload.');
+  }
+  if (!isCacheableMetacriticPayload(normalizedQuery, parsed)) {
+    // No match now: the cached entry is left as it is and expires at its stale TTL. Failing here
+    // only queued the same revalidation again on the next stale read (see revalidation-cooldown.ts).
+    return;
   }
 
   await pool.query(

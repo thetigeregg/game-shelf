@@ -6,7 +6,11 @@ import path from 'node:path';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
-import { __metacriticCacheTestables, registerMetacriticCachedRoute } from './metacritic-cache.js';
+import {
+  __metacriticCacheTestables,
+  processQueuedMetacriticCacheRevalidation,
+  registerMetacriticCachedRoute,
+} from './metacritic-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 import { config } from './config.js';
 
@@ -79,6 +83,10 @@ class MetacriticPoolMock {
     }
 
     throw new Error(`Unsupported SQL in MetacriticPoolMock: ${sql}`);
+  }
+
+  readUpdatedAt(cacheKey: string): string | null {
+    return this.rowsByKey.get(cacheKey)?.updated_at ?? null;
   }
 
   getEntryCount(): number {
@@ -398,6 +406,8 @@ void test('METACRITIC cache stale revalidation handles failures and skip when al
     now: () => nowMs,
     freshTtlSeconds: 1,
     staleTtlSeconds: 100,
+    // Revalidates the same key several times on purpose.
+    revalidationCooldownMs: 0,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
     },
@@ -518,6 +528,8 @@ void test('METACRITIC stale revalidation ignores non-json and uncacheable payloa
     now: () => nowMs,
     freshTtlSeconds: 1,
     staleTtlSeconds: 100,
+    // Revalidates the same key twice on purpose.
+    revalidationCooldownMs: 0,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
     },
@@ -1029,4 +1041,89 @@ void test('METACRITIC helper branches normalize and gate cache writes', async ()
   );
   assert.equal(scheduledAgain, true);
   await scheduledTasks[1]();
+});
+
+void test('METACRITIC stale reads revalidate a key at most once per cooldown', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.UTC(2026, 10, 9, 12, 0, 0);
+  const pool = new MetacriticPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  const queued: string[] = [];
+
+  await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 80 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+    now: () => nowMs,
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 86400,
+    revalidationCooldownMs: 60_000,
+    enqueueRevalidationJob: (payload) => {
+      queued.push(payload.cacheKey);
+    },
+  });
+
+  await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
+  nowMs += 2_000;
+  const first = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
+  nowMs += 2_000;
+  const second = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
+  nowMs += 60_000;
+  const third = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=chrono' });
+
+  // Still served stale each time; only one revalidation per cooldown window is queued.
+  assert.equal(first.headers['x-gameshelf-metacritic-revalidate'], 'scheduled');
+  assert.equal(second.headers['x-gameshelf-metacritic-revalidate'], 'skipped');
+  assert.equal(third.headers['x-gameshelf-metacritic-revalidate'], 'scheduled');
+  assert.equal(queued.length, 2);
+  assert.equal(getCacheMetrics().metacritic.revalidateSkipped, 1);
+  await app.close();
+});
+
+void test('queued METACRITIC revalidation leaves the entry alone when nothing matches', async () => {
+  const pool = new MetacriticPoolMock();
+  pool.seed('k', { item: { metacriticScore: 80 } }, '2026-11-01T00:00:00.000Z');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve(
+      new Response(JSON.stringify({ item: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+  try {
+    await withEnv({ METACRITIC_SCRAPER_BASE_URL: 'http://metacritic-scraper:8789' }, async () => {
+      await processQueuedMetacriticCacheRevalidation(pool as unknown as Pool, {
+        cacheKey: 'k',
+        requestUrl: '/v1/metacritic/search?q=Off%20The%20Grid',
+      });
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  // Unchanged, so it still ages out at its stale TTL.
+  assert.equal(pool.readUpdatedAt('k'), '2026-11-01T00:00:00.000Z');
+});
+
+void test('queued METACRITIC revalidation still fails on a non-JSON reply', async () => {
+  const pool = new MetacriticPoolMock();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response('<html>blocked</html>', { status: 200 }));
+  try {
+    await withEnv({ METACRITIC_SCRAPER_BASE_URL: 'http://metacritic-scraper:8789' }, async () => {
+      await assert.rejects(
+        processQueuedMetacriticCacheRevalidation(pool as unknown as Pool, {
+          cacheKey: 'k',
+          requestUrl: '/v1/metacritic/search?q=Hades',
+        }),
+        { message: 'Metacritic revalidation returned a non-JSON payload.' }
+      );
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

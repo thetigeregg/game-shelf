@@ -652,11 +652,12 @@ void test('IGDB queued revalidation fails for non-ok upstream status', async () 
   assert.equal(pool.getEntryCount(), 0);
 });
 
-void test('IGDB queued revalidation fails for uncacheable payload', async () => {
+void test('IGDB queued revalidation leaves the entry alone for an uncacheable payload', async () => {
   resetCacheMetrics();
   const pool = new IgdbPoolMock();
 
-  await assert.rejects(
+  // No match is not a failure: failing only re-queued the same revalidation on the next read.
+  await assert.doesNotReject(
     processQueuedIgdbCacheRevalidation(
       pool as unknown as Pool,
       {
@@ -672,8 +673,7 @@ void test('IGDB queued revalidation fails for uncacheable payload', async () => 
             })
           ),
       }
-    ),
-    /uncacheable payload/
+    )
   );
 
   assert.equal(pool.getEntryCount(), 0);

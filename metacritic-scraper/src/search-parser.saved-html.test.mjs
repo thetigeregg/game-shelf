@@ -128,3 +128,122 @@ test('extractMetacriticSearchResults does not infer release year from numbered t
     imageUrl: 'https://images.example/metro.jpg',
   });
 });
+
+test('extractMetacriticSearchResults reads the title from the current search-item card', () => {
+  // Trimmed from the live search page (2026-11) for an unscored, early-access game; no embedded
+  // payload, so the title must come from the card itself.
+  const html = `
+    <main>
+      <div class="search-item" data-testid="search-item">
+        <a href="/game/off-the-grid/" class="search-item__content">
+          <div><picture><img src="https://images.example/off-the-grid.jpg" alt="" /></picture></div>
+          <div class="overflow-hidden">
+            <p class="truncate mb-2 text-2xl font-bold">Off The Grid</p>
+            <div class="c-search-product-meta--search-page">
+              <ul class="global-tag-list" data-testid="tag-list"><li><span>game</span></li></ul>
+              <ul class="truncate inline list-none">
+                <li><span>TBA - Early Access</span></li>
+                <li><span><strong>PlayStation 5</strong>, and more</span></li>
+              </ul>
+              <div data-testid="product-metascore"><span>tbd</span></div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </main>
+  `;
+
+  const results = parseHtml(html);
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].title, 'Off The Grid');
+  assert.equal(results[0].metacriticScore, null);
+  assert.equal(results[0].metacriticUrl, 'https://www.metacritic.com/game/off-the-grid/');
+});
+
+test('extractMetacriticSearchResults strips card metadata glued onto a title', () => {
+  // When only the whole card text is available, the "game" tag runs straight into the release
+  // info: everything from that tag on is metadata.
+  const cases = [
+    ['Off the Grid: Bad DreamgameJune 2028PC, and moretbd', 'Off the Grid: Bad Dream'],
+    ['Schedule I: Dope Empire VRgameTBAMeta Questtbd', 'Schedule I: Dope Empire VR'],
+    ['Hades Ultimate Fighting BallgameTBA - Early AccessPCtbd', 'Hades Ultimate Fighting Ball'],
+    ['Some TitlegameEarly AccessPCtbd', 'Some Title'],
+    ['Some TitlegameComing SoonPlayStation 5tbd', 'Some Title'],
+    ['Some TitlegameQ1 2027PCtbd', 'Some Title'],
+    ['Endless Endgame', 'Endless Endgame'],
+  ];
+  for (const [glued, expected] of cases) {
+    const results = parseHtml(`
+      <main>
+        <article>
+          <a href="/game/example/"><span>${glued}</span></a>
+          <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+        </article>
+      </main>
+    `);
+    assert.equal(results[0]?.title, expected, glued);
+  }
+});
+
+test('extractMetacriticSearchResults keeps a real title that contains "game" followed by a year', () => {
+  // The glued-metadata cleanup is only for text taken from a whole card, not a title element.
+  const results = parseHtml(`
+    <main>
+      <article>
+        <a href="/game/minigame2049/"><h3>Minigame2049</h3></a>
+        <div><span data-testid="product-metascore"><span>71</span></span></div>
+      </article>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Minigame2049');
+});
+
+test('extractMetacriticSearchResults prefers the card title over an earlier heading', () => {
+  // Selectors are tried in priority order, not page order.
+  const results = parseHtml(`
+    <main>
+      <div class="search-item" data-testid="search-item">
+        <a href="/game/real-title/" class="search-item__content">
+          <h4>Sponsored</h4>
+          <div class="overflow-hidden"><p class="truncate">Real Title</p></div>
+          <div data-testid="product-metascore"><span>tbd</span></div>
+        </a>
+      </div>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Real Title');
+});
+
+test('extractMetacriticSearchResults keeps a link whose own text is the title', () => {
+  // No title element, but the link's direct text is just the title: nothing to strip.
+  const results = parseHtml(`
+    <main>
+      <article>
+        <a href="/game/minigame2049/">Minigame2049</a>
+        <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+      </article>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Minigame2049');
+});
+
+test('extractMetacriticSearchResults finds the real tag boundary in glued card text', () => {
+  const cases = [
+    // "game" plus a year inside the title, then the glued tag and metadata.
+    ['Minigame2049gameTBAPCtbd', 'Minigame2049'],
+    // A whole-card text that is only the title: nothing after its year, so nothing is cut.
+    ['Minigame2049', 'Minigame2049'],
+  ];
+  for (const [text, expected] of cases) {
+    const results = parseHtml(`
+      <main>
+        <article>
+          <a href="/game/example/"><span>${text}</span></a>
+          <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+        </article>
+      </main>
+    `);
+    assert.equal(results[0]?.title, expected, text);
+  }
+});

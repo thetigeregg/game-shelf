@@ -8,7 +8,11 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 import { config } from './config.js';
-import { __mobygamesCacheTestables, registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import {
+  __mobygamesCacheTestables,
+  processQueuedMobyGamesCacheRevalidation,
+  registerMobyGamesCachedRoute,
+} from './mobygames-cache.js';
 
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
@@ -57,6 +61,10 @@ class MobyGamesPoolMock {
       now?: () => number;
     } = {}
   ) {}
+
+  getEntryCount(): number {
+    return this.rowsByKey.size;
+  }
 
   seed(key: string, row: { response_json: unknown; updated_at: string }): void {
     this.rowsByKey.set(key, row);
@@ -1237,6 +1245,38 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
     Date.now = originalDateNow;
     globalThis.fetch = originalFetch;
     __mobygamesCacheTestables.resetMobyGamesThrottle();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+void test('queued MOBYGAMES revalidation that finds no games succeeds without writing', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mobygames-key-'));
+  const keyPath = path.join(tempDir, 'api-key.txt');
+  fs.writeFileSync(keyPath, 'abc123\n', 'utf8');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve(
+      new Response(JSON.stringify({ games: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+  try {
+    await withEnv(
+      { MOBYGAMES_API_BASE_URL: 'https://api.mobygames.com/v2', MOBYGAMES_API_KEY_FILE: keyPath },
+      async () => {
+        const pool = new MobyGamesPoolMock();
+        // No match isn't a failure: failing only re-queued the same revalidation on the next read.
+        await processQueuedMobyGamesCacheRevalidation(pool as unknown as Pool, {
+          cacheKey: 'no-games',
+          requestUrl: '/v1/mobygames/search?q=Obscure%20Game',
+        });
+        assert.equal(pool.getEntryCount(), 0);
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });

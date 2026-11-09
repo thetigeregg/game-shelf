@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementMobygamesMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import { createProviderLimiter, ProviderThrottleError } from './provider-rate-limit.js';
 import {
   isDebugHttpLogsEnabled,
@@ -39,6 +40,8 @@ interface MobyGamesCacheRouteOptions {
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+  /** Minimum time between revalidations of one cache key (revalidation-cooldown.ts). */
+  revalidationCooldownMs?: number;
 }
 
 interface MobyGamesCredentials {
@@ -67,6 +70,10 @@ export async function registerMobyGamesCachedRoute(
   pool: Pool,
   options: MobyGamesCacheRouteOptions = {}
 ): Promise<void> {
+  const revalidationCooldown = createRevalidationCooldown({
+    cooldownMs: options.revalidationCooldownMs,
+    now: options.now,
+  });
   await ensureRateLimitRegistered(app);
   const credentials = resolveMobyGamesCredentials();
   const fetchMetadata =
@@ -137,7 +144,8 @@ export async function registerMobyGamesCachedRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh,
-                  options.enqueueRevalidationJob
+                  options.enqueueRevalidationJob,
+                  revalidationCooldown
                 );
                 logMobygamesCacheDecision(
                   request,
@@ -380,8 +388,14 @@ function scheduleMobyGamesRevalidation(
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
   scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
-  enqueueRevalidationJob?: (payload: MobyGamesCacheRevalidationPayload) => void
+  enqueueRevalidationJob?: (payload: MobyGamesCacheRevalidationPayload) => void,
+  revalidationCooldown?: RevalidationCooldown
 ): boolean {
+  if (revalidationCooldown && !revalidationCooldown.tryAcquire(cacheKey)) {
+    incrementMobygamesMetric('revalidateSkipped');
+    return false;
+  }
+
   if (enqueueRevalidationJob) {
     incrementMobygamesMetric('revalidateScheduled');
     enqueueRevalidationJob({
@@ -460,8 +474,13 @@ export async function processQueuedMobyGamesCacheRevalidation(
   }
 
   const parsed = await safeReadJson(response);
-  if (parsed === null || !isCacheableMobyGamesPayload(parsed)) {
-    throw new Error('MobyGames revalidation returned uncacheable payload.');
+  if (parsed === null) {
+    throw new Error('MobyGames revalidation returned a non-JSON payload.');
+  }
+  if (!isCacheableMobyGamesPayload(parsed)) {
+    // No match now: the cached entry is left as it is and expires at its stale TTL. Failing here
+    // only queued the same revalidation again on the next stale read (see revalidation-cooldown.ts).
+    return;
   }
 
   await pool.query(

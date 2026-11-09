@@ -945,6 +945,8 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
     now: () => nowMs,
     freshTtlSeconds: 1,
     staleTtlSeconds: 100,
+    // Revalidates the same key several times on purpose.
+    revalidationCooldownMs: 0,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
     },
@@ -1719,4 +1721,56 @@ void test('HLTB null item responses are not cached', async () => {
   assert.equal(metrics.hltb.writes, 0);
 
   await app.close();
+});
+
+async function withHltbScraper(reply: () => Response, run: () => Promise<void>): Promise<void> {
+  const originalBaseUrl = process.env['HLTB_SCRAPER_BASE_URL'];
+  const originalFetch = globalThis.fetch;
+  process.env['HLTB_SCRAPER_BASE_URL'] = 'https://hltb.example';
+  globalThis.fetch = () => Promise.resolve(reply());
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env['HLTB_SCRAPER_BASE_URL'];
+    } else {
+      process.env['HLTB_SCRAPER_BASE_URL'] = originalBaseUrl;
+    }
+  }
+}
+
+void test('queued HLTB revalidation that finds no match succeeds without writing', async () => {
+  // No match isn't a failure: failing only re-queued the same revalidation on the next read.
+  const pool = new HltbPoolMock();
+  await withHltbScraper(
+    () =>
+      new Response(JSON.stringify({ item: null, candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    async () => {
+      await processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+        cacheKey: 'no-match',
+        requestUrl: '/v1/hltb/search?q=Obscure%20Game',
+      });
+    }
+  );
+  assert.equal(pool.getEntryCount(), 0);
+});
+
+void test('queued HLTB revalidation still fails on a non-JSON reply', async () => {
+  const pool = new HltbPoolMock();
+  await withHltbScraper(
+    () => new Response('<html>blocked</html>', { status: 200 }),
+    async () => {
+      await assert.rejects(
+        processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+          cacheKey: 'non-json',
+          requestUrl: '/v1/hltb/search?q=Okami',
+        }),
+        /HLTB revalidation returned a non-JSON payload/
+      );
+    }
+  );
 });

@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
@@ -34,6 +35,8 @@ interface HltbCacheRouteOptions {
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+  /** Minimum time between revalidations of one cache key (revalidation-cooldown.ts). */
+  revalidationCooldownMs?: number;
 }
 
 export interface HltbCacheRevalidationPayload extends Record<string, unknown> {
@@ -51,6 +54,10 @@ export async function registerHltbCachedRoute(
   pool: Pool,
   options: HltbCacheRouteOptions = {}
 ): Promise<void> {
+  const revalidationCooldown = createRevalidationCooldown({
+    cooldownMs: options.revalidationCooldownMs,
+    now: options.now,
+  });
   await ensureRateLimitRegistered(app);
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
@@ -117,7 +124,8 @@ export async function registerHltbCachedRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh,
-                  options.enqueueRevalidationJob
+                  options.enqueueRevalidationJob,
+                  revalidationCooldown
                 );
                 reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
                 reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
@@ -260,8 +268,14 @@ function scheduleHltbRevalidation(
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
   scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
-  enqueueRevalidationJob?: (payload: HltbCacheRevalidationPayload) => void
+  enqueueRevalidationJob?: (payload: HltbCacheRevalidationPayload) => void,
+  revalidationCooldown?: RevalidationCooldown
 ): boolean {
+  if (revalidationCooldown && !revalidationCooldown.tryAcquire(cacheKey)) {
+    incrementHltbMetric('revalidateSkipped');
+    return false;
+  }
+
   if (enqueueRevalidationJob) {
     incrementHltbMetric('revalidateScheduled');
     enqueueRevalidationJob({
@@ -339,9 +353,14 @@ export async function processQueuedHltbCacheRevalidation(
   }
 
   const parsed = await safeReadJson(response);
-  const finalizedPayload = parsed === null ? null : finalizeHltbPayload(normalizedQuery, parsed);
+  if (parsed === null) {
+    throw new Error('HLTB revalidation returned a non-JSON payload.');
+  }
+  const finalizedPayload = finalizeHltbPayload(normalizedQuery, parsed);
   if (finalizedPayload === null || !isCacheableHltbPayload(normalizedQuery, finalizedPayload)) {
-    throw new Error('HLTB revalidation returned uncacheable payload.');
+    // No match now: the cached entry is left as it is and expires at its stale TTL. Failing here
+    // only queued the same revalidation again on the next stale read (see revalidation-cooldown.ts).
+    return;
   }
 
   await pool.query(

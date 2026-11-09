@@ -46,11 +46,20 @@ export function extractMetacriticSearchResults(config = {}) {
   // into the release info ("Off The GridgameTBA - Early Access…", "…Bad DreamgameJune 2028PC…"),
   // so everything from that tag on is metadata. Not applied to real titles, which could contain
   // "game" followed by such text.
-  const stripGluedCardMetadataInPage = (text) =>
-    String(text ?? '').replace(
-      /game(?=TBA|Early Access|Coming Soon|Q[1-4] \d{4}|[A-Z][a-z]+ \d{4}|\d{4})[\s\S]*$/,
-      ''
-    );
+  //
+  // The tag is the last "game" followed by release info with more card text after it (platforms,
+  // score): a title such as "Minigame2049" has nothing after its year, and in
+  // "Minigame2049gameTBAPCtbd" the second "game" is the tag.
+  const gluedCardMetadataTagPatternInPage =
+    /game(?=(?:TBA|Early Access|Coming Soon|Q[1-4] \d{4}|[A-Z][a-z]+ \d{4}|\d{4})[\s\S]+)/g;
+  const stripGluedCardMetadataInPage = (text) => {
+    const value = String(text ?? '');
+    const tagIndexes = Array.from(
+      value.matchAll(gluedCardMetadataTagPatternInPage),
+      (match) => match.index ?? -1
+    ).filter((index) => index > 0);
+    return tagIndexes.length > 0 ? value.slice(0, tagIndexes[tagIndexes.length - 1]) : value;
+  };
   const canonicalMetacriticOriginInPage = 'https://www.metacritic.com';
   const platformTailPatternInPage =
     /(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)(?:\s*(?:[1-9]\d?|100|tbd))?\s*$/i;
@@ -184,23 +193,41 @@ export function extractMetacriticSearchResults(config = {}) {
     return withoutPlatformTail.replace(/\s+/g, ' ').trim();
   };
 
-  const extractCandidateTitleTextInPage = (element) => {
-    if (!element) {
-      return '';
-    }
-
-    const directText = Array.from(element.childNodes)
+  const readDirectTextInPage = (element) =>
+    Array.from(element.childNodes)
       .filter((node) => node.nodeType === Node.TEXT_NODE)
       .map((node) => node.textContent ?? '')
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
 
+  const extractCandidateTitleTextInPage = (element) => {
+    if (!element) {
+      return '';
+    }
+
+    const directText = readDirectTextInPage(element);
     if (directText.length > 0) {
       return directText;
     }
 
     return String(element.textContent ?? '').trim();
+  };
+
+  // Title text when no title element was found. The element's own text is taken as is (a link
+  // whose text is the title); only text gathered from its whole content (title, tag, release,
+  // platforms and score run together) has the glued card metadata stripped.
+  const extractFallbackTitleTextInPage = (element) => {
+    if (!element) {
+      return '';
+    }
+
+    const directText = readDirectTextInPage(element);
+    if (directText.length > 0) {
+      return directText;
+    }
+
+    return stripGluedCardMetadataInPage(String(element.textContent ?? '').trim());
   };
 
   const parseMetacriticScoreInPage = (rawValue) => {
@@ -594,7 +621,7 @@ export function extractMetacriticSearchResults(config = {}) {
     const titleElement = findTitleElementInPage(row);
     const titleText = titleElement
       ? extractCandidateTitleTextInPage(titleElement)
-      : stripGluedCardMetadataInPage(extractCandidateTitleTextInPage(nestedGameLinkEl || row));
+      : extractFallbackTitleTextInPage(nestedGameLinkEl || row);
     const title = sanitizeCandidateTitleInPage(titleText);
     if (!title || genericTitles.has(title.toLowerCase())) {
       continue;
@@ -668,7 +695,7 @@ export function extractMetacriticSearchResults(config = {}) {
     const titleElement = findTitleElementInPage(container);
     const titleText = titleElement
       ? extractCandidateTitleTextInPage(titleElement)
-      : stripGluedCardMetadataInPage(extractCandidateTitleTextInPage(link));
+      : extractFallbackTitleTextInPage(link);
     const title = sanitizeCandidateTitleInPage(titleText);
     if (!title || genericTitles.has(title.toLowerCase())) {
       continue;

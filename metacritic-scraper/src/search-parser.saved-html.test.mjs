@@ -214,3 +214,36 @@ test('extractMetacriticSearchResults prefers the card title over an earlier head
   `);
   assert.equal(results[0]?.title, 'Real Title');
 });
+
+test('extractMetacriticSearchResults keeps a link whose own text is the title', () => {
+  // No title element, but the link's direct text is just the title: nothing to strip.
+  const results = parseHtml(`
+    <main>
+      <article>
+        <a href="/game/minigame2049/">Minigame2049</a>
+        <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+      </article>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Minigame2049');
+});
+
+test('extractMetacriticSearchResults finds the real tag boundary in glued card text', () => {
+  const cases = [
+    // "game" plus a year inside the title, then the glued tag and metadata.
+    ['Minigame2049gameTBAPCtbd', 'Minigame2049'],
+    // A whole-card text that is only the title: nothing after its year, so nothing is cut.
+    ['Minigame2049', 'Minigame2049'],
+  ];
+  for (const [text, expected] of cases) {
+    const results = parseHtml(`
+      <main>
+        <article>
+          <a href="/game/example/"><span>${text}</span></a>
+          <div><span data-testid="product-metascore"><span>tbd</span></span></div>
+        </article>
+      </main>
+    `);
+    assert.equal(results[0]?.title, expected, text);
+  }
+});

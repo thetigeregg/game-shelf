@@ -88,7 +88,7 @@
     "dexie": "^4.4.7",
     "dompurify": "^3.4.17",
     "fake-indexeddb": "^6.2.7",
-    "firebase": "^12.19.0",
+    "firebase": "^13.2.0",
     "ionicons": "^8.1.0",
     "ngx-tiptap": "^15.0.0",
     "remixicon": "^4.9.1",

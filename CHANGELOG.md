@@ -4336,3 +4336,7 @@
 ## v1.91.0 - 2026-11-09
 
 - 0c0a5f48 feat(pricing): price PS4/PS5 from the PlayStation Store (#657)
+
+## v1.91.1 - 2026-11-09
+
+- 0e394645 fix(metacritic): parse current search cards and stop revalidation loop (#658)

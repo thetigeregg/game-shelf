@@ -243,6 +243,7 @@ void test('scraper health probes build URLs the way each API client does', () =>
     [
       ['gameshelf-psprices', false],
       ['gameshelf-playstation-store', false],
+      ['gameshelf-nintendo-eshop', false],
       ['gameshelf-hltb', false],
       ['gameshelf-metacritic', false],
       ['gameshelf-compat', true],
@@ -421,6 +422,7 @@ void test('scraper health probes cover each scraper with a known title', () => {
     [
       ['gameshelf-psprices', '/v1/psprices/search', 'Hades II'],
       ['gameshelf-playstation-store', 'Hades II (PS5)', null],
+      ['gameshelf-nintendo-eshop', 'Hades II (Switch)', null],
       ['gameshelf-hltb', '/v1/hltb/search', 'Hades'],
       ['gameshelf-metacritic', '/v1/metacritic/search', 'Hades'],
       ['gameshelf-compat', '/v1/compat/11', null],
@@ -616,6 +618,30 @@ void test('PlayStation Store probe accepts only the verified product with a pric
     ok: false,
     reason: 'no match for a title that should always match',
   });
+});
+
+void test('Nintendo eShop probe accepts only the verified nsuid with a price', () => {
+  assert.deepEqual(
+    probeVerdict('gameshelf-nintendo-eshop', {
+      item: { nsuid: '70010000060676', title: 'Hades II', amount: 32.5 },
+    }),
+    { ok: true, detail: 'matched (nsuid=70010000060676, title=Hades II, amount=32.5)' }
+  );
+  assert.equal(
+    probeVerdict('gameshelf-nintendo-eshop', {
+      item: { nsuid: '70010000033132', title: 'Hades', amount: 27 },
+    }).ok,
+    false
+  );
+  assert.deepEqual(
+    probeVerdict('gameshelf-nintendo-eshop', {
+      item: { nsuid: '70010000060676', title: 'Hades II', amount: null },
+    }),
+    {
+      ok: false,
+      reason: 'matched the expected game without a price (nsuid=70010000060676, title=Hades II)',
+    }
+  );
 });
 
 void test('a probe with run calls it instead of the scraper URL and pings the result', async () => {

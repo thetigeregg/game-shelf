@@ -216,158 +216,12 @@ void test('pricing freshness returns null for invalid/blank unified priceFetched
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(invalidPayload), null);
 });
 
-void test('PSPrices revalidation title prefers saved match query title over game title', () => {
-  const withOverride = {
-    title: 'Pokemon Violet',
-    psPricesMatchQueryTitle: 'Pokemon Scarlet',
-  } satisfies Record<string, unknown>;
-  const withoutOverride = {
-    title: 'Pokemon Violet',
-  } satisfies Record<string, unknown>;
-  const blankValues = {
-    title: '   ',
-    psPricesMatchQueryTitle: '',
-  } satisfies Record<string, unknown>;
-
-  assert.equal(
-    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withOverride),
-    'Pokemon Scarlet'
-  );
-  assert.equal(
-    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withoutOverride),
-    'Pokemon Violet'
-  );
-  assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationTitle(blankValues), null);
-});
-
-void test('PSPrices revalidation URL prefers psPricesUrl and falls back to psprices priceUrl', () => {
-  const explicitUrl = {
-    psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
-    priceSource: 'psprices',
-    priceUrl: 'https://psprices.com/region-ch/game/9999/ignored',
-  } satisfies Record<string, unknown>;
-  const sourceFallback = {
-    priceSource: 'psprices',
-    priceUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
-  } satisfies Record<string, unknown>;
-  const nonPsprices = {
-    priceSource: 'steam_store',
-    priceUrl: 'https://store.steampowered.com/app/730',
-  } satisfies Record<string, unknown>;
-
-  assert.equal(
-    __backgroundWorkerTestables.resolvePspricesRevalidationUrl(explicitUrl),
-    'https://psprices.com/region-ch/game/1234/monster-train-2'
-  );
-  assert.equal(
-    __backgroundWorkerTestables.resolvePspricesRevalidationUrl(sourceFallback),
-    'https://psprices.com/region-ch/game/1234/monster-train-2'
-  );
-  assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationUrl(nonPsprices), null);
-});
-
-void test('PSPrices refresh job builder keeps locked rows eligible for background refresh', () => {
-  const result = __backgroundWorkerTestables.buildPspricesRefreshJob({
-    igdbGameId: '332273',
-    platformIgdbId: 130,
-    payload: {
-      listType: 'wishlist',
-      title: 'Monster Train 2',
-      psPricesMatchLocked: true,
-      psPricesMatchQueryTitle: 'Monster Train 2 Corrected',
-      psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
-    },
-    dedupePrefix: 'pricing-refresh:wishlist',
-    region: 'region-ch',
-    show: 'games',
-    nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
-    maxAttempts: 6,
-    rearmAfterDays: 30,
-    rearmRecentReleaseYears: 1,
-  });
-
-  assert.deepEqual(result, {
-    kind: 'enqueue',
-    dedupeKey: 'pricing-refresh:wishlist:psprices:332273:130:region-ch:games',
-    payload: {
-      cacheKey: 'pricing-refresh:wishlist:332273:130:region-ch:games',
-      igdbGameId: '332273',
-      platformIgdbId: 130,
-      title: 'Monster Train 2 Corrected',
-      psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
-    },
-  });
-});
-
-void test('PSPrices refresh job builder reports unsupported, backoff, and missing-data skips', () => {
-  const nowMs = Date.parse('2026-03-19T12:00:00.000Z');
-
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPspricesRefreshJob({
-      igdbGameId: '332273',
-      platformIgdbId: 999,
-      payload: {
-        listType: 'wishlist',
-        title: 'Monster Train 2',
-      },
-      dedupePrefix: 'pricing-refresh:wishlist',
-      region: 'region-ch',
-      show: 'games',
-      nowMs,
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    { kind: 'skip', reason: 'unsupported-platform' }
-  );
-
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPspricesRefreshJob({
-      igdbGameId: '332273',
-      platformIgdbId: 130,
-      payload: {
-        listType: 'discovery',
-        title: 'Monster Train 2',
-        releaseYear: 2026,
-        enrichmentRetry: {
-          psprices: {
-            attempts: 2,
-            lastTriedAt: '2026-03-18T07:00:00.000Z',
-            nextTryAt: '2026-03-20T07:00:00.000Z',
-            permanentMiss: false,
-          },
-        },
-      },
-      dedupePrefix: 'pricing-refresh:discovery',
-      region: 'region-ch',
-      show: 'games',
-      nowMs,
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    { kind: 'skip', reason: 'backoff' }
-  );
-
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPspricesRefreshJob({
-      igdbGameId: '332273',
-      platformIgdbId: 130,
-      payload: {
-        listType: 'wishlist',
-        title: '   ',
-        psPricesMatchQueryTitle: '',
-      },
-      dedupePrefix: 'pricing-refresh:wishlist',
-      region: 'region-ch',
-      show: 'games',
-      nowMs,
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    { kind: 'skip', reason: 'missing-data' }
-  );
+void test('queued psprices jobs for store-priced platforms are drained without writing', () => {
+  for (const platformIgdbId of [48, 167, 130, 508]) {
+    assert.equal(__backgroundWorkerTestables.isObsoletePspricesJob(platformIgdbId), true);
+  }
+  // Malformed payloads have no psprices platform either.
+  assert.equal(__backgroundWorkerTestables.isObsoletePspricesJob(Number.NaN), true);
 });
 
 void test('provider match lock helper only treats explicit true as locked', () => {
@@ -394,85 +248,6 @@ void test('provider match lock helper only treats explicit true as locked', () =
   );
 });
 
-void test('PSPrices scheduler helper respects retry backoff and rearms recent releases', () => {
-  const payloadWithFutureBackoff = {
-    listType: 'discovery',
-    releaseYear: 2026,
-    enrichmentRetry: {
-      psprices: {
-        attempts: 2,
-        lastTriedAt: '2026-03-18T07:00:00.000Z',
-        nextTryAt: '2026-03-18T15:00:00.000Z',
-        permanentMiss: false,
-      },
-    },
-  } satisfies Record<string, unknown>;
-
-  assert.equal(
-    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
-      payload: payloadWithFutureBackoff,
-      platformIgdbId: 130,
-      nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    false
-  );
-
-  const payloadEligibleAfterRearm = {
-    listType: 'discovery',
-    releaseYear: 2026,
-    enrichmentRetry: {
-      psprices: {
-        attempts: 6,
-        lastTriedAt: '2026-01-01T00:00:00.000Z',
-        nextTryAt: null,
-        permanentMiss: true,
-      },
-    },
-  } satisfies Record<string, unknown>;
-
-  assert.equal(
-    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
-      payload: payloadEligibleAfterRearm,
-      platformIgdbId: 130,
-      nowMs: Date.parse('2026-03-18T12:00:00.000Z'),
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    true
-  );
-});
-
-void test('PSPrices scheduler helper ignores discovery retry backoff for wishlist rows', () => {
-  const wishlistPayload = {
-    listType: 'wishlist',
-    releaseYear: 2026,
-    enrichmentRetry: {
-      psprices: {
-        attempts: 6,
-        lastTriedAt: '2026-03-18T07:00:00.000Z',
-        nextTryAt: '2026-03-20T07:00:00.000Z',
-        permanentMiss: true,
-      },
-    },
-  } satisfies Record<string, unknown>;
-
-  assert.equal(
-    __backgroundWorkerTestables.shouldSchedulePspricesRefresh({
-      payload: wishlistPayload,
-      platformIgdbId: 130,
-      nowMs: Date.parse('2026-03-19T12:00:00.000Z'),
-      maxAttempts: 6,
-      rearmAfterDays: 30,
-      rearmRecentReleaseYears: 1,
-    }),
-    true
-  );
-});
-
 void test('resolvePriceFetchedAtMs treats a price from another source as stale', () => {
   const payload = {
     priceSource: 'psprices',
@@ -491,6 +266,23 @@ void test('resolvePriceFetchedAtMs treats a price from another source as stale',
     __backgroundWorkerTestables.resolvePriceFetchedAtMs(payload, 'playstation_store'),
     null
   );
+  // Switch/Switch 2 moved to the Nintendo eShop, likewise.
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(payload, 'nintendo_eshop'),
+    null
+  );
+});
+
+void test('resolvePriceFetchedAtMs counts a Nintendo eShop attempt that found nothing', () => {
+  const attemptedAt = '2026-03-10T09:00:00.000Z';
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(
+      { nintendoEshopFetchedAt: attemptedAt },
+      'nintendo_eshop'
+    ),
+    Date.parse(attemptedAt)
+  );
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs({}, 'nintendo_eshop'), null);
 });
 
 void test('resolvePriceFetchedAtMs counts a PlayStation Store attempt that found nothing', () => {

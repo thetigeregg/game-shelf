@@ -4010,6 +4010,74 @@ describe('IgdbProxyService', () => {
     await expect(promise).rejects.toThrow('Unable to load PlayStation Store prices.');
   });
 
+  it('looks up Nintendo eShop prices with the title and nsuid overrides, sending the write token', async () => {
+    const clientWriteAuth = TestBed.inject(ClientWriteAuthService);
+    vi.spyOn(clientWriteAuth, 'getToken').mockReturnValue('device-token-1');
+    const link = 'https://ec.nintendo.com/CH/de/titles/70010000060676';
+
+    const withOverride = firstValueFrom(
+      service.lookupNintendoEshopPrice('200', 130, { title: '  Hades II ', nsuid: ` ${link} ` })
+    );
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices` &&
+          request.params.get('igdbGameId') === '200' &&
+          request.params.get('platformIgdbId') === '130' &&
+          request.params.get('title') === 'Hades II' &&
+          request.params.get('nsuid') === link &&
+          request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME) === 'device-token-1'
+      )
+      .flush({ status: 'ok' });
+    await expect(withOverride).resolves.toEqual({ status: 'ok' });
+
+    const plain = firstValueFrom(service.lookupNintendoEshopPrice('200', 508));
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices` &&
+          !request.params.has('title') &&
+          !request.params.has('nsuid') &&
+          !request.headers.has(CLIENT_WRITE_TOKEN_HEADER_NAME)
+      )
+      .flush({ status: 'unavailable', bestPrice: null });
+    await expect(plain).resolves.toEqual({ status: 'unavailable', bestPrice: null });
+  });
+
+  it('requests Nintendo eShop candidates and maps failures to a friendly error', async () => {
+    await expect(
+      firstValueFrom(service.lookupNintendoEshopCandidates('200', 130, 'x'))
+    ).resolves.toEqual({ status: 'unavailable', candidates: [] });
+
+    const candidates = firstValueFrom(
+      service.lookupNintendoEshopCandidates('200', 130, 'Hades II')
+    );
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices` &&
+          request.params.get('title') === 'Hades II' &&
+          request.params.get('includeCandidates') === '1'
+      )
+      .flush({ status: 'ok', candidates: [] });
+    await expect(candidates).resolves.toEqual({ status: 'ok', candidates: [] });
+
+    await expect(
+      firstValueFrom(service.lookupNintendoEshopPrice('not-a-number', 130))
+    ).rejects.toThrow('Invalid Nintendo eShop lookup request.');
+    await expect(
+      firstValueFrom(service.lookupNintendoEshopCandidates('200', 0, 'Hades II'))
+    ).rejects.toThrow('Invalid Nintendo eShop lookup request.');
+
+    const failing = firstValueFrom(service.lookupNintendoEshopPrice('200', 130));
+    httpMock
+      .expectOne(
+        `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices?igdbGameId=200&platformIgdbId=130`
+      )
+      .flush({ error: 'boom' }, { status: 502, statusText: 'Bad Gateway' });
+    await expect(failing).rejects.toThrow('Unable to load Nintendo eShop prices.');
+  });
+
   it('prefers retry-after based recommendation cooldown error mapping', async () => {
     const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
     const req = httpMock.expectOne((request) => {

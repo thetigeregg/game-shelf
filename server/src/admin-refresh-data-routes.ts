@@ -3,19 +3,14 @@ import type { Pool, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { buildNintendoEshopRefreshJob } from './nintendo-eshop-prices.js';
 import {
+  NINTENDO_ESHOP_PLATFORM_IGDB_IDS,
   PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
-  PSPRICES_PLATFORM_IGDB_IDS,
   STEAM_WINDOWS_PLATFORM_IGDB_ID,
   resolvePricingSourceForPlatform,
 } from './platform-ids.js';
 import { buildPlayStationStoreRefreshJob } from './playstation-store-prices.js';
-import { resolvePreferredPsPricesUrl } from './psprices-url.js';
-import {
-  maybeRearmProviderRetryState,
-  parseProviderRetryState,
-  shouldAttemptProvider,
-} from './recommendations/provider-retry-state.js';
 import { RECOMMENDATION_RUNTIME_MODES } from './recommendations/runtime.js';
 import { enqueueForcedReleaseMonitorRefreshJobs } from './release-monitor.js';
 import { DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES } from './recommendations/types.js';
@@ -262,14 +257,12 @@ async function enqueueForcedWishlistPricingRefreshJobs(
     `,
     [
       STEAM_WINDOWS_PLATFORM_IGDB_ID,
-      [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...PSPRICES_PLATFORM_IGDB_IDS],
+      [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...NINTENDO_ESHOP_PLATFORM_IGDB_IDS],
       maxRows,
     ]
   );
 
   const steamCountry = config.steamDefaultCountry;
-  const pspricesRegion = config.pspricesRegionPath.toLowerCase();
-  const pspricesShow = config.pspricesShow.toLowerCase();
   const staleThresholdMs = Date.now() - Math.max(1, config.pricingRefreshStaleHours) * 3600 * 1000;
   const jobs: Array<() => Promise<{ deduped: boolean }>> = [];
 
@@ -326,31 +319,17 @@ async function enqueueForcedWishlistPricingRefreshJobs(
       continue;
     }
 
-    if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-      continue;
+    if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+      const eshopJob = buildNintendoEshopRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:wishlist',
+      });
+      if (eshopJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toNintendoEshopJobInput(eshopJob)));
+      }
     }
-
-    const title =
-      normalizeString(payload['psPricesMatchQueryTitle']) ?? normalizeString(payload['title']);
-    if (title === null) {
-      continue;
-    }
-
-    jobs.push(() =>
-      backgroundJobs.enqueue({
-        jobType: 'psprices_price_revalidate',
-        dedupeKey: `admin-refresh-force:wishlist:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-        payload: {
-          cacheKey: `admin-refresh-force:wishlist:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          title,
-          psPricesUrl: resolvePreferredPsPricesUrl(payload),
-        },
-        priority: 120,
-        maxAttempts: 3,
-      })
-    );
   }
 
   const results = await runWithConcurrencyLimit(jobs, PRICING_ENQUEUE_CONCURRENCY);
@@ -416,8 +395,6 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   );
 
   const steamCountry = config.steamDefaultCountry;
-  const pspricesRegion = config.pspricesRegionPath.toLowerCase();
-  const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
   const staleThresholdMs =
     nowMs - Math.max(1, config.discoveryPricingRefreshStaleHours) * 3600 * 1000;
@@ -480,53 +457,21 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
       continue;
     }
 
-    if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-      continue;
-    }
-
-    if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
-      continue;
-    }
-
-    const retryState = maybeRearmProviderRetryState({
-      state: parseProviderRetryState(readEnrichmentRetryState(payload, 'psprices')),
-      nowMs,
-      releaseYear: normalizePositiveInteger(payload['releaseYear']),
-      rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-      maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-    });
-    if (
-      !shouldAttemptProvider({
-        state: retryState,
+    if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+      if (isProviderMatchLocked(payload, 'nintendoEshopMatchLocked')) {
+        continue;
+      }
+      const eshopJob = buildNintendoEshopRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:discovery',
         nowMs,
-        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-      })
-    ) {
-      continue;
+      });
+      if (eshopJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toNintendoEshopJobInput(eshopJob)));
+      }
     }
-
-    const title =
-      normalizeString(payload['psPricesMatchQueryTitle']) ?? normalizeString(payload['title']);
-    if (title === null) {
-      continue;
-    }
-
-    jobs.push(() =>
-      backgroundJobs.enqueue({
-        jobType: 'psprices_price_revalidate',
-        dedupeKey: `admin-refresh-force:discovery:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-        payload: {
-          cacheKey: `admin-refresh-force:discovery:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          title,
-          psPricesUrl: resolvePreferredPsPricesUrl(payload),
-        },
-        priority: 120,
-        maxAttempts: 3,
-      })
-    );
   }
 
   const results = await runWithConcurrencyLimit(jobs, PRICING_ENQUEUE_CONCURRENCY);
@@ -546,15 +491,14 @@ function toPlayStationStoreJobInput(job: { dedupeKey: string; payload: Record<st
   };
 }
 
-function readEnrichmentRetryState(
-  payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
-): unknown {
-  const retry = payload['enrichmentRetry'];
-  if (!retry || typeof retry !== 'object' || Array.isArray(retry)) {
-    return null;
-  }
-  return (retry as Record<string, unknown>)[providerKey];
+function toNintendoEshopJobInput(job: { dedupeKey: string; payload: Record<string, unknown> }) {
+  return {
+    jobType: 'nintendo_eshop_price_revalidate' as const,
+    dedupeKey: job.dedupeKey,
+    payload: job.payload,
+    priority: 120,
+    maxAttempts: 3,
+  };
 }
 
 function normalizePayloadObject(value: unknown): Record<string, unknown> | null {
@@ -562,14 +506,6 @@ function normalizePayloadObject(value: unknown): Record<string, unknown> | null 
     return null;
   }
   return value as Record<string, unknown>;
-}
-
-function normalizeString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function normalizePositiveInteger(value: unknown): number | null {

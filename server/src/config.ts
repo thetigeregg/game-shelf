@@ -157,6 +157,14 @@ export interface AppConfig {
   playstationStorePriceCacheEnableStaleWhileRevalidate: boolean;
   playstationStorePriceCacheFreshTtlSeconds: number;
   playstationStorePriceCacheStaleTtlSeconds: number;
+  nintendoEshopSearchBaseUrl: string;
+  nintendoEshopPriceApiBaseUrl: string;
+  nintendoEshopApiTimeoutMs: number;
+  nintendoEshopCountry: string;
+  nintendoEshopLanguage: string;
+  nintendoEshopPriceCacheEnableStaleWhileRevalidate: boolean;
+  nintendoEshopPriceCacheFreshTtlSeconds: number;
+  nintendoEshopPriceCacheStaleTtlSeconds: number;
   pricingRefreshEnabled: boolean;
   pricingRefreshIntervalMinutes: number;
   pricingRefreshBatchSize: number;
@@ -312,6 +320,7 @@ export interface RateLimitConfig {
     steam_prices: NamedInboundRateLimitConfig;
     psprices_prices: NamedInboundRateLimitConfig;
     playstation_store_prices: NamedInboundRateLimitConfig;
+    nintendo_eshop_prices: NamedInboundRateLimitConfig;
     hltb_search: NamedInboundRateLimitConfig;
     metacritic_search: NamedInboundRateLimitConfig;
     mobygames_search: NamedInboundRateLimitConfig;
@@ -323,6 +332,7 @@ export interface RateLimitConfig {
     igdb_popularity: NamedOutboundRateLimitConfig;
     mobygames: NamedOutboundRateLimitConfig;
     playstation_store: NamedOutboundRateLimitConfig;
+    nintendo_eshop: NamedOutboundRateLimitConfig;
   };
 }
 
@@ -547,6 +557,10 @@ const rateLimitConfig: RateLimitConfig = {
       max: 60,
       windowMs: 60_000,
     }),
+    nintendo_eshop_prices: readInboundPolicyConfig('NINTENDO_ESHOP_PRICES', {
+      max: 60,
+      windowMs: 60_000,
+    }),
     hltb_search: readInboundPolicyConfig('HLTB_SEARCH', { max: 240, windowMs: 60_000 }),
     metacritic_search: readInboundPolicyConfig('METACRITIC_SEARCH', {
       max: 240,
@@ -600,6 +614,12 @@ const rateLimitConfig: RateLimitConfig = {
     }),
     // The PlayStation Store API is unofficial: keep requests few and spaced out.
     playstation_store: readOutboundPolicyConfig('PLAYSTATION_STORE', {
+      minIntervalMs: 250,
+      maxDelayMs: 30_000,
+      maxConcurrent: 2,
+    }),
+    // Nintendo's eShop search and price APIs are unofficial too.
+    nintendo_eshop: readOutboundPolicyConfig('NINTENDO_ESHOP', {
       minIntervalMs: 250,
       maxDelayMs: 30_000,
       maxConcurrent: 2,
@@ -714,6 +734,29 @@ export const config: AppConfig = {
   ),
   playstationStorePriceCacheStaleTtlSeconds: readIntegerEnv(
     'PLAYSTATION_STORE_PRICE_CACHE_STALE_TTL_SECONDS',
+    86400 * 90
+  ),
+  nintendoEshopSearchBaseUrl: readEnv(
+    'NINTENDO_ESHOP_SEARCH_BASE_URL',
+    'https://searching.nintendo-europe.com'
+  ),
+  nintendoEshopPriceApiBaseUrl: readEnv(
+    'NINTENDO_ESHOP_PRICE_API_BASE_URL',
+    'https://api.ec.nintendo.com'
+  ),
+  nintendoEshopApiTimeoutMs: readIntegerEnv('NINTENDO_ESHOP_API_TIMEOUT_MS', 10_000),
+  nintendoEshopCountry: normalizeCountryCode(readEnv('NINTENDO_ESHOP_COUNTRY', 'CH')) ?? 'CH',
+  nintendoEshopLanguage: normalizeLanguageCode(readEnv('NINTENDO_ESHOP_LANGUAGE', 'de')) ?? 'de',
+  nintendoEshopPriceCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'NINTENDO_ESHOP_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  nintendoEshopPriceCacheFreshTtlSeconds: readIntegerEnv(
+    'NINTENDO_ESHOP_PRICE_CACHE_FRESH_TTL_SECONDS',
+    86400
+  ),
+  nintendoEshopPriceCacheStaleTtlSeconds: readIntegerEnv(
+    'NINTENDO_ESHOP_PRICE_CACHE_STALE_TTL_SECONDS',
     86400 * 90
   ),
   pricingRefreshEnabled: readBooleanEnv('PRICING_REFRESH_ENABLED', true),

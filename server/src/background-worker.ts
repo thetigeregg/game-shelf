@@ -20,23 +20,21 @@ import {
   buildPlayStationStoreRefreshJob,
   processQueuedPlayStationStorePriceRevalidation,
 } from './playstation-store-prices.js';
+import {
+  buildNintendoEshopRefreshJob,
+  processQueuedNintendoEshopPriceRevalidation,
+} from './nintendo-eshop-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import {
+  NINTENDO_ESHOP_PLATFORM_IGDB_IDS,
   PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
-  PSPRICES_PLATFORM_IGDB_IDS,
   STEAM_WINDOWS_PLATFORM_IGDB_ID,
   resolvePricingSourceForPlatform,
 } from './platform-ids.js';
-import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { hasUnifiedPriceValue, resolvePriceFetchedAtMs } from './pricing-freshness.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
-import {
-  maybeRearmProviderRetryState,
-  parseProviderRetryState,
-  shouldAttemptProvider,
-} from './recommendations/provider-retry-state.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
 import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
@@ -184,157 +182,21 @@ function normalizePositiveInteger(value: unknown): number | null {
   return null;
 }
 
-function normalizeNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): string | null {
-  return (
-    normalizeNonEmptyString(payload['psPricesMatchQueryTitle']) ??
-    normalizeNonEmptyString(payload['title'])
-  );
-}
-
-const resolvePspricesRevalidationUrl = resolvePreferredPsPricesUrl;
-
-function buildPspricesRefreshJob(params: {
-  igdbGameId: string;
-  platformIgdbId: number;
-  payload: Record<string, unknown>;
-  dedupePrefix: string;
-  region: string;
-  show: string;
-  nowMs: number;
-  maxAttempts: number;
-  rearmAfterDays: number;
-  rearmRecentReleaseYears: number;
-}):
-  | {
-      kind: 'enqueue';
-      dedupeKey: string;
-      payload: {
-        cacheKey: string;
-        igdbGameId: string;
-        platformIgdbId: number;
-        title: string;
-        psPricesUrl: string | null;
-      };
-    }
-  | { kind: 'skip'; reason: 'unsupported-platform' | 'backoff' | 'missing-data' } {
-  if (!PSPRICES_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
-    return { kind: 'skip', reason: 'unsupported-platform' };
-  }
-
-  if (
-    !shouldSchedulePspricesRefresh({
-      payload: params.payload,
-      platformIgdbId: params.platformIgdbId,
-      nowMs: params.nowMs,
-      maxAttempts: params.maxAttempts,
-      rearmAfterDays: params.rearmAfterDays,
-      rearmRecentReleaseYears: params.rearmRecentReleaseYears,
-    })
-  ) {
-    return { kind: 'skip', reason: 'backoff' };
-  }
-
-  const title = resolvePspricesRevalidationTitle(params.payload);
-  if (!title) {
-    return { kind: 'skip', reason: 'missing-data' };
-  }
-
-  const cacheKey = `${params.dedupePrefix}:${params.igdbGameId}:${String(params.platformIgdbId)}:${params.region}:${params.show}`;
-  return {
-    kind: 'enqueue',
-    dedupeKey: `${params.dedupePrefix}:psprices:${params.igdbGameId}:${String(params.platformIgdbId)}:${params.region}:${params.show}`,
-    payload: {
-      cacheKey,
-      igdbGameId: params.igdbGameId,
-      platformIgdbId: params.platformIgdbId,
-      title,
-      psPricesUrl: resolvePspricesRevalidationUrl(params.payload),
-    },
-  };
+/**
+ * A psprices job for a platform psprices no longer prices (all of them now: PS4/PS5 moved to the
+ * PlayStation Store, Switch/Switch 2 to the Nintendo eShop).
+ */
+function isObsoletePspricesJob(platformIgdbId: number): boolean {
+  return resolvePricingSourceForPlatform(platformIgdbId) !== 'psprices';
 }
 
 export const __backgroundWorkerTestables = {
+  isObsoletePspricesJob,
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
-  resolvePspricesRevalidationTitle,
-  resolvePspricesRevalidationUrl,
-  buildPspricesRefreshJob,
   isProviderMatchLocked,
   readDiscoveryEnrichmentProviders,
-  shouldSchedulePspricesRefresh,
 };
-
-function resolvePayloadReleaseYear(payload: Record<string, unknown>): number | null {
-  const candidate = payload['releaseYear'];
-  if (typeof candidate === 'number') {
-    return Number.isInteger(candidate) ? candidate : null;
-  }
-
-  if (typeof candidate === 'string' && /^\d{4}$/.test(candidate.trim())) {
-    return Number.parseInt(candidate.trim(), 10);
-  }
-
-  return null;
-}
-
-function shouldSchedulePspricesRefresh(params: {
-  payload: Record<string, unknown>;
-  platformIgdbId: number;
-  nowMs: number;
-  maxAttempts: number;
-  rearmAfterDays: number;
-  rearmRecentReleaseYears: number;
-}): boolean {
-  if (!PSPRICES_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
-    return false;
-  }
-
-  return isProviderRetryDue({ ...params, retryKey: 'psprices' });
-}
-
-/** Discovery games back off after failed lookups (enrichmentRetry[retryKey]); others always run. */
-function isProviderRetryDue(params: {
-  payload: Record<string, unknown>;
-  retryKey: string;
-  nowMs: number;
-  maxAttempts: number;
-  rearmAfterDays: number;
-  rearmRecentReleaseYears: number;
-}): boolean {
-  if (params.payload['listType'] !== 'discovery') {
-    return true;
-  }
-
-  const retryState = maybeRearmProviderRetryState({
-    state: parseProviderRetryState(
-      params.payload['enrichmentRetry'] &&
-        typeof params.payload['enrichmentRetry'] === 'object' &&
-        !Array.isArray(params.payload['enrichmentRetry'])
-        ? (params.payload['enrichmentRetry'] as Record<string, unknown>)[params.retryKey]
-        : null
-    ),
-    nowMs: params.nowMs,
-    releaseYear: resolvePayloadReleaseYear(params.payload),
-    rearmAfterDays: params.rearmAfterDays,
-    rearmRecentReleaseYears: params.rearmRecentReleaseYears,
-    maxAttempts: params.maxAttempts,
-  });
-
-  return shouldAttemptProvider({
-    state: retryState,
-    nowMs: params.nowMs,
-    maxAttempts: params.maxAttempts,
-  });
-}
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
   const rawValue =
@@ -638,7 +500,7 @@ async function main(): Promise<void> {
   });
 
   const runScraperHealthCheckTick = async (): Promise<void> => {
-    // A slow run (e.g. psprices falling back to FlareSolverr) must not overlap the next one.
+    // A slow run must not overlap the next one.
     if (shuttingDown || scraperHealthCheckRunning) {
       return;
     }
@@ -894,8 +756,6 @@ async function main(): Promise<void> {
       skippedBackoff: 0,
     };
     const steamCountry = config.steamDefaultCountry;
-    const pspricesRegion = config.pspricesRegionPath.toLowerCase();
-    const pspricesShow = config.pspricesShow.toLowerCase();
     const nowMs = Date.now();
 
     for (const row of params.rows) {
@@ -948,75 +808,49 @@ async function main(): Promise<void> {
         continue;
       }
 
-      if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-        const storeJob = buildPlayStationStoreRefreshJob({
-          igdbGameId: row.igdb_game_id,
-          platformIgdbId: row.platform_igdb_id,
-          payload,
-          dedupePrefix: params.dedupePrefix,
-          nowMs,
-        });
-        if (storeJob.kind === 'skip') {
-          if (storeJob.reason === 'backoff') {
-            stats.skippedBackoff += 1;
-          } else {
-            stats.skippedMissingData += 1;
+      const storeRefresh = PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)
+        ? {
+            jobType: 'playstation_store_price_revalidate' as const,
+            job: buildPlayStationStoreRefreshJob({
+              igdbGameId: row.igdb_game_id,
+              platformIgdbId: row.platform_igdb_id,
+              payload,
+              dedupePrefix: params.dedupePrefix,
+              nowMs,
+            }),
           }
-          continue;
-        }
-        const storeEnqueueResult = await jobs.enqueue({
-          jobType: 'playstation_store_price_revalidate',
-          dedupeKey: storeJob.dedupeKey,
-          payload: storeJob.payload,
-          priority: 120,
-          maxAttempts: 3,
-        });
-        if (storeEnqueueResult.deduped) {
-          stats.deduped += 1;
+        : NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)
+          ? {
+              jobType: 'nintendo_eshop_price_revalidate' as const,
+              job: buildNintendoEshopRefreshJob({
+                igdbGameId: row.igdb_game_id,
+                platformIgdbId: row.platform_igdb_id,
+                payload,
+                dedupePrefix: params.dedupePrefix,
+                nowMs,
+              }),
+            }
+          : null;
+      if (storeRefresh === null) {
+        continue;
+      }
+      const storeJob = storeRefresh.job;
+      if (storeJob.kind === 'skip') {
+        if (storeJob.reason === 'backoff') {
+          stats.skippedBackoff += 1;
         } else {
-          stats.enqueued += 1;
+          stats.skippedMissingData += 1;
         }
         continue;
       }
-
-      const pspricesRefreshJob = buildPspricesRefreshJob({
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId: row.platform_igdb_id,
-        payload,
-        dedupePrefix: params.dedupePrefix,
-        region: pspricesRegion,
-        show: pspricesShow,
-        nowMs,
-        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-        rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-        rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-      });
-      if (
-        pspricesRefreshJob.kind === 'skip' &&
-        pspricesRefreshJob.reason === 'unsupported-platform'
-      ) {
-        continue;
-      }
-
-      if (pspricesRefreshJob.kind === 'skip' && pspricesRefreshJob.reason === 'backoff') {
-        stats.skippedBackoff += 1;
-        continue;
-      }
-
-      if (pspricesRefreshJob.kind === 'skip') {
-        stats.skippedMissingData += 1;
-        continue;
-      }
-
-      const enqueueResult = await jobs.enqueue({
-        jobType: 'psprices_price_revalidate',
-        dedupeKey: pspricesRefreshJob.dedupeKey,
-        payload: pspricesRefreshJob.payload,
+      const storeEnqueueResult = await jobs.enqueue({
+        jobType: storeRefresh.jobType,
+        dedupeKey: storeJob.dedupeKey,
+        payload: storeJob.payload,
         priority: 120,
         maxAttempts: 3,
       });
-
-      if (enqueueResult.deduped) {
+      if (storeEnqueueResult.deduped) {
         stats.deduped += 1;
       } else {
         stats.enqueued += 1;
@@ -1050,7 +884,7 @@ async function main(): Promise<void> {
         `,
           [
             STEAM_WINDOWS_PLATFORM_IGDB_ID,
-            [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...PSPRICES_PLATFORM_IGDB_IDS],
+            [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...NINTENDO_ESHOP_PLATFORM_IGDB_IDS],
             scanLimit,
           ]
         );
@@ -1320,13 +1154,19 @@ async function main(): Promise<void> {
         return { revalidated: true };
       }
       case 'psprices_price_revalidate': {
+        const platformIgdbId =
+          typeof job.payload['platformIgdbId'] === 'number'
+            ? job.payload['platformIgdbId']
+            : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10);
+        if (isObsoletePspricesJob(platformIgdbId)) {
+          // Queued before the platform moved to its store: drained without writing, so it can't
+          // replace the store's price.
+          return { revalidated: false, skipped: 'platform_priced_by_store' };
+        }
         await processQueuedPspricesPriceRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
           igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
-          platformIgdbId:
-            typeof job.payload['platformIgdbId'] === 'number'
-              ? job.payload['platformIgdbId']
-              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          platformIgdbId,
           title: stringOrEmpty(job.payload['title']),
           psPricesUrl: stringOrEmpty(job.payload['psPricesUrl']),
         });
@@ -1342,6 +1182,19 @@ async function main(): Promise<void> {
               : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
           title: stringOrEmpty(job.payload['title']),
           productId: stringOrEmpty(job.payload['productId']),
+        });
+        return { revalidated: true };
+      }
+      case 'nintendo_eshop_price_revalidate': {
+        await processQueuedNintendoEshopPriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          title: stringOrEmpty(job.payload['title']),
+          nsuid: stringOrEmpty(job.payload['nsuid']),
         });
         return { revalidated: true };
       }
@@ -1379,7 +1232,8 @@ async function main(): Promise<void> {
       job.jobType === 'mobygames_cache_revalidate' ||
       job.jobType === 'steam_price_revalidate' ||
       job.jobType === 'psprices_price_revalidate' ||
-      job.jobType === 'playstation_store_price_revalidate'
+      job.jobType === 'playstation_store_price_revalidate' ||
+      job.jobType === 'nintendo_eshop_price_revalidate'
     ) {
       context.cacheKey = job.payload['cacheKey'];
     }
@@ -1482,6 +1336,7 @@ async function main(): Promise<void> {
     startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('playstation_store_price_revalidate', cacheRevalidationConcurrency);
+    startConsumers('nintendo_eshop_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
     startConsumers('roms_catalog_refresh', romsCatalogConcurrency);
 

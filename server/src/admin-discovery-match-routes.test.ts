@@ -1390,6 +1390,53 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
+void test('admin discovery patch route rejects psprices prices for store-priced platforms', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '25',
+    platformIgdbId: 130,
+    payload: { listType: 'discovery', title: 'Switch Game', platform: 'Nintendo Switch' },
+  });
+  pool.seed({
+    igdbGameId: '25',
+    platformIgdbId: 167,
+    payload: { listType: 'discovery', title: 'PS5 Game', platform: 'PlayStation 5' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    for (const [platformIgdbId, source] of [
+      [130, 'nintendo_eshop'],
+      [167, 'playstation_store'],
+    ] as const) {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/admin/discovery/games/25/${String(platformIgdbId)}/match`,
+        headers: { authorization: 'Bearer test-admin-token' },
+        payload: { provider: 'pricing', priceSource: 'psprices', priceAmount: 9.99 },
+      });
+      assert.equal(response.statusCode, 400);
+      assert.deepEqual(response.json(), {
+        error: `This platform is priced from ${source}, not psprices.`,
+      });
+      assert.equal(pool.readPayload('25', platformIgdbId)?.['priceSource'], undefined);
+    }
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
 void test('admin discovery patch route rejects unsupported pricing sources', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
@@ -1428,7 +1475,7 @@ void test('admin discovery patch route rejects unsupported pricing sources', asy
 
     assert.equal(response.statusCode, 400);
     assert.deepEqual(response.json(), {
-      error: 'Price source must be steam_store, playstation_store or psprices.',
+      error: 'Price source must be steam_store, playstation_store, nintendo_eshop or psprices.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;
@@ -1499,7 +1546,16 @@ void test('admin discovery delete route clears pricing fields and resets pricing
     assert.equal(stored['playstationStoreFetchedAt'], null);
     assert.equal(stored['playstationStorePriceAmount'], null);
     assert.equal(stored['playstationStoreMatchQueryTitle'], null);
+    assert.equal(stored['nintendoEshopNsuid'], null);
+    assert.equal(stored['nintendoEshopPriceAmount'], null);
+    assert.equal(stored['nintendoEshopMatchLocked'], false);
     assert.deepEqual(stored['enrichmentRetry'], {
+      nintendoEshop: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
       playstationStore: {
         attempts: 0,
         lastTriedAt: null,
@@ -2897,7 +2953,7 @@ void test('admin discovery patch route wraps related updates in a transaction', 
   }
 });
 
-void test('admin discovery pricing requeue sends PS games to the PlayStation Store', async () => {
+void test('admin discovery pricing requeue sends PS and Switch games to their stores', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
@@ -2934,8 +2990,13 @@ void test('admin discovery pricing requeue sends PS games to the PlayStation Sto
       `PS5 game queued for the PlayStation Store: ${keys.join(', ')}`
     );
     assert.ok(
-      keys.some((key) => key.includes(':psprices:92:130:')),
-      'Switch stays on psprices'
+      keys.some((key) => key.includes(':nintendo-eshop:92:130:')),
+      `Switch game queued for the Nintendo eShop: ${keys.join(', ')}`
+    );
+    assert.equal(
+      keys.some((key) => key.includes(':psprices:')),
+      false,
+      'nothing goes to psprices'
     );
   } finally {
     config.requireAuth = originalRequireAuth;
@@ -3005,6 +3066,85 @@ void test('admin discovery pricing patch pins a PlayStation Store product for a 
         priceSource: 'playstation_store',
         priceAmount: 1,
         playstationStoreProductId: 'https://evil.example/product/x',
+      },
+    });
+    assert.equal(invalid.statusCode, 400);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch pins a Nintendo eShop game for a Switch game', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const nsuid = '70010000060676';
+
+  pool.seed({
+    igdbGameId: '94',
+    platformIgdbId: 130,
+    payload: {
+      listType: 'discovery',
+      title: 'Hades II',
+      platform: 'Nintendo Switch',
+      psPricesUrl: 'https://psprices.com/region-ch/game/1/hades-ii',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/94/130/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'nintendo_eshop',
+        priceAmount: 32.5,
+        priceCurrency: 'CHF',
+        nintendoEshopNsuid: `https://ec.nintendo.com/CH/de/titles/${nsuid}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('94', 130);
+    assert.ok(stored);
+    assert.equal(stored['priceSource'], 'nintendo_eshop');
+    assert.equal(stored['nintendoEshopNsuid'], nsuid);
+    assert.equal(stored['priceUrl'], `https://ec.nintendo.com/CH/de/titles/${nsuid}`);
+    assert.equal(stored['nintendoEshopMatchLocked'], true);
+    assert.equal(stored['psPricesUrl'], null);
+    assert.equal(stored['nintendoEshopPriceAmount'], 32.5);
+    assert.equal(stored['nintendoEshopPlatform'], 'Switch');
+    assert.equal(typeof stored['nintendoEshopFetchedAt'], 'string');
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/discovery/games/94/130/match-state',
+      headers: { authorization: 'Bearer test-admin-token' },
+    });
+    const pricing = detail.json<{ providers: Record<string, Record<string, unknown>> }>().providers[
+      'pricing'
+    ];
+    assert.equal(pricing['nintendoEshopNsuid'], nsuid);
+
+    const invalid = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/94/130/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'nintendo_eshop',
+        priceAmount: 1,
+        nintendoEshopNsuid: 'https://evil.example/titles/70010000060676',
       },
     });
     assert.equal(invalid.statusCode, 400);

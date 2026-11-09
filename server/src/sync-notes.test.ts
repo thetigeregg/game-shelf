@@ -145,9 +145,10 @@ void test('sync push normalizes unified pricing fields in game payload', async (
           operation: 'upsert',
           payload: {
             igdbGameId: '124',
-            platformIgdbId: 130,
+            // A platform whose prices the server doesn't own, so the client's fields are kept.
+            platformIgdbId: 6,
             title: 'Game',
-            platform: 'Switch',
+            platform: 'PC (Microsoft Windows)',
             listType: 'wishlist',
             priceSource: 'invalid-source',
             priceFetchedAt: '   ',
@@ -231,30 +232,58 @@ void test('sync push keeps server PS4/PS5 prices when a client sends a non-store
   }
 });
 
-void test('sync push accepts PlayStation Store prices for PS games and any price elsewhere', async () => {
-  const store = await pushGame({
-    igdbGameId: '126',
-    platformIgdbId: 48,
-    title: 'Game',
-    platform: 'PlayStation 4',
-    listType: 'wishlist',
-    priceSource: 'playstation_store',
-    priceAmount: 49.62,
-  });
-  assert.equal(store['priceSource'], 'playstation_store');
-  assert.equal(store['priceAmount'], 49.62);
+void test('sync push keeps server Switch prices when a client sends a non-eShop price', async () => {
+  for (const platformIgdbId of [130, 508]) {
+    const normalized = await pushGame({
+      igdbGameId: '128',
+      platformIgdbId,
+      title: 'Game',
+      platform: 'Switch',
+      listType: 'wishlist',
+      priceSource: 'psprices',
+      priceAmount: 39.9,
+      psPricesUrl: 'https://psprices.com/region-ch/game/1/game',
+    });
+    for (const key of ['priceSource', 'priceAmount', 'psPricesUrl']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(normalized, key), false, key);
+    }
+  }
+});
 
-  const switchGame = await pushGame({
-    igdbGameId: '127',
-    platformIgdbId: 130,
+void test('sync push keeps server store prices even when a client sends the same source', async () => {
+  // A current app can push a store price it saved before going offline, older than the server's.
+  for (const [platformIgdbId, priceSource] of [
+    [48, 'playstation_store'],
+    [130, 'nintendo_eshop'],
+  ] as const) {
+    const normalized = await pushGame({
+      igdbGameId: '126',
+      platformIgdbId,
+      title: 'Game',
+      platform: 'Console',
+      listType: 'wishlist',
+      priceSource,
+      priceAmount: 49.62,
+      priceFetchedAt: '2026-01-01T00:00:00.000Z',
+    });
+    for (const key of ['priceSource', 'priceAmount', 'priceFetchedAt']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(normalized, key), false, key);
+    }
+  }
+});
+
+void test('sync push accepts client prices for platforms the server does not price', async () => {
+  const steamGame = await pushGame({
+    igdbGameId: '129',
+    platformIgdbId: 6,
     title: 'Game',
-    platform: 'Switch',
+    platform: 'PC (Microsoft Windows)',
     listType: 'wishlist',
-    priceSource: 'psprices',
-    priceAmount: 39.9,
+    priceSource: 'steam_store',
+    priceAmount: 19.5,
   });
-  assert.equal(switchGame['priceSource'], 'psprices');
-  assert.equal(switchGame['priceAmount'], 39.9);
+  assert.equal(steamGame['priceSource'], 'steam_store');
+  assert.equal(steamGame['priceAmount'], 19.5);
 });
 
 void test('sync push only includes steamAppId when provided in payload', async () => {
@@ -398,9 +427,10 @@ void test('sync push rejects unsupported and malformed external urls from game p
           operation: 'upsert',
           payload: {
             igdbGameId: '128',
-            platformIgdbId: 130,
+            // Not a server-priced platform, so priceUrl is normalized rather than dropped.
+            platformIgdbId: 6,
             title: 'Game',
-            platform: 'Switch',
+            platform: 'PC (Microsoft Windows)',
             listType: 'collection',
             priceUrl: 'javascript:alert(1)',
             websites: [

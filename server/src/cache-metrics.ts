@@ -102,6 +102,20 @@ export interface CacheMetricSnapshot {
     upstreamErrors: number;
     invalidRequests: number;
   };
+  nintendoEshopPrice: {
+    hits: number;
+    misses: number;
+    writes: number;
+    readErrors: number;
+    writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
+    upstreamErrors: number;
+    invalidRequests: number;
+  };
 }
 
 const metrics: CacheMetricSnapshot = {
@@ -208,6 +222,20 @@ const metrics: CacheMetricSnapshot = {
     upstreamErrors: 0,
     invalidRequests: 0,
   },
+  nintendoEshopPrice: {
+    hits: 0,
+    misses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+    upstreamErrors: 0,
+    invalidRequests: 0,
+  },
 };
 
 export function incrementIgdbMetric(metric: keyof CacheMetricSnapshot['igdb']): void {
@@ -246,6 +274,12 @@ export function incrementPlayStationStorePriceMetric(
   metrics.playstationStorePrice[metric] += 1;
 }
 
+export function incrementNintendoEshopPriceMetric(
+  metric: keyof CacheMetricSnapshot['nintendoEshopPrice']
+): void {
+  metrics.nintendoEshopPrice[metric] += 1;
+}
+
 export function getCacheMetrics(): CacheMetricSnapshot {
   return {
     igdb: { ...metrics.igdb },
@@ -256,6 +290,7 @@ export function getCacheMetrics(): CacheMetricSnapshot {
     steamPrice: { ...metrics.steamPrice },
     pspricesPrice: { ...metrics.pspricesPrice },
     playstationStorePrice: { ...metrics.playstationStorePrice },
+    nintendoEshopPrice: { ...metrics.nintendoEshopPrice },
   };
 }
 
@@ -350,6 +385,20 @@ export function resetCacheMetrics(): void {
     invalidRequests: 0,
   };
   metrics.playstationStorePrice = {
+    hits: 0,
+    misses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+    upstreamErrors: 0,
+    invalidRequests: 0,
+  };
+  metrics.nintendoEshopPrice = {
     hits: 0,
     misses: 0,
     writes: 0,

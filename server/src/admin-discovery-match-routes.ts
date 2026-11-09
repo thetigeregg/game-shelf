@@ -4,9 +4,14 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { normalizeDiscoveryGameKeys, parseDiscoveryGameKeys } from './discovery-game-keys.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { buildNintendoEshopGameUrl, parseNintendoEshopNsuid } from './nintendo-eshop-client.js';
 import {
+  buildManualNintendoEshopSnapshot,
+  buildNintendoEshopRefreshJob,
+} from './nintendo-eshop-prices.js';
+import {
+  NINTENDO_ESHOP_PLATFORM_IGDB_IDS,
   PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
-  PSPRICES_PLATFORM_IGDB_IDS,
   STEAM_WINDOWS_PLATFORM_IGDB_ID,
   resolvePricingSourceForPlatform,
   type PricingSource,
@@ -19,12 +24,9 @@ import {
   buildManualPlayStationStoreSnapshot,
   buildPlayStationStoreRefreshJob,
 } from './playstation-store-prices.js';
-import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   createEmptyProviderRetryState,
-  maybeRearmProviderRetryState,
   parseProviderRetryState,
-  shouldAttemptProvider,
   type ProviderRetryState,
 } from './recommendations/provider-retry-state.js';
 import { applyRouteRateLimit } from './rate-limit.js';
@@ -92,6 +94,7 @@ interface PatchBody {
   psPricesTitle?: unknown;
   psPricesPlatform?: unknown;
   playstationStoreProductId?: unknown;
+  nintendoEshopNsuid?: unknown;
   queryTitle?: unknown;
   queryReleaseYear?: unknown;
   queryPlatform?: unknown;
@@ -559,8 +562,6 @@ async function enqueuePricingRefreshJobs(
   }
 ): Promise<AdminRequeueResult> {
   const steamCountry = config.steamDefaultCountry;
-  const pspricesRegion = config.pspricesRegionPath.toLowerCase();
-  const pspricesShow = config.pspricesShow.toLowerCase();
   const nowMs = Date.now();
   const jobs: Array<() => Promise<{ jobId: number; deduped: boolean }>> = [];
 
@@ -622,53 +623,32 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
-    if (!PSPRICES_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
-      continue;
-    }
-
-    if (!params.ignorePsPricesLock && isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
-      continue;
-    }
-
-    const pspricesRetryState = maybeRearmProviderRetryState({
-      state: parseProviderRetryState(readProviderRetryState(payload, 'psprices')),
-      nowMs,
-      releaseYear: normalizePositiveInteger(payload['releaseYear']),
-      rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-      maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-    });
-    if (
-      !shouldAttemptProvider({
-        state: pspricesRetryState,
+    if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
+      if (
+        !params.ignorePsPricesLock &&
+        isProviderMatchLocked(payload, 'nintendoEshopMatchLocked')
+      ) {
+        continue;
+      }
+      const eshopJob = buildNintendoEshopRefreshJob({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId,
+        payload,
+        dedupePrefix: params.requestedBy,
         nowMs,
-        maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-      })
-    ) {
-      continue;
+      });
+      if (eshopJob.kind === 'enqueue') {
+        jobs.push(() =>
+          backgroundJobs.enqueue({
+            jobType: 'nintendo_eshop_price_revalidate',
+            dedupeKey: eshopJob.dedupeKey,
+            payload: eshopJob.payload,
+            priority: 120,
+            maxAttempts: 3,
+          })
+        );
+      }
     }
-
-    const title =
-      normalizeString(payload['psPricesMatchQueryTitle']) ?? normalizeString(payload['title']);
-    if (title === null) {
-      continue;
-    }
-
-    jobs.push(() =>
-      backgroundJobs.enqueue({
-        jobType: 'psprices_price_revalidate',
-        dedupeKey: `${params.requestedBy}:psprices:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
-        payload: {
-          cacheKey: `${params.requestedBy}:${game.igdbGameId}:${String(game.platformIgdbId)}:${pspricesRegion}:${pspricesShow}`,
-          igdbGameId: game.igdbGameId,
-          platformIgdbId: game.platformIgdbId,
-          title,
-          psPricesUrl: resolvePreferredPsPricesUrl(payload),
-        },
-        priority: 120,
-        maxAttempts: 3,
-      })
-    );
   }
 
   const results = await runWithConcurrencyLimit(jobs, PRICING_REQUEUE_CONCURRENCY);
@@ -726,6 +706,8 @@ function buildDetailResponse(
         psPricesPlatform: normalizeString(payload['psPricesPlatform']),
         playstationStoreProductId: normalizeString(payload['playstationStoreProductId']),
         playstationStoreTitle: normalizeString(payload['playstationStoreTitle']),
+        nintendoEshopNsuid: normalizeString(payload['nintendoEshopNsuid']),
+        nintendoEshopTitle: normalizeString(payload['nintendoEshopTitle']),
       },
     },
   };
@@ -802,17 +784,28 @@ function buildPricingState(
   return buildProviderState(hasPrice, locked, retry);
 }
 
-/** PS4/PS5 lock and back off on the PlayStation Store; Steam and Switch keep the psprices keys. */
+/**
+ * PS4/PS5 lock and back off on the PlayStation Store keys, Switch/Switch 2 on the Nintendo eShop
+ * keys; Steam keeps the psprices keys it has always used.
+ */
 function pricingLockKey(
   platformIgdbId: number
-): 'playstationStoreMatchLocked' | 'psPricesMatchLocked' {
-  return PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)
-    ? 'playstationStoreMatchLocked'
+): 'playstationStoreMatchLocked' | 'nintendoEshopMatchLocked' | 'psPricesMatchLocked' {
+  if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+    return 'playstationStoreMatchLocked';
+  }
+  return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId)
+    ? 'nintendoEshopMatchLocked'
     : 'psPricesMatchLocked';
 }
 
-function pricingRetryKey(platformIgdbId: number): 'playstationStore' | 'psprices' {
-  return PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'playstationStore' : 'psprices';
+type PricingRetryKey = 'psprices' | 'playstationStore' | 'nintendoEshop';
+
+function pricingRetryKey(platformIgdbId: number): PricingRetryKey {
+  if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+    return 'playstationStore';
+  }
+  return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'nintendoEshop' : 'psprices';
 }
 
 function getDefaultPricingSource(platformIgdbId: number): PricingSource {
@@ -997,7 +990,16 @@ function applyManualMatchPatch(
       ? getDefaultPricingSource(platformIgdbId)
       : parsePricingSource(requestedPriceSource)) ?? null;
   if (requestedPriceSource !== null && priceSource === null) {
-    return 'Price source must be steam_store, playstation_store or psprices.';
+    return 'Price source must be steam_store, playstation_store, nintendo_eshop or psprices.';
+  }
+  // psprices no longer prices any platform: a psprices price saved for a PS or Switch game would
+  // carry the store's lock without the store's snapshot, so the next store refresh would replace it.
+  const platformPricingSource = resolvePricingSourceForPlatform(platformIgdbId);
+  if (
+    priceSource === 'psprices' &&
+    (platformPricingSource === 'playstation_store' || platformPricingSource === 'nintendo_eshop')
+  ) {
+    return `This platform is priced from ${platformPricingSource}, not psprices.`;
   }
   const isPsPricesSource = priceSource === 'psprices';
   const isPlayStationStoreSource = priceSource === 'playstation_store';
@@ -1016,6 +1018,22 @@ function applyManualMatchPatch(
     playstationStoreProductId === null
   ) {
     return 'PlayStation Store product must be a product ID or product URL.';
+  }
+  const isNintendoEshopSource = priceSource === 'nintendo_eshop';
+  const nintendoEshopNsuid = isNintendoEshopSource
+    ? parseNintendoEshopNsuid(
+        // As for the PlayStation Store product: an explicit empty nsuid unlinks it.
+        Object.prototype.hasOwnProperty.call(body, 'nintendoEshopNsuid')
+          ? body.nintendoEshopNsuid
+          : body.priceUrl
+      )
+    : null;
+  if (
+    isNintendoEshopSource &&
+    normalizeString(body.nintendoEshopNsuid) !== null &&
+    nintendoEshopNsuid === null
+  ) {
+    return 'Nintendo eShop game must be an nsuid or eShop link.';
   }
   const priceRegularAmount = normalizeNumber(body.priceRegularAmount);
   const priceDiscountPercent = normalizeNumber(body.priceDiscountPercent);
@@ -1038,7 +1056,11 @@ function applyManualMatchPatch(
   payload['priceIsFree'] = priceIsFree;
   payload['priceUrl'] =
     priceUrl ??
-    (playstationStoreProductId ? buildPlayStationStoreProductUrl(playstationStoreProductId) : null);
+    (playstationStoreProductId
+      ? buildPlayStationStoreProductUrl(playstationStoreProductId)
+      : nintendoEshopNsuid
+        ? buildNintendoEshopGameUrl(nintendoEshopNsuid)
+        : null);
   payload['psPricesUrl'] = isPsPricesSource
     ? (normalizeString(body.psPricesUrl) ?? priceUrl)
     : null;
@@ -1057,6 +1079,24 @@ function applyManualMatchPatch(
         url: playstationStoreProductId
           ? buildPlayStationStoreProductUrl(playstationStoreProductId)
           : priceUrl,
+        amount: priceAmount,
+        currency: normalizeString(body.priceCurrency),
+        regularAmount: priceRegularAmount,
+        discountPercent: priceDiscountPercent,
+        isFree: priceIsFree,
+        fetchedAt: String(payload['priceFetchedAt']),
+      })
+    );
+  }
+  if (isNintendoEshopSource) {
+    // Same as the PlayStation Store: an nsuid pins the game, without one it's a manual price.
+    Object.assign(
+      payload,
+      buildManualNintendoEshopSnapshot({
+        platformIgdbId,
+        nsuid: nintendoEshopNsuid,
+        title: normalizeString(payload['title']),
+        url: nintendoEshopNsuid ? buildNintendoEshopGameUrl(nintendoEshopNsuid) : priceUrl,
         amount: priceAmount,
         currency: normalizeString(body.priceCurrency),
         regularAmount: priceRegularAmount,
@@ -1139,20 +1179,41 @@ function clearManualMatch(
     payload[key] = null;
   }
   payload['playstationStoreMatchLocked'] = false;
+  for (const key of [
+    'nintendoEshopNsuid',
+    'nintendoEshopUrl',
+    'nintendoEshopTitle',
+    'nintendoEshopFetchedAt',
+    'nintendoEshopPriceAmount',
+    'nintendoEshopPriceCurrency',
+    'nintendoEshopRegularPriceAmount',
+    'nintendoEshopDiscountPercent',
+    'nintendoEshopIsFree',
+    'nintendoEshopSaleEndsAt',
+    'nintendoEshopMatchQueryTitle',
+    'nintendoEshopMatchTitle',
+    'nintendoEshopMatchScore',
+    'nintendoEshopMatchConfidence',
+    'nintendoEshopCandidates',
+  ]) {
+    payload[key] = null;
+  }
+  payload['nintendoEshopMatchLocked'] = false;
   resetRetryState(payload, 'psprices');
   resetRetryState(payload, 'playstationStore');
+  resetRetryState(payload, 'nintendoEshop');
 }
 
 function resetPermanentMiss(
   payload: Record<string, unknown>,
   provider: 'hltb' | 'review' | 'pricing'
 ): boolean {
-  const retryKeys: Array<'hltb' | 'metacritic' | 'psprices' | 'playstationStore'> =
+  const retryKeys: Array<PricingRetryKey | 'hltb' | 'metacritic'> =
     provider === 'hltb'
       ? ['hltb']
       : provider === 'review'
         ? ['metacritic']
-        : ['psprices', 'playstationStore'];
+        : ['psprices', 'playstationStore', 'nintendoEshop'];
   let didReset = false;
   for (const retryKey of retryKeys) {
     const current = parseProviderRetryState(readProviderRetryState(payload, retryKey));
@@ -1172,7 +1233,7 @@ function resetPermanentMiss(
 
 function resetRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices' | 'playstationStore'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | PricingRetryKey
 ): void {
   const existingRetry =
     payload['enrichmentRetry'] &&
@@ -1355,7 +1416,7 @@ async function replaceDiscoveryPayload(
 
 function readProviderRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices' | 'playstationStore'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | PricingRetryKey
 ): unknown {
   const retry = payload['enrichmentRetry'];
   if (!retry || typeof retry !== 'object' || Array.isArray(retry)) {
@@ -1561,6 +1622,7 @@ function parsePricingSource(value: unknown): PricingSource | null {
   if (
     normalized === 'steam_store' ||
     normalized === 'playstation_store' ||
+    normalized === 'nintendo_eshop' ||
     normalized === 'psprices'
   ) {
     return normalized;

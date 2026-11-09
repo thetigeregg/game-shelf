@@ -283,6 +283,28 @@ export class RecommendationRepository {
                   'playstationStoreMatchConfidence', games.payload->'playstationStoreMatchConfidence',
                   'playstationStoreCandidates', games.payload->'playstationStoreCandidates',
                   'playstationStoreMatchLocked', games.payload->'playstationStoreMatchLocked'
+                ) || jsonb_build_object(
+                  'nintendoEshopFetchedAt', games.payload->'nintendoEshopFetchedAt',
+                  'nintendoEshopSource', games.payload->'nintendoEshopSource',
+                  'nintendoEshopCountry', games.payload->'nintendoEshopCountry',
+                  'nintendoEshopLanguage', games.payload->'nintendoEshopLanguage',
+                  'nintendoEshopPlatform', games.payload->'nintendoEshopPlatform',
+                  'nintendoEshopNsuid', games.payload->'nintendoEshopNsuid',
+                  'nintendoEshopTitle', games.payload->'nintendoEshopTitle',
+                  'nintendoEshopUrl', games.payload->'nintendoEshopUrl',
+                  'nintendoEshopImageUrl', games.payload->'nintendoEshopImageUrl',
+                  'nintendoEshopPriceAmount', games.payload->'nintendoEshopPriceAmount',
+                  'nintendoEshopPriceCurrency', games.payload->'nintendoEshopPriceCurrency',
+                  'nintendoEshopRegularPriceAmount', games.payload->'nintendoEshopRegularPriceAmount',
+                  'nintendoEshopDiscountPercent', games.payload->'nintendoEshopDiscountPercent',
+                  'nintendoEshopIsFree', games.payload->'nintendoEshopIsFree',
+                  'nintendoEshopSaleEndsAt', games.payload->'nintendoEshopSaleEndsAt',
+                  'nintendoEshopMatchQueryTitle', games.payload->'nintendoEshopMatchQueryTitle',
+                  'nintendoEshopMatchTitle', games.payload->'nintendoEshopMatchTitle',
+                  'nintendoEshopMatchScore', games.payload->'nintendoEshopMatchScore',
+                  'nintendoEshopMatchConfidence', games.payload->'nintendoEshopMatchConfidence',
+                  'nintendoEshopCandidates', games.payload->'nintendoEshopCandidates',
+                  'nintendoEshopMatchLocked', games.payload->'nintendoEshopMatchLocked'
                 )
               ),
               updated_at = NOW()

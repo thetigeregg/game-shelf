@@ -12,6 +12,7 @@ import {
   GameListView,
   HltbMatchCandidate,
   PriceMatchCandidate,
+  PriceSource,
   MetacriticMatchCandidate,
   ReviewMatchCandidate,
   ReviewScoreResult,
@@ -50,17 +51,6 @@ interface SteamPriceLookupApi {
     platformIgdbId: number,
     countryCode?: string,
     steamAppId?: number | null
-  ): Observable<unknown>;
-}
-
-interface PsPricesLookupApi {
-  lookupPsPrices(
-    igdbGameId: string,
-    platformIgdbId: number,
-    query?: {
-      title?: string | null;
-      preferredUrl?: string | null;
-    }
   ): Observable<unknown>;
 }
 
@@ -113,8 +103,24 @@ interface PlayStationStoreLookupApi {
   ): Observable<unknown>;
 }
 
+interface NintendoEshopLookupApi {
+  lookupNintendoEshopPrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: { title?: string | null; nsuid?: string | null }
+  ): Observable<unknown>;
+  lookupNintendoEshopCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown>;
+}
+
+/** Sources whose price comes from a store search, answered in the same shape. */
+type StoreSearchPriceSource = 'playstation_store' | 'nintendo_eshop';
+
 interface UnifiedPriceSnapshot {
-  source: 'steam_store' | 'playstation_store' | 'psprices';
+  source: PriceSource;
   amount: number | null;
   currency: string | null;
   regularAmount: number | null;
@@ -170,24 +176,33 @@ export class GameShelfService {
   static readonly PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS: ReadonlySet<number> = new Set([
     48, 167,
   ]);
-  /** Switch and Switch 2, priced from psprices.com. */
-  static readonly PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS: ReadonlySet<number> = new Set([130, 508]);
+  /** Switch and Switch 2, priced from the Nintendo eShop. */
+  static readonly NINTENDO_ESHOP_SUPPORTED_PLATFORM_IGDB_IDS: ReadonlySet<number> = new Set([
+    130, 508,
+  ]);
   private static readonly STEAM_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([6]);
   private static readonly PRICE_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([
     ...GameShelfService.STEAM_SUPPORTED_PLATFORM_IGDB_IDS,
     ...GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS,
-    ...GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS,
+    ...GameShelfService.NINTENDO_ESHOP_SUPPORTED_PLATFORM_IGDB_IDS,
   ]);
 
   /**
    * Platforms whose price comes from a store search with several candidates to pick from (the
-   * PlayStation Store and psprices), unlike Steam, which prices one app directly.
+   * PlayStation Store and Nintendo eShop), unlike Steam, which prices one app directly.
    */
   static hasPriceCandidates(platformIgdbId: number): boolean {
-    return (
-      GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId) ||
-      GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)
-    );
+    return GameShelfService.resolveStoreSearchPriceSource(platformIgdbId) !== null;
+  }
+
+  /** The store a platform's prices come from by search, or null for Steam and unpriced ones. */
+  static resolveStoreSearchPriceSource(platformIgdbId: number): StoreSearchPriceSource | null {
+    if (GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+      return 'playstation_store';
+    }
+    return GameShelfService.NINTENDO_ESHOP_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)
+      ? 'nintendo_eshop'
+      : null;
   }
   private readonly listRefresh$ = new Subject<void>();
   private readonly watchListCache = new Map<ListType, Observable<GameEntry[]>>();
@@ -750,7 +765,6 @@ export class GameShelfService {
       typeof query?.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
         ? query.preferredUrl.trim()
         : undefined;
-    const hasLookupOverride = lookupTitle !== undefined || preferredUrl !== undefined;
     const pricing = await this.lookupUnifiedPrice(
       existing.igdbGameId,
       existing.platformIgdbId,
@@ -799,12 +813,8 @@ export class GameShelfService {
         priceDiscountPercent: effectivePricing?.discountPercent ?? null,
         priceIsFree: effectivePricing?.isFree ?? null,
         priceUrl: effectivePricing?.url ?? null,
-        // The PlayStation Store's lock is kept by the server, which sets it on an override.
-        psPricesMatchLocked:
-          hasLookupOverride &&
-          GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS.has(existing.platformIgdbId)
-            ? true
-            : (existing.psPricesMatchLocked ?? null),
+        // The stores' match locks are kept by the server, which sets them on an override.
+        psPricesMatchLocked: existing.psPricesMatchLocked ?? null,
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],
@@ -847,7 +857,8 @@ export class GameShelfService {
         );
     }
 
-    if (GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+    const storeSource = GameShelfService.resolveStoreSearchPriceSource(platformIgdbId);
+    if (storeSource === 'playstation_store') {
       const storeApi = this.searchApi as Partial<PlayStationStoreLookupApi>;
       if (typeof storeApi.lookupPlayStationStoreCandidates !== 'function') {
         return of([]);
@@ -856,32 +867,26 @@ export class GameShelfService {
         .lookupPlayStationStoreCandidates(igdbGameId, platformIgdbId, normalizedTitle)
         .pipe(
           map((response) =>
-            this.normalizeStoreSearchCandidates(
-              response as PsPricesLookupResult,
-              'playstation_store'
-            )
+            this.normalizeStoreSearchCandidates(response as PsPricesLookupResult, storeSource)
           )
         );
     }
 
-    const pspricesApi = this.searchApi as Partial<PsPricesLookupApi> & {
-      lookupPsPricesCandidates?: (
-        igdbGameId: string,
-        platformIgdbId: number,
-        title: string
-      ) => Observable<unknown>;
-    };
-    if (typeof pspricesApi.lookupPsPricesCandidates !== 'function') {
-      return of([]);
+    if (storeSource === 'nintendo_eshop') {
+      const eshopApi = this.searchApi as Partial<NintendoEshopLookupApi>;
+      if (typeof eshopApi.lookupNintendoEshopCandidates !== 'function') {
+        return of([]);
+      }
+      return eshopApi
+        .lookupNintendoEshopCandidates(igdbGameId, platformIgdbId, normalizedTitle)
+        .pipe(
+          map((response) =>
+            this.normalizeStoreSearchCandidates(response as PsPricesLookupResult, storeSource)
+          )
+        );
     }
 
-    return pspricesApi
-      .lookupPsPricesCandidates(igdbGameId, platformIgdbId, normalizedTitle)
-      .pipe(
-        map((response) =>
-          this.normalizeStoreSearchCandidates(response as PsPricesLookupResult, 'psprices')
-        )
-      );
+    return of([]);
   }
 
   async refreshGameReviewScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -2011,21 +2016,22 @@ export class GameShelfService {
       return this.normalizeStoreSearchLookupResult(result, 'playstation_store');
     }
 
-    if (GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
-      const pspricesApi = this.searchApi as Partial<PsPricesLookupApi>;
-      if (typeof pspricesApi.lookupPsPrices !== 'function') {
+    if (GameShelfService.NINTENDO_ESHOP_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+      const eshopApi = this.searchApi as Partial<NintendoEshopLookupApi>;
+      if (typeof eshopApi.lookupNintendoEshopPrice !== 'function') {
         return null;
       }
 
+      // A picked candidate's URL is an eShop link, which the server accepts as the nsuid.
       const result = (await firstValueFrom(
         titleOverride === undefined && preferredUrl === undefined
-          ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
-          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, {
+          ? eshopApi.lookupNintendoEshopPrice(igdbGameId, platformIgdbId)
+          : eshopApi.lookupNintendoEshopPrice(igdbGameId, platformIgdbId, {
               title: titleOverride ?? null,
-              preferredUrl: preferredUrl ?? null,
+              nsuid: preferredUrl ?? null,
             })
       )) as PsPricesLookupResult;
-      return this.normalizeStoreSearchLookupResult(result, 'psprices');
+      return this.normalizeStoreSearchLookupResult(result, 'nintendo_eshop');
     }
 
     return null;
@@ -2074,10 +2080,10 @@ export class GameShelfService {
     ];
   }
 
-  /** The PlayStation Store and psprices routes answer in the same shape. */
+  /** The PlayStation Store and Nintendo eShop routes answer in the same shape. */
   private normalizeStoreSearchLookupResult(
     result: PsPricesLookupResult,
-    source: 'playstation_store' | 'psprices'
+    source: StoreSearchPriceSource
   ): UnifiedPriceSnapshot | null {
     if (result.status !== 'ok' || !result.bestPrice) {
       return null;
@@ -2097,7 +2103,7 @@ export class GameShelfService {
 
   private normalizeStoreSearchCandidates(
     result: PsPricesLookupResult,
-    source: 'playstation_store' | 'psprices'
+    source: StoreSearchPriceSource
   ): PriceMatchCandidate[] {
     const candidates = result.candidates;
     if (!Array.isArray(candidates)) {
@@ -2208,17 +2214,14 @@ export class GameShelfService {
   }
 
   /**
-   * The saved price to keep when a lookup comes back unavailable. For PS4/PS5 a price left over
-   * from psprices isn't kept: psprices no longer prices them, the server clears it once the
-   * PlayStation Store has looked, and keeping it here would sync it back.
+   * The saved price to keep when a lookup comes back unavailable. For PS4/PS5 and Switch/Switch 2
+   * a price left over from psprices isn't kept: psprices no longer prices them, the server clears
+   * it once the platform's store has looked, and keeping it here would sync it back.
    */
   private snapshotRetainablePrice(game: GameEntry): UnifiedPriceSnapshot | null {
     const snapshot = this.snapshotUnifiedPriceFromGame(game);
-    if (
-      snapshot !== null &&
-      GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(game.platformIgdbId) &&
-      snapshot.source !== 'playstation_store'
-    ) {
+    const storeSource = GameShelfService.resolveStoreSearchPriceSource(game.platformIgdbId);
+    if (snapshot !== null && storeSource !== null && snapshot.source !== storeSource) {
       return null;
     }
     return snapshot;
@@ -2238,7 +2241,12 @@ export class GameShelfService {
     >
   ): UnifiedPriceSnapshot | null {
     const source = game.priceSource;
-    if (source !== 'steam_store' && source !== 'playstation_store' && source !== 'psprices') {
+    if (
+      source !== 'steam_store' &&
+      source !== 'playstation_store' &&
+      source !== 'nintendo_eshop' &&
+      source !== 'psprices'
+    ) {
       return null;
     }
 

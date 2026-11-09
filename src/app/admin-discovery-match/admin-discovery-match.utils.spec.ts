@@ -178,8 +178,13 @@ describe('adminDiscoveryMatchUtils', () => {
     expect(resolveAdminPricingSource(6, null)).toBe('steam_store');
     expect(resolveAdminPricingSource(48, null)).toBe('playstation_store');
     expect(resolveAdminPricingSource(167, null)).toBe('playstation_store');
-    expect(resolveAdminPricingSource(130, null)).toBe('psprices');
-    expect(resolveAdminPricingSource(508, null)).toBe('psprices');
+    expect(resolveAdminPricingSource(130, null)).toBe('nintendo_eshop');
+    expect(resolveAdminPricingSource(508, null)).toBe('nintendo_eshop');
+    expect(resolveAdminPricingSource(130, 'nintendo_eshop')).toBe('nintendo_eshop');
+    // A psprices price left on a store-priced game opens on the store.
+    expect(resolveAdminPricingSource(130, 'psprices')).toBe('nintendo_eshop');
+    expect(resolveAdminPricingSource(167, 'psprices')).toBe('playstation_store');
+    expect(resolveAdminPricingSource(6, 'psprices')).toBe('psprices');
     expect(resolveAdminPricingSource(48, 'steam_store')).toBe('steam_store');
     expect(resolveAdminPricingSource(48, 'playstation_store')).toBe('playstation_store');
   });

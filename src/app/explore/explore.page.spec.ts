@@ -392,7 +392,7 @@ describe('ExplorePage explore modes UX', () => {
     getGameById: vi.fn(),
     getRecommendationSimilar: vi.fn(),
     lookupSteamPrice: vi.fn(),
-    lookupPsPrices: vi.fn(),
+    lookupNintendoEshopPrice: vi.fn(),
     lookupPlayStationStorePrice: vi.fn(),
   };
 
@@ -476,7 +476,7 @@ describe('ExplorePage explore modes UX', () => {
       })
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
-    igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
+    igdbProxyServiceMock.lookupNintendoEshopPrice.mockReturnValue(of({ status: 'unavailable' }));
     routerMock.navigateByUrl.mockResolvedValue(true);
     debugLogServiceMock.trace.mockReset();
 
@@ -3171,7 +3171,7 @@ describe('ExplorePage explore modes UX', () => {
     ).toBeNull();
   });
 
-  it('hydrates discovery row pricing via PSPrices when metadata lacks price fields', async () => {
+  it('hydrates discovery row pricing via the Nintendo eShop when metadata lacks price fields', async () => {
     const page = createPage() as unknown as {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
@@ -3228,7 +3228,7 @@ describe('ExplorePage explore modes UX', () => {
       )
     );
     igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(null));
-    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(
+    igdbProxyServiceMock.lookupNintendoEshopPrice.mockReturnValueOnce(
       of({
         status: 'ok',
         bestPrice: {
@@ -3244,9 +3244,7 @@ describe('ExplorePage explore modes UX', () => {
     await page.loadRecommendationLanes(true);
     await page.ensureVisibleDiscoveryPricingHydrated();
 
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 130, {
-      title: null,
-    });
+    expect(igdbProxyServiceMock.lookupNintendoEshopPrice).toHaveBeenCalledWith('700', 130);
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 130 })).toBe(
       'EUR\xa039.90'
     );
@@ -3332,7 +3330,7 @@ describe('ExplorePage explore modes UX', () => {
     await page.ensureVisibleDiscoveryPricingHydrated();
 
     expect(igdbProxyServiceMock.lookupSteamPrice).toHaveBeenCalledWith('800', 6);
-    expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalled();
+    expect(igdbProxyServiceMock.lookupNintendoEshopPrice).not.toHaveBeenCalled();
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '800', platformIgdbId: 6 })).toBe(
       '$\xa027.99'
     );
@@ -3484,9 +3482,11 @@ describe('ExplorePage explore modes UX', () => {
     const grouped = populateSpy.mock.calls[0]?.[0];
     expect(grouped.get('910')).toEqual(new Set([48, 167]));
 
-    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
+    igdbProxyServiceMock.lookupNintendoEshopPrice.mockReturnValueOnce(
+      of({ status: 'unavailable' })
+    );
     await page.hydrateDiscoveryPricingForItem({ igdbGameId: '911', platformIgdbId: 130 });
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('911', 130, { title: null });
+    expect(igdbProxyServiceMock.lookupNintendoEshopPrice).toHaveBeenCalledWith('911', 130);
     expect(
       page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 130 })
     ).toBeNull();
@@ -3641,17 +3641,13 @@ describe('ExplorePage explore modes UX', () => {
 
     // No title, which the route would treat as a manual override.
     expect(igdbProxyServiceMock.lookupPlayStationStorePrice).toHaveBeenCalledWith('913', 167);
-    expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalledWith(
-      '913',
-      167,
-      expect.anything()
-    );
+    expect(igdbProxyServiceMock.lookupNintendoEshopPrice).not.toHaveBeenCalled();
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '913', platformIgdbId: 167 })).toBe(
       'CHF\xa049.62'
     );
   });
 
-  it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {
+  it('does not pass recommendation title hints to Nintendo eShop discovery lookups', async () => {
     const page = createPage() as unknown as {
       recommendationDisplayMetadata: Map<string, { title: string }>;
       buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
@@ -3664,13 +3660,14 @@ describe('ExplorePage explore modes UX', () => {
     page.recommendationDisplayMetadata.set(page.buildIdentityKey('912', 130), {
       title: 'Night In The Woods',
     });
-    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
+    igdbProxyServiceMock.lookupNintendoEshopPrice.mockReturnValueOnce(
+      of({ status: 'unavailable' })
+    );
 
     await page.hydrateDiscoveryPricingForItem({ igdbGameId: '912', platformIgdbId: 130 });
 
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('912', 130, {
-      title: 'Night In The Woods',
-    });
+    // A title would make the route treat the lookup as a manual override; it uses the stored title.
+    expect(igdbProxyServiceMock.lookupNintendoEshopPrice).toHaveBeenCalledWith('912', 130);
   });
 
   it('covers list-type picker confirm/cancel branches', async () => {

@@ -14,7 +14,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/mobygames/search`
 - `GET /v1/steam/prices`
 - `GET /v1/playstation-store/prices`
-- `GET /v1/psprices/prices`
+- `GET /v1/nintendo-eshop/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
 - `GET /v1/background-jobs/failed` (admin/debug)
@@ -59,9 +59,9 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/playstation-store/prices`
   - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167`, PS4/PS5)
   - Optional: `title`, `includeCandidates` (`1|true|yes`), `productId` (a store product ID or product URL to price instead of searching)
-- `GET /v1/psprices/prices`
+- `GET /v1/nintendo-eshop/prices`
   - Required: `igdbGameId`, `platformIgdbId` (supported: `130|508`, Switch/Switch 2)
-  - Optional: `title`, `includeCandidates` (`1|true|yes`), `preferredPsPricesUrl`
+  - Optional: `title`, `includeCandidates` (`1|true|yes`), `nsuid` (an eShop nsuid or eShop link to price instead of searching)
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)
@@ -125,6 +125,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `PLAYSTATION_STORE_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `PLAYSTATION_STORE_PRICE_CACHE_FRESH_TTL_SECONDS`
 - `PLAYSTATION_STORE_PRICE_CACHE_STALE_TTL_SECONDS`
+- `NINTENDO_ESHOP_COUNTRY` (default `CH`, a European eShop) and `NINTENDO_ESHOP_LANGUAGE` (default `de`): the eShop Switch/Switch 2 prices and store links come from
+- `NINTENDO_ESHOP_SEARCH_BASE_URL` (default `https://searching.nintendo-europe.com`) and `NINTENDO_ESHOP_PRICE_API_BASE_URL` (default `https://api.ec.nintendo.com`)
+- `NINTENDO_ESHOP_API_TIMEOUT_MS`
+- `NINTENDO_ESHOP_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `NINTENDO_ESHOP_PRICE_CACHE_FRESH_TTL_SECONDS`
+- `NINTENDO_ESHOP_PRICE_CACHE_STALE_TTL_SECONDS`
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS`

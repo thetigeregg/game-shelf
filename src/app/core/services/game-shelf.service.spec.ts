@@ -68,8 +68,8 @@ describe('GameShelfService', () => {
       lookupReviewScore: vi.fn(),
       lookupReviewCandidates: vi.fn(),
       lookupSteamPrice: vi.fn(),
-      lookupPsPrices: vi.fn(),
-      lookupPsPricesCandidates: vi.fn(),
+      lookupNintendoEshopPrice: vi.fn(),
+      lookupNintendoEshopCandidates: vi.fn(),
       lookupPlayStationStorePrice: vi.fn(),
       lookupPlayStationStoreCandidates: vi.fn(),
     };
@@ -247,12 +247,12 @@ describe('GameShelfService', () => {
       releaseYear: 2022,
     };
 
-    const lookupPsPrices = vi.fn(() => of({ status: 'ok' }));
+    const lookupNintendoEshopPrice = vi.fn(() => of({ status: 'ok' }));
     (
       searchApi as unknown as {
-        lookupPsPrices: ReturnType<typeof vi.fn>;
+        lookupNintendoEshopPrice: ReturnType<typeof vi.fn>;
       }
-    ).lookupPsPrices = lookupPsPrices;
+    ).lookupNintendoEshopPrice = lookupNintendoEshopPrice;
 
     repository.upsertFromCatalog.mockResolvedValue({
       ...game,
@@ -269,7 +269,7 @@ describe('GameShelfService', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).not.toHaveBeenCalled();
-    expect(lookupPsPrices).not.toHaveBeenCalled();
+    expect(lookupNintendoEshopPrice).not.toHaveBeenCalled();
   });
 
   it('triggers Steam pricing refresh in background after wishlist add', async () => {
@@ -317,7 +317,7 @@ describe('GameShelfService', () => {
     expect(lookupSteamPrice).toHaveBeenCalledWith('123', 6);
   });
 
-  it('triggers PSPrices refresh in background after add for supported platforms', async () => {
+  it('triggers a Nintendo eShop price refresh in background after adding a Switch game', async () => {
     const game: GameCatalogResult = {
       igdbGameId: '456',
       title: 'Pokemon Violet',
@@ -330,12 +330,12 @@ describe('GameShelfService', () => {
       releaseYear: 2022,
     };
 
-    const lookupPsPrices = vi.fn(() => of({ status: 'ok' }));
+    const lookupNintendoEshopPrice = vi.fn(() => of({ status: 'ok' }));
     (
       searchApi as unknown as {
-        lookupPsPrices: ReturnType<typeof vi.fn>;
+        lookupNintendoEshopPrice: ReturnType<typeof vi.fn>;
       }
-    ).lookupPsPrices = lookupPsPrices;
+    ).lookupNintendoEshopPrice = lookupNintendoEshopPrice;
 
     repository.upsertFromCatalog.mockResolvedValue({
       ...game,
@@ -354,7 +354,7 @@ describe('GameShelfService', () => {
     await service.addGame(game, 'wishlist');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(lookupPsPrices).toHaveBeenCalledWith('456', 130);
+    expect(lookupNintendoEshopPrice).toHaveBeenCalledWith('456', 130);
   });
 
   it('enriches games with HLTB completion times during add when available', async () => {
@@ -2213,7 +2213,7 @@ describe('GameShelfService', () => {
       title: 'Astro Bot',
       productId: productUrl,
     });
-    expect(searchApi.lookupPsPrices).not.toHaveBeenCalled();
+    expect(searchApi.lookupNintendoEshopPrice).not.toHaveBeenCalled();
     const catalog = repository.upsertFromCatalog.mock.calls[0][0] as GameCatalogResult;
     expect(catalog.priceSource).toBe('playstation_store');
     expect(catalog.priceAmount).toBe(49.62);
@@ -2311,7 +2311,7 @@ describe('GameShelfService', () => {
     const candidates = await firstValueFrom(service.searchPricingCandidates('300', 48, 'Hades II'));
 
     expect(searchApi.lookupPlayStationStoreCandidates).toHaveBeenCalledWith('300', 48, 'Hades II');
-    expect(searchApi.lookupPsPricesCandidates).not.toHaveBeenCalled();
+    expect(searchApi.lookupNintendoEshopCandidates).not.toHaveBeenCalled();
     expect(
       candidates.map((candidate) => [candidate.title, candidate.source, candidate.isRecommended])
     ).toEqual([
@@ -2320,7 +2320,7 @@ describe('GameShelfService', () => {
     ]);
   });
 
-  it('passes preferred psprices url through manual pricing refresh queries', async () => {
+  it('passes a picked eShop link as the nsuid through manual pricing refresh queries', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '10148',
       title: 'Night In The Woods',
@@ -2336,42 +2336,42 @@ describe('GameShelfService', () => {
     };
     const updatedEntry: GameEntry = {
       ...existingEntry,
-      priceSource: 'psprices',
+      priceSource: 'nintendo_eshop',
       priceAmount: 19.9,
       priceCurrency: 'CHF',
       priceRegularAmount: null,
       priceDiscountPercent: null,
       priceIsFree: false,
-      priceUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      priceUrl: 'https://ec.nintendo.com/CH/de/titles/70010000012345',
     };
 
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
-    searchApi.lookupPsPrices.mockReturnValue(
+    searchApi.lookupNintendoEshopPrice.mockReturnValue(
       of({
         status: 'ok',
         bestPrice: {
           amount: 19.9,
           currency: 'CHF',
           isFree: false,
-          url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+          url: 'https://ec.nintendo.com/CH/de/titles/70010000012345',
         },
       })
     );
 
     const result = await service.refreshGamePricingWithQuery('10148', 130, {
       title: 'Night In The Woods',
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://ec.nintendo.com/CH/de/titles/70010000012345',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
+    expect(searchApi.lookupNintendoEshopPrice).toHaveBeenCalledWith('10148', 130, {
       title: 'Night In The Woods',
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      nsuid: 'https://ec.nintendo.com/CH/de/titles/70010000012345',
     });
     expect(result).toEqual(updatedEntry);
   });
 
-  it('passes preferred psprices url through manual pricing refresh queries without a title override', async () => {
+  it('passes a picked eShop link through manual pricing refresh queries without a title override', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '10148',
       title: 'Night In The Woods',
@@ -2394,7 +2394,7 @@ describe('GameShelfService', () => {
 
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
-    searchApi.lookupPsPrices.mockReturnValue(
+    searchApi.lookupNintendoEshopPrice.mockReturnValue(
       of({
         status: 'unavailable',
         bestPrice: null,
@@ -2402,22 +2402,23 @@ describe('GameShelfService', () => {
     );
 
     await service.refreshGamePricingWithQuery('10148', 130, {
-      preferredUrl: '  https://psprices.com/region-ch/game/5825037/night-in-the-woods  ',
+      preferredUrl: '  https://ec.nintendo.com/CH/de/titles/70010000012345  ',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
+    expect(searchApi.lookupNintendoEshopPrice).toHaveBeenCalledWith('10148', 130, {
       title: null,
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      nsuid: 'https://ec.nintendo.com/CH/de/titles/70010000012345',
     });
+    // The eShop match lock is kept by the server; the client leaves the legacy psprices lock alone.
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
-        psPricesMatchLocked: true,
+        psPricesMatchLocked: null,
       }),
       'wishlist'
     );
   });
 
-  it('passes a null preferred psprices url through title-only manual pricing refresh queries', async () => {
+  it('passes a null nsuid through title-only manual pricing refresh queries', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '10148',
       title: 'Night In The Woods',
@@ -2434,7 +2435,7 @@ describe('GameShelfService', () => {
 
     repository.exists.mockResolvedValue(existingEntry);
     repository.upsertFromCatalog.mockResolvedValue(existingEntry);
-    searchApi.lookupPsPrices.mockReturnValue(
+    searchApi.lookupNintendoEshopPrice.mockReturnValue(
       of({
         status: 'unavailable',
         bestPrice: null,
@@ -2445,9 +2446,9 @@ describe('GameShelfService', () => {
       title: '  Night In The Woods  ',
     });
 
-    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 130, {
+    expect(searchApi.lookupNintendoEshopPrice).toHaveBeenCalledWith('10148', 130, {
       title: 'Night In The Woods',
-      preferredUrl: null,
+      nsuid: null,
     });
   });
 
@@ -2472,7 +2473,7 @@ describe('GameShelfService', () => {
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
     });
 
-    expect(searchApi.lookupPsPrices).not.toHaveBeenCalled();
+    expect(searchApi.lookupNintendoEshopPrice).not.toHaveBeenCalled();
     expect(repository.upsertFromCatalog).not.toHaveBeenCalled();
     expect(result).toEqual(existingEntry);
   });
@@ -2609,18 +2610,18 @@ describe('GameShelfService', () => {
     ]);
     expect(searchApi.lookupSteamPrice).toHaveBeenCalledWith('100', 6);
 
-    const originalLookup = searchApi.lookupPsPricesCandidates;
+    const originalLookup = searchApi.lookupNintendoEshopCandidates;
     (
       searchApi as unknown as {
-        lookupPsPricesCandidates?: unknown;
+        lookupNintendoEshopCandidates?: unknown;
       }
-    ).lookupPsPricesCandidates = undefined;
+    ).lookupNintendoEshopCandidates = undefined;
     await expect(
       firstValueFrom(service.searchPricingCandidates('100', 130, 'Valid Title'))
     ).resolves.toEqual([]);
-    searchApi.lookupPsPricesCandidates = originalLookup;
+    searchApi.lookupNintendoEshopCandidates = originalLookup;
 
-    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+    searchApi.lookupNintendoEshopCandidates.mockReturnValueOnce(
       of({
         bestPrice: {
           title: 'Candidate A',
@@ -2668,7 +2669,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88.89,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: true,
         imageUrl: 'https://cdn.psprices.com/candidate-a.jpg',
       },
@@ -2681,15 +2682,15 @@ describe('GameShelfService', () => {
         isFree: null,
         url: null,
         score: null,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: false,
       },
     ]);
-    expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 130, 'Valid Title');
+    expect(searchApi.lookupNintendoEshopCandidates).toHaveBeenCalledWith('100', 130, 'Valid Title');
   });
 
   it('marks recommended pricing candidate by title fallback when bestPrice url is unavailable', async () => {
-    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+    searchApi.lookupNintendoEshopCandidates.mockReturnValueOnce(
       of({
         bestPrice: {
           title: 'Candidate B',
@@ -2732,7 +2733,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: false,
       },
       {
@@ -2744,14 +2745,14 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: true,
       },
     ]);
   });
 
   it('marks only one pricing candidate recommended when bestPrice url is missing and multiple candidate urls normalize to null', async () => {
-    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+    searchApi.lookupNintendoEshopCandidates.mockReturnValueOnce(
       of({
         bestPrice: {
           title: 'Candidate B',
@@ -2804,7 +2805,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 88,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: false,
       },
       {
@@ -2816,7 +2817,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 95,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: true,
       },
       {
@@ -2828,14 +2829,14 @@ describe('GameShelfService', () => {
         isFree: false,
         url: null,
         score: 90,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: false,
       },
     ]);
   });
 
   it('returns no pricing candidates when psprices returns an empty candidate list', async () => {
-    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+    searchApi.lookupNintendoEshopCandidates.mockReturnValueOnce(
       of({
         bestPrice: {
           title: 'Candidate A',
@@ -2851,7 +2852,7 @@ describe('GameShelfService', () => {
   });
 
   it('falls back to the first pricing candidate when bestPrice does not match any normalized candidate', async () => {
-    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+    searchApi.lookupNintendoEshopCandidates.mockReturnValueOnce(
       of({
         bestPrice: {
           title: 'Missing Candidate',
@@ -2894,7 +2895,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: true,
       },
       {
@@ -2906,7 +2907,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/456',
         score: 95,
-        source: 'psprices',
+        source: 'nintendo_eshop',
         isRecommended: false,
       },
     ]);
@@ -2965,8 +2966,8 @@ describe('GameShelfService', () => {
       ).lookupUnifiedPrice('100', 999999, null, 'https://psprices.com/region-ch/game/123')
     ).resolves.toBeNull();
 
-    const originalLookupPsPrices = searchApi.lookupPsPrices;
-    (searchApi as Partial<GameSearchApi>).lookupPsPrices = undefined;
+    const originalLookupPsPrices = searchApi.lookupNintendoEshopPrice;
+    (searchApi as Partial<GameSearchApi>).lookupNintendoEshopPrice = undefined;
 
     await expect(
       (
@@ -2981,7 +2982,7 @@ describe('GameShelfService', () => {
       ).lookupUnifiedPrice('100', 130, null, 'https://psprices.com/region-ch/game/123')
     ).resolves.toBeNull();
 
-    (searchApi as Partial<GameSearchApi>).lookupPsPrices = originalLookupPsPrices;
+    (searchApi as Partial<GameSearchApi>).lookupNintendoEshopPrice = originalLookupPsPrices;
   });
 
   it('returns empty box art results for short queries', async () => {

@@ -28,7 +28,7 @@ export type GameType =
   | 'pack'
   | 'update';
 export type ReviewSource = 'metacritic' | 'mobygames';
-export type PriceSource = 'steam_store' | 'playstation_store' | 'psprices';
+export type PriceSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices';
 export type GameWebsiteProvider =
   | 'steam'
   | 'playstation'

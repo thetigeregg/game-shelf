@@ -1053,19 +1053,10 @@ export async function processQueuedPlayStationStorePriceRevalidation(
   const retryState = isDiscoveryGame
     ? nextProviderRetryState({
         current: maybeRearmProviderRetryState({
-          state: parseProviderRetryState(
-            gamePayload['enrichmentRetry'] &&
-              typeof gamePayload['enrichmentRetry'] === 'object' &&
-              !Array.isArray(gamePayload['enrichmentRetry'])
-              ? (gamePayload['enrichmentRetry'] as Record<string, unknown>)['playstationStore']
-              : null
-          ),
+          // The same retry state and release year the refresh job was scheduled from.
+          state: parseProviderRetryState(readRetryState(gamePayload)),
           nowMs: Date.now(),
-          releaseYear:
-            typeof gamePayload['releaseYear'] === 'number' &&
-            Number.isInteger(gamePayload['releaseYear'])
-              ? gamePayload['releaseYear']
-              : null,
+          releaseYear: readReleaseYear(gamePayload),
           rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
           rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
           maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,

@@ -661,6 +661,16 @@
                 ></ion-input>
               </ion-item>
             }
+            @if (showNintendoEshopFields) {
+              <ion-item>
+                <ion-input
+                  label="Nintendo eShop game (nsuid or eShop link)"
+                  labelPlacement="stacked"
+                  [value]="pricingForm.nintendoEshopGame"
+                  (ionInput)="pricingForm.nintendoEshopGame = $any($event).detail.value || ''"
+                ></ion-input>
+              </ion-item>
+            }
             @if (showPsPricesFields) {
               <ion-item>
                 <ion-input

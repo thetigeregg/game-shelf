@@ -5,7 +5,7 @@ import {
   CLOUDFLARE_BLOCK_MEMORY_MS,
   CloudflareBlockError,
   DEFAULT_FLARESOLVERR_URL,
-  FLARESOLVERR_SESSION_TTL_MINUTES,
+  FLARESOLVERR_SESSION_MAX_AGE_MS,
   FLARESOLVERR_BROWSER_START_MS,
   FLARESOLVERR_REQUEST_GRACE_MS,
   FLARESOLVERR_TIMEOUT_MS,
@@ -176,7 +176,7 @@ test('fetchHtmlViaFlareSolverr surfaces the underlying cause of a network failur
   );
 });
 
-test('fetchHtmlViaFlareSolverr names the session and its lifetime when given one', async () => {
+test('fetchHtmlViaFlareSolverr names the session when given one', async () => {
   const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply('<html></html>'));
   await fetchHtmlViaFlareSolverr(SEARCH_URL, {
     flareSolverrUrl: FLARESOLVERR_URL,
@@ -188,7 +188,6 @@ test('fetchHtmlViaFlareSolverr names the session and its lifetime when given one
     url: SEARCH_URL,
     maxTimeout: FLARESOLVERR_TIMEOUT_MS,
     session: 'gameshelf-psprices-1',
-    session_ttl_minutes: FLARESOLVERR_SESSION_TTL_MINUTES,
   });
 });
 
@@ -280,16 +279,24 @@ test('assertSearchResultsPage rejects pages that are not search results', async 
 
 /**
  * A fake FlareSolverr whose request.get calls stay pending until the test settles them, so tests
- * can see what's in flight. Other commands (sessions.destroy) answer at once.
+ * can see what's in flight. sessions.list returns `sessions`; sessions.destroy answers with
+ * `destroyReply(name)`, ok by default.
  */
-function controlledFlareSolverr() {
+function controlledFlareSolverr({
+  sessions = [],
+  destroyReply = () => ({ status: 'ok', message: 'The session has been removed.' }),
+} = {}) {
   const pending = [];
   const commands = [];
+  const json = (value) => ({ status: 200, text: async () => JSON.stringify(value) });
   const fetchImpl = async (_url, init) => {
     const body = JSON.parse(init.body);
     commands.push(body);
-    if (body.cmd !== 'request.get') {
-      return { status: 200, text: async () => '{"status":"ok"}' };
+    if (body.cmd === 'sessions.list') {
+      return json({ status: 'ok', sessions });
+    }
+    if (body.cmd === 'sessions.destroy') {
+      return json(destroyReply(body.session));
     }
     return await new Promise((resolve, reject) => {
       pending.push({ body, resolve, reject });
@@ -297,7 +304,10 @@ function controlledFlareSolverr() {
   };
   const reply = (html) => ({ status: 200, text: async () => flareSolverrReply(html) });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
-  return { fetchImpl, pending, commands, reply, flush };
+  /** The session commands sent, without the first call's sessions.list. */
+  const sessionCommands = () =>
+    commands.filter(({ cmd }) => cmd !== 'sessions.list').map(({ cmd, session }) => [cmd, session]);
+  return { fetchImpl, pending, commands, reply, flush, sessionCommands };
 }
 
 const plenty = () => Date.now() + 60_000;
@@ -353,14 +363,11 @@ test('createFlareSolverrClient starts a fresh session after a failed solve', asy
     await fake.flush();
     fake.pending[1].resolve(fake.reply('<html></html>'));
     await next;
-    assert.deepEqual(
-      fake.commands.map(({ cmd, session }) => [cmd, session]),
-      [
-        ['request.get', 'gameshelf-psprices-1'],
-        ['sessions.destroy', 'gameshelf-psprices-1'],
-        ['request.get', 'gameshelf-psprices-2'],
-      ]
-    );
+    assert.deepEqual(fake.sessionCommands(), [
+      ['request.get', 'gameshelf-psprices-1'],
+      ['sessions.destroy', 'gameshelf-psprices-1'],
+      ['request.get', 'gameshelf-psprices-2'],
+    ]);
   } finally {
     await client.close();
   }
@@ -384,14 +391,11 @@ test('createFlareSolverrClient retires the session when FlareSolverr gives no re
     await fake.flush();
     fake.pending[1].resolve(fake.reply('<html></html>'));
     await next;
-    assert.deepEqual(
-      fake.commands.map(({ cmd, session }) => [cmd, session]),
-      [
-        ['request.get', 'gameshelf-psprices-1'],
-        ['sessions.destroy', 'gameshelf-psprices-1'],
-        ['request.get', 'gameshelf-psprices-2'],
-      ]
-    );
+    assert.deepEqual(fake.sessionCommands(), [
+      ['request.get', 'gameshelf-psprices-1'],
+      ['sessions.destroy', 'gameshelf-psprices-1'],
+      ['request.get', 'gameshelf-psprices-2'],
+    ]);
   } finally {
     await client.close();
   }
@@ -470,7 +474,7 @@ test('createFlareSolverrClient skips a cold session when the budget cannot cover
     await assert.rejects(client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 }), {
       message: 'request time budget used up waiting for FlareSolverr',
     });
-    assert.equal(fake.commands.length, 0);
+    assert.equal(fake.pending.length, 0);
   } finally {
     await client.close();
   }
@@ -545,4 +549,170 @@ test('createCloudflareBlockMemory keeps a block recorded after the remembered on
   // Still tells the caller to try directly, but leaves the newer block in place.
   assert.equal(memory.fallbackFailed(stale), true);
   assert.ok(memory.activeBlock());
+});
+
+test('createFlareSolverrClient removes sessions an earlier run left, once', async () => {
+  const fake = controlledFlareSolverr({
+    sessions: ['gameshelf-psprices-3', 'go-gather', 'gameshelf-psprices-7', 'gameshelf-pspricesX'],
+  });
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    for (const n of [0, 1]) {
+      const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+      await fake.flush();
+      fake.pending[n].resolve(fake.reply('<html></html>'));
+      await call;
+    }
+    assert.deepEqual(
+      fake.commands.map(({ cmd, session }) => [cmd, session]),
+      [
+        ['sessions.list', undefined],
+        ['sessions.destroy', 'gameshelf-psprices-3'],
+        ['sessions.destroy', 'gameshelf-psprices-7'],
+        ['request.get', 'gameshelf-psprices-1'],
+        ['request.get', 'gameshelf-psprices-1'],
+      ]
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient retries a destroy FlareSolverr does not confirm', async () => {
+  // FlareSolverr registers a session only once its browser is up, so a destroy can come too early.
+  let registered = false;
+  const fake = controlledFlareSolverr({
+    destroyReply: () =>
+      registered
+        ? { status: 'ok', message: 'The session has been removed.' }
+        : { status: 'error', message: "The session doesn't exist." },
+  });
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+    cleanupRetryDelaysMs: [20, 20, 20],
+  });
+  try {
+    const failed = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[0].reject(
+      new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    );
+    await assert.rejects(failed);
+    await fake.flush();
+    registered = true;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    assert.deepEqual(fake.sessionCommands(), [
+      ['request.get', 'gameshelf-psprices-1'],
+      ['sessions.destroy', 'gameshelf-psprices-1'],
+      ['sessions.destroy', 'gameshelf-psprices-1'],
+    ]);
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient gives up retrying a destroy after the last delay', async () => {
+  const fake = controlledFlareSolverr({
+    destroyReply: () => ({ status: 'error', message: "The session doesn't exist." }),
+  });
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+    cleanupRetryDelaysMs: [5, 5],
+  });
+  const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+  fake.pending[0].resolve(fake.reply('<html></html>'));
+  await call;
+  await client.close();
+  // close() stops retries, so retire through a fresh client run instead.
+  const destroys = () => fake.commands.filter(({ cmd }) => cmd === 'sessions.destroy').length;
+  assert.equal(destroys(), 1, 'close() sends one destroy and schedules no retries');
+
+  const retrying = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+    cleanupRetryDelaysMs: [5, 5],
+  });
+  const failed = retrying.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+  fake.pending[1].reject(new Error('boom'));
+  await assert.rejects(failed);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(destroys(), 1 + 3, 'one destroy plus two retries');
+  await retrying.close();
+});
+
+test('createFlareSolverrClient replaces a session at its maximum age, as a cold start', async () => {
+  let now = 1_000_000;
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+    now: () => now,
+  });
+  try {
+    const first = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[0].resolve(fake.reply('<html></html>'));
+    await first;
+
+    now += FLARESOLVERR_SESSION_MAX_AGE_MS - 1;
+    const warm = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[1].resolve(fake.reply('<html></html>'));
+    await warm;
+
+    now += 1;
+    const renewed = client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 30_000 });
+    await fake.flush();
+    const { maxTimeout } = fake.pending[2].body;
+    assert.ok(
+      maxTimeout <= 30_000 - FLARESOLVERR_BROWSER_START_MS - FLARESOLVERR_REQUEST_GRACE_MS,
+      `renewed session gets the browser start allowance, maxTimeout ${String(maxTimeout)}`
+    );
+    fake.pending[2].resolve(fake.reply('<html></html>'));
+    await renewed;
+
+    assert.deepEqual(fake.sessionCommands(), [
+      ['request.get', 'gameshelf-psprices-1'],
+      ['request.get', 'gameshelf-psprices-1'],
+      ['sessions.destroy', 'gameshelf-psprices-1'],
+      ['request.get', 'gameshelf-psprices-2'],
+    ]);
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient close() stops queued calls from starting a session', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  const inFlight = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  const queued = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+
+  const closed = client.close();
+  // FlareSolverr fails the in-flight request once its session is destroyed.
+  fake.pending[0].resolve({
+    status: 500,
+    text: async () => JSON.stringify({ status: 'error', message: 'session closed' }),
+  });
+  await closed;
+  await assert.rejects(inFlight, { message: 'session closed' });
+  await assert.rejects(queued, { message: 'the scraper is shutting down' });
+
+  assert.equal(fake.pending.length, 1);
+  assert.deepEqual(fake.sessionCommands(), [
+    ['request.get', 'gameshelf-psprices-1'],
+    ['sessions.destroy', 'gameshelf-psprices-1'],
+  ]);
 });

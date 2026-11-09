@@ -127,10 +127,11 @@ function pickEarliestIso(values: Array<string | null>): string | null {
 export function resolveAdminPricingSource(
   platformIgdbId: number | null | undefined,
   priceSource?: string | null
-): 'steam_store' | 'playstation_store' | 'psprices' {
+): 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices' {
   if (
     priceSource === 'steam_store' ||
     priceSource === 'playstation_store' ||
+    priceSource === 'nintendo_eshop' ||
     priceSource === 'psprices'
   ) {
     return priceSource;
@@ -139,11 +140,12 @@ export function resolveAdminPricingSource(
   if (platformIgdbId === 6) {
     return 'steam_store';
   }
-  // PS4 and PS5 are priced from the PlayStation Store; psprices covers Switch.
-  return typeof platformIgdbId === 'number' &&
-    GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)
-    ? 'playstation_store'
-    : 'psprices';
+  // PS4/PS5 are priced from the PlayStation Store, Switch/Switch 2 from the Nintendo eShop.
+  return (
+    (typeof platformIgdbId === 'number'
+      ? GameShelfService.resolveStoreSearchPriceSource(platformIgdbId)
+      : null) ?? 'psprices'
+  );
 }
 
 export function buildAdminQueueFeedback(

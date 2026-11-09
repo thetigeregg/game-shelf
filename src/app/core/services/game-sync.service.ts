@@ -1119,7 +1119,10 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private normalizePriceSource(value: unknown): GameEntry['priceSource'] {
-    return value === 'steam_store' || value === 'playstation_store' || value === 'psprices'
+    return value === 'steam_store' ||
+      value === 'playstation_store' ||
+      value === 'nintendo_eshop' ||
+      value === 'psprices'
       ? value
       : null;
   }

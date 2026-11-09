@@ -94,6 +94,20 @@ export interface GameSearchApi {
     platformIgdbId: number,
     title: string
   ): Observable<unknown>;
+  lookupNintendoEshopPrice?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: {
+      title?: string | null;
+      /** An nsuid or eShop link to price instead of searching. */
+      nsuid?: string | null;
+    }
+  ): Observable<unknown>;
+  lookupNintendoEshopCandidates?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown>;
 }
 
 export const GAME_SEARCH_API = new InjectionToken<GameSearchApi>('GAME_SEARCH_API');

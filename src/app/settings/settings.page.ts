@@ -507,7 +507,7 @@ export class SettingsPage {
         '- MobyGames',
         '- Steam Store',
         '- PlayStation Store',
-        '- PSPrices',
+        '- Nintendo eShop',
       ].join('\n'),
       buttons: ['OK'],
     });

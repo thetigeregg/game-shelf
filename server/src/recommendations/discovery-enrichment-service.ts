@@ -74,6 +74,7 @@ interface DiscoveryEnrichmentRetryState {
   steam: ProviderRetryState;
   psprices: ProviderRetryState;
   playstationStore: ProviderRetryState;
+  nintendoEshop: ProviderRetryState;
 }
 
 type DiscoveryEnrichmentProvider = 'hltb' | 'review' | 'steam';
@@ -339,6 +340,7 @@ export class DiscoveryEnrichmentService {
       }),
       psprices: retryState.psprices,
       playstationStore: retryState.playstationStore,
+      nintendoEshop: retryState.nintendoEshop,
     };
     const needsHltb = isHltbActive && !hasHltb;
     const needsMetacritic =
@@ -412,6 +414,7 @@ export class DiscoveryEnrichmentService {
       steam: nextRetryStateBase.steam,
       psprices: nextRetryStateBase.psprices,
       playstationStore: nextRetryStateBase.playstationStore,
+      nintendoEshop: nextRetryStateBase.nintendoEshop,
     };
 
     const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
@@ -797,6 +800,7 @@ function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
     steam: parseProviderRetryState(source.steam),
     psprices: parseProviderRetryState(source.psprices),
     playstationStore: parseProviderRetryState(source.playstationStore),
+    nintendoEshop: parseProviderRetryState(source.nintendoEshop),
   };
 }
 
@@ -827,6 +831,7 @@ function buildNextRetryState(params: {
         : createEmptyProviderRetryState(),
     psprices: params.current.psprices,
     playstationStore: params.current.playstationStore,
+    nintendoEshop: params.current.nintendoEshop,
   };
 }
 
@@ -839,13 +844,15 @@ function applyRetryState(
   const shouldKeepSteam = hasMeaningfulRetryState(state.steam);
   const shouldKeepPsprices = hasMeaningfulRetryState(state.psprices);
   const shouldKeepPlayStationStore = hasMeaningfulRetryState(state.playstationStore);
+  const shouldKeepNintendoEshop = hasMeaningfulRetryState(state.nintendoEshop);
 
   if (
     !shouldKeepHltb &&
     !shouldKeepMetacritic &&
     !shouldKeepSteam &&
     !shouldKeepPsprices &&
-    !shouldKeepPlayStationStore
+    !shouldKeepPlayStationStore &&
+    !shouldKeepNintendoEshop
   ) {
     delete payload.enrichmentRetry;
     return;
@@ -857,5 +864,6 @@ function applyRetryState(
     ...(shouldKeepSteam ? { steam: state.steam } : {}),
     ...(shouldKeepPsprices ? { psprices: state.psprices } : {}),
     ...(shouldKeepPlayStationStore ? { playstationStore: state.playstationStore } : {}),
+    ...(shouldKeepNintendoEshop ? { nintendoEshop: state.nintendoEshop } : {}),
   };
 }

@@ -2610,7 +2610,9 @@ export class ExplorePage implements OnInit {
     try {
       const titleHint = this.getRecommendationTitleHint(item);
 
-      // The PlayStation Store (PS4/PS5) and psprices (Switch) answer in the same shape.
+      // The PlayStation Store (PS4/PS5) and Nintendo eShop (Switch) answer in the same shape. No
+      // title for either: the route would take it as a manual override (skip the cache, lock the
+      // match). It uses the game's stored title.
       const result =
         item.platformIgdbId === 6
           ? this.parseSteamPriceLookupResponse(
@@ -2623,15 +2625,14 @@ export class ExplorePage implements OnInit {
                 GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(
                   item.platformIgdbId
                 )
-                  ? // No title: the route would take it as a manual override (skip the cache, lock
-                    // the match). It uses the game's stored title.
-                    this.igdbProxyService.lookupPlayStationStorePrice(
+                  ? this.igdbProxyService.lookupPlayStationStorePrice(
                       item.igdbGameId,
                       item.platformIgdbId
                     )
-                  : this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
-                      title: titleHint,
-                    })
+                  : this.igdbProxyService.lookupNintendoEshopPrice(
+                      item.igdbGameId,
+                      item.platformIgdbId
+                    )
               )
             );
 

@@ -60,7 +60,7 @@ import { ClientWriteAuthService } from '../core/services/client-write-auth.servi
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
-type PricingSource = 'steam_store' | 'playstation_store' | 'psprices';
+type PricingSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices';
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -115,6 +115,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
   readonly pricingSourceOptions: Array<{ value: PricingSource; label: string }> = [
     { value: 'steam_store', label: 'Steam Store' },
     { value: 'playstation_store', label: 'PlayStation Store' },
+    { value: 'nintendo_eshop', label: 'Nintendo eShop' },
     { value: 'psprices', label: 'PSPrices' },
   ];
 
@@ -192,6 +193,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
     psPricesTitle: string;
     psPricesPlatform: string;
     playstationStoreProduct: string;
+    nintendoEshopGame: string;
   } = {
     priceSource: 'psprices',
     priceFetchedAt: '',
@@ -205,6 +207,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
     psPricesTitle: '',
     psPricesPlatform: '',
     playstationStoreProduct: '',
+    nintendoEshopGame: '',
   };
 
   private readonly adminMatchService = inject(AdminDiscoveryMatchService);
@@ -274,6 +277,10 @@ export class AdminDiscoveryMatchPage implements OnInit {
 
   get showPlayStationStoreFields(): boolean {
     return this.pricingForm.priceSource === 'playstation_store';
+  }
+
+  get showNintendoEshopFields(): boolean {
+    return this.pricingForm.priceSource === 'nintendo_eshop';
   }
 
   async loadItems(): Promise<void> {
@@ -596,8 +603,9 @@ export class AdminDiscoveryMatchPage implements OnInit {
       psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
       psPricesTitle: isPsPricesSource ? candidate.title : '',
       psPricesPlatform: isPsPricesSource ? this.pricingForm.psPricesPlatform : '',
-      // The candidate's URL is its store product page, which identifies the product.
+      // The candidate's URL is its store product page (or eShop link), which identifies it.
       playstationStoreProduct: source === 'playstation_store' ? (candidate.url ?? '') : '',
+      nintendoEshopGame: source === 'nintendo_eshop' ? (candidate.url ?? '') : '',
     };
   }
 
@@ -656,6 +664,9 @@ export class AdminDiscoveryMatchPage implements OnInit {
             ),
           }
         : {}),
+      ...(this.pricingForm.priceSource === 'nintendo_eshop'
+        ? { nintendoEshopNsuid: normalizeAdminString(this.pricingForm.nintendoEshopGame) }
+        : {}),
     };
   }
 
@@ -706,6 +717,8 @@ export class AdminDiscoveryMatchPage implements OnInit {
         priceSource === 'playstation_store'
           ? (detail.providers.pricing.playstationStoreProductId ?? '')
           : '',
+      nintendoEshopGame:
+        priceSource === 'nintendo_eshop' ? (detail.providers.pricing.nintendoEshopNsuid ?? '') : '',
     };
 
     this.hltbSearchQuery = detail.providers.hltb.queryTitle ?? detail.title ?? '';
@@ -715,6 +728,7 @@ export class AdminDiscoveryMatchPage implements OnInit {
       (priceSource === 'playstation_store'
         ? detail.providers.pricing.playstationStoreTitle
         : null) ??
+      (priceSource === 'nintendo_eshop' ? detail.providers.pricing.nintendoEshopTitle : null) ??
       detail.title ??
       '';
     this.resetCandidateSearchResults();

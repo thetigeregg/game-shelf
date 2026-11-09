@@ -415,6 +415,58 @@ describe('AdminDiscoveryMatchPage', () => {
     expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
   });
 
+  it('defaults Switch pricing to the Nintendo eShop and sends a picked game as its nsuid', () => {
+    const { page } = createPageHarness();
+    const detail: AdminDiscoveryDetailResponse = {
+      ...createDetail(),
+      platformIgdbId: 130,
+      providers: {
+        ...createDetail().providers,
+        pricing: {
+          ...createDetail().providers.pricing,
+          priceSource: null,
+          nintendoEshopNsuid: '70010000060676',
+          nintendoEshopTitle: 'Hades II',
+        },
+      },
+    };
+
+    (
+      page as unknown as { syncFormsFromDetail: (payload: AdminDiscoveryDetailResponse) => void }
+    ).syncFormsFromDetail(detail);
+
+    expect(page.pricingForm.priceSource).toBe('nintendo_eshop');
+    expect(page.showNintendoEshopFields).toBe(true);
+    expect(page.showPlayStationStoreFields).toBe(false);
+    expect(page.pricingForm.nintendoEshopGame).toBe('70010000060676');
+    expect(page.pricingSearchQuery).toBe('Hades II');
+
+    page.applyPricingCandidate({
+      title: 'Hades',
+      amount: 27,
+      currency: 'CHF',
+      regularAmount: 27,
+      discountPercent: 0,
+      isFree: false,
+      url: 'https://ec.nintendo.com/CH/de/titles/70010000033132',
+      score: 90,
+      source: 'nintendo_eshop',
+      isRecommended: true,
+    });
+    expect(page.pricingForm.nintendoEshopGame).toBe(
+      'https://ec.nintendo.com/CH/de/titles/70010000033132'
+    );
+
+    const request = (
+      page as unknown as { buildUpdateRequest: (provider: 'pricing') => Record<string, unknown> }
+    ).buildUpdateRequest('pricing');
+    expect(request['priceSource']).toBe('nintendo_eshop');
+    expect(request['nintendoEshopNsuid']).toBe(
+      'https://ec.nintendo.com/CH/de/titles/70010000033132'
+    );
+    expect(request).not.toHaveProperty('playstationStoreProductId');
+  });
+
   it('preserves unknown pricing free state when applying a pricing candidate', () => {
     const { page } = createPageHarness();
 

@@ -6,7 +6,10 @@ import type {
   SyncOperationType,
   SyncPushResult,
 } from './types.js';
-import { PLAYSTATION_STORE_PLATFORM_IGDB_IDS } from './platform-ids.js';
+import {
+  NINTENDO_ESHOP_PLATFORM_IGDB_IDS,
+  PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
+} from './platform-ids.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface SyncEventRow {
@@ -321,6 +324,28 @@ async function applyGameOperation(
         'playstationStoreMatchConfidence', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchConfidence', games.payload -> 'playstationStoreMatchConfidence'),
         'playstationStoreCandidates', COALESCE(EXCLUDED.payload -> 'playstationStoreCandidates', games.payload -> 'playstationStoreCandidates'),
         'playstationStoreMatchLocked', COALESCE(EXCLUDED.payload -> 'playstationStoreMatchLocked', games.payload -> 'playstationStoreMatchLocked')
+      ) || jsonb_build_object(
+        'nintendoEshopFetchedAt', COALESCE(EXCLUDED.payload -> 'nintendoEshopFetchedAt', games.payload -> 'nintendoEshopFetchedAt'),
+        'nintendoEshopSource', COALESCE(EXCLUDED.payload -> 'nintendoEshopSource', games.payload -> 'nintendoEshopSource'),
+        'nintendoEshopCountry', COALESCE(EXCLUDED.payload -> 'nintendoEshopCountry', games.payload -> 'nintendoEshopCountry'),
+        'nintendoEshopLanguage', COALESCE(EXCLUDED.payload -> 'nintendoEshopLanguage', games.payload -> 'nintendoEshopLanguage'),
+        'nintendoEshopPlatform', COALESCE(EXCLUDED.payload -> 'nintendoEshopPlatform', games.payload -> 'nintendoEshopPlatform'),
+        'nintendoEshopNsuid', COALESCE(EXCLUDED.payload -> 'nintendoEshopNsuid', games.payload -> 'nintendoEshopNsuid'),
+        'nintendoEshopTitle', COALESCE(EXCLUDED.payload -> 'nintendoEshopTitle', games.payload -> 'nintendoEshopTitle'),
+        'nintendoEshopUrl', COALESCE(EXCLUDED.payload -> 'nintendoEshopUrl', games.payload -> 'nintendoEshopUrl'),
+        'nintendoEshopImageUrl', COALESCE(EXCLUDED.payload -> 'nintendoEshopImageUrl', games.payload -> 'nintendoEshopImageUrl'),
+        'nintendoEshopPriceAmount', COALESCE(EXCLUDED.payload -> 'nintendoEshopPriceAmount', games.payload -> 'nintendoEshopPriceAmount'),
+        'nintendoEshopPriceCurrency', COALESCE(EXCLUDED.payload -> 'nintendoEshopPriceCurrency', games.payload -> 'nintendoEshopPriceCurrency'),
+        'nintendoEshopRegularPriceAmount', COALESCE(EXCLUDED.payload -> 'nintendoEshopRegularPriceAmount', games.payload -> 'nintendoEshopRegularPriceAmount'),
+        'nintendoEshopDiscountPercent', COALESCE(EXCLUDED.payload -> 'nintendoEshopDiscountPercent', games.payload -> 'nintendoEshopDiscountPercent'),
+        'nintendoEshopIsFree', COALESCE(EXCLUDED.payload -> 'nintendoEshopIsFree', games.payload -> 'nintendoEshopIsFree'),
+        'nintendoEshopSaleEndsAt', COALESCE(EXCLUDED.payload -> 'nintendoEshopSaleEndsAt', games.payload -> 'nintendoEshopSaleEndsAt'),
+        'nintendoEshopMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'nintendoEshopMatchQueryTitle', games.payload -> 'nintendoEshopMatchQueryTitle'),
+        'nintendoEshopMatchTitle', COALESCE(EXCLUDED.payload -> 'nintendoEshopMatchTitle', games.payload -> 'nintendoEshopMatchTitle'),
+        'nintendoEshopMatchScore', COALESCE(EXCLUDED.payload -> 'nintendoEshopMatchScore', games.payload -> 'nintendoEshopMatchScore'),
+        'nintendoEshopMatchConfidence', COALESCE(EXCLUDED.payload -> 'nintendoEshopMatchConfidence', games.payload -> 'nintendoEshopMatchConfidence'),
+        'nintendoEshopCandidates', COALESCE(EXCLUDED.payload -> 'nintendoEshopCandidates', games.payload -> 'nintendoEshopCandidates'),
+        'nintendoEshopMatchLocked', COALESCE(EXCLUDED.payload -> 'nintendoEshopMatchLocked', games.payload -> 'nintendoEshopMatchLocked')
       )
     ), updated_at = NOW()
     RETURNING payload
@@ -680,8 +705,11 @@ function parseFiniteNumber(value: unknown): number {
 
 function normalizePriceSource(
   value: unknown
-): 'steam_store' | 'playstation_store' | 'psprices' | null {
-  return value === 'steam_store' || value === 'playstation_store' || value === 'psprices'
+): 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices' | null {
+  return value === 'steam_store' ||
+    value === 'playstation_store' ||
+    value === 'nintendo_eshop' ||
+    value === 'psprices'
     ? value
     : null;
 }
@@ -1032,18 +1060,27 @@ function normalizeGamePayload(
     ...(hasPriceUrl ? { priceUrl } : {}),
   };
 
-  // PS4/PS5 prices are set by the server from the PlayStation Store. A client that doesn't know
-  // that source (an older app version) would push back `null` or an old psprices price; dropping
-  // those fields makes the upsert keep the server's values instead.
-  if (
-    PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) &&
-    normalized['priceSource'] !== 'playstation_store'
-  ) {
+  // PS4/PS5 prices are set by the server from the PlayStation Store, Switch/Switch 2 prices from
+  // the Nintendo eShop. A client that doesn't know the platform's source (an older app version)
+  // would push back `null` or an old psprices price; dropping those fields makes the upsert keep
+  // the server's values instead.
+  const serverPriceSource = resolveServerPriceSource(platformIgdbId);
+  if (serverPriceSource !== null && normalized['priceSource'] !== serverPriceSource) {
     for (const key of [...UNIFIED_PRICE_KEYS, ...LEGACY_PSPRICES_PIN_KEYS]) {
       Reflect.deleteProperty(normalized, key);
     }
   }
   return normalized;
+}
+
+/** The store the server prices a platform from, when the server owns its prices. */
+function resolveServerPriceSource(
+  platformIgdbId: number
+): 'playstation_store' | 'nintendo_eshop' | null {
+  if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+    return 'playstation_store';
+  }
+  return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'nintendo_eshop' : null;
 }
 
 function normalizeGameIdentityPayload(value: unknown): {

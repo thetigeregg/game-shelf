@@ -1,10 +1,12 @@
 import { config } from './config.js';
+import { resolveNintendoEshopLocale } from './nintendo-eshop-client.js';
+import { lookupNintendoEshopPrice } from './nintendo-eshop-prices.js';
 import { resolvePlayStationStoreLocale } from './playstation-store-client.js';
 import { lookupPlayStationStorePrice } from './playstation-store-prices.js';
 
 /**
- * Scheduled test lookups against each scraper (and the PlayStation Store, which the API calls
- * directly), reported to Healthchecks.io. Each is searched for a title that should always match,
+ * Scheduled test lookups against each scraper (and the PlayStation Store and Nintendo eShop, which
+ * the API calls directly), reported to Healthchecks.io. Each is searched for a title that should always match,
  * bypassing the API's caches so they can't hide a failure, and the result must be the specific game
  * verified for that source. A match sends
  * a success ping; an error, no match or the wrong game sends a `/fail` ping with the reason, which
@@ -129,7 +131,8 @@ function checkItem(
 export function buildScraperHealthProbes(): ScraperHealthProbe[] {
   return [
     {
-      // psprices only prices Switch and Switch 2 now; PS4/PS5 come from the PlayStation Store.
+      // psprices no longer prices any platform (PS4/PS5 use the PlayStation Store, Switch the
+      // Nintendo eShop); the check stays while psprices-scraper still runs.
       slug: 'gameshelf-psprices',
       name: 'psprices-scraper',
       baseUrl: config.pspricesScraperBaseUrl,
@@ -194,6 +197,34 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
               title.replace(/\s+/g, ' ').trim().toLowerCase() === 'hades ii'
             );
           },
+          requiredData: 'a price',
+          hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
+        }),
+    },
+    {
+      // Search, title match and price: both eShop APIs.
+      slug: 'gameshelf-nintendo-eshop',
+      name: 'nintendo-eshop',
+      baseUrl: config.nintendoEshopPriceApiBaseUrl,
+      token: '',
+      path: 'Hades II (Switch)',
+      query: {},
+      run: async (fetchImpl) => {
+        const lookup = await lookupNintendoEshopPrice({
+          title: 'Hades II',
+          platform: 'Switch',
+          preferredNsuid: null,
+          locale: resolveNintendoEshopLocale(),
+          fetchImpl,
+        });
+        return { item: lookup.snapshot };
+      },
+      check: (body) =>
+        checkItem(body, {
+          fields: ['nsuid', 'title', 'amount'],
+          expected: 'nsuid 70010000060676',
+          // European eShops share nsuids, and NINTENDO_ESHOP_COUNTRY can only be a European one.
+          isExpected: (item) => item['nsuid'] === '70010000060676',
           requiredData: 'a price',
           hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
         }),

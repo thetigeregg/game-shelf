@@ -25,11 +25,13 @@ export function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean 
 
 /**
  * When a source last looked the game up, for sources whose attempt time counts: a PlayStation
- * Store lookup that found nothing still waits for the next stale window instead of being retried
- * on every pricing pass, which would mean hourly searches of the store's unofficial API.
+ * Store or Nintendo eShop lookup that found nothing still waits for the next stale window instead
+ * of being retried on every pricing pass, which would mean hourly searches of the store's
+ * unofficial API.
  */
 const ATTEMPT_FETCHED_AT_KEY_BY_SOURCE: Readonly<Record<string, string>> = {
   playstation_store: 'playstationStoreFetchedAt',
+  nintendo_eshop: 'nintendoEshopFetchedAt',
 };
 
 function parseTimestampMs(value: unknown): number | null {
@@ -47,7 +49,8 @@ function parseTimestampMs(value: unknown): number | null {
  * Normally this is the last successful unified price (`priceFetchedAt`). With `expectedSource`, a
  * price from another source doesn't count: the platform's prices have moved (e.g. PS4/PS5 from
  * psprices to the PlayStation Store), so the game is looked up on the new source at the next
- * refresh. For the PlayStation Store, its last attempt counts instead, found or not.
+ * refresh. For the PlayStation Store and Nintendo eShop, their last attempt counts instead, found
+ * or not.
  */
 export function resolvePriceFetchedAtMs(
   payload: Record<string, unknown>,

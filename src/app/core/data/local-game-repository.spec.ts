@@ -1408,6 +1408,7 @@ describe('LocalGameRepository', () => {
     ).normalizePriceSource.bind(repository);
     expect(normalizePriceSource('steam_store')).toBe('steam_store');
     expect(normalizePriceSource('playstation_store')).toBe('playstation_store');
+    expect(normalizePriceSource('nintendo_eshop')).toBe('nintendo_eshop');
     expect(normalizePriceSource('psprices')).toBe('psprices');
     expect(normalizePriceSource('epic_games')).toBeNull();
   });

@@ -26,6 +26,7 @@ import {
   PopularityFeedItem,
   PopularityFeedResponse,
   PopularityFeedType,
+  PriceSource,
 } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
@@ -178,6 +179,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
   private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly playstationStorePricesUrl = `${environment.gameApiBaseUrl}/v1/playstation-store/prices`;
+  private readonly nintendoEshopPricesUrl = `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices`;
   private readonly httpClient = inject(HttpClient);
   private readonly clientWriteAuth = inject(ClientWriteAuthService);
   private readonly debugLogService = inject(DebugLogService);
@@ -1203,6 +1205,85 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupNintendoEshopPrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: {
+      title?: string | null;
+      nsuid?: string | null;
+    }
+  ): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid Nintendo eShop lookup request.'));
+    }
+
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+    const normalizedTitle = typeof query?.title === 'string' ? query.title.trim() : '';
+    if (normalizedTitle.length > 0) {
+      params = params.set('title', normalizedTitle);
+    }
+    // An nsuid or an eShop link; the server validates it.
+    const normalizedNsuid = typeof query?.nsuid === 'string' ? query.nsuid.trim() : '';
+    if (normalizedNsuid.length > 0) {
+      params = params.set('nsuid', normalizedNsuid);
+    }
+
+    // An override is saved as the game's match, which the server only accepts with the write
+    // token. The write-token interceptor only covers POST/PUT/PATCH/DELETE.
+    const token =
+      normalizedTitle.length > 0 || normalizedNsuid.length > 0
+        ? this.clientWriteAuth.getToken()
+        : null;
+    return this.getNintendoEshopPrices(
+      params,
+      token ? new HttpHeaders({ [CLIENT_WRITE_TOKEN_HEADER_NAME]: token }) : undefined
+    );
+  }
+
+  lookupNintendoEshopCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown> {
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < 2) {
+      return of({ status: 'unavailable', candidates: [] });
+    }
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid Nintendo eShop lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId))
+      .set('title', normalizedTitle)
+      .set('includeCandidates', '1');
+    return this.getNintendoEshopPrices(params);
+  }
+
+  private getNintendoEshopPrices(params: HttpParams, headers?: HttpHeaders): Observable<unknown> {
+    const cooldownError = this.createCooldownErrorIfActive();
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.nintendoEshopPricesUrl, { params, headers }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+        return throwError(() => new Error('Unable to load Nintendo eShop prices.'));
+      })
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const igdbGameId =
@@ -1376,10 +1457,13 @@ export class IgdbProxyService implements GameSearchApi {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private normalizePriceSource(
-    value: unknown
-  ): 'steam_store' | 'playstation_store' | 'psprices' | null {
-    if (value === 'steam_store' || value === 'playstation_store' || value === 'psprices') {
+  private normalizePriceSource(value: unknown): PriceSource | null {
+    if (
+      value === 'steam_store' ||
+      value === 'playstation_store' ||
+      value === 'nintendo_eshop' ||
+      value === 'psprices'
+    ) {
       return value;
     }
 

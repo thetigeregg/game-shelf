@@ -76,7 +76,9 @@ export interface PspricesPriceRevalidationPayload extends Record<string, unknown
   psPricesUrl?: string | null;
 }
 
-// PS4 and PS5 are priced from the PlayStation Store (playstation-store-prices.ts).
+// No platform is priced from psprices any more: PS4/PS5 use the PlayStation Store and Switch /
+// Switch 2 the Nintendo eShop. This route is dormant (only an outdated app still calls it) until
+// psprices support is removed.
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
   [130, 'Switch'],
   [508, 'Switch2'],

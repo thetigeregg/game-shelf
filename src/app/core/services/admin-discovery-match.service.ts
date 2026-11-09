@@ -81,6 +81,8 @@ export interface AdminDiscoveryDetailResponse extends AdminDiscoveryListItem {
       psPricesPlatform: string | null;
       playstationStoreProductId?: string | null;
       playstationStoreTitle?: string | null;
+      nintendoEshopNsuid?: string | null;
+      nintendoEshopTitle?: string | null;
     };
   };
 }
@@ -119,6 +121,8 @@ export interface AdminDiscoveryUpdateMatchRequest {
   psPricesPlatform?: string | null;
   /** A PlayStation Store product ID or product URL. */
   playstationStoreProductId?: string | null;
+  /** A Nintendo eShop nsuid or eShop link. */
+  nintendoEshopNsuid?: string | null;
   queryTitle?: string | null;
   queryReleaseYear?: number | null;
   queryPlatform?: string | null;

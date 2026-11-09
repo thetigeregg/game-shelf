@@ -16,6 +16,7 @@ interface CacheCountSnapshot {
   steamPriceEntryCount: number | null;
   pspricesPriceEntryCount: number | null;
   playstationStorePriceEntryCount: number | null;
+  nintendoEshopPriceEntryCount: number | null;
   dbError: string | null;
 }
 
@@ -49,6 +50,7 @@ export async function registerCacheObservabilityRoutes(
     steamPriceEntryCount: null,
     pspricesPriceEntryCount: null,
     playstationStorePriceEntryCount: null,
+    nintendoEshopPriceEntryCount: null,
     dbError: null,
   };
 
@@ -79,6 +81,9 @@ export async function registerCacheObservabilityRoutes(
       const playstationStorePriceCountResult = await pool.query<CacheCountRow>(
         "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'playstationStoreFetchedAt', '') <> ''"
       );
+      const nintendoEshopPriceCountResult = await pool.query<CacheCountRow>(
+        "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'nintendoEshopFetchedAt', '') <> ''"
+      );
 
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
@@ -95,6 +100,10 @@ export async function registerCacheObservabilityRoutes(
           playstationStorePriceCountResult.rows[0]?.count ?? '0',
           10
         ),
+        nintendoEshopPriceEntryCount: Number.parseInt(
+          nintendoEshopPriceCountResult.rows[0]?.count ?? '0',
+          10
+        ),
         dbError: null,
       };
     } catch (error) {
@@ -107,6 +116,7 @@ export async function registerCacheObservabilityRoutes(
         steamPriceEntryCount: null,
         pspricesPriceEntryCount: null,
         playstationStorePriceEntryCount: null,
+        nintendoEshopPriceEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error),
       };
     }
@@ -142,6 +152,7 @@ export async function registerCacheObservabilityRoutes(
           steamPriceEntries: snapshot.steamPriceEntryCount,
           pspricesPriceEntries: snapshot.pspricesPriceEntryCount,
           playstationStorePriceEntries: snapshot.playstationStorePriceEntryCount,
+          nintendoEshopPriceEntries: snapshot.nintendoEshopPriceEntryCount,
         },
         dbError: snapshot.dbError,
       });

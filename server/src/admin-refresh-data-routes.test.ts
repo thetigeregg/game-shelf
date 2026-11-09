@@ -433,7 +433,7 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
     pool.seed({
       igdbGameId: '5',
       platformIgdbId: 130,
-      payload: { listType: 'wishlist', title: 'PSPrices Game' },
+      payload: { listType: 'wishlist', title: 'Nintendo eShop Game' },
     });
     pool.seed({
       igdbGameId: '3',
@@ -469,12 +469,19 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
       const storeJobs = pool.enqueuedJobs.filter(
         (job) => job.jobType === 'playstation_store_price_revalidate'
       );
+      const eshopJobs = pool.enqueuedJobs.filter(
+        (job) => job.jobType === 'nintendo_eshop_price_revalidate'
+      );
       assert.equal(steamJobs.length, 1);
-      assert.equal(pspricesJobs.length, 1);
+      assert.equal(pspricesJobs.length, 0);
       assert.equal(storeJobs.length, 1);
+      assert.equal(eshopJobs.length, 1);
       const storePayload = storeJobs[0].payload as Record<string, unknown>;
       assert.equal(storePayload['platformIgdbId'], 48);
       assert.equal(storePayload['title'], 'PlayStation Store Game');
+      const eshopPayload = eshopJobs[0].payload as Record<string, unknown>;
+      assert.equal(eshopPayload['platformIgdbId'], 130);
+      assert.equal(eshopPayload['title'], 'Nintendo eShop Game');
     } finally {
       await app.close();
     }
@@ -503,7 +510,7 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
     pool.seed({
       igdbGameId: '5',
       platformIgdbId: 130,
-      payload: { listType: 'discovery', title: 'Discovery PSPrices Game' },
+      payload: { listType: 'discovery', title: 'Discovery Nintendo eShop Game' },
     });
     pool.seed({
       igdbGameId: '4',
@@ -532,9 +539,9 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
         (job) =>
           job.jobType === 'steam_price_revalidate' && (job.dedupeKey ?? '').includes(':discovery:')
       );
-      const discoveryPspricesJobs = pool.enqueuedJobs.filter(
+      const discoveryEshopJobs = pool.enqueuedJobs.filter(
         (job) =>
-          job.jobType === 'psprices_price_revalidate' &&
+          job.jobType === 'nintendo_eshop_price_revalidate' &&
           (job.dedupeKey ?? '').includes(':discovery:')
       );
       const discoveryStoreJobs = pool.enqueuedJobs.filter(
@@ -543,7 +550,7 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
           (job.dedupeKey ?? '').includes(':discovery:')
       );
       assert.equal(discoverySteamJobs.length, 1);
-      assert.equal(discoveryPspricesJobs.length, 1);
+      assert.equal(discoveryEshopJobs.length, 1);
       assert.equal(discoveryStoreJobs.length, 1);
     } finally {
       await app.close();

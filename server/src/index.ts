@@ -20,6 +20,7 @@ import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { registerSteamPricesRoute } from './steam-prices.js';
 import { registerPsPricesRoute } from './psprices-prices.js';
 import { registerPlayStationStorePricesRoute } from './playstation-store-prices.js';
+import { registerNintendoEshopPricesRoute } from './nintendo-eshop-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -381,6 +382,20 @@ async function main(): Promise<void> {
         void backgroundJobs.enqueue({
           jobType: 'playstation_store_price_revalidate',
           dedupeKey: `playstation-store-price-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3,
+        });
+      },
+    });
+    await registerNintendoEshopPricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.nintendoEshopPriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.nintendoEshopPriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.nintendoEshopPriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'nintendo_eshop_price_revalidate',
+          dedupeKey: `nintendo-eshop-price-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
           maxAttempts: 3,

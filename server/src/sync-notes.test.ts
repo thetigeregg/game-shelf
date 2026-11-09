@@ -182,6 +182,81 @@ void test('sync push normalizes unified pricing fields in game payload', async (
   await app.close();
 });
 
+async function pushGame(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const app = await createSyncApp();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/sync/push',
+      payload: {
+        operations: [
+          {
+            opId: `op-${String(payload['igdbGameId'])}`,
+            entityType: 'game',
+            operation: 'upsert',
+            payload,
+            clientTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    });
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body) as {
+      results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+    };
+    return body.results[0]?.normalizedPayload ?? {};
+  } finally {
+    await app.close();
+  }
+}
+
+void test('sync push keeps server PS4/PS5 prices when a client sends a non-store price', async () => {
+  // An older app version doesn't know the PlayStation Store source: it sends null or an old
+  // psprices price, which mustn't replace the server's store price.
+  for (const priceSource of [null, 'psprices']) {
+    const normalized = await pushGame({
+      igdbGameId: '125',
+      platformIgdbId: 167,
+      title: 'Game',
+      platform: 'PlayStation 5',
+      listType: 'wishlist',
+      priceSource,
+      priceAmount: 31.9,
+      priceUrl: 'https://psprices.com/region-ch/game/1/game',
+      psPricesUrl: 'https://psprices.com/region-ch/game/1/game',
+    });
+    for (const key of ['priceSource', 'priceAmount', 'priceUrl', 'psPricesUrl']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(normalized, key), false, key);
+    }
+  }
+});
+
+void test('sync push accepts PlayStation Store prices for PS games and any price elsewhere', async () => {
+  const store = await pushGame({
+    igdbGameId: '126',
+    platformIgdbId: 48,
+    title: 'Game',
+    platform: 'PlayStation 4',
+    listType: 'wishlist',
+    priceSource: 'playstation_store',
+    priceAmount: 49.62,
+  });
+  assert.equal(store['priceSource'], 'playstation_store');
+  assert.equal(store['priceAmount'], 49.62);
+
+  const switchGame = await pushGame({
+    igdbGameId: '127',
+    platformIgdbId: 130,
+    title: 'Game',
+    platform: 'Switch',
+    listType: 'wishlist',
+    priceSource: 'psprices',
+    priceAmount: 39.9,
+  });
+  assert.equal(switchGame['priceSource'], 'psprices');
+  assert.equal(switchGame['priceAmount'], 39.9);
+});
+
 void test('sync push only includes steamAppId when provided in payload', async () => {
   const app = await createSyncApp();
 

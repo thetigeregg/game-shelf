@@ -6,6 +6,7 @@ import type {
   SyncOperationType,
   SyncPushResult,
 } from './types.js';
+import { PLAYSTATION_STORE_PLATFORM_IGDB_IDS } from './platform-ids.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 
 interface SyncEventRow {
@@ -900,6 +901,23 @@ function reconcileGameCoverFields(
   };
 }
 
+const UNIFIED_PRICE_KEYS = [
+  'priceSource',
+  'priceFetchedAt',
+  'priceAmount',
+  'priceCurrency',
+  'priceRegularAmount',
+  'priceDiscountPercent',
+  'priceIsFree',
+  'priceUrl',
+] as const;
+const LEGACY_PSPRICES_PIN_KEYS = [
+  'psPricesUrl',
+  'psPricesTitle',
+  'psPricesPlatform',
+  'psPricesMatchLocked',
+] as const;
+
 function normalizeGamePayload(
   value: unknown
 ): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
@@ -988,7 +1006,7 @@ function normalizeGamePayload(
       ? Math.round(mobyScoreRaw * 10) / 10
       : null;
 
-  return {
+  const normalized: Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } = {
     ...payload,
     igdbGameId,
     platformIgdbId,
@@ -1013,6 +1031,19 @@ function normalizeGamePayload(
     ...(hasPriceIsFree ? { priceIsFree } : {}),
     ...(hasPriceUrl ? { priceUrl } : {}),
   };
+
+  // PS4/PS5 prices are set by the server from the PlayStation Store. A client that doesn't know
+  // that source (an older app version) would push back `null` or an old psprices price; dropping
+  // those fields makes the upsert keep the server's values instead.
+  if (
+    PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) &&
+    normalized['priceSource'] !== 'playstation_store'
+  ) {
+    for (const key of [...UNIFIED_PRICE_KEYS, ...LEGACY_PSPRICES_PIN_KEYS]) {
+      Reflect.deleteProperty(normalized, key);
+    }
+  }
+  return normalized;
 }
 
 function normalizeGameIdentityPayload(value: unknown): {

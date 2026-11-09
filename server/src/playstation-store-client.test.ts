@@ -362,6 +362,11 @@ void test('parsePlayStationStoreProductId accepts an ID or a store product URL',
     null
   );
   assert.equal(parsePlayStationStoreProductId('not an id'), null);
+  // A malformed %-escape is rejected, not thrown.
+  assert.equal(
+    parsePlayStationStoreProductId('https://store.playstation.com/de-ch/product/%E0%A4%A'),
+    null
+  );
   assert.equal(parsePlayStationStoreProductId(42), null);
 });
 
@@ -369,5 +374,26 @@ void test('buildPlayStationStoreProductUrl builds the localized product page URL
   assert.equal(
     buildPlayStationStoreProductUrl('EP9000-PPSA21567_00-0000000000000000', LOCALE),
     'https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000'
+  );
+});
+
+void test('a search reply without results is a failure, not "no matches"', async () => {
+  const { fetchImpl } = fakeFetch(200, {
+    errors: [{ message: 'Search backend timeout' }],
+    data: { universalSearch: null },
+  });
+  await assert.rejects(searchPlayStationStoreProducts('Hades II', options(fetchImpl)), {
+    message: 'PlayStation Store getSearchResults returned no search results',
+  });
+});
+
+void test('a product reply without the product is a failure unless it says not found', async () => {
+  const { fetchImpl } = fakeFetch(200, {
+    errors: [{ message: 'Pricing backend timeout' }],
+    data: { productRetrieve: null },
+  });
+  await assert.rejects(
+    fetchPlayStationStoreProductPrice('EP9000-PPSA21567_00-0000000000000000', options(fetchImpl)),
+    { message: 'PlayStation Store productRetrieveForCtasWithPrice returned no product' }
   );
 });

@@ -921,3 +921,15 @@ void test('saving an override needs the write token when auth is required', asyn
     await app.close();
   }
 });
+
+void test('a malformed product URL override is a bad request, not a server error', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('41', 167, { title: 'Hades II' });
+  const app = await buildApp(pool, fakeStore({}).fetchImpl);
+  const response = await app.inject({
+    method: 'GET',
+    url: `/v1/playstation-store/prices?igdbGameId=41&platformIgdbId=167&productId=${encodeURIComponent('https://store.playstation.com/de-ch/product/%E0%A4%A')}`,
+  });
+  assert.equal(response.statusCode, 400);
+  await app.close();
+});

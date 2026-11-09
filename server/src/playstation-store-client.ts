@@ -118,7 +118,12 @@ export function parsePlayStationStoreProductId(value: unknown): string | null {
     return null;
   }
   const match = url.pathname.match(/\/product\/([^/?#]+)/);
-  const candidate = match ? decodeURIComponent(match[1]) : null;
+  let candidate: string | null = null;
+  try {
+    candidate = match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null; // A malformed %-escape: not a product URL.
+  }
   return candidate && PRODUCT_ID_PATTERN.test(candidate) ? candidate : null;
 }
 
@@ -143,8 +148,13 @@ export async function searchPlayStationStoreProducts(
     options
   );
 
+  // A reply without search results (a GraphQL partial error) is a failure, not "no matches":
+  // treating it as a miss would clear prices.
   const search = asRecord(asRecord(data)?.['universalSearch']);
-  const results = Array.isArray(search?.['results']) ? (search['results'] as unknown[]) : [];
+  if (!search || !Array.isArray(search['results'])) {
+    throw new Error('PlayStation Store getSearchResults returned no search results');
+  }
+  const results = search['results'] as unknown[];
   return results
     .map((entry) => normalizeSearchProduct(entry))
     .filter((entry): entry is PlayStationStoreSearchProduct => entry !== null);
@@ -175,9 +185,11 @@ export async function fetchPlayStationStoreProductPrice(
     throw error;
   }
 
+  // Only a definite "not found" (handled above) means the product isn't sold; a reply without the
+  // product otherwise is a failure, which must not clear a saved price.
   const product = asRecord(asRecord(data)?.['productRetrieve']);
   if (!product) {
-    return null;
+    throw new Error('PlayStation Store productRetrieveForCtasWithPrice returned no product');
   }
   const ctas = Array.isArray(product['webctas']) ? (product['webctas'] as unknown[]) : [];
   for (const cta of ctas) {

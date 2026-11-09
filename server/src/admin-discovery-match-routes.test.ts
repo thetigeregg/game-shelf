@@ -3117,3 +3117,55 @@ void test('admin discovery pricing delete only clears the selected platform', as
     await app.close();
   }
 });
+
+void test('admin discovery pricing patch with an empty product unlinks it', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const productUrl =
+    'https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000';
+  pool.seed({
+    igdbGameId: '96',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Astro Bot',
+      platform: 'PlayStation 5',
+      priceUrl: productUrl,
+      playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    // The admin page still sends the old product URL as the price URL.
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/96/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 40,
+        priceUrl: productUrl,
+        playstationStoreProductId: null,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('96', 167);
+    assert.ok(stored);
+    assert.equal(stored['playstationStoreProductId'], null);
+    assert.equal(stored['priceAmount'], 40);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});

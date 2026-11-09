@@ -1002,7 +1002,13 @@ function applyManualMatchPatch(
   const isPsPricesSource = priceSource === 'psprices';
   const isPlayStationStoreSource = priceSource === 'playstation_store';
   const playstationStoreProductId = isPlayStationStoreSource
-    ? parsePlayStationStoreProductId(body.playstationStoreProductId ?? body.priceUrl)
+    ? parsePlayStationStoreProductId(
+        // An explicit empty product unlinks it; the price URL is only a fallback when the request
+        // doesn't mention the product (it's often the old product's URL).
+        Object.prototype.hasOwnProperty.call(body, 'playstationStoreProductId')
+          ? body.playstationStoreProductId
+          : body.priceUrl
+      )
     : null;
   if (
     isPlayStationStoreSource &&

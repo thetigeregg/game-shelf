@@ -4,13 +4,17 @@ import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
-import { searchTitleVariants } from './search-variants.mjs';
+import {
+  buildSearchTitleVariants,
+  normalizeTitle,
+  searchTitleVariants,
+} from './search-variants.mjs';
 import {
   CloudflareBlockError,
   assertSearchResponseOk,
   assertSearchResultsPage,
-  fetchHtmlViaFlareSolverr,
-  flareSolverrTimeoutWithin,
+  createCloudflareBlockMemory,
+  createFlareSolverrClient,
   isFlareSolverrEnabled,
   resolveFlareSolverrUrl,
   withHtmlPage,
@@ -46,6 +50,8 @@ const debugLogsEnabled =
   String(process.env.DEBUG_PSPRICES_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const flareSolverrEnabled = isFlareSolverrEnabled();
 const flareSolverrUrl = resolveFlareSolverrUrl();
+const flareSolverr = flareSolverrEnabled ? createFlareSolverrClient({ flareSolverrUrl }) : null;
+const cloudflareBlockMemory = createCloudflareBlockMemory();
 // Time one search request may spend across all its title variants, kept under the API's
 // PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS (60s by default) so a slow variant fails on its own here,
 // keeping what the others found, rather than the API giving up on the whole request.
@@ -95,32 +101,6 @@ function normalizeIncludeCandidates(req) {
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
-function normalizeTitle(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function buildSearchTitleVariants(title) {
-  const base = String(title ?? '').trim();
-  if (base.length === 0) {
-    return [];
-  }
-
-  const normalized = normalizeTitle(base);
-  const titleCase = normalized
-    .split(' ')
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-    .join(' ');
-
-  return [...new Set([base, titleCase].filter((value) => value.length > 0))];
-}
-
 function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   const expected = normalizeTitle(expectedTitle);
   const candidate = normalizeTitle(candidateTitle);
@@ -152,7 +132,8 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
 /**
  * `requestState` is shared by one request's title variants. `blockError` carries a Cloudflare block
  * across them: once a variant is blocked, the rest go straight to FlareSolverr instead of being
- * blocked again. `deadline` ends the request's time budget; navigation and FlareSolverr calls are
+ * blocked again. A block is also remembered across requests for a while (cloudflareBlockMemory).
+ * `deadline` ends the request's time budget; navigation, waiting for FlareSolverr and its calls are
  * capped by what is left of it.
  */
 async function searchPsPricesInBrowser(page, query, platform, regionPath, show, requestState) {
@@ -164,6 +145,9 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
   }
 
   const url = endpoint.toString();
+  if (!requestState.blockError && flareSolverr) {
+    requestState.blockError = cloudflareBlockMemory.activeBlock();
+  }
   if (!requestState.blockError) {
     const navigationTimeoutMs = Math.min(browserTimeoutMs, requestState.deadline - Date.now());
     if (navigationTimeoutMs <= 0) {
@@ -179,9 +163,10 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
       await page.waitForTimeout(1000);
       return await extractSearchCandidates(page);
     } catch (error) {
-      if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
+      if (!(error instanceof CloudflareBlockError) || !flareSolverr) {
         throw error;
       }
+      cloudflareBlockMemory.record();
       requestState.blockError = error;
       // A successful fallback looks healthy to the API, so this line is how to tell the block is
       // still there.
@@ -189,22 +174,20 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
     }
   }
 
-  const maxTimeoutMs = flareSolverrTimeoutWithin(requestState.deadline - Date.now());
-  if (maxTimeoutMs === null) {
-    throw new Error(
-      `${requestState.blockError.message}; FlareSolverr skipped: request time budget used up`
-    );
-  }
-
   try {
-    const html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, maxTimeoutMs });
+    const html = await flareSolverr.fetchHtml(url, { deadline: requestState.deadline });
     return await withHtmlPage(page.context().browser(), url, html, async (fallbackPage) => {
       await assertSearchResultsPage(fallbackPage);
       return await extractSearchCandidates(fallbackPage);
     });
   } catch (fallbackError) {
     const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-    throw new Error(`${requestState.blockError.message}; FlareSolverr failed: ${reason}`);
+    const blockMessage = requestState.blockError.message;
+    if (cloudflareBlockMemory.fallbackFailed(requestState.blockError)) {
+      // The block was only remembered, so this request's next variant tries directly again.
+      requestState.blockError = null;
+    }
+    throw new Error(`${blockMessage}; FlareSolverr failed: ${reason}`);
   }
 }
 
@@ -473,12 +456,8 @@ async function closeSharedBrowser() {
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     activeBrowserLeases = 0;
-    closeSharedBrowser()
-      .catch(() => {
-        // Ignore shutdown cleanup errors.
-      })
-      .finally(() => {
-        process.exit(0);
-      });
+    Promise.allSettled([closeSharedBrowser(), flareSolverr?.close()]).finally(() => {
+      process.exit(0);
+    });
   });
 }

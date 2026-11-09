@@ -1,3 +1,5 @@
+import { round2 } from './utils/round.js';
+
 // Title matching for store price lookups: given the title we're looking for and a store's search
 // results, picks the candidate that is the same game, or none when the match isn't clear enough.
 // Scoring works on a "core" title (platform suffixes, edition words and low-signal words removed,
@@ -224,10 +226,6 @@ export function matchCandidatesByTitle<T extends TitleMatchCandidate>(
     },
     candidates: rankedCandidates,
   };
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function resolveCandidateQualityScore(candidate: TitleMatchCandidate): number {

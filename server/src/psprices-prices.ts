@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { matchCandidatesByTitle, type TitleMatchInfo } from './price-title-matching.js';
+import { round2 } from './utils/round.js';
 import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import {
@@ -43,8 +44,6 @@ interface PsPricesSnapshot {
   metadataQualityScore?: number | null;
 }
 
-type PsPricesMatchInfo = TitleMatchInfo;
-
 interface PsPricesCandidate extends PsPricesSnapshot {
   score: number;
 }
@@ -52,7 +51,7 @@ interface PsPricesCandidate extends PsPricesSnapshot {
 interface CachedPsPricesSnapshot {
   fetchedAt: string;
   snapshot: PsPricesSnapshot;
-  match: PsPricesMatchInfo | null;
+  match: TitleMatchInfo | null;
   candidates: PsPricesCandidate[];
 }
 
@@ -65,7 +64,7 @@ interface PsPricesRouteResponse {
   show: string;
   cached: boolean;
   bestPrice: PsPricesSnapshot | null;
-  match: PsPricesMatchInfo | null;
+  match: TitleMatchInfo | null;
   candidates?: PsPricesCandidate[];
 }
 
@@ -443,10 +442,6 @@ function normalizeBooleanOrNull(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function normalizeTtlSeconds(
   input: number | undefined,
   configured: number,
@@ -651,7 +646,7 @@ interface PsPricesLookupParams {
 
 interface PsPricesLookup {
   snapshot: PsPricesSnapshot | null;
-  match: PsPricesMatchInfo;
+  match: TitleMatchInfo;
   candidates: PsPricesCandidate[];
 }
 
@@ -720,20 +715,10 @@ function isIncompletePsPricesSearch(payload: unknown): boolean {
 }
 
 function buildPsPricesLookup(payload: unknown, params: PsPricesLookupParams): PsPricesLookup {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return {
-      snapshot: null,
-      match: {
-        queryTitle: params.title,
-        matchedTitle: null,
-        score: null,
-        confidence: 'none',
-      },
-      candidates: [],
-    };
-  }
-
-  const payloadRecord = payload as Record<string, unknown>;
+  const payloadRecord: Record<string, unknown> =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : {};
   const fallbackCurrency = inferCurrencyFromRegionPath(params.regionPath);
   const candidatesRaw: unknown[] = Array.isArray(payloadRecord['candidates'])
     ? (payloadRecord['candidates'] as unknown[])
@@ -745,19 +730,6 @@ function buildPsPricesLookup(payload: unknown, params: PsPricesLookupParams): Ps
     .map((entry) => normalizePsPricesCandidate(entry, fallbackCurrency))
     .filter((entry): entry is PsPricesSnapshot => entry !== null);
   const dedupedCandidates = dedupePsPricesCandidates(candidates);
-
-  if (dedupedCandidates.length === 0) {
-    return {
-      snapshot: null,
-      match: {
-        queryTitle: params.title,
-        matchedTitle: null,
-        score: null,
-        confidence: 'none',
-      },
-      candidates: [],
-    };
-  }
 
   const preferredUrl = normalizePreferredPsPricesUrl(params.preferredUrl);
   const result = matchCandidatesByTitle(params.title, params.platform, dedupedCandidates, {
@@ -925,7 +897,7 @@ async function persistPsPricesSnapshot(
     show: string;
     platform: string;
     bestPrice: PsPricesSnapshot | null;
-    match: PsPricesMatchInfo;
+    match: TitleMatchInfo;
     candidates: PsPricesCandidate[];
     matchLocked?: boolean;
     retryState?: unknown;

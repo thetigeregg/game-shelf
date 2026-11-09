@@ -14,6 +14,9 @@ import {
 config.rateLimit.outbound.playstation_store = { maxConcurrent: 10 };
 config.playstationStoreCountry = 'CH';
 config.playstationStoreLanguage = 'de';
+// Override saves need the write token when auth is on; most tests run without it (see the auth
+// tests at the end).
+config.requireAuth = false;
 
 const HADES_II = 'EP4484-PPSA36082_00-0912328937643383';
 const HADES = 'EP4484-PPSA03711_00-3235764131417729';
@@ -873,4 +876,48 @@ void test('a queued refresh uses the current pin, not the one captured when it w
 
   assert.deepEqual(store.calls.product, [HADES_II]);
   assert.equal(pool.getPayload('32', 167)['playstationStoreProductId'], HADES_II);
+});
+
+void test('saving an override needs the write token when auth is required', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('40', 167, { title: 'Something Else' });
+  const store = fakeStore({
+    search: { 'Hades II': hadesSearch },
+    prices: { [ASTRO_BOT]: { base: 6990, current: 6990 } },
+  });
+  const app = await buildApp(pool, store.fetchImpl);
+  const original = {
+    requireAuth: config.requireAuth,
+    clientWriteTokens: config.clientWriteTokens,
+  };
+  config.requireAuth = true;
+  config.clientWriteTokens = ['device-token-1'];
+  const url = `/v1/playstation-store/prices?igdbGameId=40&platformIgdbId=167&productId=${ASTRO_BOT}`;
+
+  try {
+    const anonymous = await app.inject({ method: 'GET', url });
+    assert.equal(anonymous.statusCode, 401);
+    assert.equal(pool.getPayload('40', 167)['playstationStoreProductId'], undefined);
+    assert.equal(store.calls.product.length, 0);
+
+    // A picker search saves nothing, so it stays public.
+    const pickerSearch = await app.inject({
+      method: 'GET',
+      url: '/v1/playstation-store/prices?igdbGameId=40&platformIgdbId=167&title=Hades%20II&includeCandidates=1',
+    });
+    assert.equal(pickerSearch.statusCode, 200);
+
+    const authorized = await app.inject({
+      method: 'GET',
+      url,
+      headers: { 'x-game-shelf-client-token': 'device-token-1' },
+    });
+    assert.equal(authorized.statusCode, 200);
+    assert.equal(pool.getPayload('40', 167)['playstationStoreProductId'], ASTRO_BOT);
+    assert.equal(pool.getPayload('40', 167)['playstationStoreMatchLocked'], true);
+  } finally {
+    config.requireAuth = original.requireAuth;
+    config.clientWriteTokens = original.clientWriteTokens;
+    await app.close();
+  }
 });

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, defer, of, throwError, timer } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -29,6 +29,10 @@ import {
 } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService,
+} from '../services/client-write-auth.service';
 import { DebugLogService } from '../services/debug-log.service';
 import { PlatformCustomizationService } from '../services/platform-customization.service';
 import { PreferenceStorageService } from '../storage/preference-storage.service';
@@ -175,6 +179,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly playstationStorePricesUrl = `${environment.gameApiBaseUrl}/v1/playstation-store/prices`;
   private readonly httpClient = inject(HttpClient);
+  private readonly clientWriteAuth = inject(ClientWriteAuthService);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly preferenceStorage = inject(PreferenceStorageService);
@@ -1143,7 +1148,16 @@ export class IgdbProxyService implements GameSearchApi {
       params = params.set('productId', normalizedProductId);
     }
 
-    return this.getPlayStationStorePrices(params);
+    // An override is saved as the game's match, which the server only accepts with the write
+    // token. The write-token interceptor only covers POST/PUT/PATCH/DELETE.
+    const token =
+      normalizedTitle.length > 0 || normalizedProductId.length > 0
+        ? this.clientWriteAuth.getToken()
+        : null;
+    return this.getPlayStationStorePrices(
+      params,
+      token ? new HttpHeaders({ [CLIENT_WRITE_TOKEN_HEADER_NAME]: token }) : undefined
+    );
   }
 
   lookupPlayStationStoreCandidates(
@@ -1169,13 +1183,16 @@ export class IgdbProxyService implements GameSearchApi {
     return this.getPlayStationStorePrices(params);
   }
 
-  private getPlayStationStorePrices(params: HttpParams): Observable<unknown> {
+  private getPlayStationStorePrices(
+    params: HttpParams,
+    headers?: HttpHeaders
+  ): Observable<unknown> {
     const cooldownError = this.createCooldownErrorIfActive();
     if (cooldownError) {
       return throwError(() => cooldownError);
     }
 
-    return this.httpClient.get<unknown>(this.playstationStorePricesUrl, { params }).pipe(
+    return this.httpClient.get<unknown>(this.playstationStorePricesUrl, { params, headers }).pipe(
       catchError((error: unknown) => {
         const rateLimitError = this.toRateLimitError(error);
         if (rateLimitError) {

@@ -4,6 +4,10 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { IgdbProxyService } from './igdb-proxy.service';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService,
+} from '../services/client-write-auth.service';
 
 describe('IgdbProxyService', () => {
   let service: IgdbProxyService;
@@ -3930,6 +3934,34 @@ describe('IgdbProxyService', () => {
     });
     req.flush({ status: 'ok' });
     await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('sends the write token with a PlayStation Store override, which the server saves', async () => {
+    const clientWriteAuth = TestBed.inject(ClientWriteAuthService);
+    vi.spyOn(clientWriteAuth, 'getToken').mockReturnValue('device-token-1');
+
+    const withOverride = firstValueFrom(
+      service.lookupPlayStationStorePrice('200', 167, {
+        productId: 'EP9000-PPSA21567_00-0000000000000000',
+      })
+    );
+    httpMock
+      .expectOne(
+        (request) =>
+          request.params.has('productId') &&
+          request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME) === 'device-token-1'
+      )
+      .flush({ status: 'ok' });
+    await withOverride;
+
+    const plain = firstValueFrom(service.lookupPlayStationStorePrice('200', 167));
+    httpMock
+      .expectOne(
+        (request) =>
+          !request.params.has('productId') && !request.headers.has(CLIENT_WRITE_TOKEN_HEADER_NAME)
+      )
+      .flush({ status: 'ok' });
+    await plain;
   });
 
   it('looks up PlayStation Store prices without overrides', async () => {

@@ -3066,3 +3066,54 @@ void test('admin discovery pricing patch only changes the selected platform', as
     await app.close();
   }
 });
+
+void test('admin discovery pricing delete only clears the selected platform', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const pinned = {
+    listType: 'discovery',
+    title: 'Cross Gen',
+    priceSource: 'playstation_store',
+    priceAmount: 59.9,
+    playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+    playstationStoreMatchLocked: true,
+  };
+  pool.seed({
+    igdbGameId: '95',
+    platformIgdbId: 167,
+    payload: { ...pinned, platform: 'PlayStation 5' },
+  });
+  pool.seed({
+    igdbGameId: '95',
+    platformIgdbId: 48,
+    payload: { ...pinned, platform: 'PlayStation 4' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/95/167/match/pricing',
+      headers: { authorization: 'Bearer test-admin-token' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(pool.readPayload('95', 167)?.['playstationStoreProductId'], null);
+    // The PS4 edition's own match is left alone.
+    const ps4 = pool.readPayload('95', 48);
+    assert.ok(ps4);
+    assert.equal(ps4['playstationStoreProductId'], 'EP9000-PPSA21567_00-0000000000000000');
+    assert.equal(ps4['playstationStoreMatchLocked'], true);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});

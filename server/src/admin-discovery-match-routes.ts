@@ -335,7 +335,14 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         const nextPayload = structuredClone(game.payload);
         clearManualMatch(nextPayload, provider);
         let changed = false;
-        for (const relatedGame of relatedGames) {
+        // As with saves: pricing belongs to one platform, HLTB and review to every platform.
+        const targetGames =
+          provider === 'pricing'
+            ? relatedGames.filter(
+                (relatedGame) => relatedGame.platformIgdbId === game.platformIgdbId
+              )
+            : relatedGames;
+        for (const relatedGame of targetGames) {
           const relatedPayload = structuredClone(relatedGame.payload);
           clearManualMatch(relatedPayload, provider);
           const didChange = await replaceDiscoveryPayload(

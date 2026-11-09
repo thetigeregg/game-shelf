@@ -16,6 +16,7 @@ import {
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { matchCandidatesByTitle, type TitleMatchInfo } from './price-title-matching.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 import {
   hasMeaningfulRetryState,
   maybeRearmProviderRetryState,
@@ -185,6 +186,24 @@ export async function registerPlayStationStorePricesRoute(
         reply
           .code(400)
           .send({ error: 'productId must be a PlayStation Store product ID or product URL.' });
+        return;
+      }
+
+      // Saving an override changes the game's price, pinned product and lock, so it needs the same
+      // write token as other changes (GET requests are otherwise public). A picker search (an
+      // override with includeCandidates) saves nothing and stays public.
+      if (
+        hasLookupOverride &&
+        !includeCandidates &&
+        !isAuthorizedMutatingRequest({
+          requireAuth: config.requireAuth,
+          apiToken: config.apiToken,
+          clientWriteTokens: config.clientWriteTokens,
+          authorizationHeader: request.headers.authorization,
+          clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME.toLowerCase()],
+        })
+      ) {
+        reply.code(401).send({ error: 'Unauthorized' });
         return;
       }
 

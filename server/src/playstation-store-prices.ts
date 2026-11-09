@@ -338,7 +338,9 @@ export async function registerPlayStationStorePricesRoute(
               locale,
               platform,
               lookup,
-              matchLocked: hasLookupOverride ? true : undefined,
+              // Lock only a resolved match: a failed override search stays retryable rather than
+              // looking like a manual price (locked without a product).
+              matchLocked: hasLookupOverride && lookup.snapshot !== null ? true : undefined,
             });
             incrementPlayStationStorePriceMetric('writes');
           } catch (error) {
@@ -439,21 +441,24 @@ export async function lookupPlayStationStorePrice(params: {
   }
 
   // The search result's price is a parsed display string; the product lookup has exact cents and
-  // the sale end. Fall back to the search price if the product lookup has nothing.
+  // the sale end. It returns nothing when the product isn't for sale to everyone (delisted, or a
+  // subscription price only), and then there's no price to save: the candidates still go to the
+  // picker.
   const bestProduct = result.best.product;
   const exact = await fetchPlayStationStoreProductPrice(bestProduct.productId, requestOptions);
+  if (!exact) {
+    return { snapshot: null, match: { ...result.match, confidence: 'low' }, candidates };
+  }
   const searchSnapshot = toSnapshot(bestProduct, params.locale);
-  const snapshot: PlayStationStorePriceSnapshot = exact
-    ? {
-        ...searchSnapshot,
-        amount: exact.amount,
-        currency: exact.currency ?? searchSnapshot.currency,
-        regularAmount: exact.regularAmount,
-        discountPercent: exact.discountPercent,
-        isFree: exact.isFree,
-        saleEndsAt: exact.saleEndsAt,
-      }
-    : searchSnapshot;
+  const snapshot: PlayStationStorePriceSnapshot = {
+    ...searchSnapshot,
+    amount: exact.amount,
+    currency: exact.currency ?? searchSnapshot.currency,
+    regularAmount: exact.regularAmount,
+    discountPercent: exact.discountPercent,
+    isFree: exact.isFree,
+    saleEndsAt: exact.saleEndsAt,
+  };
   return { snapshot, match: result.match, candidates };
 }
 
@@ -525,7 +530,10 @@ function resolveLookupTitle(payload: Record<string, unknown>): string | null {
 /** A match locked without a store product: a manual price, which refreshes leave alone. */
 export function isManualPriceLock(payload: Record<string, unknown>): boolean {
   return (
-    payload['playstationStoreMatchLocked'] === true && resolvePinnedProductId(payload) === null
+    payload['playstationStoreMatchLocked'] === true &&
+    resolvePinnedProductId(payload) === null &&
+    (typeof payload['playstationStorePriceAmount'] === 'number' ||
+      payload['playstationStoreIsFree'] === true)
   );
 }
 
@@ -1006,12 +1014,13 @@ export async function processQueuedPlayStationStorePriceRevalidation(
   if (isManualPriceLock(gamePayload)) {
     return; // A manual price: nothing to refresh it from.
   }
-  const title = normalizeNonEmptyString(payload.title) ?? resolveLookupTitle(gamePayload);
+  // The row as it is now decides, not what was captured when the job was queued: an admin may have
+  // replaced or cleared the match since.
+  const title = resolveLookupTitle(gamePayload) ?? normalizeNonEmptyString(payload.title);
   if (!title) {
     throw new Error('PlayStation Store revalidation missing title.');
   }
-  const productId =
-    parsePlayStationStoreProductId(payload.productId) ?? resolvePinnedProductId(gamePayload);
+  const productId = resolvePinnedProductId(gamePayload);
   const locale = resolvePlayStationStoreLocale();
   const lookup = await lookupPlayStationStorePrice({
     title,

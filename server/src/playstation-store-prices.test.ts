@@ -779,10 +779,17 @@ void test('buildPlayStationStoreRefreshJob enqueues PS games and skips the rest'
     reason: 'unsupported-platform',
   });
   assert.deepEqual(skip(48, {}), { kind: 'skip', reason: 'missing-data' });
-  assert.deepEqual(skip(48, { title: 'Manual', playstationStoreMatchLocked: true }), {
-    kind: 'skip',
-    reason: 'manual-price',
-  });
+  assert.deepEqual(
+    skip(48, {
+      title: 'Manual',
+      playstationStoreMatchLocked: true,
+      playstationStorePriceAmount: 12,
+    }),
+    {
+      kind: 'skip',
+      reason: 'manual-price',
+    }
+  );
   // A locked match with a product still refreshes (the lock keeps the product).
   assert.equal(
     skip(48, {
@@ -807,4 +814,63 @@ void test('buildPlayStationStoreRefreshJob enqueues PS games and skips the rest'
     }),
     { kind: 'skip', reason: 'backoff' }
   );
+});
+
+void test('a title override that finds nothing does not lock the match', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('30', 167, { title: 'Hades II' });
+  const store = fakeStore({ search: { 'No Such Game': [] } });
+  const app = await buildApp(pool, store.fetchImpl);
+
+  await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=30&platformIgdbId=167&title=No%20Such%20Game',
+  });
+
+  assert.equal(pool.getPayload('30', 167)['playstationStoreMatchLocked'], undefined);
+  // Still retryable: the next ordinary lookup searches again rather than serving a "manual price".
+  const next = await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=30&platformIgdbId=167',
+  });
+  assert.notEqual(next.headers['x-gameshelf-playstation-store-cache'], 'LOCKED');
+  await app.close();
+});
+
+void test('a matched product without a price for everyone is not saved as a price', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('31', 167, { title: 'Hades II' });
+  // Search shows Hades II, but its product has no regular purchase price (e.g. subscription only).
+  const store = fakeStore({ search: { 'Hades II': hadesSearch }, prices: {} });
+  const app = await buildApp(pool, store.fetchImpl);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=31&platformIgdbId=167&includeCandidates=1',
+  });
+
+  const body = json(response.body);
+  assert.equal(body['status'], 'unavailable');
+  assert.equal(body['bestPrice'], null);
+  assert.equal((body['candidates'] as unknown[]).length, 2, 'the picker still gets candidates');
+  assert.equal(pool.getPayload('31', 167)['priceSource'], undefined);
+  await app.close();
+});
+
+void test('a queued refresh uses the current pin, not the one captured when it was queued', async () => {
+  const pool = new GamePoolMock();
+  // Queued with Hades pinned; an admin has since pinned Hades II.
+  pool.seed('32', 167, { title: 'Hades II', playstationStoreProductId: HADES_II });
+  const store = fakeStore({
+    prices: { [HADES]: { base: 2490, current: 2490 }, [HADES_II]: { base: 2990, current: 2990 } },
+  });
+
+  await processQueuedPlayStationStorePriceRevalidation(
+    pool as unknown as Pool,
+    { cacheKey: 'k', igdbGameId: '32', platformIgdbId: 167, title: 'Hades', productId: HADES },
+    { fetchImpl: store.fetchImpl }
+  );
+
+  assert.deepEqual(store.calls.product, [HADES_II]);
+  assert.equal(pool.getPayload('32', 167)['playstationStoreProductId'], HADES_II);
 });

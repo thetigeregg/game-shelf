@@ -760,7 +760,7 @@ export class GameShelfService {
     const shouldRetainExistingPricing =
       this.isPricingSupportedPlatform(existing.platformIgdbId) && pricing === null;
     const effectivePricing = shouldRetainExistingPricing
-      ? this.snapshotUnifiedPriceFromGame(existing)
+      ? this.snapshotRetainablePrice(existing)
       : pricing;
     const updated = await this.repository.upsertFromCatalog(
       {
@@ -2205,6 +2205,23 @@ export class GameShelfService {
       return `https:${normalized}`;
     }
     return null;
+  }
+
+  /**
+   * The saved price to keep when a lookup comes back unavailable. For PS4/PS5 a price left over
+   * from psprices isn't kept: psprices no longer prices them, the server clears it once the
+   * PlayStation Store has looked, and keeping it here would sync it back.
+   */
+  private snapshotRetainablePrice(game: GameEntry): UnifiedPriceSnapshot | null {
+    const snapshot = this.snapshotUnifiedPriceFromGame(game);
+    if (
+      snapshot !== null &&
+      GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(game.platformIgdbId) &&
+      snapshot.source !== 'playstation_store'
+    ) {
+      return null;
+    }
+    return snapshot;
   }
 
   private snapshotUnifiedPriceFromGame(

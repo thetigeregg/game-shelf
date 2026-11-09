@@ -1495,6 +1495,10 @@ void test('admin discovery delete route clears pricing fields and resets pricing
     assert.equal(stored['psPricesMatchLocked'], false);
     assert.equal(stored['playstationStoreProductId'], null);
     assert.equal(stored['playstationStoreMatchLocked'], false);
+    // The store's cached price and its search context go too, so nothing serves the cleared price.
+    assert.equal(stored['playstationStoreFetchedAt'], null);
+    assert.equal(stored['playstationStorePriceAmount'], null);
+    assert.equal(stored['playstationStoreMatchQueryTitle'], null);
     assert.deepEqual(stored['enrichmentRetry'], {
       playstationStore: {
         attempts: 0,
@@ -3004,6 +3008,57 @@ void test('admin discovery pricing patch pins a PlayStation Store product for a 
       },
     });
     assert.equal(invalid.statusCode, 400);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch only changes the selected platform', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  pool.seed({
+    igdbGameId: '94',
+    platformIgdbId: 167,
+    payload: { listType: 'discovery', title: 'Cross Gen', platform: 'PlayStation 5' },
+  });
+  pool.seed({
+    igdbGameId: '94',
+    platformIgdbId: 48,
+    payload: { listType: 'discovery', title: 'Cross Gen', platform: 'PlayStation 4' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/94/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 69.9,
+        playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      pool.readPayload('94', 167)?.['playstationStoreProductId'],
+      'EP9000-PPSA21567_00-0000000000000000'
+    );
+    // The PS4 edition is a different product with its own price.
+    const ps4 = pool.readPayload('94', 48);
+    assert.equal(ps4?.['playstationStoreProductId'], undefined);
+    assert.equal(ps4?.['priceAmount'], undefined);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

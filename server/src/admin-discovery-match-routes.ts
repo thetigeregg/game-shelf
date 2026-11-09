@@ -261,7 +261,15 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         }
 
         let changed = false;
-        for (const relatedGame of relatedGames) {
+        // HLTB and review matches are the same game on every platform, so they apply to all its
+        // discovery rows. A price (and a store product pin) belongs to one platform's edition.
+        const targetGames =
+          provider === 'pricing'
+            ? relatedGames.filter(
+                (relatedGame) => relatedGame.platformIgdbId === game.platformIgdbId
+              )
+            : relatedGames;
+        for (const relatedGame of targetGames) {
           const relatedPayload = structuredClone(relatedGame.payload);
           applyManualMatchPatch(relatedPayload, relatedGame.platformIgdbId, provider, body);
           const didChange = await replaceDiscoveryPayload(
@@ -1098,9 +1106,25 @@ function clearManualMatch(
   payload['psPricesTitle'] = null;
   payload['psPricesPlatform'] = null;
   payload['psPricesMatchLocked'] = false;
-  payload['playstationStoreProductId'] = null;
-  payload['playstationStoreUrl'] = null;
-  payload['playstationStoreTitle'] = null;
+  for (const key of [
+    'playstationStoreProductId',
+    'playstationStoreUrl',
+    'playstationStoreTitle',
+    'playstationStoreFetchedAt',
+    'playstationStorePriceAmount',
+    'playstationStorePriceCurrency',
+    'playstationStoreRegularPriceAmount',
+    'playstationStoreDiscountPercent',
+    'playstationStoreIsFree',
+    'playstationStoreSaleEndsAt',
+    'playstationStoreMatchQueryTitle',
+    'playstationStoreMatchTitle',
+    'playstationStoreMatchScore',
+    'playstationStoreMatchConfidence',
+    'playstationStoreCandidates',
+  ]) {
+    payload[key] = null;
+  }
   payload['playstationStoreMatchLocked'] = false;
   resetRetryState(payload, 'psprices');
   resetRetryState(payload, 'playstationStore');

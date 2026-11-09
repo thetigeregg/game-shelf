@@ -55,10 +55,14 @@ export function resolvePriceFetchedAtMs(
 ): number | null {
   const hasPriceFromSource =
     hasUnifiedPriceValue(payload) && (!expectedSource || payload['priceSource'] === expectedSource);
-  if (hasPriceFromSource) {
-    return parseTimestampMs(payload['priceFetchedAt']);
-  }
+  const priceFetchedAtMs = hasPriceFromSource ? parseTimestampMs(payload['priceFetchedAt']) : null;
 
+  // A store attempt that found nothing keeps the last price but is still a recent look-up, so the
+  // later of the two counts.
   const attemptKey = expectedSource ? ATTEMPT_FETCHED_AT_KEY_BY_SOURCE[expectedSource] : undefined;
-  return attemptKey ? parseTimestampMs(payload[attemptKey]) : null;
+  const attemptMs = attemptKey ? parseTimestampMs(payload[attemptKey]) : null;
+  if (priceFetchedAtMs === null || attemptMs === null) {
+    return priceFetchedAtMs ?? attemptMs;
+  }
+  return Math.max(priceFetchedAtMs, attemptMs);
 }

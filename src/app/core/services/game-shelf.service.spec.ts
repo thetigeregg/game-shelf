@@ -2222,6 +2222,66 @@ describe('GameShelfService', () => {
     expect(catalog.psPricesMatchLocked).toBeNull();
   });
 
+  it('drops a leftover psprices price for a PS game the PlayStation Store has no price for', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '201',
+      title: 'Obscure Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PlayStation 4',
+      platformIgdbId: 48,
+      releaseDate: null,
+      releaseYear: 2015,
+      listType: 'wishlist',
+      priceSource: 'psprices',
+      priceAmount: 9.9,
+      priceCurrency: 'CHF',
+      priceUrl: 'https://psprices.com/region-ch/game/1/obscure',
+      priceFetchedAt: '2026-11-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    searchApi.lookupPlayStationStorePrice.mockReturnValue(of({ status: 'unavailable' }));
+
+    await service.refreshGamePricing('201', 48);
+
+    const catalog = repository.upsertFromCatalog.mock.calls[0][0] as GameCatalogResult;
+    expect(catalog.priceSource).toBeNull();
+    expect(catalog.priceAmount).toBeNull();
+    expect(catalog.priceUrl).toBeNull();
+  });
+
+  it('keeps a PlayStation Store price when the store is briefly unavailable', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '202',
+      title: 'Astro Bot',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: 2024,
+      listType: 'wishlist',
+      priceSource: 'playstation_store',
+      priceAmount: 49.62,
+      priceCurrency: 'CHF',
+      priceFetchedAt: '2026-11-09T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    searchApi.lookupPlayStationStorePrice.mockReturnValue(of({ status: 'unavailable' }));
+
+    await service.refreshGamePricing('202', 167);
+
+    const catalog = repository.upsertFromCatalog.mock.calls[0][0] as GameCatalogResult;
+    expect(catalog.priceSource).toBe('playstation_store');
+    expect(catalog.priceAmount).toBe(49.62);
+  });
+
   it('searches PlayStation Store candidates for PS games and marks the best one', async () => {
     searchApi.lookupPlayStationStoreCandidates.mockReturnValue(
       of({

@@ -514,3 +514,21 @@ void test('resolvePriceFetchedAtMs counts a PlayStation Store attempt that found
     null
   );
 });
+
+void test('resolvePriceFetchedAtMs prefers a newer PlayStation Store attempt over a kept price', () => {
+  const priceFetchedAt = '2026-03-01T09:00:00.000Z';
+  const attemptedAt = '2026-03-10T09:00:00.000Z';
+  // The store stopped matching: the last price is kept, but it looked the game up again.
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(
+      {
+        priceSource: 'playstation_store',
+        priceAmount: 29.9,
+        priceFetchedAt,
+        playstationStoreFetchedAt: attemptedAt,
+      },
+      'playstation_store'
+    ),
+    Date.parse(attemptedAt)
+  );
+});

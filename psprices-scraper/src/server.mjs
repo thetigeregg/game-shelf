@@ -4,7 +4,11 @@ import { chromium } from 'playwright';
 import { installSingleLineConsole } from './single-line-console.mjs';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
-import { searchTitleVariants } from './search-variants.mjs';
+import {
+  buildSearchTitleVariants,
+  normalizeTitle,
+  searchTitleVariants,
+} from './search-variants.mjs';
 import {
   CloudflareBlockError,
   assertSearchResponseOk,
@@ -97,32 +101,6 @@ function normalizeIncludeCandidates(req) {
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
-function normalizeTitle(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function buildSearchTitleVariants(title) {
-  const base = String(title ?? '').trim();
-  if (base.length === 0) {
-    return [];
-  }
-
-  const normalized = normalizeTitle(base);
-  const titleCase = normalized
-    .split(' ')
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-    .join(' ');
-
-  return [...new Set([base, titleCase].filter((value) => value.length > 0))];
-}
-
 function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   const expected = normalizeTitle(expectedTitle);
   const candidate = normalizeTitle(candidateTitle);
@@ -204,7 +182,12 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
     });
   } catch (fallbackError) {
     const reason = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-    throw new Error(`${requestState.blockError.message}; FlareSolverr failed: ${reason}`);
+    const blockMessage = requestState.blockError.message;
+    if (cloudflareBlockMemory.fallbackFailed(requestState.blockError)) {
+      // The block was only remembered, so this request's next variant tries directly again.
+      requestState.blockError = null;
+    }
+    throw new Error(`${blockMessage}; FlareSolverr failed: ${reason}`);
   }
 }
 

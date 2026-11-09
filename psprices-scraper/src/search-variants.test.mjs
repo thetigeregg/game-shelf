@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { searchTitleVariants } from './search-variants.mjs';
+import { buildSearchTitleVariants, searchTitleVariants } from './search-variants.mjs';
 
 test('searchTitleVariants merges candidates from every variant in order', async () => {
   const searched = [];
@@ -80,4 +80,19 @@ test('searchTitleVariants returns nothing for no variants', async () => {
     }),
     { candidates: [], failures: [] }
   );
+});
+
+test('buildSearchTitleVariants adds a punctuation-free version only when it differs beyond case', () => {
+  assert.deepEqual(buildSearchTitleVariants('Hades II'), ['Hades II']);
+  assert.deepEqual(buildSearchTitleVariants('astro bot'), ['astro bot']);
+  assert.deepEqual(buildSearchTitleVariants('Kingdom Come: Deliverance'), [
+    'Kingdom Come: Deliverance',
+    'Kingdom Come Deliverance',
+  ]);
+  assert.deepEqual(buildSearchTitleVariants('  Pokémon Legends  '), [
+    'Pokémon Legends',
+    'Pokemon Legends',
+  ]);
+  assert.deepEqual(buildSearchTitleVariants('!!!'), ['!!!']);
+  assert.deepEqual(buildSearchTitleVariants('   '), []);
 });

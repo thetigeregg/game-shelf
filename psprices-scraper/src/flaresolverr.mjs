@@ -14,6 +14,10 @@ export const FLARESOLVERR_TIMEOUT_MS = 20_000;
 export const FLARESOLVERR_REQUEST_GRACE_MS = 5_000;
 // Below this a solve is unlikely to finish, so the call isn't worth starting.
 const MIN_FLARESOLVERR_TIMEOUT_MS = 5_000;
+// FlareSolverr starts a session's browser before its maxTimeout clock does, which takes around
+// 10 seconds on a NAS. Waiting this much longer for a cold session keeps a slow start from
+// cutting off a solve that would have finished.
+export const FLARESOLVERR_BROWSER_START_MS = 15_000;
 // FlareSolverr replaces a session's browser on the first request after this long, so one browser
 // isn't kept forever.
 export const FLARESOLVERR_SESSION_TTL_MINUTES = 30;
@@ -28,17 +32,6 @@ export class CloudflareBlockError extends Error {
   constructor(message) {
     super(message);
     this.name = 'CloudflareBlockError';
-  }
-}
-
-/**
- * FlareSolverr didn't answer (unreachable, or the request timed out). It may still be working on
- * the request, so the session that request used shouldn't be given another one.
- */
-export class FlareSolverrNoReplyError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'FlareSolverrNoReplyError';
   }
 }
 
@@ -98,6 +91,7 @@ export async function fetchHtmlViaFlareSolverr(
     maxTimeoutMs = FLARESOLVERR_TIMEOUT_MS,
     session = null,
     sessionTtlMinutes = FLARESOLVERR_SESSION_TTL_MINUTES,
+    browserStartMs = 0,
     fetchImpl = fetch,
   }
 ) {
@@ -115,14 +109,14 @@ export async function fetchHtmlViaFlareSolverr(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(maxTimeoutMs + FLARESOLVERR_REQUEST_GRACE_MS),
+      signal: AbortSignal.timeout(maxTimeoutMs + FLARESOLVERR_REQUEST_GRACE_MS + browserStartMs),
     });
     text = await response.text();
   } catch (error) {
     // Node's fetch only says "fetch failed"; the cause names the actual problem, e.g. ENOTFOUND
     // when the scraper isn't on FlareSolverr's network.
     const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
-    throw new FlareSolverrNoReplyError(cause instanceof Error ? cause.message : String(cause));
+    throw new Error(cause instanceof Error ? cause.message : String(cause));
   }
 
   let result;
@@ -167,6 +161,7 @@ export function createFlareSolverrClient({
   let queue = Promise.resolve();
   let sessionNumber = 0;
   let session = null;
+  let sessionStartedAt = 0;
   let idleTimer = null;
 
   function clearIdleTimer() {
@@ -197,29 +192,38 @@ export function createFlareSolverrClient({
     }
   }
 
+  /** A new session, or one FlareSolverr is about to replace (see sessionTtlMinutes). */
+  function sessionIsCold() {
+    return !session || Date.now() - sessionStartedAt >= FLARESOLVERR_SESSION_TTL_MINUTES * 60_000;
+  }
+
   async function fetchInSession(url, deadline) {
     clearIdleTimer();
     try {
-      const maxTimeoutMs = flareSolverrTimeoutWithin(deadline - Date.now());
+      const browserStartMs = sessionIsCold() ? FLARESOLVERR_BROWSER_START_MS : 0;
+      const maxTimeoutMs = flareSolverrTimeoutWithin(deadline - Date.now() - browserStartMs);
       if (maxTimeoutMs === null) {
         throw new Error('request time budget used up waiting for FlareSolverr');
       }
-      if (!session) {
-        sessionNumber += 1;
-        session = `${sessionPrefix}-${String(sessionNumber)}`;
+      if (browserStartMs > 0) {
+        if (!session) {
+          sessionNumber += 1;
+          session = `${sessionPrefix}-${String(sessionNumber)}`;
+        }
+        sessionStartedAt = Date.now();
       }
       try {
         return await fetchHtmlViaFlareSolverr(url, {
           flareSolverrUrl,
           maxTimeoutMs,
           session,
+          browserStartMs,
           fetchImpl,
         });
       } catch (error) {
-        // FlareSolverr may still be working in this session, so the next call gets a fresh one.
-        if (error instanceof FlareSolverrNoReplyError) {
-          void destroySession();
-        }
+        // Whatever went wrong, the session's browser is in an unknown state: it may be stuck on a
+        // challenge or still working on this request. The next call starts a fresh one.
+        void destroySession();
         throw error;
       }
     } finally {
@@ -265,7 +269,8 @@ export function createFlareSolverrClient({
 /**
  * Remembers a Cloudflare block across requests for `memoryMs`, so searches in that window skip the
  * direct request and go straight to FlareSolverr. Once it runs out, the next search tries directly
- * again, so the fallback still stops by itself once a block lifts.
+ * again, so the fallback still stops by itself once a block lifts. A failed fallback for a
+ * remembered block forgets it early (see fallbackFailed).
  */
 export function createCloudflareBlockMemory({
   memoryMs = CLOUDFLARE_BLOCK_MEMORY_MS,
@@ -286,9 +291,26 @@ export function createCloudflareBlockMemory({
         blockedAt = null;
         return null;
       }
-      return new CloudflareBlockError(
+      const error = new CloudflareBlockError(
         `PSPrices: blocked by Cloudflare ${String(Math.round(ageMs / 1000))}s ago, direct request skipped`
       );
+      error.rememberedBlockAt = blockedAt;
+      return error;
+    },
+    /**
+     * Call when FlareSolverr failed for `blockError`. If that block was only remembered, it's
+     * forgotten and this returns true: the direct request should be tried again, since FlareSolverr
+     * may be down while the block has lifted. A block recorded since is kept.
+     */
+    fallbackFailed(blockError) {
+      const rememberedAt = blockError?.rememberedBlockAt;
+      if (rememberedAt === undefined) {
+        return false;
+      }
+      if (blockedAt === rememberedAt) {
+        blockedAt = null;
+      }
+      return true;
     },
   };
 }

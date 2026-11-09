@@ -6,7 +6,7 @@ import {
   CloudflareBlockError,
   DEFAULT_FLARESOLVERR_URL,
   FLARESOLVERR_SESSION_TTL_MINUTES,
-  FlareSolverrNoReplyError,
+  FLARESOLVERR_BROWSER_START_MS,
   FLARESOLVERR_REQUEST_GRACE_MS,
   FLARESOLVERR_TIMEOUT_MS,
   assertSearchResponseOk,
@@ -171,7 +171,6 @@ test('fetchHtmlViaFlareSolverr surfaces the underlying cause of a network failur
   await assert.rejects(
     fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
     {
-      name: 'FlareSolverrNoReplyError',
       message: 'getaddrinfo ENOTFOUND flaresolverr',
     }
   );
@@ -334,7 +333,7 @@ test('createFlareSolverrClient sends one request at a time, in order, in one ses
   }
 });
 
-test('createFlareSolverrClient keeps the session when FlareSolverr reports a failed solve', async () => {
+test('createFlareSolverrClient starts a fresh session after a failed solve', async () => {
   const fake = controlledFlareSolverr();
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
@@ -354,8 +353,14 @@ test('createFlareSolverrClient keeps the session when FlareSolverr reports a fai
     await fake.flush();
     fake.pending[1].resolve(fake.reply('<html></html>'));
     await next;
-    assert.equal(fake.pending[1].body.session, 'gameshelf-psprices-1');
-    assert.equal(fake.commands.filter(({ cmd }) => cmd === 'sessions.destroy').length, 0);
+    assert.deepEqual(
+      fake.commands.map(({ cmd, session }) => [cmd, session]),
+      [
+        ['request.get', 'gameshelf-psprices-1'],
+        ['sessions.destroy', 'gameshelf-psprices-1'],
+        ['request.get', 'gameshelf-psprices-2'],
+      ]
+    );
   } finally {
     await client.close();
   }
@@ -373,7 +378,7 @@ test('createFlareSolverrClient retires the session when FlareSolverr gives no re
     fake.pending[0].reject(
       new DOMException('The operation was aborted due to timeout', 'TimeoutError')
     );
-    await assert.rejects(failed, FlareSolverrNoReplyError);
+    await assert.rejects(failed, { message: 'The operation was aborted due to timeout' });
 
     const next = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
     await fake.flush();
@@ -423,19 +428,49 @@ test('createFlareSolverrClient stops waiting once too little budget is left, kee
   }
 });
 
-test('createFlareSolverrClient gives a call only the budget left after its wait', async () => {
+test('createFlareSolverrClient sets aside browser start time for a cold session only', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  const inRange = (value, max) => value <= max && value > max - 1_000;
+  try {
+    // Cold: 30s left, less the browser start and the grace period.
+    const cold = client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 30_000 });
+    await fake.flush();
+    const coldTimeout = fake.pending[0].body.maxTimeout;
+    const coldMax = 30_000 - FLARESOLVERR_BROWSER_START_MS - FLARESOLVERR_REQUEST_GRACE_MS;
+    assert.ok(inRange(coldTimeout, coldMax), `cold maxTimeout ${String(coldTimeout)}`);
+    fake.pending[0].resolve(fake.reply('<html></html>'));
+    await cold;
+
+    // Warm: the same session needs no start time, so 15s left is enough for a call.
+    const warm = client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 });
+    await fake.flush();
+    const warmTimeout = fake.pending[1].body.maxTimeout;
+    assert.ok(
+      inRange(warmTimeout, 15_000 - FLARESOLVERR_REQUEST_GRACE_MS),
+      `warm ${String(warmTimeout)}`
+    );
+    fake.pending[1].resolve(fake.reply('<html></html>'));
+    await warm;
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient skips a cold session when the budget cannot cover its start', async () => {
   const fake = controlledFlareSolverr();
   const client = createFlareSolverrClient({
     flareSolverrUrl: FLARESOLVERR_URL,
     fetchImpl: fake.fetchImpl,
   });
   try {
-    const call = client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 });
-    await fake.flush();
-    const { maxTimeout } = fake.pending[0].body;
-    assert.ok(maxTimeout <= 10_000 && maxTimeout > 9_000, `maxTimeout ${String(maxTimeout)}`);
-    fake.pending[0].resolve(fake.reply('<html></html>'));
-    await call;
+    await assert.rejects(client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 }), {
+      message: 'request time budget used up waiting for FlareSolverr',
+    });
+    assert.equal(fake.commands.length, 0);
   } finally {
     await client.close();
   }
@@ -481,4 +516,33 @@ test('createCloudflareBlockMemory remembers a block for its window only', () => 
   now += CLOUDFLARE_BLOCK_MEMORY_MS - 90_000;
   assert.equal(memory.activeBlock(), null);
   assert.equal(memory.activeBlock(), null);
+});
+
+test('createCloudflareBlockMemory forgets a remembered block whose fallback failed', () => {
+  let now = 1_000_000;
+  const memory = createCloudflareBlockMemory({ now: () => now });
+  const directBlock = new CloudflareBlockError('PSPrices: 403 (blocked by Cloudflare: challenge)');
+
+  memory.record();
+  // A block this request hit directly is still there, so it's kept.
+  assert.equal(memory.fallbackFailed(directBlock), false);
+  assert.ok(memory.activeBlock());
+
+  now += 1_000;
+  assert.equal(memory.fallbackFailed(memory.activeBlock()), true);
+  assert.equal(memory.activeBlock(), null);
+  assert.equal(memory.fallbackFailed(null), false);
+});
+
+test('createCloudflareBlockMemory keeps a block recorded after the remembered one', () => {
+  let now = 1_000_000;
+  const memory = createCloudflareBlockMemory({ now: () => now });
+  memory.record();
+  const stale = memory.activeBlock();
+  now += 1_000;
+  memory.record();
+
+  // Still tells the caller to try directly, but leaves the newer block in place.
+  assert.equal(memory.fallbackFailed(stale), true);
+  assert.ok(memory.activeBlock());
 });

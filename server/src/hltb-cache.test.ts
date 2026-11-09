@@ -945,6 +945,8 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
     now: () => nowMs,
     freshTtlSeconds: 1,
     staleTtlSeconds: 100,
+    // Revalidates the same key several times on purpose.
+    revalidationCooldownMs: 0,
     scheduleBackgroundRefresh: (task) => {
       pendingTask = task;
     },

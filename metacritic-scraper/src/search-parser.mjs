@@ -20,11 +20,37 @@ export function extractMetacriticSearchResults(config = {}) {
     '[data-testid="product-platform"], [data-testid="platform"], .c-finderProductCard_meta';
   const releaseDateSelectorInPage =
     '[data-testid="product-release-date"], time, .c-finderProductCard_meta';
-  // The current card (2026-11) is div[data-testid="search-item"] > a.search-item__content with the
-  // title in a <p>; without it the whole link's text (title, tag, release, platforms, score) was
-  // taken as the title.
-  const titleSelectorInPage =
-    '[data-testid="product-title"], .search-item__content p, [data-testid="search-item"] p, h3, h4, .c-finderProductCard_title, a.c-finderProductCard_container';
+  // Tried in this order (querySelector with a comma list would return the first match in page
+  // order instead). The current card (2026-11) is div[data-testid="search-item"] >
+  // a.search-item__content with the title in a <p>; without it the whole link's text (title, tag,
+  // release, platforms, score) was taken as the title.
+  const titleSelectorsInPage = [
+    '[data-testid="product-title"]',
+    '.search-item__content p',
+    '[data-testid="search-item"] p',
+    'h3',
+    'h4',
+    '.c-finderProductCard_title',
+    'a.c-finderProductCard_container',
+  ];
+  const findTitleElementInPage = (root) => {
+    for (const selector of titleSelectorsInPage) {
+      const element = root.querySelector(selector);
+      if (element) {
+        return element;
+      }
+    }
+    return null;
+  };
+  // Only for text taken from a whole card (no title element found): the "game" tag runs straight
+  // into the release info ("Off The GridgameTBA - Early Access…", "…Bad DreamgameJune 2028PC…"),
+  // so everything from that tag on is metadata. Not applied to real titles, which could contain
+  // "game" followed by such text.
+  const stripGluedCardMetadataInPage = (text) =>
+    String(text ?? '').replace(
+      /game(?=TBA|Early Access|Coming Soon|Q[1-4] \d{4}|[A-Z][a-z]+ \d{4}|\d{4})[\s\S]*$/,
+      ''
+    );
   const canonicalMetacriticOriginInPage = 'https://www.metacritic.com';
   const platformTailPatternInPage =
     /(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)(?:\s*(?:[1-9]\d?|100|tbd))?\s*$/i;
@@ -131,13 +157,7 @@ export function extractMetacriticSearchResults(config = {}) {
       return '';
     }
 
-    // A card's whole text glues the "game" tag straight onto the release info ("Off The
-    // GridgameTBA - Early Access…", "…Bad DreamgameJune 2028PC…"): cut from that tag.
-    const withoutGluedMetadata = raw.replace(
-      /game(?=TBA|[A-Z][a-z]+ \d{4}|[A-Z][a-z]{2} \d{1,2}, \d{4}|\d{4})[\s\S]*$/,
-      ''
-    );
-    const withoutDateTail = withoutGluedMetadata.replace(
+    const withoutDateTail = raw.replace(
       /\s*(game\s*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},\s+\d{4}[\s\S]*$/i,
       ''
     );
@@ -571,8 +591,11 @@ export function extractMetacriticSearchResults(config = {}) {
       continue;
     }
 
-    const titleEl = row.querySelector(titleSelectorInPage) || nestedGameLinkEl || row;
-    const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
+    const titleElement = findTitleElementInPage(row);
+    const titleText = titleElement
+      ? extractCandidateTitleTextInPage(titleElement)
+      : stripGluedCardMetadataInPage(extractCandidateTitleTextInPage(nestedGameLinkEl || row));
+    const title = sanitizeCandidateTitleInPage(titleText);
     if (!title || genericTitles.has(title.toLowerCase())) {
       continue;
     }
@@ -642,8 +665,11 @@ export function extractMetacriticSearchResults(config = {}) {
       continue;
     }
 
-    const titleEl = container.querySelector(titleSelectorInPage) || link;
-    const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
+    const titleElement = findTitleElementInPage(container);
+    const titleText = titleElement
+      ? extractCandidateTitleTextInPage(titleElement)
+      : stripGluedCardMetadataInPage(extractCandidateTitleTextInPage(link));
+    const title = sanitizeCandidateTitleInPage(titleText);
     if (!title || genericTitles.has(title.toLowerCase())) {
       continue;
     }

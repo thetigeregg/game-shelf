@@ -168,6 +168,9 @@ test('extractMetacriticSearchResults strips card metadata glued onto a title', (
     ['Off the Grid: Bad DreamgameJune 2028PC, and moretbd', 'Off the Grid: Bad Dream'],
     ['Schedule I: Dope Empire VRgameTBAMeta Questtbd', 'Schedule I: Dope Empire VR'],
     ['Hades Ultimate Fighting BallgameTBA - Early AccessPCtbd', 'Hades Ultimate Fighting Ball'],
+    ['Some TitlegameEarly AccessPCtbd', 'Some Title'],
+    ['Some TitlegameComing SoonPlayStation 5tbd', 'Some Title'],
+    ['Some TitlegameQ1 2027PCtbd', 'Some Title'],
     ['Endless Endgame', 'Endless Endgame'],
   ];
   for (const [glued, expected] of cases) {
@@ -181,4 +184,33 @@ test('extractMetacriticSearchResults strips card metadata glued onto a title', (
     `);
     assert.equal(results[0]?.title, expected, glued);
   }
+});
+
+test('extractMetacriticSearchResults keeps a real title that contains "game" followed by a year', () => {
+  // The glued-metadata cleanup is only for text taken from a whole card, not a title element.
+  const results = parseHtml(`
+    <main>
+      <article>
+        <a href="/game/minigame2049/"><h3>Minigame2049</h3></a>
+        <div><span data-testid="product-metascore"><span>71</span></span></div>
+      </article>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Minigame2049');
+});
+
+test('extractMetacriticSearchResults prefers the card title over an earlier heading', () => {
+  // Selectors are tried in priority order, not page order.
+  const results = parseHtml(`
+    <main>
+      <div class="search-item" data-testid="search-item">
+        <a href="/game/real-title/" class="search-item__content">
+          <h4>Sponsored</h4>
+          <div class="overflow-hidden"><p class="truncate">Real Title</p></div>
+          <div data-testid="product-metascore"><span>tbd</span></div>
+        </a>
+      </div>
+    </main>
+  `);
+  assert.equal(results[0]?.title, 'Real Title');
 });

@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { incrementIgdbMetric } from './cache-metrics.js';
 import { fetchMetadataPathFromWorker, sendWebResponse } from './metadata.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 
 interface IgdbCacheRow {
   response_json: unknown;
@@ -21,6 +22,8 @@ interface IgdbCacheRouteOptions {
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+  /** Minimum time between revalidations of one cache key (revalidation-cooldown.ts). */
+  revalidationCooldownMs?: number;
 }
 
 export interface IgdbCacheRevalidationPayload extends Record<string, unknown> {
@@ -37,6 +40,10 @@ export async function registerIgdbCachedByIdRoute(
   pool: Pool,
   options: IgdbCacheRouteOptions = {}
 ): Promise<void> {
+  const revalidationCooldown = createRevalidationCooldown({
+    cooldownMs: options.revalidationCooldownMs,
+    now: options.now,
+  });
   await ensureRateLimitRegistered(app);
 
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
@@ -105,7 +112,8 @@ export async function registerIgdbCachedByIdRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh,
-                  options.enqueueRevalidationJob
+                  options.enqueueRevalidationJob,
+                  revalidationCooldown
                 );
                 reply.header('X-GameShelf-IGDB-Cache', 'HIT_STALE');
                 reply.header('X-GameShelf-IGDB-Revalidate', scheduled ? 'scheduled' : 'skipped');
@@ -198,8 +206,14 @@ function scheduleIgdbRevalidation(
   fetchMetadata: (gameId: string) => Promise<Response>,
   pool: Pool,
   scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
-  enqueueRevalidationJob?: (payload: IgdbCacheRevalidationPayload) => void
+  enqueueRevalidationJob?: (payload: IgdbCacheRevalidationPayload) => void,
+  revalidationCooldown?: RevalidationCooldown
 ): boolean {
+  if (revalidationCooldown && !revalidationCooldown.tryAcquire(cacheKey)) {
+    incrementIgdbMetric('revalidateSkipped');
+    return false;
+  }
+
   if (enqueueRevalidationJob) {
     incrementIgdbMetric('revalidateScheduled');
     enqueueRevalidationJob({
@@ -258,6 +272,8 @@ function scheduleIgdbRevalidation(
   } catch (error) {
     incrementIgdbMetric('revalidateFailed');
     revalidationInFlightByKey.delete(cacheKey);
+    // The revalidation never started, so it doesn't count against the cooldown.
+    revalidationCooldown?.release(cacheKey);
     resolveDone();
     request.log.warn({
       msg: 'igdb_cache_revalidate_schedule_failed',
@@ -290,8 +306,13 @@ export async function processQueuedIgdbCacheRevalidation(
     }
 
     const parsed = await safeReadJson(response);
-    if (parsed === null || !isCacheableIgdbPayload(normalizedRequest, parsed)) {
-      throw new Error('IGDB revalidation returned uncacheable payload.');
+    if (parsed === null) {
+      throw new Error('IGDB revalidation returned a non-JSON payload.');
+    }
+    if (!isCacheableIgdbPayload(normalizedRequest, parsed)) {
+      // No match now: the cached entry is left as it is and expires at its stale TTL. Failing here
+      // only queued the same revalidation again on the next stale read (see revalidation-cooldown.ts).
+      return;
     }
 
     await pool.query(

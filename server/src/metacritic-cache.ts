@@ -10,6 +10,7 @@ import {
   sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
+import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface MetacriticCacheRow {
@@ -33,6 +34,8 @@ interface MetacriticCacheRouteOptions {
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+  /** Minimum time between revalidations of one cache key (revalidation-cooldown.ts). */
+  revalidationCooldownMs?: number;
 }
 
 export interface MetacriticCacheRevalidationPayload extends Record<string, unknown> {
@@ -49,6 +52,10 @@ export async function registerMetacriticCachedRoute(
   pool: Pool,
   options: MetacriticCacheRouteOptions = {}
 ): Promise<void> {
+  const revalidationCooldown = createRevalidationCooldown({
+    cooldownMs: options.revalidationCooldownMs,
+    now: options.now,
+  });
   await ensureRateLimitRegistered(app);
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
@@ -115,7 +122,8 @@ export async function registerMetacriticCachedRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh,
-                  options.enqueueRevalidationJob
+                  options.enqueueRevalidationJob,
+                  revalidationCooldown
                 );
                 reply.header('X-GameShelf-METACRITIC-Cache', 'HIT_STALE');
                 reply.header(
@@ -246,8 +254,14 @@ function scheduleMetacriticRevalidation(
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
   scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
-  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void
+  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void,
+  revalidationCooldown?: RevalidationCooldown
 ): boolean {
+  if (revalidationCooldown && !revalidationCooldown.tryAcquire(cacheKey)) {
+    incrementMetacriticMetric('revalidateSkipped');
+    return false;
+  }
+
   if (enqueueRevalidationJob) {
     incrementMetacriticMetric('revalidateScheduled');
     enqueueRevalidationJob({
@@ -287,9 +301,7 @@ function scheduleMetacriticRevalidation(
       }
 
       if (!isCacheableMetacriticPayload(normalizedQuery, payload)) {
-        // No match now: keep the cached result but mark it checked (see markMetacriticEntryChecked).
-        await markMetacriticEntryChecked(pool, cacheKey);
-        incrementMetacriticMetric('revalidateSkipped');
+        incrementMetacriticMetric('revalidateFailed');
         return;
       }
 
@@ -331,10 +343,8 @@ export async function processQueuedMetacriticCacheRevalidation(
     throw new Error('Metacritic revalidation returned a non-JSON payload.');
   }
   if (!isCacheableMetacriticPayload(normalizedQuery, parsed)) {
-    // No match now. Failing the job left the stale entry in place, so every read queued another
-    // revalidation (and the job's retries), looping on the scraper. Keep the cached result and
-    // mark it checked instead.
-    await markMetacriticEntryChecked(pool, payload.cacheKey);
+    // No match now: the cached entry is left as it is and expires at its stale TTL. Failing here
+    // only queued the same revalidation again on the next stale read (see revalidation-cooldown.ts).
     return;
   }
 
@@ -438,17 +448,6 @@ async function persistMetacriticCacheEntry(
       error: error instanceof Error ? error.message : String(error),
     });
   }
-}
-
-/**
- * Marks a cached result as just checked, without changing it, after a revalidation found no match.
- * The scraper also finds no match while Metacritic blocks it, so the last good result is kept
- * rather than deleted; it's checked again once its fresh TTL passes.
- */
-async function markMetacriticEntryChecked(pool: Pool, cacheKey: string): Promise<void> {
-  await pool.query('UPDATE metacritic_search_cache SET updated_at = NOW() WHERE cache_key = $1', [
-    cacheKey,
-  ]);
 }
 
 function isCacheableMetacriticPayload(

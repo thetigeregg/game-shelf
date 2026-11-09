@@ -393,6 +393,7 @@ describe('ExplorePage explore modes UX', () => {
     getRecommendationSimilar: vi.fn(),
     lookupSteamPrice: vi.fn(),
     lookupPsPrices: vi.fn(),
+    lookupPlayStationStorePrice: vi.fn(),
   };
 
   const platformCustomizationMock = {
@@ -3195,7 +3196,7 @@ describe('ExplorePage explore modes UX', () => {
             {
               ...mockLaneItem,
               igdbGameId: '700',
-              platformIgdbId: 167,
+              platformIgdbId: 130,
               scoreTotal: 1.2,
               scoreComponents: {
                 taste: 0.1,
@@ -3243,10 +3244,10 @@ describe('ExplorePage explore modes UX', () => {
     await page.loadRecommendationLanes(true);
     await page.ensureVisibleDiscoveryPricingHydrated();
 
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, {
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 130, {
       title: null,
     });
-    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
+    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 130 })).toBe(
       'EUR\xa039.90'
     );
   });
@@ -3484,10 +3485,10 @@ describe('ExplorePage explore modes UX', () => {
     expect(grouped.get('910')).toEqual(new Set([48, 167]));
 
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
-    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '911', platformIgdbId: 167 });
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('911', 167, { title: null });
+    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '911', platformIgdbId: 130 });
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('911', 130, { title: null });
     expect(
-      page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 167 })
+      page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 130 })
     ).toBeNull();
   });
 
@@ -3616,6 +3617,40 @@ describe('ExplorePage explore modes UX', () => {
     expect(grouped.has('912')).toBe(false);
   });
 
+  it('hydrates PS4 and PS5 discovery pricing from the PlayStation Store', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      hydrateDiscoveryPricingForItem: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => Promise<void>;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+    };
+    page.selectedTarget = 'DISCOVERY';
+    igdbProxyServiceMock.lookupPlayStationStorePrice.mockReturnValueOnce(
+      of({
+        status: 'ok',
+        bestPrice: { amount: 49.62, currency: 'CHF', regularAmount: 69.9, isFree: false },
+      })
+    );
+
+    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '913', platformIgdbId: 167 });
+
+    // No title, which the route would treat as a manual override.
+    expect(igdbProxyServiceMock.lookupPlayStationStorePrice).toHaveBeenCalledWith('913', 167);
+    expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalledWith(
+      '913',
+      167,
+      expect.anything()
+    );
+    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '913', platformIgdbId: 167 })).toBe(
+      'CHF\xa049.62'
+    );
+  });
+
   it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {
     const page = createPage() as unknown as {
       recommendationDisplayMetadata: Map<string, { title: string }>;
@@ -3626,14 +3661,14 @@ describe('ExplorePage explore modes UX', () => {
       }) => Promise<void>;
     };
 
-    page.recommendationDisplayMetadata.set(page.buildIdentityKey('912', 167), {
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('912', 130), {
       title: 'Night In The Woods',
     });
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
 
-    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '912', platformIgdbId: 167 });
+    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '912', platformIgdbId: 130 });
 
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('912', 167, {
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('912', 130, {
       title: 'Night In The Woods',
     });
   });

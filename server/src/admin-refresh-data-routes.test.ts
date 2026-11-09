@@ -428,6 +428,11 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
     pool.seed({
       igdbGameId: '2',
       platformIgdbId: 48,
+      payload: { listType: 'wishlist', title: 'PlayStation Store Game' },
+    });
+    pool.seed({
+      igdbGameId: '5',
+      platformIgdbId: 130,
       payload: { listType: 'wishlist', title: 'PSPrices Game' },
     });
     pool.seed({
@@ -455,14 +460,21 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
       const body = JSON.parse(response.body) as {
         results: { pricing: { scanned: number; enqueued: number; deduped: number } };
       };
-      assert.equal(body.results.pricing.enqueued, 2);
+      assert.equal(body.results.pricing.enqueued, 3);
 
       const steamJobs = pool.enqueuedJobs.filter((job) => job.jobType === 'steam_price_revalidate');
       const pspricesJobs = pool.enqueuedJobs.filter(
         (job) => job.jobType === 'psprices_price_revalidate'
       );
+      const storeJobs = pool.enqueuedJobs.filter(
+        (job) => job.jobType === 'playstation_store_price_revalidate'
+      );
       assert.equal(steamJobs.length, 1);
       assert.equal(pspricesJobs.length, 1);
+      assert.equal(storeJobs.length, 1);
+      const storePayload = storeJobs[0].payload as Record<string, unknown>;
+      assert.equal(storePayload['platformIgdbId'], 48);
+      assert.equal(storePayload['title'], 'PlayStation Store Game');
     } finally {
       await app.close();
     }
@@ -486,6 +498,11 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
     pool.seed({
       igdbGameId: '3',
       platformIgdbId: 48,
+      payload: { listType: 'discovery', title: 'Discovery PlayStation Store Game' },
+    });
+    pool.seed({
+      igdbGameId: '5',
+      platformIgdbId: 130,
       payload: { listType: 'discovery', title: 'Discovery PSPrices Game' },
     });
     pool.seed({
@@ -508,8 +525,8 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
       const body = JSON.parse(response.body) as {
         results: { pricing: { scanned: number; enqueued: number; deduped: number } };
       };
-      assert.equal(body.results.pricing.scanned, 4);
-      assert.equal(body.results.pricing.enqueued, 3);
+      assert.equal(body.results.pricing.scanned, 5);
+      assert.equal(body.results.pricing.enqueued, 4);
 
       const discoverySteamJobs = pool.enqueuedJobs.filter(
         (job) =>
@@ -520,8 +537,14 @@ void test('admin refresh-data route also enqueues pricing jobs for discovery row
           job.jobType === 'psprices_price_revalidate' &&
           (job.dedupeKey ?? '').includes(':discovery:')
       );
+      const discoveryStoreJobs = pool.enqueuedJobs.filter(
+        (job) =>
+          job.jobType === 'playstation_store_price_revalidate' &&
+          (job.dedupeKey ?? '').includes(':discovery:')
+      );
       assert.equal(discoverySteamJobs.length, 1);
       assert.equal(discoveryPspricesJobs.length, 1);
+      assert.equal(discoveryStoreJobs.length, 1);
     } finally {
       await app.close();
     }

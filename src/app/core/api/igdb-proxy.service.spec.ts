@@ -4,6 +4,10 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { IgdbProxyService } from './igdb-proxy.service';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService,
+} from '../services/client-write-auth.service';
 
 describe('IgdbProxyService', () => {
   let service: IgdbProxyService;
@@ -3908,6 +3912,102 @@ describe('IgdbProxyService', () => {
     req.flush({ status: 'unavailable', bestPrice: null });
 
     await expect(promise).resolves.toEqual({ status: 'unavailable', bestPrice: null });
+  });
+
+  it('looks up PlayStation Store prices with the title and product overrides', async () => {
+    const productUrl =
+      'https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000';
+    const promise = firstValueFrom(
+      service.lookupPlayStationStorePrice('200', 167, {
+        title: '  Astro Bot ',
+        productId: ` ${productUrl} `,
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/playstation-store/prices` &&
+        request.params.get('igdbGameId') === '200' &&
+        request.params.get('platformIgdbId') === '167' &&
+        request.params.get('title') === 'Astro Bot' &&
+        request.params.get('productId') === productUrl
+      );
+    });
+    req.flush({ status: 'ok' });
+    await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('sends the write token with a PlayStation Store override, which the server saves', async () => {
+    const clientWriteAuth = TestBed.inject(ClientWriteAuthService);
+    vi.spyOn(clientWriteAuth, 'getToken').mockReturnValue('device-token-1');
+
+    const withOverride = firstValueFrom(
+      service.lookupPlayStationStorePrice('200', 167, {
+        productId: 'EP9000-PPSA21567_00-0000000000000000',
+      })
+    );
+    httpMock
+      .expectOne(
+        (request) =>
+          request.params.has('productId') &&
+          request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME) === 'device-token-1'
+      )
+      .flush({ status: 'ok' });
+    await withOverride;
+
+    const plain = firstValueFrom(service.lookupPlayStationStorePrice('200', 167));
+    httpMock
+      .expectOne(
+        (request) =>
+          !request.params.has('productId') && !request.headers.has(CLIENT_WRITE_TOKEN_HEADER_NAME)
+      )
+      .flush({ status: 'ok' });
+    await plain;
+  });
+
+  it('looks up PlayStation Store prices without overrides', async () => {
+    const promise = firstValueFrom(service.lookupPlayStationStorePrice('200', 48));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/playstation-store/prices` &&
+        !request.params.has('title') &&
+        !request.params.has('productId')
+      );
+    });
+    req.flush({ status: 'unavailable', bestPrice: null });
+    await expect(promise).resolves.toEqual({ status: 'unavailable', bestPrice: null });
+  });
+
+  it('requests PlayStation Store candidates and skips titles that are too short', async () => {
+    await expect(
+      firstValueFrom(service.lookupPlayStationStoreCandidates('200', 167, 'x'))
+    ).resolves.toEqual({ status: 'unavailable', candidates: [] });
+
+    const promise = firstValueFrom(
+      service.lookupPlayStationStoreCandidates('200', 167, 'Hades II')
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/playstation-store/prices` &&
+        request.params.get('title') === 'Hades II' &&
+        request.params.get('includeCandidates') === '1'
+      );
+    });
+    req.flush({ status: 'ok', candidates: [] });
+    await expect(promise).resolves.toEqual({ status: 'ok', candidates: [] });
+  });
+
+  it('maps PlayStation Store lookup failures to a friendly error', async () => {
+    await expect(
+      firstValueFrom(service.lookupPlayStationStorePrice('not-a-number', 167))
+    ).rejects.toThrow('Invalid PlayStation Store lookup request.');
+
+    const promise = firstValueFrom(service.lookupPlayStationStorePrice('200', 167));
+    httpMock
+      .expectOne(
+        `${environment.gameApiBaseUrl}/v1/playstation-store/prices?igdbGameId=200&platformIgdbId=167`
+      )
+      .flush({ error: 'boom' }, { status: 502, statusText: 'Bad Gateway' });
+    await expect(promise).rejects.toThrow('Unable to load PlayStation Store prices.');
   });
 
   it('prefers retry-after based recommendation cooldown error mapping', async () => {

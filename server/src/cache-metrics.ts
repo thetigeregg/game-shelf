@@ -88,6 +88,20 @@ export interface CacheMetricSnapshot {
     upstreamErrors: number;
     invalidRequests: number;
   };
+  playstationStorePrice: {
+    hits: number;
+    misses: number;
+    writes: number;
+    readErrors: number;
+    writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
+    upstreamErrors: number;
+    invalidRequests: number;
+  };
 }
 
 const metrics: CacheMetricSnapshot = {
@@ -180,6 +194,20 @@ const metrics: CacheMetricSnapshot = {
     upstreamErrors: 0,
     invalidRequests: 0,
   },
+  playstationStorePrice: {
+    hits: 0,
+    misses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+    upstreamErrors: 0,
+    invalidRequests: 0,
+  },
 };
 
 export function incrementIgdbMetric(metric: keyof CacheMetricSnapshot['igdb']): void {
@@ -212,6 +240,12 @@ export function incrementPspricesPriceMetric(
   metrics.pspricesPrice[metric] += 1;
 }
 
+export function incrementPlayStationStorePriceMetric(
+  metric: keyof CacheMetricSnapshot['playstationStorePrice']
+): void {
+  metrics.playstationStorePrice[metric] += 1;
+}
+
 export function getCacheMetrics(): CacheMetricSnapshot {
   return {
     igdb: { ...metrics.igdb },
@@ -221,6 +255,7 @@ export function getCacheMetrics(): CacheMetricSnapshot {
     image: { ...metrics.image },
     steamPrice: { ...metrics.steamPrice },
     pspricesPrice: { ...metrics.pspricesPrice },
+    playstationStorePrice: { ...metrics.playstationStorePrice },
   };
 }
 
@@ -301,6 +336,20 @@ export function resetCacheMetrics(): void {
     invalidRequests: 0,
   };
   metrics.pspricesPrice = {
+    hits: 0,
+    misses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
+    upstreamErrors: 0,
+    invalidRequests: 0,
+  };
+  metrics.playstationStorePrice = {
     hits: 0,
     misses: 0,
     writes: 0,

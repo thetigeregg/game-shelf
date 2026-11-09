@@ -2610,6 +2610,7 @@ export class ExplorePage implements OnInit {
     try {
       const titleHint = this.getRecommendationTitleHint(item);
 
+      // The PlayStation Store (PS4/PS5) and psprices (Switch) answer in the same shape.
       const result =
         item.platformIgdbId === 6
           ? this.parseSteamPriceLookupResponse(
@@ -2619,9 +2620,18 @@ export class ExplorePage implements OnInit {
             )
           : this.parsePsPricesLookupResponse(
               await firstValueFrom(
-                this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
-                  title: titleHint,
-                })
+                GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(
+                  item.platformIgdbId
+                )
+                  ? // No title: the route would take it as a manual override (skip the cache, lock
+                    // the match). It uses the game's stored title.
+                    this.igdbProxyService.lookupPlayStationStorePrice(
+                      item.igdbGameId,
+                      item.platformIgdbId
+                    )
+                  : this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
+                      title: titleHint,
+                    })
               )
             );
 

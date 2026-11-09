@@ -73,6 +73,7 @@ interface DiscoveryEnrichmentRetryState {
   metacritic: ProviderRetryState;
   steam: ProviderRetryState;
   psprices: ProviderRetryState;
+  playstationStore: ProviderRetryState;
 }
 
 type DiscoveryEnrichmentProvider = 'hltb' | 'review' | 'steam';
@@ -337,6 +338,7 @@ export class DiscoveryEnrichmentService {
         maxAttempts: this.options.maxAttempts,
       }),
       psprices: retryState.psprices,
+      playstationStore: retryState.playstationStore,
     };
     const needsHltb = isHltbActive && !hasHltb;
     const needsMetacritic =
@@ -409,6 +411,7 @@ export class DiscoveryEnrichmentService {
       metacritic: nextRetryStateBase.metacritic,
       steam: nextRetryStateBase.steam,
       psprices: nextRetryStateBase.psprices,
+      playstationStore: nextRetryStateBase.playstationStore,
     };
 
     const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
@@ -793,6 +796,7 @@ function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
     metacritic: parseProviderRetryState(source.metacritic),
     steam: parseProviderRetryState(source.steam),
     psprices: parseProviderRetryState(source.psprices),
+    playstationStore: parseProviderRetryState(source.playstationStore),
   };
 }
 
@@ -822,6 +826,7 @@ function buildNextRetryState(params: {
         ? params.current.steam
         : createEmptyProviderRetryState(),
     psprices: params.current.psprices,
+    playstationStore: params.current.playstationStore,
   };
 }
 
@@ -833,8 +838,15 @@ function applyRetryState(
   const shouldKeepMetacritic = hasMeaningfulRetryState(state.metacritic);
   const shouldKeepSteam = hasMeaningfulRetryState(state.steam);
   const shouldKeepPsprices = hasMeaningfulRetryState(state.psprices);
+  const shouldKeepPlayStationStore = hasMeaningfulRetryState(state.playstationStore);
 
-  if (!shouldKeepHltb && !shouldKeepMetacritic && !shouldKeepSteam && !shouldKeepPsprices) {
+  if (
+    !shouldKeepHltb &&
+    !shouldKeepMetacritic &&
+    !shouldKeepSteam &&
+    !shouldKeepPsprices &&
+    !shouldKeepPlayStationStore
+  ) {
     delete payload.enrichmentRetry;
     return;
   }
@@ -844,5 +856,6 @@ function applyRetryState(
     ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {}),
     ...(shouldKeepSteam ? { steam: state.steam } : {}),
     ...(shouldKeepPsprices ? { psprices: state.psprices } : {}),
+    ...(shouldKeepPlayStationStore ? { playstationStore: state.playstationStore } : {}),
   };
 }

@@ -150,6 +150,13 @@ export interface AppConfig {
   pspricesPriceCacheEnableStaleWhileRevalidate: boolean;
   pspricesPriceCacheFreshTtlSeconds: number;
   pspricesPriceCacheStaleTtlSeconds: number;
+  playstationStoreApiBaseUrl: string;
+  playstationStoreApiTimeoutMs: number;
+  playstationStoreCountry: string;
+  playstationStoreLanguage: string;
+  playstationStorePriceCacheEnableStaleWhileRevalidate: boolean;
+  playstationStorePriceCacheFreshTtlSeconds: number;
+  playstationStorePriceCacheStaleTtlSeconds: number;
   pricingRefreshEnabled: boolean;
   pricingRefreshIntervalMinutes: number;
   pricingRefreshBatchSize: number;
@@ -304,6 +311,7 @@ export interface RateLimitConfig {
     popularity_feed: NamedInboundRateLimitConfig;
     steam_prices: NamedInboundRateLimitConfig;
     psprices_prices: NamedInboundRateLimitConfig;
+    playstation_store_prices: NamedInboundRateLimitConfig;
     hltb_search: NamedInboundRateLimitConfig;
     metacritic_search: NamedInboundRateLimitConfig;
     mobygames_search: NamedInboundRateLimitConfig;
@@ -314,6 +322,7 @@ export interface RateLimitConfig {
     igdb_metadata_enrichment: NamedOutboundRateLimitConfig;
     igdb_popularity: NamedOutboundRateLimitConfig;
     mobygames: NamedOutboundRateLimitConfig;
+    playstation_store: NamedOutboundRateLimitConfig;
   };
 }
 
@@ -368,6 +377,11 @@ function readRuntimeModeDefaultEnv(
 function normalizeCountryCode(value: string): string | null {
   const normalized = value.trim().toUpperCase();
   return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+}
+
+function normalizeLanguageCode(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  return /^[a-z]{2}$/.test(normalized) ? normalized : null;
 }
 
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
@@ -529,6 +543,10 @@ const rateLimitConfig: RateLimitConfig = {
     popularity_feed: readInboundPolicyConfig('POPULARITY_FEED', { max: 50, windowMs: 60_000 }),
     steam_prices: readInboundPolicyConfig('STEAM_PRICES', { max: 60, windowMs: 60_000 }),
     psprices_prices: readInboundPolicyConfig('PSPRICES_PRICES', { max: 60, windowMs: 60_000 }),
+    playstation_store_prices: readInboundPolicyConfig('PLAYSTATION_STORE_PRICES', {
+      max: 60,
+      windowMs: 60_000,
+    }),
     hltb_search: readInboundPolicyConfig('HLTB_SEARCH', { max: 240, windowMs: 60_000 }),
     metacritic_search: readInboundPolicyConfig('METACRITIC_SEARCH', {
       max: 240,
@@ -579,6 +597,12 @@ const rateLimitConfig: RateLimitConfig = {
     mobygames: readOutboundPolicyConfig('MOBYGAMES', {
       minIntervalMs: 5_000,
       maxDelayMs: 30_000,
+    }),
+    // The PlayStation Store API is unofficial: keep requests few and spaced out.
+    playstation_store: readOutboundPolicyConfig('PLAYSTATION_STORE', {
+      minIntervalMs: 250,
+      maxDelayMs: 30_000,
+      maxConcurrent: 2,
     }),
   },
 };
@@ -670,6 +694,26 @@ export const config: AppConfig = {
   ),
   pspricesPriceCacheStaleTtlSeconds: readIntegerEnv(
     'PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS',
+    86400 * 90
+  ),
+  playstationStoreApiBaseUrl: readEnv(
+    'PLAYSTATION_STORE_API_BASE_URL',
+    'https://web.np.playstation.com'
+  ),
+  playstationStoreApiTimeoutMs: readIntegerEnv('PLAYSTATION_STORE_API_TIMEOUT_MS', 10_000),
+  playstationStoreCountry: normalizeCountryCode(readEnv('PLAYSTATION_STORE_COUNTRY', 'CH')) ?? 'CH',
+  playstationStoreLanguage:
+    normalizeLanguageCode(readEnv('PLAYSTATION_STORE_LANGUAGE', 'de')) ?? 'de',
+  playstationStorePriceCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'PLAYSTATION_STORE_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  playstationStorePriceCacheFreshTtlSeconds: readIntegerEnv(
+    'PLAYSTATION_STORE_PRICE_CACHE_FRESH_TTL_SECONDS',
+    86400
+  ),
+  playstationStorePriceCacheStaleTtlSeconds: readIntegerEnv(
+    'PLAYSTATION_STORE_PRICE_CACHE_STALE_TTL_SECONDS',
     86400 * 90
   ),
   pricingRefreshEnabled: readBooleanEnv('PRICING_REFRESH_ENABLED', true),

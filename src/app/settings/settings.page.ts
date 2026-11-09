@@ -506,6 +506,7 @@ export class SettingsPage {
         '- Metacritic',
         '- MobyGames',
         '- Steam Store',
+        '- PlayStation Store',
         '- PSPrices',
       ].join('\n'),
       buttons: ['OK'],

@@ -1233,7 +1233,9 @@ export class LocalGameRepository implements GameRepository {
   private normalizePriceSource(
     value: GameCatalogResult['priceSource'] | undefined
   ): GameEntry['priceSource'] {
-    return value === 'steam_store' || value === 'psprices' ? value : null;
+    return value === 'steam_store' || value === 'playstation_store' || value === 'psprices'
+      ? value
+      : null;
   }
 
   private normalizePriceFetchedAt(value: string | null | undefined): string | null {

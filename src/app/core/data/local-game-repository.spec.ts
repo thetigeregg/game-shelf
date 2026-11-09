@@ -1401,4 +1401,14 @@ describe('LocalGameRepository', () => {
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(LocalGameRepository);
   });
+
+  it('keeps every known price source, including the PlayStation Store', () => {
+    const normalizePriceSource = (
+      repository as unknown as { normalizePriceSource: (value: unknown) => unknown }
+    ).normalizePriceSource.bind(repository);
+    expect(normalizePriceSource('steam_store')).toBe('steam_store');
+    expect(normalizePriceSource('playstation_store')).toBe('playstation_store');
+    expect(normalizePriceSource('psprices')).toBe('psprices');
+    expect(normalizePriceSource('epic_games')).toBeNull();
+  });
 });

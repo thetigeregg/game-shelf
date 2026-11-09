@@ -15,6 +15,7 @@ interface CacheCountSnapshot {
   mobygamesEntryCount: number | null;
   steamPriceEntryCount: number | null;
   pspricesPriceEntryCount: number | null;
+  playstationStorePriceEntryCount: number | null;
   dbError: string | null;
 }
 
@@ -47,6 +48,7 @@ export async function registerCacheObservabilityRoutes(
     mobygamesEntryCount: null,
     steamPriceEntryCount: null,
     pspricesPriceEntryCount: null,
+    playstationStorePriceEntryCount: null,
     dbError: null,
   };
 
@@ -74,6 +76,10 @@ export async function registerCacheObservabilityRoutes(
         "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'psPricesFetchedAt', '') <> ''"
       );
 
+      const playstationStorePriceCountResult = await pool.query<CacheCountRow>(
+        "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'playstationStoreFetchedAt', '') <> ''"
+      );
+
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
         igdbEntryCount: Number.parseInt(igdbCountResult.rows[0]?.count ?? '0', 10),
@@ -83,6 +89,10 @@ export async function registerCacheObservabilityRoutes(
         steamPriceEntryCount: Number.parseInt(steamPriceCountResult.rows[0]?.count ?? '0', 10),
         pspricesPriceEntryCount: Number.parseInt(
           pspricesPriceCountResult.rows[0]?.count ?? '0',
+          10
+        ),
+        playstationStorePriceEntryCount: Number.parseInt(
+          playstationStorePriceCountResult.rows[0]?.count ?? '0',
           10
         ),
         dbError: null,
@@ -96,6 +106,7 @@ export async function registerCacheObservabilityRoutes(
         mobygamesEntryCount: null,
         steamPriceEntryCount: null,
         pspricesPriceEntryCount: null,
+        playstationStorePriceEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error),
       };
     }
@@ -130,6 +141,7 @@ export async function registerCacheObservabilityRoutes(
           mobygamesEntries: snapshot.mobygamesEntryCount,
           steamPriceEntries: snapshot.steamPriceEntryCount,
           pspricesPriceEntries: snapshot.pspricesPriceEntryCount,
+          playstationStorePriceEntries: snapshot.playstationStorePriceEntryCount,
         },
         dbError: snapshot.dbError,
       });

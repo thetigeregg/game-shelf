@@ -74,6 +74,11 @@ Common stack env vars:
 - `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults to `true`)
 - `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults to `86400`)
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
+- `PLAYSTATION_STORE_COUNTRY` (optional; defaults to `CH`), `PLAYSTATION_STORE_LANGUAGE` (optional; defaults to `de`): the store locale PS4/PS5 prices are read from; see "PlayStation Store prices (PS4/PS5)" below
+- `PLAYSTATION_STORE_API_TIMEOUT_MS` (optional; defaults to `10000`)
+- `PLAYSTATION_STORE_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults to `true`)
+- `PLAYSTATION_STORE_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults to `86400`)
+- `PLAYSTATION_STORE_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
 - `PSPRICES_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `PSPRICES_SCRAPER_TOKEN_FILE` (optional, but recommended)
 - `PSPRICES_REGION_PATH` (optional; defaults `region-ch`)
@@ -317,7 +322,20 @@ ROM files:
 - Those files are still indexed by `/v1/roms/search` so users can manually select the correct file from `Find ROM` in the UI.
 - **ROM resolve aliases:** the API treats some IGDB platform ids as equivalent when matching ROMs (folder `__pid-` may use either side). Pairs: `99`/`51` → `18` (Famicom / FDS → NES), `58` → `19` (Super Famicom → SNES), `137` → `37` (New 3DS → 3DS), `159` → `20` (DSi → DS), `510` → `24` (e-Reader → GBA). In-browser play still uses the **canonical** platform id from the library entry after `resolveCanonicalPlatformIgdbId` in the app.
 
+### PlayStation Store prices (PS4/PS5)
+
+PS4 and PS5 prices come from the PlayStation Store, through the same web API store.playstation.com itself uses (`web.np.playstation.com`). The API calls it directly with `fetch`: no scraper, browser or FlareSolverr, and no Cloudflare. psprices only prices Switch and Switch 2.
+
+- **How a game is priced:** a game already matched to a store product is priced from that product directly (exact price, discount and sale end). Otherwise the store is searched by title; results for the game's platform that are a game or an edition of one (not an add-on, demo or currency) are matched by title, and only a confident match is saved. The saved product is used from then on. A product the store no longer sells is searched for again.
+- **Locale:** `PLAYSTATION_STORE_COUNTRY` and `PLAYSTATION_STORE_LANGUAGE` (default `CH` / `de`) choose the store. Titles are matched against that store's names, which usually include English titles.
+- **Moving from psprices:** PS4/PS5 games priced by psprices are matched on the PlayStation Store at the next pricing refresh, whatever the age of their old price (a price from another source counts as stale). Their old price shows until then. The first store price replaces the psprices URL, title and match lock. A game the store can't match loses its old psprices price, since psprices no longer updates it, and is looked up again once its stale window passes (`PRICING_REFRESH_STALE_HOURS`), not on every refresh. Run the pricing refresh from the admin data refresh to do this straight away.
+- **Manual prices:** a price saved on the admin match page with a store product pins that product, and refreshes price it directly. One saved without a product is kept as it is: refreshes don't search for it. Clearing the match lets it be matched again.
+- **If it stops working:** the API is unofficial and only accepts the queries the store website uses, identified by a hash of the query (`PLAYSTATION_STORE_*_QUERY_HASH` in `server/src/playstation-store-client.ts`). If Sony changes those queries, lookups fail with `PlayStation Store rejected the … query: … not whitelisted`, saved prices are kept, and the `gameshelf-playstation-store` health check fails with `query not whitelisted`. Updating means capturing the new hash from the `getSearchResults` or `productRetrieveForCtasWithPrice` request on a store page (browser developer tools, network tab) and replacing it in the code.
+- **Requests:** at most 2 at a time, 250 ms apart (`RATE_LIMIT_OUTBOUND_PLAYSTATION_STORE_*`). A first match costs a search plus a price lookup; a refresh of a matched game costs one price lookup.
+
 ### FlareSolverr fallback (PSPrices)
+
+PSPrices now only prices Switch and Switch 2 (PS4/PS5 come from the PlayStation Store, above).
 
 Cloudflare can block `psprices-scraper`'s headless browser with a challenge. The scraper logs `request_failed` with `blocked by Cloudflare: challenge` and the API returns `502` for that lookup, so a block never overwrites saved pricing data. With `FLARESOLVERR_ENABLED=true`, a blocked search is retried through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) container, which loads the page in its own browser. The scraper sends FlareSolverr one request at a time, through a single browser session that it keeps open between searches, which also keeps the cookie Cloudflare gives a browser that passed its check. A burst of parallel solves, each in a fresh browser, is slow on a NAS and gets challenged itself. The session is closed after 10 minutes without a search and replaced every 30 minutes. FlareSolverr never closes an unused session by itself, so the scraper's first FlareSolverr search after it starts also removes any `gameshelf-psprices-*` sessions an earlier run left behind (after a crash, for example); don't point a second scraper instance at the same FlareSolverr. After a block, searches skip the direct request for 15 minutes and go straight to FlareSolverr; after that, or as soon as FlareSolverr fails during that window, the next search tries PSPrices directly again, so the fallback stops being used by itself once a block lifts and a FlareSolverr outage costs at most one failed search. This works around PSPrices' bot protection and could get the NAS's IP banned.
 
@@ -332,20 +350,21 @@ FlareSolverr runs as its own stack, which creates the `flarenet` network that `p
 
 A scraper failure doesn't show up anywhere obvious: a blocked or broken scraper mostly looks like games without a price, score or playtime. To get alerted instead, `worker-general` can look up a title that should always match on each scraper and report the result to [Healthchecks.io](https://healthchecks.io), which sends the alert (email, push, Telegram and so on, as configured there).
 
-| Check                  | Test lookup                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| `gameshelf-psprices`   | Hades II on PS5, in `PSPRICES_REGION_PATH`                                                |
-| `gameshelf-hltb`       | Hades (2020, PC)                                                                          |
-| `gameshelf-metacritic` | Hades (2020, PC)                                                                          |
-| `gameshelf-compat`     | The Xbox (xemu) list, a single small file; the full set of lists is only refreshed weekly |
+| Check                         | Test lookup                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `gameshelf-psprices`          | Hades II on Switch, in `PSPRICES_REGION_PATH`                                             |
+| `gameshelf-playstation-store` | Hades II on PS5 in the configured store: search, match and exact price                    |
+| `gameshelf-hltb`              | Hades (2020, PC)                                                                          |
+| `gameshelf-metacritic`        | Hades (2020, PC)                                                                          |
+| `gameshelf-compat`            | The Xbox (xemu) list, a single small file; the full set of lists is only refreshed weekly |
 
-The lookups call each scraper directly, so the API's caches can't hide a failure, and each must return the specific game verified for it (psprices: the title "Hades II"; HLTB: game 62941; Metacritic: `/game/hades/`), since the scrapers otherwise return their closest loosely similar result. The match must also include what the scraper exists to provide (a price, a main-story time or a score from 1 to 100), so a broken parser that still finds the game fails the check. A match sends a success ping. An error, a timeout, no match or the wrong game sends a failure ping with the reason (for example `HTTP 502: Unable to fetch PSPrices data.`, `ECONNREFUSED` or `timed out`), which Healthchecks.io includes in the alert. Reasons contain only status codes, error codes and the scraper's own error message, never raw response text or request URLs, so credentials and the ping key stay out of pings and logs.
+The lookups call each scraper directly, so the API's caches can't hide a failure, and each must return the specific game verified for it (psprices: the title "Hades II"; PlayStation Store: product `EP4484-PPSA36082_00-0912328937643383`; HLTB: game 62941; Metacritic: `/game/hades/`), since the scrapers otherwise return their closest loosely similar result. The match must also include what the scraper exists to provide (a price, a main-story time or a score from 1 to 100), so a broken parser that still finds the game fails the check. A match sends a success ping. An error, a timeout, no match or the wrong game sends a failure ping with the reason (for example `HTTP 502: Unable to fetch PSPrices data.`, `ECONNREFUSED` or `timed out`), which Healthchecks.io includes in the alert. Reasons contain only status codes, error codes and the scraper's own error message, never raw response text or request URLs, so credentials and the ping key stay out of pings and logs.
 
 A Cloudflare block on HLTB or Metacritic shows up as no match. A psprices block that the FlareSolverr fallback gets past still passes, but a psprices search where a title variant failed (FlareSolverr failing or the scraper running out of time) fails the check even if it matched.
 
 - **Setting it up:** in Healthchecks.io, open your project's settings and create a ping key. Save it as `${SECRETS_HOST_DIR}/healthchecks_ping_key` and redeploy. The checks are created automatically the first time they're pinged, about two minutes after `worker-general` starts.
 - **Schedule:** the lookups run every `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (default 360, 6 hours; capped at 10080, 7 days). Auto-created checks expect a ping once a day with a 1-hour grace period, which only affects how soon a _missing_ ping alerts; a failed lookup alerts straight away. To be alerted sooner when pings stop (worker or stack down), set each check's period to the interval in Healthchecks.io.
-- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings. Then pause or delete the four checks in Healthchecks.io: otherwise each goes overdue once its period and grace time pass without a ping, and alerts. A paused check resumes by itself on its next ping. The same applies to a single check if you remove that scraper's base URL, since the worker then skips it.
+- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings. Then pause or delete the five checks in Healthchecks.io: otherwise each goes overdue once its period and grace time pass without a ping, and alerts. A paused check resumes by itself on its next ping. The same applies to a single check if you remove that scraper's base URL, since the worker then skips it.
 - **Self-hosted Healthchecks:** set `HEALTHCHECKS_PING_BASE_URL` to your instance's ping URL.
 - **Logs:** each lookup logs `[scraper-health-check] passed` or `failed` with the same message as the ping.
 
@@ -493,6 +512,8 @@ Key metadata env vars in `.env`:
 - `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
 - `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
+- `PLAYSTATION_STORE_COUNTRY=CH`
+- `PLAYSTATION_STORE_LANGUAGE=de`
 - `PSPRICES_SCRAPER_BASE_URL=http://psprices-scraper:8790`
 - `PSPRICES_REGION_PATH=region-ch`
 - `PSPRICES_SHOW=games`

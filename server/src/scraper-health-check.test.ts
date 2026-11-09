@@ -242,6 +242,7 @@ void test('scraper health probes build URLs the way each API client does', () =>
     buildScraperHealthProbes().map((entry) => [entry.slug, entry.keepBasePath === true]),
     [
       ['gameshelf-psprices', false],
+      ['gameshelf-playstation-store', false],
       ['gameshelf-hltb', false],
       ['gameshelf-metacritic', false],
       ['gameshelf-compat', true],
@@ -419,6 +420,7 @@ void test('scraper health probes cover each scraper with a known title', () => {
     probes.map((entry) => [entry.slug, entry.path, entry.query['q'] ?? null]),
     [
       ['gameshelf-psprices', '/v1/psprices/search', 'Hades II'],
+      ['gameshelf-playstation-store', 'Hades II (PS5)', null],
       ['gameshelf-hltb', '/v1/hltb/search', 'Hades'],
       ['gameshelf-metacritic', '/v1/metacritic/search', 'Hades'],
       ['gameshelf-compat', '/v1/compat/11', null],
@@ -581,3 +583,83 @@ function probeVerdict(slug: string, body: unknown): ScraperHealthVerdict {
   assert.ok(entry, `missing probe ${slug}`);
   return entry.check(body);
 }
+
+void test('psprices probe looks up a Switch title, since PS4/PS5 use the PlayStation Store', () => {
+  const entry = buildScraperHealthProbes().find((item) => item.slug === 'gameshelf-psprices');
+  assert.equal(entry?.query['platform'], 'Switch');
+});
+
+void test('PlayStation Store probe accepts only the verified product with a price', () => {
+  const hadesII = 'EP4484-PPSA36082_00-0912328937643383';
+  assert.deepEqual(
+    probeVerdict('gameshelf-playstation-store', {
+      item: { productId: hadesII, title: 'Hades II', amount: 29.9 },
+    }),
+    { ok: true, detail: `matched (productId=${hadesII}, title=Hades II, amount=29.9)` }
+  );
+  assert.equal(
+    probeVerdict('gameshelf-playstation-store', {
+      item: { productId: 'EP4484-PPSA03711_00-3235764131417729', title: 'Hades', amount: 24.9 },
+    }).ok,
+    false
+  );
+  assert.deepEqual(
+    probeVerdict('gameshelf-playstation-store', {
+      item: { productId: hadesII, title: 'Hades II', amount: null },
+    }),
+    {
+      ok: false,
+      reason: `matched the expected game without a price (productId=${hadesII}, title=Hades II)`,
+    }
+  );
+  assert.deepEqual(probeVerdict('gameshelf-playstation-store', { item: null }), {
+    ok: false,
+    reason: 'no match for a title that should always match',
+  });
+});
+
+void test('a probe with run calls it instead of the scraper URL and pings the result', async () => {
+  const { fetchImpl, requests, pings } = fakeFetch(() => jsonResponse({}));
+  let runs = 0;
+  const results = await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    fetchImpl,
+    probes: [
+      probe({
+        path: 'Hades II (PS5)',
+        run: () => {
+          runs += 1;
+          return Promise.resolve({ item: { title: 'Hades II' } });
+        },
+      }),
+    ],
+  });
+
+  assert.equal(runs, 1);
+  assert.equal(results[0].ok, true);
+  assert.match(results[0].message, /^test-scraper lookup Hades II \(PS5\) matched in /);
+  assert.equal(requests.length, 1, 'only the ping goes out');
+  assert.equal(pings().length, 1);
+});
+
+void test('a run probe reports a rejected PlayStation Store query in plain words', async () => {
+  const { fetchImpl, pings } = fakeFetch(() => jsonResponse({}));
+  const rejected = new Error(
+    'PlayStation Store rejected the getSearchResults query: Query 4df6 not whitelisted'
+  );
+  rejected.name = 'PlayStationStoreQueryRejectedError';
+  const results = await runScraperHealthChecks({
+    pingKey: PING_KEY,
+    pingBaseUrl: PING_BASE_URL,
+    fetchImpl,
+    probes: [probe({ path: 'Hades II (PS5)', run: () => Promise.reject(rejected) })],
+  });
+
+  assert.equal(results[0].ok, false);
+  assert.equal(
+    results[0].message,
+    'test-scraper lookup Hades II (PS5) failed: query not whitelisted: the PlayStation Store query hash needs updating'
+  );
+  assert.ok(pings()[0].url.endsWith('/gameshelf-test/fail?create=1'));
+});

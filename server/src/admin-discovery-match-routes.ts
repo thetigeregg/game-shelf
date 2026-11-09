@@ -4,7 +4,21 @@ import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { normalizeDiscoveryGameKeys, parseDiscoveryGameKeys } from './discovery-game-keys.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
+import {
+  PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
+  PSPRICES_PLATFORM_IGDB_IDS,
+  STEAM_WINDOWS_PLATFORM_IGDB_ID,
+  resolvePricingSourceForPlatform,
+  type PricingSource,
+} from './platform-ids.js';
+import {
+  buildPlayStationStoreProductUrl,
+  parsePlayStationStoreProductId,
+} from './playstation-store-client.js';
+import {
+  buildManualPlayStationStoreSnapshot,
+  buildPlayStationStoreRefreshJob,
+} from './playstation-store-prices.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   createEmptyProviderRetryState,
@@ -77,6 +91,7 @@ interface PatchBody {
   psPricesUrl?: unknown;
   psPricesTitle?: unknown;
   psPricesPlatform?: unknown;
+  playstationStoreProductId?: unknown;
   queryTitle?: unknown;
   queryReleaseYear?: unknown;
   queryPlatform?: unknown;
@@ -246,7 +261,15 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         }
 
         let changed = false;
-        for (const relatedGame of relatedGames) {
+        // HLTB and review matches are the same game on every platform, so they apply to all its
+        // discovery rows. A price (and a store product pin) belongs to one platform's edition.
+        const targetGames =
+          provider === 'pricing'
+            ? relatedGames.filter(
+                (relatedGame) => relatedGame.platformIgdbId === game.platformIgdbId
+              )
+            : relatedGames;
+        for (const relatedGame of targetGames) {
           const relatedPayload = structuredClone(relatedGame.payload);
           applyManualMatchPatch(relatedPayload, relatedGame.platformIgdbId, provider, body);
           const didChange = await replaceDiscoveryPayload(
@@ -312,7 +335,14 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         const nextPayload = structuredClone(game.payload);
         clearManualMatch(nextPayload, provider);
         let changed = false;
-        for (const relatedGame of relatedGames) {
+        // As with saves: pricing belongs to one platform, HLTB and review to every platform.
+        const targetGames =
+          provider === 'pricing'
+            ? relatedGames.filter(
+                (relatedGame) => relatedGame.platformIgdbId === game.platformIgdbId
+              )
+            : relatedGames;
+        for (const relatedGame of targetGames) {
           const relatedPayload = structuredClone(relatedGame.payload);
           clearManualMatch(relatedPayload, provider);
           const didChange = await replaceDiscoveryPayload(
@@ -564,6 +594,34 @@ async function enqueuePricingRefreshJobs(
       continue;
     }
 
+    if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
+      if (
+        !params.ignorePsPricesLock &&
+        isProviderMatchLocked(payload, 'playstationStoreMatchLocked')
+      ) {
+        continue;
+      }
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId,
+        payload,
+        dedupePrefix: params.requestedBy,
+        nowMs,
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() =>
+          backgroundJobs.enqueue({
+            jobType: 'playstation_store_price_revalidate',
+            dedupeKey: storeJob.dedupeKey,
+            payload: storeJob.payload,
+            priority: 120,
+            maxAttempts: 3,
+          })
+        );
+      }
+      continue;
+    }
+
     if (!PSPRICES_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
       continue;
     }
@@ -666,6 +724,8 @@ function buildDetailResponse(
         psPricesUrl: normalizeString(payload['psPricesUrl']),
         psPricesTitle: normalizeString(payload['psPricesTitle']),
         psPricesPlatform: normalizeString(payload['psPricesPlatform']),
+        playstationStoreProductId: normalizeString(payload['playstationStoreProductId']),
+        playstationStoreTitle: normalizeString(payload['playstationStoreTitle']),
       },
     },
   };
@@ -727,28 +787,36 @@ function buildPricingState(
   platformIgdbId: number
 ): DiscoveryProviderState {
   const hasPrice = hasUnifiedPriceValue(payload);
-  const isEligiblePlatform = isPricingPlatformEligible(platformIgdbId);
-  if (!isEligiblePlatform) {
+  const locked = isProviderMatchLocked(payload, pricingLockKey(platformIgdbId));
+  if (resolvePricingSourceForPlatform(platformIgdbId) === null) {
     return {
       status: 'matched',
-      locked: isProviderMatchLocked(payload, 'psPricesMatchLocked'),
+      locked,
       ...createEmptyProviderRetryState(),
     };
   }
 
-  const retry = parseProviderRetryState(readProviderRetryState(payload, 'psprices'));
-  return buildProviderState(hasPrice, isProviderMatchLocked(payload, 'psPricesMatchLocked'), retry);
-}
-
-function isPricingPlatformEligible(platformIgdbId: number): boolean {
-  return (
-    platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID ||
-    PSPRICES_PLATFORM_IGDB_IDS.has(platformIgdbId)
+  const retry = parseProviderRetryState(
+    readProviderRetryState(payload, pricingRetryKey(platformIgdbId))
   );
+  return buildProviderState(hasPrice, locked, retry);
 }
 
-function getDefaultPricingSource(platformIgdbId: number): 'steam_store' | 'psprices' {
-  return platformIgdbId === STEAM_WINDOWS_PLATFORM_IGDB_ID ? 'steam_store' : 'psprices';
+/** PS4/PS5 lock and back off on the PlayStation Store; Steam and Switch keep the psprices keys. */
+function pricingLockKey(
+  platformIgdbId: number
+): 'playstationStoreMatchLocked' | 'psPricesMatchLocked' {
+  return PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId)
+    ? 'playstationStoreMatchLocked'
+    : 'psPricesMatchLocked';
+}
+
+function pricingRetryKey(platformIgdbId: number): 'playstationStore' | 'psprices' {
+  return PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'playstationStore' : 'psprices';
+}
+
+function getDefaultPricingSource(platformIgdbId: number): PricingSource {
+  return resolvePricingSourceForPlatform(platformIgdbId) ?? 'psprices';
 }
 
 function buildProviderState(
@@ -929,9 +997,26 @@ function applyManualMatchPatch(
       ? getDefaultPricingSource(platformIgdbId)
       : parsePricingSource(requestedPriceSource)) ?? null;
   if (requestedPriceSource !== null && priceSource === null) {
-    return 'Price source must be steam_store or psprices.';
+    return 'Price source must be steam_store, playstation_store or psprices.';
   }
   const isPsPricesSource = priceSource === 'psprices';
+  const isPlayStationStoreSource = priceSource === 'playstation_store';
+  const playstationStoreProductId = isPlayStationStoreSource
+    ? parsePlayStationStoreProductId(
+        // An explicit empty product unlinks it; the price URL is only a fallback when the request
+        // doesn't mention the product (it's often the old product's URL).
+        Object.prototype.hasOwnProperty.call(body, 'playstationStoreProductId')
+          ? body.playstationStoreProductId
+          : body.priceUrl
+      )
+    : null;
+  if (
+    isPlayStationStoreSource &&
+    normalizeString(body.playstationStoreProductId) !== null &&
+    playstationStoreProductId === null
+  ) {
+    return 'PlayStation Store product must be a product ID or product URL.';
+  }
   const priceRegularAmount = normalizeNumber(body.priceRegularAmount);
   const priceDiscountPercent = normalizeNumber(body.priceDiscountPercent);
   const pricingError =
@@ -951,14 +1036,38 @@ function applyManualMatchPatch(
   payload['priceRegularAmount'] = priceRegularAmount;
   payload['priceDiscountPercent'] = priceDiscountPercent;
   payload['priceIsFree'] = priceIsFree;
-  payload['priceUrl'] = priceUrl;
+  payload['priceUrl'] =
+    priceUrl ??
+    (playstationStoreProductId ? buildPlayStationStoreProductUrl(playstationStoreProductId) : null);
   payload['psPricesUrl'] = isPsPricesSource
     ? (normalizeString(body.psPricesUrl) ?? priceUrl)
     : null;
   payload['psPricesTitle'] = isPsPricesSource ? normalizeString(body.psPricesTitle) : null;
   payload['psPricesPlatform'] = isPsPricesSource ? normalizeString(body.psPricesPlatform) : null;
-  payload['psPricesMatchLocked'] = true;
-  resetRetryState(payload, 'psprices');
+  if (isPlayStationStoreSource) {
+    // The saved price becomes the store's cached snapshot, so the price route serves it rather
+    // than an older lookup. A product pins it: refreshes then price that product directly. Without
+    // one it's a manual price, which refreshes leave alone.
+    Object.assign(
+      payload,
+      buildManualPlayStationStoreSnapshot({
+        platformIgdbId,
+        productId: playstationStoreProductId,
+        title: normalizeString(payload['title']),
+        url: playstationStoreProductId
+          ? buildPlayStationStoreProductUrl(playstationStoreProductId)
+          : priceUrl,
+        amount: priceAmount,
+        currency: normalizeString(body.priceCurrency),
+        regularAmount: priceRegularAmount,
+        discountPercent: priceDiscountPercent,
+        isFree: priceIsFree,
+        fetchedAt: String(payload['priceFetchedAt']),
+      })
+    );
+  }
+  payload[pricingLockKey(platformIgdbId)] = true;
+  resetRetryState(payload, pricingRetryKey(platformIgdbId));
   return null;
 }
 
@@ -1010,30 +1119,60 @@ function clearManualMatch(
   payload['psPricesTitle'] = null;
   payload['psPricesPlatform'] = null;
   payload['psPricesMatchLocked'] = false;
+  for (const key of [
+    'playstationStoreProductId',
+    'playstationStoreUrl',
+    'playstationStoreTitle',
+    'playstationStoreFetchedAt',
+    'playstationStorePriceAmount',
+    'playstationStorePriceCurrency',
+    'playstationStoreRegularPriceAmount',
+    'playstationStoreDiscountPercent',
+    'playstationStoreIsFree',
+    'playstationStoreSaleEndsAt',
+    'playstationStoreMatchQueryTitle',
+    'playstationStoreMatchTitle',
+    'playstationStoreMatchScore',
+    'playstationStoreMatchConfidence',
+    'playstationStoreCandidates',
+  ]) {
+    payload[key] = null;
+  }
+  payload['playstationStoreMatchLocked'] = false;
   resetRetryState(payload, 'psprices');
+  resetRetryState(payload, 'playstationStore');
 }
 
 function resetPermanentMiss(
   payload: Record<string, unknown>,
   provider: 'hltb' | 'review' | 'pricing'
 ): boolean {
-  const retryKey = provider === 'hltb' ? 'hltb' : provider === 'review' ? 'metacritic' : 'psprices';
-  const current = parseProviderRetryState(readProviderRetryState(payload, retryKey));
-  if (
-    !current.permanentMiss &&
-    current.attempts === 0 &&
-    current.lastTriedAt === null &&
-    current.nextTryAt === null
-  ) {
-    return false;
+  const retryKeys: Array<'hltb' | 'metacritic' | 'psprices' | 'playstationStore'> =
+    provider === 'hltb'
+      ? ['hltb']
+      : provider === 'review'
+        ? ['metacritic']
+        : ['psprices', 'playstationStore'];
+  let didReset = false;
+  for (const retryKey of retryKeys) {
+    const current = parseProviderRetryState(readProviderRetryState(payload, retryKey));
+    if (
+      !current.permanentMiss &&
+      current.attempts === 0 &&
+      current.lastTriedAt === null &&
+      current.nextTryAt === null
+    ) {
+      continue;
+    }
+    resetRetryState(payload, retryKey);
+    didReset = true;
   }
-  resetRetryState(payload, retryKey);
-  return true;
+  return didReset;
 }
 
 function resetRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices' | 'playstationStore'
 ): void {
   const existingRetry =
     payload['enrichmentRetry'] &&
@@ -1216,7 +1355,7 @@ async function replaceDiscoveryPayload(
 
 function readProviderRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices' | 'playstationStore'
 ): unknown {
   const retry = payload['enrichmentRetry'];
   if (!retry || typeof retry !== 'object' || Array.isArray(retry)) {
@@ -1414,15 +1553,16 @@ function parseReviewSource(value: unknown): 'metacritic' | 'mobygames' | null {
   return null;
 }
 
-function parsePricingSource(value: unknown): 'steam_store' | 'psprices' | null {
-  if (value === 'steam_store' || value === 'psprices') {
-    return value;
-  }
+function parsePricingSource(value: unknown): PricingSource | null {
   if (typeof value !== 'string') {
     return null;
   }
   const normalized = value.trim().toLowerCase();
-  if (normalized === 'steam_store' || normalized === 'psprices') {
+  if (
+    normalized === 'steam_store' ||
+    normalized === 'playstation_store' ||
+    normalized === 'psprices'
+  ) {
     return normalized;
   }
   return null;

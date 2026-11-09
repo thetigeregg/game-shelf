@@ -14,6 +14,10 @@ interface SeedRow {
 class PoolMock {
   private readonly rows = new Map<string, SeedRow>();
   private readonly backgroundJobs = new Map<string, number>();
+
+  enqueuedDedupeKeys(): string[] {
+    return [...this.backgroundJobs.keys()];
+  }
   private nextBackgroundJobId = 1000;
   private transactionRows: Map<string, SeedRow> | null = null;
   keyLookupQueryCount = 0;
@@ -1251,7 +1255,7 @@ void test('admin discovery pricing state shows permanent miss but clear route re
       title: 'Needs Pricing Reset',
       platform: 'PlayStation 5',
       enrichmentRetry: {
-        psprices: {
+        playstationStore: {
           attempts: 6,
           lastTriedAt: '2026-03-01T00:00:00.000Z',
           nextTryAt: null,
@@ -1295,7 +1299,7 @@ void test('admin discovery pricing state shows permanent miss but clear route re
     const clearBody = JSON.parse(clearResponse.body) as { error: string };
     assert.equal(clearBody.error, 'Provider must be hltb or review.');
     assert.deepEqual(pool.readPayload('23', 167)?.['enrichmentRetry'], {
-      psprices: {
+      playstationStore: {
         attempts: 6,
         lastTriedAt: '2026-03-01T00:00:00.000Z',
         nextTryAt: null,
@@ -1424,7 +1428,7 @@ void test('admin discovery patch route rejects unsupported pricing sources', asy
 
     assert.equal(response.statusCode, 400);
     assert.deepEqual(response.json(), {
-      error: 'Price source must be steam_store or psprices.',
+      error: 'Price source must be steam_store, playstation_store or psprices.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;
@@ -1489,7 +1493,19 @@ void test('admin discovery delete route clears pricing fields and resets pricing
     assert.equal(stored['priceUrl'], null);
     assert.equal(stored['psPricesUrl'], null);
     assert.equal(stored['psPricesMatchLocked'], false);
+    assert.equal(stored['playstationStoreProductId'], null);
+    assert.equal(stored['playstationStoreMatchLocked'], false);
+    // The store's cached price and its search context go too, so nothing serves the cleared price.
+    assert.equal(stored['playstationStoreFetchedAt'], null);
+    assert.equal(stored['playstationStorePriceAmount'], null);
+    assert.equal(stored['playstationStoreMatchQueryTitle'], null);
     assert.deepEqual(stored['enrichmentRetry'], {
+      playstationStore: {
+        attempts: 0,
+        lastTriedAt: null,
+        nextTryAt: null,
+        permanentMiss: false,
+      },
       psprices: {
         attempts: 0,
         lastTriedAt: null,
@@ -2331,8 +2347,9 @@ void test('admin discovery pricing patch route accepts free-only updates', async
     assert.ok(stored);
     assert.equal(stored['priceAmount'], null);
     assert.equal(stored['priceIsFree'], true);
-    assert.equal(stored['priceSource'], 'psprices');
-    assert.equal(stored['psPricesMatchLocked'], true);
+    // PS4 defaults to the PlayStation Store, which has its own lock.
+    assert.equal(stored['priceSource'], 'playstation_store');
+    assert.equal(stored['playstationStoreMatchLocked'], true);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
@@ -2872,6 +2889,279 @@ void test('admin discovery patch route wraps related updates in a transaction', 
 
     assert.equal(response.statusCode, 200);
     assert.deepEqual(pool.transactionLog.slice(-2), ['BEGIN', 'COMMIT']);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing requeue sends PS games to the PlayStation Store', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+
+  pool.seed({
+    igdbGameId: '91',
+    platformIgdbId: 167,
+    payload: { listType: 'discovery', title: 'PS5 Queue', platform: 'PlayStation 5' },
+  });
+  pool.seed({
+    igdbGameId: '92',
+    platformIgdbId: 130,
+    payload: { listType: 'discovery', title: 'Switch Queue', platform: 'Nintendo Switch' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: { provider: 'pricing', gameKeys: ['91::167', '92::130'] },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const keys = pool.enqueuedDedupeKeys();
+    assert.ok(
+      keys.some((key) => key.includes(':playstation-store:91:167:')),
+      `PS5 game queued for the PlayStation Store: ${keys.join(', ')}`
+    );
+    assert.ok(
+      keys.some((key) => key.includes(':psprices:92:130:')),
+      'Switch stays on psprices'
+    );
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch pins a PlayStation Store product for a PS game', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const productId = 'EP9000-PPSA21567_00-0000000000000000';
+
+  pool.seed({
+    igdbGameId: '93',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Astro Bot',
+      platform: 'PlayStation 5',
+      psPricesUrl: 'https://psprices.com/region-ch/game/1/astro-bot',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/93/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 49.62,
+        priceCurrency: 'CHF',
+        playstationStoreProductId: `https://store.playstation.com/de-ch/product/${productId}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('93', 167);
+    assert.ok(stored);
+    assert.equal(stored['priceSource'], 'playstation_store');
+    assert.equal(stored['playstationStoreProductId'], productId);
+    assert.equal(stored['priceUrl'], `https://store.playstation.com/de-ch/product/${productId}`);
+    assert.equal(stored['playstationStoreMatchLocked'], true);
+    assert.equal(stored['psPricesUrl'], null);
+    // The saved price is also the store's cached snapshot, so the price route serves it.
+    assert.equal(stored['playstationStorePriceAmount'], 49.62);
+    assert.equal(stored['playstationStorePriceCurrency'], 'CHF');
+    assert.equal(stored['playstationStorePlatform'], 'PS5');
+    assert.equal(typeof stored['playstationStoreFetchedAt'], 'string');
+
+    const invalid = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/93/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 1,
+        playstationStoreProductId: 'https://evil.example/product/x',
+      },
+    });
+    assert.equal(invalid.statusCode, 400);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch only changes the selected platform', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  pool.seed({
+    igdbGameId: '94',
+    platformIgdbId: 167,
+    payload: { listType: 'discovery', title: 'Cross Gen', platform: 'PlayStation 5' },
+  });
+  pool.seed({
+    igdbGameId: '94',
+    platformIgdbId: 48,
+    payload: { listType: 'discovery', title: 'Cross Gen', platform: 'PlayStation 4' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/94/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 69.9,
+        playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      pool.readPayload('94', 167)?.['playstationStoreProductId'],
+      'EP9000-PPSA21567_00-0000000000000000'
+    );
+    // The PS4 edition is a different product with its own price.
+    const ps4 = pool.readPayload('94', 48);
+    assert.equal(ps4?.['playstationStoreProductId'], undefined);
+    assert.equal(ps4?.['priceAmount'], undefined);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing delete only clears the selected platform', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const pinned = {
+    listType: 'discovery',
+    title: 'Cross Gen',
+    priceSource: 'playstation_store',
+    priceAmount: 59.9,
+    playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+    playstationStoreMatchLocked: true,
+  };
+  pool.seed({
+    igdbGameId: '95',
+    platformIgdbId: 167,
+    payload: { ...pinned, platform: 'PlayStation 5' },
+  });
+  pool.seed({
+    igdbGameId: '95',
+    platformIgdbId: 48,
+    payload: { ...pinned, platform: 'PlayStation 4' },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/admin/discovery/games/95/167/match/pricing',
+      headers: { authorization: 'Bearer test-admin-token' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(pool.readPayload('95', 167)?.['playstationStoreProductId'], null);
+    // The PS4 edition's own match is left alone.
+    const ps4 = pool.readPayload('95', 48);
+    assert.ok(ps4);
+    assert.equal(ps4['playstationStoreProductId'], 'EP9000-PPSA21567_00-0000000000000000');
+    assert.equal(ps4['playstationStoreMatchLocked'], true);
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
+    await app.close();
+  }
+});
+
+void test('admin discovery pricing patch with an empty product unlinks it', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
+  const productUrl =
+    'https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000';
+  pool.seed({
+    igdbGameId: '96',
+    platformIgdbId: 167,
+    payload: {
+      listType: 'discovery',
+      title: 'Astro Bot',
+      platform: 'PlayStation 5',
+      priceUrl: productUrl,
+      playstationStoreProductId: 'EP9000-PPSA21567_00-0000000000000000',
+    },
+  });
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+    // The admin page still sends the old product URL as the price URL.
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/discovery/games/96/167/match',
+      headers: { authorization: 'Bearer test-admin-token' },
+      payload: {
+        provider: 'pricing',
+        priceSource: 'playstation_store',
+        priceAmount: 40,
+        priceUrl: productUrl,
+        playstationStoreProductId: null,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const stored = pool.readPayload('96', 167);
+    assert.ok(stored);
+    assert.equal(stored['playstationStoreProductId'], null);
+    assert.equal(stored['priceAmount'], 40);
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;

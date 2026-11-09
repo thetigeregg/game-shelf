@@ -16,8 +16,17 @@ import { processQueuedRomsCatalogRefresh } from './roms.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
+import {
+  buildPlayStationStoreRefreshJob,
+  processQueuedPlayStationStorePriceRevalidation,
+} from './playstation-store-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
+import {
+  PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
+  PSPRICES_PLATFORM_IGDB_IDS,
+  STEAM_WINDOWS_PLATFORM_IGDB_ID,
+  resolvePricingSourceForPlatform,
+} from './platform-ids.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { hasUnifiedPriceValue, resolvePriceFetchedAtMs } from './pricing-freshness.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
@@ -289,6 +298,18 @@ function shouldSchedulePspricesRefresh(params: {
     return false;
   }
 
+  return isProviderRetryDue({ ...params, retryKey: 'psprices' });
+}
+
+/** Discovery games back off after failed lookups (enrichmentRetry[retryKey]); others always run. */
+function isProviderRetryDue(params: {
+  payload: Record<string, unknown>;
+  retryKey: string;
+  nowMs: number;
+  maxAttempts: number;
+  rearmAfterDays: number;
+  rearmRecentReleaseYears: number;
+}): boolean {
   if (params.payload['listType'] !== 'discovery') {
     return true;
   }
@@ -298,7 +319,7 @@ function shouldSchedulePspricesRefresh(params: {
       params.payload['enrichmentRetry'] &&
         typeof params.payload['enrichmentRetry'] === 'object' &&
         !Array.isArray(params.payload['enrichmentRetry'])
-        ? (params.payload['enrichmentRetry'] as Record<string, unknown>)['psprices']
+        ? (params.payload['enrichmentRetry'] as Record<string, unknown>)[params.retryKey]
         : null
     ),
     nowMs: params.nowMs,
@@ -888,7 +909,10 @@ async function main(): Promise<void> {
       }
       stats.considered += 1;
 
-      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      const fetchedAtMs = resolvePriceFetchedAtMs(
+        payload,
+        resolvePricingSourceForPlatform(row.platform_igdb_id)
+      );
       if (fetchedAtMs !== null && fetchedAtMs > params.staleThresholdMs) {
         continue;
       }
@@ -917,6 +941,37 @@ async function main(): Promise<void> {
         });
 
         if (enqueueResult.deduped) {
+          stats.deduped += 1;
+        } else {
+          stats.enqueued += 1;
+        }
+        continue;
+      }
+
+      if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+        const storeJob = buildPlayStationStoreRefreshJob({
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId: row.platform_igdb_id,
+          payload,
+          dedupePrefix: params.dedupePrefix,
+          nowMs,
+        });
+        if (storeJob.kind === 'skip') {
+          if (storeJob.reason === 'backoff') {
+            stats.skippedBackoff += 1;
+          } else {
+            stats.skippedMissingData += 1;
+          }
+          continue;
+        }
+        const storeEnqueueResult = await jobs.enqueue({
+          jobType: 'playstation_store_price_revalidate',
+          dedupeKey: storeJob.dedupeKey,
+          payload: storeJob.payload,
+          priority: 120,
+          maxAttempts: 3,
+        });
+        if (storeEnqueueResult.deduped) {
           stats.deduped += 1;
         } else {
           stats.enqueued += 1;
@@ -993,7 +1048,11 @@ async function main(): Promise<void> {
         ORDER BY updated_at ASC
         LIMIT $3
         `,
-          [STEAM_WINDOWS_PLATFORM_IGDB_ID, [...PSPRICES_PLATFORM_IGDB_IDS], scanLimit]
+          [
+            STEAM_WINDOWS_PLATFORM_IGDB_ID,
+            [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...PSPRICES_PLATFORM_IGDB_IDS],
+            scanLimit,
+          ]
         );
 
         const stats = await enqueuePricingRefreshForRows({
@@ -1273,6 +1332,19 @@ async function main(): Promise<void> {
         });
         return { revalidated: true };
       }
+      case 'playstation_store_price_revalidate': {
+        await processQueuedPlayStationStorePriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          title: stringOrEmpty(job.payload['title']),
+          productId: stringOrEmpty(job.payload['productId']),
+        });
+        return { revalidated: true };
+      }
       case 'manuals_catalog_refresh': {
         const summary = await processQueuedManualsCatalogRefresh(pool, config.manualsDir);
         return { summary };
@@ -1306,7 +1378,8 @@ async function main(): Promise<void> {
       job.jobType === 'metacritic_cache_revalidate' ||
       job.jobType === 'mobygames_cache_revalidate' ||
       job.jobType === 'steam_price_revalidate' ||
-      job.jobType === 'psprices_price_revalidate'
+      job.jobType === 'psprices_price_revalidate' ||
+      job.jobType === 'playstation_store_price_revalidate'
     ) {
       context.cacheKey = job.payload['cacheKey'];
     }
@@ -1408,6 +1481,7 @@ async function main(): Promise<void> {
     startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
+    startConsumers('playstation_store_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
     startConsumers('roms_catalog_refresh', romsCatalogConcurrency);
 

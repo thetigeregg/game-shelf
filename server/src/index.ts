@@ -19,6 +19,7 @@ import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { registerSteamPricesRoute } from './steam-prices.js';
 import { registerPsPricesRoute } from './psprices-prices.js';
+import { registerPlayStationStorePricesRoute } from './playstation-store-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -366,6 +367,20 @@ async function main(): Promise<void> {
         void backgroundJobs.enqueue({
           jobType: 'psprices_price_revalidate',
           dedupeKey: `psprices-price-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3,
+        });
+      },
+    });
+    await registerPlayStationStorePricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.playstationStorePriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.playstationStorePriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.playstationStorePriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'playstation_store_price_revalidate',
+          dedupeKey: `playstation-store-price-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
           maxAttempts: 3,

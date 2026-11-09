@@ -3,7 +3,13 @@ import type { Pool, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { STEAM_WINDOWS_PLATFORM_IGDB_ID, PSPRICES_PLATFORM_IGDB_IDS } from './platform-ids.js';
+import {
+  PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
+  PSPRICES_PLATFORM_IGDB_IDS,
+  STEAM_WINDOWS_PLATFORM_IGDB_ID,
+  resolvePricingSourceForPlatform,
+} from './platform-ids.js';
+import { buildPlayStationStoreRefreshJob } from './playstation-store-prices.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   maybeRearmProviderRetryState,
@@ -254,7 +260,11 @@ async function enqueueForcedWishlistPricingRefreshJobs(
     ORDER BY igdb_game_id ASC, platform_igdb_id ASC
     LIMIT $3
     `,
-    [STEAM_WINDOWS_PLATFORM_IGDB_ID, [...PSPRICES_PLATFORM_IGDB_IDS], maxRows]
+    [
+      STEAM_WINDOWS_PLATFORM_IGDB_ID,
+      [...PLAYSTATION_STORE_PLATFORM_IGDB_IDS, ...PSPRICES_PLATFORM_IGDB_IDS],
+      maxRows,
+    ]
   );
 
   const steamCountry = config.steamDefaultCountry;
@@ -270,7 +280,10 @@ async function enqueueForcedWishlistPricingRefreshJobs(
     }
 
     if (options.respectStaleness) {
-      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      const fetchedAtMs = resolvePriceFetchedAtMs(
+        payload,
+        resolvePricingSourceForPlatform(row.platform_igdb_id)
+      );
       if (fetchedAtMs !== null && fetchedAtMs > staleThresholdMs) {
         continue;
       }
@@ -297,6 +310,19 @@ async function enqueueForcedWishlistPricingRefreshJobs(
           maxAttempts: 3,
         })
       );
+      continue;
+    }
+
+    if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:wishlist',
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toPlayStationStoreJobInput(storeJob)));
+      }
       continue;
     }
 
@@ -404,7 +430,10 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
     }
 
     if (options.respectStaleness) {
-      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      const fetchedAtMs = resolvePriceFetchedAtMs(
+        payload,
+        resolvePricingSourceForPlatform(row.platform_igdb_id)
+      );
       if (fetchedAtMs !== null && fetchedAtMs > staleThresholdMs) {
         continue;
       }
@@ -431,6 +460,23 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
           maxAttempts: 3,
         })
       );
+      continue;
+    }
+
+    if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+      if (isProviderMatchLocked(payload, 'playstationStoreMatchLocked')) {
+        continue;
+      }
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:discovery',
+        nowMs,
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toPlayStationStoreJobInput(storeJob)));
+      }
       continue;
     }
 
@@ -488,6 +534,16 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   const deduped = results.filter((result) => result.deduped).length;
 
   return { scanned: rows.rows.length, enqueued, deduped };
+}
+
+function toPlayStationStoreJobInput(job: { dedupeKey: string; payload: Record<string, unknown> }) {
+  return {
+    jobType: 'playstation_store_price_revalidate' as const,
+    dedupeKey: job.dedupeKey,
+    payload: job.payload,
+    priority: 120,
+    maxAttempts: 3,
+  };
 }
 
 function readEnrichmentRetryState(

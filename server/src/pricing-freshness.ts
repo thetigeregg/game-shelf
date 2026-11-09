@@ -23,24 +23,46 @@ export function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean 
   return false;
 }
 
-export function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
-  // Freshness should track successful unified pricing snapshots, not fetch attempts.
-  if (!hasUnifiedPriceValue(payload)) {
+/**
+ * When a source last looked the game up, for sources whose attempt time counts: a PlayStation
+ * Store lookup that found nothing still waits for the next stale window instead of being retried
+ * on every pricing pass, which would mean hourly searches of the store's unofficial API.
+ */
+const ATTEMPT_FETCHED_AT_KEY_BY_SOURCE: Readonly<Record<string, string>> = {
+  playstation_store: 'playstationStoreFetchedAt',
+};
+
+function parseTimestampMs(value: unknown): number | null {
+  const normalized = normalizeNonEmptyString(value);
+  if (!normalized) {
     return null;
   }
+  const parsedMs = Date.parse(normalized);
+  return Number.isFinite(parsedMs) ? parsedMs : null;
+}
 
-  const candidates = [payload['priceFetchedAt']];
+/**
+ * When the game's price was last fetched, or null when it should be fetched now.
+ *
+ * Normally this is the last successful unified price (`priceFetchedAt`). With `expectedSource`, a
+ * price from another source doesn't count: the platform's prices have moved (e.g. PS4/PS5 from
+ * psprices to the PlayStation Store), so the game is looked up on the new source at the next
+ * refresh. For the PlayStation Store, its last attempt counts instead, found or not.
+ */
+export function resolvePriceFetchedAtMs(
+  payload: Record<string, unknown>,
+  expectedSource?: string | null
+): number | null {
+  const hasPriceFromSource =
+    hasUnifiedPriceValue(payload) && (!expectedSource || payload['priceSource'] === expectedSource);
+  const priceFetchedAtMs = hasPriceFromSource ? parseTimestampMs(payload['priceFetchedAt']) : null;
 
-  for (const candidate of candidates) {
-    const normalized = normalizeNonEmptyString(candidate);
-    if (!normalized) {
-      continue;
-    }
-    const parsedMs = Date.parse(normalized);
-    if (Number.isFinite(parsedMs)) {
-      return parsedMs;
-    }
+  // A store attempt that found nothing keeps the last price but is still a recent look-up, so the
+  // later of the two counts.
+  const attemptKey = expectedSource ? ATTEMPT_FETCHED_AT_KEY_BY_SOURCE[expectedSource] : undefined;
+  const attemptMs = attemptKey ? parseTimestampMs(payload[attemptKey]) : null;
+  if (priceFetchedAtMs === null || attemptMs === null) {
+    return priceFetchedAtMs ?? attemptMs;
   }
-
-  return null;
+  return Math.max(priceFetchedAtMs, attemptMs);
 }

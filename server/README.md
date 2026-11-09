@@ -13,6 +13,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/metacritic/search`
 - `GET /v1/mobygames/search`
 - `GET /v1/steam/prices`
+- `GET /v1/playstation-store/prices`
 - `GET /v1/psprices/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
@@ -55,8 +56,11 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/steam/prices`
   - Required: `igdbGameId`, `platformIgdbId` (Windows-only: `6`)
   - Optional: `cc` (ISO alpha-2 country code, defaults to `CH`)
+- `GET /v1/playstation-store/prices`
+  - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167`, PS4/PS5)
+  - Optional: `title`, `includeCandidates` (`1|true|yes`), `productId` (a store product ID or product URL to price instead of searching)
 - `GET /v1/psprices/prices`
-  - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167|130|508`)
+  - Required: `igdbGameId`, `platformIgdbId` (supported: `130|508`, Switch/Switch 2)
   - Optional: `title`, `includeCandidates` (`1|true|yes`), `preferredPsPricesUrl`
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
@@ -115,6 +119,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS`
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS`
+- `PLAYSTATION_STORE_COUNTRY` (default `CH`) and `PLAYSTATION_STORE_LANGUAGE` (default `de`): the PlayStation Store locale for PS4/PS5 prices
+- `PLAYSTATION_STORE_API_BASE_URL` (default `https://web.np.playstation.com`)
+- `PLAYSTATION_STORE_API_TIMEOUT_MS`
+- `PLAYSTATION_STORE_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `PLAYSTATION_STORE_PRICE_CACHE_FRESH_TTL_SECONDS`
+- `PLAYSTATION_STORE_PRICE_CACHE_STALE_TTL_SECONDS`
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS`

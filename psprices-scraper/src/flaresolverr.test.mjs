@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  CLOUDFLARE_BLOCK_MEMORY_MS,
   CloudflareBlockError,
   DEFAULT_FLARESOLVERR_URL,
+  FLARESOLVERR_SESSION_TTL_MINUTES,
+  FlareSolverrNoReplyError,
   FLARESOLVERR_REQUEST_GRACE_MS,
   FLARESOLVERR_TIMEOUT_MS,
   assertSearchResponseOk,
   assertSearchResultsPage,
+  createCloudflareBlockMemory,
+  createFlareSolverrClient,
   fetchHtmlViaFlareSolverr,
   flareSolverrTimeoutWithin,
   isFlareSolverrEnabled,
@@ -166,9 +171,26 @@ test('fetchHtmlViaFlareSolverr surfaces the underlying cause of a network failur
   await assert.rejects(
     fetchHtmlViaFlareSolverr(SEARCH_URL, { flareSolverrUrl: FLARESOLVERR_URL, fetchImpl }),
     {
+      name: 'FlareSolverrNoReplyError',
       message: 'getaddrinfo ENOTFOUND flaresolverr',
     }
   );
+});
+
+test('fetchHtmlViaFlareSolverr names the session and its lifetime when given one', async () => {
+  const { fetchImpl, calls } = fakeFetch(200, flareSolverrReply('<html></html>'));
+  await fetchHtmlViaFlareSolverr(SEARCH_URL, {
+    flareSolverrUrl: FLARESOLVERR_URL,
+    session: 'gameshelf-psprices-1',
+    fetchImpl,
+  });
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    cmd: 'request.get',
+    url: SEARCH_URL,
+    maxTimeout: FLARESOLVERR_TIMEOUT_MS,
+    session: 'gameshelf-psprices-1',
+    session_ttl_minutes: FLARESOLVERR_SESSION_TTL_MINUTES,
+  });
 });
 
 test('fetchHtmlViaFlareSolverr rejects an empty page', async () => {
@@ -255,4 +277,208 @@ test('assertSearchResultsPage rejects pages that are not search results', async 
   } finally {
     await browser.close();
   }
+});
+
+/**
+ * A fake FlareSolverr whose request.get calls stay pending until the test settles them, so tests
+ * can see what's in flight. Other commands (sessions.destroy) answer at once.
+ */
+function controlledFlareSolverr() {
+  const pending = [];
+  const commands = [];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    commands.push(body);
+    if (body.cmd !== 'request.get') {
+      return { status: 200, text: async () => '{"status":"ok"}' };
+    }
+    return await new Promise((resolve, reject) => {
+      pending.push({ body, resolve, reject });
+    });
+  };
+  const reply = (html) => ({ status: 200, text: async () => flareSolverrReply(html) });
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  return { fetchImpl, pending, commands, reply, flush };
+}
+
+const plenty = () => Date.now() + 60_000;
+
+test('createFlareSolverrClient sends one request at a time, in order, in one session', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    const first = client.fetchHtml(`${SEARCH_URL}&n=1`, { deadline: plenty() });
+    const second = client.fetchHtml(`${SEARCH_URL}&n=2`, { deadline: plenty() });
+    await fake.flush();
+    assert.equal(fake.pending.length, 1, 'the second call waits for the first');
+
+    fake.pending[0].resolve(fake.reply('<html>one</html>'));
+    assert.equal(await first, '<html>one</html>');
+    await fake.flush();
+    assert.equal(fake.pending.length, 2);
+
+    fake.pending[1].resolve(fake.reply('<html>two</html>'));
+    assert.equal(await second, '<html>two</html>');
+    assert.deepEqual(
+      fake.pending.map(({ body }) => [body.url.slice(-3), body.session]),
+      [
+        ['n=1', 'gameshelf-psprices-1'],
+        ['n=2', 'gameshelf-psprices-1'],
+      ]
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient keeps the session when FlareSolverr reports a failed solve', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    const failed = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[0].resolve({
+      status: 500,
+      text: async () =>
+        JSON.stringify({ status: 'error', message: 'Error: Error solving the challenge.' }),
+    });
+    await assert.rejects(failed, { message: 'Error: Error solving the challenge.' });
+
+    const next = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[1].resolve(fake.reply('<html></html>'));
+    await next;
+    assert.equal(fake.pending[1].body.session, 'gameshelf-psprices-1');
+    assert.equal(fake.commands.filter(({ cmd }) => cmd === 'sessions.destroy').length, 0);
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient retires the session when FlareSolverr gives no reply', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    const failed = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[0].reject(
+      new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    );
+    await assert.rejects(failed, FlareSolverrNoReplyError);
+
+    const next = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+    await fake.flush();
+    fake.pending[1].resolve(fake.reply('<html></html>'));
+    await next;
+    assert.deepEqual(
+      fake.commands.map(({ cmd, session }) => [cmd, session]),
+      [
+        ['request.get', 'gameshelf-psprices-1'],
+        ['sessions.destroy', 'gameshelf-psprices-1'],
+        ['request.get', 'gameshelf-psprices-2'],
+      ]
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient stops waiting once too little budget is left, keeping the order', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    const first = client.fetchHtml(`${SEARCH_URL}&n=1`, { deadline: plenty() });
+    // Just over the minimum a call needs, so it has to give up after a short wait.
+    const tight = Date.now() + FLARESOLVERR_REQUEST_GRACE_MS + 5_000 + 30;
+    const starved = client.fetchHtml(`${SEARCH_URL}&n=2`, { deadline: tight });
+    const third = client.fetchHtml(`${SEARCH_URL}&n=3`, { deadline: plenty() });
+
+    await assert.rejects(starved, {
+      message: 'request time budget used up waiting for FlareSolverr',
+    });
+    await fake.flush();
+    assert.equal(fake.pending.length, 1, 'the third call still waits for the first');
+
+    fake.pending[0].resolve(fake.reply('<html>one</html>'));
+    await first;
+    await fake.flush();
+    assert.equal(fake.pending.length, 2);
+    assert.match(fake.pending[1].body.url, /n=3$/);
+    fake.pending[1].resolve(fake.reply('<html>three</html>'));
+    assert.equal(await third, '<html>three</html>');
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient gives a call only the budget left after its wait', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+  });
+  try {
+    const call = client.fetchHtml(SEARCH_URL, { deadline: Date.now() + 15_000 });
+    await fake.flush();
+    const { maxTimeout } = fake.pending[0].body;
+    assert.ok(maxTimeout <= 10_000 && maxTimeout > 9_000, `maxTimeout ${String(maxTimeout)}`);
+    fake.pending[0].resolve(fake.reply('<html></html>'));
+    await call;
+  } finally {
+    await client.close();
+  }
+});
+
+test('createFlareSolverrClient closes an idle session', async () => {
+  const fake = controlledFlareSolverr();
+  const client = createFlareSolverrClient({
+    flareSolverrUrl: FLARESOLVERR_URL,
+    fetchImpl: fake.fetchImpl,
+    idleMs: 20,
+  });
+  const call = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+  fake.pending[0].resolve(fake.reply('<html></html>'));
+  await call;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.deepEqual(fake.commands.at(-1), {
+    cmd: 'sessions.destroy',
+    session: 'gameshelf-psprices-1',
+  });
+
+  // The next call starts a new session.
+  const next = client.fetchHtml(SEARCH_URL, { deadline: plenty() });
+  await fake.flush();
+  assert.equal(fake.pending[1].body.session, 'gameshelf-psprices-2');
+  fake.pending[1].resolve(fake.reply('<html></html>'));
+  await next;
+  await client.close();
+});
+
+test('createCloudflareBlockMemory remembers a block for its window only', () => {
+  let now = 1_000_000;
+  const memory = createCloudflareBlockMemory({ now: () => now });
+  assert.equal(memory.activeBlock(), null);
+
+  memory.record();
+  now += 90_000;
+  const block = memory.activeBlock();
+  assert.ok(block instanceof CloudflareBlockError);
+  assert.equal(block.message, 'PSPrices: blocked by Cloudflare 90s ago, direct request skipped');
+
+  now += CLOUDFLARE_BLOCK_MEMORY_MS - 90_000;
+  assert.equal(memory.activeBlock(), null);
+  assert.equal(memory.activeBlock(), null);
 });

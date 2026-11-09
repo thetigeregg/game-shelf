@@ -9,8 +9,8 @@ import {
   CloudflareBlockError,
   assertSearchResponseOk,
   assertSearchResultsPage,
-  fetchHtmlViaFlareSolverr,
-  flareSolverrTimeoutWithin,
+  createCloudflareBlockMemory,
+  createFlareSolverrClient,
   isFlareSolverrEnabled,
   resolveFlareSolverrUrl,
   withHtmlPage,
@@ -46,6 +46,8 @@ const debugLogsEnabled =
   String(process.env.DEBUG_PSPRICES_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const flareSolverrEnabled = isFlareSolverrEnabled();
 const flareSolverrUrl = resolveFlareSolverrUrl();
+const flareSolverr = flareSolverrEnabled ? createFlareSolverrClient({ flareSolverrUrl }) : null;
+const cloudflareBlockMemory = createCloudflareBlockMemory();
 // Time one search request may spend across all its title variants, kept under the API's
 // PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS (60s by default) so a slow variant fails on its own here,
 // keeping what the others found, rather than the API giving up on the whole request.
@@ -152,7 +154,8 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
 /**
  * `requestState` is shared by one request's title variants. `blockError` carries a Cloudflare block
  * across them: once a variant is blocked, the rest go straight to FlareSolverr instead of being
- * blocked again. `deadline` ends the request's time budget; navigation and FlareSolverr calls are
+ * blocked again. A block is also remembered across requests for a while (cloudflareBlockMemory).
+ * `deadline` ends the request's time budget; navigation, waiting for FlareSolverr and its calls are
  * capped by what is left of it.
  */
 async function searchPsPricesInBrowser(page, query, platform, regionPath, show, requestState) {
@@ -164,6 +167,9 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
   }
 
   const url = endpoint.toString();
+  if (!requestState.blockError && flareSolverr) {
+    requestState.blockError = cloudflareBlockMemory.activeBlock();
+  }
   if (!requestState.blockError) {
     const navigationTimeoutMs = Math.min(browserTimeoutMs, requestState.deadline - Date.now());
     if (navigationTimeoutMs <= 0) {
@@ -179,9 +185,10 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
       await page.waitForTimeout(1000);
       return await extractSearchCandidates(page);
     } catch (error) {
-      if (!(error instanceof CloudflareBlockError) || !flareSolverrEnabled) {
+      if (!(error instanceof CloudflareBlockError) || !flareSolverr) {
         throw error;
       }
+      cloudflareBlockMemory.record();
       requestState.blockError = error;
       // A successful fallback looks healthy to the API, so this line is how to tell the block is
       // still there.
@@ -189,15 +196,8 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show, 
     }
   }
 
-  const maxTimeoutMs = flareSolverrTimeoutWithin(requestState.deadline - Date.now());
-  if (maxTimeoutMs === null) {
-    throw new Error(
-      `${requestState.blockError.message}; FlareSolverr skipped: request time budget used up`
-    );
-  }
-
   try {
-    const html = await fetchHtmlViaFlareSolverr(url, { flareSolverrUrl, maxTimeoutMs });
+    const html = await flareSolverr.fetchHtml(url, { deadline: requestState.deadline });
     return await withHtmlPage(page.context().browser(), url, html, async (fallbackPage) => {
       await assertSearchResultsPage(fallbackPage);
       return await extractSearchCandidates(fallbackPage);
@@ -473,12 +473,8 @@ async function closeSharedBrowser() {
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     activeBrowserLeases = 0;
-    closeSharedBrowser()
-      .catch(() => {
-        // Ignore shutdown cleanup errors.
-      })
-      .finally(() => {
-        process.exit(0);
-      });
+    Promise.allSettled([closeSharedBrowser(), flareSolverr?.close()]).finally(() => {
+      process.exit(0);
+    });
   });
 }

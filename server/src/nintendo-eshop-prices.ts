@@ -478,17 +478,26 @@ export async function lookupNintendoEshopPrice(params: {
 /**
  * The entry's game nsuid to price: the one with the highest regular price, so a free "Friend's
  * Pass" listed alongside a paid game never stands in for it. Without any price, the first nsuid.
+ *
+ * When only a free nsuid of several has a price, it can't be told apart from a Friend's Pass for a
+ * game not on sale here (yet), so the entry counts as having no price rather than being free.
  */
 function pickPricedNsuid(
   game: NintendoEshopSearchGame,
   prices: ReadonlyMap<string, NintendoEshopPrice>
 ): { game: NintendoEshopSearchGame; price: NintendoEshopPrice | null } {
   let best: NintendoEshopPrice | null = null;
+  let unpricedCount = 0;
   for (const nsuid of game.gameNsuids) {
     const price = prices.get(nsuid);
-    if (price && (best === null || price.regularAmount > best.regularAmount)) {
+    if (!price) {
+      unpricedCount += 1;
+    } else if (best === null || price.regularAmount > best.regularAmount) {
       best = price;
     }
+  }
+  if (best !== null && best.regularAmount === 0 && unpricedCount > 0) {
+    return { game, price: null };
   }
   return { game: best ? { ...game, nsuid: best.nsuid } : game, price: best };
 }
@@ -947,6 +956,13 @@ async function persistNintendoEshopSnapshot(
         WHERE igdb_game_id = $1
           AND platform_igdb_id = $2
           AND payload IS DISTINCT FROM (payload || $3::jsonb)
+          AND (
+            NOT $4::boolean
+            OR (
+              COALESCE(payload->>'nintendoEshopNsuid', '') = $5
+              AND COALESCE(payload->'nintendoEshopMatchLocked' = 'true'::jsonb, false) = $6
+            )
+          )
         FOR UPDATE
       )
       UPDATE games AS g
@@ -956,7 +972,17 @@ async function persistNintendoEshopSnapshot(
         AND g.platform_igdb_id = $2
       RETURNING current_row.payload AS previous_payload, g.payload AS next_payload
     `,
-    [params.igdbGameId, params.platformIgdbId, JSON.stringify(patchPayload)]
+    [
+      params.igdbGameId,
+      params.platformIgdbId,
+      JSON.stringify(patchPayload),
+      // An automatic refresh only applies if the pin and lock it started from are still current:
+      // an admin may have picked another game or saved a manual price while it was looking up.
+      // A user's override (which sets the lock) applies regardless.
+      params.matchLocked === undefined,
+      normalizeNonEmptyString(params.payload['nintendoEshopNsuid']) ?? '',
+      params.payload['nintendoEshopMatchLocked'] === true,
+    ]
   );
 
   const previousPayload =

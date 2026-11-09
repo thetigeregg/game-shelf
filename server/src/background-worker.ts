@@ -182,7 +182,16 @@ function normalizePositiveInteger(value: unknown): number | null {
   return null;
 }
 
+/**
+ * A psprices job for a platform psprices no longer prices (all of them now: PS4/PS5 moved to the
+ * PlayStation Store, Switch/Switch 2 to the Nintendo eShop).
+ */
+function isObsoletePspricesJob(platformIgdbId: number): boolean {
+  return resolvePricingSourceForPlatform(platformIgdbId) !== 'psprices';
+}
+
 export const __backgroundWorkerTestables = {
+  isObsoletePspricesJob,
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
   isProviderMatchLocked,
@@ -1145,13 +1154,19 @@ async function main(): Promise<void> {
         return { revalidated: true };
       }
       case 'psprices_price_revalidate': {
+        const platformIgdbId =
+          typeof job.payload['platformIgdbId'] === 'number'
+            ? job.payload['platformIgdbId']
+            : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10);
+        if (isObsoletePspricesJob(platformIgdbId)) {
+          // Queued before the platform moved to its store: drained without writing, so it can't
+          // replace the store's price.
+          return { revalidated: false, skipped: 'platform_priced_by_store' };
+        }
         await processQueuedPspricesPriceRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
           igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
-          platformIgdbId:
-            typeof job.payload['platformIgdbId'] === 'number'
-              ? job.payload['platformIgdbId']
-              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          platformIgdbId,
           title: stringOrEmpty(job.payload['title']),
           psPricesUrl: stringOrEmpty(job.payload['psPricesUrl']),
         });

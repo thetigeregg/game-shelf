@@ -285,6 +285,12 @@ void test('parseNintendoEshopNsuid accepts an nsuid, an eShop link or a redirect
     '70010000060676'
   );
   assert.equal(parseNintendoEshopNsuid('12345'), null);
+  // An upgrade pack's or bundle's price isn't the game's.
+  assert.equal(parseNintendoEshopNsuid('70050000062085'), null);
+  assert.equal(
+    parseNintendoEshopNsuid('https://ec.nintendo.com/CH/de/titles/70070000030750'),
+    null
+  );
   assert.equal(parseNintendoEshopNsuid('https://example.com/titles/70010000060676'), null);
   assert.equal(parseNintendoEshopNsuid('https://www.nintendo.com/de-ch/Hades-II.html'), null);
   assert.equal(parseNintendoEshopNsuid(null), null);

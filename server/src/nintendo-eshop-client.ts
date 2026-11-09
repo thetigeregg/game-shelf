@@ -25,8 +25,8 @@ const SEARCH_RESULT_FIELDS = [
 /** The price API's limit per request. */
 const MAX_PRICE_IDS_PER_REQUEST = 50;
 const NSUID_PATTERN = /^70\d{12}$/;
-/** The nsuid of a game itself; 7005… are upgrade packs and other add-ons, 7007… bundles. */
-const GAME_NSUID_PREFIX = '7001';
+/** A game's own nsuid; 7005… are upgrade packs and other add-ons, 7007… bundles. */
+const GAME_NSUID_PATTERN = /^7001\d{10}$/;
 /** Price states with a price everyone can pay now (a pre-order is paid now too). */
 const PRICED_SALES_STATUSES = new Set(['onsale', 'preorder']);
 
@@ -99,8 +99,9 @@ export function buildNintendoEshopGameUrl(
 }
 
 /**
- * The nsuid in `value`: an nsuid, an eShop link (https://ec.nintendo.com/CH/de/titles/<nsuid>) or a
- * Nintendo website game page reached through one (its URL carries `?nsuid=<nsuid>`).
+ * The game nsuid in `value`: an nsuid, an eShop link (https://ec.nintendo.com/CH/de/titles/<nsuid>)
+ * or a Nintendo website game page reached through one (its URL carries `?nsuid=<nsuid>`). Only a
+ * game's own nsuid is accepted: an upgrade pack's or bundle's price isn't the game's.
  */
 export function parseNintendoEshopNsuid(value: unknown): string | null {
   if (typeof value === 'number' && Number.isSafeInteger(value)) {
@@ -110,7 +111,7 @@ export function parseNintendoEshopNsuid(value: unknown): string | null {
     return null;
   }
   const trimmed = value.trim();
-  if (NSUID_PATTERN.test(trimmed)) {
+  if (GAME_NSUID_PATTERN.test(trimmed)) {
     return trimmed;
   }
   let url: URL;
@@ -124,11 +125,11 @@ export function parseNintendoEshopNsuid(value: unknown): string | null {
     return null;
   }
   const fromQuery = url.searchParams.get('nsuid')?.trim() ?? '';
-  if (NSUID_PATTERN.test(fromQuery)) {
+  if (GAME_NSUID_PATTERN.test(fromQuery)) {
     return fromQuery;
   }
   const fromPath = url.pathname.match(/\/titles\/(\d+)(?:\/|$)/)?.[1] ?? '';
-  return NSUID_PATTERN.test(fromPath) ? fromPath : null;
+  return GAME_NSUID_PATTERN.test(fromPath) ? fromPath : null;
 }
 
 /** Searches the store's games playable on `platformCode` (HAC or BEE) by title. */
@@ -271,9 +272,7 @@ function normalizeSearchGame(value: unknown): NintendoEshopSearchGame | null {
   const title = normalizeNonEmptyString(doc['title']);
   const gameNsuids = [
     ...new Set(
-      readStringList(doc['nsuid_txt']).filter(
-        (candidate) => candidate.startsWith(GAME_NSUID_PREFIX) && NSUID_PATTERN.test(candidate)
-      )
+      readStringList(doc['nsuid_txt']).filter((candidate) => GAME_NSUID_PATTERN.test(candidate))
     ),
   ];
   if (!title || gameNsuids.length === 0) {

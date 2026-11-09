@@ -53,6 +53,17 @@ class GamePoolMock {
     }
     if (normalized.startsWith('with current_row as ( select payload from games')) {
       const existing = this.rows.get(key) ?? {};
+      // The guard an automatic refresh writes under: pin and lock unchanged since it started.
+      const isGuarded = params[3] === true;
+      const currentNsuid =
+        typeof existing['nintendoEshopNsuid'] === 'string' ? existing['nintendoEshopNsuid'] : '';
+      if (
+        isGuarded &&
+        (currentNsuid !== params[4] ||
+          (existing['nintendoEshopMatchLocked'] === true) !== params[5])
+      ) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
       const merged = { ...existing, ...(JSON.parse(String(params[2])) as Record<string, unknown>) };
       if (JSON.stringify(existing) === JSON.stringify(merged)) {
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -336,6 +347,65 @@ void test("a free Friend's Pass listed with a paid game never stands in for it",
   assert.deepEqual(eshop.calls.prices, [[friendsPass, paid]]);
   assert.equal(pool.getPayload('20', 508)['nintendoEshopNsuid'], paid);
   await app.close();
+});
+
+void test('an entry priced only through its free pass counts as having no price', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('22', 508, { title: 'Split Fiction', listType: 'wishlist' });
+  const paid = '70010000097435';
+  const friendsPass = '70010000095423';
+  // The paid game isn't on sale here (yet); only the pass is.
+  const eshop = fakeEshop({
+    search: {
+      'split fiction': [
+        { title: 'SPLIT FICTION', nsuids: [paid, friendsPass], platforms: ['BEE'] },
+      ],
+    },
+    prices: { [friendsPass]: { regular: 0 } },
+  });
+  const app = await buildApp(pool, eshop.fetchImpl);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/nintendo-eshop/prices?igdbGameId=22&platformIgdbId=508',
+  });
+
+  assert.equal(json(response.body)['bestPrice'], null);
+  const stored = pool.getPayload('22', 508);
+  assert.equal(stored['priceIsFree'], undefined);
+  assert.equal(stored['nintendoEshopNsuid'], undefined);
+  await app.close();
+});
+
+void test('an automatic refresh is discarded when an admin changed the pin during the lookup', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('23', 130, {
+    title: 'Hades II',
+    nintendoEshopNsuid: HADES,
+    nintendoEshopTitle: 'Hades',
+  });
+  const eshop = fakeEshop({ prices: hadesPrices });
+  // While the price request is in flight, an admin pins Hades II with a manual price.
+  const racingFetch: typeof fetch = async (input, init) => {
+    pool.seed('23', 130, {
+      title: 'Hades II',
+      nintendoEshopNsuid: HADES_II,
+      nintendoEshopMatchLocked: true,
+      priceAmount: 30,
+    });
+    return eshop.fetchImpl(input, init);
+  };
+
+  await processQueuedNintendoEshopPriceRevalidation(
+    pool as unknown as Pool,
+    { cacheKey: 'k', igdbGameId: '23', platformIgdbId: 130, title: 'Hades II' },
+    { fetchImpl: racingFetch }
+  );
+
+  const stored = pool.getPayload('23', 130);
+  assert.equal(stored['nintendoEshopNsuid'], HADES_II);
+  assert.equal(stored['priceAmount'], 30);
+  assert.equal(pool.syncEvents, 0);
 });
 
 void test('a queued refresh reads a release year stored as text, like the scheduler', async () => {

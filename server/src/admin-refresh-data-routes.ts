@@ -9,7 +9,7 @@ import {
   STEAM_WINDOWS_PLATFORM_IGDB_ID,
   resolvePricingSourceForPlatform,
 } from './platform-ids.js';
-import { parsePlayStationStoreProductId } from './playstation-store-client.js';
+import { buildPlayStationStoreRefreshJob } from './playstation-store-prices.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   maybeRearmProviderRetryState,
@@ -314,9 +314,14 @@ async function enqueueForcedWishlistPricingRefreshJobs(
     }
 
     if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-      const storeJob = buildForcedPlayStationStoreJob('wishlist', row, payload);
-      if (storeJob) {
-        jobs.push(() => backgroundJobs.enqueue(storeJob));
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:wishlist',
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toPlayStationStoreJobInput(storeJob)));
       }
       continue;
     }
@@ -459,15 +464,18 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
     }
 
     if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
-      if (
-        isProviderMatchLocked(payload, 'playstationStoreMatchLocked') ||
-        !isProviderRetryDue(payload, 'playstationStore', nowMs)
-      ) {
+      if (isProviderMatchLocked(payload, 'playstationStoreMatchLocked')) {
         continue;
       }
-      const storeJob = buildForcedPlayStationStoreJob('discovery', row, payload);
-      if (storeJob) {
-        jobs.push(() => backgroundJobs.enqueue(storeJob));
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        payload,
+        dedupePrefix: 'admin-refresh-force:discovery',
+        nowMs,
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() => backgroundJobs.enqueue(toPlayStationStoreJobInput(storeJob)));
       }
       continue;
     }
@@ -528,56 +536,19 @@ async function enqueueForcedDiscoveryPricingRefreshJobs(
   return { scanned: rows.rows.length, enqueued, deduped };
 }
 
-function buildForcedPlayStationStoreJob(
-  scope: 'wishlist' | 'discovery',
-  row: PricingCandidateRow,
-  payload: Record<string, unknown>
-) {
-  const title =
-    normalizeString(payload['playstationStoreMatchQueryTitle']) ??
-    normalizeString(payload['title']);
-  if (title === null) {
-    return null;
-  }
-  const key = `${row.igdb_game_id}:${String(row.platform_igdb_id)}:${config.playstationStoreCountry.toLowerCase()}:${config.playstationStoreLanguage.toLowerCase()}`;
+function toPlayStationStoreJobInput(job: { dedupeKey: string; payload: Record<string, unknown> }) {
   return {
     jobType: 'playstation_store_price_revalidate' as const,
-    dedupeKey: `admin-refresh-force:${scope}:playstation-store:${key}`,
-    payload: {
-      cacheKey: `admin-refresh-force:${scope}:${key}`,
-      igdbGameId: row.igdb_game_id,
-      platformIgdbId: row.platform_igdb_id,
-      title,
-      productId: parsePlayStationStoreProductId(payload['playstationStoreProductId']),
-    },
+    dedupeKey: job.dedupeKey,
+    payload: job.payload,
     priority: 120,
     maxAttempts: 3,
   };
 }
 
-function isProviderRetryDue(
-  payload: Record<string, unknown>,
-  providerKey: 'psprices' | 'playstationStore',
-  nowMs: number
-): boolean {
-  const retryState = maybeRearmProviderRetryState({
-    state: parseProviderRetryState(readEnrichmentRetryState(payload, providerKey)),
-    nowMs,
-    releaseYear: normalizePositiveInteger(payload['releaseYear']),
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-  });
-  return shouldAttemptProvider({
-    state: retryState,
-    nowMs,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-  });
-}
-
 function readEnrichmentRetryState(
   payload: Record<string, unknown>,
-  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices' | 'playstationStore'
+  providerKey: 'hltb' | 'metacritic' | 'steam' | 'psprices'
 ): unknown {
   const retry = payload['enrichmentRetry'];
   if (!retry || typeof retry !== 'object' || Array.isArray(retry)) {

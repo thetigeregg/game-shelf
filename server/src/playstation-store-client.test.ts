@@ -333,6 +333,8 @@ void test('parsePlayStationStoreDisplayCurrency reads a code or a symbol', () =>
   assert.equal(parsePlayStationStoreDisplayCurrency('49,62 €'), 'EUR');
   assert.equal(parsePlayStationStoreDisplayCurrency('£39.99'), 'GBP');
   assert.equal(parsePlayStationStoreDisplayCurrency('Kostenlos'), null);
+  // "$" could be USD, CAD or AUD: the store's country decides.
+  assert.equal(parsePlayStationStoreDisplayCurrency('$69.99'), null);
 });
 
 void test('parsePlayStationStoreDiscountPercent reads the discount label', () => {

@@ -16,8 +16,10 @@ import { processQueuedRomsCatalogRefresh } from './roms.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
-import { parsePlayStationStoreProductId } from './playstation-store-client.js';
-import { processQueuedPlayStationStorePriceRevalidation } from './playstation-store-prices.js';
+import {
+  buildPlayStationStoreRefreshJob,
+  processQueuedPlayStationStorePriceRevalidation,
+} from './playstation-store-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import {
   PLAYSTATION_STORE_PLATFORM_IGDB_IDS,
@@ -260,70 +262,7 @@ function buildPspricesRefreshJob(params: {
   };
 }
 
-function buildPlayStationStoreRefreshJob(params: {
-  igdbGameId: string;
-  platformIgdbId: number;
-  payload: Record<string, unknown>;
-  dedupePrefix: string;
-  country: string;
-  language: string;
-  nowMs: number;
-  maxAttempts: number;
-  rearmAfterDays: number;
-  rearmRecentReleaseYears: number;
-}):
-  | {
-      kind: 'enqueue';
-      dedupeKey: string;
-      payload: {
-        cacheKey: string;
-        igdbGameId: string;
-        platformIgdbId: number;
-        title: string;
-        productId: string | null;
-      };
-    }
-  | { kind: 'skip'; reason: 'unsupported-platform' | 'backoff' | 'missing-data' } {
-  if (!PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(params.platformIgdbId)) {
-    return { kind: 'skip', reason: 'unsupported-platform' };
-  }
-
-  if (
-    !isProviderRetryDue({
-      payload: params.payload,
-      retryKey: 'playstationStore',
-      nowMs: params.nowMs,
-      maxAttempts: params.maxAttempts,
-      rearmAfterDays: params.rearmAfterDays,
-      rearmRecentReleaseYears: params.rearmRecentReleaseYears,
-    })
-  ) {
-    return { kind: 'skip', reason: 'backoff' };
-  }
-
-  const title =
-    normalizeNonEmptyString(params.payload['playstationStoreMatchQueryTitle']) ??
-    normalizeNonEmptyString(params.payload['title']);
-  if (!title) {
-    return { kind: 'skip', reason: 'missing-data' };
-  }
-
-  const scope = `${params.igdbGameId}:${String(params.platformIgdbId)}:${params.country}:${params.language}`;
-  return {
-    kind: 'enqueue',
-    dedupeKey: `${params.dedupePrefix}:playstation-store:${scope}`,
-    payload: {
-      cacheKey: `${params.dedupePrefix}:${scope}`,
-      igdbGameId: params.igdbGameId,
-      platformIgdbId: params.platformIgdbId,
-      title,
-      productId: parsePlayStationStoreProductId(params.payload['playstationStoreProductId']),
-    },
-  };
-}
-
 export const __backgroundWorkerTestables = {
-  buildPlayStationStoreRefreshJob,
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
   resolvePspricesRevalidationTitle,
@@ -1015,12 +954,7 @@ async function main(): Promise<void> {
           platformIgdbId: row.platform_igdb_id,
           payload,
           dedupePrefix: params.dedupePrefix,
-          country: config.playstationStoreCountry.toLowerCase(),
-          language: config.playstationStoreLanguage.toLowerCase(),
           nowMs,
-          maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-          rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-          rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
         });
         if (storeJob.kind === 'skip') {
           if (storeJob.reason === 'backoff') {

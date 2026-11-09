@@ -15,6 +15,10 @@ import {
   buildPlayStationStoreProductUrl,
   parsePlayStationStoreProductId,
 } from './playstation-store-client.js';
+import {
+  buildManualPlayStationStoreSnapshot,
+  buildPlayStationStoreRefreshJob,
+} from './playstation-store-prices.js';
 import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import {
   createEmptyProviderRetryState,
@@ -577,34 +581,29 @@ async function enqueuePricingRefreshJobs(
 
     if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
       if (
-        (!params.ignorePsPricesLock &&
-          isProviderMatchLocked(payload, 'playstationStoreMatchLocked')) ||
-        !isPricingRetryDue(payload, 'playstationStore', nowMs)
+        !params.ignorePsPricesLock &&
+        isProviderMatchLocked(payload, 'playstationStoreMatchLocked')
       ) {
         continue;
       }
-      const title =
-        normalizeString(payload['playstationStoreMatchQueryTitle']) ??
-        normalizeString(payload['title']);
-      if (title === null) {
-        continue;
+      const storeJob = buildPlayStationStoreRefreshJob({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId,
+        payload,
+        dedupePrefix: params.requestedBy,
+        nowMs,
+      });
+      if (storeJob.kind === 'enqueue') {
+        jobs.push(() =>
+          backgroundJobs.enqueue({
+            jobType: 'playstation_store_price_revalidate',
+            dedupeKey: storeJob.dedupeKey,
+            payload: storeJob.payload,
+            priority: 120,
+            maxAttempts: 3,
+          })
+        );
       }
-      const key = `${game.igdbGameId}:${String(game.platformIgdbId)}:${config.playstationStoreCountry.toLowerCase()}:${config.playstationStoreLanguage.toLowerCase()}`;
-      jobs.push(() =>
-        backgroundJobs.enqueue({
-          jobType: 'playstation_store_price_revalidate',
-          dedupeKey: `${params.requestedBy}:playstation-store:${key}`,
-          payload: {
-            cacheKey: `${params.requestedBy}:${key}`,
-            igdbGameId: game.igdbGameId,
-            platformIgdbId: game.platformIgdbId,
-            title,
-            productId: parsePlayStationStoreProductId(payload['playstationStoreProductId']),
-          },
-          priority: 120,
-          maxAttempts: 3,
-        })
-      );
       continue;
     }
 
@@ -799,26 +798,6 @@ function pricingLockKey(
 
 function pricingRetryKey(platformIgdbId: number): 'playstationStore' | 'psprices' {
   return PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'playstationStore' : 'psprices';
-}
-
-function isPricingRetryDue(
-  payload: Record<string, unknown>,
-  retryKey: 'playstationStore' | 'psprices',
-  nowMs: number
-): boolean {
-  const retryState = maybeRearmProviderRetryState({
-    state: parseProviderRetryState(readProviderRetryState(payload, retryKey)),
-    nowMs,
-    releaseYear: normalizePositiveInteger(payload['releaseYear']),
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-  });
-  return shouldAttemptProvider({
-    state: retryState,
-    nowMs,
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-  });
 }
 
 function getDefaultPricingSource(platformIgdbId: number): PricingSource {
@@ -1045,11 +1024,26 @@ function applyManualMatchPatch(
   payload['psPricesTitle'] = isPsPricesSource ? normalizeString(body.psPricesTitle) : null;
   payload['psPricesPlatform'] = isPsPricesSource ? normalizeString(body.psPricesPlatform) : null;
   if (isPlayStationStoreSource) {
-    // Pins the product, so refreshes price it directly instead of searching again.
-    payload['playstationStoreProductId'] = playstationStoreProductId;
-    payload['playstationStoreUrl'] = playstationStoreProductId
-      ? buildPlayStationStoreProductUrl(playstationStoreProductId)
-      : null;
+    // The saved price becomes the store's cached snapshot, so the price route serves it rather
+    // than an older lookup. A product pins it: refreshes then price that product directly. Without
+    // one it's a manual price, which refreshes leave alone.
+    Object.assign(
+      payload,
+      buildManualPlayStationStoreSnapshot({
+        platformIgdbId,
+        productId: playstationStoreProductId,
+        title: normalizeString(payload['title']),
+        url: playstationStoreProductId
+          ? buildPlayStationStoreProductUrl(playstationStoreProductId)
+          : priceUrl,
+        amount: priceAmount,
+        currency: normalizeString(body.priceCurrency),
+        regularAmount: priceRegularAmount,
+        discountPercent: priceDiscountPercent,
+        isFree: priceIsFree,
+        fetchedAt: String(payload['priceFetchedAt']),
+      })
+    );
   }
   payload[pricingLockKey(platformIgdbId)] = true;
   resetRetryState(payload, pricingRetryKey(platformIgdbId));

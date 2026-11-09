@@ -3639,9 +3639,8 @@ describe('ExplorePage explore modes UX', () => {
 
     await page.hydrateDiscoveryPricingForItem({ igdbGameId: '913', platformIgdbId: 167 });
 
-    expect(igdbProxyServiceMock.lookupPlayStationStorePrice).toHaveBeenCalledWith('913', 167, {
-      title: null,
-    });
+    // No title, which the route would treat as a manual override.
+    expect(igdbProxyServiceMock.lookupPlayStationStorePrice).toHaveBeenCalledWith('913', 167);
     expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalledWith(
       '913',
       167,

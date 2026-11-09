@@ -21,6 +21,7 @@ import {
   maybeRearmProviderRetryState,
   nextProviderRetryState,
   parseProviderRetryState,
+  shouldAttemptProvider,
 } from './recommendations/provider-retry-state.js';
 import { round2 } from './utils/round.js';
 
@@ -247,6 +248,25 @@ export async function registerPlayStationStorePricesRoute(
       const cachedSnapshot = hasLookupOverride
         ? null
         : readSnapshotFromPayload(payload, locale, platform);
+
+      // A manual price saved without a store product (admin match page) has nothing to refresh
+      // from: searching would replace it with whatever the title matches. Serve it as saved.
+      if (!hasLookupOverride && isManualPriceLock(payload)) {
+        const manual: PlayStationStoreRouteResponse = {
+          status:
+            cachedSnapshot && isAvailableSnapshot(cachedSnapshot.snapshot) ? 'ok' : 'unavailable',
+          ...baseResponse(platform),
+          cached: true,
+          bestPrice: cachedSnapshot?.snapshot ?? null,
+          match: cachedSnapshot?.match ?? null,
+          ...(includeCandidates ? { candidates: cachedSnapshot?.candidates ?? [] } : {}),
+        };
+        incrementPlayStationStorePriceMetric('hits');
+        reply.header('X-GameShelf-PlayStation-Store-Cache', 'LOCKED');
+        reply.code(200).send(manual);
+        return;
+      }
+
       if (cachedSnapshot) {
         const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
         const status: RouteStatus = isAvailableSnapshot(cachedSnapshot.snapshot)
@@ -306,25 +326,30 @@ export async function registerPlayStationStorePricesRoute(
           fetchImpl,
         });
 
-        try {
-          await persistPlayStationStoreSnapshot(pool, {
-            igdbGameId,
-            platformIgdbId,
-            payload,
-            locale,
-            platform,
-            lookup,
-            matchLocked: hasLookupOverride ? true : undefined,
-          });
-          incrementPlayStationStorePriceMetric('writes');
-        } catch (error) {
-          incrementPlayStationStorePriceMetric('writeErrors');
-          request.log.warn({
-            msg: 'playstation_store_prices_write_failed',
-            igdbGameId,
-            platformIgdbId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+        // A picker search (an override that asks for candidates) only shows the results: the
+        // price, pin and lock are saved when one is chosen, by a request with its product.
+        const isPickerSearch = includeCandidates && hasLookupOverride;
+        if (!isPickerSearch) {
+          try {
+            await persistPlayStationStoreSnapshot(pool, {
+              igdbGameId,
+              platformIgdbId,
+              payload,
+              locale,
+              platform,
+              lookup,
+              matchLocked: hasLookupOverride ? true : undefined,
+            });
+            incrementPlayStationStorePriceMetric('writes');
+          } catch (error) {
+            incrementPlayStationStorePriceMetric('writeErrors');
+            request.log.warn({
+              msg: 'playstation_store_prices_write_failed',
+              igdbGameId,
+              platformIgdbId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
         }
 
         const response: PlayStationStoreRouteResponse = {
@@ -495,6 +520,100 @@ function resolveLookupTitle(payload: Record<string, unknown>): string | null {
     normalizeNonEmptyString(payload['playstationStoreMatchQueryTitle']) ??
     normalizeNonEmptyString(payload['title'])
   );
+}
+
+/** A match locked without a store product: a manual price, which refreshes leave alone. */
+export function isManualPriceLock(payload: Record<string, unknown>): boolean {
+  return (
+    payload['playstationStoreMatchLocked'] === true && resolvePinnedProductId(payload) === null
+  );
+}
+
+export type PlayStationStoreRefreshJob =
+  | {
+      kind: 'enqueue';
+      dedupeKey: string;
+      payload: PlayStationStorePriceRevalidationPayload;
+    }
+  | { kind: 'skip'; reason: 'unsupported-platform' | 'backoff' | 'manual-price' | 'missing-data' };
+
+/**
+ * The refresh job for a PS4/PS5 game, shared by the pricing worker and the admin refresh routes.
+ * Discovery games back off after failed lookups (enrichmentRetry.playstationStore); a manual price
+ * (locked without a product) isn't refreshed. Callers that honour the full match lock check it
+ * themselves.
+ */
+export function buildPlayStationStoreRefreshJob(params: {
+  igdbGameId: string;
+  platformIgdbId: number;
+  payload: Record<string, unknown>;
+  dedupePrefix: string;
+  nowMs?: number;
+}): PlayStationStoreRefreshJob {
+  if (!PLAYSTATION_STORE_PLATFORM_BY_IGDB_ID.has(params.platformIgdbId)) {
+    return { kind: 'skip', reason: 'unsupported-platform' };
+  }
+  if (isManualPriceLock(params.payload)) {
+    return { kind: 'skip', reason: 'manual-price' };
+  }
+  if (!isRetryDue(params.payload, params.nowMs ?? Date.now())) {
+    return { kind: 'skip', reason: 'backoff' };
+  }
+  const title = resolveLookupTitle(params.payload);
+  if (!title) {
+    return { kind: 'skip', reason: 'missing-data' };
+  }
+
+  const locale = resolvePlayStationStoreLocale();
+  const scope = `${params.igdbGameId}:${String(params.platformIgdbId)}:${locale.country.toLowerCase()}:${locale.language.toLowerCase()}`;
+  return {
+    kind: 'enqueue',
+    dedupeKey: `${params.dedupePrefix}:playstation-store:${scope}`,
+    payload: {
+      cacheKey: `${params.dedupePrefix}:${scope}`,
+      igdbGameId: params.igdbGameId,
+      platformIgdbId: params.platformIgdbId,
+      title,
+      productId: resolvePinnedProductId(params.payload),
+    },
+  };
+}
+
+function readRetryState(payload: Record<string, unknown>): unknown {
+  const retry = payload['enrichmentRetry'];
+  return retry && typeof retry === 'object' && !Array.isArray(retry)
+    ? (retry as Record<string, unknown>)['playstationStore']
+    : null;
+}
+
+function readReleaseYear(payload: Record<string, unknown>): number | null {
+  const value = payload['releaseYear'];
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value : null;
+  }
+  return typeof value === 'string' && /^\d{4}$/.test(value.trim())
+    ? Number.parseInt(value.trim(), 10)
+    : null;
+}
+
+/** Only discovery games track retries; others are always due. */
+function isRetryDue(payload: Record<string, unknown>, nowMs: number): boolean {
+  if (!isDiscoveryListType(payload['listType'])) {
+    return true;
+  }
+  const state = maybeRearmProviderRetryState({
+    state: parseProviderRetryState(readRetryState(payload)),
+    nowMs,
+    releaseYear: readReleaseYear(payload),
+    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears,
+    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+  });
+  return shouldAttemptProvider({
+    state,
+    nowMs,
+    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+  });
 }
 
 function resolvePinnedProductId(payload: Record<string, unknown>): string | null {
@@ -751,7 +870,39 @@ async function persistPlayStationStoreSnapshot(
     }
     patchPayload['enrichmentRetry'] = Object.keys(existingRetry).length > 0 ? existingRetry : null;
   }
-  if (snapshot !== null) {
+  if (snapshot === null) {
+    // Nothing for sale matched, so the store's cached price (e.g. a delisted pinned product) is
+    // no longer current and mustn't be served as a fresh hit. The pin stays.
+    for (const key of [
+      'playstationStorePriceAmount',
+      'playstationStoreRegularPriceAmount',
+      'playstationStoreDiscountPercent',
+      'playstationStoreIsFree',
+      'playstationStoreSaleEndsAt',
+    ]) {
+      patchPayload[key] = null;
+    }
+    // A price this source set is kept (a transient miss); one left over from psprices, which no
+    // longer prices PS4/PS5, would never update again, so it's cleared now the store has looked.
+    if (params.payload['priceSource'] === 'psprices') {
+      for (const key of [
+        'priceSource',
+        'priceFetchedAt',
+        'priceAmount',
+        'priceCurrency',
+        'priceRegularAmount',
+        'priceDiscountPercent',
+        'priceIsFree',
+        'priceUrl',
+        'psPricesUrl',
+        'psPricesTitle',
+        'psPricesPlatform',
+        'psPricesMatchLocked',
+      ]) {
+        patchPayload[key] = null;
+      }
+    }
+  } else {
     patchPayload['priceSource'] = 'playstation_store';
     patchPayload['priceFetchedAt'] = fetchedAt;
     patchPayload['priceAmount'] = snapshot.amount;
@@ -851,6 +1002,9 @@ export async function processQueuedPlayStationStorePriceRevalidation(
   const gamePayload = await readGamePayload(pool, igdbGameId, platformIgdbId);
   if (!gamePayload) {
     throw new Error('PlayStation Store revalidation game row not found.');
+  }
+  if (isManualPriceLock(gamePayload)) {
+    return; // A manual price: nothing to refresh it from.
   }
   const title = normalizeNonEmptyString(payload.title) ?? resolveLookupTitle(gamePayload);
   if (!title) {
@@ -984,6 +1138,45 @@ function getAgeSeconds(updatedAt: string, nowMs: number): number {
     return Number.POSITIVE_INFINITY;
   }
   return Math.max(0, (nowMs - updatedMs) / 1000);
+}
+
+/**
+ * Payload fields that make a manually saved PlayStation Store price the cached snapshot, so the
+ * route serves it rather than an older store lookup. Used by the admin match page.
+ */
+export function buildManualPlayStationStoreSnapshot(params: {
+  platformIgdbId: number;
+  productId: string | null;
+  title: string | null;
+  url: string | null;
+  amount: number | null;
+  currency: string | null;
+  regularAmount: number | null;
+  discountPercent: number | null;
+  isFree: boolean | null;
+  fetchedAt: string;
+}): Record<string, unknown> {
+  const locale = resolvePlayStationStoreLocale();
+  return {
+    playstationStoreFetchedAt: params.fetchedAt,
+    playstationStoreSource: 'playstation_store',
+    playstationStoreCountry: locale.country,
+    playstationStoreLanguage: locale.language,
+    playstationStorePlatform:
+      PLAYSTATION_STORE_PLATFORM_BY_IGDB_ID.get(params.platformIgdbId) ?? null,
+    playstationStoreProductId: params.productId,
+    playstationStoreTitle: params.title,
+    playstationStoreUrl: params.url,
+    playstationStorePriceAmount: params.amount,
+    playstationStorePriceCurrency: params.currency,
+    playstationStoreRegularPriceAmount: params.regularAmount,
+    playstationStoreDiscountPercent: params.discountPercent,
+    playstationStoreIsFree: params.isFree,
+    playstationStoreSaleEndsAt: null,
+    playstationStoreMatchTitle: params.title,
+    playstationStoreMatchScore: null,
+    playstationStoreMatchConfidence: 'high',
+  };
 }
 
 export const __playstationStorePriceTestables = {

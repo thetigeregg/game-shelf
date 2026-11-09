@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import {
+  buildPlayStationStoreRefreshJob,
   processQueuedPlayStationStorePriceRevalidation,
   registerPlayStationStorePricesRoute,
   type PlayStationStorePriceRevalidationPayload,
@@ -618,5 +619,192 @@ void test('queued PlayStation Store refresh rejects other platforms and missing 
       { fetchImpl }
     ),
     { message: 'PlayStation Store revalidation game row not found.' }
+  );
+});
+
+void test('PlayStation Store picker search returns candidates without saving anything', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('20', 167, {
+    title: 'Hades II',
+    playstationStoreProductId: HADES,
+    priceSource: 'playstation_store',
+    priceAmount: 24.9,
+  });
+  const store = fakeStore({
+    search: { 'Hades II': hadesSearch },
+    prices: { [HADES_II]: { base: 2990, current: 2990 } },
+  });
+  const app = await buildApp(pool, store.fetchImpl);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=20&platformIgdbId=167&title=Hades%20II&includeCandidates=1',
+  });
+
+  const body = json(response.body);
+  assert.equal((body['candidates'] as unknown[]).length, 2);
+  // Nothing is saved until a candidate is chosen: the pin, price and lock are unchanged.
+  const stored = pool.getPayload('20', 167);
+  assert.equal(stored['playstationStoreProductId'], HADES);
+  assert.equal(stored['priceAmount'], 24.9);
+  assert.equal(stored['playstationStoreMatchLocked'], undefined);
+  assert.equal(pool.syncEvents, 0);
+  await app.close();
+});
+
+void test('PlayStation Store lookup without a match clears the stale store price', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('21', 167, {
+    ...cachedPayload('2026-01-01T00:00:00.000Z'),
+    priceSource: 'playstation_store',
+    priceAmount: 29.9,
+  });
+  // The pinned product is gone and the search finds nothing.
+  const store = fakeStore({ search: { 'Hades II': [] } });
+  const app = await buildApp(pool, store.fetchImpl, { enableStaleWhileRevalidate: false });
+
+  await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=21&platformIgdbId=167',
+  });
+
+  const stored = pool.getPayload('21', 167);
+  assert.equal(stored['playstationStorePriceAmount'], null);
+  assert.equal(stored['playstationStoreIsFree'], null);
+  assert.equal(stored['playstationStoreProductId'], HADES_II, 'the pin stays');
+  // A price this source saved is kept through a miss.
+  assert.equal(stored['priceAmount'], 29.9);
+
+  const next = await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=21&platformIgdbId=167',
+  });
+  assert.equal(json(next.body)['status'], 'unavailable', 'no stale price served as fresh');
+  await app.close();
+});
+
+void test('PlayStation Store lookup without a match clears a price left over from psprices', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('22', 48, {
+    title: 'Obscure Game',
+    listType: 'wishlist',
+    priceSource: 'psprices',
+    priceAmount: 9.9,
+    priceUrl: 'https://psprices.com/region-ch/game/1/obscure',
+    psPricesUrl: 'https://psprices.com/region-ch/game/1/obscure',
+  });
+  const store = fakeStore({ search: { 'Obscure Game': [] } });
+  const app = await buildApp(pool, store.fetchImpl);
+
+  await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=22&platformIgdbId=48',
+  });
+
+  const stored = pool.getPayload('22', 48);
+  assert.equal(stored['priceSource'], null);
+  assert.equal(stored['priceAmount'], null);
+  assert.equal(stored['priceUrl'], null);
+  assert.equal(stored['psPricesUrl'], null);
+  assert.equal(stored['playstationStoreMatchConfidence'], 'none');
+  await app.close();
+});
+
+void test('a manual PlayStation Store price without a product is served as saved and not refreshed', async () => {
+  const pool = new GamePoolMock();
+  pool.seed('23', 167, {
+    ...cachedPayload('2026-01-01T00:00:00.000Z'),
+    playstationStoreProductId: null,
+    playstationStorePriceAmount: 12.5,
+    playstationStoreMatchLocked: true,
+  });
+  const store = fakeStore({ search: { 'Hades II': hadesSearch } });
+  const app = await buildApp(pool, store.fetchImpl);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/playstation-store/prices?igdbGameId=23&platformIgdbId=167',
+  });
+
+  assert.equal(response.headers['x-gameshelf-playstation-store-cache'], 'LOCKED');
+  assert.equal((json(response.body)['bestPrice'] as Record<string, unknown>)['amount'], 12.5);
+
+  await processQueuedPlayStationStorePriceRevalidation(
+    pool as unknown as Pool,
+    { cacheKey: 'k', igdbGameId: '23', platformIgdbId: 167, title: 'Hades II' },
+    { fetchImpl: store.fetchImpl }
+  );
+  assert.equal(store.calls.search.length + store.calls.product.length, 0);
+  assert.equal(pool.getPayload('23', 167)['playstationStorePriceAmount'], 12.5);
+  await app.close();
+});
+
+void test('buildPlayStationStoreRefreshJob enqueues PS games and skips the rest', () => {
+  const nowMs = Date.parse('2026-03-10T10:00:00.000Z');
+  assert.deepEqual(
+    buildPlayStationStoreRefreshJob({
+      igdbGameId: '1',
+      platformIgdbId: 167,
+      payload: {
+        title: 'Hades 2',
+        playstationStoreMatchQueryTitle: 'Hades II',
+        playstationStoreProductId: HADES_II,
+      },
+      dedupePrefix: 'pricing-refresh:wishlist',
+      nowMs,
+    }),
+    {
+      kind: 'enqueue',
+      dedupeKey: 'pricing-refresh:wishlist:playstation-store:1:167:ch:de',
+      payload: {
+        cacheKey: 'pricing-refresh:wishlist:1:167:ch:de',
+        igdbGameId: '1',
+        platformIgdbId: 167,
+        title: 'Hades II',
+        productId: HADES_II,
+      },
+    }
+  );
+
+  const skip = (platformIgdbId: number, payload: Record<string, unknown>) =>
+    buildPlayStationStoreRefreshJob({
+      igdbGameId: '2',
+      platformIgdbId,
+      payload,
+      dedupePrefix: 'p',
+      nowMs,
+    });
+  assert.deepEqual(skip(130, { title: 'Switch Game' }), {
+    kind: 'skip',
+    reason: 'unsupported-platform',
+  });
+  assert.deepEqual(skip(48, {}), { kind: 'skip', reason: 'missing-data' });
+  assert.deepEqual(skip(48, { title: 'Manual', playstationStoreMatchLocked: true }), {
+    kind: 'skip',
+    reason: 'manual-price',
+  });
+  // A locked match with a product still refreshes (the lock keeps the product).
+  assert.equal(
+    skip(48, {
+      title: 'Pinned',
+      playstationStoreMatchLocked: true,
+      playstationStoreProductId: HADES,
+    }).kind,
+    'enqueue'
+  );
+  assert.deepEqual(
+    skip(48, {
+      title: 'Backed Off',
+      listType: 'discovery',
+      enrichmentRetry: {
+        playstationStore: {
+          attempts: 6,
+          lastTriedAt: '2026-03-10T09:00:00.000Z',
+          nextTryAt: null,
+          permanentMiss: true,
+        },
+      },
+    }),
+    { kind: 'skip', reason: 'backoff' }
   );
 });

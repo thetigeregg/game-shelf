@@ -2986,6 +2986,11 @@ void test('admin discovery pricing patch pins a PlayStation Store product for a 
     assert.equal(stored['priceUrl'], `https://store.playstation.com/de-ch/product/${productId}`);
     assert.equal(stored['playstationStoreMatchLocked'], true);
     assert.equal(stored['psPricesUrl'], null);
+    // The saved price is also the store's cached snapshot, so the price route serves it.
+    assert.equal(stored['playstationStorePriceAmount'], 49.62);
+    assert.equal(stored['playstationStorePriceCurrency'], 'CHF');
+    assert.equal(stored['playstationStorePlatform'], 'PS5');
+    assert.equal(typeof stored['playstationStoreFetchedAt'], 'string');
 
     const invalid = await app.inject({
       method: 'PATCH',

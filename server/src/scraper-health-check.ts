@@ -51,9 +51,6 @@ export interface ScraperHealthProbe {
   check: (body: unknown) => ScraperHealthVerdict;
 }
 
-/** The product verified for the PlayStation Store probe: Hades II for PS5 in the store's locale. */
-const PLAYSTATION_STORE_PROBE_PRODUCT_ID = 'EP4484-PPSA36082_00-0912328937643383';
-
 export interface ScraperHealthResult {
   slug: string;
   ok: boolean;
@@ -188,8 +185,15 @@ export function buildScraperHealthProbes(): ScraperHealthProbe[] {
       check: (body) =>
         checkItem(body, {
           fields: ['productId', 'title', 'amount'],
-          expected: `product ${PLAYSTATION_STORE_PROBE_PRODUCT_ID}`,
-          isExpected: (item) => item['productId'] === PLAYSTATION_STORE_PROBE_PRODUCT_ID,
+          expected: 'title "Hades II"',
+          // By title: product IDs differ between regional stores (PLAYSTATION_STORE_COUNTRY).
+          isExpected: (item) => {
+            const title = item['title'];
+            return (
+              typeof title === 'string' &&
+              title.replace(/\s+/g, ' ').trim().toLowerCase() === 'hades ii'
+            );
+          },
           requiredData: 'a price',
           hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
         }),

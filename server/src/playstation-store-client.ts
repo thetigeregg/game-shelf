@@ -233,9 +233,7 @@ export function parsePlayStationStoreDisplayCurrency(value: unknown): string | n
   if (text.includes('£')) {
     return 'GBP';
   }
-  if (text.includes('$')) {
-    return 'USD';
-  }
+  // "$" alone is ambiguous (USD, CAD, AUD, ...): left to the store's country.
   return null;
 }
 

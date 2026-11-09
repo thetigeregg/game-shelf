@@ -493,77 +493,24 @@ void test('resolvePriceFetchedAtMs treats a price from another source as stale',
   );
 });
 
-void test('PlayStation Store refresh job builder enqueues PS games and skips the rest', () => {
-  const base = {
-    dedupePrefix: 'pricing-refresh:wishlist',
-    country: 'ch',
-    language: 'de',
-    nowMs: Date.parse('2026-03-10T10:00:00.000Z'),
-    maxAttempts: 6,
-    rearmAfterDays: 30,
-    rearmRecentReleaseYears: 1,
-  };
-
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
-      ...base,
-      igdbGameId: '1',
-      platformIgdbId: 167,
-      payload: {
-        title: 'Hades 2',
-        playstationStoreMatchQueryTitle: 'Hades II',
-        playstationStoreProductId: 'EP4484-PPSA36082_00-0912328937643383',
-      },
-    }),
-    {
-      kind: 'enqueue',
-      dedupeKey: 'pricing-refresh:wishlist:playstation-store:1:167:ch:de',
-      payload: {
-        cacheKey: 'pricing-refresh:wishlist:1:167:ch:de',
-        igdbGameId: '1',
-        platformIgdbId: 167,
-        title: 'Hades II',
-        productId: 'EP4484-PPSA36082_00-0912328937643383',
-      },
-    }
+void test('resolvePriceFetchedAtMs counts a PlayStation Store attempt that found nothing', () => {
+  const attemptedAt = '2026-03-10T09:00:00.000Z';
+  // No store match: the old psprices price was cleared, but the store looked up the game.
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(
+      { playstationStoreFetchedAt: attemptedAt },
+      'playstation_store'
+    ),
+    Date.parse(attemptedAt)
   );
-
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
-      ...base,
-      igdbGameId: '2',
-      platformIgdbId: 130,
-      payload: { title: 'Switch Game' },
-    }),
-    { kind: 'skip', reason: 'unsupported-platform' }
-  );
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
-      ...base,
-      igdbGameId: '3',
-      platformIgdbId: 48,
-      payload: {},
-    }),
-    { kind: 'skip', reason: 'missing-data' }
-  );
-  assert.deepEqual(
-    __backgroundWorkerTestables.buildPlayStationStoreRefreshJob({
-      ...base,
-      igdbGameId: '4',
-      platformIgdbId: 48,
-      payload: {
-        title: 'Backed Off',
-        listType: 'discovery',
-        enrichmentRetry: {
-          playstationStore: {
-            attempts: 6,
-            lastTriedAt: '2026-03-10T09:00:00.000Z',
-            nextTryAt: null,
-            permanentMiss: true,
-          },
-        },
-      },
-    }),
-    { kind: 'skip', reason: 'backoff' }
+  // Never tried: due now.
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs({}, 'playstation_store'), null);
+  // Other sources keep tracking successful prices only.
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(
+      { psPricesFetchedAt: attemptedAt },
+      'psprices'
+    ),
+    null
   );
 });

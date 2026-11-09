@@ -2620,11 +2620,14 @@ export class ExplorePage implements OnInit {
             )
           : this.parsePsPricesLookupResponse(
               await firstValueFrom(
-                item.platformIgdbId === 48 || item.platformIgdbId === 167
-                  ? this.igdbProxyService.lookupPlayStationStorePrice(
+                GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(
+                  item.platformIgdbId
+                )
+                  ? // No title: the route would take it as a manual override (skip the cache, lock
+                    // the match). It uses the game's stored title.
+                    this.igdbProxyService.lookupPlayStationStorePrice(
                       item.igdbGameId,
-                      item.platformIgdbId,
-                      { title: titleHint }
+                      item.platformIgdbId
                     )
                   : this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
                       title: titleHint,

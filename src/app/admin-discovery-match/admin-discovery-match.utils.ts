@@ -1,3 +1,4 @@
+import { GameShelfService } from '../core/services/game-shelf.service';
 import type {
   HltbMatchCandidate,
   PriceMatchCandidate,
@@ -139,7 +140,10 @@ export function resolveAdminPricingSource(
     return 'steam_store';
   }
   // PS4 and PS5 are priced from the PlayStation Store; psprices covers Switch.
-  return platformIgdbId === 48 || platformIgdbId === 167 ? 'playstation_store' : 'psprices';
+  return typeof platformIgdbId === 'number' &&
+    GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)
+    ? 'playstation_store'
+    : 'psprices';
 }
 
 export function buildAdminQueueFeedback(

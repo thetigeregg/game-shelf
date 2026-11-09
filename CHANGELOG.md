@@ -4332,3 +4332,7 @@
 ## v1.90.2 - 2026-11-09
 
 - a3d1e904 refactor(server): extract store price title matcher (#656)
+
+## v1.91.0 - 2026-11-09
+
+- 0c0a5f48 feat(pricing): price PS4/PS5 from the PlayStation Store (#657)

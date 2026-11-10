@@ -1152,6 +1152,12 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE emulation_compat_source_state
   ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
   `,
+  // psprices was removed: no worker claims its revalidation jobs any more, so drop them rather
+  // than leave pending ones stuck (or failed ones that a requeue-all would revive).
+  `
+  DELETE FROM background_jobs
+  WHERE job_type = 'psprices_price_revalidate';
+  `,
 ];
 
 export class MigrationUnlockError extends Error {

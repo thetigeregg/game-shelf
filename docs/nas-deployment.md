@@ -15,7 +15,7 @@
 
 Use `docker-compose.portainer.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
 
-Upgrading from a version with `psprices-scraper`: the stack no longer has that service or the external `flarenet` network. When redeploying, enable Portainer's "Prune services" option (or remove the `gameshelf-psprices-scraper` container yourself), or the old container keeps running. The FlareSolverr stack itself isn't game-shelf's and can stay for other apps.
+Upgrading from a version with `psprices-scraper`: the stack no longer has that service or the external `flarenet` network. When redeploying, enable Portainer's "Prune services" option (or remove the `gameshelf-psprices-scraper` container yourself), or the old container keeps running. The FlareSolverr stack itself isn't game-shelf's and can stay for other apps. Also pause or delete the `gameshelf-psprices` check in Healthchecks.io (see "Scraper health checks" below): nothing pings it any more, so it would alert once its period runs out.
 
 Before first deploy, publish images from GitHub Actions:
 

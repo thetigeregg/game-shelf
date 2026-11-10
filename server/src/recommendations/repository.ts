@@ -490,23 +490,22 @@ export class RecommendationRepository {
         SELECT
           payload,
           CASE
-            WHEN cardinality($6::text[]) > 0 THEN
-              (payload || $3::jsonb) || jsonb_build_object(
-                'enrichmentRetry',
-                NULLIF(
-                  (
-                    CASE
-                      WHEN jsonb_typeof(payload->'enrichmentRetry') = 'object'
-                        THEN payload->'enrichmentRetry'
-                      ELSE '{}'::jsonb
-                    END - $6::text[]
-                  ) || $7::jsonb,
-                  '{}'::jsonb
-                )
-              )
-            ELSE payload || $3::jsonb
+            WHEN cardinality($6::text[]) = 0 THEN payload || $3::jsonb
+            -- The retry object without anything left in it is removed, not written as null.
+            WHEN merged_retry.value = '{}'::jsonb THEN (payload || $3::jsonb) - 'enrichmentRetry'
+            ELSE (payload || $3::jsonb) || jsonb_build_object('enrichmentRetry', merged_retry.value)
           END AS next_payload
         FROM current_row
+        CROSS JOIN LATERAL (
+          SELECT
+            (
+              CASE
+                WHEN jsonb_typeof(current_row.payload->'enrichmentRetry') = 'object'
+                  THEN current_row.payload->'enrichmentRetry'
+                ELSE '{}'::jsonb
+              END - $6::text[]
+            ) || $7::jsonb AS value
+        ) AS merged_retry
       )
       UPDATE games AS g
       SET payload = next_row.next_payload, updated_at = NOW()

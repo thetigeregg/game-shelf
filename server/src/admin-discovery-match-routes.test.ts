@@ -1390,7 +1390,7 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
-void test('admin discovery patch route rejects psprices and platforms without a price source', async () => {
+void test('admin discovery patch route only accepts the platform price source', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
@@ -1428,10 +1428,17 @@ void test('admin discovery patch route rejects psprices and platforms without a 
       error: 'Price source must be steam_store, playstation_store or nintendo_eshop.',
     });
 
-    // A platform no store prices has no default source to save under.
-    const unpriced = await patch(49, {});
-    assert.equal(unpriced.statusCode, 400);
-    assert.deepEqual(unpriced.json(), { error: 'This platform has no price source.' });
+    // Only the platform's own source: a Steam price on a Switch game would be treated as Steam's.
+    const wrongSource = await patch(130, { priceSource: 'steam_store' });
+    assert.equal(wrongSource.statusCode, 400);
+    assert.deepEqual(wrongSource.json(), { error: 'This platform is priced from nintendo_eshop.' });
+
+    // A platform no store prices can't be priced, whatever source is sent.
+    for (const payload of [{}, { priceSource: 'steam_store' }]) {
+      const unpriced = await patch(49, payload);
+      assert.equal(unpriced.statusCode, 400);
+      assert.deepEqual(unpriced.json(), { error: 'This platform has no price source.' });
+    }
 
     for (const platformIgdbId of [130, 49]) {
       assert.equal(pool.readPayload('25', platformIgdbId)?.['priceSource'], undefined);

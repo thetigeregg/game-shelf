@@ -188,7 +188,6 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
           : await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
         const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, games, {
           requestedBy: 'admin-discovery-match-list',
-          ignorePricingLock: true,
         });
         reply.send({ ok: true, ...enqueueResult });
         return;
@@ -401,7 +400,6 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       if (provider === 'pricing') {
         const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, relatedGames, {
           requestedBy: 'admin-discovery-match',
-          ignorePricingLock: true,
         });
         reply.send({ ok: true, ...enqueueResult });
         return;
@@ -553,9 +551,9 @@ function toAdminRequeueResult(
 async function enqueuePricingRefreshJobs(
   backgroundJobs: BackgroundJobRepository,
   games: NormalizedDiscoveryGame[],
+  // An admin requeue refreshes locked matches too: the lock keeps the pinned product, not the price.
   params: {
     requestedBy: string;
-    ignorePricingLock: boolean;
   }
 ): Promise<AdminRequeueResult> {
   const steamCountry = config.steamDefaultCountry;
@@ -593,12 +591,6 @@ async function enqueuePricingRefreshJobs(
     }
 
     if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
-      if (
-        !params.ignorePricingLock &&
-        isProviderMatchLocked(payload, 'playstationStoreMatchLocked')
-      ) {
-        continue;
-      }
       const storeJob = buildPlayStationStoreRefreshJob({
         igdbGameId: game.igdbGameId,
         platformIgdbId: game.platformIgdbId,
@@ -621,9 +613,6 @@ async function enqueuePricingRefreshJobs(
     }
 
     if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
-      if (!params.ignorePricingLock && isProviderMatchLocked(payload, 'nintendoEshopMatchLocked')) {
-        continue;
-      }
       const eshopJob = buildNintendoEshopRefreshJob({
         igdbGameId: game.igdbGameId,
         platformIgdbId: game.platformIgdbId,
@@ -799,10 +788,6 @@ function pricingRetryKey(platformIgdbId: number): PricingRetryKey {
   return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'nintendoEshop' : 'psprices';
 }
 
-function getDefaultPricingSource(platformIgdbId: number): PricingSource | null {
-  return resolvePricingSourceForPlatform(platformIgdbId);
-}
-
 function buildProviderState(
   hasMatch: boolean,
   locked: boolean,
@@ -976,15 +961,19 @@ function applyManualMatchPatch(
     : normalizeBoolean(payload['priceIsFree']);
   const priceUrl = normalizeString(body.priceUrl);
   const requestedPriceSource = normalizeString(body.priceSource);
+  const platformPriceSource = resolvePricingSourceForPlatform(platformIgdbId);
   const priceSource =
-    requestedPriceSource === null
-      ? getDefaultPricingSource(platformIgdbId)
-      : parsePricingSource(requestedPriceSource);
+    requestedPriceSource === null ? platformPriceSource : parsePricingSource(requestedPriceSource);
   if (requestedPriceSource !== null && priceSource === null) {
     return 'Price source must be steam_store, playstation_store or nintendo_eshop.';
   }
-  if (priceSource === null) {
+  // A price is saved under the platform's own source, so it carries that source's lock and is
+  // refreshed by it: a Steam price on a console game would be labelled and treated as Steam's.
+  if (platformPriceSource === null) {
     return 'This platform has no price source.';
+  }
+  if (priceSource !== platformPriceSource) {
+    return `This platform is priced from ${platformPriceSource}.`;
   }
   const isPlayStationStoreSource = priceSource === 'playstation_store';
   const playstationStoreProductId = isPlayStationStoreSource

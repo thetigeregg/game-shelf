@@ -90,9 +90,6 @@ interface PatchBody {
   priceDiscountPercent?: unknown;
   priceIsFree?: unknown;
   priceUrl?: unknown;
-  psPricesUrl?: unknown;
-  psPricesTitle?: unknown;
-  psPricesPlatform?: unknown;
   playstationStoreProductId?: unknown;
   nintendoEshopNsuid?: unknown;
   queryTitle?: unknown;
@@ -191,7 +188,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
           : await listDiscoveryRows(pool, null, DISCOVERY_SCAN_LIMIT);
         const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, games, {
           requestedBy: 'admin-discovery-match-list',
-          ignorePsPricesLock: true,
+          ignorePricingLock: true,
         });
         reply.send({ ok: true, ...enqueueResult });
         return;
@@ -404,7 +401,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
       if (provider === 'pricing') {
         const enqueueResult = await enqueuePricingRefreshJobs(backgroundJobs, relatedGames, {
           requestedBy: 'admin-discovery-match',
-          ignorePsPricesLock: true,
+          ignorePricingLock: true,
         });
         reply.send({ ok: true, ...enqueueResult });
         return;
@@ -558,7 +555,7 @@ async function enqueuePricingRefreshJobs(
   games: NormalizedDiscoveryGame[],
   params: {
     requestedBy: string;
-    ignorePsPricesLock: boolean;
+    ignorePricingLock: boolean;
   }
 ): Promise<AdminRequeueResult> {
   const steamCountry = config.steamDefaultCountry;
@@ -597,7 +594,7 @@ async function enqueuePricingRefreshJobs(
 
     if (PLAYSTATION_STORE_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
       if (
-        !params.ignorePsPricesLock &&
+        !params.ignorePricingLock &&
         isProviderMatchLocked(payload, 'playstationStoreMatchLocked')
       ) {
         continue;
@@ -624,10 +621,7 @@ async function enqueuePricingRefreshJobs(
     }
 
     if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
-      if (
-        !params.ignorePsPricesLock &&
-        isProviderMatchLocked(payload, 'nintendoEshopMatchLocked')
-      ) {
+      if (!params.ignorePricingLock && isProviderMatchLocked(payload, 'nintendoEshopMatchLocked')) {
         continue;
       }
       const eshopJob = buildNintendoEshopRefreshJob({
@@ -701,9 +695,6 @@ function buildDetailResponse(
         priceDiscountPercent: normalizeNumber(payload['priceDiscountPercent']),
         priceIsFree: normalizeBoolean(payload['priceIsFree']),
         priceUrl: normalizeString(payload['priceUrl']),
-        psPricesUrl: normalizeString(payload['psPricesUrl']),
-        psPricesTitle: normalizeString(payload['psPricesTitle']),
-        psPricesPlatform: normalizeString(payload['psPricesPlatform']),
         playstationStoreProductId: normalizeString(payload['playstationStoreProductId']),
         playstationStoreTitle: normalizeString(payload['playstationStoreTitle']),
         nintendoEshopNsuid: normalizeString(payload['nintendoEshopNsuid']),
@@ -808,8 +799,8 @@ function pricingRetryKey(platformIgdbId: number): PricingRetryKey {
   return NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId) ? 'nintendoEshop' : 'psprices';
 }
 
-function getDefaultPricingSource(platformIgdbId: number): PricingSource {
-  return resolvePricingSourceForPlatform(platformIgdbId) ?? 'psprices';
+function getDefaultPricingSource(platformIgdbId: number): PricingSource | null {
+  return resolvePricingSourceForPlatform(platformIgdbId);
 }
 
 function buildProviderState(
@@ -983,25 +974,18 @@ function applyManualMatchPatch(
   const priceIsFree = hasPriceIsFree
     ? normalizedPriceIsFree
     : normalizeBoolean(payload['priceIsFree']);
-  const priceUrl = normalizeString(body.priceUrl) ?? normalizeString(body.psPricesUrl);
+  const priceUrl = normalizeString(body.priceUrl);
   const requestedPriceSource = normalizeString(body.priceSource);
   const priceSource =
-    (requestedPriceSource === null
+    requestedPriceSource === null
       ? getDefaultPricingSource(platformIgdbId)
-      : parsePricingSource(requestedPriceSource)) ?? null;
+      : parsePricingSource(requestedPriceSource);
   if (requestedPriceSource !== null && priceSource === null) {
-    return 'Price source must be steam_store, playstation_store, nintendo_eshop or psprices.';
+    return 'Price source must be steam_store, playstation_store or nintendo_eshop.';
   }
-  // psprices no longer prices any platform: a psprices price saved for a PS or Switch game would
-  // carry the store's lock without the store's snapshot, so the next store refresh would replace it.
-  const platformPricingSource = resolvePricingSourceForPlatform(platformIgdbId);
-  if (
-    priceSource === 'psprices' &&
-    (platformPricingSource === 'playstation_store' || platformPricingSource === 'nintendo_eshop')
-  ) {
-    return `This platform is priced from ${platformPricingSource}, not psprices.`;
+  if (priceSource === null) {
+    return 'This platform has no price source.';
   }
-  const isPsPricesSource = priceSource === 'psprices';
   const isPlayStationStoreSource = priceSource === 'playstation_store';
   const playstationStoreProductId = isPlayStationStoreSource
     ? parsePlayStationStoreProductId(
@@ -1061,11 +1045,10 @@ function applyManualMatchPatch(
       : nintendoEshopNsuid
         ? buildNintendoEshopGameUrl(nintendoEshopNsuid)
         : null);
-  payload['psPricesUrl'] = isPsPricesSource
-    ? (normalizeString(body.psPricesUrl) ?? priceUrl)
-    : null;
-  payload['psPricesTitle'] = isPsPricesSource ? normalizeString(body.psPricesTitle) : null;
-  payload['psPricesPlatform'] = isPsPricesSource ? normalizeString(body.psPricesPlatform) : null;
+  // A pin left over from psprices (removed) no longer applies once a price is saved by hand.
+  payload['psPricesUrl'] = null;
+  payload['psPricesTitle'] = null;
+  payload['psPricesPlatform'] = null;
   if (isPlayStationStoreSource) {
     // The saved price becomes the store's cached snapshot, so the price route serves it rather
     // than an older lookup. A product pins it: refreshes then price that product directly. Without
@@ -1622,8 +1605,7 @@ function parsePricingSource(value: unknown): PricingSource | null {
   if (
     normalized === 'steam_store' ||
     normalized === 'playstation_store' ||
-    normalized === 'nintendo_eshop' ||
-    normalized === 'psprices'
+    normalized === 'nintendo_eshop'
   ) {
     return normalized;
   }

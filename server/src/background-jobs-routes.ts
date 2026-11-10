@@ -130,7 +130,6 @@ function parseJobType(value: unknown): BackgroundJobType | null {
     'metacritic_cache_revalidate',
     'mobygames_cache_revalidate',
     'steam_price_revalidate',
-    'psprices_price_revalidate',
     'playstation_store_price_revalidate',
     'nintendo_eshop_price_revalidate',
     'manuals_catalog_refresh',

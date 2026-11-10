@@ -14,7 +14,6 @@ interface CacheCountSnapshot {
   metacriticEntryCount: number | null;
   mobygamesEntryCount: number | null;
   steamPriceEntryCount: number | null;
-  pspricesPriceEntryCount: number | null;
   playstationStorePriceEntryCount: number | null;
   nintendoEshopPriceEntryCount: number | null;
   dbError: string | null;
@@ -48,7 +47,6 @@ export async function registerCacheObservabilityRoutes(
     metacriticEntryCount: null,
     mobygamesEntryCount: null,
     steamPriceEntryCount: null,
-    pspricesPriceEntryCount: null,
     playstationStorePriceEntryCount: null,
     nintendoEshopPriceEntryCount: null,
     dbError: null,
@@ -74,10 +72,6 @@ export async function registerCacheObservabilityRoutes(
       const steamPriceCountResult = await pool.query<CacheCountRow>(
         "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'steamPriceFetchedAt', '') <> ''"
       );
-      const pspricesPriceCountResult = await pool.query<CacheCountRow>(
-        "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'psPricesFetchedAt', '') <> ''"
-      );
-
       const playstationStorePriceCountResult = await pool.query<CacheCountRow>(
         "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'playstationStoreFetchedAt', '') <> ''"
       );
@@ -92,10 +86,6 @@ export async function registerCacheObservabilityRoutes(
         metacriticEntryCount: Number.parseInt(metacriticCountResult.rows[0]?.count ?? '0', 10),
         mobygamesEntryCount: Number.parseInt(mobygamesCountResult.rows[0]?.count ?? '0', 10),
         steamPriceEntryCount: Number.parseInt(steamPriceCountResult.rows[0]?.count ?? '0', 10),
-        pspricesPriceEntryCount: Number.parseInt(
-          pspricesPriceCountResult.rows[0]?.count ?? '0',
-          10
-        ),
         playstationStorePriceEntryCount: Number.parseInt(
           playstationStorePriceCountResult.rows[0]?.count ?? '0',
           10
@@ -114,7 +104,6 @@ export async function registerCacheObservabilityRoutes(
         metacriticEntryCount: null,
         mobygamesEntryCount: null,
         steamPriceEntryCount: null,
-        pspricesPriceEntryCount: null,
         playstationStorePriceEntryCount: null,
         nintendoEshopPriceEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error),
@@ -150,7 +139,6 @@ export async function registerCacheObservabilityRoutes(
           metacriticEntries: snapshot.metacriticEntryCount,
           mobygamesEntries: snapshot.mobygamesEntryCount,
           steamPriceEntries: snapshot.steamPriceEntryCount,
-          pspricesPriceEntries: snapshot.pspricesPriceEntryCount,
           playstationStorePriceEntries: snapshot.playstationStorePriceEntryCount,
           nintendoEshopPriceEntries: snapshot.nintendoEshopPriceEntryCount,
         },

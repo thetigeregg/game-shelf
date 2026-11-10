@@ -110,9 +110,6 @@ function createDetail(): AdminDiscoveryDetailResponse {
         priceDiscountPercent: null,
         priceIsFree: null,
         priceUrl: null,
-        psPricesUrl: null,
-        psPricesTitle: null,
-        psPricesPlatform: null,
       },
     },
   };
@@ -166,10 +163,7 @@ function createPageHarness(): {
     { value: 'metacritic', label: 'Metacritic' },
     { value: 'mobygames', label: 'MobyGames' },
   ]);
-  setField(page, 'pricingSourceOptions', [
-    { value: 'steam_store', label: 'Steam Store' },
-    { value: 'psprices', label: 'PSPrices' },
-  ]);
+  setField(page, 'pricingSourceOptions', [{ value: 'steam_store', label: 'Steam Store' }]);
   setField(page, 'gameShelfService', gameShelfService);
   setField(page, 'adminMatchService', adminMatchService);
   setField(page, 'clientWriteAuth', {
@@ -240,7 +234,7 @@ function createPageHarness(): {
     queryPlatform: 'PlayStation',
   });
   setField(page, 'pricingForm', {
-    priceSource: 'psprices',
+    priceSource: 'playstation_store',
     priceFetchedAt: '',
     priceAmount: '',
     priceCurrency: '',
@@ -248,9 +242,8 @@ function createPageHarness(): {
     priceDiscountPercent: '',
     priceIsFree: null,
     priceUrl: '',
-    psPricesUrl: '',
-    psPricesTitle: '',
-    psPricesPlatform: '',
+    playstationStoreProduct: '',
+    nintendoEshopGame: '',
   });
 
   return { page, gameShelfService, adminMatchService, toastCreate };
@@ -390,37 +383,34 @@ describe('AdminDiscoveryMatchPage', () => {
 
   it('applies a pricing candidate into the editable form fields', () => {
     const { page } = createPageHarness();
-    // A platform without a store source, where a psprices candidate stays psprices.
-    setField(page, 'activeDetail', { ...createDetail(), platformIgdbId: 7 });
+    const productUrl =
+      'https://store.playstation.com/de-ch/product/EP0001-CUSA00001_00-CHRONOTRIGGER000';
     const candidate: PriceMatchCandidate = {
       title: 'Chrono Trigger',
       amount: 19.99,
-      currency: 'USD',
+      currency: 'CHF',
       regularAmount: 39.99,
       discountPercent: 50,
       isFree: false,
-      url: 'https://psprices.com/us/game/chrono-trigger',
-      score: 0.96,
-      source: 'psprices',
+      url: productUrl,
+      score: 96,
+      source: 'playstation_store',
       isRecommended: true,
     };
 
     page.applyPricingCandidate(candidate);
 
-    expect(page.pricingForm.priceSource).toBe('psprices');
+    expect(page.pricingForm.priceSource).toBe('playstation_store');
     expect(page.pricingForm.priceAmount).toBe('19.99');
-    expect(page.pricingForm.priceCurrency).toBe('USD');
+    expect(page.pricingForm.priceCurrency).toBe('CHF');
     expect(page.pricingForm.priceRegularAmount).toBe('39.99');
     expect(page.pricingForm.priceDiscountPercent).toBe('50');
-    expect(page.pricingForm.priceUrl).toBe('https://psprices.com/us/game/chrono-trigger');
-    expect(page.pricingForm.psPricesUrl).toBe('https://psprices.com/us/game/chrono-trigger');
-    expect(page.pricingForm.psPricesTitle).toBe('Chrono Trigger');
+    expect(page.pricingForm.priceUrl).toBe(productUrl);
+    expect(page.pricingForm.playstationStoreProduct).toBe(productUrl);
 
-    // On a PS4 game it opens on the PlayStation Store, which prices PS4 now.
-    setField(page, 'activeDetail', createDetail());
-    page.applyPricingCandidate(candidate);
+    // A candidate still labelled psprices (removed) opens on the platform's store.
+    page.applyPricingCandidate({ ...candidate, source: 'psprices' });
     expect(page.pricingForm.priceSource).toBe('playstation_store');
-    expect(page.pricingForm.psPricesUrl).toBe('');
   });
 
   it('defaults Switch pricing to the Nintendo eShop and sends a picked game as its nsuid', () => {
@@ -485,16 +475,16 @@ describe('AdminDiscoveryMatchPage', () => {
       regularAmount: null,
       discountPercent: null,
       isFree: null,
-      url: 'https://psprices.com/us/game/chrono-trigger',
-      score: 0.96,
-      source: 'psprices',
+      url: 'https://store.playstation.com/de-ch/product/EP0001-CUSA00001_00-CHRONOTRIGGER000',
+      score: 96,
+      source: 'playstation_store',
       isRecommended: true,
     });
 
     expect(page.pricingForm.priceIsFree).toBeNull();
   });
 
-  it('defaults PC pricing form source to steam and applies steam candidates without psprices fields', () => {
+  it('defaults PC pricing form source to steam and applies steam candidates', () => {
     const { page } = createPageHarness();
     const detail: AdminDiscoveryDetailResponse = {
       ...createDetail(),
@@ -504,9 +494,6 @@ describe('AdminDiscoveryMatchPage', () => {
         pricing: {
           ...createDetail().providers.pricing,
           priceSource: null,
-          psPricesUrl: 'https://psprices.com/us/game/portal-2',
-          psPricesTitle: 'Portal 2',
-          psPricesPlatform: 'PS3',
         },
       },
     };
@@ -519,10 +506,8 @@ describe('AdminDiscoveryMatchPage', () => {
     ).syncFormsFromDetail(detail);
 
     expect(page.pricingForm.priceSource).toBe('steam_store');
-    expect(page.showPsPricesFields).toBe(false);
-    expect(page.pricingForm.psPricesUrl).toBe('');
-    expect(page.pricingForm.psPricesTitle).toBe('');
-    expect(page.pricingForm.psPricesPlatform).toBe('');
+    expect(page.showPlayStationStoreFields).toBe(false);
+    expect(page.showNintendoEshopFields).toBe(false);
     expect(page.pricingSearchQuery).toBe('Chrono Trigger');
 
     page.applyPricingCandidate({
@@ -539,23 +524,18 @@ describe('AdminDiscoveryMatchPage', () => {
     });
 
     expect(page.pricingForm.priceSource).toBe('steam_store');
-    expect(page.showPsPricesFields).toBe(false);
     expect(page.pricingForm.priceUrl).toBe('https://store.steampowered.com/app/620/Portal_2/');
-    expect(page.pricingForm.psPricesUrl).toBe('');
-    expect(page.pricingForm.psPricesTitle).toBe('');
-    expect(page.pricingForm.psPricesPlatform).toBe('');
+    expect(page.pricingForm.playstationStoreProduct).toBe('');
   });
 
-  it('clears psprices fields from the pricing update payload when the source is steam', () => {
+  it('sends only the selected store fields in a steam pricing update', () => {
     const { page } = createPageHarness();
     page.pricingForm = {
       ...page.pricingForm,
       priceSource: 'steam_store',
       priceAmount: '9.99',
       priceUrl: 'https://store.steampowered.com/app/620/Portal_2/',
-      psPricesUrl: 'https://psprices.com/us/game/portal-2',
-      psPricesTitle: 'Portal 2',
-      psPricesPlatform: 'PS3',
+      playstationStoreProduct: 'EP0001-CUSA00001_00-CHRONOTRIGGER000',
     };
 
     const request = (
@@ -565,9 +545,9 @@ describe('AdminDiscoveryMatchPage', () => {
     ).buildUpdateRequest('pricing');
 
     expect(request['priceSource']).toBe('steam_store');
-    expect(request['psPricesUrl']).toBeNull();
-    expect(request['psPricesTitle']).toBeNull();
-    expect(request['psPricesPlatform']).toBeNull();
+    expect(request).not.toHaveProperty('playstationStoreProductId');
+    expect(request).not.toHaveProperty('nintendoEshopNsuid');
+    expect(request).not.toHaveProperty('psPricesUrl');
   });
 
   it('keeps unknown pricing free state when syncing detail into the form and building a request', () => {

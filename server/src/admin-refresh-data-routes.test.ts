@@ -53,14 +53,13 @@ class PoolMock {
       )
     ) {
       const steamPlatformId = typeof params[0] === 'number' ? params[0] : null;
-      const pspricesPlatformIds = Array.isArray(params[1]) ? (params[1] as number[]) : [];
+      const storePlatformIds = Array.isArray(params[1]) ? (params[1] as number[]) : [];
       const limit = typeof params[2] === 'number' ? params[2] : Number.POSITIVE_INFINITY;
       const rows = [...this.rows.values()]
         .filter((row) => row.payload['listType'] === 'wishlist')
         .filter(
           (row) =>
-            row.platformIgdbId === steamPlatformId ||
-            pspricesPlatformIds.includes(row.platformIgdbId)
+            row.platformIgdbId === steamPlatformId || storePlatformIds.includes(row.platformIgdbId)
         )
         .sort((a, b) => a.igdbGameId.localeCompare(b.igdbGameId))
         .slice(0, limit)
@@ -463,9 +462,6 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
       assert.equal(body.results.pricing.enqueued, 3);
 
       const steamJobs = pool.enqueuedJobs.filter((job) => job.jobType === 'steam_price_revalidate');
-      const pspricesJobs = pool.enqueuedJobs.filter(
-        (job) => job.jobType === 'psprices_price_revalidate'
-      );
       const storeJobs = pool.enqueuedJobs.filter(
         (job) => job.jobType === 'playstation_store_price_revalidate'
       );
@@ -473,7 +469,6 @@ void test('admin refresh-data route enqueues pricing jobs for wishlist rows with
         (job) => job.jobType === 'nintendo_eshop_price_revalidate'
       );
       assert.equal(steamJobs.length, 1);
-      assert.equal(pspricesJobs.length, 0);
       assert.equal(storeJobs.length, 1);
       assert.equal(eshopJobs.length, 1);
       const storePayload = storeJobs[0].payload as Record<string, unknown>;

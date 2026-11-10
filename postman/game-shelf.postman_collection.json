@@ -903,7 +903,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"provider\": \"pricing\",\n  \"priceSource\": \"psprices\",\n  \"priceFetchedAt\": \"2026-03-17T00:00:00.000Z\",\n  \"priceAmount\": 19.99,\n  \"priceCurrency\": \"USD\",\n  \"priceRegularAmount\": 39.99,\n  \"priceDiscountPercent\": 50,\n  \"priceIsFree\": false,\n  \"priceUrl\": \"https://psprices.com/us/game/chrono-trigger\",\n  \"psPricesUrl\": \"https://psprices.com/us/game/chrono-trigger\",\n  \"psPricesTitle\": \"Chrono Trigger\",\n  \"psPricesPlatform\": \"PlayStation\"\n}",
+              "raw": "{\n  \"provider\": \"pricing\",\n  \"priceSource\": \"playstation_store\",\n  \"priceFetchedAt\": \"2026-03-17T00:00:00.000Z\",\n  \"priceAmount\": 19.99,\n  \"priceCurrency\": \"CHF\",\n  \"priceRegularAmount\": 39.99,\n  \"priceDiscountPercent\": 50,\n  \"priceIsFree\": false,\n  \"playstationStoreProductId\": \"https://store.playstation.com/de-ch/product/EP9000-PPSA21567_00-0000000000000000\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -923,7 +923,7 @@
                 "match"
               ]
             },
-            "description": "Example pricing match write for a PSPrices-backed discovery row."
+            "description": "Example pricing match write pinning a PlayStation Store product for a PS5 discovery row."
           }
         },
         {

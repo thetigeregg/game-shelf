@@ -66,7 +66,7 @@ interface SteamPriceLookupResult {
   } | null;
 }
 
-interface PsPricesLookupResult {
+interface StoreSearchLookupResult {
   status?: string;
   bestPrice?: {
     title?: string | null;
@@ -867,7 +867,7 @@ export class GameShelfService {
         .lookupPlayStationStoreCandidates(igdbGameId, platformIgdbId, normalizedTitle)
         .pipe(
           map((response) =>
-            this.normalizeStoreSearchCandidates(response as PsPricesLookupResult, storeSource)
+            this.normalizeStoreSearchCandidates(response as StoreSearchLookupResult, storeSource)
           )
         );
     }
@@ -881,7 +881,7 @@ export class GameShelfService {
         .lookupNintendoEshopCandidates(igdbGameId, platformIgdbId, normalizedTitle)
         .pipe(
           map((response) =>
-            this.normalizeStoreSearchCandidates(response as PsPricesLookupResult, storeSource)
+            this.normalizeStoreSearchCandidates(response as StoreSearchLookupResult, storeSource)
           )
         );
     }
@@ -2012,7 +2012,7 @@ export class GameShelfService {
               title: titleOverride ?? null,
               productId: preferredUrl ?? null,
             })
-      )) as PsPricesLookupResult;
+      )) as StoreSearchLookupResult;
       return this.normalizeStoreSearchLookupResult(result, 'playstation_store');
     }
 
@@ -2030,7 +2030,7 @@ export class GameShelfService {
               title: titleOverride ?? null,
               nsuid: preferredUrl ?? null,
             })
-      )) as PsPricesLookupResult;
+      )) as StoreSearchLookupResult;
       return this.normalizeStoreSearchLookupResult(result, 'nintendo_eshop');
     }
 
@@ -2082,7 +2082,7 @@ export class GameShelfService {
 
   /** The PlayStation Store and Nintendo eShop routes answer in the same shape. */
   private normalizeStoreSearchLookupResult(
-    result: PsPricesLookupResult,
+    result: StoreSearchLookupResult,
     source: StoreSearchPriceSource
   ): UnifiedPriceSnapshot | null {
     if (result.status !== 'ok' || !result.bestPrice) {
@@ -2102,7 +2102,7 @@ export class GameShelfService {
   }
 
   private normalizeStoreSearchCandidates(
-    result: PsPricesLookupResult,
+    result: StoreSearchLookupResult,
     source: StoreSearchPriceSource
   ): PriceMatchCandidate[] {
     const candidates = result.candidates;
@@ -2137,7 +2137,7 @@ export class GameShelfService {
       })
       .filter((candidate) => candidate.title.length > 0);
 
-    const recommendedIndex = this.resolveRecommendedPsPricesCandidateIndex(
+    const recommendedIndex = this.resolveRecommendedStoreCandidateIndex(
       normalizedCandidates,
       recommendedUrl,
       recommendedTitle
@@ -2150,7 +2150,7 @@ export class GameShelfService {
     }));
   }
 
-  private resolveRecommendedPsPricesCandidateIndex(
+  private resolveRecommendedStoreCandidateIndex(
     candidates: PriceMatchCandidate[],
     recommendedUrl: string | null,
     recommendedTitle: string

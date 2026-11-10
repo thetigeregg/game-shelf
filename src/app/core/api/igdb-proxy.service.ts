@@ -177,7 +177,6 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly gamesUpcomingUrl = `${environment.gameApiBaseUrl}/v1/games/upcoming`;
   private readonly gamesRecentUrl = `${environment.gameApiBaseUrl}/v1/games/recent`;
   private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
-  private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly playstationStorePricesUrl = `${environment.gameApiBaseUrl}/v1/playstation-store/prices`;
   private readonly nintendoEshopPricesUrl = `${environment.gameApiBaseUrl}/v1/nintendo-eshop/prices`;
   private readonly httpClient = inject(HttpClient);
@@ -1029,96 +1028,6 @@ export class IgdbProxyService implements GameSearchApi {
         }
 
         return throwError(() => new Error('Unable to load Steam prices.'));
-      })
-    );
-  }
-
-  lookupPsPrices(
-    igdbGameId: string,
-    platformIgdbId: number,
-    query?: {
-      title?: string | null;
-      preferredUrl?: string | null;
-    }
-  ): Observable<unknown> {
-    const normalizedGameId = this.normalizeNumericId(igdbGameId);
-    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
-
-    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
-      return throwError(() => new Error('Invalid PSPrices lookup request.'));
-    }
-
-    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
-      .set('igdbGameId', normalizedGameId)
-      .set('platformIgdbId', String(normalizedPlatformIgdbId));
-    const normalizedTitle = typeof query?.title === 'string' ? query.title.trim() : '';
-    const rawPreferredUrl =
-      typeof query?.preferredUrl === 'string' ? query.preferredUrl.trim() : '';
-    const normalizedPreferredUrl =
-      rawPreferredUrl.length > 0 ? (this.normalizeExternalUrl(rawPreferredUrl) ?? '') : '';
-    let enrichedParams = params;
-    if (normalizedTitle.length > 0) {
-      enrichedParams = enrichedParams.set('title', normalizedTitle);
-    }
-    if (normalizedPreferredUrl.length > 0) {
-      enrichedParams = enrichedParams.set('preferredPsPricesUrl', normalizedPreferredUrl);
-    }
-
-    const cooldownError = this.createCooldownErrorIfActive();
-
-    if (cooldownError) {
-      return throwError(() => cooldownError);
-    }
-
-    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params: enrichedParams }).pipe(
-      catchError((error: unknown) => {
-        const rateLimitError = this.toRateLimitError(error);
-        if (rateLimitError) {
-          return throwError(() => rateLimitError);
-        }
-
-        return throwError(() => new Error('Unable to load PSPrices data.'));
-      })
-    );
-  }
-
-  lookupPsPricesCandidates(
-    igdbGameId: string,
-    platformIgdbId: number,
-    title: string
-  ): Observable<unknown> {
-    const normalizedTitle = title.trim();
-    if (normalizedTitle.length < 2) {
-      return of({ status: 'unavailable', candidates: [] });
-    }
-
-    const normalizedGameId = this.normalizeNumericId(igdbGameId);
-    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
-
-    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
-      return throwError(() => new Error('Invalid PSPrices lookup request.'));
-    }
-
-    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
-      .set('igdbGameId', normalizedGameId)
-      .set('platformIgdbId', String(normalizedPlatformIgdbId))
-      .set('title', normalizedTitle)
-      .set('includeCandidates', '1');
-
-    const cooldownError = this.createCooldownErrorIfActive();
-
-    if (cooldownError) {
-      return throwError(() => cooldownError);
-    }
-
-    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params }).pipe(
-      catchError((error: unknown) => {
-        const rateLimitError = this.toRateLimitError(error);
-        if (rateLimitError) {
-          return throwError(() => rateLimitError);
-        }
-
-        return throwError(() => new Error('Unable to load PSPrices data.'));
       })
     );
   }

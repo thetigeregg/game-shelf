@@ -1240,7 +1240,7 @@ function round6(value: number): number {
 
 /**
  * The retry entries discovery enrichment owns. Price sources keep theirs in the same object
- * (psprices, playstationStore, nintendoEshop) and write them themselves.
+ * (playstationStore, nintendoEshop, and the legacy psprices) and write them themselves.
  */
 const DISCOVERY_ENRICHMENT_RETRY_KEYS = ['hltb', 'metacritic', 'steam'] as const;
 

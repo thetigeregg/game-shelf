@@ -59,7 +59,7 @@ jobs:
       # than relying on whatever happens to be hoisted into the root node_modules.
       - name: Install scraper package dependencies
         run: |
-          for scraper in compat-scraper hltb-scraper metacritic-scraper psprices-scraper; do
+          for scraper in compat-scraper hltb-scraper metacritic-scraper; do
             npm --prefix "$scraper" ci
           done
 
@@ -190,8 +190,6 @@ jobs:
             dockerfile: hltb-scraper/Dockerfile
           - image: metacritic-scraper
             dockerfile: metacritic-scraper/Dockerfile
-          - image: psprices-scraper
-            dockerfile: psprices-scraper/Dockerfile
           - image: compat-scraper
             dockerfile: compat-scraper/Dockerfile
           - image: backup

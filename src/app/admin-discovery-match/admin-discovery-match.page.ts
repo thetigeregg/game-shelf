@@ -60,7 +60,7 @@ import { ClientWriteAuthService } from '../core/services/client-write-auth.servi
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
-type PricingSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices';
+type PricingSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop';
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -116,7 +116,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
     { value: 'steam_store', label: 'Steam Store' },
     { value: 'playstation_store', label: 'PlayStation Store' },
     { value: 'nintendo_eshop', label: 'Nintendo eShop' },
-    { value: 'psprices', label: 'PSPrices' },
   ];
 
   selectedProvider: AdminDiscoveryMatchProvider = 'hltb';
@@ -189,13 +188,10 @@ export class AdminDiscoveryMatchPage implements OnInit {
     priceDiscountPercent: string;
     priceIsFree: boolean | null;
     priceUrl: string;
-    psPricesUrl: string;
-    psPricesTitle: string;
-    psPricesPlatform: string;
     playstationStoreProduct: string;
     nintendoEshopGame: string;
   } = {
-    priceSource: 'psprices',
+    priceSource: 'steam_store',
     priceFetchedAt: '',
     priceAmount: '',
     priceCurrency: '',
@@ -203,9 +199,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
     priceDiscountPercent: '',
     priceIsFree: null,
     priceUrl: '',
-    psPricesUrl: '',
-    psPricesTitle: '',
-    psPricesPlatform: '',
     playstationStoreProduct: '',
     nintendoEshopGame: '',
   };
@@ -269,10 +262,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
     return this.activeModalProvider === 'pricing'
       ? 'Locking keeps the saved pricing match but still allows automatic refresh.'
       : 'Locking keeps the saved match but still allows automatic refresh.';
-  }
-
-  get showPsPricesFields(): boolean {
-    return this.isPsPricesSource(this.pricingForm.priceSource);
   }
 
   get showPlayStationStoreFields(): boolean {
@@ -589,7 +578,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       this.activeDetail?.platformIgdbId ?? null,
       candidate.source
     );
-    const isPsPricesSource = this.isPsPricesSource(source);
 
     this.pricingForm = {
       ...this.pricingForm,
@@ -600,9 +588,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       priceDiscountPercent: formatAdminNumber(candidate.discountPercent),
       priceIsFree: candidate.isFree,
       priceUrl: candidate.url ?? '',
-      psPricesUrl: isPsPricesSource ? (candidate.url ?? '') : '',
-      psPricesTitle: isPsPricesSource ? candidate.title : '',
-      psPricesPlatform: isPsPricesSource ? this.pricingForm.psPricesPlatform : '',
       // The candidate's URL is its store product page (or eShop link), which identifies it.
       playstationStoreProduct: source === 'playstation_store' ? (candidate.url ?? '') : '',
       nintendoEshopGame: source === 'nintendo_eshop' ? (candidate.url ?? '') : '',
@@ -640,8 +625,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       };
     }
 
-    const isPsPricesSource = this.isPsPricesSource(this.pricingForm.priceSource);
-
     return {
       provider,
       priceSource: this.pricingForm.priceSource,
@@ -652,11 +635,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       priceDiscountPercent: parseAdminNumber(this.pricingForm.priceDiscountPercent),
       priceIsFree: this.pricingForm.priceIsFree,
       priceUrl: normalizeAdminString(this.pricingForm.priceUrl),
-      psPricesUrl: isPsPricesSource ? normalizeAdminString(this.pricingForm.psPricesUrl) : null,
-      psPricesTitle: isPsPricesSource ? normalizeAdminString(this.pricingForm.psPricesTitle) : null,
-      psPricesPlatform: isPsPricesSource
-        ? normalizeAdminString(this.pricingForm.psPricesPlatform)
-        : null,
       ...(this.pricingForm.priceSource === 'playstation_store'
         ? {
             playstationStoreProductId: normalizeAdminString(
@@ -675,7 +653,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       detail.platformIgdbId,
       detail.providers.pricing.priceSource
     );
-    const isPsPricesSource = this.isPsPricesSource(priceSource);
 
     this.hltbForm = {
       hltbGameId: formatAdminNumber(detail.providers.hltb.hltbGameId),
@@ -710,9 +687,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
       priceDiscountPercent: formatAdminNumber(detail.providers.pricing.priceDiscountPercent),
       priceIsFree: detail.providers.pricing.priceIsFree,
       priceUrl: detail.providers.pricing.priceUrl ?? '',
-      psPricesUrl: isPsPricesSource ? (detail.providers.pricing.psPricesUrl ?? '') : '',
-      psPricesTitle: isPsPricesSource ? (detail.providers.pricing.psPricesTitle ?? '') : '',
-      psPricesPlatform: isPsPricesSource ? (detail.providers.pricing.psPricesPlatform ?? '') : '',
       playstationStoreProduct:
         priceSource === 'playstation_store'
           ? (detail.providers.pricing.playstationStoreProductId ?? '')
@@ -724,7 +698,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
     this.hltbSearchQuery = detail.providers.hltb.queryTitle ?? detail.title ?? '';
     this.reviewSearchQuery = detail.providers.review.queryTitle ?? detail.title ?? '';
     this.pricingSearchQuery =
-      (isPsPricesSource ? detail.providers.pricing.psPricesTitle : null) ??
       (priceSource === 'playstation_store'
         ? detail.providers.pricing.playstationStoreTitle
         : null) ??
@@ -783,10 +756,6 @@ export class AdminDiscoveryMatchPage implements OnInit {
           )
         : item
     );
-  }
-
-  private isPsPricesSource(priceSource?: string | null): boolean {
-    return priceSource === 'psprices';
   }
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {

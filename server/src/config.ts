@@ -142,14 +142,6 @@ export interface AppConfig {
   steamPriceCacheEnableStaleWhileRevalidate: boolean;
   steamPriceCacheFreshTtlSeconds: number;
   steamPriceCacheStaleTtlSeconds: number;
-  pspricesScraperBaseUrl: string;
-  pspricesScraperToken: string;
-  pspricesScraperRequestTimeoutMs: number;
-  pspricesRegionPath: string;
-  pspricesShow: string;
-  pspricesPriceCacheEnableStaleWhileRevalidate: boolean;
-  pspricesPriceCacheFreshTtlSeconds: number;
-  pspricesPriceCacheStaleTtlSeconds: number;
   playstationStoreApiBaseUrl: string;
   playstationStoreApiTimeoutMs: number;
   playstationStoreCountry: string;
@@ -318,7 +310,6 @@ export interface RateLimitConfig {
     roms_refresh: NamedInboundRateLimitConfig;
     popularity_feed: NamedInboundRateLimitConfig;
     steam_prices: NamedInboundRateLimitConfig;
-    psprices_prices: NamedInboundRateLimitConfig;
     playstation_store_prices: NamedInboundRateLimitConfig;
     nintendo_eshop_prices: NamedInboundRateLimitConfig;
     hltb_search: NamedInboundRateLimitConfig;
@@ -552,7 +543,6 @@ const rateLimitConfig: RateLimitConfig = {
     roms_refresh: readInboundPolicyConfig('ROMS_REFRESH', { max: 50, windowMs: 60_000 }),
     popularity_feed: readInboundPolicyConfig('POPULARITY_FEED', { max: 50, windowMs: 60_000 }),
     steam_prices: readInboundPolicyConfig('STEAM_PRICES', { max: 60, windowMs: 60_000 }),
-    psprices_prices: readInboundPolicyConfig('PSPRICES_PRICES', { max: 60, windowMs: 60_000 }),
     playstation_store_prices: readInboundPolicyConfig('PLAYSTATION_STORE_PRICES', {
       max: 60,
       windowMs: 60_000,
@@ -698,24 +688,6 @@ export const config: AppConfig = {
   ),
   steamPriceCacheFreshTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_FRESH_TTL_SECONDS', 86400),
   steamPriceCacheStaleTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_STALE_TTL_SECONDS', 86400 * 90),
-  pspricesScraperBaseUrl: readEnv('PSPRICES_SCRAPER_BASE_URL', 'http://psprices-scraper:8790'),
-  pspricesScraperToken: readSecretFile('PSPRICES_SCRAPER_TOKEN', 'psprices_scraper_token'),
-  // Room for the scraper's FlareSolverr fallback, which can take a few seconds per title variant.
-  pspricesScraperRequestTimeoutMs: readIntegerEnv('PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS', 60_000),
-  pspricesRegionPath: readEnv('PSPRICES_REGION_PATH', 'region-ch'),
-  pspricesShow: readEnv('PSPRICES_SHOW', 'games'),
-  pspricesPriceCacheEnableStaleWhileRevalidate: readBooleanEnv(
-    'PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
-    true
-  ),
-  pspricesPriceCacheFreshTtlSeconds: readIntegerEnv(
-    'PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS',
-    86400
-  ),
-  pspricesPriceCacheStaleTtlSeconds: readIntegerEnv(
-    'PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS',
-    86400 * 90
-  ),
   playstationStoreApiBaseUrl: readEnv(
     'PLAYSTATION_STORE_API_BASE_URL',
     'https://web.np.playstation.com'

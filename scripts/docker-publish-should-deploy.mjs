@@ -10,7 +10,7 @@ import {
   writeGithubOutput,
 } from './release-diff.mjs';
 
-export const IMAGE_KEYS = ['edge', 'api', 'hltb', 'metacritic', 'psprices', 'compat', 'backup'];
+export const IMAGE_KEYS = ['edge', 'api', 'hltb', 'metacritic', 'compat', 'backup'];
 
 export const EDGE_EXACT_PATHS = new Set([
   'angular.json',
@@ -27,7 +27,6 @@ export const MANIFEST_PATHS_BY_IMAGE = {
   api: ['server/package.json', 'server/package-lock.json'],
   hltb: ['hltb-scraper/package.json', 'hltb-scraper/package-lock.json'],
   metacritic: ['metacritic-scraper/package.json', 'metacritic-scraper/package-lock.json'],
-  psprices: ['psprices-scraper/package.json', 'psprices-scraper/package-lock.json'],
   compat: ['compat-scraper/package.json', 'compat-scraper/package-lock.json'],
 };
 
@@ -67,8 +66,6 @@ export function matchesImagePath(imageKey, filePath) {
       return normalized.startsWith('hltb-scraper/') || normalized.startsWith('shared/');
     case 'metacritic':
       return normalized.startsWith('metacritic-scraper/') || normalized.startsWith('shared/');
-    case 'psprices':
-      return normalized.startsWith('psprices-scraper/') || normalized.startsWith('shared/');
     case 'compat':
       return (
         normalized.startsWith('compat-scraper/') ||
@@ -91,7 +88,7 @@ export function manifestDiffTriggersImage(imageKey, manifestDiff) {
     return manifestDiffHasDependencyChanges(manifestDiff, EDGE_WEB_DEPENDENCY_PATTERN);
   }
 
-  if (['api', 'hltb', 'metacritic', 'psprices', 'compat'].includes(imageKey)) {
+  if (['api', 'hltb', 'metacritic', 'compat'].includes(imageKey)) {
     return manifestDiffHasNonVersionChanges(manifestDiff);
   }
 

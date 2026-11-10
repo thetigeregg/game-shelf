@@ -2252,7 +2252,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   async openFixPricingMatchFromPopover(): Promise<void> {
     await this.dismissDetailActionsPopover();
 
-    if (!this.selectedGame || !this.isPsPricesPlatform(this.selectedGame)) {
+    if (!this.selectedGame || !this.hasPriceCandidates(this.selectedGame)) {
       return;
     }
 
@@ -2670,7 +2670,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.isPsPricesPlatform(this.selectedGame)) {
+    if (this.hasPriceCandidates(this.selectedGame)) {
       this.openPricingPickerModal(this.selectedGame);
       await this.runPricingPickerSearch();
       return;
@@ -5239,7 +5239,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       await this.openReviewPickerModal(this.selectedGame);
       return;
     }
-    if (!this.isPsPricesPlatform(this.selectedGame)) {
+    if (!this.hasPriceCandidates(this.selectedGame)) {
       await this.presentToast(
         'Fix pricing match is only available for PlayStation and Nintendo Switch games.',
         'warning'
@@ -5469,8 +5469,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return [...byKey.values()];
   }
 
-  /** PS4/PS5 (PlayStation Store) and Switch (psprices): prices with candidates to pick from. */
-  isPsPricesPlatform(game: Pick<GameEntry, 'platformIgdbId'>): boolean {
+  /** PS4/PS5 (PlayStation Store) and Switch (Nintendo eShop): prices with candidates to pick from. */
+  hasPriceCandidates(game: Pick<GameEntry, 'platformIgdbId'>): boolean {
     return GameShelfService.hasPriceCandidates(game.platformIgdbId);
   }
 
@@ -5495,7 +5495,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async refreshPricingForBulkGame(game: GameEntry): Promise<GameEntry> {
-    if (!this.isPsPricesPlatform(game)) {
+    if (!this.hasPriceCandidates(game)) {
       return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
     }
 

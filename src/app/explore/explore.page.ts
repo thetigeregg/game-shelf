@@ -2620,7 +2620,7 @@ export class ExplorePage implements OnInit {
                 this.igdbProxyService.lookupSteamPrice(item.igdbGameId, item.platformIgdbId)
               )
             )
-          : this.parsePsPricesLookupResponse(
+          : this.parseStoreSearchLookupResponse(
               await firstValueFrom(
                 GameShelfService.PLAYSTATION_STORE_SUPPORTED_PLATFORM_IGDB_IDS.has(
                   item.platformIgdbId
@@ -2760,7 +2760,7 @@ export class ExplorePage implements OnInit {
     };
   }
 
-  private parsePsPricesLookupResponse(value: unknown): {
+  private parseStoreSearchLookupResponse(value: unknown): {
     currency: string | null;
     amount: number | null;
     regularAmount: number | null;

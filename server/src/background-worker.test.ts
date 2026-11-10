@@ -216,14 +216,6 @@ void test('pricing freshness returns null for invalid/blank unified priceFetched
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(invalidPayload), null);
 });
 
-void test('queued psprices jobs for store-priced platforms are drained without writing', () => {
-  for (const platformIgdbId of [48, 167, 130, 508]) {
-    assert.equal(__backgroundWorkerTestables.isObsoletePspricesJob(platformIgdbId), true);
-  }
-  // Malformed payloads have no psprices platform either.
-  assert.equal(__backgroundWorkerTestables.isObsoletePspricesJob(Number.NaN), true);
-});
-
 void test('provider match lock helper only treats explicit true as locked', () => {
   assert.equal(
     __backgroundWorkerTestables.isProviderMatchLocked(

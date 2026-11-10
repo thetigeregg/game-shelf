@@ -147,7 +147,7 @@ When the selected provider is `pricing`, this action queues pricing refresh work
 - Steam rows queue `steam_price_revalidate`
 - PS4/PS5 rows queue `playstation_store_price_revalidate`
 - Switch/Switch 2 rows queue `nintendo_eshop_price_revalidate`
-- pricing requeue ignores `psPricesMatchLocked`, so an admin-triggered refresh can run even when pricing was manually locked
+- pricing requeue ignores the pricing match lock (`playstationStoreMatchLocked`, `nintendoEshopMatchLocked`, or `psPricesMatchLocked` for Steam), so an admin-triggered refresh can run even when pricing was manually locked
 
 When the selected provider is `hltb` or `review`, this action queues the discovery enrichment worker for those rows.
 
@@ -210,7 +210,7 @@ Applying a candidate fills the review form using either the Metacritic or MobyGa
 
 Uses the discovery row identity and search text to look up pricing candidates.
 
-Applying a candidate fills price fields and PSPrices URL/title fields.
+Applying a candidate fills the price fields and, for the PlayStation Store or Nintendo eShop, the product or eShop game field with the candidate's store link.
 
 ### Save provider match
 
@@ -274,13 +274,14 @@ Saving pricing writes provider fields such as:
 - `priceDiscountPercent`
 - `priceIsFree`
 - `priceUrl`
-- `psPricesUrl`
-- `psPricesTitle`
-- `psPricesPlatform`
+- `playstationStoreProductId` (PlayStation Store) or `nintendoEshopNsuid` (Nintendo eShop), when given
 
 It also:
 
-- sets `psPricesMatchLocked = true`
+- sets the platform's pricing lock: `playstationStoreMatchLocked` (PS4/PS5), `nintendoEshopMatchLocked` (Switch/Switch 2) or `psPricesMatchLocked` (Steam, which still uses that older key)
+- clears any pin left over from psprices (`psPricesUrl`, `psPricesTitle`, `psPricesPlatform`)
+
+The price source must be `steam_store`, `playstation_store` or `nintendo_eshop`, and defaults to the platform's own. A platform without a price source can't be priced.
 
 At least one of `priceAmount`, `priceIsFree`, or `priceUrl` must be supplied or the save is rejected.
 
@@ -308,8 +309,8 @@ Clearing review:
 
 Clearing pricing:
 
-- nulls all unified pricing and PSPrices match fields
-- sets `psPricesMatchLocked = false`
+- nulls all unified pricing fields, the PlayStation Store and Nintendo eShop match fields, and any psprices fields left over
+- sets all pricing locks to `false`
 
 Once a provider is cleared, automatic enrichment is allowed to populate it again if the relevant background or lookup path runs later.
 
@@ -331,7 +332,7 @@ When a provider is saved manually:
 
 - HLTB saves set `hltbMatchLocked = true`
 - review saves set `reviewMatchLocked = true`
-- pricing saves set `psPricesMatchLocked = true`
+- pricing saves set the platform's pricing lock (see "Saving pricing")
 
 These lock fields tell later automation which saved external match identity to preserve.
 
@@ -352,7 +353,7 @@ That means automatic enrichment can refresh missing or stale metadata without di
 
 Locked pricing rows also continue to refresh automatically.
 
-The pricing lock preserves the saved PSPrices match context used for refresh, such as `psPricesMatchQueryTitle` and `psPricesUrl`, so automatic refresh can update price data without discarding the saved manual match.
+The pricing lock preserves the saved store match used for refresh (the pinned PlayStation Store product or eShop nsuid), so automatic refresh can update price data without discarding the saved manual match. A manual price saved without a product or nsuid isn't refreshed at all.
 
 ## When changes take effect
 
@@ -373,7 +374,7 @@ Server sync preserves the manual match and lock-related fields during upserts. T
 
 - a saved manual HLTB match keeps later refreshes anchored to the saved HLTB lookup context
 - a saved manual review match keeps later refreshes anchored to the saved review lookup context
-- a saved manual pricing match keeps later refreshes anchored to the saved PSPrices lookup context
+- a saved manual pricing match keeps later refreshes anchored to the pinned store product or eShop nsuid
 - clearing a provider removes that saved match context and allows future automation to find a new one
 
 ### Effects of resetting permanent miss
@@ -400,13 +401,13 @@ Review can become matched with a minimal valid review payload, especially for Me
 
 ### Pricing retry state is visible but not resettable here
 
-Pricing rows can surface as `retrying` or `permanentMiss` when PSPrices retry metadata exists for a supported pricing platform.
+Pricing rows can surface as `retrying` or `permanentMiss` when the platform's store retry metadata exists (`enrichmentRetry.playstationStore` or `enrichmentRetry.nintendoEshop`).
 
 Unlike HLTB and review, the admin page does not expose a `Clear visible permanent misses` reset path for pricing. Pricing repair flows on this page are manual save/clear and pricing requeue actions.
 
 ### Pricing requeue complements manual pricing repair
 
-If the selected problem is pricing-only, the direct repair paths are manual save/clear and pricing requeue actions. The pricing queue path schedules Steam or PSPrices refresh work, while HLTB and review queue actions schedule discovery enrichment.
+If the selected problem is pricing-only, the direct repair paths are manual save/clear and pricing requeue actions. The pricing queue path schedules Steam, PlayStation Store or Nintendo eShop refresh work, while HLTB and review queue actions schedule discovery enrichment.
 
 ## Practical triage examples
 
@@ -430,4 +431,4 @@ The save updates the row immediately and keeps it locked so the discovery worker
 1. Open the row and review the pricing fields.
 2. Either overwrite them with a new manual pricing match or clear pricing.
 
-If pricing remains locked, automatic PSPrices refresh will continue to skip that row.
+A pinned, locked price keeps refreshing from its pinned product; a manual price saved without one is never refreshed until it's cleared.

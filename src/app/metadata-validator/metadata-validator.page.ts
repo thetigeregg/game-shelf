@@ -396,7 +396,7 @@ export class MetadataValidatorPage {
       return;
     }
 
-    if (this.isPsPricesPlatform(game)) {
+    if (this.hasPriceCandidates(game)) {
       await this.openPricingPickerModal(game);
       return;
     }
@@ -1306,7 +1306,7 @@ export class MetadataValidatorPage {
   }
 
   private async refreshPricingForBulkGame(game: GameEntry): Promise<GameEntry> {
-    if (!this.isPsPricesPlatform(game)) {
+    if (!this.hasPriceCandidates(game)) {
       return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
     }
 
@@ -1341,8 +1341,8 @@ export class MetadataValidatorPage {
     return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
   }
 
-  /** PS4/PS5 (PlayStation Store) and Switch (psprices): prices with candidates to pick from. */
-  private isPsPricesPlatform(game: GameEntry): boolean {
+  /** PS4/PS5 (PlayStation Store) and Switch (Nintendo eShop): prices with candidates to pick from. */
+  private hasPriceCandidates(game: GameEntry): boolean {
     return GameShelfService.hasPriceCandidates(game.platformIgdbId);
   }
 

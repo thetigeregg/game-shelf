@@ -67,19 +67,6 @@ export interface GameSearchApi {
     countryCode?: string,
     steamAppId?: number | null
   ): Observable<unknown>;
-  lookupPsPrices?(
-    igdbGameId: string,
-    platformIgdbId: number,
-    query?: {
-      title?: string | null;
-      preferredUrl?: string | null;
-    }
-  ): Observable<unknown>;
-  lookupPsPricesCandidates?(
-    igdbGameId: string,
-    platformIgdbId: number,
-    title: string
-  ): Observable<unknown>;
   lookupPlayStationStorePrice?(
     igdbGameId: string,
     platformIgdbId: number,

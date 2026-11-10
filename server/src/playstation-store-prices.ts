@@ -42,7 +42,7 @@ interface GamePayloadRow extends QueryResultRow {
 
 type RouteStatus = 'ok' | 'unsupported_platform' | 'unavailable';
 
-/** Same shape as the psprices price snapshot, plus the store product and sale end. */
+/** A store price as the route returns it and the game payload caches it. */
 export interface PlayStationStorePriceSnapshot {
   title: string | null;
   productId: string | null;

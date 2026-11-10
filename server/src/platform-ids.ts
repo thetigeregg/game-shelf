@@ -16,13 +16,10 @@ export const NINTENDO_ESHOP_PLATFORM_IGDB_IDS: ReadonlySet<number> = new Set(
   NINTENDO_ESHOP_PLATFORM_BY_IGDB_ID.keys()
 );
 /**
- * Platforms priced from psprices.com through psprices-scraper: none any more (PS4/PS5 moved to the
- * PlayStation Store, Switch/Switch 2 to the Nintendo eShop). 'psprices' stays a known source so
- * prices saved from it are still read until the stores replace them.
+ * The sources game prices are fetched from. Rows may still carry `priceSource: 'psprices'` from
+ * before psprices was removed; those are read as-is until the platform's store replaces them.
  */
-export const PSPRICES_PLATFORM_IGDB_IDS: ReadonlySet<number> = new Set<number>();
-
-export type PricingSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop' | 'psprices';
+export type PricingSource = 'steam_store' | 'playstation_store' | 'nintendo_eshop';
 
 /** Where a platform's prices come from, or null when it has no price source. */
 export function resolvePricingSourceForPlatform(platformIgdbId: number): PricingSource | null {
@@ -34,9 +31,6 @@ export function resolvePricingSourceForPlatform(platformIgdbId: number): Pricing
   }
   if (NINTENDO_ESHOP_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
     return 'nintendo_eshop';
-  }
-  if (PSPRICES_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
-    return 'psprices';
   }
   return null;
 }

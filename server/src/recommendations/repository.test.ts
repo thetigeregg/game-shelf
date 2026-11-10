@@ -796,35 +796,57 @@ const retry = (attempts: number) => ({
   permanentMiss: false,
 });
 
-void test('buildDiscoveryEnrichmentPatch keeps only what enrichment changed', () => {
+/** A retry entry as Postgres returns it: jsonb orders keys by length, not as they were written. */
+const retryAsStored = (attempts: number) => ({
+  attempts,
+  nextTryAt: null,
+  lastTriedAt: '2026-03-10T09:00:00.000Z',
+  permanentMiss: false,
+});
+
+void test('buildDiscoveryEnrichmentPatch keeps only what enrichment changed, with what it read', () => {
   const previous = {
     title: 'Hades',
     listType: 'discovery',
     hltbMainHours: null,
     priceAmount: 24.9,
-    enrichmentRetry: { hltb: retry(1), nintendoEshop: retry(4) },
+    enrichmentRetry: {
+      hltb: retryAsStored(1),
+      metacritic: retryAsStored(2),
+      nintendoEshop: retryAsStored(4),
+    },
   };
-  // Enrichment works on its own copy: price fields and price retry entries are carried through.
+  // Enrichment works on its own copy, rebuilt in its own key order: price fields and price retry
+  // entries are carried through, an unchanged metacritic entry is rebuilt.
   const next = {
     ...previous,
     hltbMainHours: 21.5,
-    enrichmentRetry: { nintendoEshop: retry(4), metacritic: retry(1) },
+    enrichmentRetry: { metacritic: retry(2), nintendoEshop: retry(4), steam: retry(1) },
   };
 
   assert.deepEqual(buildDiscoveryEnrichmentPatch(previous, next), {
     fields: { hltbMainHours: 21.5 },
-    // hltb found a match (its entry goes), metacritic missed; nintendoEshop isn't enrichment's.
-    retryEntries: { metacritic: retry(1) },
+    expectedFields: { hltbMainHours: null },
+    // hltb found a match (its entry goes), steam missed; metacritic is the same entry, and
+    // nintendoEshop isn't enrichment's.
+    retryKeys: ['hltb', 'steam'],
+    retryEntries: { steam: retry(1) },
+    expectedRetryEntries: { hltb: retryAsStored(1), steam: null },
   });
 });
 
-void test('buildDiscoveryEnrichmentPatch reports a removed retry object and no change', () => {
-  const previous = { title: 'Hades', enrichmentRetry: { steam: retry(2) } };
-  assert.deepEqual(buildDiscoveryEnrichmentPatch(previous, { title: 'Hades' }), {
-    fields: {},
-    retryEntries: {},
-  });
-  assert.equal(buildDiscoveryEnrichmentPatch(previous, { ...previous }), null);
+void test('buildDiscoveryEnrichmentPatch sees an identical result as no change, whatever the key order', () => {
+  const previous = {
+    title: 'Hades',
+    websites: [{ url: 'https://example.com', typeId: 1 }],
+    enrichmentRetry: { hltb: retryAsStored(2) },
+  };
+  const next = {
+    title: 'Hades',
+    websites: [{ typeId: 1, url: 'https://example.com' }],
+    enrichmentRetry: { hltb: retry(2) },
+  };
+  assert.equal(buildDiscoveryEnrichmentPatch(previous, next), null);
   // A change to a price source's entry alone isn't enrichment's to write.
   assert.equal(
     buildDiscoveryEnrichmentPatch(
@@ -833,38 +855,67 @@ void test('buildDiscoveryEnrichmentPatch reports a removed retry object and no c
     ),
     null
   );
+  // Removing the whole object removes enrichment's entries.
+  assert.deepEqual(
+    buildDiscoveryEnrichmentPatch(
+      { title: 'Hades', enrichmentRetry: { steam: retry(2) } },
+      { title: 'Hades' }
+    ),
+    {
+      fields: {},
+      expectedFields: {},
+      retryKeys: ['steam'],
+      retryEntries: {},
+      expectedRetryEntries: { steam: retry(2) },
+    }
+  );
 });
 
-void test('updateGamePayload writes only the enrichment patch, to discovery rows only', async () => {
-  const pool = new PoolMock();
+void test('updateGamePayload sends the patch with what enrichment read, and reports the write', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
   const repository = new RecommendationRepository(pool as never);
   const previous = { title: 'Hades', listType: 'discovery', enrichmentRetry: { hltb: retry(1) } };
 
-  await repository.updateGamePayload({
+  const written = await repository.updateGamePayload({
     igdbGameId: '1',
     platformIgdbId: 130,
     previousPayload: previous,
     payload: { ...previous, metacriticScore: 93, enrichmentRetry: { hltb: retry(2) } },
   });
 
+  assert.equal(written, true);
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
-  assert.match(query.sql, /payload \|\| \$3::jsonb/);
   assert.match(query.sql, /COALESCE\(payload->>'listType', ''\) = 'discovery'/);
+  assert.match(query.sql, /IS DISTINCT FROM next_row\.next_payload/);
   assert.deepEqual(query.params, [
     '1',
     130,
     JSON.stringify({ metacriticScore: 93 }),
-    true,
-    ['hltb', 'metacritic', 'steam'],
+    JSON.stringify({ metacriticScore: null }),
+    JSON.stringify({ hltb: retry(1) }),
+    ['hltb'],
     JSON.stringify({ hltb: retry(2) }),
   ]);
 
-  await repository.updateGamePayload({
+  const unchanged = await repository.updateGamePayload({
     igdbGameId: '1',
     platformIgdbId: 130,
     previousPayload: previous,
     payload: { ...previous },
   });
+  assert.equal(unchanged, false);
   assert.equal(pool.queries.length, 1, 'nothing changed: no write');
+});
+
+void test('updateGamePayload reports no write when the guarded update matched nothing', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 0 }));
+  const repository = new RecommendationRepository(pool as never);
+  const written = await repository.updateGamePayload({
+    igdbGameId: '1',
+    platformIgdbId: 130,
+    previousPayload: { title: 'Hades' },
+    payload: { title: 'Hades', hltbMainHours: 20 },
+  });
+  assert.equal(written, false);
 });

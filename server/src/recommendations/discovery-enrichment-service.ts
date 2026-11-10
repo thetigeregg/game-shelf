@@ -234,19 +234,25 @@ export class DiscoveryEnrichmentService {
       const next = await this.enrichPayload(row.igdbGameId, row.payload, row.platformIgdbId, {
         providers: normalizedProviders,
       });
-      if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
+      if (!next) {
         skipped += 1;
         continue;
       }
 
-      await this.repository.updateGamePayload({
+      // The repository decides whether anything changed (and still applies), so the counts
+      // report rows actually written.
+      const written = await this.repository.updateGamePayload({
         client: queryable,
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
         previousPayload: row.payload,
         payload: next,
       });
-      updated += 1;
+      if (written) {
+        updated += 1;
+      } else {
+        skipped += 1;
+      }
     }
 
     return { scanned: rows.length, updated, skipped };

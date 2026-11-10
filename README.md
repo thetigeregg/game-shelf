@@ -10,7 +10,6 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 - `worker/`: Shared metadata logic/tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
 - `metacritic-scraper/`: Playwright-backed Metacritic lookup service
-- `psprices-scraper/`: Playwright-backed PSPrices lookup service
 - `compat-scraper/`: emulator compatibility list ingestion service (GameCube/Wii via Dolphin today; see `compat-scraper/README.md`)
 - `edge/`: Caddy image for serving frontend and proxying `/api`
 - `docs/`: Deployment and operational docs
@@ -56,10 +55,9 @@ cp .env.example .env
 - `nas-secrets/postgres_user`
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
-- `nas-secrets/psprices_scraper_token` (optional)
 - `nas-secrets/compat_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `psprices-scraper` + `compat-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
+4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `compat-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
 npx devx worktree stack up
@@ -233,12 +231,12 @@ The backend contract is unchanged: tokens register via `POST /v1/notifications/f
 
 - Unified price fields are persisted on each game row (`priceSource`, `priceAmount`, `priceCurrency`, `priceRegularAmount`, `priceDiscountPercent`, `priceIsFree`, `priceUrl`, `priceFetchedAt`).
 - Pricing refresh is supported for IGDB platforms: `6` (Steam/Windows), `48` (PS4), `167` (PS5), `130` (Switch), and `508` (Switch 2).
-- Sources: Steam Store for `6`, the PlayStation Store for `48`/`167` (`GET /v1/playstation-store/prices`), and the Nintendo eShop for `130`/`508` (`GET /v1/nintendo-eshop/prices`). PSPrices no longer prices any platform, and its route (`/v1/psprices/prices`) is no longer served.
+- Sources: Steam Store for `6`, the PlayStation Store for `48`/`167` (`GET /v1/playstation-store/prices`), and the Nintendo eShop for `130`/`508` (`GET /v1/nintendo-eshop/prices`). PSPrices (`psprices-scraper`) was removed; prices it saved stay readable until the platform's store replaces them.
 - The PlayStation Store and Nintendo eShop routes support an optional `title` query override for matching (useful when catalog title differs from store title), plus the store's own ID to price directly: `productId` (ID or product URL) for the PlayStation Store, `nsuid` (nsuid or eShop link) for the eShop.
 - Both rank store search results with the same title matcher and only persist a price on high-confidence title matches.
 - Transient `unavailable` responses keep previously persisted price fields instead of clearing them.
 - Pricing routes include cache diagnostics headers: `X-GameShelf-Steam-Price-Cache`, `X-GameShelf-PlayStation-Store-Cache`, and `X-GameShelf-Nintendo-Eshop-Cache` (`HIT_FRESH`/`HIT_STALE`/`MISS`), plus revalidation scheduling headers when stale values are served.
-- `GET /v1/cache/stats` now reports pricing cache metrics plus persisted pricing coverage counts (`steamPriceEntries`, `playstationStorePriceEntries`, `nintendoEshopPriceEntries`, `pspricesPriceEntries`).
+- `GET /v1/cache/stats` now reports pricing cache metrics plus persisted pricing coverage counts (`steamPriceEntries`, `playstationStorePriceEntries`, `nintendoEshopPriceEntries`).
 - Collection/Wishlist multi-select includes **Update pricing** in bulk actions.
 - Metadata Validator supports a **Pricing picker** for PS4/PS5 (PlayStation Store) and Switch/Switch 2 (Nintendo eShop) with candidate search + manual selection.
 - Game detail actions in Collection/Wishlist also support the same **Pricing picker** flow for those platforms.
@@ -382,5 +380,4 @@ npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.g
 - `worker/README.md`
 - `hltb-scraper/README.md`
 - `metacritic-scraper/README.md`
-- `psprices-scraper/README.md`
 - `compat-scraper/README.md`

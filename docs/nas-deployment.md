@@ -15,7 +15,7 @@
 
 Use `docker-compose.portainer.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
 
-`docker-compose.portainer.yml` attaches `psprices-scraper` to an external Docker network, `flarenet`, which must exist or the deploy fails, even with the FlareSolverr fallback off. Deploy the FlareSolverr stack first (see "FlareSolverr fallback (PSPrices)" below), or if you don't use it, run `docker network create flarenet` once.
+Upgrading from a version with `psprices-scraper`: the stack no longer has that service or the external `flarenet` network. When redeploying, enable Portainer's "Prune services" option (or remove the `gameshelf-psprices-scraper` container yourself), or the old container keeps running. The FlareSolverr stack itself isn't game-shelf's and can stay for other apps. Also pause or delete the `gameshelf-psprices` check in Healthchecks.io (see "Scraper health checks" below): nothing pings it any more, so it would alert once its period runs out.
 
 Before first deploy, publish images from GitHub Actions:
 
@@ -26,7 +26,6 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-metacritic-scraper:main`
-   - `ghcr.io/thetigeregg/game-shelf-psprices-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-compat-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
    - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
@@ -47,7 +46,6 @@ Required app secrets (one secret per file):
 - `twitch_client_secret`
 - `thegamesdb_api_key`
 - `hltb_scraper_token` (optional)
-- `psprices_scraper_token` (optional)
 - `compat_scraper_token` (optional)
 - `healthchecks_ping_key` (optional; turns on scraper health checks, see "Scraper health checks (Healthchecks.io)" below)
 - `openai_api_key` (required for semantic recommendation embeddings)
@@ -84,15 +82,6 @@ Common stack env vars:
 - `NINTENDO_ESHOP_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults to `true`)
 - `NINTENDO_ESHOP_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults to `86400`)
 - `NINTENDO_ESHOP_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
-- `PSPRICES_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
-- `PSPRICES_SCRAPER_TOKEN_FILE` (optional, but recommended)
-- `PSPRICES_REGION_PATH` (optional; defaults `region-ch`)
-- `PSPRICES_SHOW` (optional; defaults `games`)
-- `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
-- `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
-- `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
-- `PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS` (optional; defaults `60000`; how long `api` and `worker-general` wait for `psprices-scraper`)
-- `FLARESOLVERR_ENABLED` (optional; defaults `false`), `FLARESOLVERR_URL` (optional; defaults `http://flaresolverr:8191`) — consumed by `psprices-scraper`; see "FlareSolverr fallback (PSPrices)" below
 - `COMPAT_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `COMPAT_SCRAPER_TOKEN_FILE` (optional, but recommended)
 - `HEALTHCHECKS_PING_KEY_FILE` (optional; defaults `/run/secrets/healthchecks_ping_key`), `HEALTHCHECKS_PING_BASE_URL` (optional; defaults `https://hc-ping.com`), `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (optional; defaults `360`) — consumed by `worker-general`; see "Scraper health checks (Healthchecks.io)" below
@@ -271,7 +260,6 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
-- `/volume1/docker/secrets/gameshelf/psprices_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/compat_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
@@ -303,7 +291,6 @@ Services:
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
 - `metacritic-scraper` provides browser-backed Metacritic lookups.
-- `psprices-scraper` provides browser-backed PSPrices lookups.
 - `compat-scraper` serves emulator compatibility data (GameCube/Wii via Dolphin today; see `compat-scraper/README.md`).
 - `backup` creates nightly Postgres dump artifacts under `nas-data/backups`.
 
@@ -329,7 +316,7 @@ ROM files:
 
 ### PlayStation Store prices (PS4/PS5)
 
-PS4 and PS5 prices come from the PlayStation Store, through the same web API store.playstation.com itself uses (`web.np.playstation.com`). The API calls it directly with `fetch`: no scraper, browser or FlareSolverr, and no Cloudflare.
+PS4 and PS5 prices come from the PlayStation Store, through the same web API store.playstation.com itself uses (`web.np.playstation.com`). The API calls it directly with `fetch`: no scraper or browser, and no Cloudflare.
 
 - **How a game is priced:** a game already matched to a store product is priced from that product directly (exact price, discount and sale end). Otherwise the store is searched by title; results for the game's platform that are a game or an edition of one (not an add-on, demo or currency) are matched by title, and only a confident match is saved. The saved product is used from then on. A product the store no longer sells is searched for again.
 - **Locale:** `PLAYSTATION_STORE_COUNTRY` and `PLAYSTATION_STORE_LANGUAGE` (default `CH` / `de`) choose the store. Titles are matched against that store's names, which usually include English titles.
@@ -349,39 +336,25 @@ Switch and Switch 2 prices come from the Nintendo eShop, through the two APIs th
 - **If it stops working:** both APIs are unofficial. A failure is reported as `Nintendo eShop search …` or `Nintendo eShop price request failed with status …`, saved prices are kept, and the `gameshelf-nintendo-eshop` health check fails.
 - **Requests:** at most 2 at a time, 250 ms apart (`RATE_LIMIT_OUTBOUND_NINTENDO_ESHOP_*`). A first match costs a search plus one price request for all results; a refresh of a matched game costs one price request.
 
-### FlareSolverr fallback (PSPrices)
-
-PSPrices no longer prices any platform (PS4/PS5 come from the PlayStation Store, Switch/Switch 2 from the Nintendo eShop, above). The API no longer serves the psprices route; `psprices-scraper` and its FlareSolverr fallback still run, for jobs already queued, until psprices support is removed.
-
-Cloudflare can block `psprices-scraper`'s headless browser with a challenge. The scraper logs `request_failed` with `blocked by Cloudflare: challenge` and the API returns `502` for that lookup, so a block never overwrites saved pricing data. With `FLARESOLVERR_ENABLED=true`, a blocked search is retried through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) container, which loads the page in its own browser. The scraper sends FlareSolverr one request at a time, through a single browser session that it keeps open between searches, which also keeps the cookie Cloudflare gives a browser that passed its check. A burst of parallel solves, each in a fresh browser, is slow on a NAS and gets challenged itself. The session is closed after 10 minutes without a search and replaced every 30 minutes. FlareSolverr never closes an unused session by itself, so the scraper's first FlareSolverr search after it starts also removes any `gameshelf-psprices-*` sessions an earlier run left behind (after a crash, for example); don't point a second scraper instance at the same FlareSolverr. After a block, searches skip the direct request for 15 minutes and go straight to FlareSolverr; after that, or as soon as FlareSolverr fails during that window, the next search tries PSPrices directly again, so the fallback stops being used by itself once a block lifts and a FlareSolverr outage costs at most one failed search. This works around PSPrices' bot protection and could get the NAS's IP banned.
-
-FlareSolverr runs as its own stack, which creates the `flarenet` network that `psprices-scraper` joins. Keep its port off the LAN, since anyone who can reach it can browse the web from the NAS.
-
-- **Turning it on or off:** set `FLARESOLVERR_ENABLED` to `true` or `false` and redeploy the stack, since the container has to be recreated to pick it up. The scraper logs `FlareSolverr fallback enabled via <url>` at startup when it's on.
-- **Checking whether it's in use:** a successful fallback looks healthy in the app. The log line `cloudflare_blocked_retrying_via_flaresolverr` shows the block is still there; while a block is remembered it appears at most about every 15 minutes, since searches in between don't try directly. A failed fallback logs both the block and FlareSolverr's error, e.g. `ENOTFOUND` when the scraper isn't on `flarenet`, or `it returned a page that isn't PSPrices search results` for an error or maintenance page: as `variant_failed` when another title variant still found results, or as `request_failed` (and a `502`, so nothing is saved) when none did. A search with a failed variant is never saved as a no-match. If nothing in it matches, the API saves nothing: a price lookup fails with `psprices_fetch_failed`, background refreshes fail and are retried, and the manual match picker still gets the candidates that came back.
-- **Timing:** the first FlareSolverr search after the session was closed starts its browser, which can take 10 seconds or more on a NAS; later ones take about a second each, once per title variant (the title as given, plus a version without punctuation when that differs). Searches that arrive together wait for each other. The scraper gives each request a 50-second budget across all variants, capping page loads, waiting for FlareSolverr and its solves (20 seconds at most each) by what's left, so it answers before the API's `PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS` (default 60 seconds) runs out. Keep that timeout above 50 seconds. A search that waited too long fails with `request time budget used up waiting for FlareSolverr` and nothing is saved. After any FlareSolverr failure (an unsolved challenge, or no answer at all: `The operation was aborted due to timeout`) the scraper starts a new session for the next search, since the old browser may be stuck on the challenge or still busy.
-- **Removing FlareSolverr entirely:** Docker won't remove `flarenet` while `psprices-scraper` is attached, so detach it first. Delete the `flarenet` entries from `docker-compose.portainer.yml` and redeploy, then delete the FlareSolverr stack. To keep the compose file unchanged instead: stop this stack, delete the FlareSolverr stack, run `docker network create flarenet`, then redeploy this stack so its containers are recreated on the new network.
-
 ### Scraper health checks (Healthchecks.io)
 
 A scraper failure doesn't show up anywhere obvious: a blocked or broken scraper mostly looks like games without a price, score or playtime. To get alerted instead, `worker-general` can look up a title that should always match on each scraper and report the result to [Healthchecks.io](https://healthchecks.io), which sends the alert (email, push, Telegram and so on, as configured there).
 
 | Check                         | Test lookup                                                                               |
 | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `gameshelf-psprices`          | Hades II on Switch, in `PSPRICES_REGION_PATH`                                             |
 | `gameshelf-playstation-store` | Hades II on PS5 in the configured store: search, match and exact price                    |
 | `gameshelf-nintendo-eshop`    | Hades II on Switch in the configured eShop: search, match and price                       |
 | `gameshelf-hltb`              | Hades (2020, PC)                                                                          |
 | `gameshelf-metacritic`        | Hades (2020, PC)                                                                          |
 | `gameshelf-compat`            | The Xbox (xemu) list, a single small file; the full set of lists is only refreshed weekly |
 
-The lookups call each scraper directly, so the API's caches can't hide a failure, and each must return the specific game verified for it (psprices: the title "Hades II"; PlayStation Store: product `EP4484-PPSA36082_00-0912328937643383`; Nintendo eShop: nsuid `70010000060676`; HLTB: game 62941; Metacritic: `/game/hades/`), since the scrapers otherwise return their closest loosely similar result. The match must also include what the scraper exists to provide (a price, a main-story time or a score from 1 to 100), so a broken parser that still finds the game fails the check. A match sends a success ping. An error, a timeout, no match or the wrong game sends a failure ping with the reason (for example `HTTP 502: Unable to fetch PSPrices data.`, `ECONNREFUSED` or `timed out`), which Healthchecks.io includes in the alert. Reasons contain only status codes, error codes and the scraper's own error message, never raw response text or request URLs, so credentials and the ping key stay out of pings and logs.
+The lookups call each scraper directly, so the API's caches can't hide a failure, and each must return the specific game verified for it (PlayStation Store: product `EP4484-PPSA36082_00-0912328937643383`; Nintendo eShop: nsuid `70010000060676`; HLTB: game 62941; Metacritic: `/game/hades/`), since the scrapers otherwise return their closest loosely similar result. The match must also include what the scraper exists to provide (a price, a main-story time or a score from 1 to 100), so a broken parser that still finds the game fails the check. A match sends a success ping. An error, a timeout, no match or the wrong game sends a failure ping with the reason (for example `HTTP 502: Unable to fetch HLTB data.`, `ECONNREFUSED` or `timed out`), which Healthchecks.io includes in the alert. Reasons contain only status codes, error codes and the scraper's own error message, never raw response text or request URLs, so credentials and the ping key stay out of pings and logs.
 
-A Cloudflare block on HLTB or Metacritic shows up as no match. A psprices block that the FlareSolverr fallback gets past still passes, but a psprices search where a title variant failed (FlareSolverr failing or the scraper running out of time) fails the check even if it matched.
+A Cloudflare block on HLTB or Metacritic shows up as no match.
 
 - **Setting it up:** in Healthchecks.io, open your project's settings and create a ping key. Save it as `${SECRETS_HOST_DIR}/healthchecks_ping_key` and redeploy. The checks are created automatically the first time they're pinged, about two minutes after `worker-general` starts.
 - **Schedule:** the lookups run every `SCRAPER_HEALTH_CHECK_INTERVAL_MINUTES` (default 360, 6 hours; capped at 10080, 7 days). Auto-created checks expect a ping once a day with a 1-hour grace period, which only affects how soon a _missing_ ping alerts; a failed lookup alerts straight away. To be alerted sooner when pings stop (worker or stack down), set each check's period to the interval in Healthchecks.io.
-- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings. Then pause or delete the six checks in Healthchecks.io: otherwise each goes overdue once its period and grace time pass without a ping, and alerts. A paused check resumes by itself on its next ping. The same applies to a single check if you remove that scraper's base URL, since the worker then skips it.
+- **Turning it off:** delete the secret and redeploy. Without it the worker runs no lookups and sends no pings. Then pause or delete the five checks in Healthchecks.io: otherwise each goes overdue once its period and grace time pass without a ping, and alerts. A paused check resumes by itself on its next ping. The same applies to a single check if you remove that scraper's base URL, since the worker then skips it.
 - **Self-hosted Healthchecks:** set `HEALTHCHECKS_PING_BASE_URL` to your instance's ping URL.
 - **Logs:** each lookup logs `[scraper-health-check] passed` or `failed` with the same message as the ping.
 
@@ -499,7 +472,6 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
-`nas-secrets/psprices_scraper_token` (optional)
 `nas-secrets/compat_scraper_token` (optional)
 `nas-secrets/firebase_service_account_json` (required for FCM notifications)
 `nas-secrets/metacritic_scraper_token` (optional)
@@ -533,12 +505,6 @@ Key metadata env vars in `.env`:
 - `PLAYSTATION_STORE_LANGUAGE=de`
 - `NINTENDO_ESHOP_COUNTRY=CH`
 - `NINTENDO_ESHOP_LANGUAGE=de`
-- `PSPRICES_SCRAPER_BASE_URL=http://psprices-scraper:8790`
-- `PSPRICES_REGION_PATH=region-ch`
-- `PSPRICES_SHOW=games`
-- `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
-- `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
-- `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
 - `COMPAT_SCRAPER_BASE_URL=http://compat-scraper:8791`
 - `COMPAT_PERIODIC_REFRESH_DAYS=7`
 - `COMPAT_FAILURE_BACKOFF_BASE_MINUTES=60`

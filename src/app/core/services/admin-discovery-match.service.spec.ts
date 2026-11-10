@@ -157,9 +157,6 @@ describe('AdminDiscoveryMatchService', () => {
           priceDiscountPercent: null,
           priceIsFree: false,
           priceUrl: null,
-          psPricesUrl: null,
-          psPricesTitle: null,
-          psPricesPlatform: null,
         },
       },
     });

@@ -74,20 +74,6 @@ export interface CacheMetricSnapshot {
     upstreamErrors: number;
     invalidRequests: number;
   };
-  pspricesPrice: {
-    hits: number;
-    misses: number;
-    writes: number;
-    readErrors: number;
-    writeErrors: number;
-    staleServed: number;
-    revalidateScheduled: number;
-    revalidateSkipped: number;
-    revalidateSucceeded: number;
-    revalidateFailed: number;
-    upstreamErrors: number;
-    invalidRequests: number;
-  };
   playstationStorePrice: {
     hits: number;
     misses: number;
@@ -194,20 +180,6 @@ const metrics: CacheMetricSnapshot = {
     upstreamErrors: 0,
     invalidRequests: 0,
   },
-  pspricesPrice: {
-    hits: 0,
-    misses: 0,
-    writes: 0,
-    readErrors: 0,
-    writeErrors: 0,
-    staleServed: 0,
-    revalidateScheduled: 0,
-    revalidateSkipped: 0,
-    revalidateSucceeded: 0,
-    revalidateFailed: 0,
-    upstreamErrors: 0,
-    invalidRequests: 0,
-  },
   playstationStorePrice: {
     hits: 0,
     misses: 0,
@@ -262,12 +234,6 @@ export function incrementSteamPriceMetric(metric: keyof CacheMetricSnapshot['ste
   metrics.steamPrice[metric] += 1;
 }
 
-export function incrementPspricesPriceMetric(
-  metric: keyof CacheMetricSnapshot['pspricesPrice']
-): void {
-  metrics.pspricesPrice[metric] += 1;
-}
-
 export function incrementPlayStationStorePriceMetric(
   metric: keyof CacheMetricSnapshot['playstationStorePrice']
 ): void {
@@ -288,7 +254,6 @@ export function getCacheMetrics(): CacheMetricSnapshot {
     hltb: { ...metrics.hltb },
     image: { ...metrics.image },
     steamPrice: { ...metrics.steamPrice },
-    pspricesPrice: { ...metrics.pspricesPrice },
     playstationStorePrice: { ...metrics.playstationStorePrice },
     nintendoEshopPrice: { ...metrics.nintendoEshopPrice },
   };
@@ -357,20 +322,6 @@ export function resetCacheMetrics(): void {
     invalidRequests: 0,
   };
   metrics.steamPrice = {
-    hits: 0,
-    misses: 0,
-    writes: 0,
-    readErrors: 0,
-    writeErrors: 0,
-    staleServed: 0,
-    revalidateScheduled: 0,
-    revalidateSkipped: 0,
-    revalidateSucceeded: 0,
-    revalidateFailed: 0,
-    upstreamErrors: 0,
-    invalidRequests: 0,
-  };
-  metrics.pspricesPrice = {
     hits: 0,
     misses: 0,
     writes: 0,

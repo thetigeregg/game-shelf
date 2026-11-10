@@ -63,7 +63,6 @@ test('evaluateDockerPublishDeploy publishes api only for server changes', () => 
       api: '',
       hltb: '',
       metacritic: '',
-      psprices: '',
       compat: '',
     },
     hasPreviousTag: true,
@@ -72,21 +71,14 @@ test('evaluateDockerPublishDeploy publishes api only for server changes', () => 
   assert.equal(decision.images.api.shouldPublish, true);
   assert.equal(decision.images.edge.shouldPublish, false);
   assert.equal(decision.images.backup.shouldPublish, false);
-  assert.deepEqual(decision.skippedImages, [
-    'edge',
-    'hltb',
-    'metacritic',
-    'psprices',
-    'compat',
-    'backup',
-  ]);
+  assert.deepEqual(decision.skippedImages, ['edge', 'hltb', 'metacritic', 'compat', 'backup']);
 });
 
 test('evaluateDockerPublishDeploy publishes edge only for src changes', () => {
   const decision = evaluateDockerPublishDeploy({
     changedFiles: ['src/app/foo.ts'],
     manifestDiffs: Object.fromEntries(
-      ['edge', 'api', 'hltb', 'metacritic', 'psprices'].map((key) => [key, ''])
+      ['edge', 'api', 'hltb', 'metacritic'].map((key) => [key, ''])
     ),
     hasPreviousTag: true,
   });
@@ -99,7 +91,7 @@ test('evaluateDockerPublishDeploy skips ios-only changes', () => {
   const decision = evaluateDockerPublishDeploy({
     changedFiles: ['ios/App/foo', 'CHANGELOG.md'],
     manifestDiffs: Object.fromEntries(
-      ['edge', 'api', 'hltb', 'metacritic', 'psprices'].map((key) => [key, ''])
+      ['edge', 'api', 'hltb', 'metacritic'].map((key) => [key, ''])
     ),
     hasPreviousTag: true,
   });
@@ -111,7 +103,7 @@ test('evaluateDockerPublishDeploy fans out shared changes to api and scrapers', 
   const decision = evaluateDockerPublishDeploy({
     changedFiles: ['shared/foo.ts'],
     manifestDiffs: Object.fromEntries(
-      ['edge', 'api', 'hltb', 'metacritic', 'psprices'].map((key) => [key, ''])
+      ['edge', 'api', 'hltb', 'metacritic'].map((key) => [key, ''])
     ),
     hasPreviousTag: true,
   });
@@ -119,7 +111,6 @@ test('evaluateDockerPublishDeploy fans out shared changes to api and scrapers', 
   assert.equal(decision.images.api.shouldPublish, true);
   assert.equal(decision.images.hltb.shouldPublish, true);
   assert.equal(decision.images.metacritic.shouldPublish, true);
-  assert.equal(decision.images.psprices.shouldPublish, true);
   assert.equal(decision.images.compat.shouldPublish, true);
   assert.equal(decision.images.edge.shouldPublish, false);
 });
@@ -128,7 +119,7 @@ test('evaluateDockerPublishDeploy publishes edge and metacritic for metacritic s
   const decision = evaluateDockerPublishDeploy({
     changedFiles: ['metacritic-scraper/src/foo.ts'],
     manifestDiffs: Object.fromEntries(
-      ['edge', 'api', 'hltb', 'metacritic', 'psprices'].map((key) => [key, ''])
+      ['edge', 'api', 'hltb', 'metacritic'].map((key) => [key, ''])
     ),
     hasPreviousTag: true,
   });
@@ -151,7 +142,6 @@ test('evaluateDockerPublishDeploy publishes edge for root angular dependency bum
       api: '',
       hltb: '',
       metacritic: '',
-      psprices: '',
     },
     hasPreviousTag: true,
   });
@@ -164,7 +154,7 @@ test('evaluateDockerPublishDeploy publishes backup for backup script changes', (
   const decision = evaluateDockerPublishDeploy({
     changedFiles: ['scripts/backup/foo.sh'],
     manifestDiffs: Object.fromEntries(
-      ['edge', 'api', 'hltb', 'metacritic', 'psprices'].map((key) => [key, ''])
+      ['edge', 'api', 'hltb', 'metacritic'].map((key) => [key, ''])
     ),
     hasPreviousTag: true,
   });

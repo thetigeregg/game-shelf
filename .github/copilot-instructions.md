@@ -13,7 +13,6 @@ Game Shelf is an Ionic + Angular app (web + Capacitor iOS) for tracking a person
 - `worker/`: Shared metadata normalisation logic and tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
 - `metacritic-scraper/`: Metacritic lookup service
-- `psprices-scraper/`: Playwright-backed PSPrices lookup service
 - `compat-scraper/`: emulator compatibility list ingestion service (GameCube/Wii via Dolphin today)
 - `edge/`: Caddy image that serves the frontend and proxies `/api`
 - `docs/`: Deployment and operational documentation

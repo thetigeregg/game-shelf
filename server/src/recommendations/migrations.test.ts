@@ -167,6 +167,11 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.ok(secondMigrationIndex < secondUnlockIndex);
 });
 
+void test('migrations drop the removed psprices revalidation jobs', () => {
+  const sql = MIGRATIONS.join('\n');
+  assert.match(sql, /DELETE FROM background_jobs\s+WHERE job_type = 'psprices_price_revalidate'/);
+});
+
 void test('migration SQL scopes constraint checks to target tables for drift safety', () => {
   const sql = MIGRATIONS.join('\n');
 

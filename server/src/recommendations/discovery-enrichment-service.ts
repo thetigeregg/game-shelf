@@ -72,7 +72,6 @@ interface DiscoveryEnrichmentRetryState {
   hltb: ProviderRetryState;
   metacritic: ProviderRetryState;
   steam: ProviderRetryState;
-  psprices: ProviderRetryState;
   playstationStore: ProviderRetryState;
   nintendoEshop: ProviderRetryState;
 }
@@ -345,7 +344,6 @@ export class DiscoveryEnrichmentService {
         rearmRecentReleaseYears,
         maxAttempts: this.options.maxAttempts,
       }),
-      psprices: retryState.psprices,
       playstationStore: retryState.playstationStore,
       nintendoEshop: retryState.nintendoEshop,
     };
@@ -419,7 +417,6 @@ export class DiscoveryEnrichmentService {
       hltb: nextRetryStateBase.hltb,
       metacritic: nextRetryStateBase.metacritic,
       steam: nextRetryStateBase.steam,
-      psprices: nextRetryStateBase.psprices,
       playstationStore: nextRetryStateBase.playstationStore,
       nintendoEshop: nextRetryStateBase.nintendoEshop,
     };
@@ -805,7 +802,6 @@ function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
     hltb: parseProviderRetryState(source.hltb),
     metacritic: parseProviderRetryState(source.metacritic),
     steam: parseProviderRetryState(source.steam),
-    psprices: parseProviderRetryState(source.psprices),
     playstationStore: parseProviderRetryState(source.playstationStore),
     nintendoEshop: parseProviderRetryState(source.nintendoEshop),
   };
@@ -836,7 +832,6 @@ function buildNextRetryState(params: {
       : params.needsSteam
         ? params.current.steam
         : createEmptyProviderRetryState(),
-    psprices: params.current.psprices,
     playstationStore: params.current.playstationStore,
     nintendoEshop: params.current.nintendoEshop,
   };
@@ -849,7 +844,6 @@ function applyRetryState(
   const shouldKeepHltb = hasMeaningfulRetryState(state.hltb);
   const shouldKeepMetacritic = hasMeaningfulRetryState(state.metacritic);
   const shouldKeepSteam = hasMeaningfulRetryState(state.steam);
-  const shouldKeepPsprices = hasMeaningfulRetryState(state.psprices);
   const shouldKeepPlayStationStore = hasMeaningfulRetryState(state.playstationStore);
   const shouldKeepNintendoEshop = hasMeaningfulRetryState(state.nintendoEshop);
 
@@ -857,7 +851,6 @@ function applyRetryState(
     !shouldKeepHltb &&
     !shouldKeepMetacritic &&
     !shouldKeepSteam &&
-    !shouldKeepPsprices &&
     !shouldKeepPlayStationStore &&
     !shouldKeepNintendoEshop
   ) {
@@ -869,7 +862,6 @@ function applyRetryState(
     ...(shouldKeepHltb ? { hltb: state.hltb } : {}),
     ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {}),
     ...(shouldKeepSteam ? { steam: state.steam } : {}),
-    ...(shouldKeepPsprices ? { psprices: state.psprices } : {}),
     ...(shouldKeepPlayStationStore ? { playstationStore: state.playstationStore } : {}),
     ...(shouldKeepNintendoEshop ? { nintendoEshop: state.nintendoEshop } : {}),
   };

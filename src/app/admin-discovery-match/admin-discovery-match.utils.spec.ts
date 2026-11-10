@@ -184,7 +184,7 @@ describe('adminDiscoveryMatchUtils', () => {
     // A psprices price left on a store-priced game opens on the store.
     expect(resolveAdminPricingSource(130, 'psprices')).toBe('nintendo_eshop');
     expect(resolveAdminPricingSource(167, 'psprices')).toBe('playstation_store');
-    expect(resolveAdminPricingSource(6, 'psprices')).toBe('psprices');
+    expect(resolveAdminPricingSource(6, 'psprices')).toBe('steam_store');
     expect(resolveAdminPricingSource(48, 'steam_store')).toBe('steam_store');
     expect(resolveAdminPricingSource(48, 'playstation_store')).toBe('playstation_store');
   });

@@ -1390,7 +1390,7 @@ void test('admin discovery patch route clears stale psprices metadata for steam 
   }
 });
 
-void test('admin discovery patch route rejects psprices prices for store-priced platforms', async () => {
+void test('admin discovery patch route only accepts the platform price source', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
@@ -1407,26 +1407,40 @@ void test('admin discovery patch route rejects psprices prices for store-priced 
   });
   pool.seed({
     igdbGameId: '25',
-    platformIgdbId: 167,
-    payload: { listType: 'discovery', title: 'PS5 Game', platform: 'PlayStation 5' },
+    platformIgdbId: 49,
+    payload: { listType: 'discovery', title: 'Xbox One Game', platform: 'Xbox One' },
   });
 
   try {
     registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
-    for (const [platformIgdbId, source] of [
-      [130, 'nintendo_eshop'],
-      [167, 'playstation_store'],
-    ] as const) {
-      const response = await app.inject({
+    const patch = (platformIgdbId: number, payload: Record<string, unknown>) =>
+      app.inject({
         method: 'PATCH',
         url: `/v1/admin/discovery/games/25/${String(platformIgdbId)}/match`,
         headers: { authorization: 'Bearer test-admin-token' },
-        payload: { provider: 'pricing', priceSource: 'psprices', priceAmount: 9.99 },
+        payload: { provider: 'pricing', priceAmount: 9.99, ...payload },
       });
-      assert.equal(response.statusCode, 400);
-      assert.deepEqual(response.json(), {
-        error: `This platform is priced from ${source}, not psprices.`,
-      });
+
+    // psprices was removed: it isn't a source a price can be saved from any more.
+    const psprices = await patch(130, { priceSource: 'psprices' });
+    assert.equal(psprices.statusCode, 400);
+    assert.deepEqual(psprices.json(), {
+      error: 'Price source must be steam_store, playstation_store or nintendo_eshop.',
+    });
+
+    // Only the platform's own source: a Steam price on a Switch game would be treated as Steam's.
+    const wrongSource = await patch(130, { priceSource: 'steam_store' });
+    assert.equal(wrongSource.statusCode, 400);
+    assert.deepEqual(wrongSource.json(), { error: 'This platform is priced from nintendo_eshop.' });
+
+    // A platform no store prices can't be priced, whatever source is sent.
+    for (const payload of [{}, { priceSource: 'steam_store' }]) {
+      const unpriced = await patch(49, payload);
+      assert.equal(unpriced.statusCode, 400);
+      assert.deepEqual(unpriced.json(), { error: 'This platform has no price source.' });
+    }
+
+    for (const platformIgdbId of [130, 49]) {
       assert.equal(pool.readPayload('25', platformIgdbId)?.['priceSource'], undefined);
     }
   } finally {
@@ -1475,7 +1489,7 @@ void test('admin discovery patch route rejects unsupported pricing sources', asy
 
     assert.equal(response.statusCode, 400);
     assert.deepEqual(response.json(), {
-      error: 'Price source must be steam_store, playstation_store, nintendo_eshop or psprices.',
+      error: 'Price source must be steam_store, playstation_store or nintendo_eshop.',
     });
   } finally {
     config.requireAuth = originalRequireAuth;

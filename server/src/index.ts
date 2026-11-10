@@ -359,9 +359,6 @@ async function main(): Promise<void> {
         });
       },
     });
-    // The psprices route isn't registered: no platform is priced from psprices any more, and an
-    // outdated app still calling it for Switch games would write psprices prices over the Nintendo
-    // eShop's. Such an app gets a 404 and keeps its last price.
     await registerPlayStationStorePricesRoute(app, pool, {
       enableStaleWhileRevalidate: config.playstationStorePriceCacheEnableStaleWhileRevalidate,
       freshTtlSeconds: config.playstationStorePriceCacheFreshTtlSeconds,

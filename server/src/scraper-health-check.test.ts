@@ -137,7 +137,7 @@ void test('scraper health check pings fail when the known title does not match',
 
 void test('scraper health check reports the status and scraper error of a failed lookup', async () => {
   const { fetchImpl, pings } = fakeFetch(() =>
-    jsonResponse({ error: 'Unable to fetch PSPrices data.', detail: 'internal' }, 502)
+    jsonResponse({ error: 'Unable to fetch HLTB data.', detail: 'internal' }, 502)
   );
   await runScraperHealthChecks({
     pingKey: PING_KEY,
@@ -145,7 +145,7 @@ void test('scraper health check reports the status and scraper error of a failed
     probes: [probe()],
     fetchImpl,
   });
-  assert.match(pings()[0]?.body ?? '', /failed: HTTP 502: Unable to fetch PSPrices data\.$/);
+  assert.match(pings()[0]?.body ?? '', /failed: HTTP 502: Unable to fetch HLTB data\.$/);
 });
 
 void test('scraper health check keeps raw response text out of the ping', async () => {
@@ -231,8 +231,7 @@ void test('scraper health check keeps a base URL path prefix when the probe asks
   assert.deepEqual(lookups, [
     'http://proxy:8080/compat/v1/test/search?q=Hades',
     'http://proxy:8080/compat/v1/test/search?q=Hades',
-    // Without the flag the path resolves from the root, as the HLTB, Metacritic and psprices
-    // clients do.
+    // Without the flag the path resolves from the root, as the HLTB and Metacritic clients do.
     'http://proxy:8080/v1/test/search?q=Hades',
   ]);
 });
@@ -241,7 +240,6 @@ void test('scraper health probes build URLs the way each API client does', () =>
   assert.deepEqual(
     buildScraperHealthProbes().map((entry) => [entry.slug, entry.keepBasePath === true]),
     [
-      ['gameshelf-psprices', false],
       ['gameshelf-playstation-store', false],
       ['gameshelf-nintendo-eshop', false],
       ['gameshelf-hltb', false],
@@ -420,7 +418,6 @@ void test('scraper health probes cover each scraper with a known title', () => {
   assert.deepEqual(
     probes.map((entry) => [entry.slug, entry.path, entry.query['q'] ?? null]),
     [
-      ['gameshelf-psprices', '/v1/psprices/search', 'Hades II'],
       ['gameshelf-playstation-store', 'Hades II (PS5)', null],
       ['gameshelf-nintendo-eshop', 'Hades II (Switch)', null],
       ['gameshelf-hltb', '/v1/hltb/search', 'Hades'],
@@ -432,13 +429,6 @@ void test('scraper health probes cover each scraper with a known title', () => {
 
 void test('scraper health probes accept the verified result for each scraper', () => {
   const verdict = probeVerdict;
-  assert.deepEqual(
-    verdict('gameshelf-psprices', {
-      item: { title: 'Hades II', amount: 29.9, url: 'https://psprices.com/x' },
-      incomplete: false,
-    }),
-    { ok: true, detail: 'matched (title=Hades II, amount=29.9, url=https://psprices.com/x)' }
-  );
   assert.deepEqual(
     verdict('gameshelf-hltb', { item: { hltbGameId: 62941, hltbMainHours: 23.6 } }),
     {
@@ -462,7 +452,12 @@ void test('scraper health probes accept the verified result for each scraper', (
 });
 
 void test('scraper health probes reject a missing match', () => {
-  for (const slug of ['gameshelf-psprices', 'gameshelf-hltb', 'gameshelf-metacritic']) {
+  for (const slug of [
+    'gameshelf-playstation-store',
+    'gameshelf-nintendo-eshop',
+    'gameshelf-hltb',
+    'gameshelf-metacritic',
+  ]) {
     for (const body of [{ item: null }, [], 'nope']) {
       assert.deepEqual(
         probeVerdict(slug, body),
@@ -480,10 +475,13 @@ void test('scraper health probes reject a missing match', () => {
 });
 
 void test('scraper health probes reject a match on the wrong game', () => {
-  assert.deepEqual(probeVerdict('gameshelf-psprices', { item: { title: 'Hades', amount: 19.9 } }), {
-    ok: false,
-    reason: 'matched the wrong result (title=Hades, amount=19.9), expected title "Hades II"',
-  });
+  assert.deepEqual(
+    probeVerdict('gameshelf-playstation-store', { item: { title: 'Hades', amount: 24.9 } }),
+    {
+      ok: false,
+      reason: 'matched the wrong result (title=Hades, amount=24.9), expected title "Hades II"',
+    }
+  );
   assert.deepEqual(probeVerdict('gameshelf-hltb', { item: { hltbGameId: 118218 } }), {
     ok: false,
     reason: 'matched the wrong result (hltbGameId=118218), expected hltbGameId 62941',
@@ -505,16 +503,6 @@ void test('scraper health probes reject a match on the wrong game', () => {
 });
 
 void test('scraper health probes reject the expected game without its data', () => {
-  assert.deepEqual(
-    probeVerdict('gameshelf-psprices', {
-      item: { title: 'Hades II', amount: null, url: 'https://psprices.com/x' },
-    }),
-    {
-      ok: false,
-      reason:
-        'matched the expected game without a price (title=Hades II, url=https://psprices.com/x)',
-    }
-  );
   assert.deepEqual(probeVerdict('gameshelf-hltb', { item: { hltbGameId: 62941 } }), {
     ok: false,
     reason: 'matched the expected game without a main-story time (hltbGameId=62941)',
@@ -539,25 +527,14 @@ void test('scraper health probes reject the expected game without its data', () 
   assert.equal(metacritic(100).ok, true);
 });
 
-void test('scraper health psprices probe accepts a free price', () => {
-  assert.equal(
-    probeVerdict('gameshelf-psprices', { item: { title: 'Hades II', amount: 0 } }).ok,
-    true
-  );
-  assert.equal(
-    probeVerdict('gameshelf-psprices', { item: { title: 'Hades II', amount: -1 } }).ok,
-    false
-  );
-});
-
-void test('scraper health psprices probe fails an incomplete search even when it matched', () => {
-  assert.deepEqual(
-    probeVerdict('gameshelf-psprices', {
-      item: { title: 'Hades II', amount: 29.9 },
-      incomplete: true,
-    }),
-    { ok: false, reason: 'search incomplete: a title variant failed in the scraper' }
-  );
+void test('store probes accept a free price but not a negative one', () => {
+  for (const [slug, item] of [
+    ['gameshelf-playstation-store', { title: 'Hades II' }],
+    ['gameshelf-nintendo-eshop', { nsuid: '70010000060676' }],
+  ] as const) {
+    assert.equal(probeVerdict(slug, { item: { ...item, amount: 0 } }).ok, true, slug);
+    assert.equal(probeVerdict(slug, { item: { ...item, amount: -1 } }).ok, false, slug);
+  }
 });
 
 void test('scraper health check schedule runs only in the general worker with a ping key', () => {
@@ -585,11 +562,6 @@ function probeVerdict(slug: string, body: unknown): ScraperHealthVerdict {
   assert.ok(entry, `missing probe ${slug}`);
   return entry.check(body);
 }
-
-void test('psprices probe looks up a Switch title, since PS4/PS5 use the PlayStation Store', () => {
-  const entry = buildScraperHealthProbes().find((item) => item.slug === 'gameshelf-psprices');
-  assert.equal(entry?.query['platform'], 'Switch');
-});
 
 void test('PlayStation Store probe accepts only the verified product with a price', () => {
   const hadesII = 'EP4484-PPSA36082_00-0912328937643383';

@@ -99,14 +99,6 @@ services:
       RATE_LIMIT_INBOUND_HLTB_SEARCH_WINDOW_MS: ${RATE_LIMIT_INBOUND_HLTB_SEARCH_WINDOW_MS:-60000}
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
-      PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
-      PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS: ${PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS:-60000}
-      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
-      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
-      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
-      PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
-      PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS:-86400}
-      PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS:-7776000}
       METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       METACRITIC_CACHE_FRESH_TTL_SECONDS: ${METACRITIC_CACHE_FRESH_TTL_SECONDS:-604800}
       METACRITIC_CACHE_STALE_TTL_SECONDS: ${METACRITIC_CACHE_STALE_TTL_SECONDS:-7776000}
@@ -182,8 +174,6 @@ services:
       RATE_LIMIT_INBOUND_POPULARITY_FEED_WINDOW_MS: ${RATE_LIMIT_INBOUND_POPULARITY_FEED_WINDOW_MS:-60000}
       RATE_LIMIT_INBOUND_STEAM_PRICES_MAX_REQUESTS: ${RATE_LIMIT_INBOUND_STEAM_PRICES_MAX_REQUESTS:-60}
       RATE_LIMIT_INBOUND_STEAM_PRICES_WINDOW_MS: ${RATE_LIMIT_INBOUND_STEAM_PRICES_WINDOW_MS:-60000}
-      RATE_LIMIT_INBOUND_PSPRICES_PRICES_MAX_REQUESTS: ${RATE_LIMIT_INBOUND_PSPRICES_PRICES_MAX_REQUESTS:-60}
-      RATE_LIMIT_INBOUND_PSPRICES_PRICES_WINDOW_MS: ${RATE_LIMIT_INBOUND_PSPRICES_PRICES_WINDOW_MS:-60000}
       RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS: ${RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUEST_TIMEOUT_MS:-15000}
       RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_REQUESTS: ${RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_MAX_REQUESTS:-60}
       RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND: ${RATE_LIMIT_OUTBOUND_IGDB_METADATA_PROXY_REQUESTS_PER_SECOND:-4}
@@ -273,7 +263,6 @@ services:
       - postgres
       - hltb-scraper
       - metacritic-scraper
-      - psprices-scraper
       - compat-scraper
     volumes:
       - ${IMAGE_CACHE_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/image-cache}:/data/images
@@ -297,14 +286,6 @@ services:
       HLTB_SCRAPER_TOKEN_FILE: ${HLTB_SCRAPER_TOKEN_FILE:-/run/secrets/hltb_scraper_token}
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
-      PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
-      PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS: ${PSPRICES_SCRAPER_REQUEST_TIMEOUT_MS:-60000}
-      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
-      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
-      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
-      PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
-      PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS:-86400}
-      PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS: ${PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS:-7776000}
       MOBYGAMES_API_BASE_URL: ${MOBYGAMES_API_BASE_URL:-https://api.mobygames.com/v2}
       MOBYGAMES_API_KEY_FILE: ${MOBYGAMES_API_KEY_FILE:-/run/secrets/mobygames_api_key}
       STEAM_STORE_API_BASE_URL: ${STEAM_STORE_API_BASE_URL:-https://store.steampowered.com}
@@ -440,7 +421,6 @@ services:
       - api
       - hltb-scraper
       - metacritic-scraper
-      - psprices-scraper
       - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
@@ -461,7 +441,6 @@ services:
       - api
       - hltb-scraper
       - metacritic-scraper
-      - psprices-scraper
       - compat-scraper
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
@@ -519,31 +498,6 @@ services:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
     restart: unless-stopped
 
-  psprices-scraper:
-    container_name: gameshelf-psprices-scraper
-    image: ${PSPRICES_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-psprices-scraper:main}
-    environment:
-      TZ: ${TZ:-Europe/Zurich}
-      PORT: ${PSPRICES_SCRAPER_PORT:-8790}
-      PSPRICES_BASE_URL: ${PSPRICES_BASE_URL:-https://psprices.com}
-      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
-      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
-      PSPRICES_SCRAPER_TIMEOUT_MS: ${PSPRICES_SCRAPER_TIMEOUT_MS:-25000}
-      PSPRICES_SCRAPER_BROWSER_IDLE_MS: ${PSPRICES_SCRAPER_BROWSER_IDLE_MS:-30000}
-      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
-      DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
-      # Retry searches Cloudflare blocks through FlareSolverr. Off unless "true"; the URL
-      # defaults to http://flaresolverr:8191. See docs/nas-deployment.md,
-      # "FlareSolverr fallback (PSPrices)".
-      FLARESOLVERR_ENABLED: ${FLARESOLVERR_ENABLED:-false}
-      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
-    volumes:
-      - ${SECRETS_HOST_DIR}:/run/secrets:ro
-    networks:
-      - default
-      - flarenet
-    restart: unless-stopped
-
   compat-scraper:
     container_name: gameshelf-compat-scraper
     image: ${COMPAT_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-compat-scraper:main}
@@ -582,9 +536,3 @@ services:
       - ${BACKUP_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/backups}:/backups
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
     restart: unless-stopped
-
-networks:
-  # Created by the separate FlareSolverr stack, which must exist first (even with
-  # FLARESOLVERR_ENABLED off) or this stack fails to deploy.
-  flarenet:
-    external: true

@@ -40,7 +40,6 @@ export type RateLimitPolicyName =
   | 'roms_refresh'
   | 'popularity_feed'
   | 'steam_prices'
-  | 'psprices_prices'
   | 'playstation_store_prices'
   | 'nintendo_eshop_prices'
   | 'hltb_search'

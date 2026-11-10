@@ -76,9 +76,6 @@ export interface AdminDiscoveryDetailResponse extends AdminDiscoveryListItem {
       priceDiscountPercent: number | null;
       priceIsFree: boolean | null;
       priceUrl: string | null;
-      psPricesUrl: string | null;
-      psPricesTitle: string | null;
-      psPricesPlatform: string | null;
       playstationStoreProductId?: string | null;
       playstationStoreTitle?: string | null;
       nintendoEshopNsuid?: string | null;
@@ -116,9 +113,6 @@ export interface AdminDiscoveryUpdateMatchRequest {
   priceDiscountPercent?: number | null;
   priceIsFree?: boolean | null;
   priceUrl?: string | null;
-  psPricesUrl?: string | null;
-  psPricesTitle?: string | null;
-  psPricesPlatform?: string | null;
   /** A PlayStation Store product ID or product URL. */
   playstationStoreProductId?: string | null;
   /** A Nintendo eShop nsuid or eShop link. */

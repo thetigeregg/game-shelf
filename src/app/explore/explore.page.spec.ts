@@ -3342,7 +3342,7 @@ describe('ExplorePage explore modes UX', () => {
   it('covers discovery pricing parser guard branches', () => {
     const page = createPage() as unknown as {
       parseSteamPriceLookupResponse: (value: unknown) => unknown;
-      parsePsPricesLookupResponse: (value: unknown) => unknown;
+      parseStoreSearchLookupResponse: (value: unknown) => unknown;
       normalizePriceBoolean: (value: unknown) => boolean | null;
       normalizePriceNumber: (value: unknown) => number | null;
     };
@@ -3356,7 +3356,7 @@ describe('ExplorePage explore modes UX', () => {
       })
     ).toBeNull();
     expect(
-      page.parsePsPricesLookupResponse({ status: 'ok', bestPrice: { amount: 0, isFree: true } })
+      page.parseStoreSearchLookupResponse({ status: 'ok', bestPrice: { amount: 0, isFree: true } })
     ).toEqual({
       currency: null,
       amount: 0,
@@ -3373,13 +3373,16 @@ describe('ExplorePage explore modes UX', () => {
 
   it('covers remaining PSPrices parser guard and catalog fetch failure branches', async () => {
     const page = createPage() as unknown as {
-      parsePsPricesLookupResponse: (value: unknown) => unknown;
+      parseStoreSearchLookupResponse: (value: unknown) => unknown;
       fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
     };
 
-    expect(page.parsePsPricesLookupResponse({ status: 'not_ok', bestPrice: {} })).toBeNull();
+    expect(page.parseStoreSearchLookupResponse({ status: 'not_ok', bestPrice: {} })).toBeNull();
     expect(
-      page.parsePsPricesLookupResponse({ status: 'ok', bestPrice: { amount: null, isFree: false } })
+      page.parseStoreSearchLookupResponse({
+        status: 'ok',
+        bestPrice: { amount: null, isFree: false },
+      })
     ).toBeNull();
 
     igdbProxyServiceMock.getGameById.mockReturnValueOnce(throwError(() => new Error('boom')));
@@ -3418,7 +3421,7 @@ describe('ExplorePage explore modes UX', () => {
         priceDiscountPercent: number | null;
         priceIsFree: boolean | null;
       } | null;
-      parsePsPricesLookupResponse: (value: unknown) => unknown;
+      parseStoreSearchLookupResponse: (value: unknown) => unknown;
     };
 
     const key = page.buildIdentityKey('900', 6);
@@ -3445,7 +3448,7 @@ describe('ExplorePage explore modes UX', () => {
       'Local Title'
     );
 
-    expect(page.parsePsPricesLookupResponse('bad-payload')).toBeNull();
+    expect(page.parseStoreSearchLookupResponse('bad-payload')).toBeNull();
   });
 
   it('covers similar metadata dedupe and null-pricing hydration branches', async () => {

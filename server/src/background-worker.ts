@@ -15,7 +15,6 @@ import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedRomsCatalogRefresh } from './roms.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
-import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import {
   buildPlayStationStoreRefreshJob,
   processQueuedPlayStationStorePriceRevalidation,
@@ -182,16 +181,7 @@ function normalizePositiveInteger(value: unknown): number | null {
   return null;
 }
 
-/**
- * A psprices job for a platform psprices no longer prices (all of them now: PS4/PS5 moved to the
- * PlayStation Store, Switch/Switch 2 to the Nintendo eShop).
- */
-function isObsoletePspricesJob(platformIgdbId: number): boolean {
-  return resolvePricingSourceForPlatform(platformIgdbId) !== 'psprices';
-}
-
 export const __backgroundWorkerTestables = {
-  isObsoletePspricesJob,
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
   isProviderMatchLocked,
@@ -1153,25 +1143,6 @@ async function main(): Promise<void> {
         });
         return { revalidated: true };
       }
-      case 'psprices_price_revalidate': {
-        const platformIgdbId =
-          typeof job.payload['platformIgdbId'] === 'number'
-            ? job.payload['platformIgdbId']
-            : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10);
-        if (isObsoletePspricesJob(platformIgdbId)) {
-          // Queued before the platform moved to its store: drained without writing, so it can't
-          // replace the store's price.
-          return { revalidated: false, skipped: 'platform_priced_by_store' };
-        }
-        await processQueuedPspricesPriceRevalidation(pool, {
-          cacheKey: stringOrEmpty(job.payload['cacheKey']),
-          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
-          platformIgdbId,
-          title: stringOrEmpty(job.payload['title']),
-          psPricesUrl: stringOrEmpty(job.payload['psPricesUrl']),
-        });
-        return { revalidated: true };
-      }
       case 'playstation_store_price_revalidate': {
         await processQueuedPlayStationStorePriceRevalidation(pool, {
           cacheKey: stringOrEmpty(job.payload['cacheKey']),
@@ -1231,7 +1202,6 @@ async function main(): Promise<void> {
       job.jobType === 'metacritic_cache_revalidate' ||
       job.jobType === 'mobygames_cache_revalidate' ||
       job.jobType === 'steam_price_revalidate' ||
-      job.jobType === 'psprices_price_revalidate' ||
       job.jobType === 'playstation_store_price_revalidate' ||
       job.jobType === 'nintendo_eshop_price_revalidate'
     ) {
@@ -1334,7 +1304,6 @@ async function main(): Promise<void> {
     startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
-    startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('playstation_store_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('nintendo_eshop_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);

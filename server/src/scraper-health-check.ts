@@ -17,7 +17,7 @@ import { lookupPlayStationStorePrice } from './playstation-store-prices.js';
  * (`?create=1`), so the only setup is the ping key secret.
  */
 
-// Generous: a psprices lookup can spend up to ~50s in its FlareSolverr fallback.
+// Generous: the HLTB and Metacritic scrapers drive a headless browser, which is slow on a NAS.
 export const SCRAPER_HEALTH_CHECK_TIMEOUT_MS = 90_000;
 // Node can't hold a timer longer than ~24.8 days (it fires after 1ms instead), so the interval is
 // capped well below that.
@@ -130,42 +130,6 @@ function checkItem(
 
 export function buildScraperHealthProbes(): ScraperHealthProbe[] {
   return [
-    {
-      // psprices no longer prices any platform (PS4/PS5 use the PlayStation Store, Switch the
-      // Nintendo eShop); the check stays while psprices-scraper still runs.
-      slug: 'gameshelf-psprices',
-      name: 'psprices-scraper',
-      baseUrl: config.pspricesScraperBaseUrl,
-      token: config.pspricesScraperToken,
-      path: '/v1/psprices/search',
-      query: {
-        q: 'Hades II',
-        platform: 'Switch',
-        region: config.pspricesRegionPath,
-        show: config.pspricesShow,
-      },
-      check: (body) => {
-        // A failed title variant means the scraper is partly broken (e.g. FlareSolverr failing),
-        // even when this lookup still matched.
-        if (asRecord(body)?.['incomplete'] === true) {
-          return { ok: false, reason: 'search incomplete: a title variant failed in the scraper' };
-        }
-        return checkItem(body, {
-          fields: ['title', 'amount', 'url'],
-          expected: 'title "Hades II"',
-          isExpected: (item) => {
-            const title = item['title'];
-            return (
-              typeof title === 'string' &&
-              title.replace(/\s+/g, ' ').trim().toLowerCase() === 'hades ii'
-            );
-          },
-          // Zero is a valid price: the scraper reports free games as 0.
-          requiredData: 'a price',
-          hasRequiredData: (item) => isNumberInRange(item['amount'], 0, Number.MAX_SAFE_INTEGER),
-        });
-      },
-    },
     {
       // Search, title match and exact price: both of the store's persisted queries, so a query
       // Sony has changed (and stopped accepting) shows up here.

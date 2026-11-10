@@ -4348,3 +4348,7 @@
 ## v1.92.1 - 2026-11-09
 
 - 80348821 Add Claude Code GitHub Workflow (#660)
+
+## v1.92.2 - 2026-11-10
+
+- 5bac9c9d fix(recommendations): merge discovery enrichment writes into current row (#661)

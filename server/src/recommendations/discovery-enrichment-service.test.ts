@@ -5,6 +5,7 @@ import {
   DiscoveryEnrichmentService,
   DiscoveryEnrichmentSummary,
 } from './discovery-enrichment-service.js';
+import { buildDiscoveryEnrichmentPatch } from './repository.js';
 
 interface Queryable {
   query<T extends QueryResultRow = QueryResultRow>(
@@ -67,10 +68,15 @@ class RepositoryMock {
   updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
+    previousPayload: Record<string, unknown>;
     payload: Record<string, unknown>;
-  }): Promise<void> {
+  }): Promise<boolean> {
+    // Like the repository: only a result that changes something is written.
+    if (buildDiscoveryEnrichmentPatch(params.previousPayload, params.payload) === null) {
+      return Promise.resolve(false);
+    }
     this.updates.push(params);
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 }
 
@@ -1047,28 +1053,14 @@ void test('discovery enrichment skips steam retry when nextTryAt is still in the
   );
 
   const result = await service.enrichNow({ limit: 10 });
+  // Nothing was attempted, so nothing changed: the row isn't written and the backoff stays.
   assert.deepEqual(result, {
     scanned: 1,
-    updated: 1,
-    skipped: 0,
+    updated: 0,
+    skipped: 1,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(steamLookupCalls, 0);
-  const retry = repository.updates[0]?.payload.enrichmentRetry as
-    | {
-        steam?: {
-          attempts: number;
-          permanentMiss: boolean;
-          lastTriedAt: string;
-          nextTryAt: string;
-        };
-      }
-    | undefined;
-  assert.ok(retry && retry.steam);
-  const steamRetry = retry.steam;
-  assert.equal(steamRetry.attempts, 1);
-  assert.equal(steamRetry.permanentMiss, false);
-  assert.equal(steamRetry.lastTriedAt, '2026-03-10T00:00:00.000Z');
-  assert.equal(steamRetry.nextTryAt, '2026-03-10T02:00:00.000Z');
+  assert.equal(repository.updates.length, 0);
 });
 
 void test('discovery enrichment ignores non-provider reviewScore when deciding metacritic fetch', async () => {

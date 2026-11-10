@@ -438,20 +438,94 @@ export class RecommendationRepository {
     }));
   }
 
+  /**
+   * Saves discovery enrichment's result for a game: only what enrichment changed between
+   * `previousPayload` (the row as it read it) and `payload`, merged into the row as it is now.
+   * Its lookups take seconds, and meanwhile a price refresh, an admin edit or a move to the
+   * wishlist may have changed the row; writing the whole payload back would undo those.
+   *
+   * Nothing is written when a field or retry entry enrichment changes no longer holds the value it
+   * read (e.g. an admin saved a manual match meanwhile; the next run starts from the new row), when
+   * the game is no longer a discovery game, or when the result changes nothing. Returns whether the
+   * row was written.
+   */
   async updateGamePayload(params: {
     client?: Queryable;
     igdbGameId: string;
     platformIgdbId: number;
+    previousPayload: Record<string, unknown>;
     payload: Record<string, unknown>;
-  }): Promise<void> {
-    await (params.client ?? this.pool).query(
+  }): Promise<boolean> {
+    const patch = buildDiscoveryEnrichmentPatch(params.previousPayload, params.payload);
+    if (patch === null) {
+      return false;
+    }
+    const result = await (params.client ?? this.pool).query(
       `
-      UPDATE games
-      SET payload = $3::jsonb, updated_at = NOW()
-      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+      WITH current_row AS (
+        SELECT payload
+        FROM games
+        WHERE igdb_game_id = $1
+          AND platform_igdb_id = $2
+          AND COALESCE(payload->>'listType', '') = 'discovery'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_each($4::jsonb) AS expected(key, value)
+            WHERE COALESCE(payload->expected.key, 'null'::jsonb) IS DISTINCT FROM expected.value
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_each($5::jsonb) AS expected(key, value)
+            WHERE COALESCE(
+              CASE
+                WHEN jsonb_typeof(payload->'enrichmentRetry') = 'object'
+                  THEN payload->'enrichmentRetry'->expected.key
+              END,
+              'null'::jsonb
+            ) IS DISTINCT FROM expected.value
+          )
+        FOR UPDATE
+      ),
+      next_row AS (
+        SELECT
+          payload,
+          CASE
+            WHEN cardinality($6::text[]) > 0 THEN
+              (payload || $3::jsonb) || jsonb_build_object(
+                'enrichmentRetry',
+                NULLIF(
+                  (
+                    CASE
+                      WHEN jsonb_typeof(payload->'enrichmentRetry') = 'object'
+                        THEN payload->'enrichmentRetry'
+                      ELSE '{}'::jsonb
+                    END - $6::text[]
+                  ) || $7::jsonb,
+                  '{}'::jsonb
+                )
+              )
+            ELSE payload || $3::jsonb
+          END AS next_payload
+        FROM current_row
+      )
+      UPDATE games AS g
+      SET payload = next_row.next_payload, updated_at = NOW()
+      FROM next_row
+      WHERE g.igdb_game_id = $1
+        AND g.platform_igdb_id = $2
+        AND next_row.payload IS DISTINCT FROM next_row.next_payload
       `,
-      [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
+      [
+        params.igdbGameId,
+        params.platformIgdbId,
+        JSON.stringify(patch.fields),
+        JSON.stringify(patch.expectedFields),
+        JSON.stringify(patch.expectedRetryEntries),
+        patch.retryKeys,
+        JSON.stringify(patch.retryEntries),
+      ]
     );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getRuntimeModeDefault(
@@ -1162,4 +1236,94 @@ function serializeEmbeddingVector(embedding: number[]): string {
 
 function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+/**
+ * The retry entries discovery enrichment owns. Price sources keep theirs in the same object
+ * (psprices, playstationStore, nintendoEshop) and write them themselves.
+ */
+const DISCOVERY_ENRICHMENT_RETRY_KEYS = ['hltb', 'metacritic', 'steam'] as const;
+
+export interface DiscoveryEnrichmentPatch {
+  /** Top-level fields enrichment changed, with their new values. */
+  fields: Record<string, unknown>;
+  /** The values those fields had when enrichment read the row (null when absent). */
+  expectedFields: Record<string, unknown>;
+  /** Enrichment's retry entries that changed; each is replaced, or removed when not in `retryEntries`. */
+  retryKeys: string[];
+  /** The new values of the changed retry entries that still exist. */
+  retryEntries: Record<string, unknown>;
+  /** The values the changed retry entries had when enrichment read the row (null when absent). */
+  expectedRetryEntries: Record<string, unknown>;
+}
+
+/**
+ * What discovery enrichment changed between the row it read and its result, compared by value
+ * (Postgres returns jsonb objects with their keys in its own order, so text comparison would see
+ * every rebuilt object as changed). Null when nothing changed.
+ *
+ * Enrichment only ever sets fields, so a field missing from `next` isn't treated as removed; its
+ * one removal, of the whole enrichmentRetry object, is expressed as removing its own entries.
+ */
+export function buildDiscoveryEnrichmentPatch(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>
+): DiscoveryEnrichmentPatch | null {
+  const fields: Record<string, unknown> = {};
+  const expectedFields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (
+      key !== 'enrichmentRetry' &&
+      value !== undefined &&
+      !isSameJsonValue(value, previous[key])
+    ) {
+      fields[key] = value;
+      expectedFields[key] = previous[key] ?? null;
+    }
+  }
+
+  const previousRetry = asRetryObject(previous['enrichmentRetry']);
+  const nextRetry = asRetryObject(next['enrichmentRetry']);
+  const retryKeys: string[] = [];
+  const retryEntries: Record<string, unknown> = {};
+  const expectedRetryEntries: Record<string, unknown> = {};
+  for (const key of DISCOVERY_ENRICHMENT_RETRY_KEYS) {
+    if (isSameJsonValue(previousRetry[key], nextRetry[key])) {
+      continue;
+    }
+    retryKeys.push(key);
+    expectedRetryEntries[key] = previousRetry[key] ?? null;
+    if (nextRetry[key] !== undefined && nextRetry[key] !== null) {
+      retryEntries[key] = nextRetry[key];
+    }
+  }
+
+  return Object.keys(fields).length > 0 || retryKeys.length > 0
+    ? { fields, expectedFields, retryKeys, retryEntries, expectedRetryEntries }
+    : null;
+}
+
+/** JSON equality that ignores object key order; absent and null count as the same. */
+function isSameJsonValue(left: unknown, right: unknown): boolean {
+  return canonicalJson(left ?? null) === canonicalJson(right ?? null);
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalJson(entry ?? null)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry !== undefined)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`);
+    return `{${entries.join(',')}}`;
+  }
+  return value === undefined ? 'null' : JSON.stringify(value);
+}
+
+function asRetryObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

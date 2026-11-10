@@ -438,19 +438,56 @@ export class RecommendationRepository {
     }));
   }
 
+  /**
+   * Saves discovery enrichment's result for a game: only what enrichment changed between
+   * `previousPayload` (the row as it read it) and `payload`, merged into the row as it is now.
+   * Its lookups take seconds, and meanwhile a price refresh, an admin edit or a move to the
+   * wishlist may have changed the row; writing the whole payload back would undo those.
+   */
   async updateGamePayload(params: {
     client?: Queryable;
     igdbGameId: string;
     platformIgdbId: number;
+    previousPayload: Record<string, unknown>;
     payload: Record<string, unknown>;
   }): Promise<void> {
+    const patch = buildDiscoveryEnrichmentPatch(params.previousPayload, params.payload);
+    if (patch === null) {
+      return;
+    }
     await (params.client ?? this.pool).query(
       `
       UPDATE games
-      SET payload = $3::jsonb, updated_at = NOW()
-      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+      SET payload = CASE
+          WHEN $4::boolean THEN
+            (payload || $3::jsonb) || jsonb_build_object(
+              'enrichmentRetry',
+              NULLIF(
+                (
+                  CASE
+                    WHEN jsonb_typeof(payload->'enrichmentRetry') = 'object'
+                      THEN payload->'enrichmentRetry'
+                    ELSE '{}'::jsonb
+                  END - $5::text[]
+                ) || $6::jsonb,
+                '{}'::jsonb
+              )
+            )
+          ELSE payload || $3::jsonb
+        END,
+        updated_at = NOW()
+      WHERE igdb_game_id = $1
+        AND platform_igdb_id = $2
+        AND COALESCE(payload->>'listType', '') = 'discovery'
       `,
-      [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
+      [
+        params.igdbGameId,
+        params.platformIgdbId,
+        JSON.stringify(patch.fields),
+        patch.retryEntries !== null,
+        [...DISCOVERY_ENRICHMENT_RETRY_KEYS],
+        JSON.stringify(patch.retryEntries ?? {}),
+      ]
     );
   }
 
@@ -1162,4 +1199,48 @@ function serializeEmbeddingVector(embedding: number[]): string {
 
 function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+/**
+ * The retry entries discovery enrichment owns. Price sources keep theirs in the same object
+ * (psprices, playstationStore, nintendoEshop) and write them themselves.
+ */
+const DISCOVERY_ENRICHMENT_RETRY_KEYS = ['hltb', 'metacritic', 'steam'] as const;
+
+/**
+ * What discovery enrichment changed: the top-level fields whose value differs, and, if any of its
+ * own retry entries changed, those entries (absent ones are removed). Null when nothing changed.
+ */
+export function buildDiscoveryEnrichmentPatch(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>
+): { fields: Record<string, unknown>; retryEntries: Record<string, unknown> | null } | null {
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (key !== 'enrichmentRetry' && JSON.stringify(value) !== JSON.stringify(previous[key])) {
+      fields[key] = value;
+    }
+  }
+
+  const previousRetry = asRetryObject(previous['enrichmentRetry']);
+  const nextRetry = asRetryObject(next['enrichmentRetry']);
+  const retryChanged = DISCOVERY_ENRICHMENT_RETRY_KEYS.some(
+    (key) => JSON.stringify(previousRetry[key]) !== JSON.stringify(nextRetry[key])
+  );
+  const retryEntries: Record<string, unknown> | null = retryChanged ? {} : null;
+  if (retryEntries !== null) {
+    for (const key of DISCOVERY_ENRICHMENT_RETRY_KEYS) {
+      if (nextRetry[key] !== undefined && nextRetry[key] !== null) {
+        retryEntries[key] = nextRetry[key];
+      }
+    }
+  }
+
+  return Object.keys(fields).length > 0 || retryEntries !== null ? { fields, retryEntries } : null;
+}
+
+function asRetryObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

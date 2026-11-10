@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { RecommendationRepository } from './repository.js';
+import { RecommendationRepository, buildDiscoveryEnrichmentPatch } from './repository.js';
 
 class PoolMock {
   public queries: Array<{ sql: string; params: unknown[] | undefined }> = [];
@@ -787,4 +787,84 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
   assert.equal(recommendationQuery.params[2], 'discovery');
   assert.deepEqual(recommendationQuery.params[3], ['', 'wantToPlay']);
   assert.equal(recommendationQuery.params[4], 10);
+});
+
+const retry = (attempts: number) => ({
+  attempts,
+  lastTriedAt: '2026-03-10T09:00:00.000Z',
+  nextTryAt: null,
+  permanentMiss: false,
+});
+
+void test('buildDiscoveryEnrichmentPatch keeps only what enrichment changed', () => {
+  const previous = {
+    title: 'Hades',
+    listType: 'discovery',
+    hltbMainHours: null,
+    priceAmount: 24.9,
+    enrichmentRetry: { hltb: retry(1), nintendoEshop: retry(4) },
+  };
+  // Enrichment works on its own copy: price fields and price retry entries are carried through.
+  const next = {
+    ...previous,
+    hltbMainHours: 21.5,
+    enrichmentRetry: { nintendoEshop: retry(4), metacritic: retry(1) },
+  };
+
+  assert.deepEqual(buildDiscoveryEnrichmentPatch(previous, next), {
+    fields: { hltbMainHours: 21.5 },
+    // hltb found a match (its entry goes), metacritic missed; nintendoEshop isn't enrichment's.
+    retryEntries: { metacritic: retry(1) },
+  });
+});
+
+void test('buildDiscoveryEnrichmentPatch reports a removed retry object and no change', () => {
+  const previous = { title: 'Hades', enrichmentRetry: { steam: retry(2) } };
+  assert.deepEqual(buildDiscoveryEnrichmentPatch(previous, { title: 'Hades' }), {
+    fields: {},
+    retryEntries: {},
+  });
+  assert.equal(buildDiscoveryEnrichmentPatch(previous, { ...previous }), null);
+  // A change to a price source's entry alone isn't enrichment's to write.
+  assert.equal(
+    buildDiscoveryEnrichmentPatch(
+      { title: 'Hades', enrichmentRetry: { playstationStore: retry(1) } },
+      { title: 'Hades', enrichmentRetry: { playstationStore: retry(2) } }
+    ),
+    null
+  );
+});
+
+void test('updateGamePayload writes only the enrichment patch, to discovery rows only', async () => {
+  const pool = new PoolMock();
+  const repository = new RecommendationRepository(pool as never);
+  const previous = { title: 'Hades', listType: 'discovery', enrichmentRetry: { hltb: retry(1) } };
+
+  await repository.updateGamePayload({
+    igdbGameId: '1',
+    platformIgdbId: 130,
+    previousPayload: previous,
+    payload: { ...previous, metacriticScore: 93, enrichmentRetry: { hltb: retry(2) } },
+  });
+
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.match(query.sql, /payload \|\| \$3::jsonb/);
+  assert.match(query.sql, /COALESCE\(payload->>'listType', ''\) = 'discovery'/);
+  assert.deepEqual(query.params, [
+    '1',
+    130,
+    JSON.stringify({ metacriticScore: 93 }),
+    true,
+    ['hltb', 'metacritic', 'steam'],
+    JSON.stringify({ hltb: retry(2) }),
+  ]);
+
+  await repository.updateGamePayload({
+    igdbGameId: '1',
+    platformIgdbId: 130,
+    previousPayload: previous,
+    payload: { ...previous },
+  });
+  assert.equal(pool.queries.length, 1, 'nothing changed: no write');
 });

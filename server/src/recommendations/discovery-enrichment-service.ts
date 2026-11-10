@@ -243,6 +243,7 @@ export class DiscoveryEnrichmentService {
         client: queryable,
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
+        previousPayload: row.payload,
         payload: next,
       });
       updated += 1;

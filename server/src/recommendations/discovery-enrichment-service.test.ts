@@ -67,6 +67,7 @@ class RepositoryMock {
   updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
+    previousPayload: Record<string, unknown>;
     payload: Record<string, unknown>;
   }): Promise<void> {
     this.updates.push(params);

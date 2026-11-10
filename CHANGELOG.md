@@ -4352,3 +4352,11 @@
 ## v1.92.2 - 2026-11-10
 
 - 5bac9c9d fix(recommendations): merge discovery enrichment writes into current row (#661)
+
+## v1.92.3 - 2026-11-10
+
+- 36236734 refactor(pricing): remove psprices scraper and integration (#662)
+- 9dfa6b8b chore(deps): bump @thetigeregg/dev-cli to 5.1.0 (#667)
+- adf7314c Add Claude Code GitHub Workflow (#665)
+- e39bb656 Modify fetch-depth and claude_args in workflow (#664)
+- b347a67f Update allowed tools for Claude code review action (#663)

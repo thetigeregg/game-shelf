@@ -273,12 +273,14 @@
     </ion-header>
 
     <ion-content #detailContent class="detail-content gs-safe-bottom">
-      <ion-loading
-        [isOpen]="isLoadingDetail"
-        message="Loading game details..."
-        spinner="crescent"
-        [backdropDismiss]="false"
-      ></ion-loading>
+      @if (isLoadingDetail) {
+        <div class="gs-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+          <div class="gs-loading-overlay-box">
+            <ion-spinner name="crescent"></ion-spinner>
+            <p class="gs-loading-overlay-text">Loading game details...</p>
+          </div>
+        </div>
+      }
 
       @if (detailErrorMessage.length > 0) {
         <ion-item lines="none">

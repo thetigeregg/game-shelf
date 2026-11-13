@@ -27,7 +27,6 @@ vi.mock('@ionic/angular', () => {
     IonItemOption: Stub,
     IonPopover: Stub,
     IonContent: Stub,
-    IonLoading: Stub,
     IonModal: Stub,
     IonFooter: Stub,
     IonHeader: Stub,

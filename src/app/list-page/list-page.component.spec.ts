@@ -32,7 +32,6 @@ vi.mock('@ionic/angular', () => {
     IonItem: Dummy,
     IonModal: Dummy,
     IonBadge: Dummy,
-    IonLoading: Dummy,
     IonSpinner: Dummy,
     IonFab: Dummy,
     IonFabButton: Dummy,

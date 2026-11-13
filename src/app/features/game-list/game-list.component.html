@@ -434,12 +434,14 @@
   >
     <div class="detail-content-inner">
       @if (isSimilarDiscoveryDetailModalOpen) {
-        <ion-loading
-          [isOpen]="isSimilarDiscoveryDetailLoading"
-          message="Loading game details..."
-          spinner="crescent"
-          [backdropDismiss]="false"
-        ></ion-loading>
+        @if (isSimilarDiscoveryDetailLoading) {
+          <div class="gs-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+            <div class="gs-loading-overlay-box">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p class="gs-loading-overlay-text">Loading game details...</p>
+            </div>
+          </div>
+        }
         @if (similarDiscoveryDetailErrorMessage.length > 0) {
           <ion-item lines="none">
             <ion-text color="danger">{{ similarDiscoveryDetailErrorMessage }}</ion-text>

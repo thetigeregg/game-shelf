@@ -4360,3 +4360,7 @@
 - adf7314c Add Claude Code GitHub Workflow (#665)
 - e39bb656 Modify fetch-depth and claude_args in workflow (#664)
 - b347a67f Update allowed tools for Claude code review action (#663)
+
+## v1.92.4 - 2026-11-13
+
+- 0412029e fix(ui): stop detail loading spinners getting stuck open (#669)

@@ -1,8 +1,8 @@
 @if (showInitialListLoading) {
-  <div class="list-loading-backdrop" role="status" aria-live="polite" aria-busy="true">
-    <div class="list-loading-box">
+  <div class="gs-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+    <div class="gs-loading-overlay-box">
       <ion-spinner name="crescent"></ion-spinner>
-      <p class="list-loading-text">Loading games...</p>
+      <p class="gs-loading-overlay-text">Loading games...</p>
     </div>
   </div>
 }
@@ -231,10 +231,10 @@
     </ion-header>
     <ion-content class="gs-safe-bottom">
       @if (isAddGameDetailLoading) {
-        <div class="list-loading-backdrop" role="status" aria-live="polite" aria-busy="true">
-          <div class="list-loading-box">
+        <div class="gs-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+          <div class="gs-loading-overlay-box">
             <ion-spinner name="crescent"></ion-spinner>
-            <p class="list-loading-text">Loading game details...</p>
+            <p class="gs-loading-overlay-text">Loading game details...</p>
           </div>
         </div>
       }

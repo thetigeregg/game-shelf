@@ -109,6 +109,36 @@ ion-fab.detail-shortcuts-fab.detail-shortcuts-fab-entering {
   white-space: pre-line;
 }
 
+// Loading overlay rendered via @if instead of <ion-loading [isOpen]>. An inline ion-loading
+// created with isOpen=true defers present() to the next animation frame; if isOpen flips to
+// false before that frame, dismiss() no-ops and the spinner stays open forever.
+.gs-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ion-z-index-overlay, 20000) + 5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--ion-backdrop-color-rgb, 0, 0, 0), var(--ion-backdrop-opacity, 0.32));
+}
+
+.gs-loading-overlay-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 32px;
+  border-radius: 12px;
+  background: var(--ion-background-color, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.gs-loading-overlay-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ion-text-color, #000);
+}
+
 @media (min-width: 1024px) {
   ion-modal:not(.sheet-modal) {
     --backdrop-opacity: 0.4;

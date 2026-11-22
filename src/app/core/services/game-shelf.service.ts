@@ -10,6 +10,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameListView,
+  HltbCompletionTimes,
   HltbMatchCandidate,
   PriceMatchCandidate,
   PriceSource,
@@ -517,6 +518,8 @@ export class GameShelfService {
       mobygamesGameId: null,
       metacriticScore: null,
       metacriticUrl: null,
+      hltbFetchedAt: null,
+      reviewFetchedAt: null,
     };
 
     const updated = await this.repository.upsertFromCatalog(
@@ -1072,6 +1075,7 @@ export class GameShelfService {
         hltbMatchQueryReleaseYear: releaseYear,
         hltbMatchQueryPlatform: platform,
         hltbMatchLocked: matchLocked,
+        hltbFetchedAt: this.resolveLookupFetchedAt(completionTimes),
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -1197,6 +1201,7 @@ export class GameShelfService {
         reviewMatchPlatformIgdbId: platformIgdbId,
         reviewMatchMobygamesGameId: mobygamesGameId,
         reviewMatchLocked: matchLocked,
+        reviewFetchedAt: this.resolveLookupFetchedAt(scoreResult),
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)
@@ -1900,11 +1905,7 @@ export class GameShelfService {
       return;
     }
 
-    let completionTimes: {
-      hltbMainHours: number | null;
-      hltbMainExtraHours: number | null;
-      hltbCompletionistHours: number | null;
-    } | null = null;
+    let completionTimes: HltbCompletionTimes | null = null;
     let reviewScore: ReviewScoreResult | null = null;
 
     if (shouldLookupCompletionTimes) {
@@ -1937,7 +1938,14 @@ export class GameShelfService {
     await this.repository.upsertFromCatalog(
       {
         ...result,
-        ...(completionTimes ? completionTimes : {}),
+        ...(completionTimes
+          ? {
+              hltbMainHours: completionTimes.hltbMainHours,
+              hltbMainExtraHours: completionTimes.hltbMainExtraHours,
+              hltbCompletionistHours: completionTimes.hltbCompletionistHours,
+              hltbFetchedAt: this.resolveLookupFetchedAt(completionTimes),
+            }
+          : {}),
         ...(reviewScore
           ? {
               reviewScore: reviewScore.reviewScore,
@@ -1957,6 +1965,7 @@ export class GameShelfService {
                 reviewScore.reviewSource === 'metacritic'
                   ? (reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null)
                   : (result.metacriticUrl ?? null),
+              reviewFetchedAt: this.resolveLookupFetchedAt(reviewScore),
             }
           : {}),
       },
@@ -2295,6 +2304,17 @@ export class GameShelfService {
         )
       )
     );
+  }
+
+  /**
+   * When a lookup's data was read: the server's cache date, else now (it was just fetched).
+   * Null when the lookup found nothing.
+   */
+  private resolveLookupFetchedAt(result: { fetchedAt?: string | null } | null): string | null {
+    if (result === null) {
+      return null;
+    }
+    return result.fetchedAt ?? new Date().toISOString();
   }
 
   private normalizeReviewScoreValue(value: number | null | undefined): number | null {

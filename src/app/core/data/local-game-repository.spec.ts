@@ -99,6 +99,33 @@ describe('LocalGameRepository', () => {
     expect(stored?.hltbCompletionistHours).toBe(30.2);
   });
 
+  it('stores HLTB and review fetch dates, keeping them when an update omits them', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        hltbMainHours: 12,
+        hltbFetchedAt: ' 2026-11-01T10:00:00.000Z ',
+        reviewScore: 88,
+        reviewFetchedAt: '2026-10-30T08:00:00.000Z',
+      },
+      'collection'
+    );
+    await repository.upsertFromCatalog({ ...mario, title: 'Renamed' }, 'collection');
+
+    let stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.hltbFetchedAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(stored?.reviewFetchedAt).toBe('2026-10-30T08:00:00.000Z');
+
+    await repository.upsertFromCatalog(
+      { ...mario, hltbFetchedAt: null, reviewFetchedAt: '2026-11-05T09:00:00.000Z' },
+      'collection'
+    );
+
+    stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.hltbFetchedAt).toBeNull();
+    expect(stored?.reviewFetchedAt).toBe('2026-11-05T09:00:00.000Z');
+  });
+
   it('persists normalized HLTB exact-match identity fields from catalog payloads', async () => {
     await repository.upsertFromCatalog(
       {
@@ -1241,7 +1268,7 @@ describe('LocalGameRepository', () => {
         existing: number | null | undefined
       ) => number | null;
       resolvePriceSource: (incoming: unknown, existing: unknown) => string | null;
-      resolvePriceFetchedAt: (
+      resolveFetchedAt: (
         incoming: string | null | undefined,
         existing: string | null | undefined
       ) => string | null;
@@ -1279,7 +1306,7 @@ describe('LocalGameRepository', () => {
     expect(repositoryPrivate.resolveGameType('update', null)).toBe('update');
     expect(repositoryPrivate.resolveCompletionHours(18.44, null)).toBe(18.4);
     expect(repositoryPrivate.resolvePriceSource('steam_store', null)).toBe('steam_store');
-    expect(repositoryPrivate.resolvePriceFetchedAt(' 2024-01-02T00:00:00.000Z ', null)).toBe(
+    expect(repositoryPrivate.resolveFetchedAt(' 2024-01-02T00:00:00.000Z ', null)).toBe(
       '2024-01-02T00:00:00.000Z'
     );
     expect(repositoryPrivate.resolvePriceAmount(29.999, null)).toBe(30);

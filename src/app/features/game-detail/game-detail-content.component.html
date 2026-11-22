@@ -285,6 +285,9 @@
                 @if (currentPriceMetaLabel; as currentPriceMetaLabelValue) {
                   <p>{{ currentPriceMetaLabelValue }}</p>
                 }
+                @if (currentPriceUpdatedLabel; as currentPriceUpdatedLabelValue) {
+                  <p class="detail-updated">{{ currentPriceUpdatedLabelValue }}</p>
+                }
               </ion-label>
             </ion-item>
           }
@@ -315,6 +318,9 @@
               <ion-label>
                 <h2>HLTB Completionist</h2>
                 <p>{{ hltbCompletionistLabel }}</p>
+                @if (hltbUpdatedLabel; as hltbUpdatedLabelValue) {
+                  <p class="detail-updated">{{ hltbUpdatedLabelValue }}</p>
+                }
               </ion-label>
             </ion-item>
           }
@@ -325,6 +331,9 @@
               <ion-label>
                 <h2>{{ reviewScoreHeadingLabel }}</h2>
                 <p>{{ reviewScoreLabel }}</p>
+                @if (reviewUpdatedLabel; as reviewUpdatedLabelValue) {
+                  <p class="detail-updated">{{ reviewUpdatedLabelValue }}</p>
+                }
               </ion-label>
             </ion-item>
           }

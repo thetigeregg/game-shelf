@@ -14,6 +14,7 @@ import {
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { forwardUpstreamHeaders, withFetchedAt } from './provider-fetched-at.js';
 
 interface MobyGamesCacheRow {
   response_json: unknown;
@@ -130,7 +131,7 @@ export async function registerMobyGamesCachedRoute(
                   cachedRow.response_json
                 );
                 reply.header('X-GameShelf-MOBYGAMES-Cache', 'HIT_FRESH');
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
 
@@ -161,7 +162,7 @@ export async function registerMobyGamesCachedRoute(
                   'X-GameShelf-MOBYGAMES-Revalidate',
                   scheduled ? 'scheduled' : 'skipped'
                 );
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
             }
@@ -200,6 +201,15 @@ export async function registerMobyGamesCachedRoute(
 
         if (payload !== null && isCacheableMobyGamesPayload(payload)) {
           await persistMobyGamesCacheEntry(pool, cacheKey, normalized, payload, request);
+        }
+
+        if (payload !== null) {
+          forwardUpstreamHeaders(reply, response);
+          reply.header('X-GameShelf-MOBYGAMES-Cache', cacheOutcome);
+          reply.code(response.status);
+          reply.type('application/json');
+          reply.send(withFetchedAt(payload, now()));
+          return;
         }
       }
 

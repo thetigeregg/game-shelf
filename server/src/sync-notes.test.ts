@@ -131,6 +131,108 @@ void test('sync push normalizes game notes line endings', async () => {
   await app.close();
 });
 
+void test('sync push normalizes HLTB and review fetch dates in game payload', async () => {
+  const app = await createSyncApp();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-fetched-at-normalize-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '125',
+            platformIgdbId: 6,
+            title: 'Game',
+            platform: 'PC (Microsoft Windows)',
+            listType: 'collection',
+            hltbFetchedAt: ' 2026-11-01T10:00:00.000Z ',
+            reviewFetchedAt: '   ',
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  const normalizedPayload = body.results[0]?.normalizedPayload ?? {};
+  assert.equal(normalizedPayload['hltbFetchedAt'], '2026-11-01T10:00:00.000Z');
+  assert.equal(normalizedPayload['reviewFetchedAt'], null);
+
+  await app.close();
+});
+
+void test('sync push keeps a stored fetch date while its values are unchanged, clears it when they change', async () => {
+  const app = await createSyncApp();
+  const push = async (opId: string, fields: Record<string, unknown>) => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/sync/push',
+      payload: {
+        operations: [
+          {
+            opId,
+            entityType: 'game',
+            operation: 'upsert',
+            payload: {
+              igdbGameId: '126',
+              platformIgdbId: 6,
+              title: 'Game',
+              platform: 'PC (Microsoft Windows)',
+              listType: 'collection',
+              ...fields,
+            },
+            clientTimestamp: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    });
+    const body = JSON.parse(response.body) as {
+      results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+    };
+    return body.results[0]?.normalizedPayload ?? {};
+  };
+
+  await push('op-fetched-at-1', {
+    hltbMainHours: 12,
+    hltbFetchedAt: '2026-11-01T10:00:00.000Z',
+    reviewScore: 85,
+    reviewSource: 'metacritic',
+    reviewFetchedAt: '2026-10-30T08:00:00.000Z',
+  });
+
+  // A client that hasn't pulled the dates yet pushes null with the same values: dates stay.
+  const stale = await push('op-fetched-at-2', {
+    hltbMainHours: 12,
+    hltbFetchedAt: null,
+    reviewScore: 85,
+    reviewSource: 'metacritic',
+    reviewFetchedAt: null,
+    notes: 'edited on the phone',
+  });
+  assert.equal(stale['hltbFetchedAt'], '2026-11-01T10:00:00.000Z');
+  assert.equal(stale['reviewFetchedAt'], '2026-10-30T08:00:00.000Z');
+
+  // New HLTB hours without a date (e.g. a CSV import): the old date no longer applies.
+  const imported = await push('op-fetched-at-3', {
+    hltbMainHours: 20,
+    hltbFetchedAt: null,
+    reviewScore: 85,
+    reviewSource: 'metacritic',
+  });
+  assert.equal(imported['hltbFetchedAt'], null);
+  assert.equal(imported['reviewFetchedAt'], '2026-10-30T08:00:00.000Z');
+
+  await app.close();
+});
+
 void test('sync push normalizes unified pricing fields in game payload', async () => {
   const app = await createSyncApp();
 
@@ -928,6 +1030,9 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
   assert.equal(response.statusCode, 200);
   assert.equal(capturedInsertSql.includes("'priceSource'"), true);
   assert.equal(capturedInsertSql.includes("'priceFetchedAt'"), true);
+  // Fetch dates the server writes survive pushes from clients that don't send them.
+  assert.equal(capturedInsertSql.includes("'hltbFetchedAt'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewFetchedAt'"), true);
   assert.equal(capturedInsertSql.includes("'priceAmount'"), true);
   assert.equal(capturedInsertSql.includes("'priceCurrency'"), true);
   assert.equal(capturedInsertSql.includes("'priceRegularAmount'"), true);

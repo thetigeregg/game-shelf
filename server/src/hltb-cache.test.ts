@@ -7,6 +7,13 @@ import { processQueuedHltbCacheRevalidation, registerHltbCachedRoute } from './h
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 import { config } from './config.js';
 
+/** Parses a lookup response body, dropping the `fetchedAt` the route adds to every lookup. */
+function parseLookupBody(body: string): unknown {
+  const parsed = JSON.parse(body) as Record<string, unknown>;
+  Reflect.deleteProperty(parsed, 'fetchedAt');
+  return parsed;
+}
+
 interface HltbCandidateResponseBody {
   candidates?: Array<{
     imageUrl?: string | null;
@@ -330,7 +337,7 @@ void test('HLTB cache resolves preferred candidate identity into item payload', 
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
-  assert.deepEqual(JSON.parse(first.body), {
+  assert.deepEqual(parseLookupBody(first.body), {
     item: {
       title: 'Night In The Woods',
       hltbGameId: 7002,
@@ -418,7 +425,7 @@ void test('HLTB cache resolves preferred candidate by normalized preferred URL',
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     item: {
       title: 'Night In The Woods',
       hltbGameId: 7002,
@@ -495,7 +502,7 @@ void test('HLTB cache canonicalizes preferred and candidate HLTB URLs across equ
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     item: {
       title: 'Night In The Woods',
       hltbGameId: 7002,
@@ -689,7 +696,7 @@ void test('HLTB cache does not persist successful but uncacheable preferred-cand
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(pool.getEntryCount(), 0);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     item: null,
     candidates: [
       {
@@ -747,7 +754,7 @@ void test('HLTB cache keeps original item when preferred candidate has no comple
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     item: {
       hltbGameId: 7001,
       hltbUrl: 'https://howlongtobeat.com/game/7001',
@@ -813,7 +820,7 @@ void test('HLTB cache promotes preferred candidate when only legacy raw completi
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     item: {
       title: 'Night In The Woods',
       hltbGameId: 7002,
@@ -1773,4 +1780,39 @@ void test('queued HLTB revalidation still fails on a non-JSON reply', async () =
       );
     }
   );
+});
+
+void test('HLTB cache reports when HLTB was read: now on a miss, the entry date on a hit', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.parse('2026-11-01T10:00:00.000Z');
+  const pool = new HltbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+  });
+
+  const miss = await app.inject({ method: 'GET', url: '/v1/hltb/search?q=Okami' });
+  assert.equal(miss.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(
+    (JSON.parse(miss.body) as { fetchedAt?: unknown }).fetchedAt,
+    '2026-11-01T10:00:00.000Z'
+  );
+
+  nowMs = Date.parse('2026-11-03T10:00:00.000Z');
+  const hit = await app.inject({ method: 'GET', url: '/v1/hltb/search?q=Okami' });
+  assert.equal(hit.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+  assert.equal(
+    (JSON.parse(hit.body) as { fetchedAt?: unknown }).fetchedAt,
+    '2026-11-01T10:00:00.000Z'
+  );
+
+  await app.close();
 });

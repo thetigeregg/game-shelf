@@ -100,6 +100,7 @@ export class LocalGameRepository implements GameRepository {
           existing.hltbMatchQueryPlatform
         ),
         hltbMatchLocked: this.resolveMatchLock(result.hltbMatchLocked, existing.hltbMatchLocked),
+        hltbFetchedAt: this.resolveFetchedAt(result.hltbFetchedAt, existing.hltbFetchedAt),
         reviewScore: this.resolveReviewScore(
           incomingReviewScore,
           existing.reviewScore ?? existing.metacriticScore
@@ -145,6 +146,7 @@ export class LocalGameRepository implements GameRepository {
           result.reviewMatchLocked,
           existing.reviewMatchLocked
         ),
+        reviewFetchedAt: this.resolveFetchedAt(result.reviewFetchedAt, existing.reviewFetchedAt),
         metacriticScore: this.resolveMetacriticScore(
           incomingMetacriticScore,
           existing.metacriticScore
@@ -184,7 +186,7 @@ export class LocalGameRepository implements GameRepository {
             ? { steamAppId: resolvedSteamAppId }
             : {}),
         priceSource: this.resolvePriceSource(result.priceSource, existing.priceSource),
-        priceFetchedAt: this.resolvePriceFetchedAt(result.priceFetchedAt, existing.priceFetchedAt),
+        priceFetchedAt: this.resolveFetchedAt(result.priceFetchedAt, existing.priceFetchedAt),
         priceAmount: this.resolvePriceAmount(result.priceAmount, existing.priceAmount),
         priceCurrency: this.resolvePriceCurrency(result.priceCurrency, existing.priceCurrency),
         priceRegularAmount: this.resolvePriceAmount(
@@ -268,6 +270,7 @@ export class LocalGameRepository implements GameRepository {
       ),
       hltbMatchQueryPlatform: this.normalizeLookupQueryPlatform(result.hltbMatchQueryPlatform),
       hltbMatchLocked: this.normalizeMatchLock(result.hltbMatchLocked),
+      hltbFetchedAt: this.normalizeFetchedAt(result.hltbFetchedAt),
       reviewScore: this.normalizeReviewScore(result.reviewScore ?? result.metacriticScore),
       reviewUrl: this.normalizeMetacriticUrl(incomingReviewUrl),
       reviewSource: this.normalizeReviewSource(
@@ -287,6 +290,7 @@ export class LocalGameRepository implements GameRepository {
       ),
       reviewMatchMobygamesGameId: this.normalizeMobygamesGameId(result.reviewMatchMobygamesGameId),
       reviewMatchLocked: this.normalizeMatchLock(result.reviewMatchLocked),
+      reviewFetchedAt: this.normalizeFetchedAt(result.reviewFetchedAt),
       metacriticScore: this.normalizeMetacriticScore(incomingMetacriticScore),
       metacriticUrl: this.normalizeMetacriticUrl(incomingMetacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
@@ -301,7 +305,7 @@ export class LocalGameRepository implements GameRepository {
       websites: this.normalizeWebsites(result.websites),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       priceSource: this.normalizePriceSource(result.priceSource),
-      priceFetchedAt: this.normalizePriceFetchedAt(result.priceFetchedAt),
+      priceFetchedAt: this.normalizeFetchedAt(result.priceFetchedAt),
       priceAmount: this.normalizePriceAmount(result.priceAmount),
       priceCurrency: this.normalizePriceCurrency(result.priceCurrency),
       priceRegularAmount: this.normalizePriceAmount(result.priceRegularAmount),
@@ -1241,7 +1245,7 @@ export class LocalGameRepository implements GameRepository {
       : null;
   }
 
-  private normalizePriceFetchedAt(value: string | null | undefined): string | null {
+  private normalizeFetchedAt(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
   }
@@ -1484,14 +1488,14 @@ export class LocalGameRepository implements GameRepository {
     return this.normalizePriceSource(incoming);
   }
 
-  private resolvePriceFetchedAt(
+  private resolveFetchedAt(
     incoming: string | null | undefined,
     existing: string | null | undefined
   ): string | null {
     if (incoming === undefined) {
-      return this.normalizePriceFetchedAt(existing);
+      return this.normalizeFetchedAt(existing);
     }
-    return this.normalizePriceFetchedAt(incoming);
+    return this.normalizeFetchedAt(incoming);
   }
 
   private resolvePriceAmount(

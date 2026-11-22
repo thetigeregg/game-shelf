@@ -110,6 +110,8 @@ export interface GameCatalogResult {
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
   hltbMatchLocked?: boolean | null;
+  /** When HLTB's times were read (the cache entry's date), null when unknown. */
+  hltbFetchedAt?: string | null;
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
@@ -121,6 +123,8 @@ export interface GameCatalogResult {
   reviewMatchPlatformIgdbId?: number | null;
   reviewMatchMobygamesGameId?: number | null;
   reviewMatchLocked?: boolean | null;
+  /** When the review score was read (the cache entry's date), null when unknown. */
+  reviewFetchedAt?: string | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -327,6 +331,8 @@ export interface GameEntry {
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
   hltbMatchLocked?: boolean | null;
+  /** When HLTB's times were read (the cache entry's date), null when unknown. */
+  hltbFetchedAt?: string | null;
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
@@ -338,6 +344,8 @@ export interface GameEntry {
   reviewMatchPlatformIgdbId?: number | null;
   reviewMatchMobygamesGameId?: number | null;
   reviewMatchLocked?: boolean | null;
+  /** When the review score was read (the cache entry's date), null when unknown. */
+  reviewFetchedAt?: string | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -386,6 +394,8 @@ export interface HltbCompletionTimes {
   hltbCompletionistHours: number | null;
   hltbGameId?: number | null;
   hltbUrl?: string | null;
+  /** When HLTB was read: the server cache entry's date, or the fetch time on a miss. */
+  fetchedAt?: string | null;
 }
 
 export interface HltbMatchCandidate extends HltbCompletionTimes {
@@ -416,6 +426,8 @@ export interface ReviewScoreResult {
   reviewSource: ReviewSource | null;
   mobyScore?: number | null;
   mobygamesGameId?: number | null;
+  /** When the score was read: the server cache entry's date, or the fetch time on a miss. */
+  fetchedAt?: string | null;
   // Compatibility aliases for legacy call sites.
   metacriticScore?: number | null;
   metacriticUrl?: string | null;

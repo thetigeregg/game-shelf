@@ -3085,6 +3085,8 @@ export class SettingsPage {
       hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
       hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
       hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
+      // Imported values carry no date of when HLTB or the review site was read.
+      hltbFetchedAt: null,
       reviewScore: reviewScoreForCatalog,
       reviewUrl: parsedReviewUrl,
       reviewSource,
@@ -3092,6 +3094,7 @@ export class SettingsPage {
       mobygamesGameId,
       metacriticScore,
       metacriticUrl,
+      reviewFetchedAt: null,
       similarGameIgdbIds: parseGameIdArray(record.similarGameIgdbIds),
       collections: parseStringArray(record.collections),
       developers: parseStringArray(record.developers),

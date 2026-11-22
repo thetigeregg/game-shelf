@@ -14,7 +14,7 @@ import {
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
-import { withFetchedAt } from './provider-fetched-at.js';
+import { forwardUpstreamHeaders, withFetchedAt } from './provider-fetched-at.js';
 
 interface MobyGamesCacheRow {
   response_json: unknown;
@@ -204,6 +204,7 @@ export async function registerMobyGamesCachedRoute(
         }
 
         if (payload !== null) {
+          forwardUpstreamHeaders(reply, response);
           reply.header('X-GameShelf-MOBYGAMES-Cache', cacheOutcome);
           reply.code(response.status);
           reply.type('application/json');

@@ -1158,6 +1158,57 @@ export const MIGRATIONS: string[] = [
   DELETE FROM background_jobs
   WHERE job_type = 'psprices_price_revalidate';
   `,
+  // "Updated" dates: a library game showing HLTB times or a review score with no read date is
+  // refreshed by the release monitor whatever its release age, but old games' watch rows sit
+  // on a release-only next check up to a year out. Bring those forward so the catch-up runs
+  // now. Mirrors needsHltbFetchedAt/needsReviewFetchedAt; once a game is dated, or was tried
+  // within the refresh cadence, it stops matching, so re-running on startup is a no-op.
+  `
+  UPDATE release_watch_state rws
+  SET next_check_at = NOW()
+  FROM games g
+  WHERE g.igdb_game_id = rws.igdb_game_id
+    AND g.platform_igdb_id = rws.platform_igdb_id
+    AND (g.payload->>'listType') IN ('collection', 'wishlist')
+    AND rws.next_check_at > NOW()
+    AND (
+      (
+        NULLIF(btrim(COALESCE(g.payload->>'hltbFetchedAt', '')), '') IS NULL
+        AND 'number' IN (
+          jsonb_typeof(g.payload->'hltbMainHours'),
+          jsonb_typeof(g.payload->'hltbMainExtraHours'),
+          jsonb_typeof(g.payload->'hltbCompletionistHours')
+        )
+        AND (
+          rws.last_hltb_refresh_at IS NULL
+          OR rws.last_hltb_refresh_at <= NOW() - INTERVAL '30 days'
+        )
+      )
+      OR (
+        NULLIF(btrim(COALESCE(g.payload->>'reviewFetchedAt', '')), '') IS NULL
+        AND (
+          CASE WHEN jsonb_typeof(g.payload->'reviewScore') = 'number'
+            THEN (g.payload->>'reviewScore')::numeric > 0 ELSE FALSE END
+          OR CASE WHEN jsonb_typeof(g.payload->'metacriticScore') = 'number'
+            THEN (g.payload->>'metacriticScore')::numeric > 0 ELSE FALSE END
+        )
+        AND (
+          COALESCE(NULLIF(btrim(g.payload->>'reviewSource'), ''), 'metacritic') = 'metacritic'
+          OR (
+            g.payload->>'reviewSource' = 'mobygames'
+            AND (
+              jsonb_typeof(g.payload->'reviewMatchMobygamesGameId') = 'number'
+              OR jsonb_typeof(g.payload->'mobygamesGameId') = 'number'
+            )
+          )
+        )
+        AND (
+          rws.last_metacritic_refresh_at IS NULL
+          OR rws.last_metacritic_refresh_at <= NOW() - INTERVAL '30 days'
+        )
+      )
+    );
+  `,
 ];
 
 export class MigrationUnlockError extends Error {

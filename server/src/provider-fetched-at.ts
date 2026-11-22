@@ -1,3 +1,5 @@
+import type { FastifyReply } from 'fastify';
+
 /**
  * Adds `fetchedAt` (when the provider's data was read) to a provider lookup response, so the
  * client can show how recent HLTB times or review scores are. A cache hit reports the cache
@@ -29,4 +31,18 @@ export function readFetchedAt(payload: unknown): string | null {
 
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+const BODY_BOUND_HEADERS = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
+
+/**
+ * Copies an upstream provider response's headers onto a reply whose body is re-serialized
+ * (e.g. with `fetchedAt` added), skipping the headers that describe the original body bytes.
+ */
+export function forwardUpstreamHeaders(reply: FastifyReply, response: Response): void {
+  response.headers.forEach((value, key) => {
+    if (!BODY_BOUND_HEADERS.has(key.toLowerCase())) {
+      reply.header(key, value);
+    }
+  });
 }

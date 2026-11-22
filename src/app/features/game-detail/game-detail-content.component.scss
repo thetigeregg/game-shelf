@@ -156,3 +156,10 @@ ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);
 }
+
+// When external data (price, HLTB, review score) was read: a muted hint under the value.
+.detail-updated {
+  margin-top: 2px;
+  font-size: 0.8em;
+  color: var(--ion-color-medium);
+}

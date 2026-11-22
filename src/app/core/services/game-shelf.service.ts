@@ -518,6 +518,8 @@ export class GameShelfService {
       mobygamesGameId: null,
       metacriticScore: null,
       metacriticUrl: null,
+      hltbFetchedAt: null,
+      reviewFetchedAt: null,
     };
 
     const updated = await this.repository.upsertFromCatalog(
@@ -1073,7 +1075,7 @@ export class GameShelfService {
         hltbMatchQueryReleaseYear: releaseYear,
         hltbMatchQueryPlatform: platform,
         hltbMatchLocked: matchLocked,
-        hltbFetchedAt: completionTimes?.fetchedAt ?? null,
+        hltbFetchedAt: this.resolveLookupFetchedAt(completionTimes),
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -1199,7 +1201,7 @@ export class GameShelfService {
         reviewMatchPlatformIgdbId: platformIgdbId,
         reviewMatchMobygamesGameId: mobygamesGameId,
         reviewMatchLocked: matchLocked,
-        reviewFetchedAt: scoreResult?.fetchedAt ?? null,
+        reviewFetchedAt: this.resolveLookupFetchedAt(scoreResult),
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)
@@ -1941,7 +1943,7 @@ export class GameShelfService {
               hltbMainHours: completionTimes.hltbMainHours,
               hltbMainExtraHours: completionTimes.hltbMainExtraHours,
               hltbCompletionistHours: completionTimes.hltbCompletionistHours,
-              hltbFetchedAt: completionTimes.fetchedAt ?? null,
+              hltbFetchedAt: this.resolveLookupFetchedAt(completionTimes),
             }
           : {}),
         ...(reviewScore
@@ -1963,7 +1965,7 @@ export class GameShelfService {
                 reviewScore.reviewSource === 'metacritic'
                   ? (reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null)
                   : (result.metacriticUrl ?? null),
-              reviewFetchedAt: reviewScore.fetchedAt ?? null,
+              reviewFetchedAt: this.resolveLookupFetchedAt(reviewScore),
             }
           : {}),
       },
@@ -2302,6 +2304,17 @@ export class GameShelfService {
         )
       )
     );
+  }
+
+  /**
+   * When a lookup's data was read: the server's cache date, else now (it was just fetched).
+   * Null when the lookup found nothing.
+   */
+  private resolveLookupFetchedAt(result: { fetchedAt?: string | null } | null): string | null {
+    if (result === null) {
+      return null;
+    }
+    return result.fetchedAt ?? new Date().toISOString();
   }
 
   private normalizeReviewScoreValue(value: number | null | undefined): number | null {

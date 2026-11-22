@@ -323,17 +323,16 @@ function evaluateForcedRefreshDue(
   );
 
   const hltbDue = force.hltb
-    ? (!options.respectRecency || hltbEligible) &&
+    ? (!options.respectRecency || hltbEligible || needsHltbFetchedAt(payload)) &&
       (!options.respectStaleness || isHltbRefreshDue(row.last_hltb_refresh_at, payload, now))
     : false;
   const reviewDue = force.review
-    ? (!options.respectRecency || metacriticEligible) &&
+    ? (!options.respectRecency || metacriticEligible || needsReviewFetchedAt(payload)) &&
       (!options.respectStaleness || isReviewRefreshDue(row.last_metacritic_refresh_at, now))
     : false;
 
-  const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
   const reviewProvider = reviewDue
-    ? typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
+    ? resolveRefreshMobygamesGameId(payload) !== null
       ? 'mobygames'
       : 'metacritic'
     : null;
@@ -688,13 +687,8 @@ async function processGameRow(
     // whatever its release age, so every game ends up with an "Updated" date. The usual
     // cadence still applies, so a title that no longer matches is retried at most once a
     // cadence period. Once dated, only the release-age window keeps it refreshing.
-    const hltbMissingFetchedAt =
-      hasExistingHltb && stringOrNull(mergedPayload['hltbFetchedAt']) === null;
-    const reviewMissingFetchedAt =
-      hasReviewScoreValues(mergedPayload) &&
-      stringOrNull(mergedPayload['reviewFetchedAt']) === null;
-    const hltbRefreshEligible = hltbEligible || hltbMissingFetchedAt;
-    const reviewRefreshEligible = metacriticEligible || reviewMissingFetchedAt;
+    const hltbRefreshEligible = hltbEligible || needsHltbFetchedAt(mergedPayload);
+    const reviewRefreshEligible = metacriticEligible || needsReviewFetchedAt(mergedPayload);
 
     // Forced refresh always bypasses the bootstrap check; recency and staleness are each
     // bypassed only when the corresponding respect_* flag is explicitly turned off.
@@ -716,9 +710,7 @@ async function processGameRow(
       stats.hltbRefreshAttempts += 1;
       const hltbRefreshQuery = resolveHltbRefreshQuery(mergedPayload, title, platformName);
       const refreshedHltb = await fetchHltbPayload({
-        title: hltbRefreshQuery.title,
-        releaseYear: hltbRefreshQuery.releaseYear,
-        platform: hltbRefreshQuery.platform,
+        ...hltbRefreshQuery,
         forceFresh: row.bypass_cache === true,
       });
 
@@ -758,10 +750,13 @@ async function processGameRow(
       if (refreshedReview.ok) {
         if (refreshedReview.value) {
           stats.reviewRefreshSuccesses += 1;
-          mergedPayload = {
-            ...mergeReviewRefreshPayload(mergedPayload, refreshedReview.value),
-            reviewFetchedAt: refreshedReview.value.fetchedAt ?? nowIso,
-          };
+          const merged = mergeReviewRefreshPayload(mergedPayload, refreshedReview.value);
+          // Date the score only when it came from this refresh: a score from another source
+          // is kept as-is by the merge, and must not look freshly read.
+          mergedPayload =
+            stringOrNull(merged['reviewSource']) === refreshedReview.value.source
+              ? { ...merged, reviewFetchedAt: refreshedReview.value.fetchedAt ?? nowIso }
+              : merged;
         }
         // Advance cadence on a definitive response (match or clean no-match), not
         // just an attempt, so a transport failure keeps retrying instead of going
@@ -863,12 +858,14 @@ async function processGameRow(
       }
     }
 
+    // Schedule from the refreshed payload: a game dated just now falls back to the
+    // release-age window instead of coming back for another catch-up.
     const nextCheckAt = computeNextCheckAt(
       releaseAfter,
       now,
-      hltbRefreshEligible,
+      hltbEligible || needsHltbFetchedAt(mergedPayload),
       lastHltbRefreshAt,
-      reviewRefreshEligible,
+      metacriticEligible || needsReviewFetchedAt(mergedPayload),
       lastMetacriticRefreshAt
     );
     await upsertWatchState(pool, {
@@ -953,7 +950,13 @@ function resolveHltbRefreshQuery(
   payload: Record<string, unknown>,
   fallbackTitle: string,
   fallbackPlatform: string | null
-): { title: string; releaseYear: number | null; platform: string | null } {
+): {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  preferredHltbGameId: number | null;
+  preferredHltbUrl: string | null;
+} {
   const title =
     stringOrNull(payload['hltbMatchQueryTitle']) ??
     stringOrFallback(payload['title'], fallbackTitle);
@@ -963,8 +966,15 @@ function resolveHltbRefreshQuery(
     stringOrNull(payload['hltbMatchQueryPlatform']) ??
     stringOrNull(payload['platform']) ??
     fallbackPlatform;
+  // A match the user locked is refreshed by its saved HLTB identity, never replaced by the
+  // search's top result.
+  const locked = isProviderMatchLocked(payload, 'hltbMatchLocked');
+  const lockedGameId = integerOrNull(payload['hltbMatchGameId']);
+  const preferredHltbGameId =
+    locked && typeof lockedGameId === 'number' && lockedGameId > 0 ? lockedGameId : null;
+  const preferredHltbUrl = locked ? stringOrNull(payload['hltbMatchUrl']) : null;
 
-  return { title, releaseYear, platform };
+  return { title, releaseYear, platform, preferredHltbGameId, preferredHltbUrl };
 }
 
 function resolveReviewRefreshQuery(
@@ -978,6 +988,7 @@ function resolveReviewRefreshQuery(
   platform: string | null;
   platformIgdbId: number;
   reviewMatchMobygamesGameId: number | null;
+  preferredReviewUrl: string | null;
 } {
   const title =
     stringOrNull(payload['reviewMatchQueryTitle']) ??
@@ -993,33 +1004,60 @@ function resolveReviewRefreshQuery(
     typeof rawPlatformIgdbId === 'number' && rawPlatformIgdbId > 0
       ? rawPlatformIgdbId
       : fallbackPlatformIgdbId;
-  const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
+  const locked = isProviderMatchLocked(payload, 'reviewMatchLocked');
+  const reviewSource = stringOrNull(payload['reviewSource']);
+  const preferredReviewUrl =
+    locked && (reviewSource === null || reviewSource === 'metacritic')
+      ? (stringOrNull(payload['reviewUrl']) ?? stringOrNull(payload['metacriticUrl']))
+      : null;
 
   return {
     title,
     releaseYear,
     platform,
     platformIgdbId,
-    reviewMatchMobygamesGameId:
-      typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
-        ? reviewMatchMobygamesGameId
-        : null,
+    reviewMatchMobygamesGameId: resolveRefreshMobygamesGameId(payload),
+    preferredReviewUrl,
   };
 }
 
+/**
+ * The MobyGames game a review refresh reads: the saved match override, else the game a
+ * MobyGames score came from (so a MobyGames score isn't looked up on Metacritic).
+ */
+function resolveRefreshMobygamesGameId(payload: Record<string, unknown>): number | null {
+  const override = integerOrNull(payload['reviewMatchMobygamesGameId']);
+  if (typeof override === 'number' && override > 0) {
+    return override;
+  }
+  if (stringOrNull(payload['reviewSource']) !== 'mobygames') {
+    return null;
+  }
+  const scored = integerOrNull(payload['mobygamesGameId']);
+  return typeof scored === 'number' && scored > 0 ? scored : null;
+}
+
+interface HltbApiItem {
+  hltbMainHours?: unknown;
+  hltbMainExtraHours?: unknown;
+  hltbCompletionistHours?: unknown;
+}
+
 interface HltbApiResponse {
-  item?: {
-    hltbMainHours?: unknown;
-    hltbMainExtraHours?: unknown;
-    hltbCompletionistHours?: unknown;
-  } | null;
+  item?: HltbApiItem | null;
+  candidates?: Array<
+    HltbApiItem & { hltbGameId?: unknown; gameId?: unknown; hltbUrl?: unknown; url?: unknown }
+  > | null;
+}
+
+interface MetacriticApiItem {
+  metacriticScore?: unknown;
+  metacriticUrl?: unknown;
 }
 
 interface MetacriticApiResponse {
-  item?: {
-    metacriticScore?: unknown;
-    metacriticUrl?: unknown;
-  } | null;
+  item?: MetacriticApiItem | null;
+  candidates?: MetacriticApiItem[] | null;
 }
 
 interface MobyGamesApiResponse {
@@ -1032,7 +1070,7 @@ interface MobyGamesApiResponse {
 }
 
 /** HLTB times from a refresh, with when HLTB was read (the cache entry's date). */
-type RefreshedHltbPayload = NonNullable<HltbApiResponse['item']> & { fetchedAt: string | null };
+type RefreshedHltbPayload = HltbApiItem & { fetchedAt: string | null };
 
 type RefreshedReviewPayload =
   | {
@@ -1074,16 +1112,22 @@ async function fetchHltbPayload(params: {
   title: string;
   releaseYear: number | null;
   platform: string | null;
+  preferredHltbGameId?: number | null;
+  preferredHltbUrl?: string | null;
   forceFresh?: boolean;
 }): Promise<FetchJsonResult<RefreshedHltbPayload>> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
   }
 
+  const preferredHltbGameId = params.preferredHltbGameId ?? null;
+  const preferredHltbUrl = params.preferredHltbUrl ?? null;
   const url = buildLocalApiUrl(config.recommendationsEnrichApiBaseUrl, '/v1/hltb/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
+    preferredHltbGameId: preferredHltbGameId ?? undefined,
+    preferredHltbUrl: preferredHltbUrl ?? undefined,
   });
   const result = await fetchLocalApiJson<HltbApiResponse>(
     url,
@@ -1094,8 +1138,48 @@ async function fetchHltbPayload(params: {
     return { ok: false, value: null };
   }
 
+  const fetchedAt = readFetchedAt(result.value);
+  if (preferredHltbGameId !== null || preferredHltbUrl !== null) {
+    // Locked match: only the saved HLTB game counts. If the search no longer returns it,
+    // treat it as no match rather than taking another game's times.
+    const preferred =
+      (result.value?.candidates ?? []).find(
+        (candidate) =>
+          (preferredHltbGameId !== null &&
+            integerOrNull(candidate.hltbGameId ?? candidate.gameId) === preferredHltbGameId) ||
+          (preferredHltbUrl !== null &&
+            normalizeComparableUrl(candidate.hltbUrl ?? candidate.url) ===
+              normalizeComparableUrl(preferredHltbUrl))
+      ) ?? null;
+    return {
+      ok: true,
+      value:
+        preferred && hasHltbValues(preferred as Record<string, unknown>)
+          ? {
+              hltbMainHours: preferred.hltbMainHours,
+              hltbMainExtraHours: preferred.hltbMainExtraHours,
+              hltbCompletionistHours: preferred.hltbCompletionistHours,
+              fetchedAt,
+            }
+          : null,
+    };
+  }
+
   const item = result.value?.item ?? null;
-  return { ok: true, value: item ? { ...item, fetchedAt: readFetchedAt(result.value) } : null };
+  return { ok: true, value: item ? { ...item, fetchedAt } : null };
+}
+
+/** Compares provider URLs loosely: scheme-relative, trailing slash and case don't matter. */
+function normalizeComparableUrl(value: unknown): string | null {
+  const raw = stringOrNull(value);
+  if (raw === null) {
+    return null;
+  }
+  const withScheme = raw.startsWith('//') ? `https:${raw}` : raw;
+  return withScheme
+    .replace(/^http:/i, 'https:')
+    .replace(/\/+$/, '')
+    .toLowerCase();
 }
 
 async function fetchMetacriticPayload(params: {
@@ -1103,10 +1187,9 @@ async function fetchMetacriticPayload(params: {
   releaseYear: number | null;
   platform: string | null;
   platformIgdbId: number;
+  preferredReviewUrl?: string | null;
   forceFresh?: boolean;
-}): Promise<
-  FetchJsonResult<NonNullable<MetacriticApiResponse['item']> & { fetchedAt: string | null }>
-> {
+}): Promise<FetchJsonResult<MetacriticApiItem & { fetchedAt: string | null }>> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
   }
@@ -1116,6 +1199,7 @@ async function fetchMetacriticPayload(params: {
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
     platformIgdbId: params.platformIgdbId,
+    includeCandidates: params.preferredReviewUrl ? 'true' : undefined,
   });
   const result = await fetchLocalApiJson<MetacriticApiResponse>(
     url,
@@ -1126,8 +1210,20 @@ async function fetchMetacriticPayload(params: {
     return { ok: false, value: null };
   }
 
+  const fetchedAt = readFetchedAt(result.value);
+  const preferredReviewUrl = normalizeComparableUrl(params.preferredReviewUrl);
+  if (preferredReviewUrl !== null) {
+    // Locked match: only the saved Metacritic page counts; otherwise treat it as no match.
+    const preferred =
+      [result.value?.item ?? null, ...(result.value?.candidates ?? [])].find(
+        (entry) =>
+          entry !== null && normalizeComparableUrl(entry.metacriticUrl) === preferredReviewUrl
+      ) ?? null;
+    return { ok: true, value: preferred ? { ...preferred, fetchedAt } : null };
+  }
+
   const item = result.value?.item ?? null;
-  return { ok: true, value: item ? { ...item, fetchedAt: readFetchedAt(result.value) } : null };
+  return { ok: true, value: item ? { ...item, fetchedAt } : null };
 }
 
 async function fetchReviewPayload(params: {
@@ -1136,6 +1232,7 @@ async function fetchReviewPayload(params: {
   platform: string | null;
   platformIgdbId: number;
   reviewMatchMobygamesGameId: number | null;
+  preferredReviewUrl?: string | null;
   forceFresh?: boolean;
 }): Promise<FetchJsonResult<RefreshedReviewPayload>> {
   if (params.reviewMatchMobygamesGameId !== null) {
@@ -1169,6 +1266,7 @@ async function fetchReviewPayload(params: {
     releaseYear: params.releaseYear,
     platform: params.platform,
     platformIgdbId: params.platformIgdbId,
+    preferredReviewUrl: params.preferredReviewUrl,
     forceFresh: params.forceFresh,
   });
   if (!metacritic.ok) {
@@ -1923,6 +2021,29 @@ function isReviewRefreshDue(lastReviewRefreshAt: string | null, now: Date): bool
 
   const ageMs = now.getTime() - refreshedAtMs;
   return ageMs >= Math.max(1, config.metacriticPeriodicRefreshDays) * ONE_DAY_MS;
+}
+
+/**
+ * Whether the game shows HLTB times with no known read date, so the monitor should refresh
+ * it whatever its release age.
+ */
+function needsHltbFetchedAt(payload: Record<string, unknown>): boolean {
+  return hasHltbValues(payload) && stringOrNull(payload['hltbFetchedAt']) === null;
+}
+
+/**
+ * Whether the game shows a review score with no known read date that a refresh can date:
+ * Metacritic (or unknown) scores, and MobyGames scores with a known MobyGames game.
+ */
+function needsReviewFetchedAt(payload: Record<string, unknown>): boolean {
+  if (!hasReviewScoreValues(payload) || stringOrNull(payload['reviewFetchedAt']) !== null) {
+    return false;
+  }
+  const reviewSource = stringOrNull(payload['reviewSource']);
+  if (reviewSource === null || reviewSource === 'metacritic') {
+    return true;
+  }
+  return reviewSource === 'mobygames' && resolveRefreshMobygamesGameId(payload) !== null;
 }
 
 /** Whether the game shows a review score (any source), as game detail does. */
@@ -2704,6 +2825,9 @@ export const releaseMonitorInternals = {
   isReviewRefreshDue,
   hasMetacriticValues,
   hasReviewScoreValues,
+  needsHltbFetchedAt,
+  needsReviewFetchedAt,
+  resolveRefreshMobygamesGameId,
   isProviderMatchLocked,
   finiteNumberOrNull,
   numberOrNull,

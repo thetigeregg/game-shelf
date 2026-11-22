@@ -12,7 +12,7 @@ import {
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
-import { withFetchedAt } from './provider-fetched-at.js';
+import { forwardUpstreamHeaders, withFetchedAt } from './provider-fetched-at.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -160,6 +160,7 @@ export async function registerMetacriticCachedRoute(
         }
 
         if (payload !== null) {
+          forwardUpstreamHeaders(reply, response);
           reply.header('X-GameShelf-METACRITIC-Cache', cacheOutcome);
           reply.code(response.status);
           reply.type('application/json');

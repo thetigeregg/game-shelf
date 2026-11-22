@@ -1297,6 +1297,34 @@ describe('GameShelfService', () => {
     expect(result).toEqual(updatedEntry);
   });
 
+  it('dates HLTB times read now when the lookup response carries no fetchedAt', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({ hltbMainHours: 14, hltbMainExtraHours: null, hltbCompletionistHours: null })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+
+    const before = Date.now();
+    await service.refreshGameCompletionTimes('123', 5);
+
+    const catalog = repository.upsertFromCatalog.mock.calls[0]?.[0] as GameCatalogResult;
+    expect(Date.parse(String(catalog.hltbFetchedAt))).toBeGreaterThanOrEqual(before);
+  });
+
   it('refreshGameCompletionTimes prefers persisted HLTB match query fields when present', async () => {
     const existingEntry: GameEntry = {
       id: 10,
@@ -3315,6 +3343,9 @@ describe('GameShelfService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        // The old match's read dates go with its values.
+        hltbFetchedAt: null,
+        reviewFetchedAt: null,
       }),
       'collection'
     );

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFetchedAt, withFetchedAt } from './provider-fetched-at.js';
+import { forwardUpstreamHeaders, readFetchedAt, withFetchedAt } from './provider-fetched-at.js';
 
 void test('withFetchedAt adds an ISO fetchedAt to object payloads', () => {
   assert.deepEqual(withFetchedAt({ item: null }, '2026-11-01T10:00:00Z'), {
@@ -31,4 +31,28 @@ void test('readFetchedAt returns a valid fetchedAt as ISO, else null', () => {
   assert.equal(readFetchedAt({}), null);
   assert.equal(readFetchedAt(null), null);
   assert.equal(readFetchedAt([]), null);
+});
+
+void test('forwardUpstreamHeaders copies headers except body-bound ones', () => {
+  const set: Record<string, string> = {};
+  const reply = {
+    header: (key: string, value: string) => {
+      set[key] = value;
+      return reply;
+    },
+  };
+  forwardUpstreamHeaders(
+    reply as unknown as Parameters<typeof forwardUpstreamHeaders>[0],
+    new Response('{}', {
+      headers: {
+        'cache-control': 'max-age=60',
+        'content-encoding': 'gzip',
+        'transfer-encoding': 'chunked',
+      },
+    })
+  );
+
+  assert.equal(set['cache-control'], 'max-age=60');
+  assert.equal(set['content-encoding'], undefined);
+  assert.equal(set['transfer-encoding'], undefined);
 });

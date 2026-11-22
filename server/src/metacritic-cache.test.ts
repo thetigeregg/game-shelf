@@ -1140,13 +1140,20 @@ void test('METACRITIC cache reports when the score was read: now on a miss, the 
       Promise.resolve(
         new Response(JSON.stringify({ item: { metacriticScore: 90 }, candidates: [] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            'x-upstream-debug': 'scraper-1',
+            'content-length': '999',
+          },
         })
       ),
   });
 
   const miss = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=Okami' });
   assert.equal(miss.headers['x-gameshelf-metacritic-cache'], 'MISS');
+  // Upstream headers still reach the client; body-length headers are recomputed.
+  assert.equal(miss.headers['x-upstream-debug'], 'scraper-1');
+  assert.notEqual(miss.headers['content-length'], '999');
   assert.deepEqual(JSON.parse(miss.body), {
     item: { metacriticScore: 90 },
     candidates: [],

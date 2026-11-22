@@ -967,8 +967,15 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
   assert.equal(capturedInsertSql.includes("'priceSource'"), true);
   assert.equal(capturedInsertSql.includes("'priceFetchedAt'"), true);
   // Fetch dates the server writes survive pushes from clients that don't send them.
-  assert.equal(capturedInsertSql.includes("'hltbFetchedAt'"), true);
-  assert.equal(capturedInsertSql.includes("'reviewFetchedAt'"), true);
+  // A client's null (an entry it hasn't dated yet) doesn't erase a date the server wrote.
+  assert.equal(
+    capturedInsertSql.includes("NULLIF(EXCLUDED.payload -> 'hltbFetchedAt', 'null'::jsonb)"),
+    true
+  );
+  assert.equal(
+    capturedInsertSql.includes("NULLIF(EXCLUDED.payload -> 'reviewFetchedAt', 'null'::jsonb)"),
+    true
+  );
   assert.equal(capturedInsertSql.includes("'priceAmount'"), true);
   assert.equal(capturedInsertSql.includes("'priceCurrency'"), true);
   assert.equal(capturedInsertSql.includes("'priceRegularAmount'"), true);

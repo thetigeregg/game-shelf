@@ -1735,6 +1735,228 @@ async function runOldGameRefresh(options: {
   }
 }
 
+function jsonResponse(body: unknown): Promise<Response> {
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  );
+}
+
+async function runRefreshWithProviders(options: {
+  payload: Record<string, unknown>;
+  providers: Partial<Record<'hltb' | 'metacritic' | 'mobygames', unknown>>;
+}): Promise<{
+  pool: ProcessGameRowPoolMock;
+  stats: ReturnType<typeof createRunStats>;
+  requestedUrls: string[];
+}> {
+  const originalFetch = globalThis.fetch;
+  const requestedUrls: string[] = [];
+  globalThis.fetch = (input: URL | RequestInfo) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+    requestedUrls.push(url);
+    for (const provider of ['hltb', 'metacritic', 'mobygames'] as const) {
+      if (url.includes(`/v1/${provider}/search`) && provider in options.providers) {
+        return jsonResponse(options.providers[provider]);
+      }
+    }
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'collection',
+          ...options.payload,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2000',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2000,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+    return { pool, stats, requestedUrls };
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+const LOCKED_HLTB_PAYLOAD = {
+  hltbMainHours: 12,
+  hltbMatchLocked: true,
+  hltbMatchGameId: 7002,
+  hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+};
+
+void test('processGameRow refreshes a locked HLTB match from its saved game only', async () => {
+  const { pool, requestedUrls } = await runRefreshWithProviders({
+    payload: LOCKED_HLTB_PAYLOAD,
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [
+          { hltbGameId: 7001, hltbMainHours: 99 },
+          { hltbGameId: 7002, hltbMainHours: 14, hltbCompletionistHours: 30 },
+        ],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  const hltbUrl = requestedUrls.find((url) => url.includes('/v1/hltb/search'));
+  assert.ok(hltbUrl?.includes('preferredHltbGameId=7002'));
+  assert.ok(pool.client.payloadPatch);
+  assert.equal(pool.client.payloadPatch['hltbMainHours'], 14);
+  assert.equal(pool.client.payloadPatch['hltbCompletionistHours'], 30);
+  assert.equal(pool.client.payloadPatch['hltbFetchedAt'], '2026-11-01T10:00:00.000Z');
+});
+
+void test('processGameRow keeps a locked HLTB match when the search no longer returns it', async () => {
+  const { pool, stats } = await runRefreshWithProviders({
+    payload: LOCKED_HLTB_PAYLOAD,
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [{ hltbGameId: 7001, hltbMainHours: 99 }],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(stats.hltbRefreshSuccesses, 0);
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], undefined);
+  assert.equal(pool.client.payloadPatch?.['hltbFetchedAt'], undefined);
+});
+
+void test('processGameRow refreshes a locked Metacritic match from its saved page only', async () => {
+  const lockedPayload = {
+    reviewScore: 80,
+    reviewSource: 'metacritic',
+    reviewUrl: 'https://www.metacritic.com/game/ancient-game/',
+    reviewMatchLocked: true,
+  };
+  const found = await runRefreshWithProviders({
+    payload: lockedPayload,
+    providers: {
+      metacritic: {
+        item: { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/other/' },
+        candidates: [
+          { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/other/' },
+          { metacriticScore: 83, metacriticUrl: 'https://www.metacritic.com/game/ancient-game' },
+        ],
+        fetchedAt: '2026-10-30T08:00:00.000Z',
+      },
+    },
+  });
+  const metacriticUrl = found.requestedUrls.find((url) => url.includes('/v1/metacritic/search'));
+  assert.ok(metacriticUrl?.includes('includeCandidates=true'));
+  assert.equal(found.pool.client.payloadPatch?.['reviewScore'], 83);
+  assert.equal(found.pool.client.payloadPatch['reviewFetchedAt'], '2026-10-30T08:00:00.000Z');
+
+  const missing = await runRefreshWithProviders({
+    payload: lockedPayload,
+    providers: {
+      metacritic: {
+        item: { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/other/' },
+        candidates: [],
+      },
+    },
+  });
+  assert.equal(missing.stats.reviewRefreshSuccesses, 0);
+  assert.equal(missing.pool.client.payloadPatch?.['reviewScore'], undefined);
+});
+
+void test('processGameRow reads a MobyGames score from MobyGames, not Metacritic', async () => {
+  const { pool, requestedUrls } = await runRefreshWithProviders({
+    payload: { reviewScore: 78, reviewSource: 'mobygames', mobygamesGameId: 4501 },
+    providers: {
+      mobygames: {
+        games: [
+          { game_id: 4501, moby_url: 'https://www.mobygames.com/game/4501', critic_score: 80 },
+        ],
+        fetchedAt: '2026-10-28T12:00:00.000Z',
+      },
+    },
+  });
+
+  assert.ok(
+    requestedUrls.some((url) => url.includes('/v1/mobygames/search') && url.includes('id=4501'))
+  );
+  assert.ok(!requestedUrls.some((url) => url.includes('/v1/metacritic/search')));
+  assert.equal(pool.client.payloadPatch?.['reviewScore'], 80);
+  assert.equal(pool.client.payloadPatch['reviewFetchedAt'], '2026-10-28T12:00:00.000Z');
+});
+
+void test('processGameRow does not date a review score kept from another source', async () => {
+  // A recent game with a score from a source the refresh didn't read: the Metacritic result is
+  // stored alongside, but the shown score is unchanged and must not look freshly read.
+  const { pool } = await runRefreshWithProviders({
+    payload: {
+      releaseYear: 2026,
+      releaseMarker: '2026',
+      reviewScore: 90,
+      reviewSource: 'opencritic',
+    },
+    providers: {
+      metacritic: {
+        item: { metacriticScore: 88, metacriticUrl: 'https://www.metacritic.com/game/x/' },
+        fetchedAt: '2026-10-30T08:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(pool.client.payloadPatch?.['metacriticScore'], 88);
+  assert.equal(pool.client.payloadPatch['reviewFetchedAt'], undefined);
+});
+
+void test('processGameRow schedules a just-dated old game on its release-only check', async () => {
+  const dated = await runRefreshWithProviders({
+    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    providers: {
+      hltb: { item: { hltbMainHours: 12 }, fetchedAt: '2026-11-01T10:00:00.000Z' },
+      metacritic: {
+        item: { metacriticScore: 80, metacriticUrl: 'https://www.metacritic.com/game/a/' },
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+  const datedNextCheck = Date.parse(String(dated.pool.lastWatchStateParams?.[10]));
+  assert.ok(datedNextCheck - Date.now() > 300 * 24 * 3600 * 1000);
+
+  // Still undated (no match found): retried after one refresh cadence, not a year later.
+  const undated = await runRefreshWithProviders({
+    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    providers: { hltb: { item: null }, metacritic: { item: null } },
+  });
+  const undatedNextCheck = Date.parse(String(undated.pool.lastWatchStateParams?.[10]));
+  assert.ok(undatedNextCheck - Date.now() < 60 * 24 * 3600 * 1000);
+});
+
 void test('processGameRow refreshes an old game whose HLTB/review values have no read date', async () => {
   const stats = await runOldGameRefresh({});
 

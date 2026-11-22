@@ -48,6 +48,8 @@ void test('forwardUpstreamHeaders copies headers except body-bound ones', () => 
         'cache-control': 'max-age=60',
         'content-encoding': 'gzip',
         'transfer-encoding': 'chunked',
+        etag: '"abc"',
+        'last-modified': 'Sun, 01 Nov 2026 10:00:00 GMT',
       },
     })
   );
@@ -55,4 +57,6 @@ void test('forwardUpstreamHeaders copies headers except body-bound ones', () => 
   assert.equal(set['cache-control'], 'max-age=60');
   assert.equal(set['content-encoding'], undefined);
   assert.equal(set['transfer-encoding'], undefined);
+  assert.equal(set['etag'], undefined);
+  assert.equal(set['last-modified'], undefined);
 });

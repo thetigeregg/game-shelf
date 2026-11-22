@@ -232,8 +232,8 @@ async function applyGameOperation(
     'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
     [payload.igdbGameId, payload.platformIgdbId]
   );
-  const reconciledPayload = reconcileGameCoverFields(
-    payload,
+  const reconciledPayload = reconcileFetchedAtFields(
+    reconcileGameCoverFields(payload, existingPayloadResult.rows[0]?.payload),
     existingPayloadResult.rows[0]?.payload
   );
 
@@ -255,14 +255,14 @@ async function applyGameOperation(
         'hltbMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryTitle', games.payload -> 'hltbMatchQueryTitle'),
         'hltbMatchQueryReleaseYear', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryReleaseYear', games.payload -> 'hltbMatchQueryReleaseYear'),
         'hltbMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryPlatform', games.payload -> 'hltbMatchQueryPlatform'),
-        'hltbFetchedAt', COALESCE(NULLIF(EXCLUDED.payload -> 'hltbFetchedAt', 'null'::jsonb), games.payload -> 'hltbFetchedAt'),
+        'hltbFetchedAt', COALESCE(EXCLUDED.payload -> 'hltbFetchedAt', games.payload -> 'hltbFetchedAt'),
         'reviewMatchLocked', COALESCE(EXCLUDED.payload -> 'reviewMatchLocked', games.payload -> 'reviewMatchLocked'),
         'reviewMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryTitle', games.payload -> 'reviewMatchQueryTitle'),
         'reviewMatchQueryReleaseYear', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryReleaseYear', games.payload -> 'reviewMatchQueryReleaseYear'),
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
-        'reviewFetchedAt', COALESCE(NULLIF(EXCLUDED.payload -> 'reviewFetchedAt', 'null'::jsonb), games.payload -> 'reviewFetchedAt'),
+        'reviewFetchedAt', COALESCE(EXCLUDED.payload -> 'reviewFetchedAt', games.payload -> 'reviewFetchedAt'),
         'coverUrl', COALESCE(EXCLUDED.payload -> 'coverUrl', games.payload -> 'coverUrl'),
         'coverSource', COALESCE(EXCLUDED.payload -> 'coverSource', games.payload -> 'coverSource'),
         'customCoverUrl', COALESCE(EXCLUDED.payload -> 'customCoverUrl', games.payload -> 'customCoverUrl'),
@@ -929,6 +929,46 @@ function reconcileGameCoverFields(
     coverSource: reconciledCoverSource,
     customCoverUrl: reconciledCustomCoverUrl,
   };
+}
+
+const FETCHED_AT_VALUE_KEYS = {
+  hltbFetchedAt: ['hltbMainHours', 'hltbMainExtraHours', 'hltbCompletionistHours'],
+  reviewFetchedAt: ['reviewScore', 'reviewSource', 'reviewUrl'],
+} as const;
+
+/**
+ * Resolves the HLTB/review read dates of a pushed game against the stored one. A client that
+ * hasn't pulled the server's latest change pushes no date (or null) for one the server wrote:
+ * the stored date stays while the values it describes are unchanged. Values changed without a
+ * date (e.g. a CSV import) are no longer described by the stored date, so it is cleared.
+ */
+function reconcileFetchedAtFields<T extends Record<string, unknown>>(
+  payload: T,
+  existingPayload: unknown
+): T {
+  const existing =
+    existingPayload && typeof existingPayload === 'object'
+      ? (existingPayload as Record<string, unknown>)
+      : null;
+  if (existing === null) {
+    return payload;
+  }
+
+  const next: Record<string, unknown> = { ...payload };
+  for (const [dateKey, valueKeys] of Object.entries(FETCHED_AT_VALUE_KEYS)) {
+    const storedDate = normalizeFetchedAt(existing[dateKey]);
+    if (normalizeFetchedAt(payload[dateKey]) !== null || storedDate === null) {
+      continue;
+    }
+    const valuesUnchanged = valueKeys.every((key) => {
+      const incoming = Object.prototype.hasOwnProperty.call(payload, key)
+        ? payload[key]
+        : existing[key];
+      return (incoming ?? null) === (existing[key] ?? null);
+    });
+    next[dateKey] = valuesUnchanged ? storedDate : null;
+  }
+  return next as T;
 }
 
 const UNIFIED_PRICE_KEYS = [

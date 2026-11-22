@@ -657,7 +657,8 @@ function normalizePositiveInteger(value: unknown): number | null {
   return null;
 }
 
-function normalizeHltbUrl(value: unknown): string | null {
+/** Canonical HowLongToBeat game URL (https, howlongtobeat.com host), else null. */
+export function normalizeHltbUrl(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }

@@ -33,7 +33,15 @@ export function readFetchedAt(payload: unknown): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
-const BODY_BOUND_HEADERS = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
+const BODY_BOUND_HEADERS = new Set([
+  'content-encoding',
+  'content-length',
+  'transfer-encoding',
+  // Validators describe the upstream bytes, not the re-serialized body.
+  'etag',
+  'last-modified',
+  'content-md5',
+]);
 
 /**
  * Copies an upstream provider response's headers onto a reply whose body is re-serialized

@@ -1161,8 +1161,9 @@ export const MIGRATIONS: string[] = [
   // "Updated" dates: a library game showing HLTB times or a review score with no read date is
   // refreshed by the release monitor whatever its release age, but old games' watch rows sit
   // on a release-only next check up to a year out. Bring those forward so the catch-up runs
-  // now. Mirrors needsHltbFetchedAt/needsReviewFetchedAt; once a game is dated, or was tried
-  // within the refresh cadence, it stops matching, so re-running on startup is a no-op.
+  // now. Mirrors needsHltbFetchedAt/needsReviewFetchedAt (the monitor still applies its own
+  // refresh cadence and match locks). Once a game is dated it stops matching; one that stays
+  // undated (no match found) costs a single extra check per server start.
   `
   UPDATE release_watch_state rws
   SET next_check_at = NOW()
@@ -1174,14 +1175,13 @@ export const MIGRATIONS: string[] = [
     AND (
       (
         NULLIF(btrim(COALESCE(g.payload->>'hltbFetchedAt', '')), '') IS NULL
-        AND 'number' IN (
-          jsonb_typeof(g.payload->'hltbMainHours'),
-          jsonb_typeof(g.payload->'hltbMainExtraHours'),
-          jsonb_typeof(g.payload->'hltbCompletionistHours')
-        )
         AND (
-          rws.last_hltb_refresh_at IS NULL
-          OR rws.last_hltb_refresh_at <= NOW() - INTERVAL '30 days'
+          CASE WHEN jsonb_typeof(g.payload->'hltbMainHours') = 'number'
+            THEN (g.payload->>'hltbMainHours')::numeric > 0 ELSE FALSE END
+          OR CASE WHEN jsonb_typeof(g.payload->'hltbMainExtraHours') = 'number'
+            THEN (g.payload->>'hltbMainExtraHours')::numeric > 0 ELSE FALSE END
+          OR CASE WHEN jsonb_typeof(g.payload->'hltbCompletionistHours') = 'number'
+            THEN (g.payload->>'hltbCompletionistHours')::numeric > 0 ELSE FALSE END
         )
       )
       OR (
@@ -1201,10 +1201,6 @@ export const MIGRATIONS: string[] = [
               OR jsonb_typeof(g.payload->'mobygamesGameId') = 'number'
             )
           )
-        )
-        AND (
-          rws.last_metacritic_refresh_at IS NULL
-          OR rws.last_metacritic_refresh_at <= NOW() - INTERVAL '30 days'
         )
       )
     );

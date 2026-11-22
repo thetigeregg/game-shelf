@@ -1957,6 +1957,86 @@ void test('processGameRow schedules a just-dated old game on its release-only ch
   assert.ok(undatedNextCheck - Date.now() < 60 * 24 * 3600 * 1000);
 });
 
+void test('processGameRow keeps existing values when a refresh matches without numbers', async () => {
+  const { pool, stats } = await runRefreshWithProviders({
+    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    providers: {
+      hltb: {
+        item: { hltbMainHours: null, hltbMainExtraHours: null },
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+      metacritic: {
+        item: { metacriticScore: null, metacriticUrl: 'https://www.metacritic.com/game/a/' },
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(stats.hltbRefreshSuccesses, 0);
+  assert.equal(stats.reviewRefreshSuccesses, 0);
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], undefined);
+  assert.equal(pool.client.payloadPatch?.['hltbFetchedAt'], undefined);
+  assert.equal(pool.client.payloadPatch?.['reviewScore'], undefined);
+  assert.equal(pool.client.payloadPatch?.['reviewFetchedAt'], undefined);
+});
+
+void test('processGameRow never refreshes a locked match with nothing saved to pin it', async () => {
+  const { stats, requestedUrls } = await runRefreshWithProviders({
+    payload: {
+      hltbMainHours: 12,
+      hltbMatchLocked: true,
+      reviewScore: 80,
+      reviewSource: 'metacritic',
+      reviewMatchLocked: true,
+    },
+    providers: {
+      hltb: { item: { hltbMainHours: 99 } },
+      metacritic: { item: { metacriticScore: 50 } },
+    },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+  assert.equal(stats.reviewRefreshAttempts, 0);
+  assert.ok(!requestedUrls.some((url) => url.includes('/v1/hltb/search')));
+});
+
+void test('processGameRow still refreshes a locked match pinned by its saved search query', async () => {
+  const { pool } = await runRefreshWithProviders({
+    payload: { hltbMainHours: 12, hltbMatchLocked: true, hltbMatchQueryTitle: 'Saved Query' },
+    providers: { hltb: { item: { hltbMainHours: 15 }, fetchedAt: '2026-11-01T10:00:00.000Z' } },
+  });
+
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 15);
+});
+
+void test('processGameRow matches a locked HLTB URL across www and relative forms', async () => {
+  const { pool } = await runRefreshWithProviders({
+    payload: {
+      hltbMainHours: 12,
+      hltbMatchLocked: true,
+      hltbMatchUrl: 'https://www.howlongtobeat.com/game/7002',
+    },
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [{ hltbUrl: '/game/7002', hltbMainHours: 14 }],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 14);
+});
+
+void test('processGameRow does not catch up a game whose only HLTB time is zero', async () => {
+  const { stats } = await runRefreshWithProviders({
+    payload: { hltbMainHours: 0 },
+    providers: { hltb: { item: null } },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+});
+
 void test('processGameRow refreshes an old game whose HLTB/review values have no read date', async () => {
   const stats = await runOldGameRefresh({});
 

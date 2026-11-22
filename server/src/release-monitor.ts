@@ -12,6 +12,7 @@ import {
   RELEASE_NOTIFICATIONS_ENABLED_KEY,
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
+import { normalizeHltbUrl } from './hltb-cache.js';
 import { readFetchedAt } from './provider-fetched-at.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME } from './request-security.js';
@@ -323,11 +324,13 @@ function evaluateForcedRefreshDue(
   );
 
   const hltbDue = force.hltb
-    ? (!options.respectRecency || hltbEligible || needsHltbFetchedAt(payload)) &&
+    ? !isHltbLockUnpinned(payload) &&
+      (!options.respectRecency || hltbEligible || needsHltbFetchedAt(payload)) &&
       (!options.respectStaleness || isHltbRefreshDue(row.last_hltb_refresh_at, payload, now))
     : false;
   const reviewDue = force.review
-    ? (!options.respectRecency || metacriticEligible || needsReviewFetchedAt(payload)) &&
+    ? !isReviewLockUnpinned(payload) &&
+      (!options.respectRecency || metacriticEligible || needsReviewFetchedAt(payload)) &&
       (!options.respectStaleness || isReviewRefreshDue(row.last_metacritic_refresh_at, now))
     : false;
 
@@ -692,19 +695,25 @@ async function processGameRow(
 
     // Forced refresh always bypasses the bootstrap check; recency and staleness are each
     // bypassed only when the corresponding respect_* flag is explicitly turned off.
+    // A locked match with nothing saved to pin it is never refreshed: the search's top result
+    // could replace what the user chose.
     const hltbDue =
-      row.force_hltb === true
+      !isHltbLockUnpinned(mergedPayload) &&
+      (row.force_hltb === true
         ? (row.respect_recency === false || hltbRefreshEligible) &&
           (row.respect_staleness !== true ||
             isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now))
         : !isBootstrap &&
           hltbRefreshEligible &&
-          isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+          isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now));
     const reviewDue =
-      row.force_review === true
+      !isReviewLockUnpinned(mergedPayload) &&
+      (row.force_review === true
         ? (row.respect_recency === false || reviewRefreshEligible) &&
           (row.respect_staleness !== true || isReviewRefreshDue(lastMetacriticRefreshAt, now))
-        : !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
+        : !isBootstrap &&
+          reviewRefreshEligible &&
+          isReviewRefreshDue(lastMetacriticRefreshAt, now));
 
     if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
@@ -715,7 +724,8 @@ async function processGameRow(
       });
 
       if (refreshedHltb.ok) {
-        if (refreshedHltb.value) {
+        // A match without times is no data: keep what the game has rather than blank it.
+        if (refreshedHltb.value && hasPositiveHltbValues(refreshedHltb.value)) {
           stats.hltbRefreshSuccesses += 1;
           mergedPayload = {
             ...mergedPayload,
@@ -748,7 +758,8 @@ async function processGameRow(
       });
 
       if (refreshedReview.ok) {
-        if (refreshedReview.value) {
+        // A match without a score is no data: keep the game's score rather than blank it.
+        if (refreshedReview.value && hasRefreshedReviewScore(refreshedReview.value)) {
           stats.reviewRefreshSuccesses += 1;
           const merged = mergeReviewRefreshPayload(mergedPayload, refreshedReview.value);
           // Date the score only when it came from this refresh: a score from another source
@@ -1140,6 +1151,7 @@ async function fetchHltbPayload(params: {
 
   const fetchedAt = readFetchedAt(result.value);
   if (preferredHltbGameId !== null || preferredHltbUrl !== null) {
+    const normalizedPreferredUrl = normalizeHltbUrl(preferredHltbUrl);
     // Locked match: only the saved HLTB game counts. If the search no longer returns it,
     // treat it as no match rather than taking another game's times.
     const preferred =
@@ -1147,14 +1159,13 @@ async function fetchHltbPayload(params: {
         (candidate) =>
           (preferredHltbGameId !== null &&
             integerOrNull(candidate.hltbGameId ?? candidate.gameId) === preferredHltbGameId) ||
-          (preferredHltbUrl !== null &&
-            normalizeComparableUrl(candidate.hltbUrl ?? candidate.url) ===
-              normalizeComparableUrl(preferredHltbUrl))
+          (normalizedPreferredUrl !== null &&
+            normalizeHltbUrl(candidate.hltbUrl ?? candidate.url) === normalizedPreferredUrl)
       ) ?? null;
     return {
       ok: true,
       value:
-        preferred && hasHltbValues(preferred as Record<string, unknown>)
+        preferred && hasPositiveHltbValues(preferred)
           ? {
               hltbMainHours: preferred.hltbMainHours,
               hltbMainExtraHours: preferred.hltbMainExtraHours,
@@ -2028,7 +2039,58 @@ function isReviewRefreshDue(lastReviewRefreshAt: string | null, now: Date): bool
  * it whatever its release age.
  */
 function needsHltbFetchedAt(payload: Record<string, unknown>): boolean {
-  return hasHltbValues(payload) && stringOrNull(payload['hltbFetchedAt']) === null;
+  return (
+    hasPositiveHltbValues(payload) &&
+    stringOrNull(payload['hltbFetchedAt']) === null &&
+    !isHltbLockUnpinned(payload)
+  );
+}
+
+/** Whether any HLTB time is above zero, as game detail requires to show them. */
+function hasPositiveHltbValues(values: {
+  hltbMainHours?: unknown;
+  hltbMainExtraHours?: unknown;
+  hltbCompletionistHours?: unknown;
+}): boolean {
+  return [values.hltbMainHours, values.hltbMainExtraHours, values.hltbCompletionistHours].some(
+    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0
+  );
+}
+
+/** Whether a review refresh read an actual score (not just a matched page). */
+function hasRefreshedReviewScore(refreshed: RefreshedReviewPayload): boolean {
+  const score =
+    refreshed.source === 'mobygames' ? refreshed.reviewScore : refreshed.metacriticScore;
+  return typeof score === 'number' && Number.isFinite(score) && score > 0;
+}
+
+/**
+ * A locked HLTB match with neither a saved HLTB game nor a saved search query: nothing pins
+ * what the user chose, so a refresh could only take the search's top result.
+ */
+function isHltbLockUnpinned(payload: Record<string, unknown>): boolean {
+  if (!isProviderMatchLocked(payload, 'hltbMatchLocked')) {
+    return false;
+  }
+  const query = resolveHltbRefreshQuery(payload, '', null);
+  return (
+    query.preferredHltbGameId === null &&
+    query.preferredHltbUrl === null &&
+    stringOrNull(payload['hltbMatchQueryTitle']) === null
+  );
+}
+
+/** The review equivalent of isHltbLockUnpinned: locked with no saved page, game or query. */
+function isReviewLockUnpinned(payload: Record<string, unknown>): boolean {
+  if (!isProviderMatchLocked(payload, 'reviewMatchLocked')) {
+    return false;
+  }
+  const query = resolveReviewRefreshQuery(payload, '', null, 0);
+  return (
+    query.reviewMatchMobygamesGameId === null &&
+    query.preferredReviewUrl === null &&
+    stringOrNull(payload['reviewMatchQueryTitle']) === null
+  );
 }
 
 /**
@@ -2036,7 +2098,11 @@ function needsHltbFetchedAt(payload: Record<string, unknown>): boolean {
  * Metacritic (or unknown) scores, and MobyGames scores with a known MobyGames game.
  */
 function needsReviewFetchedAt(payload: Record<string, unknown>): boolean {
-  if (!hasReviewScoreValues(payload) || stringOrNull(payload['reviewFetchedAt']) !== null) {
+  if (
+    !hasReviewScoreValues(payload) ||
+    stringOrNull(payload['reviewFetchedAt']) !== null ||
+    isReviewLockUnpinned(payload)
+  ) {
     return false;
   }
   const reviewSource = stringOrNull(payload['reviewSource']);
@@ -2826,6 +2892,9 @@ export const releaseMonitorInternals = {
   hasMetacriticValues,
   hasReviewScoreValues,
   needsHltbFetchedAt,
+  isHltbLockUnpinned,
+  isReviewLockUnpinned,
+  hasRefreshedReviewScore,
   needsReviewFetchedAt,
   resolveRefreshMobygamesGameId,
   isProviderMatchLocked,

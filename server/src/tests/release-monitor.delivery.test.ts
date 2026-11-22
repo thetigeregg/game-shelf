@@ -1685,6 +1685,94 @@ void test('processGameRow bypasses bootstrap gating but still respects recency b
   }
 });
 
+async function runOldGameRefresh(options: {
+  payload?: Record<string, unknown>;
+  lastRefreshAt?: string | null;
+}): Promise<ReturnType<typeof createRunStats>> {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Ancient Game',
+          platform: 'PlayStation 5',
+          releaseYear: 2000,
+          releaseMarker: '2000',
+          releasePrecision: 'year',
+          listType: 'collection',
+          hltbMainHours: 12,
+          reviewScore: 85,
+          reviewSource: 'metacritic',
+          ...options.payload,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2000',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2000,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: options.lastRefreshAt ?? null,
+        last_metacritic_refresh_at: options.lastRefreshAt ?? null,
+        last_notified_release_day: null,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+    return stats;
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+void test('processGameRow refreshes an old game whose HLTB/review values have no read date', async () => {
+  const stats = await runOldGameRefresh({});
+
+  assert.equal(stats.hltbRefreshAttempts, 1);
+  assert.equal(stats.reviewRefreshAttempts, 1);
+});
+
+void test('processGameRow leaves an old game alone once its HLTB/review values are dated', async () => {
+  const stats = await runOldGameRefresh({
+    payload: {
+      hltbFetchedAt: '2026-11-01T10:00:00.000Z',
+      reviewFetchedAt: '2026-11-01T10:00:00.000Z',
+    },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+  assert.equal(stats.reviewRefreshAttempts, 0);
+});
+
+void test('processGameRow keeps the cadence when catching up undated HLTB/review values', async () => {
+  // Refreshed a day ago (e.g. HLTB no longer matches): not retried until the cadence elapses.
+  const stats = await runOldGameRefresh({
+    lastRefreshAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+  assert.equal(stats.reviewRefreshAttempts, 0);
+});
+
+void test('processGameRow does not catch up dates for an old game without HLTB/review values', async () => {
+  const stats = await runOldGameRefresh({
+    payload: { hltbMainHours: null, reviewScore: null, reviewSource: null },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+  assert.equal(stats.reviewRefreshAttempts, 0);
+});
+
 void test('processGameRow bypasses bootstrap/recency gating for hltb/review when forced with respect_recency false', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = () => Promise.resolve(new Response(null, { status: 404 }));

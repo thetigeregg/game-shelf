@@ -684,8 +684,17 @@ async function processGameRow(
       lastMetacriticRefreshAt = nowIso;
     }
 
-    const hltbRefreshEligible = hltbEligible;
-    const reviewRefreshEligible = metacriticEligible;
+    // A game showing HLTB times or a review score without a known read date is refreshed
+    // whatever its release age, so every game ends up with an "Updated" date. The usual
+    // cadence still applies, so a title that no longer matches is retried at most once a
+    // cadence period. Once dated, only the release-age window keeps it refreshing.
+    const hltbMissingFetchedAt =
+      hasExistingHltb && stringOrNull(mergedPayload['hltbFetchedAt']) === null;
+    const reviewMissingFetchedAt =
+      hasReviewScoreValues(mergedPayload) &&
+      stringOrNull(mergedPayload['reviewFetchedAt']) === null;
+    const hltbRefreshEligible = hltbEligible || hltbMissingFetchedAt;
+    const reviewRefreshEligible = metacriticEligible || reviewMissingFetchedAt;
 
     // Forced refresh always bypasses the bootstrap check; recency and staleness are each
     // bypassed only when the corresponding respect_* flag is explicitly turned off.
@@ -1916,6 +1925,13 @@ function isReviewRefreshDue(lastReviewRefreshAt: string | null, now: Date): bool
   return ageMs >= Math.max(1, config.metacriticPeriodicRefreshDays) * ONE_DAY_MS;
 }
 
+/** Whether the game shows a review score (any source), as game detail does. */
+function hasReviewScoreValues(payload: Record<string, unknown>): boolean {
+  return [payload['reviewScore'], payload['metacriticScore']].some(
+    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0
+  );
+}
+
 function hasMetacriticValues(payload: Record<string, unknown>): boolean {
   const metacriticScore = payload['metacriticScore'];
   const hasFiniteScore = typeof metacriticScore === 'number' && Number.isFinite(metacriticScore);
@@ -2687,6 +2703,7 @@ export const releaseMonitorInternals = {
   hasHltbValues,
   isReviewRefreshDue,
   hasMetacriticValues,
+  hasReviewScoreValues,
   isProviderMatchLocked,
   finiteNumberOrNull,
   numberOrNull,

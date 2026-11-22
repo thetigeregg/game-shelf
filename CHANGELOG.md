@@ -4364,3 +4364,7 @@
 ## v1.92.4 - 2026-11-13
 
 - 0412029e fix(ui): stop detail loading spinners getting stuck open (#669)
+
+## v1.93.0 - 2026-11-22
+
+- d1bbd6a1 feat(detail): show when price, HLTB and review data was read (#682)

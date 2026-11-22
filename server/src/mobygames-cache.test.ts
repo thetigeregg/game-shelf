@@ -14,6 +14,13 @@ import {
   registerMobyGamesCachedRoute,
 } from './mobygames-cache.js';
 
+/** Parses a lookup response body, dropping the `fetchedAt` the route adds to every lookup. */
+function parseLookupBody(body: string): unknown {
+  const parsed = JSON.parse(body) as Record<string, unknown>;
+  Reflect.deleteProperty(parsed, 'fetchedAt');
+  return parsed;
+}
+
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
     return value;
@@ -423,7 +430,7 @@ void test('MOBYGAMES response forwarding strips upstream encoding headers for JS
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
   assert.equal(response.headers['content-encoding'], undefined);
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     games: [{ game_id: 4501, title: 'Chrono Trigger' }],
   });
 
@@ -579,7 +586,11 @@ void test('MOBYGAMES stale revalidation serves stale and refreshes cache in back
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'HIT_STALE');
   assert.equal(response.headers['x-gameshelf-mobygames-revalidate'], 'scheduled');
-  assert.deepEqual(JSON.parse(response.body), stalePayload);
+  // A stale hit reports when the cached entry was read, not the time of the request.
+  assert.deepEqual(JSON.parse(response.body), {
+    ...stalePayload,
+    fetchedAt: new Date(staleTimestamp).toISOString(),
+  });
 
   // Run background revalidation
   const task0 = backgroundTask as (() => Promise<void>) | null;
@@ -869,7 +880,7 @@ void test('MOBYGAMES write error is handled gracefully', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
-  assert.deepEqual(JSON.parse(response.body), {
+  assert.deepEqual(parseLookupBody(response.body), {
     games: [{ game_id: 10, title: 'Street Fighter' }],
   });
 
@@ -1279,4 +1290,39 @@ void test('queued MOBYGAMES revalidation that finds no games succeeds without wr
     globalThis.fetch = originalFetch;
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+void test('MOBYGAMES cache reports when the score was read: now on a miss, the entry date on a hit', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.parse('2026-11-01T10:00:00.000Z');
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const app = Fastify();
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 1, title: 'Okami' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+  });
+
+  const miss = await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Okami&platform=9' });
+  assert.equal(miss.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.deepEqual(JSON.parse(miss.body), {
+    games: [{ game_id: 1, title: 'Okami' }],
+    fetchedAt: '2026-11-01T10:00:00.000Z',
+  });
+
+  nowMs = Date.parse('2026-11-03T10:00:00.000Z');
+  const hit = await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Okami&platform=9' });
+  assert.equal(hit.headers['x-gameshelf-mobygames-cache'], 'HIT_FRESH');
+  assert.equal(
+    (JSON.parse(hit.body) as { fetchedAt?: unknown }).fetchedAt,
+    '2026-11-01T10:00:00.000Z'
+  );
+
+  await app.close();
 });

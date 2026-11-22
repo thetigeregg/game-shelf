@@ -255,12 +255,14 @@ async function applyGameOperation(
         'hltbMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryTitle', games.payload -> 'hltbMatchQueryTitle'),
         'hltbMatchQueryReleaseYear', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryReleaseYear', games.payload -> 'hltbMatchQueryReleaseYear'),
         'hltbMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryPlatform', games.payload -> 'hltbMatchQueryPlatform'),
+        'hltbFetchedAt', COALESCE(EXCLUDED.payload -> 'hltbFetchedAt', games.payload -> 'hltbFetchedAt'),
         'reviewMatchLocked', COALESCE(EXCLUDED.payload -> 'reviewMatchLocked', games.payload -> 'reviewMatchLocked'),
         'reviewMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryTitle', games.payload -> 'reviewMatchQueryTitle'),
         'reviewMatchQueryReleaseYear', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryReleaseYear', games.payload -> 'reviewMatchQueryReleaseYear'),
         'reviewMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'reviewMatchQueryPlatform', games.payload -> 'reviewMatchQueryPlatform'),
         'reviewMatchPlatformIgdbId', COALESCE(EXCLUDED.payload -> 'reviewMatchPlatformIgdbId', games.payload -> 'reviewMatchPlatformIgdbId'),
         'reviewMatchMobygamesGameId', COALESCE(EXCLUDED.payload -> 'reviewMatchMobygamesGameId', games.payload -> 'reviewMatchMobygamesGameId'),
+        'reviewFetchedAt', COALESCE(EXCLUDED.payload -> 'reviewFetchedAt', games.payload -> 'reviewFetchedAt'),
         'coverUrl', COALESCE(EXCLUDED.payload -> 'coverUrl', games.payload -> 'coverUrl'),
         'coverSource', COALESCE(EXCLUDED.payload -> 'coverSource', games.payload -> 'coverSource'),
         'customCoverUrl', COALESCE(EXCLUDED.payload -> 'customCoverUrl', games.payload -> 'customCoverUrl'),
@@ -714,7 +716,7 @@ function normalizePriceSource(
     : null;
 }
 
-function normalizePriceFetchedAt(value: unknown): string | null {
+function normalizeFetchedAt(value: unknown): string | null {
   const normalized = typeof value === 'string' ? value.trim() : '';
   return normalized.length > 0 ? normalized : null;
 }
@@ -983,6 +985,8 @@ function normalizeGamePayload(
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
   const hasPriceFetchedAt = Object.prototype.hasOwnProperty.call(payload, 'priceFetchedAt');
+  const hasHltbFetchedAt = Object.prototype.hasOwnProperty.call(payload, 'hltbFetchedAt');
+  const hasReviewFetchedAt = Object.prototype.hasOwnProperty.call(payload, 'reviewFetchedAt');
   const hasPriceAmount = Object.prototype.hasOwnProperty.call(payload, 'priceAmount');
   const hasPriceCurrency = Object.prototype.hasOwnProperty.call(payload, 'priceCurrency');
   const hasPriceRegularAmount = Object.prototype.hasOwnProperty.call(payload, 'priceRegularAmount');
@@ -996,7 +1000,9 @@ function normalizeGamePayload(
   const hasCoverSource = Object.prototype.hasOwnProperty.call(payload, 'coverSource');
   const hasCustomCoverUrl = Object.prototype.hasOwnProperty.call(payload, 'customCoverUrl');
   const priceSource = normalizePriceSource(payload.priceSource);
-  const priceFetchedAt = normalizePriceFetchedAt(payload.priceFetchedAt);
+  const priceFetchedAt = normalizeFetchedAt(payload.priceFetchedAt);
+  const hltbFetchedAt = normalizeFetchedAt(payload.hltbFetchedAt);
+  const reviewFetchedAt = normalizeFetchedAt(payload.reviewFetchedAt);
   const priceAmount = normalizePriceAmount(payload.priceAmount);
   const priceCurrency = normalizePriceCurrency(payload.priceCurrency);
   const priceRegularAmount = normalizePriceAmount(payload.priceRegularAmount);
@@ -1052,6 +1058,8 @@ function normalizeGamePayload(
     updatedAt,
     ...(hasPriceSource ? { priceSource } : {}),
     ...(hasPriceFetchedAt ? { priceFetchedAt } : {}),
+    ...(hasHltbFetchedAt ? { hltbFetchedAt } : {}),
+    ...(hasReviewFetchedAt ? { reviewFetchedAt } : {}),
     ...(hasPriceAmount ? { priceAmount } : {}),
     ...(hasPriceCurrency ? { priceCurrency } : {}),
     ...(hasPriceRegularAmount ? { priceRegularAmount } : {}),

@@ -582,6 +582,22 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.formatCompletionHours(this.game.hltbCompletionistHours);
   }
 
+  /** "Updated <date>" for the HLTB times, when any is shown and the read date is known. */
+  get hltbUpdatedLabel(): string | null {
+    const hasTimes = [
+      this.game.hltbMainHours,
+      this.game.hltbMainExtraHours,
+      this.game.hltbCompletionistHours,
+    ].some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0);
+    return hasTimes ? this.formatUpdatedLabel(this.game.hltbFetchedAt) : null;
+  }
+
+  /** "Updated <date>" for the review score, when one is shown and the read date is known. */
+  get reviewUpdatedLabel(): string | null {
+    const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
+    return score !== null ? this.formatUpdatedLabel(this.game.reviewFetchedAt) : null;
+  }
+
   get reviewScoreLabel(): string {
     const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
     if (score === null) {
@@ -686,6 +702,25 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     }
 
     return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  /** "Updated <date>" for the current price, when one is shown and the read date is known. */
+  get currentPriceUpdatedLabel(): string | null {
+    return this.hasCurrentPriceValue() ? this.formatUpdatedLabel(this.game.priceFetchedAt) : null;
+  }
+
+  private formatUpdatedLabel(fetchedAt: string | null | undefined): string | null {
+    const timestamp = typeof fetchedAt === 'string' ? Date.parse(fetchedAt) : Number.NaN;
+    if (Number.isNaN(timestamp)) {
+      return null;
+    }
+
+    const date = new Date(timestamp).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    return `Updated ${date}`;
   }
 
   private hasCurrentPriceValue(): boolean {

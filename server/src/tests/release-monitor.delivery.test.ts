@@ -788,6 +788,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
               hltbMainExtraHours: 15,
               hltbCompletionistHours: 24,
             },
+            fetchedAt: '2026-10-30T08:00:00.000Z',
           }),
           {
             status: 200,
@@ -875,6 +876,11 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
     assert.equal(pool.client.payloadPatch['hltbCompletionistHours'], 24);
     assert.equal(pool.client.payloadPatch['metacriticScore'], 88);
     assert.equal(pool.client.payloadPatch['metacriticUrl'], 'https://metacritic.example/game');
+    // HLTB's cache entry date is kept; without one, the refresh time stands in.
+    assert.equal(pool.client.payloadPatch['hltbFetchedAt'], '2026-10-30T08:00:00.000Z');
+    const reviewFetchedAt = pool.client.payloadPatch['reviewFetchedAt'];
+    assert.equal(typeof reviewFetchedAt, 'string');
+    assert.ok(Math.abs(Date.parse(reviewFetchedAt as string) - Date.now()) < 60_000);
     assert.ok(pool.client.syncEventPayload);
     assert.equal(pool.client.syncEventPayload['title'], 'A Better Title');
 
@@ -1146,6 +1152,87 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
     const watchStateParams = pool.lastWatchStateParams;
     assert.ok(watchStateParams);
     assert.notEqual(watchStateParams[9], null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow keeps the MobyGames cache entry date as reviewFetchedAt', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('id.twitch.tv/oauth2/token')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ access_token: 'test-token', expires_in: 3600, token_type: 'bearer' }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
+    }
+
+    if (url.includes('/v1/mobygames/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            games: [
+              {
+                game_id: 777,
+                moby_url: 'https://www.mobygames.com/game/777',
+                moby_score: 8.1,
+                critic_score: 81,
+              },
+            ],
+            fetchedAt: '2026-10-28T12:00:00.000Z',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Original Title',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          reviewMatchMobygamesGameId: 777,
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null,
+      },
+      {
+        enabled: false,
+        events: { set: true, changed: true, removed: true, day: true, sale: true },
+      },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.reviewRefreshSuccesses, 1);
+    assert.ok(pool.client.payloadPatch);
+    assert.equal(pool.client.payloadPatch['reviewSource'], 'mobygames');
+    assert.equal(pool.client.payloadPatch['reviewFetchedAt'], '2026-10-28T12:00:00.000Z');
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1127,3 +1127,39 @@ void test('queued METACRITIC revalidation still fails on a non-JSON reply', asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('METACRITIC cache reports when the score was read: now on a miss, the entry date on a hit', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.parse('2026-11-01T10:00:00.000Z');
+  const pool = new MetacriticPoolMock({ now: () => nowMs });
+  const app = Fastify();
+
+  await registerMetacriticCachedRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ item: { metacriticScore: 90 }, candidates: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      ),
+  });
+
+  const miss = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=Okami' });
+  assert.equal(miss.headers['x-gameshelf-metacritic-cache'], 'MISS');
+  assert.deepEqual(JSON.parse(miss.body), {
+    item: { metacriticScore: 90 },
+    candidates: [],
+    fetchedAt: '2026-11-01T10:00:00.000Z',
+  });
+
+  nowMs = Date.parse('2026-11-03T10:00:00.000Z');
+  const hit = await app.inject({ method: 'GET', url: '/v1/metacritic/search?q=Okami' });
+  assert.equal(hit.headers['x-gameshelf-metacritic-cache'], 'HIT_FRESH');
+  assert.equal(
+    (JSON.parse(hit.body) as { fetchedAt?: unknown }).fetchedAt,
+    '2026-11-01T10:00:00.000Z'
+  );
+
+  await app.close();
+});

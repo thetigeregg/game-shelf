@@ -12,6 +12,7 @@ import {
   RELEASE_NOTIFICATIONS_ENABLED_KEY,
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
+import { readFetchedAt } from './provider-fetched-at.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME } from './request-security.js';
 import { runWithConcurrencyLimit } from './utils/concurrency.js';
@@ -720,6 +721,7 @@ async function processGameRow(
             hltbMainHours: finiteNumberOrNull(refreshedHltb.value.hltbMainHours),
             hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.value.hltbMainExtraHours),
             hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.value.hltbCompletionistHours),
+            hltbFetchedAt: refreshedHltb.value.fetchedAt ?? nowIso,
           };
         }
         // Advance cadence on a definitive response (match or clean no-match), not
@@ -747,7 +749,10 @@ async function processGameRow(
       if (refreshedReview.ok) {
         if (refreshedReview.value) {
           stats.reviewRefreshSuccesses += 1;
-          mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview.value);
+          mergedPayload = {
+            ...mergeReviewRefreshPayload(mergedPayload, refreshedReview.value),
+            reviewFetchedAt: refreshedReview.value.fetchedAt ?? nowIso,
+          };
         }
         // Advance cadence on a definitive response (match or clean no-match), not
         // just an attempt, so a transport failure keeps retrying instead of going
@@ -1017,11 +1022,15 @@ interface MobyGamesApiResponse {
   }> | null;
 }
 
+/** HLTB times from a refresh, with when HLTB was read (the cache entry's date). */
+type RefreshedHltbPayload = NonNullable<HltbApiResponse['item']> & { fetchedAt: string | null };
+
 type RefreshedReviewPayload =
   | {
       source: 'metacritic';
       metacriticScore: number | null;
       metacriticUrl: string | null;
+      fetchedAt?: string | null;
     }
   | {
       source: 'mobygames';
@@ -1029,6 +1038,7 @@ type RefreshedReviewPayload =
       mobyScore: number | null;
       reviewScore: number | null;
       reviewUrl: string | null;
+      fetchedAt?: string | null;
     };
 
 const FORCE_REFRESH_HEADER_NAME = 'X-GameShelf-Force-Refresh';
@@ -1056,7 +1066,7 @@ async function fetchHltbPayload(params: {
   releaseYear: number | null;
   platform: string | null;
   forceFresh?: boolean;
-}): Promise<FetchJsonResult<HltbApiResponse['item']>> {
+}): Promise<FetchJsonResult<RefreshedHltbPayload>> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
   }
@@ -1075,7 +1085,8 @@ async function fetchHltbPayload(params: {
     return { ok: false, value: null };
   }
 
-  return { ok: true, value: result.value?.item ?? null };
+  const item = result.value?.item ?? null;
+  return { ok: true, value: item ? { ...item, fetchedAt: readFetchedAt(result.value) } : null };
 }
 
 async function fetchMetacriticPayload(params: {
@@ -1084,7 +1095,9 @@ async function fetchMetacriticPayload(params: {
   platform: string | null;
   platformIgdbId: number;
   forceFresh?: boolean;
-}): Promise<FetchJsonResult<MetacriticApiResponse['item']>> {
+}): Promise<
+  FetchJsonResult<NonNullable<MetacriticApiResponse['item']> & { fetchedAt: string | null }>
+> {
   if (params.title.trim().length < 2) {
     return { ok: true, value: null };
   }
@@ -1104,7 +1117,8 @@ async function fetchMetacriticPayload(params: {
     return { ok: false, value: null };
   }
 
-  return { ok: true, value: result.value?.item ?? null };
+  const item = result.value?.item ?? null;
+  return { ok: true, value: item ? { ...item, fetchedAt: readFetchedAt(result.value) } : null };
 }
 
 async function fetchReviewPayload(params: {
@@ -1136,6 +1150,7 @@ async function fetchReviewPayload(params: {
         mobyScore: mobygames.value.mobyScore,
         reviewScore: mobygames.value.reviewScore,
         reviewUrl: mobygames.value.reviewUrl,
+        fetchedAt: mobygames.value.fetchedAt,
       },
     };
   }
@@ -1160,6 +1175,7 @@ async function fetchReviewPayload(params: {
       source: 'metacritic',
       metacriticScore: finiteNumberOrNull(metacritic.value.metacriticScore),
       metacriticUrl: stringOrNull(metacritic.value.metacriticUrl),
+      fetchedAt: metacritic.value.fetchedAt,
     },
   };
 }
@@ -1174,6 +1190,7 @@ async function fetchMobygamesPayload(params: {
     mobyScore: number | null;
     reviewScore: number | null;
     reviewUrl: string | null;
+    fetchedAt: string | null;
   }>
 > {
   if (params.title.trim().length < 2) {
@@ -1224,6 +1241,7 @@ async function fetchMobygamesPayload(params: {
       mobyScore,
       reviewScore,
       reviewUrl: stringOrNull(matched.moby_url),
+      fetchedAt: readFetchedAt(result.value),
     },
   };
 }

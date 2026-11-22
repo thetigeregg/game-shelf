@@ -12,6 +12,7 @@ import {
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import { createRevalidationCooldown, type RevalidationCooldown } from './revalidation-cooldown.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { withFetchedAt } from './provider-fetched-at.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -108,7 +109,7 @@ export async function registerMetacriticCachedRoute(
               if (ageSeconds <= freshTtlSeconds) {
                 incrementMetacriticMetric('hits');
                 reply.header('X-GameShelf-METACRITIC-Cache', 'HIT_FRESH');
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
 
@@ -130,7 +131,7 @@ export async function registerMetacriticCachedRoute(
                   'X-GameShelf-METACRITIC-Revalidate',
                   scheduled ? 'scheduled' : 'skipped'
                 );
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
             }
@@ -156,6 +157,14 @@ export async function registerMetacriticCachedRoute(
 
         if (payload !== null && isCacheableMetacriticPayload(normalized, payload)) {
           await persistMetacriticCacheEntry(pool, cacheKey, normalized, payload, request);
+        }
+
+        if (payload !== null) {
+          reply.header('X-GameShelf-METACRITIC-Cache', cacheOutcome);
+          reply.code(response.status);
+          reply.type('application/json');
+          reply.send(withFetchedAt(payload, now()));
+          return;
         }
       }
 

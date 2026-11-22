@@ -10,6 +10,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameListView,
+  HltbCompletionTimes,
   HltbMatchCandidate,
   PriceMatchCandidate,
   PriceSource,
@@ -1072,6 +1073,7 @@ export class GameShelfService {
         hltbMatchQueryReleaseYear: releaseYear,
         hltbMatchQueryPlatform: platform,
         hltbMatchLocked: matchLocked,
+        hltbFetchedAt: completionTimes?.fetchedAt ?? null,
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -1197,6 +1199,7 @@ export class GameShelfService {
         reviewMatchPlatformIgdbId: platformIgdbId,
         reviewMatchMobygamesGameId: mobygamesGameId,
         reviewMatchLocked: matchLocked,
+        reviewFetchedAt: scoreResult?.fetchedAt ?? null,
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)
@@ -1900,11 +1903,7 @@ export class GameShelfService {
       return;
     }
 
-    let completionTimes: {
-      hltbMainHours: number | null;
-      hltbMainExtraHours: number | null;
-      hltbCompletionistHours: number | null;
-    } | null = null;
+    let completionTimes: HltbCompletionTimes | null = null;
     let reviewScore: ReviewScoreResult | null = null;
 
     if (shouldLookupCompletionTimes) {
@@ -1937,7 +1936,14 @@ export class GameShelfService {
     await this.repository.upsertFromCatalog(
       {
         ...result,
-        ...(completionTimes ? completionTimes : {}),
+        ...(completionTimes
+          ? {
+              hltbMainHours: completionTimes.hltbMainHours,
+              hltbMainExtraHours: completionTimes.hltbMainExtraHours,
+              hltbCompletionistHours: completionTimes.hltbCompletionistHours,
+              hltbFetchedAt: completionTimes.fetchedAt ?? null,
+            }
+          : {}),
         ...(reviewScore
           ? {
               reviewScore: reviewScore.reviewScore,
@@ -1957,6 +1963,7 @@ export class GameShelfService {
                 reviewScore.reviewSource === 'metacritic'
                   ? (reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null)
                   : (result.metacriticUrl ?? null),
+              reviewFetchedAt: reviewScore.fetchedAt ?? null,
             }
           : {}),
       },

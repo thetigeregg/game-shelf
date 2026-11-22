@@ -299,6 +299,69 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.currentPriceMetaLabel).toBeNull();
   });
 
+  describe('updated dates', () => {
+    const shortDate = (iso: string): string =>
+      new Date(iso).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+
+    it('notes when the price, HLTB times and review score were read', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({
+        listType: 'wishlist',
+        priceAmount: 19.99,
+        priceCurrency: 'CHF',
+        priceFetchedAt: '2026-11-21T12:00:00.000Z',
+        hltbMainHours: 12,
+        hltbFetchedAt: '2026-11-03T12:00:00.000Z',
+        reviewScore: 87,
+        reviewSource: 'metacritic',
+        reviewFetchedAt: '2026-10-30T12:00:00.000Z',
+      });
+
+      expect(component.currentPriceUpdatedLabel).toBe(
+        `Updated ${shortDate('2026-11-21T12:00:00.000Z')}`
+      );
+      expect(component.hltbUpdatedLabel).toBe(`Updated ${shortDate('2026-11-03T12:00:00.000Z')}`);
+      expect(component.reviewUpdatedLabel).toBe(`Updated ${shortDate('2026-10-30T12:00:00.000Z')}`);
+    });
+
+    it('shows no date when the value is missing or the date is unknown', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({
+        listType: 'wishlist',
+        priceAmount: null,
+        priceFetchedAt: '2026-11-21T12:00:00.000Z',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+        hltbFetchedAt: '2026-11-03T12:00:00.000Z',
+        reviewScore: 87,
+        reviewFetchedAt: null,
+      });
+
+      expect(component.currentPriceUpdatedLabel).toBeNull();
+      expect(component.hltbUpdatedLabel).toBeNull();
+      expect(component.reviewUpdatedLabel).toBeNull();
+    });
+
+    it('shows no date when the stored date is unparseable', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({
+        listType: 'wishlist',
+        hltbCompletionistHours: 30,
+        hltbFetchedAt: 'not a date',
+      });
+
+      expect(component.hltbUpdatedLabel).toBeNull();
+    });
+  });
+
   it('shows free label for free games', () => {
     const component = createComponent();
     component.context = 'library';

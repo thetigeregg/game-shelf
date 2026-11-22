@@ -375,6 +375,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
         hltbCompletionistHours: 30,
+        fetchedAt: '2026-11-01T10:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -406,6 +407,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
         hltbCompletionistHours: 30,
+        hltbFetchedAt: '2026-11-01T10:00:00.000Z',
       }),
       'collection'
     );
@@ -523,6 +525,7 @@ describe('GameShelfService', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
         reviewSource: 'metacritic',
+        fetchedAt: '2026-10-30T08:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -547,6 +550,7 @@ describe('GameShelfService', () => {
         reviewSource: 'metacritic',
         metacriticScore: 85,
         metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewFetchedAt: '2026-10-30T08:00:00.000Z',
       }),
       'collection'
     );
@@ -1262,6 +1266,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
+        fetchedAt: '2026-11-01T10:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1281,11 +1286,14 @@ describe('GameShelfService', () => {
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
+        hltbFetchedAt: '2026-11-01T10:00:00.000Z',
         platform: 'Wii',
         platformIgdbId: 5,
       }),
       'collection'
     );
+    // The review's date is left to the repository to keep.
+    expect(repository.upsertFromCatalog.mock.calls[0]?.[0]).not.toHaveProperty('reviewFetchedAt');
     expect(result).toEqual(updatedEntry);
   });
 
@@ -1587,6 +1595,7 @@ describe('GameShelfService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        hltbFetchedAt: null,
       }),
       'collection'
     );
@@ -1621,6 +1630,7 @@ describe('GameShelfService', () => {
         reviewScore: 87,
         reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
         reviewSource: 'metacritic',
+        fetchedAt: '2026-10-30T08:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1639,6 +1649,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         metacriticScore: 87,
         metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewFetchedAt: '2026-10-30T08:00:00.000Z',
       }),
       'collection'
     );

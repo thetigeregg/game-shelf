@@ -12,6 +12,7 @@ import {
 } from './http-debug-log.js';
 import { applyRouteRateLimit, ensureRateLimitRegistered } from './rate-limit.js';
 import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { withFetchedAt } from './provider-fetched-at.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -110,7 +111,7 @@ export async function registerHltbCachedRoute(
               if (ageSeconds <= freshTtlSeconds) {
                 incrementHltbMetric('hits');
                 reply.header('X-GameShelf-HLTB-Cache', 'HIT_FRESH');
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
 
@@ -129,7 +130,7 @@ export async function registerHltbCachedRoute(
                 );
                 reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
                 reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
-                reply.code(200).send(cachedRow.response_json);
+                reply.code(200).send(withFetchedAt(cachedRow.response_json, cachedRow.updated_at));
                 return;
               }
             }
@@ -167,7 +168,7 @@ export async function registerHltbCachedRoute(
           reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
           reply.code(response.status);
           reply.type('application/json');
-          reply.send(finalizedPayload);
+          reply.send(withFetchedAt(finalizedPayload, now()));
           return;
         }
       }

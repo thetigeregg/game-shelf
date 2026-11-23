@@ -80,7 +80,7 @@
     "@playwright/test": "^1.65.0",
     "@semantic-icons/simple-icons": "^0.58.0",
     "@tiptap/core": "^3.33.0",
-    "@tiptap/extension-details": "^3.33.0",
+    "@tiptap/extension-details": "^3.35.0",
     "@tiptap/extension-list": "^3.33.0",
     "@tiptap/extension-underline": "^3.33.0",
     "@tiptap/pm": "^3.33.0",

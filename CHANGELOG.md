@@ -4380,3 +4380,7 @@
 ## v1.94.1 - 2026-11-23
 
 - 2ef9bf19 chore(deps): bump deps, playwright images and audit fixes (#687)
+
+## v1.94.2 - 2026-11-23
+
+- 8c862678 chore(deps): bump addressable from 2.9.0 to 2.9.1 in /ios (#670)

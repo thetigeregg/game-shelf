@@ -441,6 +441,11 @@
   color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.8);
 }
 
+// Tapping expandable text toggles it, like the Show more button (which stays for keyboards).
+.detail-long-text-toggleable {
+  cursor: pointer;
+}
+
 .detail-long-text-collapsed {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -500,4 +505,12 @@ ion-list.detail-facts.list-inset {
   border-radius: 14px;
   background: var(--detail-surface-raised);
   font-size: 0.8rem;
+}
+
+// Projected sections (More like this) sit on the page background like the cards above,
+// instead of Ionic's opaque item and toolbar backgrounds.
+.detail-secondary {
+  --ion-item-background: transparent;
+  --ion-toolbar-background: transparent;
+  margin-top: 16px;
 }

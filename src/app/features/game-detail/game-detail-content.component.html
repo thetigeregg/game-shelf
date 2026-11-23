@@ -228,6 +228,8 @@
           <p
             #summaryText
             class="detail-long-text"
+            [class.detail-long-text-toggleable]="canToggleDetailText('summary')"
+            (click)="toggleDetailText('summary')"
             [class.detail-long-text-collapsed]="
               canToggleDetailText('summary') && !isDetailTextExpanded('summary')
             "
@@ -251,6 +253,8 @@
             <p
               #storylineText
               class="detail-long-text"
+              [class.detail-long-text-toggleable]="canToggleDetailText('storyline')"
+              (click)="toggleDetailText('storyline')"
               [class.detail-long-text-collapsed]="
                 canToggleDetailText('storyline') && !isDetailTextExpanded('storyline')
               "
@@ -334,7 +338,9 @@
             </ion-label>
           </ion-item>
         </ion-list>
-        <ng-content select="[detail-secondary-content]"></ng-content>
+        <div class="detail-secondary">
+          <ng-content select="[detail-secondary-content]"></ng-content>
+        </div>
       </ion-col>
     </ion-row>
   </ion-grid>

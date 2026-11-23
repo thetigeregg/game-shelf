@@ -248,7 +248,11 @@
           }
 
           <!-- Hidden rather than removed, so the overflow observer keeps watching it. -->
-          <div class="detail-storyline" [hidden]="!game.storyline">
+          <div
+            class="detail-storyline"
+            [class.detail-storyline-separated]="!!game.summary"
+            [hidden]="!game.storyline"
+          >
             <h3 class="detail-subsection-title">Storyline</h3>
             <p
               #storylineText

@@ -433,6 +433,12 @@
   align-self: stretch;
 }
 
+// A rule between summary and storyline, only when the game has both.
+.detail-storyline-separated {
+  margin-top: 12px;
+  border-top: 1px solid var(--detail-border);
+}
+
 .detail-long-text {
   margin: 0 0 4px;
   white-space: pre-line;

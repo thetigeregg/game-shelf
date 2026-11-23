@@ -4384,3 +4384,7 @@
 ## v1.94.2 - 2026-11-23
 
 - 8c862678 chore(deps): bump addressable from 2.9.0 to 2.9.1 in /ios (#670)
+
+## v1.94.3 - 2026-11-23
+
+- e9acc307 ci(ios): build TestFlight uploads with Xcode 27.2 (#688)

@@ -1749,6 +1749,8 @@ function jsonResponse(body: unknown): Promise<Response> {
 async function runRefreshWithProviders(options: {
   payload: Record<string, unknown>;
   providers: Partial<Record<'hltb' | 'metacritic' | 'mobygames', unknown>>;
+  /** Extra due-row fields, e.g. forced-refresh flags. */
+  row?: Record<string, unknown>;
 }): Promise<{
   pool: ProcessGameRowPoolMock;
   stats: ReturnType<typeof createRunStats>;
@@ -1794,6 +1796,7 @@ async function runRefreshWithProviders(options: {
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
+        ...options.row,
       },
       {
         enabled: false,
@@ -2090,6 +2093,27 @@ void test('processGameRow keeps an old game when the search no longer returns it
   assert.equal(pool.client.payloadPatch?.['hltbMainHours'], undefined);
   assert.equal(pool.client.payloadPatch?.['reviewScore'], undefined);
   assert.equal(pool.client.payloadPatch?.['metacriticScore'], undefined);
+});
+
+void test('processGameRow pins a forced refresh of an old game to its saved matches', async () => {
+  // An admin refresh ignoring recency still must not swap an old game's saved match.
+  const { pool, requestedUrls } = await runRefreshWithProviders({
+    payload: { ...SAVED_MATCH_PAYLOAD, hltbFetchedAt: '2026-01-01T00:00:00.000Z' },
+    row: { force_hltb: true, respect_recency: false },
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [
+          { hltbGameId: 7001, hltbMainHours: 99 },
+          { hltbGameId: 7002, hltbMainHours: 13 },
+        ],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.ok(requestedUrls.some((url) => url.includes('preferredHltbGameId=7002')));
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 13);
 });
 
 void test('processGameRow does not catch up an old game with no saved match to read', async () => {

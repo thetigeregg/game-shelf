@@ -687,18 +687,17 @@ async function processGameRow(
     }
 
     // A game showing HLTB times or a review score without a known read date is refreshed
-    // whatever its release age, so it can get an "Updated" date. The usual cadence still
-    // applies, so a title that no longer matches is retried at most once a cadence period.
-    // Once dated, only the release-age window keeps it refreshing.
+    // whatever its release age, so it can get an "Updated" date, but only when it has a saved
+    // match to read (a saved search query alone doesn't count, even locked). The usual cadence
+    // still applies: a saved match the search no longer returns is retried once a cadence
+    // period, keeping its values. Once dated, only the release-age window keeps it refreshing.
     const hltbRefreshEligible = hltbEligible || needsHltbFetchedAt(mergedPayload);
     const reviewRefreshEligible = metacriticEligible || needsReviewFetchedAt(mergedPayload);
-    // Outside the release-age window the missing date is the only reason to refresh (unless
-    // an admin forced it ignoring recency), and then only the game's saved match may be read:
-    // a title search's top result for an old game is often another game with the same name.
-    const pinHltbToSavedMatch =
-      !hltbEligible && !(row.force_hltb === true && row.respect_recency === false);
-    const pinReviewToSavedMatch =
-      !metacriticEligible && !(row.force_review === true && row.respect_recency === false);
+    // Outside the release-age window only the game's saved match may be read, even on a forced
+    // refresh: a title search's top result for an old game is often another game with the same
+    // name. A game with nothing saved falls back to the search (only a forced refresh gets here).
+    const pinHltbToSavedMatch = !hltbEligible;
+    const pinReviewToSavedMatch = !metacriticEligible;
 
     // Forced refresh always bypasses the bootstrap check; recency and staleness are each
     // bypassed only when the corresponding respect_* flag is explicitly turned off.
@@ -1047,14 +1046,23 @@ function resolveReviewRefreshQuery(
   };
 }
 
-/** The Metacritic page a Metacritic (or unknown-source) score was read from, if saved. */
+/**
+ * The Metacritic page a Metacritic (or unknown-source) score was read from, if saved. Only a
+ * metacritic.com URL counts: a legacy reviewUrl from another site could never match.
+ */
 function resolveSavedMetacriticUrl(payload: Record<string, unknown>): string | null {
   const reviewSource = stringOrNull(payload['reviewSource']);
   if (reviewSource !== null && reviewSource !== 'metacritic') {
     return null;
   }
-  return stringOrNull(payload['reviewUrl']) ?? stringOrNull(payload['metacriticUrl']);
+  return (
+    [stringOrNull(payload['reviewUrl']), stringOrNull(payload['metacriticUrl'])].find(
+      (url): url is string => url !== null && METACRITIC_PAGE_URL_PATTERN.test(url)
+    ) ?? null
+  );
 }
+
+const METACRITIC_PAGE_URL_PATTERN = /^(?:https?:)?\/\/(?:www\.)?metacritic\.com\//i;
 
 /**
  * The MobyGames game a review refresh reads: the saved match override, else the game a

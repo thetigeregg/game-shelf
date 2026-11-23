@@ -1020,7 +1020,12 @@ void test('refresh query resolvers pin locked matches to their saved identity', 
   );
   assert.equal(pinnedHltb.preferredHltbGameId, 7002);
 
-  const unlockedReview = { title: 'Zack & Wiki', metacriticUrl: 'https://www.metacritic.com/z/' };
+  // A legacy reviewUrl from another site is skipped for the saved Metacritic page.
+  const unlockedReview = {
+    title: 'Zack & Wiki',
+    reviewUrl: 'https://www.mobygames.com/game/123/',
+    metacriticUrl: 'https://www.metacritic.com/z/',
+  };
   assert.equal(
     releaseMonitorInternals.resolveReviewRefreshQuery(unlockedReview, 'Default', 'Wii', 5)
       .preferredReviewUrl,
@@ -1104,8 +1109,12 @@ void test('catch-up only targets values a refresh can date', () => {
     needsReviewFetchedAt({ reviewScore: 85, reviewSource: 'metacritic', metacriticUrl }),
     true
   );
-  // No saved Metacritic page to re-read.
+  // No saved Metacritic page to re-read, or only another site's page.
   assert.equal(needsReviewFetchedAt({ reviewScore: 85, reviewSource: 'metacritic' }), false);
+  assert.equal(
+    needsReviewFetchedAt({ reviewScore: 85, reviewUrl: 'https://www.mobygames.com/game/123/' }),
+    false
+  );
   assert.equal(
     needsReviewFetchedAt({
       reviewScore: 85,

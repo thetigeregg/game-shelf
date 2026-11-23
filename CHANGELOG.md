@@ -4368,3 +4368,7 @@
 ## v1.93.0 - 2026-11-22
 
 - d1bbd6a1 feat(detail): show when price, HLTB and review data was read (#682)
+
+## v1.93.1 - 2026-11-23
+
+- 02b8ea86 fix(release-monitor): pin date catch-up to saved matches (#685)

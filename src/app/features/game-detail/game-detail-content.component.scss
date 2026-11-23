@@ -249,9 +249,11 @@
   background: var(--detail-surface);
 }
 
+// Columns size to their content, so a long price takes the room the short score and
+// HLTB values leave, and only wraps when even that is not enough.
 .detail-glance-stats {
   display: grid;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-columns: auto;
   grid-auto-flow: column;
 }
 
@@ -284,6 +286,13 @@
   font-weight: 800;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 389px) {
+  .detail-glance-value,
+  .detail-score-badge {
+    font-size: 1.125rem;
+  }
 }
 
 .detail-glance-value-missing {

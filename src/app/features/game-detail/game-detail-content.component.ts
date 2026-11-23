@@ -673,14 +673,14 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     const source = this.resolveReviewSourceLabel();
 
     if (source === 'metacritic') {
-      return 'Metacritic Score';
+      return 'Metacritic';
     }
 
     if (source === 'mobygames') {
-      return 'Moby Score';
+      return 'MobyGames';
     }
 
-    return 'Review Score';
+    return 'Review score';
   }
 
   get showCurrentPriceLine(): boolean {

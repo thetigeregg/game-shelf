@@ -141,9 +141,9 @@
                   @if (reviewScoreValueLabel; as reviewScoreValue) {
                     <span
                       class="detail-score-badge"
-                      [class.detail-score-high]="reviewScoreTier === 'high'"
-                      [class.detail-score-mid]="reviewScoreTier === 'mid'"
-                      [class.detail-score-low]="reviewScoreTier === 'low'"
+                      [class.detail-score-good]="reviewScoreBand === 'mc-good'"
+                      [class.detail-score-okay]="reviewScoreBand === 'mc-okay'"
+                      [class.detail-score-bad]="reviewScoreBand === 'mc-bad'"
                       [attr.aria-label]="reviewScoreLabel"
                     >
                       {{ reviewScoreValue }}
@@ -226,7 +226,7 @@
             #summaryText
             class="detail-long-text"
             [class.detail-long-text-toggleable]="canToggleDetailText('summary')"
-            (click)="toggleDetailText('summary')"
+            (click)="onDetailTextClick('summary')"
             [class.detail-long-text-collapsed]="
               canToggleDetailText('summary') && !isDetailTextExpanded('summary')
             "
@@ -255,7 +255,7 @@
               #storylineText
               class="detail-long-text"
               [class.detail-long-text-toggleable]="canToggleDetailText('storyline')"
-              (click)="toggleDetailText('storyline')"
+              (click)="onDetailTextClick('storyline')"
               [class.detail-long-text-collapsed]="
                 canToggleDetailText('storyline') && !isDetailTextExpanded('storyline')
               "

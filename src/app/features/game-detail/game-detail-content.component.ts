@@ -42,6 +42,7 @@ import SwiperClass from 'swiper';
 import { Pagination, Zoom } from 'swiper/modules';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
+import { getReviewScoreBand, ReviewScoreBand } from '../../core/utils/review-score-band';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 import { DetailMediaSlideComponent } from './detail-media-slide.component';
 import { toDetailMediaRenderUrl } from './detail-media-url.utils';
@@ -56,7 +57,6 @@ type DetailMediaSlide = {
 };
 type DetailTextField = 'summary' | 'storyline';
 type RatingStarIcon = 'star' | 'star-half' | 'star-outline';
-type ReviewScoreTier = 'high' | 'mid' | 'low';
 type HltbBreakdownSegment = {
   key: 'main' | 'extra' | 'completionist';
   label: string;
@@ -127,7 +127,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @ViewChild('swiperContainer') private swiperContainerRef?: ElementRef<HTMLElement>;
   @ViewChild('summaryText') private summaryTextRef?: ElementRef<HTMLElement>;
   @ViewChild('storylineText') private storylineTextRef?: ElementRef<HTMLElement>;
-  @ViewChild('statusSelect') private statusSelectRef?: IonSelect;
+  @ViewChild('statusSelect', { read: ElementRef })
+  private statusSelectRef?: ElementRef<HTMLIonSelectElement>;
   @ViewChild('titleText') private titleTextRef?: ElementRef<HTMLElement>;
 
   readonly noStatusValue = NO_STATUS_VALUE;
@@ -160,8 +161,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private cachedFormattedReleaseDateValue: string | null = null;
   private cachedFormattedReleaseDate = 'Unknown';
   private loadedMediaSlideKeys = new Set<string>();
-  private titleFitWidth: number | null = null;
-  private titleFitText: string | null = null;
+  private titleFitKey: string | null = null;
   private prefetchedMediaSlideUrls = new Set<string>();
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef, { optional: true });
@@ -438,10 +438,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return 'Unknown platform';
   }
 
-  get platformHeadingLabel(): string {
-    return this.context === 'explore' ? 'Platforms' : 'Platform';
-  }
-
   get platformValueLabel(): string {
     if (this.context !== 'explore') {
       return this.platformLabel;
@@ -537,8 +533,18 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.statusValue ?? NO_STATUS_VALUE;
   }
 
+  /**
+   * Opens the hidden status select, first resetting it to the game's status: after a failed
+   * update it would still hold the rejected pick, and picking that again would not emit.
+   */
   openStatusPicker(): void {
-    void this.statusSelectRef?.open();
+    const select = this.statusSelectRef?.nativeElement;
+    if (!select) {
+      return;
+    }
+
+    select.value = this.statusSelectValue;
+    void select.open();
   }
 
   onStatusSelectChange(value: GameStatus | typeof NO_STATUS_VALUE | null | undefined): void {
@@ -603,20 +609,23 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   /**
-   * The known HLTB times as one bar: each segment covers the time it adds over the
-   * previous one, scaled to the longest time. Empty when no time is known.
+   * The known HLTB times as one bar, shortest first: each segment covers the time it adds
+   * over the one before, scaled to the longest time. Sorting keeps every segment on the bar
+   * when the times are out of order. Empty when no time is known.
    */
   get hltbBreakdown(): HltbBreakdownSegment[] {
     const known = [
       { key: 'main' as const, label: 'Main', hours: this.game.hltbMainHours },
       { key: 'extra' as const, label: '+ Extras', hours: this.game.hltbMainExtraHours },
       { key: 'completionist' as const, label: '100%', hours: this.game.hltbCompletionistHours },
-    ].flatMap((entry) => {
-      const valueLabel = this.formatCompletionHours(entry.hours);
-      return valueLabel !== null && typeof entry.hours === 'number'
-        ? [{ key: entry.key, label: entry.label, hours: entry.hours, valueLabel }]
-        : [];
-    });
+    ]
+      .flatMap((entry) => {
+        const valueLabel = this.formatCompletionHours(entry.hours);
+        return valueLabel !== null && typeof entry.hours === 'number'
+          ? [{ key: entry.key, label: entry.label, hours: entry.hours, valueLabel }]
+          : [];
+      })
+      .sort((left, right) => left.hours - right.hours);
     const longest = Math.max(0, ...known.map((entry) => entry.hours));
     let covered = 0;
 
@@ -655,8 +664,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.resolveReviewSourceLabel() === 'mobygames' ? `${value}/10` : `${value}/100`;
   }
 
-  /** Metacritic-style colour band for the score badge, on a 0–100 scale. */
-  get reviewScoreTier(): ReviewScoreTier | null {
+  /** Colour band for the score badge, as in the list view, on a 0–100 scale. */
+  get reviewScoreBand(): ReviewScoreBand | null {
     const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
     if (score === null) {
       return null;
@@ -666,7 +675,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       this.resolveReviewSourceLabel() === 'mobygames'
         ? this.resolveMobyScoreOutOfTen(score) * 10
         : score;
-    return outOfHundred >= 75 ? 'high' : outOfHundred >= 50 ? 'mid' : 'low';
+    return getReviewScoreBand(outOfHundred);
   }
 
   get reviewScoreHeadingLabel(): string {
@@ -830,6 +839,16 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.detailTextExpandable[field];
   }
 
+  /** Tapping the text toggles it too, unless the user was selecting some of it. */
+  onDetailTextClick(field: DetailTextField): void {
+    const selection = typeof window.getSelection === 'function' ? window.getSelection() : null;
+    if (selection && selection.toString().length > 0) {
+      return;
+    }
+
+    this.toggleDetailText(field);
+  }
+
   toggleDetailText(field: DetailTextField): void {
     if (!this.canToggleDetailText(field)) {
       return;
@@ -885,8 +904,9 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   /**
    * Keeps the title within 40px of height: the stylesheet's size when it fits, else the
    * largest size (half-pixel steps, 12px floor) that does. A title too long even at the
-   * floor is clamped to two lines. Refits only when the width or the text changes, so the
-   * resize its own font change causes does not loop.
+   * floor is clamped to two lines. Refits only when the width, the text or the root font
+   * size (Dynamic Type, zoom) changes, or the title has outgrown 40px, so the resize its own
+   * font change causes does not loop.
    */
   private fitTitleToMaxHeight(): void {
     const element = this.titleTextRef?.nativeElement;
@@ -894,19 +914,25 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       return;
     }
 
-    const width = element.clientWidth;
-    const text = element.textContent;
-    if (width <= 0 || (width === this.titleFitWidth && text === this.titleFitText)) {
-      return;
-    }
-
-    this.titleFitWidth = width;
-    this.titleFitText = text;
-
     const maxHeight = GameDetailContentComponent.TITLE_MAX_HEIGHT_PX;
     const minFontSize = GameDetailContentComponent.TITLE_MIN_FONT_SIZE_PX;
     const step = GameDetailContentComponent.TITLE_FONT_SIZE_STEP_PX;
     const clampedClass = GameDetailContentComponent.TITLE_CLAMPED_CLASS;
+
+    const width = element.clientWidth;
+    if (width <= 0) {
+      return;
+    }
+
+    const rootFontSize = getComputedStyle(document.documentElement).fontSize;
+    const fitKey = `${String(width)}|${rootFontSize}|${element.textContent}`;
+    const overflowing =
+      !element.classList.contains(clampedClass) && element.scrollHeight > maxHeight;
+    if (fitKey === this.titleFitKey && !overflowing) {
+      return;
+    }
+
+    this.titleFitKey = fitKey;
 
     element.style.fontSize = '';
     element.classList.remove(clampedClass);

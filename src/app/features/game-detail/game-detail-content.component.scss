@@ -324,20 +324,20 @@
   font-weight: 800;
 }
 
-// Metacritic's bands: green from 75, yellow from 50, red below.
-.detail-score-high {
-  background: #6bd36b;
-  color: #0b0b0b;
+// Metacritic's bands, in the same theme colours as the list view's score badge.
+.detail-score-good {
+  background: var(--ion-color-mc-good);
+  color: var(--ion-color-mc-good-contrast);
 }
 
-.detail-score-mid {
-  background: #ffcc33;
-  color: #0b0b0b;
+.detail-score-okay {
+  background: var(--ion-color-mc-okay);
+  color: var(--ion-color-mc-okay-contrast);
 }
 
-.detail-score-low {
-  background: #ff6b6b;
-  color: #0b0b0b;
+.detail-score-bad {
+  background: var(--ion-color-mc-bad);
+  color: var(--ion-color-mc-bad-contrast);
 }
 
 .detail-discount-badge {

@@ -280,15 +280,20 @@ describe('GameDetailContentComponent rating display', () => {
       expect(statusSpy).not.toHaveBeenCalled();
     });
 
-    it('opens the hidden status select', () => {
+    it('opens the hidden status select reset to the current status', () => {
       const component = createComponent();
-      const open = vi.fn(() => Promise.resolve());
-      (component as unknown as { statusSelectRef: { open: () => Promise<void> } }).statusSelectRef =
-        { open };
+      component.context = 'library';
+      component.game = makeLibraryGame({ status: 'playing' });
+      // A failed update left the select holding the rejected pick.
+      const select = { value: 'completed', open: vi.fn(() => Promise.resolve()) };
+      (
+        component as unknown as { statusSelectRef: { nativeElement: typeof select } }
+      ).statusSelectRef = { nativeElement: select };
 
       component.openStatusPicker();
 
-      expect(open).toHaveBeenCalledOnce();
+      expect(select.value).toBe('playing');
+      expect(select.open).toHaveBeenCalledOnce();
     });
   });
 
@@ -333,7 +338,7 @@ describe('GameDetailContentComponent rating display', () => {
       ]);
     });
 
-    it('skips unknown times and never gives a segment negative width', () => {
+    it('skips unknown times and orders out-of-order times so every segment shows', () => {
       const component = createComponent();
       component.game = makeLibraryGame({
         hltbMainHours: null,
@@ -343,8 +348,8 @@ describe('GameDetailContentComponent rating display', () => {
 
       expect(component.hltbMainLabel).toBeNull();
       expect(component.hltbBreakdown).toEqual([
-        { key: 'extra', label: '+ Extras', valueLabel: '30h', widthPercent: 100 },
-        { key: 'completionist', label: '100%', valueLabel: '24h', widthPercent: 0 },
+        { key: 'completionist', label: '100%', valueLabel: '24h', widthPercent: 80 },
+        { key: 'extra', label: '+ Extras', valueLabel: '30h', widthPercent: 20 },
       ]);
     });
 
@@ -363,13 +368,13 @@ describe('GameDetailContentComponent rating display', () => {
 
       expect(component.reviewScoreValueLabel).toBe('87');
       expect(component.reviewScoreLabel).toBe('87/100');
-      expect(component.reviewScoreTier).toBe('high');
+      expect(component.reviewScoreBand).toBe('mc-good');
 
       component.game = makeLibraryGame({ reviewScore: 62, reviewSource: 'metacritic' });
-      expect(component.reviewScoreTier).toBe('mid');
+      expect(component.reviewScoreBand).toBe('mc-okay');
 
       component.game = makeLibraryGame({ reviewScore: 41, reviewSource: 'metacritic' });
-      expect(component.reviewScoreTier).toBe('low');
+      expect(component.reviewScoreBand).toBe('mc-bad');
     });
 
     it('shows a MobyGames score out of 10 and bands it on the same scale', () => {
@@ -378,7 +383,7 @@ describe('GameDetailContentComponent rating display', () => {
 
       expect(component.reviewScoreValueLabel).toBe('8.2');
       expect(component.reviewScoreLabel).toBe('8.2/10');
-      expect(component.reviewScoreTier).toBe('high');
+      expect(component.reviewScoreBand).toBe('mc-good');
     });
 
     it('has no badge value when the score is unknown', () => {
@@ -387,7 +392,7 @@ describe('GameDetailContentComponent rating display', () => {
 
       expect(component.reviewScoreValueLabel).toBeNull();
       expect(component.reviewScoreLabel).toBe('Unknown');
-      expect(component.reviewScoreTier).toBeNull();
+      expect(component.reviewScoreBand).toBeNull();
     });
   });
 
@@ -573,6 +578,38 @@ describe('GameDetailContentComponent rating display', () => {
     });
   });
 
+  describe('tapping summary or storyline text', () => {
+    function makeExpandable(component: GameDetailContentComponent): void {
+      component.context = 'library';
+      component.game = makeLibraryGame({ summary: 'Long summary' });
+      component.detailTextExpandable = { summary: true, storyline: false };
+    }
+
+    it('toggles the text', () => {
+      const component = createComponent();
+      makeExpandable(component);
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        toString: () => '',
+      } as Selection);
+
+      component.onDetailTextClick('summary');
+
+      expect(component.isDetailTextExpanded('summary')).toBe(true);
+    });
+
+    it('leaves the text alone while the user is selecting some of it', () => {
+      const component = createComponent();
+      makeExpandable(component);
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        toString: () => 'a sentence',
+      } as Selection);
+
+      component.onDetailTextClick('summary');
+
+      expect(component.isDetailTextExpanded('summary')).toBe(false);
+    });
+  });
+
   describe('title fitting', () => {
     const LINE_HEIGHT = 1.15;
     const CHAR_WIDTH = 0.55;
@@ -606,10 +643,16 @@ describe('GameDetailContentComponent rating display', () => {
       return Math.ceil(lines * fontSize * LINE_HEIGHT);
     }
 
+    const rootFont = { size: '16px' };
+
     beforeEach(() => {
-      vi.spyOn(window, 'getComputedStyle').mockReturnValue({
-        fontSize: '28px',
-      } as CSSStyleDeclaration);
+      rootFont.size = '16px';
+      vi.spyOn(window, 'getComputedStyle').mockImplementation(
+        (element: Element) =>
+          ({
+            fontSize: element === document.documentElement ? rootFont.size : '28px',
+          }) as CSSStyleDeclaration
+      );
     });
 
     it('keeps the stylesheet size when the title fits in 40px', () => {
@@ -653,15 +696,48 @@ describe('GameDetailContentComponent rating display', () => {
 
       fit(component, element);
       const fittedSize = element.style.fontSize;
-      element.style.fontSize = '99px';
+      // A size that still fits, so only a changed width or title would refit.
+      element.style.fontSize = '10px';
 
       fit(component, element);
-      expect(element.style.fontSize).toBe('99px');
+      expect(element.style.fontSize).toBe('10px');
 
       state.width = 700;
       fit(component, element);
-      expect(element.style.fontSize).not.toBe('99px');
+      expect(element.style.fontSize).not.toBe('10px');
       expect(element.style.fontSize).not.toBe(fittedSize);
+    });
+
+    it('refits when the root font size changes at the same width', () => {
+      const component = createComponent();
+      const { element } = createTitleElement(
+        'Atelier Escha & Logy: Alchemists of the Dusk Sky',
+        350
+      );
+
+      fit(component, element);
+      element.style.fontSize = '99px';
+
+      rootFont.size = '20px';
+      fit(component, element);
+
+      expect(element.style.fontSize).not.toBe('99px');
+    });
+
+    it('refits when the title has outgrown 40px at the same width and text', () => {
+      const component = createComponent();
+      const { element } = createTitleElement(
+        'Atelier Escha & Logy: Alchemists of the Dusk Sky',
+        350
+      );
+
+      fit(component, element);
+      const fittedSize = element.style.fontSize;
+      element.style.fontSize = '';
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe(fittedSize);
     });
 
     it('waits for layout when the title has no width yet', () => {

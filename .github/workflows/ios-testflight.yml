@@ -100,7 +100,8 @@ jobs:
     needs:
       - detect_changes
     if: needs.detect_changes.outputs.should_deploy == 'true'
-    runs-on: macos-15
+    # Xcode 27 (iOS 27 SDK) is only on GitHub's xcode-27 image so far.
+    runs-on: xcode-27
     timeout-minutes: 60
     environment: production
     permissions:
@@ -122,8 +123,11 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      # Uploads need a recent SDK: the iOS 26 SDK today, and the iOS 27 SDK
+      # from April 2027 (App Store Connect warns with ITMS-90725). Pinned so
+      # a runner image update can't change the toolchain under us.
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1

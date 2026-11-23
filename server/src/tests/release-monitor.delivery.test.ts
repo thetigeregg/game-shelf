@@ -1708,8 +1708,10 @@ async function runOldGameRefresh(options: {
           releasePrecision: 'year',
           listType: 'collection',
           hltbMainHours: 12,
+          hltbMatchGameId: 7002,
           reviewScore: 85,
           reviewSource: 'metacritic',
+          reviewUrl: 'https://www.metacritic.com/game/ancient-game/',
           ...options.payload,
         },
         watch_exists: true,
@@ -1747,6 +1749,8 @@ function jsonResponse(body: unknown): Promise<Response> {
 async function runRefreshWithProviders(options: {
   payload: Record<string, unknown>;
   providers: Partial<Record<'hltb' | 'metacritic' | 'mobygames', unknown>>;
+  /** Extra due-row fields, e.g. forced-refresh flags. */
+  row?: Record<string, unknown>;
 }): Promise<{
   pool: ProcessGameRowPoolMock;
   stats: ReturnType<typeof createRunStats>;
@@ -1792,6 +1796,7 @@ async function runRefreshWithProviders(options: {
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
         last_notified_release_day: null,
+        ...options.row,
       },
       {
         enabled: false,
@@ -1934,11 +1939,24 @@ void test('processGameRow does not date a review score kept from another source'
   assert.equal(pool.client.payloadPatch['reviewFetchedAt'], undefined);
 });
 
+/** An old, unlocked game with saved HLTB and Metacritic matches and no read dates. */
+const SAVED_MATCH_PAYLOAD = {
+  hltbMainHours: 12,
+  hltbMatchGameId: 7002,
+  reviewScore: 80,
+  reviewSource: 'metacritic',
+  reviewUrl: 'https://www.metacritic.com/game/a/',
+};
+
 void test('processGameRow schedules a just-dated old game on its release-only check', async () => {
   const dated = await runRefreshWithProviders({
-    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    payload: SAVED_MATCH_PAYLOAD,
     providers: {
-      hltb: { item: { hltbMainHours: 12 }, fetchedAt: '2026-11-01T10:00:00.000Z' },
+      hltb: {
+        item: { hltbMainHours: 12 },
+        candidates: [{ hltbGameId: 7002, hltbMainHours: 12 }],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
       metacritic: {
         item: { metacriticScore: 80, metacriticUrl: 'https://www.metacritic.com/game/a/' },
         fetchedAt: '2026-11-01T10:00:00.000Z',
@@ -1950,7 +1968,7 @@ void test('processGameRow schedules a just-dated old game on its release-only ch
 
   // Still undated (no match found): retried after one refresh cadence, not a year later.
   const undated = await runRefreshWithProviders({
-    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    payload: SAVED_MATCH_PAYLOAD,
     providers: { hltb: { item: null }, metacritic: { item: null } },
   });
   const undatedNextCheck = Date.parse(String(undated.pool.lastWatchStateParams?.[10]));
@@ -1959,10 +1977,11 @@ void test('processGameRow schedules a just-dated old game on its release-only ch
 
 void test('processGameRow keeps existing values when a refresh matches without numbers', async () => {
   const { pool, stats } = await runRefreshWithProviders({
-    payload: { hltbMainHours: 12, reviewScore: 80, reviewSource: 'metacritic' },
+    payload: SAVED_MATCH_PAYLOAD,
     providers: {
       hltb: {
         item: { hltbMainHours: null, hltbMainExtraHours: null },
+        candidates: [{ hltbGameId: 7002, hltbMainHours: null, hltbMainExtraHours: null }],
         fetchedAt: '2026-11-01T10:00:00.000Z',
       },
       metacritic: {
@@ -2001,12 +2020,123 @@ void test('processGameRow never refreshes a locked match with nothing saved to p
 });
 
 void test('processGameRow still refreshes a locked match pinned by its saved search query', async () => {
+  // A recent game, refreshed on its release-age cadence.
   const { pool } = await runRefreshWithProviders({
-    payload: { hltbMainHours: 12, hltbMatchLocked: true, hltbMatchQueryTitle: 'Saved Query' },
+    payload: {
+      releaseYear: 2026,
+      releaseMarker: '2026',
+      hltbMainHours: 12,
+      hltbMatchLocked: true,
+      hltbMatchQueryTitle: 'Saved Query',
+    },
     providers: { hltb: { item: { hltbMainHours: 15 }, fetchedAt: '2026-11-01T10:00:00.000Z' } },
   });
 
   assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 15);
+});
+
+void test('processGameRow catches up an old game from its saved matches, not the top result', async () => {
+  const { pool, requestedUrls } = await runRefreshWithProviders({
+    payload: SAVED_MATCH_PAYLOAD,
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [
+          { hltbGameId: 7001, hltbMainHours: 99 },
+          { hltbGameId: 7002, hltbMainHours: 13 },
+        ],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+      metacritic: {
+        item: { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/a-2012/' },
+        candidates: [
+          { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/a-2012/' },
+          { metacriticScore: 81, metacriticUrl: 'https://www.metacritic.com/game/a/' },
+        ],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.ok(requestedUrls.some((url) => url.includes('preferredHltbGameId=7002')));
+  assert.ok(requestedUrls.some((url) => url.includes('includeCandidates=true')));
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 13);
+  assert.equal(pool.client.payloadPatch['hltbFetchedAt'], '2026-11-01T10:00:00.000Z');
+  assert.equal(pool.client.payloadPatch['reviewScore'], 81);
+  // The saved page is kept (unchanged, so not in the patch), and its score is stored.
+  assert.equal(pool.client.payloadPatch['reviewUrl'], undefined);
+  assert.equal(pool.client.payloadPatch['metacriticUrl'], 'https://www.metacritic.com/game/a/');
+  assert.equal(pool.client.payloadPatch['reviewFetchedAt'], '2026-11-01T10:00:00.000Z');
+});
+
+void test('processGameRow keeps an old game when the search no longer returns its saved match', async () => {
+  // e.g. "SSX" (2000): the search now ranks the 2012 game first and drops the saved page.
+  const { pool, stats } = await runRefreshWithProviders({
+    payload: SAVED_MATCH_PAYLOAD,
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [{ hltbGameId: 7001, hltbMainHours: 99 }],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+      metacritic: {
+        item: { metacriticScore: 50, metacriticUrl: 'https://www.metacritic.com/game/a-2012/' },
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 1);
+  assert.equal(stats.reviewRefreshAttempts, 1);
+  assert.equal(stats.hltbRefreshSuccesses, 0);
+  assert.equal(stats.reviewRefreshSuccesses, 0);
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], undefined);
+  assert.equal(pool.client.payloadPatch?.['reviewScore'], undefined);
+  assert.equal(pool.client.payloadPatch?.['metacriticScore'], undefined);
+});
+
+void test('processGameRow pins a forced refresh of an old game to its saved matches', async () => {
+  // An admin refresh ignoring recency still must not swap an old game's saved match.
+  const { pool, requestedUrls } = await runRefreshWithProviders({
+    payload: { ...SAVED_MATCH_PAYLOAD, hltbFetchedAt: '2026-01-01T00:00:00.000Z' },
+    row: { force_hltb: true, respect_recency: false },
+    providers: {
+      hltb: {
+        item: { hltbMainHours: 99 },
+        candidates: [
+          { hltbGameId: 7001, hltbMainHours: 99 },
+          { hltbGameId: 7002, hltbMainHours: 13 },
+        ],
+        fetchedAt: '2026-11-01T10:00:00.000Z',
+      },
+    },
+  });
+
+  assert.ok(requestedUrls.some((url) => url.includes('preferredHltbGameId=7002')));
+  assert.equal(pool.client.payloadPatch?.['hltbMainHours'], 13);
+});
+
+void test('processGameRow does not catch up an old game with no saved match to read', async () => {
+  const { pool, stats, requestedUrls } = await runRefreshWithProviders({
+    payload: {
+      hltbMainHours: 12,
+      hltbMatchQueryTitle: 'Ancient Game',
+      reviewScore: 80,
+      reviewSource: 'metacritic',
+    },
+    providers: {
+      hltb: { item: { hltbMainHours: 99 } },
+      metacritic: { item: { metacriticScore: 50 } },
+    },
+  });
+
+  assert.equal(stats.hltbRefreshAttempts, 0);
+  assert.equal(stats.reviewRefreshAttempts, 0);
+  assert.ok(!requestedUrls.some((url) => url.includes('/v1/hltb/search')));
+  assert.ok(!requestedUrls.some((url) => url.includes('/v1/metacritic/search')));
+  // Nothing to catch up, so it falls back to the release-only check instead of a monthly retry.
+  const nextCheck = Date.parse(String(pool.lastWatchStateParams?.[10]));
+  assert.ok(nextCheck - Date.now() > 300 * 24 * 3600 * 1000);
 });
 
 void test('processGameRow matches a locked HLTB URL across www and relative forms', async () => {

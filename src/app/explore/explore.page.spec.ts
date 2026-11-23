@@ -2768,7 +2768,8 @@ describe('ExplorePage explore modes UX', () => {
   });
 
   it('keeps summary expansion available for recommendation detail opened from cached catalog data', async () => {
-    const page = createPage() as unknown as {
+    const page = createPage();
+    const pageInternals = page as unknown as {
       catalogCache: Map<string, GameCatalogResult>;
       openGameDetail: (item: MockLaneItem) => Promise<void>;
     };
@@ -2777,7 +2778,7 @@ describe('ExplorePage explore modes UX', () => {
       igdbGameId: '701',
       platformIgdbId: 48,
     };
-    page.catalogCache.set(
+    pageInternals.catalogCache.set(
       '701',
       createCatalogResult('701', 48, {
         summary:
@@ -2785,7 +2786,7 @@ describe('ExplorePage explore modes UX', () => {
       })
     );
 
-    await page.openGameDetail(row);
+    await pageInternals.openGameDetail(row);
 
     const harness = await createExploreDetailComponentHarness(page);
 
@@ -2828,11 +2829,12 @@ describe('ExplorePage explore modes UX', () => {
   });
 
   it('keeps storyline expansion available for popularity detail opened from cached catalog data', async () => {
-    const page = createPage() as unknown as {
+    const page = createPage();
+    const pageInternals = page as unknown as {
       catalogCache: Map<string, GameCatalogResult>;
       openPopularityGameDetail: (item: typeof mockPopularityFeedItem) => Promise<void>;
     };
-    page.catalogCache.set(
+    pageInternals.catalogCache.set(
       '801',
       createCatalogResult('801', 6, {
         storyline:
@@ -2840,7 +2842,7 @@ describe('ExplorePage explore modes UX', () => {
       })
     );
 
-    await page.openPopularityGameDetail({
+    await pageInternals.openPopularityGameDetail({
       ...mockPopularityFeedItem,
       id: '801',
       platformIgdbId: 6,

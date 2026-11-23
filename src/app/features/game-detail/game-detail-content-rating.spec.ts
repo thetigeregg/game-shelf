@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SimpleChange } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 const swiperConstructorMock = vi.hoisted(() => vi.fn());
@@ -198,12 +199,7 @@ describe('GameDetailContentComponent rating display', () => {
   ): void {
     component.game = currentValue;
     component.ngOnChanges({
-      game: {
-        currentValue,
-        previousValue,
-        firstChange,
-        isFirstChange: () => firstChange,
-      },
+      game: new SimpleChange(previousValue, currentValue, firstChange),
     });
   }
 
@@ -1015,12 +1011,7 @@ describe('GameDetailContentComponent rating display', () => {
       ],
     });
     component.ngOnChanges({
-      game: {
-        currentValue: component.game,
-        previousValue: null,
-        firstChange: false,
-        isFirstChange: () => false,
-      },
+      game: new SimpleChange(null, component.game, false),
     });
 
     expect(swiper.allowTouchMove).toBe(true);

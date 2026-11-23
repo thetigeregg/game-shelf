@@ -1235,7 +1235,7 @@ void test('startReleaseMonitor returns inert monitor when disabled', async () =>
   const original = config.releaseMonitorEnabled;
   config.releaseMonitorEnabled = false;
   try {
-    const monitor = startReleaseMonitor({} as Pool);
+    const monitor = startReleaseMonitor({} as unknown as Pool);
     await monitor.stop();
   } finally {
     config.releaseMonitorEnabled = original;

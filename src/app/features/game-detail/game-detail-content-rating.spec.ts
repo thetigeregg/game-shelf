@@ -409,16 +409,19 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.showAtAGlanceCard).toBe(true);
   });
 
-  it('names the price after its store', () => {
+  it('names the game type for the facts card, except for main games', () => {
     const component = createComponent();
-    component.game = makeLibraryGame({ priceSource: 'nintendo_eshop' });
-    expect(component.priceHeadingLabel).toBe('eShop price');
+    component.game = makeLibraryGame({ gameType: 'remake' });
+    expect(component.gameTypeLabel).toBe('Remake');
 
-    component.game = makeLibraryGame({ priceSource: 'steam_store' });
-    expect(component.priceHeadingLabel).toBe('Steam price');
+    component.game = makeLibraryGame({ gameType: 'dlc_addon' });
+    expect(component.gameTypeLabel).toBe('DLC Add-on');
 
-    component.game = makeLibraryGame({ priceSource: null });
-    expect(component.priceHeadingLabel).toBe('Price');
+    component.game = makeLibraryGame({ gameType: 'main_game' });
+    expect(component.gameTypeLabel).toBeNull();
+
+    component.game = makeLibraryGame({ gameType: null });
+    expect(component.gameTypeLabel).toBeNull();
   });
 
   it('keeps half-step precision while trimming whole-number decimals', () => {

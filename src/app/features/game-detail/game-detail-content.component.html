@@ -24,9 +24,6 @@
         </div>
 
         <header class="detail-header">
-          @if (gameTypeBadgeLabel; as gameTypeBadgeLabelValue) {
-            <ion-badge class="game-type-badge">{{ gameTypeBadgeLabelValue }}</ion-badge>
-          }
           <h1 class="detail-game-name">{{ displayTitle }}</h1>
           <p class="detail-header-meta">{{ headerMetaLabel }}</p>
         </header>
@@ -158,7 +155,7 @@
               }
               @if (showCurrentPriceLine) {
                 <div class="detail-glance-stat">
-                  <span class="detail-glance-label">{{ priceHeadingLabel }}</span>
+                  <span class="detail-glance-label">Price</span>
                   @if (currentPriceLabel !== 'Unknown') {
                     <span class="detail-glance-value">{{ currentPriceLabel }}</span>
                   } @else {
@@ -279,6 +276,14 @@
         </section>
 
         <ion-list class="detail-facts" [inset]="true" lines="full">
+          @if (gameTypeLabel; as gameTypeLabelValue) {
+            <ion-item>
+              <ion-label class="detail-fact">
+                <span class="detail-fact-key">Type</span>
+                <span class="detail-fact-value">{{ gameTypeLabelValue }}</span>
+              </ion-label>
+            </ion-item>
+          }
           <ion-item
             [button]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.developers)"
             [detail]="shouldEnableMetadataFilterLinks && hasMetadataValue(game.developers)"

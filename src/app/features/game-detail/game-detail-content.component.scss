@@ -120,17 +120,6 @@
   color: var(--detail-muted);
 }
 
-.game-type-badge {
-  --background: var(--detail-surface-raised);
-  --color: var(--ion-text-color);
-  --padding-start: 8px;
-  --padding-end: 8px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .detail-actions-toolbar {
   --background: transparent;
   --border-width: 0;

@@ -37,7 +37,6 @@ import {
   GameRating,
   GameScreenshot,
   GameStatus,
-  PriceSource,
 } from '../../core/models/game.models';
 import SwiperClass from 'swiper';
 import { Pagination, Zoom } from 'swiper/modules';
@@ -67,12 +66,6 @@ type HltbBreakdownSegment = {
 
 /** Sentinel select value for "no status": picking it clears the status. */
 const NO_STATUS_VALUE = 'none';
-const PRICE_SOURCE_HEADINGS: Record<PriceSource, string> = {
-  steam_store: 'Steam price',
-  playstation_store: 'PS Store price',
-  nintendo_eshop: 'eShop price',
-  psprices: 'Price',
-};
 
 @Component({
   selector: 'app-game-detail-content',
@@ -448,15 +441,12 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return labels.length > 0 ? labels.join(', ') : 'Unknown platform';
   }
 
-  get gameTypeBadgeLabel(): string | null {
+  /** Game type for the facts card ("Remake", "DLC Add-on"); null for main games and unknown. */
+  get gameTypeLabel(): string | null {
     const gameType = this.normalizeGameType(this.game.gameType);
 
-    if (!gameType) {
+    if (!gameType || gameType === 'main_game') {
       return null;
-    }
-
-    if (gameType === 'main_game') {
-      return 'Main Game';
     }
 
     if (gameType === 'dlc_addon') {
@@ -703,11 +693,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   /** The summary card shows score and HLTB for library games, and the price where it applies. */
   get showAtAGlanceCard(): boolean {
     return this.showLibrarySections || this.showCurrentPriceLine;
-  }
-
-  get priceHeadingLabel(): string {
-    const source = (this.game as Partial<GameEntry>).priceSource;
-    return source ? PRICE_SOURCE_HEADINGS[source] : 'Price';
   }
 
   get currentPriceLabel(): string {

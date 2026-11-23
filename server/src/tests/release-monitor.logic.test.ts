@@ -517,11 +517,13 @@ void test('evaluateForcedRefreshDue mirrors processGameRow due checks using pre-
   );
 
   // Unknown or old release whose values have no read date -> due for the catch-up even with
-  // recency respected; a MobyGames score is read from its MobyGames game.
+  // recency respected, when there is a saved HLTB game to read; a MobyGames score is read
+  // from its MobyGames game.
   const undatedRow = {
     ...baseRow,
     payload: {
       hltbMainHours: 10,
+      hltbMatchGameId: 7002,
       reviewScore: 78,
       reviewSource: 'mobygames',
       mobygamesGameId: 4501,
@@ -535,6 +537,17 @@ void test('evaluateForcedRefreshDue mirrors processGameRow due checks using pre-
       now
     ),
     { hltbDue: true, reviewDue: true, reviewProvider: 'mobygames' }
+  );
+
+  // Without a saved HLTB game the old row's HLTB times aren't caught up.
+  assert.deepEqual(
+    releaseMonitorInternals.evaluateForcedRefreshDue(
+      { ...undatedRow, payload: { ...undatedRow.payload, hltbMatchGameId: null } },
+      { hltb: true, review: false },
+      { respectRecency: true, respectStaleness: false },
+      now
+    ),
+    { hltbDue: false, reviewDue: false, reviewProvider: null }
   );
 });
 
@@ -992,13 +1005,44 @@ void test('refresh query resolvers pin locked matches to their saved identity', 
   assert.equal(hltbResolved.preferredHltbGameId, 7002);
   assert.equal(hltbResolved.preferredHltbUrl, 'https://howlongtobeat.com/game/7002');
 
-  // Unlocked matches are re-searched normally.
+  // Unlocked matches are re-searched normally, unless the caller pins them.
   const unlocked = releaseMonitorInternals.resolveHltbRefreshQuery(
     { title: 'Zack & Wiki', hltbMatchGameId: 7002 },
     'Default Title',
     'Wii'
   );
   assert.equal(unlocked.preferredHltbGameId, null);
+  const pinnedHltb = releaseMonitorInternals.resolveHltbRefreshQuery(
+    { title: 'Zack & Wiki', hltbMatchGameId: 7002 },
+    'Default Title',
+    'Wii',
+    { pinToSavedMatch: true }
+  );
+  assert.equal(pinnedHltb.preferredHltbGameId, 7002);
+
+  const unlockedReview = { title: 'Zack & Wiki', metacriticUrl: 'https://www.metacritic.com/z/' };
+  assert.equal(
+    releaseMonitorInternals.resolveReviewRefreshQuery(unlockedReview, 'Default', 'Wii', 5)
+      .preferredReviewUrl,
+    null
+  );
+  assert.equal(
+    releaseMonitorInternals.resolveReviewRefreshQuery(unlockedReview, 'Default', 'Wii', 5, {
+      pinToSavedMatch: true,
+    }).preferredReviewUrl,
+    'https://www.metacritic.com/z/'
+  );
+  // A score from another source has no Metacritic page to pin to.
+  assert.equal(
+    releaseMonitorInternals.resolveReviewRefreshQuery(
+      { ...unlockedReview, reviewSource: 'opencritic' },
+      'Default',
+      'Wii',
+      5,
+      { pinToSavedMatch: true }
+    ).preferredReviewUrl,
+    null
+  );
 
   const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
     {
@@ -1041,14 +1085,33 @@ void test('review refresh reads a MobyGames score from its MobyGames game', () =
 
 void test('catch-up only targets values a refresh can date', () => {
   const { needsHltbFetchedAt, needsReviewFetchedAt } = releaseMonitorInternals;
-  assert.equal(needsHltbFetchedAt({ hltbMainHours: 12 }), true);
-  assert.equal(needsHltbFetchedAt({ hltbMainHours: 12, hltbFetchedAt: '2026-11-01' }), false);
-  assert.equal(needsHltbFetchedAt({ hltbMainHours: null }), false);
-
-  assert.equal(needsReviewFetchedAt({ reviewScore: 85 }), true);
-  assert.equal(needsReviewFetchedAt({ reviewScore: 85, reviewSource: 'metacritic' }), true);
+  assert.equal(needsHltbFetchedAt({ hltbMainHours: 12, hltbMatchGameId: 7002 }), true);
   assert.equal(
-    needsReviewFetchedAt({ reviewScore: 85, reviewFetchedAt: '2026-11-01T00:00:00.000Z' }),
+    needsHltbFetchedAt({ hltbMainHours: 12, hltbMatchUrl: 'https://howlongtobeat.com/game/7002' }),
+    true
+  );
+  // No saved HLTB game: a refresh could only take the search's top result.
+  assert.equal(needsHltbFetchedAt({ hltbMainHours: 12 }), false);
+  assert.equal(
+    needsHltbFetchedAt({ hltbMainHours: 12, hltbMatchGameId: 7002, hltbFetchedAt: '2026-11-01' }),
+    false
+  );
+  assert.equal(needsHltbFetchedAt({ hltbMainHours: null, hltbMatchGameId: 7002 }), false);
+
+  const metacriticUrl = 'https://www.metacritic.com/game/a/';
+  assert.equal(needsReviewFetchedAt({ reviewScore: 85, reviewUrl: metacriticUrl }), true);
+  assert.equal(
+    needsReviewFetchedAt({ reviewScore: 85, reviewSource: 'metacritic', metacriticUrl }),
+    true
+  );
+  // No saved Metacritic page to re-read.
+  assert.equal(needsReviewFetchedAt({ reviewScore: 85, reviewSource: 'metacritic' }), false);
+  assert.equal(
+    needsReviewFetchedAt({
+      reviewScore: 85,
+      reviewUrl: metacriticUrl,
+      reviewFetchedAt: '2026-11-01T00:00:00.000Z',
+    }),
     false
   );
   assert.equal(

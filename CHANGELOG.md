@@ -4372,3 +4372,7 @@
 ## v1.93.1 - 2026-11-23
 
 - 02b8ea86 fix(release-monitor): pin date catch-up to saved matches (#685)
+
+## v1.94.0 - 2026-11-23
+
+- c4606ce9 feat(detail): redesign game detail around an at-a-glance card (#686)

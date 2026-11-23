@@ -26,22 +26,10 @@ vi.mock('@ionic/angular', () => ({
 vi.mock('ionicons/icons', () => ({
   add: {},
   ban: {},
-  cash: {},
-  build: {},
-  business: {},
-  calendar: {},
-  documentText: {},
-  gameController: {},
-  gitBranch: {},
-  grid: {},
-  hardwareChip: {},
-  book: {},
-  library: {},
-  medal: {},
-  pricetags: {},
+  chevronDown: {},
   star: {},
-  time: {},
-  trophy: {},
+  starHalf: {},
+  starOutline: {},
 }));
 
 vi.mock('swiper', () => ({
@@ -219,22 +207,226 @@ describe('GameDetailContentComponent rating display', () => {
     });
   }
 
-  it('shows rating label without trailing zeros and edit action when rated', () => {
+  it('shows rating label without trailing zeros and full stars when rated', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({ rating: 3 });
 
     expect(component.ratingLabel).toBe('3');
-    expect(component.ratingActionLabel).toBe('EDIT');
+    expect(component.ratingStars).toEqual(['star', 'star', 'star', 'star-outline', 'star-outline']);
   });
 
-  it('shows none/set when no rating is present', () => {
+  it('shows a half star for half-step ratings', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({ rating: 4.5 });
+
+    expect(component.ratingStars).toEqual(['star', 'star', 'star', 'star', 'star-half']);
+  });
+
+  it('shows none and empty stars when no rating is present', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({ rating: null });
 
     expect(component.ratingLabel).toBe('None');
-    expect(component.ratingActionLabel).toBe('SET');
+    expect(component.ratingStars).toEqual(Array(5).fill('star-outline'));
+  });
+
+  describe('status picker', () => {
+    const statusOptions = [
+      { value: 'playing' as const, label: 'Playing' },
+      { value: 'completed' as const, label: 'Completed' },
+    ];
+
+    it('labels the current status from the options, or none', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.statusOptions = statusOptions;
+      component.game = makeLibraryGame({ status: 'playing' });
+
+      expect(component.statusLabel).toBe('Playing');
+      expect(component.statusSelectValue).toBe('playing');
+
+      component.game = makeLibraryGame({ status: null });
+      expect(component.statusLabel).toBeNull();
+      expect(component.statusSelectValue).toBe(component.noStatusValue);
+    });
+
+    it('emits the picked status', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({ status: null });
+      const statusSpy = vi.spyOn(component.statusChange, 'emit');
+
+      component.onStatusSelectChange('completed');
+
+      expect(statusSpy).toHaveBeenCalledWith('completed');
+    });
+
+    it('clears the status when none is picked, only if one is set', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({ status: 'playing' });
+      const clearSpy = vi.spyOn(component.clearStatus, 'emit');
+      const statusSpy = vi.spyOn(component.statusChange, 'emit');
+
+      component.onStatusSelectChange(component.noStatusValue);
+      expect(clearSpy).toHaveBeenCalledOnce();
+
+      component.game = makeLibraryGame({ status: null });
+      component.onStatusSelectChange(component.noStatusValue);
+      expect(clearSpy).toHaveBeenCalledOnce();
+      expect(statusSpy).not.toHaveBeenCalled();
+    });
+
+    it('opens the hidden status select reset to the current status', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({ status: 'playing' });
+      // A failed update left the select holding the rejected pick.
+      const select = { value: 'completed', open: vi.fn(() => Promise.resolve()) };
+      (
+        component as unknown as { statusSelectRef: { nativeElement: typeof select } }
+      ).statusSelectRef = { nativeElement: select };
+
+      component.openStatusPicker();
+
+      expect(select.value).toBe('playing');
+      expect(select.open).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('joins platform and release date under the title, leaving out an unknown date', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({ releaseDate: '1995-03-11T12:00:00.000Z' });
+
+    expect(component.headerMetaLabel).toBe(
+      `SNES · ${new Date('1995-03-11T12:00:00.000Z').toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })}`
+    );
+
+    component.game = makeLibraryGame({ releaseDate: null });
+    expect(component.headerMetaLabel).toBe('SNES');
+  });
+
+  it('lists genres trimmed, de-duplicated and without blanks', () => {
+    const component = createComponent();
+    component.game = makeLibraryGame({ genres: [' RPG ', 'RPG', '', 'Adventure'] });
+
+    expect(component.genreItems).toEqual(['RPG', 'Adventure']);
+  });
+
+  describe('HLTB breakdown', () => {
+    it('splits the bar into the time each tier adds, scaled to the longest', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({
+        hltbMainHours: 20,
+        hltbMainExtraHours: 30,
+        hltbCompletionistHours: 40,
+      });
+
+      expect(component.hltbMainLabel).toBe('20h');
+      expect(component.hltbBreakdown).toEqual([
+        { key: 'main', label: 'Main', valueLabel: '20h', widthPercent: 50 },
+        { key: 'extra', label: '+ Extras', valueLabel: '30h', widthPercent: 25 },
+        { key: 'completionist', label: '100%', valueLabel: '40h', widthPercent: 25 },
+      ]);
+    });
+
+    it('skips unknown times and orders out-of-order times so every segment shows', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({
+        hltbMainHours: null,
+        hltbMainExtraHours: 30,
+        hltbCompletionistHours: 24,
+      });
+
+      expect(component.hltbMainLabel).toBeNull();
+      expect(component.hltbBreakdown).toEqual([
+        { key: 'completionist', label: '100%', valueLabel: '24h', widthPercent: 80 },
+        { key: 'extra', label: '+ Extras', valueLabel: '30h', widthPercent: 20 },
+      ]);
+    });
+
+    it('is empty when no time is known', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({ hltbMainHours: 0, hltbCompletionistHours: null });
+
+      expect(component.hltbBreakdown).toEqual([]);
+    });
+  });
+
+  describe('review score badge', () => {
+    it('shows a Metacritic score out of 100 with its colour band', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({ reviewScore: 87, reviewSource: 'metacritic' });
+
+      expect(component.reviewScoreValueLabel).toBe('87');
+      expect(component.reviewScoreLabel).toBe('87/100');
+      expect(component.reviewScoreBand).toBe('mc-good');
+
+      component.game = makeLibraryGame({ reviewScore: 62, reviewSource: 'metacritic' });
+      expect(component.reviewScoreBand).toBe('mc-okay');
+
+      component.game = makeLibraryGame({ reviewScore: 41, reviewSource: 'metacritic' });
+      expect(component.reviewScoreBand).toBe('mc-bad');
+    });
+
+    it('shows a MobyGames score out of 10 and bands it on the same scale', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({ reviewScore: 82, reviewSource: 'mobygames' });
+
+      expect(component.reviewScoreValueLabel).toBe('8.2');
+      expect(component.reviewScoreLabel).toBe('8.2/10');
+      expect(component.reviewScoreBand).toBe('mc-good');
+    });
+
+    it('has no badge value when the score is unknown', () => {
+      const component = createComponent();
+      component.game = makeLibraryGame({ reviewScore: null });
+
+      expect(component.reviewScoreValueLabel).toBeNull();
+      expect(component.reviewScoreLabel).toBe('Unknown');
+      expect(component.reviewScoreBand).toBeNull();
+    });
+  });
+
+  it('shows the summary card in library context, and in explore only with a price', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({ listType: 'collection' });
+    expect(component.showAtAGlanceCard).toBe(true);
+
+    component.context = 'explore';
+    expect(component.showAtAGlanceCard).toBe(false);
+
+    component.showPriceForNonWishlist = true;
+    component.game = {
+      ...makeLibraryGame(),
+      listType: undefined,
+      priceAmount: 9.99,
+    } as unknown as GameEntry;
+    expect(component.showAtAGlanceCard).toBe(true);
+  });
+
+  it('names the game type for the facts card, except for main games', () => {
+    const component = createComponent();
+    component.game = makeLibraryGame({ gameType: 'remake' });
+    expect(component.gameTypeLabel).toBe('Remake');
+
+    component.game = makeLibraryGame({ gameType: 'dlc_addon' });
+    expect(component.gameTypeLabel).toBe('DLC Add-on');
+
+    component.game = makeLibraryGame({ gameType: 'main_game' });
+    expect(component.gameTypeLabel).toBeNull();
+
+    component.game = makeLibraryGame({ gameType: null });
+    expect(component.gameTypeLabel).toBeNull();
   });
 
   it('keeps half-step precision while trimming whole-number decimals', () => {
@@ -281,12 +473,11 @@ describe('GameDetailContentComponent rating display', () => {
     });
 
     expect(component.currentPriceLabel).toContain('19.99');
-    expect(component.currentPriceMetaLabel).toContain('-50%');
-    expect(component.currentPriceMetaLabel).toContain('Normal price:');
-    expect(component.currentPriceMetaLabel).toContain('39.99');
+    expect(component.priceDiscountLabel).toBe('-50%');
+    expect(component.priceRegularLabel).toContain('39.99');
   });
 
-  it('hides normal price metadata when regular equals current', () => {
+  it('hides discount and normal price when regular equals current', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({
@@ -296,7 +487,8 @@ describe('GameDetailContentComponent rating display', () => {
       priceRegularAmount: 19.99,
     });
 
-    expect(component.currentPriceMetaLabel).toBeNull();
+    expect(component.priceDiscountLabel).toBeNull();
+    expect(component.priceRegularLabel).toBeNull();
   });
 
   describe('updated dates', () => {
@@ -322,14 +514,14 @@ describe('GameDetailContentComponent rating display', () => {
         reviewFetchedAt: '2026-10-30T12:00:00.000Z',
       });
 
-      expect(component.currentPriceUpdatedLabel).toBe(
-        `Updated ${shortDate('2026-11-21T12:00:00.000Z')}`
+      expect(component.dataFreshnessLabel).toBe(
+        `Updated: price ${shortDate('2026-11-21T12:00:00.000Z')} · ` +
+          `HLTB ${shortDate('2026-11-03T12:00:00.000Z')} · ` +
+          `score ${shortDate('2026-10-30T12:00:00.000Z')}`
       );
-      expect(component.hltbUpdatedLabel).toBe(`Updated ${shortDate('2026-11-03T12:00:00.000Z')}`);
-      expect(component.reviewUpdatedLabel).toBe(`Updated ${shortDate('2026-10-30T12:00:00.000Z')}`);
     });
 
-    it('shows no date when the value is missing or the date is unknown', () => {
+    it('leaves out values that are missing or have no known date', () => {
       const component = createComponent();
       component.context = 'library';
       component.game = makeLibraryGame({
@@ -344,12 +536,10 @@ describe('GameDetailContentComponent rating display', () => {
         reviewFetchedAt: null,
       });
 
-      expect(component.currentPriceUpdatedLabel).toBeNull();
-      expect(component.hltbUpdatedLabel).toBeNull();
-      expect(component.reviewUpdatedLabel).toBeNull();
+      expect(component.dataFreshnessLabel).toBeNull();
     });
 
-    it('shows no date when the stored date is unparseable', () => {
+    it('leaves out a stored date that is unparseable', () => {
       const component = createComponent();
       component.context = 'library';
       component.game = makeLibraryGame({
@@ -358,7 +548,205 @@ describe('GameDetailContentComponent rating display', () => {
         hltbFetchedAt: 'not a date',
       });
 
-      expect(component.hltbUpdatedLabel).toBeNull();
+      expect(component.dataFreshnessLabel).toBeNull();
+    });
+
+    it('leaves out the price date when the price is not shown', () => {
+      const component = createComponent();
+      component.context = 'library';
+      component.game = makeLibraryGame({
+        listType: 'collection',
+        priceAmount: 19.99,
+        priceFetchedAt: '2026-11-21T12:00:00.000Z',
+      });
+
+      expect(component.dataFreshnessLabel).toBeNull();
+    });
+
+    it('leaves out HLTB and score dates outside library context', () => {
+      const component = createComponent();
+      component.context = 'explore';
+      component.game = makeLibraryGame({
+        listType: 'collection',
+        hltbMainHours: 12,
+        hltbFetchedAt: '2026-11-03T12:00:00.000Z',
+        reviewScore: 87,
+        reviewFetchedAt: '2026-10-30T12:00:00.000Z',
+      });
+
+      expect(component.dataFreshnessLabel).toBeNull();
+    });
+  });
+
+  describe('tapping summary or storyline text', () => {
+    function makeExpandable(component: GameDetailContentComponent): void {
+      component.context = 'library';
+      component.game = makeLibraryGame({ summary: 'Long summary' });
+      component.detailTextExpandable = { summary: true, storyline: false };
+    }
+
+    it('toggles the text', () => {
+      const component = createComponent();
+      makeExpandable(component);
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        toString: () => '',
+      } as Selection);
+
+      component.onDetailTextClick('summary');
+
+      expect(component.isDetailTextExpanded('summary')).toBe(true);
+    });
+
+    it('leaves the text alone while the user is selecting some of it', () => {
+      const component = createComponent();
+      makeExpandable(component);
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        toString: () => 'a sentence',
+      } as Selection);
+
+      component.onDetailTextClick('summary');
+
+      expect(component.isDetailTextExpanded('summary')).toBe(false);
+    });
+  });
+
+  describe('title fitting', () => {
+    const LINE_HEIGHT = 1.15;
+    const CHAR_WIDTH = 0.55;
+
+    // A title element whose height follows a simple text-layout model: characters of
+    // CHAR_WIDTH ems wrap at the element's width into lines of LINE_HEIGHT ems.
+    function createTitleElement(text: string, width: number) {
+      const element = document.createElement('h1');
+      element.textContent = text;
+      const state = { width };
+      Object.defineProperty(element, 'clientWidth', { get: () => state.width });
+      Object.defineProperty(element, 'scrollHeight', {
+        get: () => {
+          const fontSize = Number.parseFloat(element.style.fontSize) || 28;
+          const lines = Math.ceil((text.length * CHAR_WIDTH * fontSize) / state.width);
+          return Math.ceil(lines * fontSize * LINE_HEIGHT);
+        },
+      });
+      return { element, state };
+    }
+
+    function fit(component: GameDetailContentComponent, element: HTMLElement): void {
+      (component as unknown as { titleTextRef: { nativeElement: HTMLElement } }).titleTextRef = {
+        nativeElement: element,
+      };
+      (component as unknown as { fitTitleToMaxHeight: () => void }).fitTitleToMaxHeight();
+    }
+
+    function heightAt(text: string, width: number, fontSize: number): number {
+      const lines = Math.ceil((text.length * CHAR_WIDTH * fontSize) / width);
+      return Math.ceil(lines * fontSize * LINE_HEIGHT);
+    }
+
+    const rootFont = { size: '16px' };
+
+    beforeEach(() => {
+      rootFont.size = '16px';
+      vi.spyOn(window, 'getComputedStyle').mockImplementation(
+        (element: Element) =>
+          ({
+            fontSize: element === document.documentElement ? rootFont.size : '28px',
+          }) as CSSStyleDeclaration
+      );
+    });
+
+    it('keeps the stylesheet size when the title fits in 40px', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('Celeste', 350);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('');
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(false);
+    });
+
+    it('uses the largest half-pixel size that keeps a long title within 40px', () => {
+      const component = createComponent();
+      const title = 'Atelier Escha & Logy: Alchemists of the Dusk Sky';
+      const { element } = createTitleElement(title, 350);
+
+      fit(component, element);
+
+      const fontSize = Number.parseFloat(element.style.fontSize);
+      expect(fontSize).toBeLessThan(28);
+      expect(heightAt(title, 350, fontSize)).toBeLessThanOrEqual(40);
+      expect(heightAt(title, 350, fontSize + 0.5)).toBeGreaterThan(40);
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(false);
+    });
+
+    it('clamps to two lines at 12px when even the smallest size is too tall', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('A'.repeat(400), 350);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('12px');
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(true);
+    });
+
+    it('refits only when the width or the title changes', () => {
+      const component = createComponent();
+      const title = 'Atelier Escha & Logy: Alchemists of the Dusk Sky';
+      const { element, state } = createTitleElement(title, 350);
+
+      fit(component, element);
+      const fittedSize = element.style.fontSize;
+      // A size that still fits, so only a changed width or title would refit.
+      element.style.fontSize = '10px';
+
+      fit(component, element);
+      expect(element.style.fontSize).toBe('10px');
+
+      state.width = 700;
+      fit(component, element);
+      expect(element.style.fontSize).not.toBe('10px');
+      expect(element.style.fontSize).not.toBe(fittedSize);
+    });
+
+    it('refits when the root font size changes at the same width', () => {
+      const component = createComponent();
+      const { element } = createTitleElement(
+        'Atelier Escha & Logy: Alchemists of the Dusk Sky',
+        350
+      );
+
+      fit(component, element);
+      element.style.fontSize = '99px';
+
+      rootFont.size = '20px';
+      fit(component, element);
+
+      expect(element.style.fontSize).not.toBe('99px');
+    });
+
+    it('refits when the title has outgrown 40px at the same width and text', () => {
+      const component = createComponent();
+      const { element } = createTitleElement(
+        'Atelier Escha & Logy: Alchemists of the Dusk Sky',
+        350
+      );
+
+      fit(component, element);
+      const fittedSize = element.style.fontSize;
+      element.style.fontSize = '';
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe(fittedSize);
+    });
+
+    it('waits for layout when the title has no width yet', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('A'.repeat(400), 0);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('');
     });
   });
 

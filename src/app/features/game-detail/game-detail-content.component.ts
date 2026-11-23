@@ -30,26 +30,7 @@ import {
   IonToolbar,
 } from '@ionic/angular';
 import { addIcons } from 'ionicons';
-import {
-  add,
-  ban,
-  cash,
-  build,
-  business,
-  calendar,
-  documentText,
-  gameController,
-  gitBranch,
-  grid,
-  hardwareChip,
-  book,
-  library,
-  medal,
-  pricetags,
-  star,
-  time,
-  trophy,
-} from 'ionicons/icons';
+import { add, ban, chevronDown, star, starHalf, starOutline } from 'ionicons/icons';
 import {
   GameCatalogResult,
   GameEntry,
@@ -61,6 +42,7 @@ import SwiperClass from 'swiper';
 import { Pagination, Zoom } from 'swiper/modules';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
+import { getReviewScoreBand, ReviewScoreBand } from '../../core/utils/review-score-band';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 import { DetailMediaSlideComponent } from './detail-media-slide.component';
 import { toDetailMediaRenderUrl } from './detail-media-url.utils';
@@ -74,6 +56,16 @@ type DetailMediaSlide = {
   kind: 'cover' | 'screenshot' | 'placeholder';
 };
 type DetailTextField = 'summary' | 'storyline';
+type RatingStarIcon = 'star' | 'star-half' | 'star-outline';
+type HltbBreakdownSegment = {
+  key: 'main' | 'extra' | 'completionist';
+  label: string;
+  valueLabel: string;
+  widthPercent: number;
+};
+
+/** Sentinel select value for "no status": picking it clears the status. */
+const NO_STATUS_VALUE = 'none';
 
 @Component({
   selector: 'app-game-detail-content',
@@ -102,6 +94,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly PRELOAD_MEDIA_SLIDE_COUNT = 2;
   private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
+  private static readonly TITLE_MAX_HEIGHT_PX = 40;
+  private static readonly TITLE_MIN_FONT_SIZE_PX = 12;
+  private static readonly TITLE_FONT_SIZE_STEP_PX = 0.5;
+  private static readonly TITLE_CLAMPED_CLASS = 'detail-game-name-clamped';
   private static readonly PLACEHOLDER_MEDIA_SLIDES: DetailMediaSlide[] = [
     { key: 'placeholder', src: '', kind: 'placeholder' },
   ];
@@ -131,6 +127,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @ViewChild('swiperContainer') private swiperContainerRef?: ElementRef<HTMLElement>;
   @ViewChild('summaryText') private summaryTextRef?: ElementRef<HTMLElement>;
   @ViewChild('storylineText') private storylineTextRef?: ElementRef<HTMLElement>;
+  @ViewChild('statusSelect', { read: ElementRef })
+  private statusSelectRef?: ElementRef<HTMLIonSelectElement>;
+  @ViewChild('titleText') private titleTextRef?: ElementRef<HTMLElement>;
+
+  readonly noStatusValue = NO_STATUS_VALUE;
 
   detailTextExpanded = {
     summary: false,
@@ -160,32 +161,14 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private cachedFormattedReleaseDateValue: string | null = null;
   private cachedFormattedReleaseDate = 'Unknown';
   private loadedMediaSlideKeys = new Set<string>();
+  private titleFitKey: string | null = null;
   private prefetchedMediaSlideUrls = new Set<string>();
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef, { optional: true });
   private readonly ngZone = inject(NgZone, { optional: true });
 
   constructor() {
-    addIcons({
-      add,
-      ban,
-      cash,
-      build,
-      business,
-      calendar,
-      documentText,
-      gameController,
-      gitBranch,
-      grid,
-      hardwareChip,
-      book,
-      library,
-      medal,
-      pricetags,
-      star,
-      time,
-      trophy,
-    });
+    addIcons({ add, ban, chevronDown, star, starHalf, starOutline });
   }
 
   ngAfterViewInit(): void {
@@ -287,6 +270,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
       this.refreshSwiper();
       this.refreshDetailTextExpandableState();
+      this.fitTitleToMaxHeight();
     });
   }
 
@@ -303,6 +287,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       }
 
       this.refreshDetailTextExpandableState();
+      this.fitTitleToMaxHeight();
     });
   }
 
@@ -367,6 +352,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     const elements = [
       this.summaryTextRef?.nativeElement,
       this.storylineTextRef?.nativeElement,
+      this.titleTextRef?.nativeElement,
     ].filter((element): element is HTMLElement => Boolean(element));
 
     if (elements.length === 0) {
@@ -452,10 +438,6 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return 'Unknown platform';
   }
 
-  get platformHeadingLabel(): string {
-    return this.context === 'explore' ? 'Platforms' : 'Platform';
-  }
-
   get platformValueLabel(): string {
     if (this.context !== 'explore') {
       return this.platformLabel;
@@ -465,15 +447,12 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return labels.length > 0 ? labels.join(', ') : 'Unknown platform';
   }
 
-  get gameTypeBadgeLabel(): string | null {
+  /** Game type for the facts card ("Remake", "DLC Add-on"); null for main games and unknown. */
+  get gameTypeLabel(): string | null {
     const gameType = this.normalizeGameType(this.game.gameType);
 
-    if (!gameType) {
+    if (!gameType || gameType === 'main_game') {
       return null;
-    }
-
-    if (gameType === 'main_game') {
-      return 'Main Game';
     }
 
     if (gameType === 'dlc_addon') {
@@ -533,8 +512,62 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.ratingValue !== undefined ? this.formatRatingValue(this.ratingValue) : 'None';
   }
 
-  get ratingActionLabel(): string {
-    return this.ratingValue !== undefined ? 'EDIT' : 'SET';
+  /** Five star icons for the rating chip: full, half, then outline stars. */
+  get ratingStars(): RatingStarIcon[] {
+    const rating = this.ratingValue ?? 0;
+    return [1, 2, 3, 4, 5].map((position) =>
+      rating >= position ? 'star' : rating >= position - 0.5 ? 'star-half' : 'star-outline'
+    );
+  }
+
+  get statusLabel(): string | null {
+    const status = this.statusValue;
+    if (status === undefined) {
+      return null;
+    }
+
+    return this.statusOptions.find((option) => option.value === status)?.label ?? status;
+  }
+
+  get statusSelectValue(): GameStatus | typeof NO_STATUS_VALUE {
+    return this.statusValue ?? NO_STATUS_VALUE;
+  }
+
+  /**
+   * Opens the hidden status select, first resetting it to the game's status: after a failed
+   * update it would still hold the rejected pick, and picking that again would not emit.
+   */
+  openStatusPicker(): void {
+    const select = this.statusSelectRef?.nativeElement;
+    if (!select) {
+      return;
+    }
+
+    select.value = this.statusSelectValue;
+    void select.open();
+  }
+
+  onStatusSelectChange(value: GameStatus | typeof NO_STATUS_VALUE | null | undefined): void {
+    if (value === NO_STATUS_VALUE) {
+      if (this.statusValue !== undefined) {
+        this.clearStatus.emit();
+      }
+      return;
+    }
+
+    this.emitStatusChange(value);
+  }
+
+  get releaseDateLabel(): string | null {
+    const label = this.formatDate(this.game.releaseDate);
+    return label === 'Unknown' ? null : label;
+  }
+
+  /** "Platform · release date" line under the title; an unknown date is left out. */
+  get headerMetaLabel(): string {
+    return [this.platformValueLabel, this.releaseDateLabel]
+      .filter((part): part is string => part !== null)
+      .join(' · ');
   }
 
   get tagItems(): { name: string; color: string }[] {
@@ -570,67 +603,93 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.cachedTagItems;
   }
 
-  get hltbMainLabel(): string {
+  /** Main-story time for the summary card, null when HLTB has none. */
+  get hltbMainLabel(): string | null {
     return this.formatCompletionHours(this.game.hltbMainHours);
   }
 
-  get hltbMainExtraLabel(): string {
-    return this.formatCompletionHours(this.game.hltbMainExtraHours);
+  /**
+   * The known HLTB times as one bar, shortest first: each segment covers the time it adds
+   * over the one before, scaled to the longest time. Sorting keeps every segment on the bar
+   * when the times are out of order. Empty when no time is known.
+   */
+  get hltbBreakdown(): HltbBreakdownSegment[] {
+    const known = [
+      { key: 'main' as const, label: 'Main', hours: this.game.hltbMainHours },
+      { key: 'extra' as const, label: '+ Extras', hours: this.game.hltbMainExtraHours },
+      { key: 'completionist' as const, label: '100%', hours: this.game.hltbCompletionistHours },
+    ]
+      .flatMap((entry) => {
+        const valueLabel = this.formatCompletionHours(entry.hours);
+        return valueLabel !== null && typeof entry.hours === 'number'
+          ? [{ key: entry.key, label: entry.label, hours: entry.hours, valueLabel }]
+          : [];
+      })
+      .sort((left, right) => left.hours - right.hours);
+    const longest = Math.max(0, ...known.map((entry) => entry.hours));
+    let covered = 0;
+
+    return known.map((entry) => {
+      const widthPercent = longest > 0 ? (Math.max(0, entry.hours - covered) / longest) * 100 : 0;
+      covered = Math.max(covered, entry.hours);
+      return {
+        key: entry.key,
+        label: entry.label,
+        valueLabel: entry.valueLabel,
+        widthPercent: Math.round(widthPercent * 10) / 10,
+      };
+    });
   }
 
-  get hltbCompletionistLabel(): string {
-    return this.formatCompletionHours(this.game.hltbCompletionistHours);
-  }
-
-  /** "Updated <date>" for the HLTB times, when any is shown and the read date is known. */
-  get hltbUpdatedLabel(): string | null {
-    const hasTimes = [
-      this.game.hltbMainHours,
-      this.game.hltbMainExtraHours,
-      this.game.hltbCompletionistHours,
-    ].some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0);
-    return hasTimes ? this.formatUpdatedLabel(this.game.hltbFetchedAt) : null;
-  }
-
-  /** "Updated <date>" for the review score, when one is shown and the read date is known. */
-  get reviewUpdatedLabel(): string | null {
+  /** Score for the summary card's badge ("87", or "8.2" for MobyGames), null when unknown. */
+  get reviewScoreValueLabel(): string | null {
     const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
-    return score !== null ? this.formatUpdatedLabel(this.game.reviewFetchedAt) : null;
+    if (score === null) {
+      return null;
+    }
+
+    if (this.resolveReviewSourceLabel() === 'mobygames') {
+      return this.resolveMobyScoreOutOfTen(score).toFixed(1).replace(/\.0$/, '');
+    }
+
+    return String(score);
   }
 
   get reviewScoreLabel(): string {
-    const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
-    if (score === null) {
+    const value = this.reviewScoreValueLabel;
+    if (value === null) {
       return 'Unknown';
     }
 
-    const source = this.resolveReviewSourceLabel();
-    if (source === 'mobygames') {
-      const rawMobyScore =
-        typeof this.game.mobyScore === 'number' && Number.isFinite(this.game.mobyScore)
-          ? this.game.mobyScore
-          : score <= 10
-            ? score
-            : score / 10;
-      const outOfTen = rawMobyScore.toFixed(1).replace(/\.0$/, '');
-      return `${outOfTen}/10`;
+    return this.resolveReviewSourceLabel() === 'mobygames' ? `${value}/10` : `${value}/100`;
+  }
+
+  /** Colour band for the score badge, as in the list view, on a 0–100 scale. */
+  get reviewScoreBand(): ReviewScoreBand | null {
+    const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
+    if (score === null) {
+      return null;
     }
 
-    return `${String(score)}/100`;
+    const outOfHundred =
+      this.resolveReviewSourceLabel() === 'mobygames'
+        ? this.resolveMobyScoreOutOfTen(score) * 10
+        : score;
+    return getReviewScoreBand(outOfHundred);
   }
 
   get reviewScoreHeadingLabel(): string {
     const source = this.resolveReviewSourceLabel();
 
     if (source === 'metacritic') {
-      return 'Metacritic Score';
+      return 'Metacritic';
     }
 
     if (source === 'mobygames') {
-      return 'Moby Score';
+      return 'MobyGames';
     }
 
-    return 'Review Score';
+    return 'Review score';
   }
 
   get showCurrentPriceLine(): boolean {
@@ -650,6 +709,11 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.hasCurrentPriceValue();
   }
 
+  /** The summary card shows score and HLTB for library games, and the price where it applies. */
+  get showAtAGlanceCard(): boolean {
+    return this.showLibrarySections || this.showCurrentPriceLine;
+  }
+
   get currentPriceLabel(): string {
     if ((this.game as Partial<GameEntry>).priceIsFree === true) {
       return 'Free';
@@ -666,23 +730,26 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return this.formatPriceAmount(amount, this.resolvePriceCurrency(this.game.priceCurrency));
   }
 
-  get currentPriceMetaLabel(): string | null {
-    const parts: string[] = [];
+  /** "-50%" when the price is discounted, else null. */
+  get priceDiscountLabel(): string | null {
+    const discountPercent =
+      typeof this.game.priceDiscountPercent === 'number' &&
+      Number.isFinite(this.game.priceDiscountPercent)
+        ? this.game.priceDiscountPercent
+        : null;
+    return discountPercent !== null && discountPercent > 0
+      ? `-${String(Math.round(discountPercent))}%`
+      : null;
+  }
+
+  /** The normal price, shown struck through, when it differs from the current price. */
+  get priceRegularLabel(): string | null {
     const currentAmount =
       (this.game as Partial<GameEntry>).priceIsFree === true
         ? 0
         : typeof this.game.priceAmount === 'number' && Number.isFinite(this.game.priceAmount)
           ? this.game.priceAmount
           : null;
-    const discountPercent =
-      typeof this.game.priceDiscountPercent === 'number' &&
-      Number.isFinite(this.game.priceDiscountPercent)
-        ? this.game.priceDiscountPercent
-        : null;
-    if (discountPercent !== null && discountPercent > 0) {
-      parts.push(`-${String(Math.round(discountPercent))}%`);
-    }
-
     const regularAmount =
       typeof this.game.priceRegularAmount === 'number' &&
       Number.isFinite(this.game.priceRegularAmount)
@@ -692,35 +759,64 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       regularAmount !== null &&
       regularAmount >= 0 &&
       (currentAmount === null || Math.abs(regularAmount - currentAmount) >= 0.01);
-    if (regularDiffersFromCurrent) {
-      parts.push(
-        `Normal price: ${this.formatPriceAmount(
-          regularAmount,
-          this.resolvePriceCurrency(this.game.priceCurrency)
-        )}`
-      );
+
+    return regularDiffersFromCurrent
+      ? this.formatPriceAmount(regularAmount, this.resolvePriceCurrency(this.game.priceCurrency))
+      : null;
+  }
+
+  /**
+   * When the summary card's external data was read, e.g. "Updated: price Nov 21, 2026 ·
+   * HLTB Nov 3, 2026". Covers only values the card shows, with a known read date.
+   */
+  get dataFreshnessLabel(): string | null {
+    const parts: string[] = [];
+    const priceDate =
+      this.showCurrentPriceLine && this.hasCurrentPriceValue()
+        ? this.formatFetchedDate(this.game.priceFetchedAt)
+        : null;
+    if (priceDate !== null) {
+      parts.push(`price ${priceDate}`);
     }
 
-    return parts.length > 0 ? parts.join(' · ') : null;
+    if (this.showLibrarySections) {
+      const hltbDate =
+        this.hltbBreakdown.length > 0 ? this.formatFetchedDate(this.game.hltbFetchedAt) : null;
+      if (hltbDate !== null) {
+        parts.push(`HLTB ${hltbDate}`);
+      }
+
+      const reviewDate =
+        this.reviewScoreValueLabel !== null
+          ? this.formatFetchedDate(this.game.reviewFetchedAt)
+          : null;
+      if (reviewDate !== null) {
+        parts.push(`score ${reviewDate}`);
+      }
+    }
+
+    return parts.length > 0 ? `Updated: ${parts.join(' · ')}` : null;
   }
 
-  /** "Updated <date>" for the current price, when one is shown and the read date is known. */
-  get currentPriceUpdatedLabel(): string | null {
-    return this.hasCurrentPriceValue() ? this.formatUpdatedLabel(this.game.priceFetchedAt) : null;
-  }
-
-  private formatUpdatedLabel(fetchedAt: string | null | undefined): string | null {
+  private formatFetchedDate(fetchedAt: string | null | undefined): string | null {
     const timestamp = typeof fetchedAt === 'string' ? Date.parse(fetchedAt) : Number.NaN;
     if (Number.isNaN(timestamp)) {
       return null;
     }
 
-    const date = new Date(timestamp).toLocaleDateString(undefined, {
+    return new Date(timestamp).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
-    return `Updated ${date}`;
+  }
+
+  private resolveMobyScoreOutOfTen(normalizedScore: number): number {
+    return typeof this.game.mobyScore === 'number' && Number.isFinite(this.game.mobyScore)
+      ? this.game.mobyScore
+      : normalizedScore <= 10
+        ? normalizedScore
+        : normalizedScore / 10;
   }
 
   private hasCurrentPriceValue(): boolean {
@@ -741,6 +837,16 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   canToggleDetailText(field: DetailTextField): boolean {
     return this.detailTextExpandable[field];
+  }
+
+  /** Tapping the text toggles it too, unless the user was selecting some of it. */
+  onDetailTextClick(field: DetailTextField): void {
+    const selection = typeof window.getSelection === 'function' ? window.getSelection() : null;
+    if (selection && selection.toString().length > 0) {
+      return;
+    }
+
+    this.toggleDetailText(field);
   }
 
   toggleDetailText(field: DetailTextField): void {
@@ -795,6 +901,77 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     };
   }
 
+  /**
+   * Keeps the title within 40px of height: the stylesheet's size when it fits, else the
+   * largest size (half-pixel steps, 12px floor) that does. A title too long even at the
+   * floor is clamped to two lines. Refits only when the width, the text or the root font
+   * size (Dynamic Type, zoom) changes, or the title has outgrown 40px, so the resize its own
+   * font change causes does not loop.
+   */
+  private fitTitleToMaxHeight(): void {
+    const element = this.titleTextRef?.nativeElement;
+    if (!element) {
+      return;
+    }
+
+    const maxHeight = GameDetailContentComponent.TITLE_MAX_HEIGHT_PX;
+    const minFontSize = GameDetailContentComponent.TITLE_MIN_FONT_SIZE_PX;
+    const step = GameDetailContentComponent.TITLE_FONT_SIZE_STEP_PX;
+    const clampedClass = GameDetailContentComponent.TITLE_CLAMPED_CLASS;
+
+    const width = element.clientWidth;
+    if (width <= 0) {
+      return;
+    }
+
+    const rootFontSize = getComputedStyle(document.documentElement).fontSize;
+    const fitKey = `${String(width)}|${rootFontSize}|${element.textContent}`;
+    const overflowing =
+      !element.classList.contains(clampedClass) && element.scrollHeight > maxHeight;
+    if (fitKey === this.titleFitKey && !overflowing) {
+      return;
+    }
+
+    this.titleFitKey = fitKey;
+
+    element.style.fontSize = '';
+    element.classList.remove(clampedClass);
+    if (element.scrollHeight <= maxHeight) {
+      return;
+    }
+
+    const maxFontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+    if (!Number.isFinite(maxFontSize) || maxFontSize <= minFontSize) {
+      element.classList.add(clampedClass);
+      return;
+    }
+
+    const fitsAt = (fontSize: number): boolean => {
+      element.style.fontSize = `${String(fontSize)}px`;
+      return element.scrollHeight <= maxHeight;
+    };
+
+    // Binary search over the step grid for the largest size that fits.
+    let low = 0;
+    let high = Math.floor((maxFontSize - minFontSize) / step);
+    let best: number | null = null;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const fontSize = minFontSize + middle * step;
+      if (fitsAt(fontSize)) {
+        best = fontSize;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    element.style.fontSize = `${String(best ?? minFontSize)}px`;
+    if (best === null) {
+      element.classList.add(clampedClass);
+    }
+  }
+
   private isDetailTextOverflowing(element: HTMLElement | undefined): boolean {
     if (!element) {
       return false;
@@ -845,15 +1022,21 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   formatMetadataList(values: string[] | null | undefined): string {
-    if (!Array.isArray(values) || values.length === 0) {
-      return 'None';
+    const normalized = this.normalizeMetadataList(values);
+    return normalized.length > 0 ? normalized.join(', ') : 'None';
+  }
+
+  /** Genres as chips: trimmed, de-duplicated, blanks dropped. */
+  get genreItems(): string[] {
+    return this.normalizeMetadataList(this.game.genres);
+  }
+
+  private normalizeMetadataList(values: string[] | null | undefined): string[] {
+    if (!Array.isArray(values)) {
+      return [];
     }
 
-    const normalized = [
-      ...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)),
-    ];
-
-    return normalized.length > 0 ? normalized.join(', ') : 'None';
+    return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
   }
 
   private normalizeReviewScore(value: number | null | undefined): number | null {
@@ -1085,9 +1268,9 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     return normalized;
   }
 
-  private formatCompletionHours(value: number | null | undefined): string {
+  private formatCompletionHours(value: number | null | undefined): string | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-      return 'Unknown';
+      return null;
     }
 
     const rounded = Math.round(value * 10) / 10;

@@ -375,6 +375,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
         hltbCompletionistHours: 30,
+        fetchedAt: '2026-11-01T10:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -406,6 +407,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
         hltbCompletionistHours: 30,
+        hltbFetchedAt: '2026-11-01T10:00:00.000Z',
       }),
       'collection'
     );
@@ -523,6 +525,7 @@ describe('GameShelfService', () => {
         reviewScore: 85,
         reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
         reviewSource: 'metacritic',
+        fetchedAt: '2026-10-30T08:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue({
@@ -547,6 +550,7 @@ describe('GameShelfService', () => {
         reviewSource: 'metacritic',
         metacriticScore: 85,
         metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewFetchedAt: '2026-10-30T08:00:00.000Z',
       }),
       'collection'
     );
@@ -1262,6 +1266,7 @@ describe('GameShelfService', () => {
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
+        fetchedAt: '2026-11-01T10:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1281,12 +1286,43 @@ describe('GameShelfService', () => {
         hltbMainHours: 14,
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
+        hltbFetchedAt: '2026-11-01T10:00:00.000Z',
         platform: 'Wii',
         platformIgdbId: 5,
       }),
       'collection'
     );
+    // The review's date is left to the repository to keep.
+    expect(repository.upsertFromCatalog.mock.calls[0]?.[0]).not.toHaveProperty('reviewFetchedAt');
     expect(result).toEqual(updatedEntry);
+  });
+
+  it('dates HLTB times read now when the lookup response carries no fetchedAt', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({ hltbMainHours: 14, hltbMainExtraHours: null, hltbCompletionistHours: null })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+
+    const before = Date.now();
+    await service.refreshGameCompletionTimes('123', 5);
+
+    const catalog = repository.upsertFromCatalog.mock.calls[0]?.[0] as GameCatalogResult;
+    expect(Date.parse(String(catalog.hltbFetchedAt))).toBeGreaterThanOrEqual(before);
   });
 
   it('refreshGameCompletionTimes prefers persisted HLTB match query fields when present', async () => {
@@ -1587,6 +1623,7 @@ describe('GameShelfService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        hltbFetchedAt: null,
       }),
       'collection'
     );
@@ -1621,6 +1658,7 @@ describe('GameShelfService', () => {
         reviewScore: 87,
         reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
         reviewSource: 'metacritic',
+        fetchedAt: '2026-10-30T08:00:00.000Z',
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -1639,6 +1677,7 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         metacriticScore: 87,
         metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewFetchedAt: '2026-10-30T08:00:00.000Z',
       }),
       'collection'
     );
@@ -3304,6 +3343,9 @@ describe('GameShelfService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        // The old match's read dates go with its values.
+        hltbFetchedAt: null,
+        reviewFetchedAt: null,
       }),
       'collection'
     );

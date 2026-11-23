@@ -4364,3 +4364,19 @@
 ## v1.92.4 - 2026-11-13
 
 - 0412029e fix(ui): stop detail loading spinners getting stuck open (#669)
+
+## v1.93.0 - 2026-11-22
+
+- d1bbd6a1 feat(detail): show when price, HLTB and review data was read (#682)
+
+## v1.93.1 - 2026-11-23
+
+- 02b8ea86 fix(release-monitor): pin date catch-up to saved matches (#685)
+
+## v1.94.0 - 2026-11-23
+
+- c4606ce9 feat(detail): redesign game detail around an at-a-glance card (#686)
+
+## v1.94.1 - 2026-11-23
+
+- 2ef9bf19 chore(deps): bump deps, playwright images and audit fixes (#687)

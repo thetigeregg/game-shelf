@@ -734,10 +734,15 @@ describe('SettingsPage CSV review fields', () => {
     await page.applyImport();
 
     expect(addGame).toHaveBeenCalledOnce();
-    expect(addGame).toHaveBeenCalledWith(expect.any(Object), 'collection', {
-      enrichInBackground: false,
-      refreshPricingInBackground: false,
-    });
+    // Imported HLTB/review values carry no date of when they were read.
+    expect(addGame).toHaveBeenCalledWith(
+      expect.objectContaining({ hltbFetchedAt: null, reviewFetchedAt: null }),
+      'collection',
+      {
+        enrichInBackground: false,
+        refreshPricingInBackground: false,
+      }
+    );
     expect(setGameTimestamps).not.toHaveBeenCalled();
   });
 

@@ -28,22 +28,10 @@ vi.mock('@ionic/angular', () => ({
 vi.mock('ionicons/icons', () => ({
   add: {},
   ban: {},
-  cash: {},
-  build: {},
-  business: {},
-  calendar: {},
-  documentText: {},
-  gameController: {},
-  gitBranch: {},
-  grid: {},
-  hardwareChip: {},
-  book: {},
-  library: {},
-  medal: {},
-  pricetags: {},
+  chevronDown: {},
   star: {},
-  time: {},
-  trophy: {},
+  starHalf: {},
+  starOutline: {},
 }));
 
 vi.mock('swiper', () => ({

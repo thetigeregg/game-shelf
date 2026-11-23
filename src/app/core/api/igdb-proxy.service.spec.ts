@@ -826,6 +826,68 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('keeps when HLTB was read from the lookup response', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
+    httpMock
+      .expectOne((request) => request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`)
+      .flush({ item: { hltbMainHours: 7 }, fetchedAt: '2026-11-01T10:00:00Z' });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 7,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      fetchedAt: '2026-11-01T10:00:00.000Z',
+    });
+  });
+
+  it('ignores an unparseable HLTB fetchedAt', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
+    httpMock
+      .expectOne((request) => request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`)
+      .flush({ item: { hltbMainHours: 7 }, fetchedAt: 'yesterday-ish' });
+
+    const result = await promise;
+    expect(result?.fetchedAt).toBeUndefined();
+  });
+
+  it('keeps when the review score was read from Metacritic and MobyGames responses', async () => {
+    const metacriticPromise = firstValueFrom(service.lookupReviewScore('Okami', 2006, 'Wii', 21));
+    httpMock
+      .expectOne((request) => request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search`)
+      .flush({
+        item: { metacriticScore: 92, metacriticUrl: 'https://www.metacritic.com/game/okami/' },
+        fetchedAt: '2026-10-30T08:00:00.000Z',
+      });
+    await expect(metacriticPromise).resolves.toMatchObject({
+      reviewScore: 92,
+      reviewSource: 'metacritic',
+      fetchedAt: '2026-10-30T08:00:00.000Z',
+    });
+
+    const mobyPromise = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19, 1597)
+    );
+    httpMock
+      .expectOne((request) => request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`)
+      .flush({
+        games: [
+          {
+            game_id: 1597,
+            title: 'Final Fantasy III',
+            release_date: '1994-10-20',
+            platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+            moby_score: 9.1,
+            moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/',
+          },
+        ],
+        fetchedAt: '2026-10-28T12:00:00.000Z',
+      });
+    await expect(mobyPromise).resolves.toMatchObject({
+      reviewSource: 'mobygames',
+      fetchedAt: '2026-10-28T12:00:00.000Z',
+    });
+  });
+
   it('routes review score lookup by platform support matrix', async () => {
     const metacriticPromise = firstValueFrom(
       service.lookupMetacriticScore('Okami', 2006, 'Wii', 21)

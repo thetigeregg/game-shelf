@@ -79,80 +79,443 @@
   display: none;
 }
 
+// Surfaces tint the page background, so they read in light and dark palettes alike.
+.detail-content-inner {
+  --detail-surface: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
+  --detail-surface-raised: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+  --detail-border: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+  --detail-muted: var(--ion-color-medium);
+}
+
+.detail-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+// Title block under the carousel.
+.detail-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 18px 20px 4px;
+}
+
+// The component scales the size down so the title stays within this height.
 .detail-game-name {
+  max-height: 40px;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
+// Too long to fit even at the smallest size: two lines and an ellipsis.
+.detail-game-name-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.detail-header-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--detail-muted);
+}
+
 .detail-actions-toolbar {
-  --border-style: solid;
-  --border-width: 0.55px 0;
-  --border-color: rgba(var(--ion-color-medium-rgb), 0.28);
+  --background: transparent;
+  --border-width: 0;
+  padding: 4px 12px 0;
 }
 
-.detail-clear-button {
-  margin-left: 8px;
+// Status, rating and tags: tappable pills.
+.detail-personal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 18px;
 }
 
-.detail-text-label {
-  flex: 1 1 auto;
-  width: 100%;
-  max-width: 100%;
-  margin-right: 0;
+.detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--detail-border);
+  border-radius: 18px;
+  background: var(--detail-surface);
+  color: var(--ion-text-color);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detail-status-chip ion-icon {
+  font-size: 1rem;
+}
+
+.detail-status-chip-set {
+  border-color: rgba(var(--ion-color-primary-rgb), 0.5);
+  background: rgba(var(--ion-color-primary-rgb), 0.14);
+}
+
+.detail-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ion-color-primary);
+}
+
+.detail-status-select {
+  display: none;
+}
+
+.detail-rating-chip {
+  gap: 2px;
+}
+
+.detail-rating-chip ion-icon {
+  font-size: 1rem;
+  color: #ffc94d;
+}
+
+.detail-rating-value {
+  margin-left: 6px;
+}
+
+.detail-tags-button {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ion-text-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail-tags-button ion-badge {
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --padding-top: 5px;
+  --padding-bottom: 5px;
+  border-radius: 13px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.detail-tags-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px dashed rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.3);
+  border-radius: 13px;
+  box-sizing: border-box;
+  font-size: 0.8rem;
+}
+
+.detail-tags-add-empty {
+  padding: 0 10px 0 6px;
+}
+
+// At-a-glance card: score, price and HLTB together.
+.detail-glance {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 16px 16px;
+  padding: 16px;
+  border: 1px solid var(--detail-border);
+  border-radius: 16px;
+  background: var(--detail-surface);
+}
+
+// Columns size to their content, so a long price takes the room the short score and
+// HLTB values leave, and only wraps when even that is not enough.
+.detail-glance-stats {
+  display: grid;
+  grid-auto-columns: auto;
+  grid-auto-flow: column;
+}
+
+.detail-glance-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 12px;
+  border-left: 1px solid var(--detail-border);
+}
+
+.detail-glance-stat:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.detail-glance-stat:last-child {
+  padding-right: 0;
+}
+
+.detail-glance-label {
+  font-size: 0.75rem;
+  color: var(--detail-muted);
+}
+
+.detail-glance-value {
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 389px) {
+  .detail-glance-value,
+  .detail-score-badge {
+    font-size: 1.125rem;
+  }
+}
+
+.detail-glance-value-missing {
+  color: var(--detail-muted);
+}
+
+.detail-glance-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.detail-glance-sub-muted {
+  color: var(--detail-muted);
+}
+
+.detail-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 6px;
+  border-radius: 10px;
+  box-sizing: border-box;
+  background: var(--detail-surface-raised);
+  font-size: 1.375rem;
+  font-weight: 800;
+}
+
+// Metacritic's bands, in the same theme colours as the list view's score badge.
+.detail-score-good {
+  background: var(--ion-color-mc-good);
+  color: var(--ion-color-mc-good-contrast);
+}
+
+.detail-score-okay {
+  background: var(--ion-color-mc-okay);
+  color: var(--ion-color-mc-okay-contrast);
+}
+
+.detail-score-bad {
+  background: var(--ion-color-mc-bad);
+  color: var(--ion-color-mc-bad-contrast);
+}
+
+.detail-discount-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #ffb347;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.detail-regular-price {
+  color: var(--detail-muted);
+}
+
+.detail-hltb {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-hltb-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--detail-surface-raised);
+}
+
+.detail-hltb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.detail-hltb-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.detail-hltb-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+// Three shades of one hue, told apart by lightness.
+.detail-hltb-main {
+  background: var(--ion-color-primary);
+}
+
+.detail-hltb-extra {
+  background: rgba(var(--ion-color-primary-rgb), 0.55);
+}
+
+.detail-hltb-completionist {
+  background: rgba(var(--ion-color-primary-rgb), 0.25);
+}
+
+.detail-glance-updated {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--detail-muted);
+}
+
+// About: summary and storyline.
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 20px 0;
+}
+
+.detail-section-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.detail-subsection-title {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.detail-storyline {
+  align-self: stretch;
+}
+
+// A rule between summary and storyline, only when the game has both.
+.detail-storyline-separated {
+  margin-top: 12px;
+  border-top: 1px solid var(--detail-border);
 }
 
 .detail-long-text {
+  margin: 0 0 4px;
   white-space: pre-line;
   overflow-wrap: anywhere;
-  margin-bottom: 6px;
+  line-height: 1.5;
+  color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.8);
+}
+
+// Tapping expandable text toggles it, like the Show more button (which stays for keyboards).
+.detail-long-text-toggleable {
+  cursor: pointer;
 }
 
 .detail-long-text-collapsed {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   overflow: hidden;
 }
 
 .detail-text-toggle {
   margin: 0;
-  min-height: 24px;
+  min-height: 28px;
   --padding-start: 0;
   --padding-end: 0;
+  font-weight: 600;
 }
 
-.game-tags {
+// Credits and genres: one inset card of key/value rows.
+ion-list.detail-facts.list-inset {
+  margin: 16px 16px 0;
+  border: 1px solid var(--detail-border);
+  border-radius: 16px;
+  background: var(--detail-surface);
+}
+
+.detail-facts ion-item {
+  --background: transparent;
+  --border-color: var(--detail-border);
+}
+
+.detail-fact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: normal;
+}
+
+.detail-fact-key {
+  flex: 0 0 92px;
+  font-size: 0.875rem;
+  color: var(--detail-muted);
+}
+
+.detail-fact-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-genre-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 6px;
 }
 
-.game-tags ion-badge {
-  font-size: 0.68rem;
+.detail-genre-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--detail-border);
+  border-radius: 14px;
+  background: var(--detail-surface-raised);
+  font-size: 0.8rem;
 }
 
-.game-type-badge {
-  --background: #4a4a4a;
-  --color: #ffffff;
-  margin-top: 6px;
-  margin-right: 6px;
-  font-size: 0.66rem;
-  font-weight: 600;
-  text-transform: none;
-}
-
-.detail-game-type-badge {
-  margin-top: 8px;
-}
-
-ion-item h2 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-ion-item p {
-  margin-top: 4px;
-  color: var(--ion-color-medium);
+// Projected sections (More like this) sit on the page background like the cards above,
+// instead of Ionic's opaque item and toolbar backgrounds.
+.detail-secondary {
+  --ion-item-background: transparent;
+  --ion-toolbar-background: transparent;
+  margin-top: 16px;
 }

@@ -96,6 +96,7 @@ import {
   ManualCandidate,
   RomCandidate,
 } from '../../core/models/game.models';
+import { getReviewScoreBand, ReviewScoreBand } from '../../core/utils/review-score-band';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { ManualService } from '../../core/services/manual.service';
@@ -3270,18 +3271,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.getRowReviewScore(game) !== null;
   }
 
-  getRowReviewBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
+  getRowReviewBadgeClass(game: GameEntry): ReviewScoreBand {
     const score = this.getRowReviewScore(game);
-
-    if (score !== null && score >= 75) {
-      return 'mc-good';
-    }
-
-    if (score !== null && score >= 50) {
-      return 'mc-okay';
-    }
-
-    return 'mc-bad';
+    return score !== null ? getReviewScoreBand(score) : 'mc-bad';
   }
 
   getGameTypeBadgeLabel(game: GameEntry): string | null {

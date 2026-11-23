@@ -1127,7 +1127,7 @@ export class GameSyncService implements SyncOutboxWriter {
       : null;
   }
 
-  private normalizePriceFetchedAt(value: unknown): string | null {
+  private normalizeFetchedAt(value: unknown): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
   }
@@ -1748,6 +1748,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.hltbMatchLocked === undefined
           ? this.normalizeOptionalBoolean(existingByIdentity?.hltbMatchLocked)
           : this.normalizeOptionalBoolean(payload.hltbMatchLocked),
+      hltbFetchedAt:
+        payload.hltbFetchedAt === undefined
+          ? this.normalizeFetchedAt(existingByIdentity?.hltbFetchedAt)
+          : this.normalizeFetchedAt(payload.hltbFetchedAt),
       reviewScore: effectiveReviewScore,
       reviewUrl: normalizedReviewUrl,
       reviewSource: normalizedReviewSource,
@@ -1777,6 +1781,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.reviewMatchLocked === undefined
           ? this.normalizeOptionalBoolean(existingByIdentity?.reviewMatchLocked)
           : this.normalizeOptionalBoolean(payload.reviewMatchLocked),
+      reviewFetchedAt:
+        payload.reviewFetchedAt === undefined
+          ? this.normalizeFetchedAt(existingByIdentity?.reviewFetchedAt)
+          : this.normalizeFetchedAt(payload.reviewFetchedAt),
       metacriticScore: normalizedMetacriticScore,
       metacriticUrl: normalizedMetacriticUrl,
       compatStatus:
@@ -1820,8 +1828,8 @@ export class GameSyncService implements SyncOutboxWriter {
           : this.normalizePriceSource(payload.priceSource),
       priceFetchedAt:
         payload.priceFetchedAt === undefined
-          ? this.normalizePriceFetchedAt(existingByIdentity?.priceFetchedAt)
-          : this.normalizePriceFetchedAt(payload.priceFetchedAt),
+          ? this.normalizeFetchedAt(existingByIdentity?.priceFetchedAt)
+          : this.normalizeFetchedAt(payload.priceFetchedAt),
       priceAmount:
         payload.priceAmount === undefined
           ? this.normalizePriceAmount(existingByIdentity?.priceAmount)

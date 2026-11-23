@@ -927,6 +927,36 @@ describe('GameSyncService', () => {
     expect(stored?.psPricesMatchLocked).toBe(true);
   });
 
+  it('takes HLTB and review fetch dates from pulled payloads, keeping stored ones when omitted', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      hltbFetchedAt: '2026-10-01T00:00:00.000Z',
+      reviewFetchedAt: '2026-10-02T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: 'fetched-at-pull',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ hltbFetchedAt: ' 2026-11-01T10:00:00.000Z ' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z',
+    });
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbFetchedAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(stored?.reviewFetchedAt).toBe('2026-10-02T00:00:00.000Z');
+  });
+
   it('overwrites provider override query fields and lock flags when pulled upsert explicitly provides values', async () => {
     await db.games.put({
       igdbGameId: '123',

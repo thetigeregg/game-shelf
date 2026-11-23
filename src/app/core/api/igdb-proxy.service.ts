@@ -58,15 +58,21 @@ interface BoxArtSearchResponse {
 interface HltbSearchResponse {
   item: HltbCompletionTimes | null;
   candidates?: HltbMatchCandidate[] | null;
+  /** When the server's cache entry was written (or now, on a fresh fetch). */
+  fetchedAt?: unknown;
 }
 
 interface MetacriticSearchResponse {
   item: MetacriticScoreResult | null;
   candidates?: MetacriticMatchCandidate[] | null;
+  /** When the server's cache entry was written (or now, on a fresh fetch). */
+  fetchedAt?: unknown;
 }
 
 interface MobyGamesSearchResponse {
   games?: MobyGamesGameResult[] | null;
+  /** When the server's cache entry was written (or now, on a fresh fetch). */
+  fetchedAt?: unknown;
 }
 
 interface MobyGamesGameResult {
@@ -382,7 +388,7 @@ export class IgdbProxyService implements GameSearchApi {
           if (preferredCandidate) {
             const normalizedPreferred = this.normalizeCompletionTimes(preferredCandidate);
             if (normalizedPreferred !== null) {
-              return normalizedPreferred;
+              return this.withFetchedAt(normalizedPreferred, response.fetchedAt);
             }
           }
         }
@@ -392,7 +398,7 @@ export class IgdbProxyService implements GameSearchApi {
           normalized,
           hasNormalizedResult: normalized !== null,
         });
-        return normalized;
+        return this.withFetchedAt(normalized, response.fetchedAt);
       }),
       catchError((error) => {
         const rateLimitError = this.toRateLimitError(error);
@@ -578,7 +584,7 @@ export class IgdbProxyService implements GameSearchApi {
                 normalized,
                 hasNormalizedResult: normalized !== null,
               });
-              return normalized;
+              return this.withFetchedAt(normalized, response.fetchedAt);
             }),
             catchError((error) => {
               const rateLimitError = this.toRateLimitError(error);
@@ -637,7 +643,10 @@ export class IgdbProxyService implements GameSearchApi {
               return candidateUrl === normalizedPreferredReviewUrl;
             }) ?? null;
           if (preferredCandidate) {
-            return this.toReviewScoreResult(preferredCandidate);
+            return this.withFetchedAt(
+              this.toReviewScoreResult(preferredCandidate),
+              response.fetchedAt
+            );
           }
         }
         const normalized = this.normalizeReviewScoreResult(response.item ?? null, 'metacritic');
@@ -646,7 +655,7 @@ export class IgdbProxyService implements GameSearchApi {
           normalized,
           hasNormalizedResult: normalized !== null,
         });
-        return normalized;
+        return this.withFetchedAt(normalized, response.fetchedAt);
       }),
       catchError((error) => {
         const rateLimitError = this.toRateLimitError(error);
@@ -1494,6 +1503,21 @@ export class IgdbProxyService implements GameSearchApi {
 
     const timestamp = Date.parse(releaseDate);
     return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+  }
+
+  /**
+   * Adds the server's `fetchedAt` (when the provider's data was read) to a lookup result.
+   * Missing or unparseable dates leave the result without one.
+   */
+  private withFetchedAt<T extends { fetchedAt?: string | null }>(
+    result: T | null,
+    fetchedAt: unknown
+  ): T | null {
+    if (result === null) {
+      return null;
+    }
+    const normalized = typeof fetchedAt === 'string' ? this.normalizeReleaseDate(fetchedAt) : null;
+    return normalized === null ? result : { ...result, fetchedAt: normalized };
   }
 
   private normalizeCompletionTimes(value: HltbCompletionTimes | null): HltbCompletionTimes | null {

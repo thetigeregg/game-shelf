@@ -105,13 +105,23 @@
   padding: 18px 20px 4px;
 }
 
+// The component scales the size down so the title stays within this height.
 .detail-game-name {
+  max-height: 40px;
   margin: 0;
+  overflow: hidden;
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.15;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+// Too long to fit even at the smallest size: two lines and an ellipsis.
+.detail-game-name-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .detail-header-meta {

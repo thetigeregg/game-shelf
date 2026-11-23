@@ -573,6 +573,107 @@ describe('GameDetailContentComponent rating display', () => {
     });
   });
 
+  describe('title fitting', () => {
+    const LINE_HEIGHT = 1.15;
+    const CHAR_WIDTH = 0.55;
+
+    // A title element whose height follows a simple text-layout model: characters of
+    // CHAR_WIDTH ems wrap at the element's width into lines of LINE_HEIGHT ems.
+    function createTitleElement(text: string, width: number) {
+      const element = document.createElement('h1');
+      element.textContent = text;
+      const state = { width };
+      Object.defineProperty(element, 'clientWidth', { get: () => state.width });
+      Object.defineProperty(element, 'scrollHeight', {
+        get: () => {
+          const fontSize = Number.parseFloat(element.style.fontSize) || 28;
+          const lines = Math.ceil((text.length * CHAR_WIDTH * fontSize) / state.width);
+          return Math.ceil(lines * fontSize * LINE_HEIGHT);
+        },
+      });
+      return { element, state };
+    }
+
+    function fit(component: GameDetailContentComponent, element: HTMLElement): void {
+      (component as unknown as { titleTextRef: { nativeElement: HTMLElement } }).titleTextRef = {
+        nativeElement: element,
+      };
+      (component as unknown as { fitTitleToMaxHeight: () => void }).fitTitleToMaxHeight();
+    }
+
+    function heightAt(text: string, width: number, fontSize: number): number {
+      const lines = Math.ceil((text.length * CHAR_WIDTH * fontSize) / width);
+      return Math.ceil(lines * fontSize * LINE_HEIGHT);
+    }
+
+    beforeEach(() => {
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+        fontSize: '28px',
+      } as CSSStyleDeclaration);
+    });
+
+    it('keeps the stylesheet size when the title fits in 40px', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('Celeste', 350);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('');
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(false);
+    });
+
+    it('uses the largest half-pixel size that keeps a long title within 40px', () => {
+      const component = createComponent();
+      const title = 'Atelier Escha & Logy: Alchemists of the Dusk Sky';
+      const { element } = createTitleElement(title, 350);
+
+      fit(component, element);
+
+      const fontSize = Number.parseFloat(element.style.fontSize);
+      expect(fontSize).toBeLessThan(28);
+      expect(heightAt(title, 350, fontSize)).toBeLessThanOrEqual(40);
+      expect(heightAt(title, 350, fontSize + 0.5)).toBeGreaterThan(40);
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(false);
+    });
+
+    it('clamps to two lines at 12px when even the smallest size is too tall', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('A'.repeat(400), 350);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('12px');
+      expect(element.classList.contains('detail-game-name-clamped')).toBe(true);
+    });
+
+    it('refits only when the width or the title changes', () => {
+      const component = createComponent();
+      const title = 'Atelier Escha & Logy: Alchemists of the Dusk Sky';
+      const { element, state } = createTitleElement(title, 350);
+
+      fit(component, element);
+      const fittedSize = element.style.fontSize;
+      element.style.fontSize = '99px';
+
+      fit(component, element);
+      expect(element.style.fontSize).toBe('99px');
+
+      state.width = 700;
+      fit(component, element);
+      expect(element.style.fontSize).not.toBe('99px');
+      expect(element.style.fontSize).not.toBe(fittedSize);
+    });
+
+    it('waits for layout when the title has no width yet', () => {
+      const component = createComponent();
+      const { element } = createTitleElement('A'.repeat(400), 0);
+
+      fit(component, element);
+
+      expect(element.style.fontSize).toBe('');
+    });
+  });
+
   it('shows free label for free games', () => {
     const component = createComponent();
     component.context = 'library';

@@ -94,6 +94,10 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly PRELOAD_MEDIA_SLIDE_COUNT = 2;
   private static readonly DETAIL_TEXT_COLLAPSED_CLASS = 'detail-long-text-collapsed';
+  private static readonly TITLE_MAX_HEIGHT_PX = 40;
+  private static readonly TITLE_MIN_FONT_SIZE_PX = 12;
+  private static readonly TITLE_FONT_SIZE_STEP_PX = 0.5;
+  private static readonly TITLE_CLAMPED_CLASS = 'detail-game-name-clamped';
   private static readonly PLACEHOLDER_MEDIA_SLIDES: DetailMediaSlide[] = [
     { key: 'placeholder', src: '', kind: 'placeholder' },
   ];
@@ -124,6 +128,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   @ViewChild('summaryText') private summaryTextRef?: ElementRef<HTMLElement>;
   @ViewChild('storylineText') private storylineTextRef?: ElementRef<HTMLElement>;
   @ViewChild('statusSelect') private statusSelectRef?: IonSelect;
+  @ViewChild('titleText') private titleTextRef?: ElementRef<HTMLElement>;
 
   readonly noStatusValue = NO_STATUS_VALUE;
 
@@ -155,6 +160,8 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   private cachedFormattedReleaseDateValue: string | null = null;
   private cachedFormattedReleaseDate = 'Unknown';
   private loadedMediaSlideKeys = new Set<string>();
+  private titleFitWidth: number | null = null;
+  private titleFitText: string | null = null;
   private prefetchedMediaSlideUrls = new Set<string>();
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef, { optional: true });
@@ -263,6 +270,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
       this.refreshSwiper();
       this.refreshDetailTextExpandableState();
+      this.fitTitleToMaxHeight();
     });
   }
 
@@ -279,6 +287,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       }
 
       this.refreshDetailTextExpandableState();
+      this.fitTitleToMaxHeight();
     });
   }
 
@@ -343,6 +352,7 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
     const elements = [
       this.summaryTextRef?.nativeElement,
       this.storylineTextRef?.nativeElement,
+      this.titleTextRef?.nativeElement,
     ].filter((element): element is HTMLElement => Boolean(element));
 
     if (elements.length === 0) {
@@ -870,6 +880,70 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
       summary: summaryExpandable ? this.detailTextExpanded.summary : false,
       storyline: storylineExpandable ? this.detailTextExpanded.storyline : false,
     };
+  }
+
+  /**
+   * Keeps the title within 40px of height: the stylesheet's size when it fits, else the
+   * largest size (half-pixel steps, 12px floor) that does. A title too long even at the
+   * floor is clamped to two lines. Refits only when the width or the text changes, so the
+   * resize its own font change causes does not loop.
+   */
+  private fitTitleToMaxHeight(): void {
+    const element = this.titleTextRef?.nativeElement;
+    if (!element) {
+      return;
+    }
+
+    const width = element.clientWidth;
+    const text = element.textContent;
+    if (width <= 0 || (width === this.titleFitWidth && text === this.titleFitText)) {
+      return;
+    }
+
+    this.titleFitWidth = width;
+    this.titleFitText = text;
+
+    const maxHeight = GameDetailContentComponent.TITLE_MAX_HEIGHT_PX;
+    const minFontSize = GameDetailContentComponent.TITLE_MIN_FONT_SIZE_PX;
+    const step = GameDetailContentComponent.TITLE_FONT_SIZE_STEP_PX;
+    const clampedClass = GameDetailContentComponent.TITLE_CLAMPED_CLASS;
+
+    element.style.fontSize = '';
+    element.classList.remove(clampedClass);
+    if (element.scrollHeight <= maxHeight) {
+      return;
+    }
+
+    const maxFontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+    if (!Number.isFinite(maxFontSize) || maxFontSize <= minFontSize) {
+      element.classList.add(clampedClass);
+      return;
+    }
+
+    const fitsAt = (fontSize: number): boolean => {
+      element.style.fontSize = `${String(fontSize)}px`;
+      return element.scrollHeight <= maxHeight;
+    };
+
+    // Binary search over the step grid for the largest size that fits.
+    let low = 0;
+    let high = Math.floor((maxFontSize - minFontSize) / step);
+    let best: number | null = null;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const fontSize = minFontSize + middle * step;
+      if (fitsAt(fontSize)) {
+        best = fontSize;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    element.style.fontSize = `${String(best ?? minFontSize)}px`;
+    if (best === null) {
+      element.classList.add(clampedClass);
+    }
   }
 
   private isDetailTextOverflowing(element: HTMLElement | undefined): boolean {

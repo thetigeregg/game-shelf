@@ -135,7 +135,7 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const okButton = page.getByRole('button', { name: 'OK' });
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const visible = await versionAlert.isVisible({ timeout: 2500 }).catch(() => false);
+    const visible = await versionAlert.isVisible().catch(() => false);
     if (!visible) {
       return;
     }
@@ -148,7 +148,7 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
 async function dismissAnyVisibleAlertIfPresent(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const alert = page.locator('ion-alert').last();
-    const isVisible = await alert.isVisible({ timeout: 1200 }).catch(() => false);
+    const isVisible = await alert.isVisible().catch(() => false);
 
     if (!isVisible) {
       return;

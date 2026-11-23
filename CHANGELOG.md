@@ -4376,3 +4376,7 @@
 ## v1.94.0 - 2026-11-23
 
 - c4606ce9 feat(detail): redesign game detail around an at-a-glance card (#686)
+
+## v1.94.1 - 2026-11-23
+
+- 2ef9bf19 chore(deps): bump deps, playwright images and audit fixes (#687)

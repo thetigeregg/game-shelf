@@ -344,7 +344,8 @@
                 <app-similar-game-tile
                   [title]="getSimilarTitle(similar)"
                   [coverUrl]="getSimilarCoverUrl(similar)"
-                  [subtitle]="getSimilarContext(similar)"
+                  [releaseYear]="getSimilarReleaseYear(similar)"
+                  [platform]="getSimilarPlatformLabel(similar)"
                   (tileClick)="openSimilarRecommendation(similar)"
                 ></app-similar-game-tile>
               }

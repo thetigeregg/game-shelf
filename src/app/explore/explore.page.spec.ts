@@ -2516,6 +2516,34 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
   });
 
+  it('reads similar year and platform from the library game, then from metadata', () => {
+    const page = createPage() as unknown as {
+      localGameCacheByIdentity: Map<string, unknown>;
+      recommendationDisplayMetadata: Map<string, unknown>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      getSimilarPlatformLabel: (item: unknown) => string;
+      getSimilarReleaseYear: (item: unknown) => number | null;
+    };
+    const local = { igdbGameId: '10', platformIgdbId: 130, platform: 'Nintendo Switch' };
+    page.localGameCacheByIdentity.set(page.buildIdentityKey('10', 130), {
+      ...local,
+      releaseYear: 2017,
+    });
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('11', 6), {
+      title: 'Remote',
+      coverUrl: null,
+      platformLabel: 'PC (Microsoft Windows)',
+      releaseYear: 2015,
+    });
+
+    expect(page.getSimilarReleaseYear(local)).toBe(2017);
+    expect(page.getSimilarPlatformLabel(local)).toBe('Nintendo Switch');
+    expect(page.getSimilarReleaseYear({ igdbGameId: '11', platformIgdbId: 6 })).toBe(2015);
+    expect(page.getSimilarPlatformLabel({ igdbGameId: '11', platformIgdbId: 6 })).toBe(
+      'PC (Microsoft Windows)'
+    );
+  });
+
   it('covers empty-state, similar-display, and parser helper branches', () => {
     const page = createPage() as unknown as {
       activeLanesResponse: typeof mockLanesResponse | null;
@@ -2527,7 +2555,8 @@ describe('ExplorePage explore modes UX', () => {
       getEmptyStateMessage: () => string;
       getEmptyStateHint: () => string;
       getEmptyStateTokenHint: () => string;
-      getSimilarContext: (item: unknown) => string;
+      getSimilarPlatformLabel: (item: unknown) => string;
+      getSimilarReleaseYear: (item: unknown) => number | null;
       getSimilarTitle: (item: unknown) => string;
       getSimilarCoverUrl: (item: unknown) => string;
       goBackInDetailNavigation: () => void;
@@ -2599,7 +2628,8 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     };
-    expect(page.getSimilarContext(similar)).toContain('Platform 6');
+    expect(page.getSimilarPlatformLabel(similar)).toContain('Platform 6');
+    expect(page.getSimilarReleaseYear(similar)).toBeNull();
     expect(page.getSimilarTitle(similar)).toContain('Game #77');
     expect(page.getSimilarCoverUrl(similar)).toContain('placeholder');
 

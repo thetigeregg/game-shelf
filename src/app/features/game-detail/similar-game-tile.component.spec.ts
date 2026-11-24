@@ -13,6 +13,14 @@ describe('SimilarGameTileComponent', () => {
     expect(emitSpy).toHaveBeenCalledOnce();
   });
 
+  it('labels the release year, or says it is unknown', () => {
+    const component = new SimilarGameTileComponent();
+    expect(component.releaseYearLabel).toBe('Unknown year');
+
+    component.releaseYear = 2015;
+    expect(component.releaseYearLabel).toBe('2015');
+  });
+
   it('falls back to placeholder image on error', () => {
     const component = new SimilarGameTileComponent();
     const img = document.createElement('img');

@@ -231,7 +231,8 @@ interface SimilarDiscoveryGameRow {
   platformIgdbId: number;
   title: string;
   coverUrl: string | null;
-  subtitle: string;
+  platformLabel: string;
+  releaseYear: number | null;
   similarity: number;
   reasons: RecommendationSimilarityReasons;
 }
@@ -4484,7 +4485,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
           platformIgdbId: item.platformIgdbId,
           title: metadata?.title ?? `Game #${item.igdbGameId}`,
           coverUrl: metadata?.coverUrl ?? null,
-          subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+          platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+          releaseYear: metadata?.releaseYear ?? null,
           similarity: item.similarity,
           reasons: item.reasons,
         } satisfies SimilarDiscoveryGameRow;
@@ -4507,12 +4509,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
   }
 
-  getSimilarGameSubtitle(row: SimilarLibraryGameRow): string {
-    const game = row.game;
-    const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
-    const displayPlatform = this.getGameDisplayPlatform(game);
-    const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
-    return `${year} · ${platform}`;
+  getSimilarGamePlatformLabel(row: SimilarLibraryGameRow): string {
+    const displayPlatform = this.getGameDisplayPlatform(row.game);
+    return this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
   }
 
   getVisibleSimilarLibraryGames(): SimilarLibraryGameRow[] {
@@ -4739,7 +4738,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
             platformIgdbId: item.platformIgdbId,
             title: metadata?.title ?? `Game #${item.igdbGameId}`,
             coverUrl: metadata?.coverUrl ?? null,
-            subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+            platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+            releaseYear: metadata?.releaseYear ?? null,
             similarity: item.similarity,
             reasons: item.reasons,
           } satisfies SimilarDiscoveryGameRow;

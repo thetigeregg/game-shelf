@@ -1861,23 +1861,33 @@ export class ExplorePage implements OnInit {
     return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
-  getSimilarContext(item: RecommendationSimilarItem): string {
+  getSimilarPlatformLabel(item: RecommendationSimilarItem): string {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
 
-    if (!local) {
-      const metadata = this.getRecommendationDisplayMetadata({
+    if (local) {
+      return this.getPlatformDisplayName(local.platform, local.platformIgdbId);
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata({
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId,
+    });
+    return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
+  }
+
+  getSimilarReleaseYear(item: RecommendationSimilarItem): number | null {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+
+    if (local) {
+      return local.releaseYear;
+    }
+
+    return (
+      this.getRecommendationDisplayMetadata({
         igdbGameId: item.igdbGameId,
         platformIgdbId: item.platformIgdbId,
-      });
-      return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
-    }
-
-    const platform = this.getPlatformDisplayName(local.platform, local.platformIgdbId);
-    if (local.releaseYear === null) {
-      return platform;
-    }
-
-    return `${platform} • ${String(local.releaseYear)}`;
+      })?.releaseYear ?? null
+    );
   }
 
   async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {

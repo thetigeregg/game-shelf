@@ -489,7 +489,8 @@
                     <app-similar-game-tile
                       [title]="similarGame.title"
                       [coverUrl]="similarGame.coverUrl"
-                      [subtitle]="similarGame.subtitle"
+                      [releaseYear]="similarGame.releaseYear"
+                      [platform]="similarGame.platformLabel"
                       (tileClick)="onSimilarDiscoveryRowClick(similarGame)"
                     ></app-similar-game-tile>
                   }
@@ -563,7 +564,8 @@
                   <app-similar-game-tile
                     [title]="getGameDisplayTitle(similarGame.game)"
                     [coverUrl]="getRowCoverUrl(similarGame.game)"
-                    [subtitle]="getSimilarGameSubtitle(similarGame)"
+                    [releaseYear]="similarGame.game.releaseYear"
+                    [platform]="getSimilarGamePlatformLabel(similarGame)"
                     (tileClick)="onGameRowClick(similarGame.game, true)"
                   ></app-similar-game-tile>
                 }
@@ -603,7 +605,8 @@
                   <app-similar-game-tile
                     [title]="similarGame.title"
                     [coverUrl]="similarGame.coverUrl"
-                    [subtitle]="similarGame.subtitle"
+                    [releaseYear]="similarGame.releaseYear"
+                    [platform]="similarGame.platformLabel"
                     (tileClick)="onSimilarDiscoveryRowClick(similarGame)"
                   ></app-similar-game-tile>
                 }

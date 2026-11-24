@@ -96,6 +96,55 @@ describe('SimilarGamesStripComponent', () => {
     expect(emitSpy).toHaveBeenCalledOnce();
   });
 
+  it('waits while the parent is loading, then asks again once it finishes', () => {
+    const { strip, emitSpy } = createStrip({ clientWidth: 400, scrollWidth: 400, scrollLeft: 0 });
+    strip.canLoadMore = true;
+
+    strip.checkNearEnd();
+    expect(emitSpy).toHaveBeenCalledOnce();
+
+    strip.loading = true;
+    strip.ngOnChanges();
+    vi.runAllTimers();
+    expect(emitSpy).toHaveBeenCalledOnce();
+
+    // The page added nothing visible: itemCount is unchanged, only loading ends.
+    strip.loading = false;
+    strip.ngOnChanges();
+    vi.runAllTimers();
+    expect(emitSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('listens for scroll outside the zone and stops on destroy', () => {
+    const strip = TestBed.runInInjectionContext(() => new SimilarGamesStripComponent());
+    const element = document.createElement('div');
+    Object.defineProperties(element, {
+      clientWidth: { value: 400 },
+      scrollWidth: { value: 400 },
+    });
+    (strip as unknown as { scroller: ElementRef<HTMLDivElement> }).scroller = new ElementRef(
+      element
+    );
+    const emitSpy = vi.fn();
+    strip.loadMore.subscribe(emitSpy);
+    strip.canLoadMore = true;
+    strip.ngAfterViewInit();
+    vi.runAllTimers();
+    expect(emitSpy).toHaveBeenCalledOnce();
+
+    const resetPending = (): void => {
+      (strip as unknown as { loadMorePending: boolean }).loadMorePending = false;
+    };
+    resetPending();
+    element.dispatchEvent(new Event('scroll'));
+    expect(emitSpy).toHaveBeenCalledTimes(2);
+
+    strip.ngOnDestroy();
+    resetPending();
+    element.dispatchEvent(new Event('scroll'));
+    expect(emitSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('does nothing when there is nothing more to load', () => {
     const { strip, emitSpy } = createStrip({ clientWidth: 400, scrollWidth: 400, scrollLeft: 0 });
     strip.canLoadMore = false;

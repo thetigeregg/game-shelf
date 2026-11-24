@@ -323,7 +323,10 @@
             <div class="loading-state">
               <ion-spinner name="crescent"></ion-spinner>
             </div>
-          } @else if (similarRecommendationsError.length > 0) {
+          } @else if (
+            similarRecommendationsError.length > 0 &&
+            getVisibleSimilarRecommendationItems().length === 0
+          ) {
             <ion-item lines="none">
               <ion-text color="medium">{{ similarRecommendationsError }}</ion-text>
             </ion-item>
@@ -334,7 +337,10 @@
           } @else {
             <app-similar-games-strip
               [itemCount]="getVisibleSimilarRecommendationItems().length"
-              [canLoadMore]="canLoadMoreSimilarRecommendations()"
+              [canLoadMore]="
+                canLoadMoreSimilarRecommendations() && similarRecommendationsError.length === 0
+              "
+              [loading]="isLoadingSimilar"
               (loadMore)="loadMoreSimilarRecommendations()"
             >
               @for (
@@ -344,12 +350,17 @@
                 <app-similar-game-tile
                   [title]="getSimilarTitle(similar)"
                   [coverUrl]="getSimilarCoverUrl(similar)"
-                  [releaseYear]="getSimilarReleaseYear(similar)"
+                  [releaseYear]="getReleaseYear(similar)"
                   [platform]="getSimilarPlatformLabel(similar)"
                   (tileClick)="openSimilarRecommendation(similar)"
                 ></app-similar-game-tile>
               }
             </app-similar-games-strip>
+            @if (similarRecommendationsError.length > 0) {
+              <ion-item lines="none">
+                <ion-text color="medium">{{ similarRecommendationsError }}</ion-text>
+              </ion-item>
+            }
           }
         </div>
       }

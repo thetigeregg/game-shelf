@@ -19,14 +19,16 @@ export const SIMILAR_STRIP_LOAD_MORE_THRESHOLD_PX = 160;
 /**
  * Sideways-scrolling row of similar-game tiles. Emits `loadMore` once the
  * end of the row is in reach (or already visible because the row does not
- * overflow yet), and again only after `itemCount` or `canLoadMore` changes.
+ * overflow yet). It asks again only after an input changes (`itemCount`,
+ * `canLoadMore`, or `loading` ending) or after the user scrolls away from the
+ * end and back, so a page that adds no visible items is followed up.
  */
 @Component({
   selector: 'app-similar-games-strip',
   standalone: true,
   imports: [IonSpinner],
   template: `
-    <div #scroller class="similar-strip" role="list" (scroll)="onScroll()">
+    <div #scroller class="similar-strip" role="list">
       <ng-content />
       @if (canLoadMore) {
         <div class="similar-strip-more" aria-hidden="true">
@@ -86,6 +88,8 @@ export const SIMILAR_STRIP_LOAD_MORE_THRESHOLD_PX = 160;
 export class SimilarGamesStripComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() canLoadMore = false;
   @Input() itemCount = 0;
+  /** True while the parent fetches a page; no requests are made meanwhile. */
+  @Input() loading = false;
 
   @Output() loadMore = new EventEmitter<void>();
 
@@ -95,6 +99,10 @@ export class SimilarGamesStripComponent implements AfterViewInit, OnChanges, OnD
   private loadMorePending = false;
   private checkRafId: number | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private removeScrollListener: (() => void) | null = null;
+  private readonly scrollListener = (): void => {
+    this.onScroll();
+  };
 
   ngOnChanges(): void {
     this.loadMorePending = false;
@@ -103,6 +111,16 @@ export class SimilarGamesStripComponent implements AfterViewInit, OnChanges, OnD
 
   ngAfterViewInit(): void {
     const element = this.scroller?.nativeElement;
+
+    if (element) {
+      // Outside the zone: a scroll only runs change detection when it emits.
+      this.ngZone.runOutsideAngular(() => {
+        element.addEventListener('scroll', this.scrollListener, { passive: true });
+      });
+      this.removeScrollListener = () => {
+        element.removeEventListener('scroll', this.scrollListener);
+      };
+    }
 
     if (element && typeof ResizeObserver === 'function') {
       // Catches the row becoming visible (segment switch) or changing width.
@@ -116,6 +134,8 @@ export class SimilarGamesStripComponent implements AfterViewInit, OnChanges, OnD
   }
 
   ngOnDestroy(): void {
+    this.removeScrollListener?.();
+    this.removeScrollListener = null;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
 
@@ -133,7 +153,7 @@ export class SimilarGamesStripComponent implements AfterViewInit, OnChanges, OnD
     const element = this.scroller?.nativeElement;
 
     // A hidden row (clientWidth 0) would always look "at the end".
-    if (!element || !this.canLoadMore || element.clientWidth === 0) {
+    if (!element || !this.canLoadMore || this.loading || element.clientWidth === 0) {
       return;
     }
 

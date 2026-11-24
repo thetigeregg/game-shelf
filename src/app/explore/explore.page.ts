@@ -113,6 +113,8 @@ interface RecommendationBadge {
   color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
 }
 
+type RecommendationIdentity = Pick<RecommendationItem, 'igdbGameId' | 'platformIgdbId'>;
+
 interface RecommendationDisplayMetadata {
   title: string;
   coverUrl: string | null;
@@ -568,7 +570,7 @@ export class ExplorePage implements OnInit {
     return 'Unknown platform';
   }
 
-  getReleaseYear(item: RecommendationItem): number | null {
+  getReleaseYear(item: RecommendationIdentity): number | null {
     const local = this.getLocalGame(item);
     if (local) {
       return local.releaseYear;
@@ -1875,21 +1877,6 @@ export class ExplorePage implements OnInit {
     return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
   }
 
-  getSimilarReleaseYear(item: RecommendationSimilarItem): number | null {
-    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
-
-    if (local) {
-      return local.releaseYear;
-    }
-
-    return (
-      this.getRecommendationDisplayMetadata({
-        igdbGameId: item.igdbGameId,
-        platformIgdbId: item.platformIgdbId,
-      })?.releaseYear ?? null
-    );
-  }
-
   async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {
     event?.stopPropagation();
     const existing = this.findRecommendationItem(item.igdbGameId, item.platformIgdbId);
@@ -2018,7 +2005,7 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  private getLocalGame(item: RecommendationItem): GameEntry | null {
+  private getLocalGame(item: RecommendationIdentity): GameEntry | null {
     return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
   }
 

@@ -85,7 +85,6 @@ import {
   PriceMatchCandidate,
   ReviewMatchCandidate,
   GameRating,
-  RecommendationSimilarityReasons,
   RecommendationSimilarResponse,
   RecommendationTarget,
   GameStatus,
@@ -218,8 +217,6 @@ export interface GameListSelectionState {
 
 interface SimilarLibraryGameRow {
   game: GameEntry;
-  similarity: number;
-  reasons: RecommendationSimilarityReasons;
 }
 
 type SimilarDetailMode = 'library' | 'discovery';
@@ -233,8 +230,6 @@ interface SimilarDiscoveryGameRow {
   coverUrl: string | null;
   platformLabel: string;
   releaseYear: number | null;
-  similarity: number;
-  reasons: RecommendationSimilarityReasons;
 }
 
 interface RecommendationDisplayMetadata {
@@ -4394,11 +4389,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             return null;
           }
 
-          return {
-            game,
-            similarity: item.similarity,
-            reasons: item.reasons,
-          } satisfies SimilarLibraryGameRow;
+          return { game } satisfies SimilarLibraryGameRow;
         })
         .filter((entry): entry is SimilarLibraryGameRow => entry !== null);
       this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
@@ -4487,8 +4478,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
           coverUrl: metadata?.coverUrl ?? null,
           platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
           releaseYear: metadata?.releaseYear ?? null,
-          similarity: item.similarity,
-          reasons: item.reasons,
         } satisfies SimilarDiscoveryGameRow;
       });
       this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
@@ -4740,8 +4729,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
             coverUrl: metadata?.coverUrl ?? null,
             platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
             releaseYear: metadata?.releaseYear ?? null,
-            similarity: item.similarity,
-            reasons: item.reasons,
           } satisfies SimilarDiscoveryGameRow;
         });
     } catch (error) {

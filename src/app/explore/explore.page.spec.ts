@@ -2522,7 +2522,7 @@ describe('ExplorePage explore modes UX', () => {
       recommendationDisplayMetadata: Map<string, unknown>;
       buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
       getSimilarPlatformLabel: (item: unknown) => string;
-      getSimilarReleaseYear: (item: unknown) => number | null;
+      getReleaseYear: (item: unknown) => number | null;
     };
     const local = { igdbGameId: '10', platformIgdbId: 130, platform: 'Nintendo Switch' };
     page.localGameCacheByIdentity.set(page.buildIdentityKey('10', 130), {
@@ -2536,9 +2536,9 @@ describe('ExplorePage explore modes UX', () => {
       releaseYear: 2015,
     });
 
-    expect(page.getSimilarReleaseYear(local)).toBe(2017);
+    expect(page.getReleaseYear(local)).toBe(2017);
     expect(page.getSimilarPlatformLabel(local)).toBe('Nintendo Switch');
-    expect(page.getSimilarReleaseYear({ igdbGameId: '11', platformIgdbId: 6 })).toBe(2015);
+    expect(page.getReleaseYear({ igdbGameId: '11', platformIgdbId: 6 })).toBe(2015);
     expect(page.getSimilarPlatformLabel({ igdbGameId: '11', platformIgdbId: 6 })).toBe(
       'PC (Microsoft Windows)'
     );
@@ -2556,7 +2556,7 @@ describe('ExplorePage explore modes UX', () => {
       getEmptyStateHint: () => string;
       getEmptyStateTokenHint: () => string;
       getSimilarPlatformLabel: (item: unknown) => string;
-      getSimilarReleaseYear: (item: unknown) => number | null;
+      getReleaseYear: (item: unknown) => number | null;
       getSimilarTitle: (item: unknown) => string;
       getSimilarCoverUrl: (item: unknown) => string;
       goBackInDetailNavigation: () => void;
@@ -2629,7 +2629,7 @@ describe('ExplorePage explore modes UX', () => {
       },
     };
     expect(page.getSimilarPlatformLabel(similar)).toContain('Platform 6');
-    expect(page.getSimilarReleaseYear(similar)).toBeNull();
+    expect(page.getReleaseYear(similar)).toBeNull();
     expect(page.getSimilarTitle(similar)).toContain('Game #77');
     expect(page.getSimilarCoverUrl(similar)).toContain('placeholder');
 

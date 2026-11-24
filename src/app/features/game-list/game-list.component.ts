@@ -61,8 +61,6 @@ import {
   IonInput,
   IonMenu,
   IonSplitPane,
-  IonInfiniteScroll,
-  IonInfiniteScrollContent,
 } from '@ionic/angular';
 import { Editor } from '@tiptap/core';
 import tiptapStarterKit from '@tiptap/starter-kit';
@@ -87,7 +85,6 @@ import {
   PriceMatchCandidate,
   ReviewMatchCandidate,
   GameRating,
-  RecommendationSimilarityReasons,
   RecommendationSimilarResponse,
   RecommendationTarget,
   GameStatus,
@@ -163,7 +160,8 @@ import {
   buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../game-detail/detail-websites-modal.utils';
-import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
+import { SimilarGameTileComponent } from '../game-detail/similar-game-tile.component';
+import { SimilarGamesStripComponent } from '../game-detail/similar-games-strip.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
   MetadataFilterKind,
@@ -177,7 +175,6 @@ import {
   toNotesEditorContent,
 } from './notes-editor.utils';
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
-import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
 import { openDocumentUrl } from '../../core/utils/open-document-url.util';
 import { openExternalUrl } from '../../core/utils/open-external-url';
@@ -220,8 +217,6 @@ export interface GameListSelectionState {
 
 interface SimilarLibraryGameRow {
   game: GameEntry;
-  similarity: number;
-  reasons: RecommendationSimilarityReasons;
 }
 
 type SimilarDetailMode = 'library' | 'discovery';
@@ -233,9 +228,8 @@ interface SimilarDiscoveryGameRow {
   platformIgdbId: number;
   title: string;
   coverUrl: string | null;
-  subtitle: string;
-  similarity: number;
-  reasons: RecommendationSimilarityReasons;
+  platformLabel: string;
+  releaseYear: number | null;
 }
 
 interface RecommendationDisplayMetadata {
@@ -306,8 +300,6 @@ type NotesToolbarAction =
     IonInput,
     IonMenu,
     IonSplitPane,
-    IonInfiniteScroll,
-    IonInfiniteScrollContent,
     TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
@@ -315,7 +307,8 @@ type NotesToolbarAction =
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     EmulatorJsModalComponent,
-    SimilarGameRowComponent,
+    SimilarGameTileComponent,
+    SimilarGamesStripComponent,
   ],
 })
 export class GameListComponent implements OnChanges, OnDestroy {
@@ -4396,11 +4389,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             return null;
           }
 
-          return {
-            game,
-            similarity: item.similarity,
-            reasons: item.reasons,
-          } satisfies SimilarLibraryGameRow;
+          return { game } satisfies SimilarLibraryGameRow;
         })
         .filter((entry): entry is SimilarLibraryGameRow => entry !== null);
       this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
@@ -4487,9 +4476,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
           platformIgdbId: item.platformIgdbId,
           title: metadata?.title ?? `Game #${item.igdbGameId}`,
           coverUrl: metadata?.coverUrl ?? null,
-          subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
-          similarity: item.similarity,
-          reasons: item.reasons,
+          platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+          releaseYear: metadata?.releaseYear ?? null,
         } satisfies SimilarDiscoveryGameRow;
       });
       this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
@@ -4510,12 +4498,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
   }
 
-  getSimilarGameSubtitle(row: SimilarLibraryGameRow): string {
-    const game = row.game;
-    const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
-    const displayPlatform = this.getGameDisplayPlatform(game);
-    const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
-    return `${year} · ${platform}`;
+  getSimilarGamePlatformLabel(row: SimilarLibraryGameRow): string {
+    const displayPlatform = this.getGameDisplayPlatform(row.game);
+    return this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
   }
 
   getVisibleSimilarLibraryGames(): SimilarLibraryGameRow[] {
@@ -4530,13 +4515,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.getFilteredSimilarDiscoveryGames().length;
   }
 
-  getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
-    text: string;
-    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
-  }> {
-    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
-  }
-
   canLoadMoreSimilarLibraryGames(): boolean {
     return this.visibleSimilarLibraryGamesCount < this.similarLibraryGames.length;
   }
@@ -4545,14 +4523,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.visibleSimilarDiscoveryGamesCount < this.getTotalSimilarDiscoveryGames();
   }
 
-  async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
+  loadMoreSimilarLibraryGames(): void {
     this.visibleSimilarLibraryGamesCount += GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
-  async loadMoreSimilarDiscoveryGames(event: Event): Promise<void> {
+  loadMoreSimilarDiscoveryGames(): void {
     this.visibleSimilarDiscoveryGamesCount += GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
   onSimilarDiscoveryRowClick(row: SimilarDiscoveryGameRow): void {
@@ -4561,13 +4537,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     void this.openSimilarDiscoveryDetail(row);
-  }
-
-  getSimilarDiscoveryBadges(row: SimilarDiscoveryGameRow): Array<{
-    text: string;
-    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
-  }> {
-    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
   }
 
   private async openSimilarDiscoveryDetail(row: SimilarDiscoveryGameRow): Promise<void> {
@@ -4703,9 +4672,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
-  async loadMoreSimilarDiscoveryDetailRelatedGames(event: Event): Promise<void> {
+  loadMoreSimilarDiscoveryDetailRelatedGames(): void {
     this.visibleSimilarDiscoveryDetailRelatedCount += GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
   private async loadSimilarDiscoveryDetailRelatedGames(
@@ -4759,9 +4727,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
             platformIgdbId: item.platformIgdbId,
             title: metadata?.title ?? `Game #${item.igdbGameId}`,
             coverUrl: metadata?.coverUrl ?? null,
-            subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
-            similarity: item.similarity,
-            reasons: item.reasons,
+            platformLabel: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+            releaseYear: metadata?.releaseYear ?? null,
           } satisfies SimilarDiscoveryGameRow;
         });
     } catch (error) {

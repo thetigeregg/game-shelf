@@ -194,8 +194,10 @@
   margin-left: 6px;
 }
 
+// Full row width so tags always start below status and rating, never beside them.
 .detail-tags-button {
   display: inline-flex;
+  flex: 0 0 100%;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
@@ -518,4 +520,6 @@ ion-list.detail-facts.list-inset {
   --ion-item-background: transparent;
   --ion-toolbar-background: transparent;
   margin-top: 16px;
+  // Room for the floating web-shortcuts button below the last row.
+  padding-bottom: 56px;
 }

@@ -70,7 +70,8 @@ import {
   buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
-import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
+import { SimilarGameTileComponent } from '../features/game-detail/similar-game-tile.component';
+import { SimilarGamesStripComponent } from '../features/game-detail/similar-games-strip.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
@@ -111,6 +112,8 @@ interface RecommendationBadge {
   text: string;
   color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
 }
+
+type RecommendationIdentity = Pick<RecommendationItem, 'igdbGameId' | 'platformIgdbId'>;
 
 interface RecommendationDisplayMetadata {
   title: string;
@@ -166,7 +169,8 @@ interface RecommendationDisplayMetadata {
     GameDetailContentComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
-    SimilarGameRowComponent,
+    SimilarGameTileComponent,
+    SimilarGamesStripComponent,
   ],
 })
 export class ExplorePage implements OnInit {
@@ -510,21 +514,18 @@ export class ExplorePage implements OnInit {
     return page?.hasMore === true && page.nextOffset !== null;
   }
 
-  async loadMoreSimilarRecommendations(event: Event): Promise<void> {
-    try {
-      const active = this.activeDetailRecommendation;
-      const nextOffset = this.similarRecommendationsPage?.nextOffset;
-      if (!active || nextOffset === null || nextOffset === undefined) {
-        return;
-      }
-
-      await this.loadSimilarRecommendations(active, {
-        append: true,
-        offset: nextOffset,
-      });
-    } finally {
-      await completeIonInfiniteScroll(event);
+  async loadMoreSimilarRecommendations(): Promise<void> {
+    const active = this.activeDetailRecommendation;
+    const nextOffset = this.similarRecommendationsPage?.nextOffset;
+    // A page is already in flight: appending again would request the same offset twice.
+    if (this.isLoadingSimilar || !active || nextOffset === null || nextOffset === undefined) {
+      return;
     }
+
+    await this.loadSimilarRecommendations(active, {
+      append: true,
+      offset: nextOffset,
+    });
   }
 
   hasLoadedSelectedLaneItems(): boolean {
@@ -569,7 +570,7 @@ export class ExplorePage implements OnInit {
     return 'Unknown platform';
   }
 
-  getReleaseYear(item: RecommendationItem): number | null {
+  getReleaseYear(item: RecommendationIdentity): number | null {
     const local = this.getLocalGame(item);
     if (local) {
       return local.releaseYear;
@@ -1862,27 +1863,18 @@ export class ExplorePage implements OnInit {
     return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
-  getSimilarContext(item: RecommendationSimilarItem): string {
+  getSimilarPlatformLabel(item: RecommendationSimilarItem): string {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
 
-    if (!local) {
-      const metadata = this.getRecommendationDisplayMetadata({
-        igdbGameId: item.igdbGameId,
-        platformIgdbId: item.platformIgdbId,
-      });
-      return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
+    if (local) {
+      return this.getPlatformDisplayName(local.platform, local.platformIgdbId);
     }
 
-    const platform = this.getPlatformDisplayName(local.platform, local.platformIgdbId);
-    if (local.releaseYear === null) {
-      return platform;
-    }
-
-    return `${platform} • ${String(local.releaseYear)}`;
-  }
-
-  getSimilarReasonBadges(item: RecommendationSimilarItem): RecommendationBadge[] {
-    return [{ text: `Blend ${item.similarity.toFixed(2)}`, color: 'primary' }];
+    const metadata = this.getRecommendationDisplayMetadata({
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId,
+    });
+    return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
   }
 
   async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {
@@ -2013,7 +2005,7 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  private getLocalGame(item: RecommendationItem): GameEntry | null {
+  private getLocalGame(item: RecommendationIdentity): GameEntry | null {
     return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
   }
 

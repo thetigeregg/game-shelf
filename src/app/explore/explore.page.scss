@@ -165,4 +165,6 @@ ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {
 
 .similar-section {
   margin-top: 8px;
+  // Room for the floating web-shortcuts button below the last row.
+  padding-bottom: 56px;
 }

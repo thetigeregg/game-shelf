@@ -1337,8 +1337,7 @@ describe('ExplorePage explore modes UX', () => {
       offset: 0,
       limit: 5,
     });
-    const complete = vi.fn().mockResolvedValue(undefined);
-    await page.loadMoreSimilarRecommendations({ target: { complete } } as unknown as Event);
+    await page.loadMoreSimilarRecommendations();
     expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(10);
     expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenNthCalledWith(2, {
       target: 'BACKLOG',
@@ -1348,6 +1347,23 @@ describe('ExplorePage explore modes UX', () => {
       offset: 5,
       limit: 5,
     });
+  });
+
+  it('skips similar load-more while a similar page is already loading', async () => {
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: unknown;
+      isLoadingSimilar: boolean;
+      similarRecommendationsPage: { hasMore: boolean; nextOffset: number | null };
+      loadMoreSimilarRecommendations: () => Promise<void>;
+    };
+    page.activeDetailRecommendation = mockLanesResponse.items[0];
+    page.similarRecommendationsPage = { hasMore: true, nextOffset: 5 };
+    page.isLoadingSimilar = true;
+    igdbProxyServiceMock.getRecommendationSimilar.mockClear();
+
+    await page.loadMoreSimilarRecommendations();
+
+    expect(igdbProxyServiceMock.getRecommendationSimilar).not.toHaveBeenCalled();
   });
 
   it('disables similar load-more when page metadata is missing nextOffset', () => {
@@ -2500,6 +2516,34 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
   });
 
+  it('reads similar year and platform from the library game, then from metadata', () => {
+    const page = createPage() as unknown as {
+      localGameCacheByIdentity: Map<string, unknown>;
+      recommendationDisplayMetadata: Map<string, unknown>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      getSimilarPlatformLabel: (item: unknown) => string;
+      getReleaseYear: (item: unknown) => number | null;
+    };
+    const local = { igdbGameId: '10', platformIgdbId: 130, platform: 'Nintendo Switch' };
+    page.localGameCacheByIdentity.set(page.buildIdentityKey('10', 130), {
+      ...local,
+      releaseYear: 2017,
+    });
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('11', 6), {
+      title: 'Remote',
+      coverUrl: null,
+      platformLabel: 'PC (Microsoft Windows)',
+      releaseYear: 2015,
+    });
+
+    expect(page.getReleaseYear(local)).toBe(2017);
+    expect(page.getSimilarPlatformLabel(local)).toBe('Nintendo Switch');
+    expect(page.getReleaseYear({ igdbGameId: '11', platformIgdbId: 6 })).toBe(2015);
+    expect(page.getSimilarPlatformLabel({ igdbGameId: '11', platformIgdbId: 6 })).toBe(
+      'PC (Microsoft Windows)'
+    );
+  });
+
   it('covers empty-state, similar-display, and parser helper branches', () => {
     const page = createPage() as unknown as {
       activeLanesResponse: typeof mockLanesResponse | null;
@@ -2511,10 +2555,10 @@ describe('ExplorePage explore modes UX', () => {
       getEmptyStateMessage: () => string;
       getEmptyStateHint: () => string;
       getEmptyStateTokenHint: () => string;
-      getSimilarContext: (item: unknown) => string;
+      getSimilarPlatformLabel: (item: unknown) => string;
+      getReleaseYear: (item: unknown) => number | null;
       getSimilarTitle: (item: unknown) => string;
       getSimilarCoverUrl: (item: unknown) => string;
-      getSimilarReasonBadges: (item: unknown) => Array<{ text: string }>;
       goBackInDetailNavigation: () => void;
       detailNavigationStack: unknown[];
       openGameDetail: (item: unknown) => Promise<void>;
@@ -2584,10 +2628,10 @@ describe('ExplorePage explore modes UX', () => {
         },
       },
     };
-    expect(page.getSimilarContext(similar)).toContain('Platform 6');
+    expect(page.getSimilarPlatformLabel(similar)).toContain('Platform 6');
+    expect(page.getReleaseYear(similar)).toBeNull();
     expect(page.getSimilarTitle(similar)).toContain('Game #77');
     expect(page.getSimilarCoverUrl(similar)).toContain('placeholder');
-    expect(page.getSimilarReasonBadges(similar)[0]?.text).toContain('Blend');
 
     const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined);
     page.detailNavigationStack = [mockLanesResponse.items[0]];

@@ -19,7 +19,6 @@ const eagerChangeDetectionComponents = [
   'src/app/features/game-detail/detail-videos-modal.component.ts',
   'src/app/features/game-detail/emulator-js-modal.component.ts',
   'src/app/features/game-detail/game-detail-content.component.ts',
-  'src/app/features/game-detail/similar-game-row.component.ts',
   'src/app/features/game-filters-menu/game-filters-menu.component.ts',
   'src/app/features/game-search/game-search.component.ts',
   'src/app/list-page/list-page.component.ts',

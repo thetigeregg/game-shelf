@@ -477,28 +477,24 @@
                   <ion-label color="medium">No similar recommendations available.</ion-label>
                 </ion-item>
               } @else {
-                @for (
-                  similarGame of getVisibleSimilarDiscoveryDetailRelatedGames();
-                  track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
-                ) {
-                  <app-similar-game-row
-                    [title]="similarGame.title"
-                    [coverUrl]="similarGame.coverUrl"
-                    [subtitle]="similarGame.subtitle"
-                    [badges]="getSimilarDiscoveryBadges(similarGame)"
-                    [headline]="similarGame.reasons.summary"
-                    (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
-                  ></app-similar-game-row>
-                }
-                <ion-infinite-scroll
-                  [disabled]="!canLoadMoreSimilarDiscoveryDetailRelatedGames()"
-                  threshold="15px"
-                  (ionInfinite)="loadMoreSimilarDiscoveryDetailRelatedGames($event)"
+                <app-similar-games-strip
+                  [itemCount]="getVisibleSimilarDiscoveryDetailRelatedGames().length"
+                  [canLoadMore]="canLoadMoreSimilarDiscoveryDetailRelatedGames()"
+                  (loadMore)="loadMoreSimilarDiscoveryDetailRelatedGames()"
                 >
-                  <ion-infinite-scroll-content
-                    loadingSpinner="crescent"
-                  ></ion-infinite-scroll-content>
-                </ion-infinite-scroll>
+                  @for (
+                    similarGame of getVisibleSimilarDiscoveryDetailRelatedGames();
+                    track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+                  ) {
+                    <app-similar-game-tile
+                      [title]="similarGame.title"
+                      [coverUrl]="similarGame.coverUrl"
+                      [releaseYear]="similarGame.releaseYear"
+                      [platform]="similarGame.platformLabel"
+                      (tileClick)="onSimilarDiscoveryRowClick(similarGame)"
+                    ></app-similar-game-tile>
+                  }
+                </app-similar-games-strip>
               }
             </ion-list>
           </app-game-detail-content>
@@ -556,28 +552,24 @@
               !isSimilarLibraryGamesLoading &&
               similarLibraryGames.length > 0
             ) {
-              @for (
-                similarGame of getVisibleSimilarLibraryGames();
-                track trackByExternalId($index, similarGame.game)
-              ) {
-                <app-similar-game-row
-                  [title]="getGameDisplayTitle(similarGame.game)"
-                  [coverUrl]="getRowCoverUrl(similarGame.game)"
-                  [subtitle]="getSimilarGameSubtitle(similarGame)"
-                  [badges]="getSimilarGameBadges(similarGame)"
-                  [headline]="similarGame.reasons.summary"
-                  (rowClick)="onGameRowClick(similarGame.game, true)"
-                ></app-similar-game-row>
-              }
-              <ion-infinite-scroll
-                [disabled]="!canLoadMoreSimilarLibraryGames()"
-                threshold="15px"
-                (ionInfinite)="loadMoreSimilarLibraryGames($event)"
+              <app-similar-games-strip
+                [itemCount]="getVisibleSimilarLibraryGames().length"
+                [canLoadMore]="canLoadMoreSimilarLibraryGames()"
+                (loadMore)="loadMoreSimilarLibraryGames()"
               >
-                <ion-infinite-scroll-content
-                  loadingSpinner="crescent"
-                ></ion-infinite-scroll-content>
-              </ion-infinite-scroll>
+                @for (
+                  similarGame of getVisibleSimilarLibraryGames();
+                  track trackByExternalId($index, similarGame.game)
+                ) {
+                  <app-similar-game-tile
+                    [title]="getGameDisplayTitle(similarGame.game)"
+                    [coverUrl]="getRowCoverUrl(similarGame.game)"
+                    [releaseYear]="similarGame.game.releaseYear"
+                    [platform]="getSimilarGamePlatformLabel(similarGame)"
+                    (tileClick)="onGameRowClick(similarGame.game, true)"
+                  ></app-similar-game-tile>
+                }
+              </app-similar-games-strip>
             }
             @if (similarDetailMode === 'discovery' && isSimilarDiscoveryGamesLoading) {
               <ion-item>
@@ -601,28 +593,24 @@
               !isSimilarDiscoveryGamesLoading &&
               getTotalSimilarDiscoveryGames() > 0
             ) {
-              @for (
-                similarGame of getVisibleSimilarDiscoveryGames();
-                track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
-              ) {
-                <app-similar-game-row
-                  [title]="similarGame.title"
-                  [coverUrl]="similarGame.coverUrl"
-                  [subtitle]="similarGame.subtitle"
-                  [badges]="getSimilarDiscoveryBadges(similarGame)"
-                  [headline]="similarGame.reasons.summary"
-                  (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
-                ></app-similar-game-row>
-              }
-              <ion-infinite-scroll
-                [disabled]="!canLoadMoreSimilarDiscoveryGames()"
-                threshold="15px"
-                (ionInfinite)="loadMoreSimilarDiscoveryGames($event)"
+              <app-similar-games-strip
+                [itemCount]="getVisibleSimilarDiscoveryGames().length"
+                [canLoadMore]="canLoadMoreSimilarDiscoveryGames()"
+                (loadMore)="loadMoreSimilarDiscoveryGames()"
               >
-                <ion-infinite-scroll-content
-                  loadingSpinner="crescent"
-                ></ion-infinite-scroll-content>
-              </ion-infinite-scroll>
+                @for (
+                  similarGame of getVisibleSimilarDiscoveryGames();
+                  track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+                ) {
+                  <app-similar-game-tile
+                    [title]="similarGame.title"
+                    [coverUrl]="similarGame.coverUrl"
+                    [releaseYear]="similarGame.releaseYear"
+                    [platform]="similarGame.platformLabel"
+                    (tileClick)="onSimilarDiscoveryRowClick(similarGame)"
+                  ></app-similar-game-tile>
+                }
+              </app-similar-games-strip>
             }
           </ion-list>
         </app-game-detail-content>

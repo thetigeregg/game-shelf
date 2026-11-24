@@ -295,7 +295,7 @@ describe('game-list review actions', () => {
     ).toBe('https://images.igdb.com/igdb/image/upload/t_cover_big/fallback.jpg');
   });
 
-  it('paginates similar library games in pages of 5', async () => {
+  it('paginates similar library games in pages of 5', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       similarLibraryGames: Array<{
         game: GameEntry;
@@ -318,8 +318,7 @@ describe('game-list review actions', () => {
     expect(page.getVisibleSimilarLibraryGames()).toHaveLength(5);
     expect(page.canLoadMoreSimilarLibraryGames()).toBe(true);
 
-    const complete = vi.fn().mockResolvedValue(undefined);
-    await page.loadMoreSimilarLibraryGames({ target: { complete } } as unknown as Event);
+    page.loadMoreSimilarLibraryGames();
     expect(page.getVisibleSimilarLibraryGames()).toHaveLength(10);
   });
 

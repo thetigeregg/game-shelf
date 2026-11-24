@@ -4388,3 +4388,7 @@
 ## v1.94.3 - 2026-11-23
 
 - e9acc307 ci(ios): build TestFlight uploads with Xcode 27.2 (#688)
+
+## v1.95.0 - 2026-11-24
+
+- fd7a49d2 feat(detail): show "More like this" as a row of covers (#689)

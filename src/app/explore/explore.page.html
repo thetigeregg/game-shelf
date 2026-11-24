@@ -319,7 +319,7 @@
             <ion-note>{{ selectedTarget }} • {{ selectedRuntimeMode }} mode</ion-note>
           </ion-item>
 
-          @if (isLoadingSimilar) {
+          @if (isLoadingSimilar && getVisibleSimilarRecommendationItems().length === 0) {
             <div class="loading-state">
               <ion-spinner name="crescent"></ion-spinner>
             </div>
@@ -332,28 +332,23 @@
               <ion-text color="medium">No similar picks available for this game.</ion-text>
             </ion-item>
           } @else {
-            <ion-list lines="full">
+            <app-similar-games-strip
+              [itemCount]="getVisibleSimilarRecommendationItems().length"
+              [canLoadMore]="canLoadMoreSimilarRecommendations()"
+              (loadMore)="loadMoreSimilarRecommendations()"
+            >
               @for (
                 similar of getVisibleSimilarRecommendationItems();
                 track similar.igdbGameId + ':' + similar.platformIgdbId
               ) {
-                <app-similar-game-row
+                <app-similar-game-tile
                   [title]="getSimilarTitle(similar)"
                   [coverUrl]="getSimilarCoverUrl(similar)"
                   [subtitle]="getSimilarContext(similar)"
-                  [badges]="getSimilarReasonBadges(similar)"
-                  [headline]="similar.reasons.summary"
-                  (rowClick)="openSimilarRecommendation(similar)"
-                ></app-similar-game-row>
+                  (tileClick)="openSimilarRecommendation(similar)"
+                ></app-similar-game-tile>
               }
-            </ion-list>
-            <ion-infinite-scroll
-              [disabled]="!canLoadMoreSimilarRecommendations()"
-              threshold="15px"
-              (ionInfinite)="loadMoreSimilarRecommendations($event)"
-            >
-              <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
-            </ion-infinite-scroll>
+            </app-similar-games-strip>
           }
         </div>
       }

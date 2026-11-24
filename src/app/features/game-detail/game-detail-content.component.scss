@@ -194,8 +194,10 @@
   margin-left: 6px;
 }
 
+// Full row width so tags always start below status and rating, never beside them.
 .detail-tags-button {
   display: inline-flex;
+  flex: 0 0 100%;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;

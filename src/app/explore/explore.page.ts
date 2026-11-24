@@ -70,7 +70,8 @@ import {
   buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../features/game-detail/detail-websites-modal.utils';
-import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
+import { SimilarGameTileComponent } from '../features/game-detail/similar-game-tile.component';
+import { SimilarGamesStripComponent } from '../features/game-detail/similar-games-strip.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
@@ -166,7 +167,8 @@ interface RecommendationDisplayMetadata {
     GameDetailContentComponent,
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
-    SimilarGameRowComponent,
+    SimilarGameTileComponent,
+    SimilarGamesStripComponent,
   ],
 })
 export class ExplorePage implements OnInit {
@@ -510,21 +512,18 @@ export class ExplorePage implements OnInit {
     return page?.hasMore === true && page.nextOffset !== null;
   }
 
-  async loadMoreSimilarRecommendations(event: Event): Promise<void> {
-    try {
-      const active = this.activeDetailRecommendation;
-      const nextOffset = this.similarRecommendationsPage?.nextOffset;
-      if (!active || nextOffset === null || nextOffset === undefined) {
-        return;
-      }
-
-      await this.loadSimilarRecommendations(active, {
-        append: true,
-        offset: nextOffset,
-      });
-    } finally {
-      await completeIonInfiniteScroll(event);
+  async loadMoreSimilarRecommendations(): Promise<void> {
+    const active = this.activeDetailRecommendation;
+    const nextOffset = this.similarRecommendationsPage?.nextOffset;
+    // A page is already in flight: appending again would request the same offset twice.
+    if (this.isLoadingSimilar || !active || nextOffset === null || nextOffset === undefined) {
+      return;
     }
+
+    await this.loadSimilarRecommendations(active, {
+      append: true,
+      offset: nextOffset,
+    });
   }
 
   hasLoadedSelectedLaneItems(): boolean {
@@ -1879,10 +1878,6 @@ export class ExplorePage implements OnInit {
     }
 
     return `${platform} • ${String(local.releaseYear)}`;
-  }
-
-  getSimilarReasonBadges(item: RecommendationSimilarItem): RecommendationBadge[] {
-    return [{ text: `Blend ${item.similarity.toFixed(2)}`, color: 'primary' }];
   }
 
   async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {

@@ -61,8 +61,6 @@ import {
   IonInput,
   IonMenu,
   IonSplitPane,
-  IonInfiniteScroll,
-  IonInfiniteScrollContent,
 } from '@ionic/angular';
 import { Editor } from '@tiptap/core';
 import tiptapStarterKit from '@tiptap/starter-kit';
@@ -163,7 +161,8 @@ import {
   buildDetailWebsiteSearchUrl,
   buildDetailWebsiteModalItems,
 } from '../game-detail/detail-websites-modal.utils';
-import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
+import { SimilarGameTileComponent } from '../game-detail/similar-game-tile.component';
+import { SimilarGamesStripComponent } from '../game-detail/similar-games-strip.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
   MetadataFilterKind,
@@ -177,7 +176,6 @@ import {
   toNotesEditorContent,
 } from './notes-editor.utils';
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
-import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
 import { applyGameCatalogPlatformContext } from '../../core/utils/game-catalog-platform-context';
 import { openDocumentUrl } from '../../core/utils/open-document-url.util';
 import { openExternalUrl } from '../../core/utils/open-external-url';
@@ -306,8 +304,6 @@ type NotesToolbarAction =
     IonInput,
     IonMenu,
     IonSplitPane,
-    IonInfiniteScroll,
-    IonInfiniteScrollContent,
     TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
@@ -315,7 +311,8 @@ type NotesToolbarAction =
     DetailVideosModalComponent,
     DetailWebsitesModalComponent,
     EmulatorJsModalComponent,
-    SimilarGameRowComponent,
+    SimilarGameTileComponent,
+    SimilarGamesStripComponent,
   ],
 })
 export class GameListComponent implements OnChanges, OnDestroy {
@@ -4530,13 +4527,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.getFilteredSimilarDiscoveryGames().length;
   }
 
-  getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
-    text: string;
-    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
-  }> {
-    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
-  }
-
   canLoadMoreSimilarLibraryGames(): boolean {
     return this.visibleSimilarLibraryGamesCount < this.similarLibraryGames.length;
   }
@@ -4545,14 +4535,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.visibleSimilarDiscoveryGamesCount < this.getTotalSimilarDiscoveryGames();
   }
 
-  async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
+  loadMoreSimilarLibraryGames(): void {
     this.visibleSimilarLibraryGamesCount += GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
-  async loadMoreSimilarDiscoveryGames(event: Event): Promise<void> {
+  loadMoreSimilarDiscoveryGames(): void {
     this.visibleSimilarDiscoveryGamesCount += GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
   onSimilarDiscoveryRowClick(row: SimilarDiscoveryGameRow): void {
@@ -4561,13 +4549,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     void this.openSimilarDiscoveryDetail(row);
-  }
-
-  getSimilarDiscoveryBadges(row: SimilarDiscoveryGameRow): Array<{
-    text: string;
-    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
-  }> {
-    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
   }
 
   private async openSimilarDiscoveryDetail(row: SimilarDiscoveryGameRow): Promise<void> {
@@ -4703,9 +4684,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
-  async loadMoreSimilarDiscoveryDetailRelatedGames(event: Event): Promise<void> {
+  loadMoreSimilarDiscoveryDetailRelatedGames(): void {
     this.visibleSimilarDiscoveryDetailRelatedCount += GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
-    await completeIonInfiniteScroll(event);
   }
 
   private async loadSimilarDiscoveryDetailRelatedGames(

@@ -56,6 +56,23 @@ export const SIMILAR_STRIP_LOAD_MORE_THRESHOLD_PX = 160;
         display: none;
       }
 
+      /* Mouse users get a thin scrollbar: there is no swipe to discover the overflow. */
+      @media (hover: hover) and (pointer: fine) {
+        .similar-strip {
+          scrollbar-width: thin;
+        }
+
+        .similar-strip::-webkit-scrollbar {
+          display: block;
+          height: 6px;
+        }
+
+        .similar-strip::-webkit-scrollbar-thumb {
+          border-radius: 3px;
+          background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.25);
+        }
+      }
+
       .similar-strip-more {
         display: flex;
         flex: 0 0 auto;

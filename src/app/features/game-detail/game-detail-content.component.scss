@@ -520,4 +520,6 @@ ion-list.detail-facts.list-inset {
   --ion-item-background: transparent;
   --ion-toolbar-background: transparent;
   margin-top: 16px;
+  // Room for the floating web-shortcuts button below the last row.
+  padding-bottom: 56px;
 }

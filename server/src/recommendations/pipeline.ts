@@ -1,6 +1,10 @@
 import { buildPreferenceProfile } from './profile.js';
 import { buildBaseTotals, buildRankedScores, RankedScore } from './score.js';
-import { buildSemanticSimilarityMap } from './semantic.js';
+import {
+  buildCosineCalibration,
+  buildSemanticSimilarityMap,
+  CosineCalibration,
+} from './semantic.js';
 import { tuneRecommendationWeights } from './tuning.js';
 import {
   NormalizedGameRecord,
@@ -33,6 +37,9 @@ export interface RecommendationScoringContext {
   tunedWeights: TunedRecommendationWeights;
   structuredKeywordsByGame: Map<string, string[]>;
   tokenFamilyWeight: Record<TokenFamily, number>;
+  embeddingsByGame: Map<string, number[]>;
+  /** Library-specific cosine range, shared by diversity and the similarity graph. */
+  cosineCalibration: CosineCalibration | null;
 }
 
 export function buildTokenFamilyWeights(
@@ -55,6 +62,8 @@ export function prepareScoringContext(params: {
   embeddingsByGame: Map<string, number[]>;
   structuredKeywordsByGame: Map<string, string[]>;
   options: RecommendationScoringOptions;
+  /** Precomputed calibration; it depends only on embeddings, so callers that rebuild often can reuse it. */
+  cosineCalibration?: CosineCalibration | null;
 }): RecommendationScoringContext {
   const { games, embeddingsByGame, structuredKeywordsByGame, options } = params;
   const semanticSimilarityByGame = buildSemanticSimilarityMap({ games, embeddingsByGame });
@@ -80,6 +89,11 @@ export function prepareScoringContext(params: {
     tunedWeights,
     structuredKeywordsByGame,
     tokenFamilyWeight,
+    embeddingsByGame,
+    cosineCalibration:
+      params.cosineCalibration === undefined
+        ? buildCosineCalibration(embeddingsByGame)
+        : params.cosineCalibration,
   };
 }
 
@@ -110,6 +124,8 @@ export function rankCandidates(params: {
     historyByGame,
     structuredKeywordsByGame: context.structuredKeywordsByGame,
     tokenFamilyWeight: context.tokenFamilyWeight,
+    embeddingsByGame: context.embeddingsByGame,
+    cosineCalibration: context.cosineCalibration,
   });
 }
 

@@ -1,82 +1,99 @@
-import { buildGameKey } from './semantic.js';
+import { calibrateCosine, CosineCalibration, dot } from './semantic.js';
 import { NormalizedGameRecord } from './types.js';
 
 export interface DiversityCandidate {
   game: NormalizedGameRecord;
   tokenKeys: Set<string>;
+  /** Unit-length embedding, or null when the game has none. */
+  unitEmbedding: number[] | null;
 }
 
-export function calculateDiversityPenalty(params: {
-  candidate: DiversityCandidate;
-  selected: DiversityCandidate[];
-  semanticSimilarityByGame: Map<string, number>;
-  diversityPenaltyWeight: number;
+export interface PairSimilarityWeights {
   structuredWeight: number;
   semanticWeight: number;
-}): number {
-  const {
-    candidate,
-    selected,
-    semanticSimilarityByGame,
-    diversityPenaltyWeight,
-    structuredWeight,
-    semanticWeight,
-  } = params;
+  cosineCalibration: CosineCalibration | null;
+}
+
+/**
+ * How alike two candidates are, 0..1: tag overlap blended with how close their
+ * own embeddings are. When either game lacks an embedding only tags count.
+ */
+export function calculatePairSimilarity(
+  left: DiversityCandidate,
+  right: DiversityCandidate,
+  weights: PairSimilarityWeights,
+  structuredSimilarity = jaccard(left.tokenKeys, right.tokenKeys)
+): number {
+  if (!left.unitEmbedding || !right.unitEmbedding) {
+    return clamp(structuredSimilarity, 0, 1);
+  }
+
+  const structuredWeight = Math.max(0, weights.structuredWeight);
+  const semanticWeight = Math.max(0, weights.semanticWeight);
+  const totalWeight = structuredWeight + semanticWeight;
+
+  if (totalWeight <= 0) {
+    return clamp(structuredSimilarity, 0, 1);
+  }
+
+  const semanticSimilarity = calibrateCosine(
+    dot(left.unitEmbedding, right.unitEmbedding),
+    weights.cosineCalibration
+  );
+
+  return clamp(
+    (structuredSimilarity * structuredWeight + semanticSimilarity * semanticWeight) / totalWeight,
+    0,
+    1
+  );
+}
+
+/**
+ * Penalty for resembling something already picked: scaled by the closest
+ * match among all selected items (max, not sum), so it separates near-duplicates
+ * from unrelated games instead of saturating for everyone.
+ */
+export function calculateDiversityPenalty(
+  params: {
+    candidate: DiversityCandidate;
+    selected: DiversityCandidate[];
+    diversityPenaltyWeight: number;
+  } & PairSimilarityWeights
+): number {
+  const { candidate, selected, diversityPenaltyWeight } = params;
 
   if (selected.length === 0 || diversityPenaltyWeight <= 0) {
     return 0;
   }
 
-  let penalty = 0;
-
-  for (const selectedCandidate of selected.slice(0, 5)) {
-    const similarity = blendedCandidateSimilarity(
-      candidate,
-      selectedCandidate,
-      semanticSimilarityByGame,
-      structuredWeight,
-      semanticWeight
-    );
-    penalty += similarity * diversityPenaltyWeight;
+  let maxSimilarity = 0;
+  for (const entry of selected) {
+    maxSimilarity = Math.max(maxSimilarity, calculatePairSimilarity(candidate, entry, params));
   }
 
-  return -clamp(penalty, 0, 1);
+  return diversityPenaltyFromSimilarity(maxSimilarity, diversityPenaltyWeight);
 }
 
-function blendedCandidateSimilarity(
-  left: DiversityCandidate,
-  right: DiversityCandidate,
-  semanticSimilarityByGame: Map<string, number>,
-  structuredWeight: number,
-  semanticWeight: number
+export function diversityPenaltyFromSimilarity(
+  maxSimilarity: number,
+  diversityPenaltyWeight: number
 ): number {
-  const structured = jaccard(left.tokenKeys, right.tokenKeys);
-  const leftSemantic = semanticSimilarityByGame.get(
-    buildGameKey(left.game.igdbGameId, left.game.platformIgdbId)
-  );
-  const rightSemantic = semanticSimilarityByGame.get(
-    buildGameKey(right.game.igdbGameId, right.game.platformIgdbId)
-  );
-  const semantic =
-    typeof leftSemantic === 'number' && typeof rightSemantic === 'number'
-      ? 1 - clamp(Math.abs(leftSemantic - rightSemantic) / 2, 0, 1)
-      : 0;
+  if (diversityPenaltyWeight <= 0 || maxSimilarity <= 0) {
+    return 0;
+  }
 
-  const totalWeight = Math.max(0, structuredWeight) + Math.max(0, semanticWeight);
-  const normalizedStructured = totalWeight > 0 ? Math.max(0, structuredWeight) / totalWeight : 0.6;
-  const normalizedSemantic = totalWeight > 0 ? Math.max(0, semanticWeight) / totalWeight : 0.4;
-
-  return clamp(structured * normalizedStructured + semantic * normalizedSemantic, 0, 1);
+  return -(clamp(maxSimilarity, 0, 1) * diversityPenaltyWeight);
 }
 
-function jaccard(left: Set<string>, right: Set<string>): number {
+export function jaccard(left: Set<string>, right: Set<string>): number {
   if (left.size === 0 && right.size === 0) {
     return 0;
   }
 
+  const [smaller, larger] = left.size <= right.size ? [left, right] : [right, left];
   let intersection = 0;
-  for (const value of left) {
-    if (right.has(value)) {
+  for (const value of smaller) {
+    if (larger.has(value)) {
       intersection += 1;
     }
   }

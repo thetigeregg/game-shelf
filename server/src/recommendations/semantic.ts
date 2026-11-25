@@ -123,3 +123,96 @@ export function buildSemanticSimilarityMap(params: {
 
   return map;
 }
+
+/**
+ * Where raw embedding cosines sit for this library. text-embedding-3 cosines
+ * between unrelated games are rarely negative and bunch up in a narrow band,
+ * so mapping them with (cos + 1) / 2 gave every pair roughly the same score.
+ * `low` is the median sampled pair (a typical unrelated pair) and `high` the
+ * 99th percentile (a close match).
+ */
+export interface CosineCalibration {
+  low: number;
+  high: number;
+}
+
+const CALIBRATION_MAX_PAIRS = 20_000;
+const CALIBRATION_LOW_QUANTILE = 0.5;
+const CALIBRATION_HIGH_QUANTILE = 0.99;
+
+export function normalizeVector(vector: number[]): number[] | null {
+  const length = magnitude(vector);
+
+  if (!Number.isFinite(length) || length === 0) {
+    return null;
+  }
+
+  return vector.map((value) => value / length);
+}
+
+/** Samples pairs deterministically (sorted by game key) so rebuilds are reproducible. */
+export function buildCosineCalibration(
+  embeddingsByGame: Map<string, number[]>
+): CosineCalibration | null {
+  const keys = [...embeddingsByGame.keys()].sort((left, right) => left.localeCompare(right, 'en'));
+  const vectors: number[][] = [];
+
+  for (const key of keys) {
+    const normalized = normalizeVector(embeddingsByGame.get(key) as number[]);
+    if (normalized && (vectors.length === 0 || normalized.length === vectors[0].length)) {
+      vectors.push(normalized);
+    }
+  }
+
+  const count = vectors.length;
+  if (count < 3) {
+    return null;
+  }
+
+  const cosines: number[] = [];
+  const totalPairs = (count * (count - 1)) / 2;
+
+  if (totalPairs <= CALIBRATION_MAX_PAIRS) {
+    for (let left = 0; left < count; left += 1) {
+      for (let right = left + 1; right < count; right += 1) {
+        cosines.push(dot(vectors[left], vectors[right]));
+      }
+    }
+  } else {
+    // Pair every vector with a spread of fixed offsets around the ring.
+    const offsetsPerVector = Math.max(1, Math.ceil(CALIBRATION_MAX_PAIRS / count));
+    for (let step = 0; step < offsetsPerVector; step += 1) {
+      const offset = 1 + Math.floor((step * (count - 1)) / offsetsPerVector);
+      for (let index = 0; index < count && cosines.length < CALIBRATION_MAX_PAIRS; index += 1) {
+        cosines.push(dot(vectors[index], vectors[(index + offset) % count]));
+      }
+    }
+  }
+
+  cosines.sort((left, right) => left - right);
+  const low = quantile(cosines, CALIBRATION_LOW_QUANTILE);
+  const high = quantile(cosines, CALIBRATION_HIGH_QUANTILE);
+
+  return high - low > 1e-6 ? { low, high } : null;
+}
+
+/** Maps a raw cosine to 0..1: 0 for a typical unrelated pair or worse, 1 for a close match. */
+export function calibrateCosine(cosine: number, calibration: CosineCalibration | null): number {
+  const bounded = clampSemanticScore(cosine);
+
+  if (!calibration) {
+    return Math.max(0, Math.min(1, (bounded + 1) / 2));
+  }
+
+  return Math.max(
+    0,
+    Math.min(1, (bounded - calibration.low) / (calibration.high - calibration.low))
+  );
+}
+
+function quantile(sorted: number[], fraction: number): number {
+  const position = (sorted.length - 1) * fraction;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}

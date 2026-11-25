@@ -1,5 +1,13 @@
 import { buildTokenEntries } from './normalize.js';
-import { buildGameKey, clampSemanticScore, cosineSimilarity } from './semantic.js';
+import { jaccard } from './diversity.js';
+import {
+  buildCosineCalibration,
+  buildGameKey,
+  calibrateCosine,
+  CosineCalibration,
+  dot,
+  normalizeVector,
+} from './semantic.js';
 import {
   NormalizedGameRecord,
   SimilarityEdge,
@@ -8,10 +16,24 @@ import {
   TokenFamily,
 } from './types.js';
 
+type StructuredFamily = 'themes' | 'genres' | 'developers' | 'publishers' | 'keywords';
+
 interface GameTokenIndex {
   game: NormalizedGameRecord;
   byKey: Map<string, TokenEntry>;
-  embedding: number[] | null;
+  familySets: Record<StructuredFamily, Set<string>>;
+  seriesLabels: Set<string>;
+  /** Unit-length embedding, so pair similarity is a single dot product. */
+  unitEmbedding: number[] | null;
+}
+
+interface StructuredFamilyWeights {
+  themes: number;
+  genres: number;
+  series: number;
+  developers: number;
+  publishers: number;
+  keywords: number;
 }
 
 const TOKEN_FAMILIES: TokenFamily[] = [
@@ -33,14 +55,9 @@ export function buildSimilarityGraph(params: {
   structuredWeight?: number;
   semanticWeight?: number;
   structuredKeywordsByGame?: Map<string, string[]>;
-  structuredFamilyWeight?: {
-    themes: number;
-    genres: number;
-    series: number;
-    developers: number;
-    publishers: number;
-    keywords: number;
-  };
+  structuredFamilyWeight?: StructuredFamilyWeights;
+  /** Library-specific cosine range; computed from `embeddingsByGame` when omitted. */
+  cosineCalibration?: CosineCalibration | null;
 }): SimilarityEdge[] {
   const {
     games,
@@ -60,15 +77,29 @@ export function buildSimilarityGraph(params: {
       keywords: 0.05,
     },
   } = params;
+  const cosineCalibration =
+    params.cosineCalibration === undefined
+      ? buildCosineCalibration(embeddingsByGame)
+      : params.cosineCalibration;
 
   const indexByKey = new Map<string, GameTokenIndex>();
   for (const game of games) {
     const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
     const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
+    const byKey = new Map(tokens.map((token) => [token.key, token]));
+    const embedding = embeddingsByGame.get(key);
     indexByKey.set(key, {
       game,
-      byKey: new Map(tokens.map((token) => [token.key, token])),
-      embedding: embeddingsByGame.get(key) ?? null,
+      byKey,
+      familySets: {
+        themes: collectFamilyKeys(byKey, 'themes'),
+        genres: collectFamilyKeys(byKey, 'genres'),
+        developers: collectFamilyKeys(byKey, 'developers'),
+        publishers: collectFamilyKeys(byKey, 'publishers'),
+        keywords: collectFamilyKeys(byKey, 'keywords'),
+      },
+      seriesLabels: collectSeriesLabels(byKey),
+      unitEmbedding: embedding ? normalizeVector(embedding) : null,
     });
   }
 
@@ -89,11 +120,14 @@ export function buildSimilarityGraph(params: {
         continue;
       }
       const structuredSimilarity = weightedStructuredSimilarity(
-        source.byKey,
-        target.byKey,
+        source,
+        target,
         structuredFamilyWeight
       );
-      const semanticSimilarity = resolveSemanticSimilarity(source.embedding, target.embedding);
+      const semanticSimilarity =
+        source.unitEmbedding && target.unitEmbedding
+          ? calibrateCosine(dot(source.unitEmbedding, target.unitEmbedding), cosineCalibration)
+          : 0;
       const blendedSimilarity = clamp01(
         structuredSimilarity * structuredWeight + semanticSimilarity * semanticWeight
       );
@@ -128,27 +162,14 @@ export function buildSimilarityGraph(params: {
 }
 
 function weightedStructuredSimilarity(
-  left: Map<string, TokenEntry>,
-  right: Map<string, TokenEntry>,
-  weights: {
-    themes: number;
-    genres: number;
-    series: number;
-    developers: number;
-    publishers: number;
-    keywords: number;
-  }
+  left: GameTokenIndex,
+  right: GameTokenIndex,
+  weights: StructuredFamilyWeights
 ): number {
-  if (left.size === 0 || right.size === 0) {
+  if (left.byKey.size === 0 || right.byKey.size === 0) {
     return 0;
   }
 
-  const theme = jaccardForFamilies(left, right, ['themes']);
-  const genre = jaccardForFamilies(left, right, ['genres']);
-  const series = jaccardForSeriesFamilies(left, right);
-  const developer = jaccardForFamilies(left, right, ['developers']);
-  const publisher = jaccardForFamilies(left, right, ['publishers']);
-  const keyword = jaccardForFamilies(left, right, ['keywords']);
   const totalWeight =
     weights.themes +
     weights.genres +
@@ -162,72 +183,26 @@ function weightedStructuredSimilarity(
   }
 
   return clamp01(
-    (theme * weights.themes +
-      genre * weights.genres +
-      series * weights.series +
-      developer * weights.developers +
-      publisher * weights.publishers +
-      keyword * weights.keywords) /
+    (jaccard(left.familySets.themes, right.familySets.themes) * weights.themes +
+      jaccard(left.familySets.genres, right.familySets.genres) * weights.genres +
+      jaccard(left.seriesLabels, right.seriesLabels) * weights.series +
+      jaccard(left.familySets.developers, right.familySets.developers) * weights.developers +
+      jaccard(left.familySets.publishers, right.familySets.publishers) * weights.publishers +
+      jaccard(left.familySets.keywords, right.familySets.keywords) * weights.keywords) /
       totalWeight
   );
 }
 
-function jaccardForFamilies(
-  left: Map<string, TokenEntry>,
-  right: Map<string, TokenEntry>,
-  families: TokenFamily[]
-): number {
-  const familySet = new Set<TokenFamily>(families);
-  const leftSet = new Set<string>();
-  const rightSet = new Set<string>();
+function collectFamilyKeys(tokens: Map<string, TokenEntry>, family: TokenFamily): Set<string> {
+  const keys = new Set<string>();
 
-  for (const [key, token] of left.entries()) {
-    if (familySet.has(token.family)) {
-      leftSet.add(key);
+  for (const [key, token] of tokens) {
+    if (token.family === family) {
+      keys.add(key);
     }
   }
 
-  for (const [key, token] of right.entries()) {
-    if (familySet.has(token.family)) {
-      rightSet.add(key);
-    }
-  }
-
-  if (leftSet.size === 0 && rightSet.size === 0) {
-    return 0;
-  }
-
-  let intersection = 0;
-  for (const key of leftSet) {
-    if (rightSet.has(key)) {
-      intersection += 1;
-    }
-  }
-
-  const union = leftSet.size + rightSet.size - intersection;
-  return union <= 0 ? 0 : intersection / union;
-}
-
-function jaccardForSeriesFamilies(
-  left: Map<string, TokenEntry>,
-  right: Map<string, TokenEntry>
-): number {
-  const leftSet = collectSeriesLabels(left);
-  const rightSet = collectSeriesLabels(right);
-
-  if (leftSet.size === 0 && rightSet.size === 0) {
-    return 0;
-  }
-
-  let intersection = 0;
-  for (const label of leftSet) {
-    if (rightSet.has(label)) {
-      intersection += 1;
-    }
-  }
-
-  const union = leftSet.size + rightSet.size - intersection;
-  return union <= 0 ? 0 : intersection / union;
+  return keys;
 }
 
 function collectSeriesLabels(tokens: Map<string, TokenEntry>): Set<string> {
@@ -249,16 +224,6 @@ function collectSeriesLabels(tokens: Map<string, TokenEntry>): Set<string> {
 
 function normalizeTokenLabel(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function resolveSemanticSimilarity(left: number[] | null, right: number[] | null): number {
-  if (!left || !right) {
-    return 0;
-  }
-
-  const cosine = cosineSimilarity(left, right);
-  const bounded = clampSemanticScore(cosine);
-  return clamp01((bounded + 1) / 2);
 }
 
 function buildReasons(params: {

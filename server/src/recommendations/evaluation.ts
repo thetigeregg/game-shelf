@@ -5,7 +5,7 @@ import {
   RecommendationScoringOptions,
   scoreCandidatesBase,
 } from './pipeline.js';
-import { buildGameKey } from './semantic.js';
+import { buildCosineCalibration, buildGameKey } from './semantic.js';
 import {
   NormalizedGameRecord,
   RecommendationRuntimeMode,
@@ -81,6 +81,7 @@ export function evaluateRecommendationQuality(params: {
       )
     );
   const backlog = selectCandidates(scoringGames, 'BACKLOG');
+  const cosineCalibration = buildCosineCalibration(embeddingsByGame);
 
   const likedScores: number[] = [];
   const dislikedScores: number[] = [];
@@ -105,6 +106,7 @@ export function evaluateRecommendationQuality(params: {
       embeddingsByGame,
       structuredKeywordsByGame,
       options,
+      cosineCalibration,
     });
     const candidates = [...backlog, hidden];
     const totals = scoreCandidatesBase({
@@ -159,6 +161,7 @@ export function evaluateRecommendationQuality(params: {
     embeddingsByGame,
     structuredKeywordsByGame,
     options,
+    cosineCalibration,
   });
 
   return {

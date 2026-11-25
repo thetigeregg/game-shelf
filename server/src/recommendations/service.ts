@@ -286,6 +286,7 @@ export class RecommendationService implements RecommendationServiceApi {
           structuredWeight: this.options.similarityStructuredWeight,
           semanticWeight: this.options.similaritySemanticWeight,
           structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame,
+          cosineCalibration: scoringContext.cosineCalibration,
           structuredFamilyWeight: {
             themes: this.options.similarityThemeWeight,
             genres: this.options.similarityGenreWeight,

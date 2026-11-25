@@ -236,7 +236,8 @@ function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
     platformIgdbId: row.platform_igdb_id,
     name,
     coverUrl: firstString(payload, ['coverUrl', 'cover_url']),
-    rating: firstNumeric(payload, ['rating', 'reviewScore']),
+    // The feed never includes owned games, so a legacy `rating` here is IGDB's.
+    rating: firstNumeric(payload, ['igdbRating', 'rating', 'reviewScore']),
     popularityScore: score,
     firstReleaseDate: normalizeFirstReleaseDate(payload),
     platforms,

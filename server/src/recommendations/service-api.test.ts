@@ -1033,8 +1033,8 @@ void test('service rebuild records only the first page and decays old repeat his
 
   assert.equal(result.status, 'SUCCESS');
   assert.ok(finalized);
-  // 30 recommendations per mode, but only the first page (laneLimit 20) of each
-  // of the three runtime modes is recorded.
+  // 30 recommendations per mode, but only what the lanes show (laneLimit 20;
+  // every lane holds the same top 20 here) is recorded for each runtime mode.
   assert.equal(finalized.recommendationsByMode.NEUTRAL.length, 30);
   assert.equal(finalized.historyUpdates.length, 20 * 3);
 

@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildHistoryKey, computeRepeatPenalty, decayRecommendationCount } from './history.js';
+import {
+  buildDisplayedHistoryUpdates,
+  buildHistoryKey,
+  computeRepeatPenalty,
+  decayRecommendationCount,
+} from './history.js';
+import { RankedRecommendationItem, RecommendationLaneCollection } from './types.js';
 
 void test('buildHistoryKey is stable', () => {
   assert.equal(buildHistoryKey('123', 6), '123::6');
@@ -24,4 +30,46 @@ void test('decayRecommendationCount halves the count every half-life', () => {
   assert.equal(decayRecommendationCount(4, 'not a date', now), 4);
   assert.equal(decayRecommendationCount(-3, daysAgo(7), now), 0);
   assert.equal(decayRecommendationCount(4, daysAgo(7), now, 0), 4);
+});
+
+void test('buildDisplayedHistoryUpdates records every lane once per runtime mode', () => {
+  const item = (igdbGameId: string, platformIgdbId = 6): RankedRecommendationItem =>
+    ({ igdbGameId, platformIgdbId }) as RankedRecommendationItem;
+  const overall = [item('a'), item('b')];
+  // Hidden Gems and Exploration reach past the top of the overall list.
+  const hiddenGems = [item('deep-gem'), item('a')];
+  const exploration = [item('deep-explore'), item('b', 48)];
+  const lanes: RecommendationLaneCollection = {
+    overall,
+    hiddenGems,
+    exploration,
+    blended: overall,
+    popular: hiddenGems,
+    recent: exploration,
+  };
+  const empty: RecommendationLaneCollection = {
+    overall: [],
+    hiddenGems: [],
+    exploration: [],
+    blended: [],
+    popular: [],
+    recent: [],
+  };
+
+  const updates = buildDisplayedHistoryUpdates('BACKLOG', {
+    NEUTRAL: lanes,
+    SHORT: empty,
+    LONG: lanes,
+  });
+
+  const keysFor = (mode: string): string[] =>
+    updates
+      .filter((update) => update.runtimeMode === mode)
+      .map((update) => buildHistoryKey(update.igdbGameId, update.platformIgdbId));
+  // Aliased lanes and repeats across lanes count once; other platforms are
+  // separate history rows.
+  assert.deepEqual(keysFor('NEUTRAL'), ['a::6', 'b::6', 'deep-gem::6', 'deep-explore::6', 'b::48']);
+  assert.deepEqual(keysFor('LONG'), keysFor('NEUTRAL'));
+  assert.deepEqual(keysFor('SHORT'), []);
+  assert.ok(updates.every((update) => update.target === 'BACKLOG'));
 });

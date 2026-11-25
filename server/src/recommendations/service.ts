@@ -4,7 +4,7 @@ import { selectCandidates } from './candidates.js';
 import { buildEmbeddingText } from './embedding-text.js';
 import { EmbeddingClient, OpenAiEmbeddingClient } from './embedding-client.js';
 import { buildExplanation } from './explanations.js';
-import { decayRecommendationCount } from './history.js';
+import { buildDisplayedHistoryUpdates, decayRecommendationCount } from './history.js';
 import { buildRecommendationLanes } from './lanes.js';
 import { buildKeywordArtifacts } from './keyword-stats.js';
 import { normalizeTokenKey } from './normalize.js';
@@ -276,7 +276,7 @@ export class RecommendationService implements RecommendationServiceApi {
           games,
           recommendationsByMode,
         });
-        const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
+        const historyUpdates = buildDisplayedHistoryUpdates(params.target, lanesByMode);
         const similarityTargets = selectCandidates(games, params.target);
         const similarityEdges = buildSimilarityGraph({
           games,
@@ -748,39 +748,6 @@ export class RecommendationService implements RecommendationServiceApi {
         discoverySourceByGame,
       })
     );
-  }
-
-  private buildHistoryUpdates(
-    target: RecommendationTarget,
-    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>
-  ): Array<{
-    target: RecommendationTarget;
-    runtimeMode: RecommendationRuntimeMode;
-    igdbGameId: string;
-    platformIgdbId: number;
-  }> {
-    const updates: Array<{
-      target: RecommendationTarget;
-      runtimeMode: RecommendationRuntimeMode;
-      igdbGameId: string;
-      platformIgdbId: number;
-    }> = [];
-
-    // Only the first page of each list is realistically seen. Recording the
-    // whole top 200 penalised every candidate equally within a week, which
-    // pushed the ranking into the tail and then stopped doing anything.
-    for (const mode of RECOMMENDATION_RUNTIME_MODES) {
-      for (const item of recommendationsByMode[mode].slice(0, this.options.laneLimit)) {
-        updates.push({
-          target,
-          runtimeMode: mode,
-          igdbGameId: item.igdbGameId,
-          platformIgdbId: item.platformIgdbId,
-        });
-      }
-    }
-
-    return updates;
   }
 
   private computeSettingsHash(): string {

@@ -1,3 +1,4 @@
+import { prepareKeywords } from './keywords.js';
 import { NormalizedGameRecord } from './types.js';
 
 export interface KeywordStat {
@@ -17,6 +18,33 @@ export interface KeywordSelectionResult {
   embeddingKeywordsByGame: Map<string, string[]>;
   structuredKeywordsByGame: Map<string, string[]>;
   stats: Map<string, KeywordStat>;
+}
+
+export interface KeywordArtifacts {
+  embeddingKeywordsByGame: Map<string, string[]>;
+  structuredKeywordsByGame: Map<string, string[]>;
+}
+
+/** Cleans every game's raw IGDB keywords, then selects the embedding and structured subsets. */
+export function buildKeywordArtifacts(
+  games: NormalizedGameRecord[],
+  options: KeywordSelectionOptions
+): KeywordArtifacts {
+  const preparedKeywordsByGame = new Map<string, string[]>();
+
+  for (const game of games) {
+    preparedKeywordsByGame.set(
+      `${game.igdbGameId}::${String(game.platformIgdbId)}`,
+      prepareKeywords(game.keywords)
+    );
+  }
+
+  const selection = buildKeywordSelection({ games, preparedKeywordsByGame, options });
+
+  return {
+    embeddingKeywordsByGame: selection.embeddingKeywordsByGame,
+    structuredKeywordsByGame: selection.structuredKeywordsByGame,
+  };
 }
 
 export function buildKeywordSelection(params: {

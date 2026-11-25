@@ -970,3 +970,79 @@ void test('service discovery rebuild skips source refresh when markers are fresh
   assert.equal(result.status, 'SUCCESS');
   assert.equal(discoveryFetchCalls, 0);
 });
+
+void test('service rebuild records only the first page and decays old repeat history', async () => {
+  const games: NormalizedGameRecord[] = Array.from({ length: 30 }, (_, index) => ({
+    ...sampleGame(),
+    igdbGameId: `g${String(index)}`,
+    title: `Game ${String(index).padStart(2, '0')}`,
+    rating: null,
+    genres: [`Genre ${String(index)}`],
+    franchises: [],
+    collections: [],
+  }));
+  let finalized:
+    | {
+        historyUpdates: Array<{ igdbGameId: string }>;
+        recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>;
+      }
+    | undefined;
+  const repository = {
+    withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
+      acquired: true as const,
+      value: await callback({}),
+    }),
+    getLatestRun: () => Promise.resolve(null),
+    listNormalizedGames: () => Promise.resolve(games),
+    listRecommendationHistory: () =>
+      Promise.resolve(
+        new Map([
+          ['g0::6', { recommendationCount: 5, lastRecommendedAt: new Date(NOW).toISOString() }],
+          [
+            'g1::6',
+            {
+              recommendationCount: 5,
+              lastRecommendedAt: new Date(NOW - 21 * 24 * 60 * 60 * 1000).toISOString(),
+            },
+          ],
+        ])
+      ),
+    getLatestSuccessfulRun: () => Promise.resolve(null),
+    createRun: () => Promise.resolve(91),
+    finalizeRunSuccess: (params: NonNullable<typeof finalized>) => {
+      finalized = params;
+      return Promise.resolve(undefined);
+    },
+    markRunFailed: () => {
+      assert.fail('markRunFailed should not be called');
+    },
+  };
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    embeddingRepository: {
+      listGameEmbeddings: () => Promise.resolve([]),
+      upsertGameEmbeddings: () => Promise.resolve(undefined),
+    } as never,
+    embeddingClient: {
+      generateEmbeddings: (input: string[]) =>
+        Promise.resolve(input.map((_, index) => [1, index / 100, 0.5])),
+    },
+    nowProvider: () => NOW,
+  });
+
+  const result = await service.rebuild({ target: 'BACKLOG', force: true });
+
+  assert.equal(result.status, 'SUCCESS');
+  assert.ok(finalized);
+  // 30 recommendations per mode, but only what the lanes show (laneLimit 20;
+  // every lane holds the same top 20 here) is recorded for each runtime mode.
+  assert.equal(finalized.recommendationsByMode.NEUTRAL.length, 30);
+  assert.equal(finalized.historyUpdates.length, 20 * 3);
+
+  const penaltyOf = (id: string): number | undefined =>
+    finalized?.recommendationsByMode.NEUTRAL.find((item) => item.igdbGameId === id)?.scoreComponents
+      .repeatPenalty;
+  assert.equal(penaltyOf('g0'), -1);
+  // Three half-lives later: 5 × 0.125 = 0.625 recommendations × 0.2 step.
+  assert.equal(penaltyOf('g1'), -0.125);
+  assert.equal(penaltyOf('g2'), 0);
+});

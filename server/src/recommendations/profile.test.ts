@@ -61,3 +61,15 @@ void test('preference profile applies shrinkage to token weights', () => {
   assert.equal(rpg.weight, 2 / 7);
   assert.equal(action.weight, 0);
 });
+
+void test('preference profile uses cleaned structured keywords when provided', () => {
+  const game = buildGame({ igdbGameId: '1', rating: 5, keywords: ['Turn-based'] });
+  const structuredKeywordsByGame = new Map([['1::1', ['turn-based combat']]]);
+
+  const raw = buildPreferenceProfile([game]);
+  const cleaned = buildPreferenceProfile([game], { structuredKeywordsByGame });
+
+  assert.ok(raw.weights.has('keywords:turn-based'));
+  assert.equal(cleaned.weights.has('keywords:turn-based'), false);
+  assert.ok(cleaned.weights.has('keywords:turn-based combat'));
+});

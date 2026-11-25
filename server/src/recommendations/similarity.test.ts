@@ -149,3 +149,45 @@ void test('similarity series overlap de-duplicates shared collection+franchise l
   assert.deepEqual(edgeWithBoth.reasons.sharedTokens.franchises, []);
   assert.equal(edgeWithBoth.reasons.summary.includes('same franchise'), false);
 });
+
+void test('similarity graph rescales embedding cosine to the library spread', () => {
+  const games = ['1', '2', '3', '4'].map((id) => buildGame({ igdbGameId: id, title: `G${id}` }));
+  const embeddingsByGame = new Map([
+    ['1::1', [1, 0, 0]],
+    ['2::1', [0.99, 0.14, 0]],
+    ['3::1', [0, 1, 0]],
+    ['4::1', [0, 0, 1]],
+  ]);
+
+  const edges = buildSimilarityGraph({
+    games,
+    topK: 5,
+    embeddingsByGame,
+    cosineCalibration: { low: 0, high: 0.98 },
+  });
+  const semanticOf = (target: string): number | undefined =>
+    edges.find((edge) => edge.sourceIgdbGameId === '1' && edge.similarIgdbGameId === target)
+      ?.reasons.semanticSimilarity;
+
+  // An orthogonal (unrelated) pair used to score (0 + 1) / 2 = 0.5 and get an edge.
+  assert.equal(semanticOf('2'), 1);
+  assert.equal(semanticOf('3'), undefined);
+  assert.equal(semanticOf('4'), undefined);
+});
+
+void test('similarity graph derives calibration from embeddings when none is given', () => {
+  const games = ['1', '2', '3', '4'].map((id) => buildGame({ igdbGameId: id, title: `G${id}` }));
+  const embeddingsByGame = new Map([
+    ['1::1', [1, 0.1, 0]],
+    ['2::1', [1, 0.12, 0]],
+    ['3::1', [0, 1, 0.2]],
+    ['4::1', [0.1, 0, 1]],
+  ]);
+
+  const edges = buildSimilarityGraph({ games, topK: 5, embeddingsByGame });
+  const closest = edges.find((edge) => edge.sourceIgdbGameId === '1');
+
+  assert.ok(closest);
+  assert.equal(closest.similarIgdbGameId, '2');
+  assert.equal(closest.reasons.semanticSimilarity, 1);
+});

@@ -1,8 +1,19 @@
-import { calculateDiversityPenalty } from './diversity.js';
+import {
+  calculatePairSimilarity,
+  DiversityCandidate,
+  diversityPenaltyFromSimilarity,
+  jaccard,
+  PairSimilarityWeights,
+} from './diversity.js';
 import { computeRepeatPenalty } from './history.js';
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT } from './profile.js';
-import { buildGameKey, clampSemanticScore } from './semantic.js';
+import {
+  buildGameKey,
+  clampSemanticScore,
+  CosineCalibration,
+  normalizeVector,
+} from './semantic.js';
 import { scoreRuntimeFit } from './runtime.js';
 import {
   NormalizedGameRecord,
@@ -20,6 +31,39 @@ interface BaseScore {
   tokenKeys: Set<string>;
   baseComponents: RecommendationScoreComponents;
   tasteMatches: TasteMatch[];
+}
+
+interface GreedyEntry extends BaseScore, DiversityCandidate {
+  /** Highest tag overlap with any item selected so far. */
+  maxOverlap: number;
+  /** Highest blended similarity with any item selected so far. */
+  maxSimilarity: number;
+}
+
+const NOVELTY_PENALTY_MAX = 0.35;
+
+/**
+ * Drops candidates that can never reach the top `limit`, however the
+ * penalties fall. Penalties only subtract, by at most `maxPenalty`, so while
+ * fewer than `limit` items are picked at least one of the `limit` best base
+ * scores is still available with a total >= (limit-th base - maxPenalty).
+ * Anything whose base is below that line always loses to it.
+ */
+function pruneForGreedySelection(
+  baseScores: BaseScore[],
+  limit: number,
+  maxPenalty: number
+): BaseScore[] {
+  if (baseScores.length <= limit) {
+    return baseScores;
+  }
+
+  const totals = baseScores
+    .map((entry) => calculateTotalScore(entry.baseComponents))
+    .sort((left, right) => right - left);
+  const threshold = totals[Math.max(0, limit - 1)] - maxPenalty;
+
+  return baseScores.filter((entry) => calculateTotalScore(entry.baseComponents) >= threshold);
 }
 
 export interface RankedScore {
@@ -45,6 +89,9 @@ export function buildRankedScores(params: {
   historyByGame: Map<string, { recommendationCount: number }>;
   structuredKeywordsByGame?: Map<string, string[]>;
   tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
+  /** Per-game embeddings, used to tell near-duplicate picks apart. */
+  embeddingsByGame?: Map<string, number[]>;
+  cosineCalibration?: CosineCalibration | null;
 }): RankedScore[] {
   const {
     candidates,
@@ -62,6 +109,8 @@ export function buildRankedScores(params: {
     historyByGame,
     structuredKeywordsByGame,
     tokenFamilyWeight,
+    embeddingsByGame,
+    cosineCalibration = null,
   } = params;
 
   const baseScores = candidates.map((game) =>
@@ -79,36 +128,49 @@ export function buildRankedScores(params: {
       tokenFamilyWeight,
     })
   );
-  const remaining = [...baseScores];
+  const pairWeights: PairSimilarityWeights = {
+    structuredWeight: similarityStructuredWeight,
+    semanticWeight: similaritySemanticWeight,
+    cosineCalibration,
+  };
+  const remaining: GreedyEntry[] = pruneForGreedySelection(
+    baseScores,
+    limit,
+    NOVELTY_PENALTY_MAX + Math.max(0, diversityPenaltyWeight)
+  ).map((entry) => {
+    const embedding = embeddingsByGame?.get(
+      buildGameKey(entry.game.igdbGameId, entry.game.platformIgdbId)
+    );
+    return {
+      ...entry,
+      unitEmbedding: embedding ? normalizeVector(embedding) : null,
+      maxOverlap: 0,
+      maxSimilarity: 0,
+    };
+  });
   const selected: RankedScore[] = [];
 
+  // Greedy max-marginal-relevance: each step takes the best total after
+  // penalising resemblance to *everything* already picked. Each candidate keeps
+  // its closest-match so far, updated once per pick, instead of re-comparing
+  // against the selected list on every pass.
   while (remaining.length > 0 && selected.length < limit) {
     let bestIndex = 0;
     let best: RankedScore | null = null;
 
     for (let index = 0; index < remaining.length; index += 1) {
       const entry = remaining[index];
-      const novelty = calculateNoveltyPenalty(entry.tokenKeys, selected);
-      const diversityPenalty = calculateDiversityPenalty({
-        candidate: { game: entry.game, tokenKeys: entry.tokenKeys },
-        selected: selected.map((ranked) => ({
-          game: ranked.game,
-          tokenKeys: tokenSetForGame(ranked.game, structuredKeywordsByGame),
-        })),
-        semanticSimilarityByGame,
-        diversityPenaltyWeight,
-        structuredWeight: similarityStructuredWeight,
-        semanticWeight: similaritySemanticWeight,
-      });
       const components: RecommendationScoreComponents = {
         ...entry.baseComponents,
-        novelty,
-        diversityPenalty,
+        novelty: -clamp(entry.maxOverlap * NOVELTY_PENALTY_MAX, 0, NOVELTY_PENALTY_MAX),
+        diversityPenalty: diversityPenaltyFromSimilarity(
+          entry.maxSimilarity,
+          diversityPenaltyWeight
+        ),
       };
-      const total = calculateTotalScore(components);
       const ranked: RankedScore = {
         game: entry.game,
-        total,
+        total: calculateTotalScore(components),
         components,
         tasteMatches: entry.tasteMatches,
       };
@@ -123,8 +185,17 @@ export function buildRankedScores(params: {
       break;
     }
 
+    const [picked] = remaining.splice(bestIndex, 1);
     selected.push(best);
-    remaining.splice(bestIndex, 1);
+
+    for (const entry of remaining) {
+      const overlap = jaccard(entry.tokenKeys, picked.tokenKeys);
+      entry.maxOverlap = Math.max(entry.maxOverlap, overlap);
+      entry.maxSimilarity = Math.max(
+        entry.maxSimilarity,
+        calculatePairSimilarity(entry, picked, pairWeights, overlap)
+      );
+    }
   }
 
   return selected.map((item) => ({
@@ -146,6 +217,27 @@ export function buildRankedScores(params: {
       delta: round4(match.delta),
     })),
   }));
+}
+
+/**
+ * Scores candidates on their own merits only (no diversity/novelty re-ranking),
+ * in input order. Used by the offline evaluation harness.
+ */
+export function buildBaseTotals(
+  params: Omit<
+    Parameters<typeof buildRankedScores>[0],
+    | 'limit'
+    | 'diversityPenaltyWeight'
+    | 'similarityStructuredWeight'
+    | 'similaritySemanticWeight'
+    | 'embeddingsByGame'
+    | 'cosineCalibration'
+  >
+): Array<{ game: NormalizedGameRecord; total: number }> {
+  return params.candidates.map((game) => {
+    const base = buildBaseScore({ ...params, game });
+    return { game, total: calculateTotalScore(base.baseComponents) };
+  });
 }
 
 function buildBaseScore(params: {
@@ -379,45 +471,6 @@ function evaluateRecencyBoost(game: NormalizedGameRecord, target: Recommendation
   const ageDays = Math.max(0, (Date.now() - timestamp) / (1000 * 60 * 60 * 24));
   const normalized = Math.log10(ageDays + 1) / Math.log10(3650 + 1);
   return clamp(normalized * 0.8, 0, 0.8);
-}
-
-function calculateNoveltyPenalty(tokenKeys: Set<string>, selected: RankedScore[]): number {
-  if (selected.length === 0 || tokenKeys.size === 0) {
-    return 0;
-  }
-
-  let maxOverlap = 0;
-
-  for (const candidate of selected.slice(0, 5)) {
-    const overlap = jaccard(tokenKeys, tokenSetForGame(candidate.game));
-    maxOverlap = Math.max(maxOverlap, overlap);
-  }
-
-  return -clamp(maxOverlap * 0.35, 0, 0.35);
-}
-
-function tokenSetForGame(
-  game: NormalizedGameRecord,
-  structuredKeywordsByGame?: Map<string, string[]>
-): Set<string> {
-  return new Set(buildTokenEntries(game, { structuredKeywordsByGame }).map((token) => token.key));
-}
-
-function jaccard(left: Set<string>, right: Set<string>): number {
-  if (left.size === 0 && right.size === 0) {
-    return 0;
-  }
-
-  let intersection = 0;
-
-  for (const value of left) {
-    if (right.has(value)) {
-      intersection += 1;
-    }
-  }
-
-  const union = left.size + right.size - intersection;
-  return union <= 0 ? 0 : intersection / union;
 }
 
 function calculateTotalScore(components: RecommendationScoreComponents): number {

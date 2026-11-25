@@ -6,6 +6,7 @@ import {
 } from './discovery-enrichment-query.js';
 import { parseDiscoveryGameKeys } from '../discovery-game-keys.js';
 import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
+import { RECOMMENDATION_HISTORY_HALF_LIFE_DAYS } from './history.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
@@ -108,6 +109,24 @@ interface DiscoveryGameRow extends QueryResultRow {
   platform_igdb_id: number;
   payload: unknown;
 }
+
+/**
+ * A game counts as recommended again at most once per this interval, so manual
+ * or back-to-back rebuilds on the same day don't stack repeat penalties.
+ */
+const RECOMMENDATION_HISTORY_MIN_INCREMENT_INTERVAL = '20 hours';
+const RECOMMENDATION_HISTORY_HALF_LIFE_SECONDS =
+  RECOMMENDATION_HISTORY_HALF_LIFE_DAYS * 24 * 60 * 60;
+const RECOMMENDATION_HISTORY_RECENT = `recommendation_history.last_recommended_at > NOW() - INTERVAL '${RECOMMENDATION_HISTORY_MIN_INCREMENT_INTERVAL}'`;
+
+/**
+ * The stored count fades with the same half-life the service applies when it
+ * reads history, before this sighting is added. Otherwise a game that rested
+ * long enough to come back would be written as its full lifetime count plus
+ * one and land straight back on the maximum penalty. The exponent is capped
+ * so very old rows don't underflow float8; 0.5^60 rounds any count to zero.
+ */
+const RECOMMENDATION_HISTORY_DECAYED_COUNT = `ROUND(recommendation_history.recommendation_count * POWER(0.5::float8, LEAST(60, EXTRACT(EPOCH FROM (NOW() - recommendation_history.last_recommended_at))::float8 / ${String(RECOMMENDATION_HISTORY_HALF_LIFE_SECONDS)})))::integer`;
 
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 const MAX_RECOMMENDATION_PAGE_OFFSET = 1000;
@@ -745,7 +764,7 @@ export class RecommendationRepository {
         const upsertBatch = buildHistoryUpsertBatch(batch);
 
         await params.client.query(
-          `INSERT INTO recommendation_history (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at) VALUES ${upsertBatch.sqlValues} ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id) DO UPDATE SET recommendation_count = recommendation_history.recommendation_count + 1, last_recommended_at = NOW()`,
+          `INSERT INTO recommendation_history (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at) VALUES ${upsertBatch.sqlValues} ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id) DO UPDATE SET recommendation_count = CASE WHEN ${RECOMMENDATION_HISTORY_RECENT} THEN recommendation_history.recommendation_count ELSE ${RECOMMENDATION_HISTORY_DECAYED_COUNT} + 1 END, last_recommended_at = CASE WHEN ${RECOMMENDATION_HISTORY_RECENT} THEN recommendation_history.last_recommended_at ELSE NOW() END`,
           upsertBatch.values
         );
       }
@@ -1208,7 +1227,7 @@ function mapRecommendationRow(row: RecommendationRow | LaneRow): RankedRecommend
   };
 }
 
-function parseEmbeddingVector(value: string | number[]): number[] {
+export function parseEmbeddingVector(value: string | number[]): number[] {
   if (Array.isArray(value)) {
     return value.filter((entry) => Number.isFinite(entry));
   }

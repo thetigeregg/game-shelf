@@ -2,7 +2,7 @@ import { buildTokenEntries } from './normalize.js';
 import { ratingToSignal } from './rating.js';
 import { NormalizedGameRecord, PreferenceProfile, PreferenceWeight, TokenFamily } from './types.js';
 
-const SHRINKAGE_K = 5;
+export const SHRINKAGE_K = 5;
 
 export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
   collections: 1.4,
@@ -14,7 +14,10 @@ export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
   keywords: 0.6,
 };
 
-export function buildPreferenceProfile(games: NormalizedGameRecord[]): PreferenceProfile {
+export function buildPreferenceProfile(
+  games: NormalizedGameRecord[],
+  options: { structuredKeywordsByGame?: Map<string, string[]> } = {}
+): PreferenceProfile {
   const ratedGames = games.filter((game) => game.rating !== null);
   const weightMap = new Map<string, PreferenceWeight>();
 
@@ -25,7 +28,9 @@ export function buildPreferenceProfile(games: NormalizedGameRecord[]): Preferenc
       continue;
     }
 
-    const tokens = buildTokenEntries(game);
+    // Use the same cleaned keyword vocabulary candidates are scored with, so
+    // keywords the cleanup renames (synonyms, punctuation) still match.
+    const tokens = buildTokenEntries(game, options);
 
     for (const token of tokens) {
       const existing = weightMap.get(token.key);

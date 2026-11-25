@@ -160,3 +160,98 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
   assert.equal(Number.isFinite(tuned.criticWeight), true);
   assert.equal(Number.isFinite(tuned.runtimeWeight), true);
 });
+
+const TUNING_DEFAULTS = {
+  tasteWeight: 1,
+  semanticWeight: 2,
+  criticWeight: 1,
+  runtimeWeight: 1,
+};
+const RATINGS = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5];
+
+void test('tuneRecommendationWeights never tunes the runtime weight away', () => {
+  // Ratings fall as runtime grows: the old tuner turned this into runtimeWeight 0,
+  // which silently disabled SHORT mode for exactly this user.
+  const games = RATINGS.map((rating, index) =>
+    buildGame({ igdbGameId: `g${String(index)}`, rating, runtimeHours: 5 + index * 10 })
+  );
+
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    minimumRated: 8,
+    defaults: TUNING_DEFAULTS,
+  });
+
+  assert.equal(tuned.runtimeWeight, TUNING_DEFAULTS.runtimeWeight);
+});
+
+void test('tuneRecommendationWeights scores taste leave-one-out so unique tags cannot self-predict', () => {
+  // Every game has its own developer. Including each game's own rating in the
+  // profile made taste correlate perfectly with ratings; held out, no game
+  // shares a tag with any other, so taste carries no signal.
+  const games = RATINGS.map((rating, index) =>
+    buildGame({ igdbGameId: `g${String(index)}`, rating, developers: [`Dev ${String(index)}`] })
+  );
+
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    minimumRated: 8,
+    defaults: TUNING_DEFAULTS,
+  });
+
+  assert.equal(tuned.tasteWeight, 0.5);
+});
+
+void test('tuneRecommendationWeights still rewards taste tags shared across rated games', () => {
+  const games = RATINGS.map((rating, index) =>
+    buildGame({ igdbGameId: `g${String(index)}`, rating, genres: [index < 4 ? 'RPG' : 'Sport'] })
+  );
+
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    minimumRated: 8,
+    defaults: TUNING_DEFAULTS,
+  });
+
+  assert.ok(tuned.tasteWeight > 2);
+});
+
+void test('tuneRecommendationWeights computes semantic similarity leave-one-out from embeddings', () => {
+  const unitVector = (axis: number): number[] =>
+    Array.from({ length: 8 }, (_, index) => (index === axis ? 1 : 0));
+  const games = RATINGS.map((rating, index) =>
+    buildGame({ igdbGameId: `g${String(index)}`, rating })
+  );
+
+  // Orthogonal embeddings: each liked game only resembles itself.
+  const orthogonal = new Map(
+    games.map((game, index) => [`${game.igdbGameId}::1`, unitVector(index)])
+  );
+  const isolated = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    embeddingsByGame: orthogonal,
+    minimumRated: 8,
+    defaults: TUNING_DEFAULTS,
+  });
+  assert.equal(isolated.semanticWeight, 0.5);
+
+  // Liked games share a direction, disliked games point elsewhere.
+  const clustered = new Map(
+    games.map((game, index) => [
+      `${game.igdbGameId}::1`,
+      index < 4 ? [1, 0.1 * index, 0, 0] : [0, 0.1 * index, 1, 0],
+    ])
+  );
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    embeddingsByGame: clustered,
+    minimumRated: 8,
+    defaults: TUNING_DEFAULTS,
+  });
+  assert.ok(tuned.semanticWeight > 2);
+});

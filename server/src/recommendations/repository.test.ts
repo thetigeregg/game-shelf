@@ -616,6 +616,13 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
   assert.equal(historyInserts[0]?.params?.length, 500 * 4);
   assert.equal(historyInserts[1]?.params?.length, 1 * 4);
   assert.equal(historyInserts[0]?.sql.includes('($1, $2, $3, $4, 1, NOW())'), true);
+  // Same-day reruns must not stack repeat penalties.
+  assert.equal(
+    historyInserts[0]?.sql.includes(
+      "WHEN recommendation_history.last_recommended_at > NOW() - INTERVAL '20 hours' THEN recommendation_history.recommendation_count"
+    ),
+    true
+  );
   assert.equal(
     queries.some((query) => query.sql.includes('UPDATE recommendation_runs')),
     true

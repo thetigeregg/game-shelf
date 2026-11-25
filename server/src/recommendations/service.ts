@@ -4,6 +4,7 @@ import { selectCandidates } from './candidates.js';
 import { buildEmbeddingText } from './embedding-text.js';
 import { EmbeddingClient, OpenAiEmbeddingClient } from './embedding-client.js';
 import { buildExplanation } from './explanations.js';
+import { decayRecommendationCount } from './history.js';
 import { buildRecommendationLanes } from './lanes.js';
 import { buildKeywordArtifacts } from './keyword-stats.js';
 import { normalizeTokenKey } from './normalize.js';
@@ -658,9 +659,16 @@ export class RecommendationService implements RecommendationServiceApi {
         queryable: client,
       });
 
+      const nowMs = this.nowProvider();
       const normalized = new Map<string, { recommendationCount: number }>();
       for (const [key, entry] of map.entries()) {
-        normalized.set(key, { recommendationCount: entry.recommendationCount });
+        normalized.set(key, {
+          recommendationCount: decayRecommendationCount(
+            entry.recommendationCount,
+            entry.lastRecommendedAt,
+            nowMs
+          ),
+        });
       }
       record[mode] = normalized;
     }
@@ -758,8 +766,11 @@ export class RecommendationService implements RecommendationServiceApi {
       platformIgdbId: number;
     }> = [];
 
+    // Only the first page of each list is realistically seen. Recording the
+    // whole top 200 penalised every candidate equally within a week, which
+    // pushed the ranking into the tail and then stopped doing anything.
     for (const mode of RECOMMENDATION_RUNTIME_MODES) {
-      for (const item of recommendationsByMode[mode]) {
+      for (const item of recommendationsByMode[mode].slice(0, this.options.laneLimit)) {
         updates.push({
           target,
           runtimeMode: mode,

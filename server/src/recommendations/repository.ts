@@ -109,6 +109,12 @@ interface DiscoveryGameRow extends QueryResultRow {
   payload: unknown;
 }
 
+/**
+ * A game counts as recommended again at most once per this interval, so manual
+ * or back-to-back rebuilds on the same day don't stack repeat penalties.
+ */
+const RECOMMENDATION_HISTORY_MIN_INCREMENT_INTERVAL = '20 hours';
+
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 const MAX_RECOMMENDATION_PAGE_OFFSET = 1000;
 
@@ -745,7 +751,7 @@ export class RecommendationRepository {
         const upsertBatch = buildHistoryUpsertBatch(batch);
 
         await params.client.query(
-          `INSERT INTO recommendation_history (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at) VALUES ${upsertBatch.sqlValues} ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id) DO UPDATE SET recommendation_count = recommendation_history.recommendation_count + 1, last_recommended_at = NOW()`,
+          `INSERT INTO recommendation_history (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at) VALUES ${upsertBatch.sqlValues} ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id) DO UPDATE SET recommendation_count = CASE WHEN recommendation_history.last_recommended_at > NOW() - INTERVAL '${RECOMMENDATION_HISTORY_MIN_INCREMENT_INTERVAL}' THEN recommendation_history.recommendation_count ELSE recommendation_history.recommendation_count + 1 END, last_recommended_at = CASE WHEN recommendation_history.last_recommended_at > NOW() - INTERVAL '${RECOMMENDATION_HISTORY_MIN_INCREMENT_INTERVAL}' THEN recommendation_history.last_recommended_at ELSE NOW() END`,
           upsertBatch.values
         );
       }

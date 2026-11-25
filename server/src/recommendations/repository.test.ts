@@ -623,6 +623,13 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     ),
     true
   );
+  // Otherwise a rested game returns at its full lifetime count plus one.
+  assert.equal(
+    historyInserts[0]?.sql.includes(
+      'ELSE ROUND(recommendation_history.recommendation_count * POWER(0.5::float8, LEAST(60, EXTRACT(EPOCH FROM (NOW() - recommendation_history.last_recommended_at))::float8 / 604800)))::integer + 1 END'
+    ),
+    true
+  );
   assert.equal(
     queries.some((query) => query.sql.includes('UPDATE recommendation_runs')),
     true

@@ -614,7 +614,9 @@ export class PopularityIngestService {
         -- Games the user has added to their collection/wishlist own their cover
         -- choice (coverUrl/coverSource/customCoverUrl), which may deliberately
         -- point at TheGamesDB, and their own star rating (rating). Only
-        -- discovery-pool rows (never user-curated) get those from this feed.
+        -- discovery-pool rows (never user-curated) get their cover from this
+        -- feed. On rows the user doesn't own, rating can only be IGDB's score
+        -- from before it moved to igdbRating, so it is dropped.
         merged AS (
           SELECT
             g.igdb_game_id,
@@ -622,8 +624,10 @@ export class PopularityIngestService {
             g.payload AS current_payload,
             CASE
               WHEN COALESCE(g.payload ->> 'listType', '') = 'discovery'
-                THEN g.payload || typed.payload
-              ELSE g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl,rating}'::text[])
+                THEN (g.payload - 'rating') || typed.payload
+              WHEN COALESCE(g.payload ->> 'listType', '') IN ('collection', 'wishlist')
+                THEN g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl,rating}'::text[])
+              ELSE (g.payload - 'rating') || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])
             END AS next_payload
           FROM games AS g
           INNER JOIN typed

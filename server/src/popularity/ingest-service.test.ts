@@ -808,7 +808,20 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       // IGDB's score must never land in `rating`, the user's own star rating.
       assert.ok(payload.includes('"igdbRating":89.06299654196357'));
       assert.ok(!payload.includes('"rating":'));
-      assert.ok(normalized.includes("'{coverurl,coversource,customcoverurl,rating}'::text[]"));
+      // Case-sensitive checks on the raw SQL: JSON keys and listType values are exact.
+      assert.ok(
+        sql.includes(
+          "THEN g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl,rating}'::text[])"
+        )
+      );
+      assert.ok(sql.includes("IN ('collection', 'wishlist')"));
+      // Rows the user doesn't own drop the legacy IGDB `rating`.
+      assert.ok(sql.includes("THEN (g.payload - 'rating') || typed.payload"));
+      assert.ok(
+        sql.includes(
+          "ELSE (g.payload - 'rating') || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])"
+        )
+      );
       assert.ok(payload.includes('"total_rating_count":115'));
       assert.ok(payload.includes('"totalRatingCount":115'));
       assert.ok(payload.includes('"hypes":309'));
@@ -836,8 +849,13 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
 
     if (normalized.includes('with target_game_ids as')) {
       // Scores read igdbRating, and never a library/wishlist row's star rating.
-      assert.ok(normalized.includes("when g.payload ? 'igdbrating' then"));
-      assert.ok(normalized.includes("in ('collection', 'wishlist') then 0"));
+      assert.ok(sql.includes("WHEN g.payload ? 'igdbRating' THEN"));
+      assert.ok(sql.includes("g.payload->>'igdbRating'"));
+      assert.ok(
+        sql.includes(
+          "WHEN COALESCE(g.payload->>'listType', '') IN ('collection', 'wishlist') THEN 0"
+        )
+      );
       return queryResult([{ popularity_score: 1082.5 }], 1);
     }
 
@@ -969,8 +987,13 @@ void test('runOnce refresh query preserves cover fields for non-discovery rows',
 
     if (normalized.includes('with target_game_ids as')) {
       // Scores read igdbRating, and never a library/wishlist row's star rating.
-      assert.ok(normalized.includes("when g.payload ? 'igdbrating' then"));
-      assert.ok(normalized.includes("in ('collection', 'wishlist') then 0"));
+      assert.ok(sql.includes("WHEN g.payload ? 'igdbRating' THEN"));
+      assert.ok(sql.includes("g.payload->>'igdbRating'"));
+      assert.ok(
+        sql.includes(
+          "WHEN COALESCE(g.payload->>'listType', '') IN ('collection', 'wishlist') THEN 0"
+        )
+      );
       return queryResult([{ popularity_score: 1082.5 }], 1);
     }
 

@@ -205,6 +205,30 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
   await app.close();
 });
 
+void test("GET /v1/games/trending never reports an owned row's star rating as IGDB's", async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '102',
+        platform_igdb_id: 6,
+        popularity_score: '150',
+        payload: { title: 'Owned Game', listType: 'collection', rating: 4 },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({ method: 'GET', url: '/v1/games/trending' });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as { items: Array<{ rating: number | null }> };
+  assert.equal(body.items[0]?.rating, null);
+
+  await app.close();
+});
+
 void test('GET /v1/games/recent returns only last 90 days', async () => {
   const nowSec = Math.trunc(Date.now() / 1000);
   const ninetyDaysSec = 90 * 24 * 60 * 60;

@@ -236,8 +236,14 @@ function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
     platformIgdbId: row.platform_igdb_id,
     name,
     coverUrl: firstString(payload, ['coverUrl', 'cover_url']),
-    // The feed never includes owned games, so a legacy `rating` here is IGDB's.
-    rating: firstNumeric(payload, ['igdbRating', 'rating', 'reviewScore']),
+    // A legacy `rating` is IGDB's score only on rows the user doesn't own; on
+    // library and wishlist rows it is their own star rating.
+    rating: firstNumeric(
+      payload,
+      isUserOwnedPayload(payload)
+        ? ['igdbRating', 'reviewScore']
+        : ['igdbRating', 'rating', 'reviewScore']
+    ),
     popularityScore: score,
     firstReleaseDate: normalizeFirstReleaseDate(payload),
     platforms,
@@ -342,6 +348,10 @@ function firstString(payload: Record<string, unknown>, keys: string[]): string |
     }
   }
   return null;
+}
+
+function isUserOwnedPayload(payload: Record<string, unknown>): boolean {
+  return payload['listType'] === 'collection' || payload['listType'] === 'wishlist';
 }
 
 function firstNumeric(payload: Record<string, unknown>, keys: string[]): number | null {

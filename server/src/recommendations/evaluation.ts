@@ -108,7 +108,9 @@ export function evaluateRecommendationQuality(params: {
       options,
       cosineCalibration,
     });
-    const candidates = [...backlog, hidden];
+    // A rated game without a played status (null or wantToPlay) is already in
+    // the backlog; swap it for its hidden copy rather than ranking both.
+    const candidates = [...backlog.filter((game) => game !== heldOut), hidden];
     const totals = scoreCandidatesBase({
       context,
       candidates,

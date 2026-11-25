@@ -133,3 +133,59 @@ void test('evaluateRecommendationQuality skips ambiguous ratings and handles no 
   assert.equal(result.medianLikedPercentile, 0);
   assert.equal(result.auc, null);
 });
+
+void test('evaluateRecommendationQuality ranks a rated backlog game once, as its hidden copy', () => {
+  // A loved RPG still sitting in the backlog (status null) is already a
+  // candidate. Held out, it must replace that entry, not tie with it.
+  const games: NormalizedGameRecord[] = [
+    buildGame({
+      igdbGameId: 'rpg-backlog',
+      rating: 5,
+      genres: ['Role-playing (RPG)'],
+      themes: ['Fantasy'],
+    }),
+    buildGame({
+      igdbGameId: 'rpg-done',
+      status: 'completed',
+      rating: 5,
+      genres: ['Role-playing (RPG)'],
+      themes: ['Fantasy'],
+    }),
+  ];
+  for (let index = 0; index < 8; index += 1) {
+    games.push(
+      buildGame({
+        igdbGameId: `sport-${String(index)}`,
+        status: 'dropped',
+        rating: 1.5,
+        genres: ['Sport'],
+        themes: ['Comedy'],
+      })
+    );
+  }
+  for (let index = 0; index < 10; index += 1) {
+    games.push(
+      buildGame({
+        igdbGameId: `racing-${String(index)}`,
+        genres: ['Racing'],
+        themes: ['Action'],
+      })
+    );
+  }
+
+  const result = evaluateRecommendationQuality({
+    games,
+    embeddingsByGame: new Map(),
+    structuredKeywordsByGame: new Map(),
+    options: RECOMMENDATION_SCORING_DEFAULTS,
+    ks: [2],
+  });
+
+  assert.equal(result.likedCount, 2);
+  assert.equal(result.candidatePoolSize, 11);
+  assert.equal(result.hitRate[0].rate, 1);
+  // Held out, rpg-backlog has no RPG rival left in the pool (percentile 0).
+  // Held out, rpg-done genuinely ties with rpg-backlog (half of 1 in 11).
+  // Ranking a duplicate would score both games 0.5 / 11.
+  assert.equal(result.meanLikedPercentile, Math.round((0.5 / 11 / 2) * 10000) / 10000);
+});

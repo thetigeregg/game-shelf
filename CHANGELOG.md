@@ -4392,3 +4392,7 @@
 ## v1.95.0 - 2026-11-24
 
 - fd7a49d2 feat(detail): show "More like this" as a row of covers (#689)
+
+## v1.95.1 - 2026-11-25
+
+- 5f84ebd0 fix(recommendations): fix diversity, tuning leakage and repeat penalty (#690)

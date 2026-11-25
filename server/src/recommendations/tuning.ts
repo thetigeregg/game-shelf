@@ -1,41 +1,79 @@
 import { buildTokenEntries } from './normalize.js';
-import { TOKEN_FAMILY_WEIGHT, buildPreferenceProfile } from './profile.js';
-import { buildGameKey } from './semantic.js';
-import { NormalizedGameRecord, TunedRecommendationWeights } from './types.js';
+import {
+  TOKEN_FAMILY_WEIGHT,
+  SHRINKAGE_K,
+  buildPreferenceProfile,
+  ratingToSignal,
+} from './profile.js';
+import { buildGameKey, cosineSimilarity } from './semantic.js';
+import {
+  NormalizedGameRecord,
+  PreferenceProfile,
+  TokenFamily,
+  TunedRecommendationWeights,
+} from './types.js';
 
+/**
+ * Picks taste/semantic/critic weights from how well each signal predicts the
+ * user's own ratings.
+ *
+ * Each rated game is scored leave-one-out: against a taste profile and taste
+ * centroid that exclude that game's own rating. Otherwise a game with a unique
+ * developer or series "predicts" itself and the correlations come out inflated.
+ *
+ * The runtime weight is not tuned. Runtime mode is an explicit user choice
+ * (SHORT/LONG), so whether past ratings favoured long games must not be able to
+ * switch that choice off.
+ */
 export function tuneRecommendationWeights(params: {
   games: NormalizedGameRecord[];
   semanticSimilarityByGame: Map<string, number>;
   minimumRated: number;
   defaults: TunedRecommendationWeights;
+  /** When given, semantic similarity is computed leave-one-out from these vectors. */
+  embeddingsByGame?: Map<string, number[]>;
+  structuredKeywordsByGame?: Map<string, string[]>;
+  tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
 }): TunedRecommendationWeights {
-  const { games, semanticSimilarityByGame, minimumRated, defaults } = params;
+  const {
+    games,
+    semanticSimilarityByGame,
+    minimumRated,
+    defaults,
+    embeddingsByGame,
+    structuredKeywordsByGame,
+    tokenFamilyWeight,
+  } = params;
   const rated = games.filter((game) => game.rating !== null);
 
   if (rated.length < minimumRated) {
     return defaults;
   }
 
-  const profile = buildPreferenceProfile(games);
+  const profile = buildPreferenceProfile(games, { structuredKeywordsByGame });
+  const centroid = embeddingsByGame ? buildCentroidAccumulator(rated, embeddingsByGame) : null;
   const y: number[] = [];
   const structured: number[] = [];
   const semantic: number[] = [];
   const critic: number[] = [];
-  const runtime: number[] = [];
 
   for (const game of rated) {
-    const steps = game.rating ? Math.round(game.rating * 2 - 1) : null;
-    if (steps === null) {
+    const signal = ratingToSignal(game.rating);
+    if (signal === null) {
       continue;
     }
 
-    y.push(steps);
-    structured.push(evaluateStructuredTaste(game, profile));
+    const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
+    y.push(signal);
+    structured.push(
+      evaluateLeaveOneOutTaste(game, signal, profile, structuredKeywordsByGame, tokenFamilyWeight)
+    );
     semantic.push(
-      semanticSimilarityByGame.get(buildGameKey(game.igdbGameId, game.platformIgdbId)) ?? 0
+      centroid && embeddingsByGame
+        ? evaluateLeaveOneOutSemantic(embeddingsByGame.get(key), signal, centroid)
+        : (semanticSimilarityByGame.get(key) ?? 0)
     );
     critic.push(normalizeCriticScore(game));
-    runtime.push(normalizeRuntime(game.runtimeHours));
   }
 
   if (y.length < minimumRated) {
@@ -45,13 +83,12 @@ export function tuneRecommendationWeights(params: {
   const structuredCorrelation = computeCorrelation(structured, y);
   const semanticCorrelation = computeCorrelation(semantic, y);
   const criticCorrelation = computeCorrelation(critic, y);
-  const runtimeCorrelation = computeCorrelation(runtime, y);
 
   return {
     tasteWeight: clamp(structuredCorrelation * 3, 0.5, 3),
     semanticWeight: clamp(semanticCorrelation * 3, 0.5, 3),
     criticWeight: clamp(criticCorrelation * 2, 0, 2),
-    runtimeWeight: clamp(runtimeCorrelation * 2, 0, 2),
+    runtimeWeight: defaults.runtimeWeight,
   };
 }
 
@@ -81,22 +118,90 @@ export function computeCorrelation(left: number[], right: number[]): number {
   return numerator / Math.sqrt(denomLeft * denomRight);
 }
 
-function evaluateStructuredTaste(
+/** Taste score for a rated game against the profile with its own rating removed. */
+function evaluateLeaveOneOutTaste(
   game: NormalizedGameRecord,
-  profile: ReturnType<typeof buildPreferenceProfile>
+  signal: number,
+  profile: PreferenceProfile,
+  structuredKeywordsByGame: Map<string, string[]> | undefined,
+  tokenFamilyWeight: Partial<Record<TokenFamily, number>> | undefined
 ): number {
-  const tokens = buildTokenEntries(game);
   let score = 0;
 
-  for (const token of tokens) {
+  for (const token of buildTokenEntries(game, { structuredKeywordsByGame })) {
     const preference = profile.weights.get(token.key);
     if (!preference) {
       continue;
     }
-    score += preference.weight * TOKEN_FAMILY_WEIGHT[token.family];
+
+    const remainingCount = preference.count - 1;
+    if (remainingCount <= 0) {
+      continue;
+    }
+
+    const weight = (preference.sum - signal) / (remainingCount + SHRINKAGE_K);
+    const familyWeight = tokenFamilyWeight?.[token.family] ?? TOKEN_FAMILY_WEIGHT[token.family];
+    score += weight * familyWeight;
   }
 
   return score;
+}
+
+interface CentroidAccumulator {
+  sum: number[];
+  totalWeight: number;
+}
+
+/** Unnormalised rating-weighted sum of liked games' embeddings (same inputs as the taste centroid). */
+function buildCentroidAccumulator(
+  rated: NormalizedGameRecord[],
+  embeddingsByGame: Map<string, number[]>
+): CentroidAccumulator | null {
+  let sum: number[] | null = null;
+  let totalWeight = 0;
+
+  for (const game of rated) {
+    const signal = ratingToSignal(game.rating);
+    const embedding = embeddingsByGame.get(buildGameKey(game.igdbGameId, game.platformIgdbId));
+
+    if (signal === null || signal <= 0 || !embedding) {
+      continue;
+    }
+
+    sum ??= new Array<number>(embedding.length).fill(0);
+    if (embedding.length !== sum.length) {
+      continue;
+    }
+
+    for (let index = 0; index < embedding.length; index += 1) {
+      sum[index] += embedding[index] * signal;
+    }
+    totalWeight += signal;
+  }
+
+  return sum && totalWeight > 0 ? { sum, totalWeight } : null;
+}
+
+/** Cosine to the taste centroid after removing this game's own contribution. */
+function evaluateLeaveOneOutSemantic(
+  embedding: number[] | undefined,
+  signal: number,
+  centroid: CentroidAccumulator
+): number {
+  if (!embedding || embedding.length !== centroid.sum.length) {
+    return 0;
+  }
+
+  if (signal <= 0) {
+    return cosineSimilarity(embedding, centroid.sum);
+  }
+
+  if (centroid.totalWeight - signal <= 1e-9) {
+    return 0;
+  }
+
+  const remaining = centroid.sum.map((value, index) => value - embedding[index] * signal);
+  return cosineSimilarity(embedding, remaining);
 }
 
 function normalizeCriticScore(game: NormalizedGameRecord): number {
@@ -114,14 +219,6 @@ function normalizeCriticScore(game: NormalizedGameRecord): number {
   }
 
   return 0;
-}
-
-function normalizeRuntime(runtimeHours: number | null): number {
-  if (runtimeHours === null || !Number.isFinite(runtimeHours) || runtimeHours <= 0) {
-    return 0;
-  }
-
-  return clamp(runtimeHours / 50, 0, 1);
 }
 
 function mean(values: number[]): number {

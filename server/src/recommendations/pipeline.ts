@@ -58,9 +58,13 @@ export function prepareScoringContext(params: {
 }): RecommendationScoringContext {
   const { games, embeddingsByGame, structuredKeywordsByGame, options } = params;
   const semanticSimilarityByGame = buildSemanticSimilarityMap({ games, embeddingsByGame });
+  const tokenFamilyWeight = buildTokenFamilyWeights(options);
   const tunedWeights = tuneRecommendationWeights({
     games,
     semanticSimilarityByGame,
+    embeddingsByGame,
+    structuredKeywordsByGame,
+    tokenFamilyWeight,
     minimumRated: options.tuningMinRated,
     defaults: {
       tasteWeight: 1,
@@ -71,11 +75,11 @@ export function prepareScoringContext(params: {
   });
 
   return {
-    profile: buildPreferenceProfile(games),
+    profile: buildPreferenceProfile(games, { structuredKeywordsByGame }),
     semanticSimilarityByGame,
     tunedWeights,
     structuredKeywordsByGame,
-    tokenFamilyWeight: buildTokenFamilyWeights(options),
+    tokenFamilyWeight,
   };
 }
 

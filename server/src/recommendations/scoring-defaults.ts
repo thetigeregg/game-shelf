@@ -16,6 +16,9 @@ export const RECOMMENDATION_SCORING_DEFAULTS: RecommendationScoringOptions = {
   tuningMinRated: 8,
   keywordsWeight: 0.6,
   themesWeight: 1.3,
+  // Off until the evaluation harness shows they help on a real library.
+  ratingMeanCenterWeight: 0,
+  statusSignalWeight: 0,
 };
 
 export const RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS: KeywordSelectionOptions = {

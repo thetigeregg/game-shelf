@@ -226,6 +226,8 @@ export interface AppConfig {
   recommendationsKeywordsMinLibraryCount: number;
   recommendationsKeywordsWeight: number;
   recommendationsThemesWeight: number;
+  recommendationsRatingMeanCenterWeight: number;
+  recommendationsStatusSignalWeight: number;
   recommendationsSimilarityThemeWeight: number;
   recommendationsSimilarityGenreWeight: number;
   recommendationsSimilaritySeriesWeight: number;
@@ -867,6 +869,14 @@ export const config: AppConfig = {
   recommendationsThemesWeight: readNumberEnv(
     'RECOMMENDATIONS_THEMES_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.themesWeight
+  ),
+  recommendationsRatingMeanCenterWeight: readNumberEnv(
+    'RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.ratingMeanCenterWeight
+  ),
+  recommendationsStatusSignalWeight: readNumberEnv(
+    'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.statusSignalWeight
   ),
   recommendationsSimilarityThemeWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',

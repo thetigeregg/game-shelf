@@ -149,6 +149,8 @@ Common stack env vars:
 - `RECOMMENDATIONS_KEYWORDS_MIN_LIBRARY_COUNT` (optional; default `3`)
 - `RECOMMENDATIONS_KEYWORDS_WEIGHT` (optional; default `0.6`)
 - `RECOMMENDATIONS_THEMES_WEIGHT` (optional; default `1.3`)
+- `RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT` (optional; default `0`; `0` treats 3★ as neutral, `1` treats your own average rating as neutral)
+- `RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT` (optional; default `0`; `0`–`1`, how much unrated completed, replayed or dropped games count toward taste)
 - `RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT` (optional; default `0.35`)
 - `RECOMMENDATIONS_SIMILARITY_GENRE_WEIGHT` (optional; default `0.25`)
 - `RECOMMENDATIONS_SIMILARITY_SERIES_WEIGHT` (optional; default `0.20`)

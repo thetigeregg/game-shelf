@@ -31,10 +31,16 @@ const MAX_RATING = 5;
  * Signal for an unrated game, before statusSignalWeight. Only statuses that
  * reflect having played it count: wanting to play, playing or pausing a game
  * says little about whether it landed.
+ *
+ * Completed is neutral, not positive: finishing a game says nothing about
+ * enjoying it (on the real library every rated game is completed, averaging
+ * 3 stars). It still counts as a sighting of the game's tags, which keeps one
+ * dropped shooter from sinking a genre the user finishes all the time; leaving
+ * it out entirely evaluated worse than counting it as 0.
  */
 export const STATUS_SIGNAL: Readonly<Partial<Record<GameStatus, number>>> = {
   replay: 0.75,
-  completed: 0.5,
+  completed: 0,
   dropped: -0.75,
 };
 

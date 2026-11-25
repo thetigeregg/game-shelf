@@ -16,9 +16,10 @@ export const RECOMMENDATION_SCORING_DEFAULTS: RecommendationScoringOptions = {
   tuningMinRated: 8,
   keywordsWeight: 0.6,
   themesWeight: 1.3,
-  // Off until the evaluation harness shows they help on a real library.
-  ratingMeanCenterWeight: 0,
-  statusSignalWeight: 0,
+  // Chosen with rec:eval on the real library (2026-11-25): AUC 0.70 -> 0.79,
+  // hit@50 10% -> 22.5%, mean liked percentile 0.33 -> 0.27.
+  ratingMeanCenterWeight: 1,
+  statusSignalWeight: 0.25,
 };
 
 export const RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS: KeywordSelectionOptions = {

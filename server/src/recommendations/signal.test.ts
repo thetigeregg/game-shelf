@@ -90,7 +90,8 @@ void test('status signals give unrated played games a weak, scaled signal', () =
   const model = buildTasteSignalModel([], { ratingMeanCenterWeight: 0, statusSignalWeight: 0.5 });
 
   assert.equal(model.signalOf(game(null, 'replay')), 0.375);
-  assert.equal(model.signalOf(game(null, 'completed')), 0.25);
+  // Completed is neutral but still a signal (it records the tags as played).
+  assert.equal(model.signalOf(game(null, 'completed')), 0);
   assert.equal(model.signalOf(game(null, 'dropped')), -0.375);
   assert.equal(model.signalOf(game(null, 'playing')), null);
   assert.equal(model.signalOf(game(null, 'paused')), null);

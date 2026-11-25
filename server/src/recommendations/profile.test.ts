@@ -72,6 +72,7 @@ void test('preference profile uses the signal model, including status-only games
     buildGame({ igdbGameId: '1', rating: 4, genres: ['RPG'] }),
     buildGame({ igdbGameId: '2', status: 'dropped', genres: ['Sport'] }),
     buildGame({ igdbGameId: '3', status: 'wantToPlay', genres: ['Racing'] }),
+    buildGame({ igdbGameId: '4', status: 'completed', genres: ['RPG'] }),
   ];
 
   const withoutStatus = buildPreferenceProfile(games);
@@ -83,8 +84,10 @@ void test('preference profile uses the signal model, including status-only games
     statusSignalWeight: 1,
   });
   const withStatus = buildPreferenceProfile(games, { signalModel });
-  assert.equal(withStatus.ratedGameCount, 2);
+  assert.equal(withStatus.ratedGameCount, 3);
+  // The unrated completed RPG is a neutral sighting: it adds to the count, not the sum.
   assert.equal(withStatus.weights.get('genres:rpg')?.sum, 0.5);
+  assert.equal(withStatus.weights.get('genres:rpg')?.count, 2);
   assert.equal(withStatus.weights.get('genres:sport')?.sum, -0.75);
   assert.equal(withStatus.weights.get('genres:racing'), undefined);
 });

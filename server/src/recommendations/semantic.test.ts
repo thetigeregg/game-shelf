@@ -63,27 +63,29 @@ void test('buildTasteProfileEmbedding builds weighted centroid from positive rat
   assert.equal(vector[2], 0);
 });
 
-void test('buildTasteProfileEmbedding adds unrated completed games when status signals are on', () => {
+void test('buildTasteProfileEmbedding adds unrated replayed games when status signals are on', () => {
   const games = [
     { igdbGameId: '1', platformIgdbId: 6, rating: 5, status: 'completed' },
-    { igdbGameId: '2', platformIgdbId: 6, rating: null, status: 'completed' },
+    { igdbGameId: '2', platformIgdbId: 6, rating: null, status: 'replay' },
     { igdbGameId: '3', platformIgdbId: 6, rating: null, status: 'dropped' },
+    { igdbGameId: '4', platformIgdbId: 6, rating: null, status: 'completed' },
   ] as never;
   const embeddingsByGame = new Map<string, number[]>([
-    ['1::6', [1, 0, 0]],
-    ['2::6', [0, 1, 0]],
-    ['3::6', [0, 0, 1]],
+    ['1::6', [1, 0, 0, 0]],
+    ['2::6', [0, 1, 0, 0]],
+    ['3::6', [0, 0, 1, 0]],
+    ['4::6', [0, 0, 0, 1]],
   ]);
 
-  assert.deepEqual(buildTasteProfileEmbedding({ games, embeddingsByGame }), [1, 0, 0]);
+  assert.deepEqual(buildTasteProfileEmbedding({ games, embeddingsByGame }), [1, 0, 0, 0]);
 
   const vector = buildTasteProfileEmbedding({
     games,
     embeddingsByGame,
     signalModel: buildTasteSignalModel(games, { ratingMeanCenterWeight: 0, statusSignalWeight: 1 }),
   });
-  // 5★ counts 1, completed counts 0.5, dropped (negative) stays out of the centroid.
-  assert.deepEqual(vector, [1 / 1.5, 0.5 / 1.5, 0]);
+  // 5★ counts 1 and replay 0.75; dropped (negative) and completed (0) stay out.
+  assert.deepEqual(vector, [1 / 1.75, 0.75 / 1.75, 0, 0]);
 });
 
 void test('buildTasteProfileEmbedding returns null for missing/invalid embeddings', () => {

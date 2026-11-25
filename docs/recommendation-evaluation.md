@@ -70,7 +70,7 @@ pass the same values to mirror it.
 ## Sweeping a setting
 
 To choose a value for a setting, run one pass per candidate value. For example, the
-personal-signal settings (both off by default):
+personal-signal settings:
 
 ```sh
 cd server
@@ -86,7 +86,8 @@ done
 - `ratingMeanCenterWeight`: `0` treats 3★ as neutral. `1` treats your own average rating as
   neutral, shrunk toward 3★ by 5 pseudo-ratings.
 - `statusSignalWeight`: how much unrated games count toward taste based on their status.
-  At `1`, replay counts +0.75, completed +0.5 and dropped -0.75. A 5★ rating counts +1.
+  At `1`, replay counts +0.75 and dropped -0.75. A 5★ rating counts +1. Completed counts as 0,
+  which still records the game's tags as played.
 
 Look at AUC and the liked percentile first. Hit@k moves in steps of 1/liked games, so small
 differences there are noise. Set the winner with `RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT` and

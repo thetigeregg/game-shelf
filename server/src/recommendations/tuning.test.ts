@@ -222,12 +222,12 @@ void test('tuneRecommendationWeights still rewards taste tags shared across rate
 
 void test('tuneRecommendationWeights lets status-only games inform taste without being targets', () => {
   // Each rated game has its own developer, shared only with an unrated
-  // companion that was completed (if the rated game was liked) or dropped.
+  // companion that was replayed (if the rated game was liked) or dropped.
   const games = RATINGS.flatMap((rating, index) => [
     buildGame({ igdbGameId: `g${String(index)}`, rating, developers: [`Dev ${String(index)}`] }),
     buildGame({
       igdbGameId: `s${String(index)}`,
-      status: rating >= 3.5 ? 'completed' : 'dropped',
+      status: rating >= 3.5 ? 'replay' : 'dropped',
       developers: [`Dev ${String(index)}`],
     }),
   ]);

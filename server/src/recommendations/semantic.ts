@@ -150,43 +150,61 @@ export function normalizeVector(vector: number[]): number[] | null {
   return vector.map((value) => value / length);
 }
 
-/** Samples pairs deterministically (sorted by game key) so rebuilds are reproducible. */
+/**
+ * Samples pairs deterministically (sorted by game key) so rebuilds are
+ * reproducible. Pairs of the same game on different platforms are skipped:
+ * they share the same text, so their near-1 cosines would drag the 99th
+ * percentile up and squash every real match (the similarity graph never
+ * compares a game with itself either).
+ */
 export function buildCosineCalibration(
   embeddingsByGame: Map<string, number[]>
 ): CosineCalibration | null {
   const keys = [...embeddingsByGame.keys()].sort((left, right) => left.localeCompare(right, 'en'));
-  const vectors: number[][] = [];
+  const entries: Array<{ gameId: string; vector: number[] }> = [];
 
   for (const key of keys) {
     const normalized = normalizeVector(embeddingsByGame.get(key) as number[]);
-    if (normalized && (vectors.length === 0 || normalized.length === vectors[0].length)) {
-      vectors.push(normalized);
+    if (normalized && (entries.length === 0 || normalized.length === entries[0].vector.length)) {
+      entries.push({ gameId: readGameIdFromKey(key), vector: normalized });
     }
   }
 
-  const count = vectors.length;
+  const count = entries.length;
   if (count < 3) {
     return null;
   }
 
   const cosines: number[] = [];
+  const addPair = (left: number, right: number): void => {
+    if (entries[left].gameId !== entries[right].gameId) {
+      cosines.push(dot(entries[left].vector, entries[right].vector));
+    }
+  };
   const totalPairs = (count * (count - 1)) / 2;
 
   if (totalPairs <= CALIBRATION_MAX_PAIRS) {
     for (let left = 0; left < count; left += 1) {
       for (let right = left + 1; right < count; right += 1) {
-        cosines.push(dot(vectors[left], vectors[right]));
+        addPair(left, right);
       }
     }
   } else {
-    // Pair every vector with a spread of fixed offsets around the ring.
-    const offsetsPerVector = Math.max(1, Math.ceil(CALIBRATION_MAX_PAIRS / count));
+    // Pair every vector with a spread of distinct offsets around the ring.
+    // Offsets stay at or below (count - 1) / 2, because offset k and count - k
+    // (and count / 2 from both ends) would visit the same pairs twice.
+    const maxOffset = Math.floor((count - 1) / 2);
+    const offsetsPerVector = Math.min(maxOffset, Math.ceil(CALIBRATION_MAX_PAIRS / count));
     for (let step = 0; step < offsetsPerVector; step += 1) {
-      const offset = 1 + Math.floor((step * (count - 1)) / offsetsPerVector);
+      const offset = 1 + Math.floor((step * maxOffset) / offsetsPerVector);
       for (let index = 0; index < count && cosines.length < CALIBRATION_MAX_PAIRS; index += 1) {
-        cosines.push(dot(vectors[index], vectors[(index + offset) % count]));
+        addPair(index, (index + offset) % count);
       }
     }
+  }
+
+  if (cosines.length === 0) {
+    return null;
   }
 
   cosines.sort((left, right) => left - right);
@@ -194,6 +212,11 @@ export function buildCosineCalibration(
   const high = quantile(cosines, CALIBRATION_HIGH_QUANTILE);
 
   return high - low > 1e-6 ? { low, high } : null;
+}
+
+function readGameIdFromKey(key: string): string {
+  const separator = key.lastIndexOf('::');
+  return separator < 0 ? key : key.slice(0, separator);
 }
 
 /** Maps a raw cosine to 0..1: 0 for a typical unrelated pair or worse, 1 for a close match. */

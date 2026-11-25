@@ -821,7 +821,7 @@ export class RecommendationService implements RecommendationServiceApi {
       discoveryRecentRefreshHours: this.options.discoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
       discoveryIgdbMaxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
-      modelVersion: 'recommendation-v3-discovery-source-lanes',
+      modelVersion: 'recommendation-v4-scoring-fixes',
     });
   }
 

@@ -148,6 +148,22 @@ export function buildRankedScores(params: {
   }));
 }
 
+/**
+ * Scores candidates on their own merits only (no diversity/novelty re-ranking),
+ * in input order. Used by the offline evaluation harness.
+ */
+export function buildBaseTotals(
+  params: Omit<
+    Parameters<typeof buildRankedScores>[0],
+    'limit' | 'diversityPenaltyWeight' | 'similarityStructuredWeight' | 'similaritySemanticWeight'
+  >
+): Array<{ game: NormalizedGameRecord; total: number }> {
+  return params.candidates.map((game) => {
+    const base = buildBaseScore({ ...params, game });
+    return { game, total: calculateTotalScore(base.baseComponents) };
+  });
+}
+
 function buildBaseScore(params: {
   game: NormalizedGameRecord;
   target: RecommendationTarget;

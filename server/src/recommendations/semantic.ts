@@ -96,3 +96,30 @@ export function clampSemanticScore(value: number): number {
 
   return Math.max(-1, Math.min(1, value));
 }
+
+/** Cosine similarity of every game's embedding to the rating-weighted taste centroid. */
+export function buildSemanticSimilarityMap(params: {
+  games: NormalizedGameRecord[];
+  embeddingsByGame: Map<string, number[]>;
+}): Map<string, number> {
+  const { games, embeddingsByGame } = params;
+  const profileEmbedding = buildTasteProfileEmbedding({ games, embeddingsByGame });
+  const map = new Map<string, number>();
+
+  if (!profileEmbedding) {
+    return map;
+  }
+
+  for (const game of games) {
+    const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
+    const embedding = embeddingsByGame.get(key);
+
+    if (!embedding || embedding.length !== profileEmbedding.length) {
+      continue;
+    }
+
+    map.set(key, clampSemanticScore(cosineSimilarity(embedding, profileEmbedding)));
+  }
+
+  return map;
+}

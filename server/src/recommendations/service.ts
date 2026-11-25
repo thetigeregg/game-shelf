@@ -5,24 +5,16 @@ import { buildEmbeddingText } from './embedding-text.js';
 import { EmbeddingClient, OpenAiEmbeddingClient } from './embedding-client.js';
 import { buildExplanation } from './explanations.js';
 import { buildRecommendationLanes } from './lanes.js';
-import { buildKeywordSelection } from './keyword-stats.js';
-import { prepareKeywords } from './keywords.js';
+import { buildKeywordArtifacts } from './keyword-stats.js';
 import { normalizeTokenKey } from './normalize.js';
-import { buildPreferenceProfile } from './profile.js';
 import { EmbeddingRepository } from './embedding-repository.js';
 import { DiscoveryCandidateRecord, DiscoveryIgdbClient } from './discovery-igdb-client.js';
 import { DiscoveryEnrichmentService } from './discovery-enrichment-service.js';
 import { RecommendationRepository } from './repository.js';
 import { parseRecommendationRuntimeMode, RECOMMENDATION_RUNTIME_MODES } from './runtime.js';
-import { buildRankedScores } from './score.js';
-import {
-  buildGameKey,
-  buildTasteProfileEmbedding,
-  clampSemanticScore,
-  cosineSimilarity,
-} from './semantic.js';
+import { prepareScoringContext, rankCandidates, RecommendationScoringContext } from './pipeline.js';
+import { buildGameKey } from './semantic.js';
 import { buildSimilarityGraph } from './similarity.js';
-import { tuneRecommendationWeights } from './tuning.js';
 import {
   GameEmbeddingUpsertInput,
   NormalizedGameRecord,
@@ -37,7 +29,6 @@ import {
   RecommendationTarget,
   SimilarityReasons,
   StoredGameEmbedding,
-  TunedRecommendationWeights,
 } from './types.js';
 
 const RANKING_DEDUPE_BUFFER = 25;
@@ -267,18 +258,17 @@ export class RecommendationService implements RecommendationServiceApi {
           games,
           embeddingKeywordsByGame: keywordArtifacts.embeddingKeywordsByGame,
         });
-        const semanticSimilarityByGame = this.buildSemanticSimilarityMap({
+        const scoringContext = prepareScoringContext({
           games,
           embeddingsByGame,
+          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame,
+          options: this.options,
         });
-        const tunedWeights = this.buildTunedWeights(games, semanticSimilarityByGame);
         const recommendationsByMode = this.buildRecommendationsByMode({
           games,
           target: params.target,
-          semanticSimilarityByGame,
-          tunedWeights,
+          scoringContext,
           histories,
-          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame,
         });
         const lanesByMode = this.buildLanesByMode({
           target: params.target,
@@ -677,94 +667,25 @@ export class RecommendationService implements RecommendationServiceApi {
     return record;
   }
 
-  private buildSemanticSimilarityMap(params: {
-    games: NormalizedGameRecord[];
-    embeddingsByGame: Map<string, number[]>;
-  }): Map<string, number> {
-    const { games, embeddingsByGame } = params;
-    const profileEmbedding = buildTasteProfileEmbedding({ games, embeddingsByGame });
-    const map = new Map<string, number>();
-
-    if (!profileEmbedding) {
-      return map;
-    }
-
-    for (const game of games) {
-      const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
-      const embedding = embeddingsByGame.get(key);
-
-      if (!embedding) {
-        continue;
-      }
-
-      map.set(key, clampSemanticScore(cosineSimilarity(embedding, profileEmbedding)));
-    }
-
-    return map;
-  }
-
-  private buildTunedWeights(
-    games: NormalizedGameRecord[],
-    semanticSimilarityByGame: Map<string, number>
-  ): TunedRecommendationWeights {
-    return tuneRecommendationWeights({
-      games,
-      semanticSimilarityByGame,
-      minimumRated: this.options.tuningMinRated,
-      defaults: {
-        tasteWeight: 1,
-        semanticWeight: this.options.semanticWeight,
-        criticWeight: 1,
-        runtimeWeight: 1,
-      },
-    });
-  }
-
   private buildRecommendationsByMode(params: {
     games: NormalizedGameRecord[];
     target: RecommendationTarget;
-    semanticSimilarityByGame: Map<string, number>;
-    tunedWeights: TunedRecommendationWeights;
+    scoringContext: RecommendationScoringContext;
     histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>;
-    structuredKeywordsByGame: Map<string, string[]>;
   }): Record<RecommendationRuntimeMode, RankedRecommendationItem[]> {
-    const {
-      games,
-      target,
-      semanticSimilarityByGame,
-      tunedWeights,
-      histories,
-      structuredKeywordsByGame,
-    } = params;
-    const profile = buildPreferenceProfile(games);
+    const { games, target, scoringContext, histories } = params;
     const candidates = selectCandidates(games, target);
     const rankedLimit = Math.min(candidates.length, this.options.topLimit + RANKING_DEDUPE_BUFFER);
 
     return createModeRecord((runtimeMode) => {
-      const ranked = buildRankedScores({
+      const ranked = rankCandidates({
+        context: scoringContext,
         candidates,
         target,
-        profile,
-        limit: rankedLimit,
         runtimeMode,
-        semanticSimilarityByGame,
-        tunedWeights,
-        explorationWeight: this.options.explorationWeight,
-        diversityPenaltyWeight: this.options.diversityPenaltyWeight,
-        similarityStructuredWeight: this.options.similarityStructuredWeight,
-        similaritySemanticWeight: this.options.similaritySemanticWeight,
-        repeatPenaltyStep: this.options.repeatPenaltyStep,
+        limit: rankedLimit,
         historyByGame: histories[runtimeMode],
-        structuredKeywordsByGame,
-        tokenFamilyWeight: {
-          collections: 1.4,
-          franchises: 1.3,
-          themes: this.options.themesWeight,
-          developers: 1.1,
-          genres: 1,
-          publishers: 0.7,
-          keywords: this.options.keywordsWeight,
-        },
+        options: this.options,
       });
 
       const materialized = ranked.map((item, index) => ({
@@ -952,29 +873,13 @@ export class RecommendationService implements RecommendationServiceApi {
     embeddingKeywordsByGame: Map<string, string[]>;
     structuredKeywordsByGame: Map<string, string[]>;
   } {
-    const preparedKeywordsByGame = new Map<string, string[]>();
-
-    for (const game of games) {
-      const gameKey = buildGameKey(game.igdbGameId, game.platformIgdbId);
-      preparedKeywordsByGame.set(gameKey, prepareKeywords(game.keywords));
-    }
-
-    const selection = buildKeywordSelection({
-      games,
-      preparedKeywordsByGame,
-      options: {
-        globalMaxRatio: this.options.keywordsGlobalMaxRatio,
-        structuredMaxRatio: this.options.keywordsStructuredMaxRatio,
-        minLibraryCount: this.options.keywordsMinLibraryCount,
-        structuredMax: this.options.keywordsStructuredMax,
-        embeddingMax: this.options.keywordsEmbeddingMax,
-      },
+    return buildKeywordArtifacts(games, {
+      globalMaxRatio: this.options.keywordsGlobalMaxRatio,
+      structuredMaxRatio: this.options.keywordsStructuredMaxRatio,
+      minLibraryCount: this.options.keywordsMinLibraryCount,
+      structuredMax: this.options.keywordsStructuredMax,
+      embeddingMax: this.options.keywordsEmbeddingMax,
     });
-
-    return {
-      embeddingKeywordsByGame: selection.embeddingKeywordsByGame,
-      structuredKeywordsByGame: selection.structuredKeywordsByGame,
-    };
   }
 
   private async refreshDiscoveryPool(params: {

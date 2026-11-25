@@ -7,6 +7,10 @@ import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './recommendations/discovery-enrichment-defaults.js';
+import {
+  RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS,
+  RECOMMENDATION_SCORING_DEFAULTS,
+} from './recommendations/scoring-defaults.js';
 
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
@@ -799,14 +803,17 @@ export const config: AppConfig = {
   ),
   recommendationsEmbeddingBatchSize: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_BATCH_SIZE', 32),
   recommendationsEmbeddingTimeoutMs: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_TIMEOUT_MS', 15000),
-  recommendationsSemanticWeight: readNumberEnv('RECOMMENDATIONS_SEMANTIC_WEIGHT', 2),
+  recommendationsSemanticWeight: readNumberEnv(
+    'RECOMMENDATIONS_SEMANTIC_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.semanticWeight
+  ),
   recommendationsSimilarityStructuredWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_STRUCTURED_WEIGHT',
-    0.6
+    RECOMMENDATION_SCORING_DEFAULTS.similarityStructuredWeight
   ),
   recommendationsSimilaritySemanticWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_SEMANTIC_WEIGHT',
-    0.4
+    RECOMMENDATION_SCORING_DEFAULTS.similaritySemanticWeight
   ),
   recommendationsFailureBackoffMinutes: readIntegerEnv(
     'RECOMMENDATIONS_FAILURE_BACKOFF_MINUTES',
@@ -816,33 +823,51 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_RUNTIME_MODE_DEFAULT',
     'NEUTRAL'
   ),
-  recommendationsExplorationWeight: readNumberEnv('RECOMMENDATIONS_EXPLORATION_WEIGHT', 0.3),
+  recommendationsExplorationWeight: readNumberEnv(
+    'RECOMMENDATIONS_EXPLORATION_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.explorationWeight
+  ),
   recommendationsDiversityPenaltyWeight: readNumberEnv(
     'RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT',
-    0.5
+    RECOMMENDATION_SCORING_DEFAULTS.diversityPenaltyWeight
   ),
-  recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
-  recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),
+  recommendationsRepeatPenaltyStep: readNumberEnv(
+    'RECOMMENDATIONS_REPEAT_PENALTY_STEP',
+    RECOMMENDATION_SCORING_DEFAULTS.repeatPenaltyStep
+  ),
+  recommendationsTuningMinRated: readIntegerEnv(
+    'RECOMMENDATIONS_TUNING_MIN_RATED',
+    RECOMMENDATION_SCORING_DEFAULTS.tuningMinRated
+  ),
   recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20),
   recommendationsKeywordsStructuredMax: readIntegerEnv(
     'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX',
-    100
+    RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS.structuredMax
   ),
-  recommendationsKeywordsEmbeddingMax: readIntegerEnv('RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX', 40),
+  recommendationsKeywordsEmbeddingMax: readIntegerEnv(
+    'RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX',
+    RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS.embeddingMax
+  ),
   recommendationsKeywordsGlobalMaxRatio: readNumberEnv(
     'RECOMMENDATIONS_KEYWORDS_GLOBAL_MAX_RATIO',
-    0.7
+    RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS.globalMaxRatio
   ),
   recommendationsKeywordsStructuredMaxRatio: readNumberEnv(
     'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX_RATIO',
-    0.3
+    RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS.structuredMaxRatio
   ),
   recommendationsKeywordsMinLibraryCount: readIntegerEnv(
     'RECOMMENDATIONS_KEYWORDS_MIN_LIBRARY_COUNT',
-    3
+    RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS.minLibraryCount
   ),
-  recommendationsKeywordsWeight: readNumberEnv('RECOMMENDATIONS_KEYWORDS_WEIGHT', 0.6),
-  recommendationsThemesWeight: readNumberEnv('RECOMMENDATIONS_THEMES_WEIGHT', 1.3),
+  recommendationsKeywordsWeight: readNumberEnv(
+    'RECOMMENDATIONS_KEYWORDS_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.keywordsWeight
+  ),
+  recommendationsThemesWeight: readNumberEnv(
+    'RECOMMENDATIONS_THEMES_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.themesWeight
+  ),
   recommendationsSimilarityThemeWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',
     0.35

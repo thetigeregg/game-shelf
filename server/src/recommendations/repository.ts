@@ -1208,7 +1208,7 @@ function mapRecommendationRow(row: RecommendationRow | LaneRow): RankedRecommend
   };
 }
 
-function parseEmbeddingVector(value: string | number[]): number[] {
+export function parseEmbeddingVector(value: string | number[]): number[] {
   if (Array.isArray(value)) {
     return value.filter((entry) => Number.isFinite(entry));
   }

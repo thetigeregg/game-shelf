@@ -36,6 +36,8 @@ export interface NormalizedGameRecord {
   genres: string[];
   themes: string[];
   keywords: string[];
+  /** IGDB ids of the games IGDB lists as similar to this one. */
+  similarGameIgdbIds: string[];
   developers: string[];
   publishers: string[];
   franchises: string[];
@@ -80,6 +82,8 @@ export interface RecommendationScoreComponents {
   exploration: number;
   diversityPenalty: number;
   repeatPenalty: number;
+  /** Rated games IGDB lists as similar (either direction), weighted by their signal. */
+  igdbSimilar: number;
 }
 
 export interface RecommendationExplanationBullet {
@@ -92,7 +96,8 @@ export interface RecommendationExplanationBullet {
     | 'semantic'
     | 'exploration'
     | 'diversity'
-    | 'repeat';
+    | 'repeat'
+    | 'similar';
   label: string;
   evidence: string[];
   delta: number;
@@ -193,6 +198,7 @@ export interface TunedRecommendationWeights {
   semanticWeight: number;
   criticWeight: number;
   runtimeWeight: number;
+  igdbSimilarWeight: number;
 }
 
 export interface RecommendationHistoryEntry {

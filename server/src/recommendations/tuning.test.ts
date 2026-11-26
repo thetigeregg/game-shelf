@@ -29,6 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
+    similarGameIgdbIds: [],
     ...overrides,
   };
 }
@@ -45,6 +46,7 @@ void test('tuneRecommendationWeights falls back when sample is too small', () =>
     semanticWeight: 2,
     criticWeight: 1,
     runtimeWeight: 1,
+    igdbSimilarWeight: 0,
   };
 
   const tuned = tuneRecommendationWeights({
@@ -63,6 +65,7 @@ void test('tuneRecommendationWeights preserves mobygames 0-100 critic variance',
     semanticWeight: 2,
     criticWeight: 1,
     runtimeWeight: 1,
+    igdbSimilarWeight: 0,
   };
 
   const games: NormalizedGameRecord[] = [
@@ -97,6 +100,7 @@ void test('tuneRecommendationWeights handles NaN ratings and alternate critic fa
     semanticWeight: 2,
     criticWeight: 1,
     runtimeWeight: 1,
+    igdbSimilarWeight: 0,
   };
 
   const games: NormalizedGameRecord[] = [
@@ -167,6 +171,7 @@ const TUNING_DEFAULTS = {
   semanticWeight: 2,
   criticWeight: 1,
   runtimeWeight: 1,
+  igdbSimilarWeight: 0,
 };
 const RATINGS = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5];
 
@@ -285,4 +290,38 @@ void test('tuneRecommendationWeights computes semantic similarity leave-one-out 
     defaults: TUNING_DEFAULTS,
   });
   assert.ok(tuned.semanticWeight > 2);
+});
+
+void test('tuneRecommendationWeights tunes the IGDB link weight from how well links predict ratings', () => {
+  const games = RATINGS.map((rating, index) =>
+    buildGame({ igdbGameId: `g${String(index)}`, rating, developers: [`Dev ${String(index)}`] })
+  );
+  const tune = (scoreFor: (rating: number) => number): TunedRecommendationWeights =>
+    tuneRecommendationWeights({
+      games,
+      semanticSimilarityByGame: new Map(),
+      minimumRated: 8,
+      defaults: TUNING_DEFAULTS,
+      igdbLinksByGame: new Map(
+        games.map((game) => [
+          game.igdbGameId,
+          { score: scoreFor(game.rating as number), likedTitles: [] },
+        ])
+      ),
+    });
+
+  // Links that track the ratings get a strong weight, capped at 3.
+  assert.equal(tune((rating) => (rating - 3) / 2).igdbSimilarWeight, 3);
+  // Links that run against the ratings switch the signal off.
+  assert.equal(tune((rating) => (3 - rating) / 2).igdbSimilarWeight, 0);
+  // No links: no correlation, weight 0.
+  assert.equal(
+    tuneRecommendationWeights({
+      games,
+      semanticSimilarityByGame: new Map(),
+      minimumRated: 8,
+      defaults: TUNING_DEFAULTS,
+    }).igdbSimilarWeight,
+    0
+  );
 });

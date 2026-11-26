@@ -479,6 +479,7 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
       exploration: 0,
       diversityPenalty: 0,
       repeatPenalty: 0,
+      igdbSimilar: 0,
     },
     explanations: {
       headline: 'h',
@@ -758,6 +759,7 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
               exploration: 0,
               diversityPenalty: 0,
               repeatPenalty: 0,
+              igdbSimilar: 0,
             },
             explanations: {
               headline: 'h',

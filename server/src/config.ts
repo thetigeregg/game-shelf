@@ -73,11 +73,17 @@ function readNumberEnv(name: string, fallback: number): number {
 
 /** A 0..1 weight. Out-of-range values are clamped with a warning, so the value that runs is the one hashed. */
 function readUnitIntervalEnv(name: string, fallback: number): number {
+  return readBoundedNumberEnv(name, fallback, 0, 1);
+}
+
+function readBoundedNumberEnv(name: string, fallback: number, min: number, max: number): number {
   const value = readNumberEnv(name, fallback);
-  const clamped = Math.min(1, Math.max(0, value));
+  const clamped = Math.min(max, Math.max(min, value));
 
   if (clamped !== value) {
-    console.warn(`[config] ${name}=${String(value)} is outside 0..1; using ${String(clamped)}`);
+    console.warn(
+      `[config] ${name}=${String(value)} is outside ${String(min)}..${String(max)}; using ${String(clamped)}`
+    );
   }
 
   return clamped;
@@ -240,6 +246,7 @@ export interface AppConfig {
   recommendationsThemesWeight: number;
   recommendationsRatingMeanCenterWeight: number;
   recommendationsStatusSignalWeight: number;
+  recommendationsIgdbSimilarWeight: number;
   recommendationsSimilarityThemeWeight: number;
   recommendationsSimilarityGenreWeight: number;
   recommendationsSimilaritySeriesWeight: number;
@@ -889,6 +896,12 @@ export const config: AppConfig = {
   recommendationsStatusSignalWeight: readUnitIntervalEnv(
     'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.statusSignalWeight
+  ),
+  recommendationsIgdbSimilarWeight: readBoundedNumberEnv(
+    'RECOMMENDATIONS_IGDB_SIMILAR_WEIGHT',
+    RECOMMENDATION_SCORING_DEFAULTS.igdbSimilarWeight,
+    0,
+    3
   ),
   recommendationsSimilarityThemeWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',

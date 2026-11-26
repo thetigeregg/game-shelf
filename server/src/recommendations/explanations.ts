@@ -10,8 +10,10 @@ import { getTopPositiveTasteMatches, tasteFamilyLabel } from './score.js';
 export function buildExplanation(params: {
   components: RecommendationScoreComponents;
   tasteMatches: TasteMatch[];
+  /** Liked games IGDB lists as similar to this one. */
+  igdbLikedTitles?: string[];
 }): RecommendationExplanation {
-  const { components, tasteMatches } = params;
+  const { components, tasteMatches, igdbLikedTitles = [] } = params;
   const topMatches = getTopPositiveTasteMatches(tasteMatches, 3);
   const bullets: RecommendationExplanationBullet[] = [];
 
@@ -39,6 +41,20 @@ export function buildExplanation(params: {
           : 'Lower semantic match with your liked games',
       evidence: ['semantic:embedding-cosine'],
       delta: components.semantic,
+    });
+  }
+
+  if (components.igdbSimilar !== 0) {
+    bullets.push({
+      type: 'similar',
+      label:
+        components.igdbSimilar > 0 && igdbLikedTitles.length > 0
+          ? `IGDB lists it as similar to ${igdbLikedTitles.join(', ')}`
+          : components.igdbSimilar > 0
+            ? 'IGDB lists it as similar to games you rated highly'
+            : 'IGDB lists it as similar to games you rated low',
+      evidence: igdbLikedTitles.map((title) => `igdb-similar:${title}`),
+      delta: components.igdbSimilar,
     });
   }
 
@@ -124,6 +140,7 @@ function buildHeadline(components: RecommendationScoreComponents, matches: Taste
   const positiveContributors: Array<{ key: string; value: number }> = [
     { key: 'taste', value: components.taste },
     { key: 'semantic', value: components.semantic },
+    { key: 'igdbSimilar', value: components.igdbSimilar },
     { key: 'runtimeFit', value: components.runtimeFit },
     { key: 'criticBoost', value: components.criticBoost },
     { key: 'recencyBoost', value: components.recencyBoost },
@@ -141,6 +158,10 @@ function buildHeadline(components: RecommendationScoreComponents, matches: Taste
   if (strongest === 'taste' && matches.length > 0) {
     const labels = matches.map((match) => match.label).join(', ');
     return `Matches your tastes: ${labels}`;
+  }
+
+  if (strongest === 'igdbSimilar') {
+    return 'Similar to games you rated highly';
   }
 
   if (strongest === 'runtimeFit') {

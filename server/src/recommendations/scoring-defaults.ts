@@ -20,6 +20,7 @@ export const RECOMMENDATION_SCORING_DEFAULTS: RecommendationScoringOptions = {
   // hit@50 10% -> 22.5%, mean liked percentile 0.33 -> 0.27.
   ratingMeanCenterWeight: 1,
   statusSignalWeight: 0.25,
+  igdbSimilarWeight: 1,
 };
 
 export const RECOMMENDATION_KEYWORD_SELECTION_DEFAULTS: KeywordSelectionOptions = {

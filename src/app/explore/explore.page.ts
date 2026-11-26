@@ -627,7 +627,8 @@ export class ExplorePage implements OnInit {
     const positiveSignal =
       Math.max(0, item.scoreComponents.taste) +
       Math.max(0, item.scoreComponents.semantic) +
-      Math.max(0, item.scoreComponents.criticBoost);
+      Math.max(0, item.scoreComponents.criticBoost) +
+      Math.max(0, item.scoreComponents.igdbSimilar);
     const penalties =
       Math.abs(Math.min(0, item.scoreComponents.diversityPenalty)) +
       Math.abs(Math.min(0, item.scoreComponents.repeatPenalty));
@@ -1895,6 +1896,7 @@ export class ExplorePage implements OnInit {
         exploration: 0,
         diversityPenalty: 0,
         repeatPenalty: 0,
+        igdbSimilar: 0,
       },
       explanations: {
         headline: item.reasons.summary,

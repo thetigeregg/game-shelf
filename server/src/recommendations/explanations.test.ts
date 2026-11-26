@@ -14,6 +14,7 @@ void test('explanation bullets preserve component deltas', () => {
       exploration: 0.2,
       diversityPenalty: -0.1,
       repeatPenalty: -0.2,
+      igdbSimilar: 0,
     },
     tasteMatches: [
       {
@@ -43,4 +44,56 @@ void test('explanation bullets preserve component deltas', () => {
   assert.deepEqual(explanation.matchedTokens.collections, ['Mario']);
   assert.deepEqual(explanation.matchedTokens.themes, []);
   assert.deepEqual(explanation.matchedTokens.keywords, []);
+});
+
+void test('IGDB similar-games explanations name the liked games', () => {
+  const components = {
+    taste: 0,
+    novelty: 0,
+    runtimeFit: 0,
+    criticBoost: 0,
+    recencyBoost: 0,
+    semantic: 0.2,
+    exploration: 0,
+    diversityPenalty: 0,
+    repeatPenalty: 0,
+    igdbSimilar: 0.9,
+  };
+
+  const named = buildExplanation({
+    components,
+    tasteMatches: [],
+    igdbLikedTitles: ['Celeste', 'Hollow Knight'],
+  });
+  const bullet = named.bullets.find((entry) => entry.type === 'similar');
+  assert.ok(bullet);
+  assert.equal(bullet.label, 'IGDB lists it as similar to Celeste, Hollow Knight');
+  assert.deepEqual(bullet.evidence, ['igdb-similar:Celeste', 'igdb-similar:Hollow Knight']);
+  assert.equal(bullet.delta, 0.9);
+  assert.equal(named.headline, 'Similar to games you rated highly');
+
+  const unnamed = buildExplanation({ components, tasteMatches: [] });
+  assert.equal(
+    unnamed.bullets.find((entry) => entry.type === 'similar')?.label,
+    'IGDB lists it as similar to games you rated highly'
+  );
+
+  const negative = buildExplanation({
+    components: { ...components, igdbSimilar: -0.4 },
+    tasteMatches: [],
+  });
+  assert.equal(
+    negative.bullets.find((entry) => entry.type === 'similar')?.label,
+    'IGDB lists it as similar to games you rated low'
+  );
+  assert.notEqual(negative.headline, 'Similar to games you rated highly');
+
+  const none = buildExplanation({
+    components: { ...components, igdbSimilar: 0 },
+    tasteMatches: [],
+  });
+  assert.equal(
+    none.bullets.some((entry) => entry.type === 'similar'),
+    false
+  );
 });

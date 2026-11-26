@@ -19,6 +19,7 @@ function buildItem(overrides: Partial<RankedRecommendationItem>): RankedRecommen
       exploration: 0,
       diversityPenalty: 0,
       repeatPenalty: 0,
+      igdbSimilar: 0,
     },
     explanations: {
       headline: 'x',
@@ -52,6 +53,7 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
         exploration: 0.1,
         diversityPenalty: 0,
         repeatPenalty: 0,
+        igdbSimilar: 0,
       },
     }),
     buildItem({
@@ -68,6 +70,7 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
         exploration: 0.8,
         diversityPenalty: 0,
         repeatPenalty: 0,
+        igdbSimilar: 0,
       },
     }),
   ];

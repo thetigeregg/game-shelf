@@ -1,3 +1,4 @@
+import { buildIgdbLinkEvidence, IgdbLinkEvidence } from './igdb-links.js';
 import { buildPreferenceProfile } from './profile.js';
 import { buildBaseTotals, buildRankedScores, RankedScore } from './score.js';
 import {
@@ -34,6 +35,8 @@ export interface RecommendationScoringOptions {
   ratingMeanCenterWeight: number;
   /** 0 = unrated games carry no taste signal; up to 1 = full status signal (completed, dropped…). */
   statusSignalWeight: number;
+  /** Multiplier (0..3) on the tuned IGDB similar-games weight; 0 turns the signal off. */
+  igdbSimilarWeight: number;
 }
 
 export interface RecommendationScoringContext {
@@ -46,6 +49,8 @@ export interface RecommendationScoringContext {
   /** Library-specific cosine range, shared by diversity and the similarity graph. */
   cosineCalibration: CosineCalibration | null;
   signalModel: TasteSignalModel;
+  /** IGDB similar-games evidence keyed by IGDB game id. */
+  igdbLinksByGame: Map<string, IgdbLinkEvidence>;
 }
 
 export function buildTokenFamilyWeights(
@@ -73,6 +78,7 @@ export function prepareScoringContext(params: {
 }): RecommendationScoringContext {
   const { games, embeddingsByGame, structuredKeywordsByGame, options } = params;
   const signalModel = buildTasteSignalModel(games, options);
+  const igdbLinksByGame = buildIgdbLinkEvidence(games, signalModel);
   const semanticSimilarityByGame = buildSemanticSimilarityMap({
     games,
     embeddingsByGame,
@@ -86,14 +92,17 @@ export function prepareScoringContext(params: {
     structuredKeywordsByGame,
     tokenFamilyWeight,
     signalModel,
+    igdbLinksByGame,
     minimumRated: options.tuningMinRated,
     defaults: {
       tasteWeight: 1,
       semanticWeight: options.semanticWeight,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 1,
     },
   });
+  tunedWeights.igdbSimilarWeight *= Math.min(3, Math.max(0, options.igdbSimilarWeight));
 
   return {
     profile: buildPreferenceProfile(games, { structuredKeywordsByGame, signalModel }),
@@ -107,6 +116,7 @@ export function prepareScoringContext(params: {
         ? buildCosineCalibration(embeddingsByGame)
         : params.cosineCalibration,
     signalModel,
+    igdbLinksByGame,
   };
 }
 
@@ -139,6 +149,7 @@ export function rankCandidates(params: {
     tokenFamilyWeight: context.tokenFamilyWeight,
     embeddingsByGame: context.embeddingsByGame,
     cosineCalibration: context.cosineCalibration,
+    igdbLinksByGame: context.igdbLinksByGame,
   });
 }
 
@@ -164,5 +175,6 @@ export function scoreCandidatesBase(params: {
     historyByGame,
     structuredKeywordsByGame: context.structuredKeywordsByGame,
     tokenFamilyWeight: context.tokenFamilyWeight,
+    igdbLinksByGame: context.igdbLinksByGame,
   });
 }

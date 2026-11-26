@@ -2930,6 +2930,8 @@ export class IgdbProxyService implements GameSearchApi {
               this.normalizePopularityValue(scoreComponentsRaw?.['diversityPenalty']) ?? 0,
             repeatPenalty:
               this.normalizePopularityValue(scoreComponentsRaw?.['repeatPenalty']) ?? 0,
+            // Absent from runs scored before the IGDB similar-games signal existed.
+            igdbSimilar: this.normalizePopularityValue(scoreComponentsRaw?.['igdbSimilar']) ?? 0,
           },
           explanations: {
             headline:
@@ -3068,7 +3070,8 @@ export class IgdbProxyService implements GameSearchApi {
       value === 'semantic' ||
       value === 'exploration' ||
       value === 'diversity' ||
-      value === 'repeat'
+      value === 'repeat' ||
+      value === 'similar'
     ) {
       return value;
     }

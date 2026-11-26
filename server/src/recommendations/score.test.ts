@@ -29,6 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
+    similarGameIgdbIds: [],
     ...overrides,
   };
 }
@@ -81,6 +82,7 @@ void test('ranking is deterministic for the same input data', () => {
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -128,6 +130,7 @@ void test('cold start disables taste contribution when rated games are fewer tha
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -172,6 +175,7 @@ void test('critic boost handles mobygames reviewScore values on 0-100 scale', ()
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -208,6 +212,7 @@ void test('exploration uses raw semantic similarity, not weighted semantic score
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -248,6 +253,7 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -276,6 +282,7 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
@@ -290,4 +297,56 @@ void test('taste overlap discount reduces duplicate collection+franchise lift', 
     true
   );
   assert.equal((withOverlap[0]?.components.taste ?? 0) < 1.4, true);
+});
+
+void test('IGDB link evidence adds a weighted component once enough games are rated', () => {
+  const rated = Array.from({ length: 5 }, (_, index) =>
+    buildGame({ igdbGameId: `r${String(index)}`, rating: 4, genres: [`Genre ${String(index)}`] })
+  );
+  const candidates = [
+    buildGame({ igdbGameId: 'linked', title: 'Linked', status: 'wantToPlay' }),
+    buildGame({ igdbGameId: 'disliked-link', title: 'Disliked Link', status: 'wantToPlay' }),
+    buildGame({ igdbGameId: 'plain', title: 'Plain', status: 'wantToPlay' }),
+  ];
+  const igdbLinksByGame = new Map([
+    ['linked', { score: 0.5, likedTitles: ['Celeste'] }],
+    ['disliked-link', { score: -0.25, likedTitles: [] }],
+  ]);
+  const rank = (games: NormalizedGameRecord[]) =>
+    buildRankedScores({
+      candidates,
+      profile: buildPreferenceProfile([...games, ...candidates]),
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      limit: 10,
+      semanticSimilarityByGame: new Map(),
+      tunedWeights: {
+        tasteWeight: 1,
+        semanticWeight: 2,
+        criticWeight: 1,
+        runtimeWeight: 1,
+        igdbSimilarWeight: 2,
+      },
+      explorationWeight: 0,
+      diversityPenaltyWeight: 0,
+      similarityStructuredWeight: 0.6,
+      similaritySemanticWeight: 0.4,
+      repeatPenaltyStep: 0.2,
+      historyByGame: new Map(),
+      igdbLinksByGame,
+    });
+
+  const ranked = rank(rated);
+  const byId = new Map(ranked.map((entry) => [entry.game.igdbGameId, entry]));
+  assert.equal(ranked[0]?.game.igdbGameId, 'linked');
+  assert.equal(byId.get('linked')?.components.igdbSimilar, 1);
+  assert.deepEqual(byId.get('linked')?.igdbLikedTitles, ['Celeste']);
+  assert.equal(byId.get('disliked-link')?.components.igdbSimilar, -0.5);
+  assert.deepEqual(byId.get('disliked-link')?.igdbLikedTitles, []);
+  assert.equal(byId.get('plain')?.components.igdbSimilar, 0);
+
+  // Below five rated games the links are ignored, like taste.
+  const sparse = rank(rated.slice(0, 4));
+  assert.ok(sparse.every((entry) => entry.components.igdbSimilar === 0));
+  assert.ok(sparse.every((entry) => entry.igdbLikedTitles.length === 0));
 });

@@ -62,6 +62,7 @@ export interface RecommendationServiceOptions {
   themesWeight: number;
   ratingMeanCenterWeight: number;
   statusSignalWeight: number;
+  igdbSimilarWeight: number;
   similarityThemeWeight: number;
   similarityGenreWeight: number;
   similaritySeriesWeight: number;
@@ -708,6 +709,7 @@ export class RecommendationService implements RecommendationServiceApi {
         explanations: buildExplanation({
           components: item.components,
           tasteMatches: item.tasteMatches,
+          igdbLikedTitles: item.igdbLikedTitles,
         }),
       }));
 
@@ -779,6 +781,7 @@ export class RecommendationService implements RecommendationServiceApi {
       themesWeight: this.options.themesWeight,
       ratingMeanCenterWeight: this.options.ratingMeanCenterWeight,
       statusSignalWeight: this.options.statusSignalWeight,
+      igdbSimilarWeight: this.options.igdbSimilarWeight,
       similarityThemeWeight: this.options.similarityThemeWeight,
       similarityGenreWeight: this.options.similarityGenreWeight,
       similaritySeriesWeight: this.options.similaritySeriesWeight,
@@ -829,6 +832,7 @@ export class RecommendationService implements RecommendationServiceApi {
         publishers: [...game.publishers].sort(),
         franchises: [...game.franchises].sort(),
         collections: [...game.collections].sort(),
+        similarGameIgdbIds: [...game.similarGameIgdbIds].sort(),
       }))
       .sort((left, right) => {
         if (left.igdbGameId !== right.igdbGameId) {

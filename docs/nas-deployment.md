@@ -151,6 +151,7 @@ Common stack env vars:
 - `RECOMMENDATIONS_THEMES_WEIGHT` (optional; default `1.3`)
 - `RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT` (optional; default `1`; `0` treats 3★ as neutral, `1` treats your own average rating as neutral)
 - `RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT` (optional; default `0.25`; `0`–`1`, how much unrated replayed or dropped library games count toward taste; above `0`, unrated completed games also count as neutral sightings of their tags)
+- `RECOMMENDATIONS_IGDB_SIMILAR_WEIGHT` (optional; default `1`; `0`–`3`, multiplier on the auto-tuned boost for games IGDB lists as similar to ones you rated; `0` turns it off)
 - `RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT` (optional; default `0.35`)
 - `RECOMMENDATIONS_SIMILARITY_GENRE_WEIGHT` (optional; default `0.25`)
 - `RECOMMENDATIONS_SIMILARITY_SERIES_WEIGHT` (optional; default `0.20`)

@@ -51,6 +51,7 @@ function createServiceMock(
               exploration: 0.2,
               diversityPenalty: -0.1,
               repeatPenalty: -0.2,
+              igdbSimilar: 0,
             },
             explanations: {
               headline: 'Matches your tastes',
@@ -396,6 +397,7 @@ void test('GET /v1/recommendations/lanes without lane preserves the legacy lanes
           exploration: 0.2,
           diversityPenalty: -0.1,
           repeatPenalty: -0.2,
+          igdbSimilar: 0,
         },
         explanations: {
           headline: 'Matches your tastes',

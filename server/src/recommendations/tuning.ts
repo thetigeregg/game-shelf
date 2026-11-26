@@ -1,4 +1,5 @@
 import { buildTokenEntries } from './normalize.js';
+import { IgdbLinkEvidence } from './igdb-links.js';
 import { TOKEN_FAMILY_WEIGHT, SHRINKAGE_K, buildPreferenceProfile } from './profile.js';
 import { buildGameKey, cosineSimilarity } from './semantic.js';
 import { DEFAULT_TASTE_SIGNAL_MODEL, TasteSignalModel } from './signal.js';
@@ -36,6 +37,11 @@ export function tuneRecommendationWeights(params: {
    * and centroid they are scored against.
    */
   signalModel?: TasteSignalModel;
+  /**
+   * IGDB similar-games evidence by IGDB id. A game's own rating never counts
+   * toward its own evidence, so it is already leave-one-out.
+   */
+  igdbLinksByGame?: Map<string, IgdbLinkEvidence>;
 }): TunedRecommendationWeights {
   const {
     games,
@@ -45,6 +51,7 @@ export function tuneRecommendationWeights(params: {
     embeddingsByGame,
     structuredKeywordsByGame,
     tokenFamilyWeight,
+    igdbLinksByGame,
   } = params;
   // The mean-centred neutral point is computed from all ratings, the target's
   // included. Accepted: it is a shrunk mean, so one rating barely moves it, and
@@ -64,6 +71,7 @@ export function tuneRecommendationWeights(params: {
   const structured: number[] = [];
   const semantic: number[] = [];
   const critic: number[] = [];
+  const igdbLinks: number[] = [];
 
   for (const game of rated) {
     const signal = signalModel.signalOf(game);
@@ -82,6 +90,7 @@ export function tuneRecommendationWeights(params: {
         : (semanticSimilarityByGame.get(key) ?? 0)
     );
     critic.push(normalizeCriticScore(game));
+    igdbLinks.push(igdbLinksByGame?.get(game.igdbGameId)?.score ?? 0);
   }
 
   if (y.length < minimumRated) {
@@ -91,12 +100,15 @@ export function tuneRecommendationWeights(params: {
   const structuredCorrelation = computeCorrelation(structured, y);
   const semanticCorrelation = computeCorrelation(semantic, y);
   const criticCorrelation = computeCorrelation(critic, y);
+  const igdbLinkCorrelation = computeCorrelation(igdbLinks, y);
 
   return {
     tasteWeight: clamp(structuredCorrelation * 3, 0.5, 3),
     semanticWeight: clamp(semanticCorrelation * 3, 0.5, 3),
     criticWeight: clamp(criticCorrelation * 2, 0, 2),
     runtimeWeight: defaults.runtimeWeight,
+    // Like critic, it can tune down to 0 if IGDB's lists don't match this user's taste.
+    igdbSimilarWeight: clamp(igdbLinkCorrelation * 3, 0, 3),
   };
 }
 

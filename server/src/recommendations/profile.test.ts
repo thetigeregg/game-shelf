@@ -29,6 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
+    similarGameIgdbIds: [],
     ...overrides,
   };
 }

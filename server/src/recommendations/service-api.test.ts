@@ -38,6 +38,7 @@ function baseOptions() {
     themesWeight: 1.3,
     ratingMeanCenterWeight: 0,
     statusSignalWeight: 0,
+    igdbSimilarWeight: 0,
     similarityThemeWeight: 0.35,
     similarityGenreWeight: 0.25,
     similaritySeriesWeight: 0.2,
@@ -94,6 +95,7 @@ function sampleGame(): NormalizedGameRecord {
     publishers: ['Nintendo'],
     franchises: ['Mario'],
     collections: ['Super Mario'],
+    similarGameIgdbIds: [],
   };
 }
 
@@ -113,6 +115,7 @@ function sampleItem(): RankedRecommendationItem {
       exploration: 0,
       diversityPenalty: 0,
       repeatPenalty: 0,
+      igdbSimilar: 0,
     },
     explanations: {
       headline: 'h',
@@ -624,6 +627,47 @@ void test('service rebuild returns SKIPPED when input/settings hashes match late
     status: 'SKIPPED',
     reusedRunId: 77,
   });
+});
+
+void test('service rebuild reruns when only IGDB similar-games lists change', async () => {
+  let latestSuccessful: RecommendationRunSummary | null = null;
+  let games = [sampleGame()];
+  const repository = {
+    withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
+      acquired: true as const,
+      value: await callback({}),
+    }),
+    getLatestRun: () => Promise.resolve(null),
+    listNormalizedGames: () => Promise.resolve(games),
+    listRecommendationHistory: () => Promise.resolve(new Map()),
+    getLatestSuccessfulRun: () => Promise.resolve(latestSuccessful),
+    createRun: (params: { settingsHash: string; inputHash: string }) => {
+      latestSuccessful = sampleRun({
+        id: 78,
+        settingsHash: params.settingsHash,
+        inputHash: params.inputHash,
+      });
+      return Promise.resolve(78);
+    },
+    finalizeRunSuccess: () => Promise.resolve(undefined),
+    markRunFailed: () => {
+      assert.fail('markRunFailed should not be called');
+    },
+  };
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    embeddingRepository: {
+      listGameEmbeddings: () => Promise.resolve([]),
+      upsertGameEmbeddings: () => Promise.resolve(undefined),
+    } as never,
+    embeddingClient: { generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]]) },
+    nowProvider: () => NOW,
+  });
+
+  assert.equal((await service.rebuild({ target: 'BACKLOG', force: true })).status, 'SUCCESS');
+  assert.equal((await service.rebuild({ target: 'BACKLOG', force: false })).status, 'SKIPPED');
+
+  games = [{ ...sampleGame(), similarGameIgdbIds: ['999'] }];
+  assert.equal((await service.rebuild({ target: 'BACKLOG', force: false })).status, 'SUCCESS');
 });
 
 void test('service rebuild skip check ignores recommendation history count churn', async () => {

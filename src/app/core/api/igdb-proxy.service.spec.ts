@@ -3322,6 +3322,7 @@ describe('IgdbProxyService', () => {
             exploration: 0,
             diversityPenalty: -0.01,
             repeatPenalty: -0.02,
+            igdbSimilar: 0,
           },
           explanations: {
             headline: 'Legacy hidden gem',
@@ -3339,6 +3340,58 @@ describe('IgdbProxyService', () => {
         },
       ],
       page: { offset: 0, limit: 1, hasMore: false, nextOffset: null },
+    });
+  });
+
+  it('parses the IGDB similar-games component and its explanation bullet', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({
+        target: 'BACKLOG',
+        lane: 'overall',
+      })
+    );
+
+    const req = httpMock.expectOne(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes`
+    );
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
+      runId: 17,
+      generatedAt: '2026-11-26T09:00:00.000Z',
+      lane: 'overall',
+      items: [
+        {
+          rank: 1,
+          igdbGameId: '777',
+          platformIgdbId: 6,
+          scoreTotal: 2.1,
+          scoreComponents: { taste: 0.5, semantic: 0.3, igdbSimilar: 1.15 },
+          explanations: {
+            headline: 'Similar to games you rated highly',
+            bullets: [
+              {
+                type: 'similar',
+                label: 'IGDB lists it as similar to Celeste',
+                evidence: ['igdb-similar:Celeste'],
+                delta: 1.15,
+              },
+            ],
+            matchedTokens: {},
+          },
+        },
+      ],
+      page: { offset: 0, limit: 10, hasMore: false, nextOffset: null },
+    });
+
+    const response = await promise;
+    expect(response.items[0]?.scoreComponents.igdbSimilar).toBe(1.15);
+    expect(response.items[0]?.explanations.bullets[0]).toEqual({
+      type: 'similar',
+      label: 'IGDB lists it as similar to Celeste',
+      evidence: ['igdb-similar:Celeste'],
+      delta: 1.15,
     });
   });
 

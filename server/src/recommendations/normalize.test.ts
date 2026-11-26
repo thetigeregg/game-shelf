@@ -33,11 +33,14 @@ void test('normalizeDbGameRow returns normalized record for valid payload', () =
       publishers: ['Nintendo'],
       franchises: ['Zelda'],
       collections: ['The Legend of Zelda'],
+      similarGameIgdbIds: ['42', 42, ' 7 ', '0042', '000', 'abc', 0, -3, 1.5, null],
     },
   });
 
   assert.ok(normalized);
   assert.equal(normalized.title, 'Zelda');
+  // Strings and positive integers, canonical and deduped; anything else dropped.
+  assert.deepEqual(normalized.similarGameIgdbIds, ['42', '7']);
   assert.equal(normalized.rating, 4.5);
   assert.equal(normalized.runtimeHours, 12.35);
   assert.equal(normalized.reviewScore, 88.89);
@@ -134,6 +137,7 @@ void test('buildTokenEntries dedupes and supports structured keyword overrides',
     publishers: [],
     franchises: [],
     collections: [],
+    similarGameIgdbIds: [],
   };
 
   const structuredKeywordsByGame = new Map<string, string[]>([

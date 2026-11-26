@@ -291,6 +291,7 @@ async function main(): Promise<void> {
       themesWeight: config.recommendationsThemesWeight,
       ratingMeanCenterWeight: config.recommendationsRatingMeanCenterWeight,
       statusSignalWeight: config.recommendationsStatusSignalWeight,
+      igdbSimilarWeight: config.recommendationsIgdbSimilarWeight,
       similarityThemeWeight: config.recommendationsSimilarityThemeWeight,
       similarityGenreWeight: config.recommendationsSimilarityGenreWeight,
       similaritySeriesWeight: config.recommendationsSimilaritySeriesWeight,

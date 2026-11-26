@@ -53,13 +53,13 @@ void test('config clamps popularity feed row limit to a sane maximum', () => {
   }
 });
 
-void test('config clamps personal-signal weights to 0..1 and warns', () => {
+void test('config clamps recommendation weights to their ranges and warns', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-shelf-config-'));
   const envFile = path.join(tempDir, '.env');
 
   fs.writeFileSync(
     envFile,
-    'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT=25\nRECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT=-1\n',
+    'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT=25\nRECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT=-1\nRECOMMENDATIONS_IGDB_SIMILAR_WEIGHT=10\n',
     'utf8'
   );
 
@@ -72,6 +72,7 @@ void test('config clamps personal-signal weights to 0..1 and warns', () => {
     };
     delete env.RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT;
     delete env.RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT;
+    delete env.RECOMMENDATIONS_IGDB_SIMILAR_WEIGHT;
 
     const child = spawnSync(
       process.execPath,
@@ -87,6 +88,7 @@ void test('config clamps personal-signal weights to 0..1 and warns', () => {
           process.stdout.write(JSON.stringify({
             status: imported.config.recommendationsStatusSignalWeight,
             center: imported.config.recommendationsRatingMeanCenterWeight,
+            igdb: imported.config.recommendationsIgdbSimilarWeight,
           }));
         `,
       ],
@@ -99,7 +101,8 @@ void test('config clamps personal-signal weights to 0..1 and warns', () => {
 
     assert.equal(child.status, 0, child.stderr || child.stdout);
     const output = child.stdout.match(/\{[^}]*\}\s*$/)?.[0] ?? '';
-    assert.deepEqual(JSON.parse(output), { status: 1, center: 0 });
+    assert.deepEqual(JSON.parse(output), { status: 1, center: 0, igdb: 3 });
+    assert.match(child.stderr, /RECOMMENDATIONS_IGDB_SIMILAR_WEIGHT=10 is outside 0\.\.3; using 3/);
     assert.match(
       child.stderr,
       /RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT=25 is outside 0\.\.1; using 1/

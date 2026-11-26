@@ -1,5 +1,5 @@
 import { NormalizedGameRecord } from './types.js';
-import { ratingToSignal } from './rating.js';
+import { DEFAULT_TASTE_SIGNAL_MODEL, TasteSignalModel } from './signal.js';
 
 export function buildGameKey(igdbGameId: string, platformIgdbId: number): string {
   return `${igdbGameId.trim()}::${String(platformIgdbId)}`;
@@ -43,18 +43,16 @@ export function cosineSimilarity(left: number[], right: number[]): number {
 export function buildTasteProfileEmbedding(params: {
   games: NormalizedGameRecord[];
   embeddingsByGame: Map<string, number[]>;
+  signalModel?: TasteSignalModel;
 }): number[] | null {
   const { games, embeddingsByGame } = params;
+  const signalModel = params.signalModel ?? DEFAULT_TASTE_SIGNAL_MODEL;
 
   let accumulator: number[] | null = null;
   let totalWeight = 0;
 
   for (const game of games) {
-    if (game.rating === null) {
-      continue;
-    }
-
-    const signal = ratingToSignal(game.rating);
+    const signal = signalModel.signalOf(game);
 
     if (signal === null || signal <= 0) {
       continue;
@@ -101,9 +99,10 @@ export function clampSemanticScore(value: number): number {
 export function buildSemanticSimilarityMap(params: {
   games: NormalizedGameRecord[];
   embeddingsByGame: Map<string, number[]>;
+  signalModel?: TasteSignalModel;
 }): Map<string, number> {
-  const { games, embeddingsByGame } = params;
-  const profileEmbedding = buildTasteProfileEmbedding({ games, embeddingsByGame });
+  const { games, embeddingsByGame, signalModel } = params;
+  const profileEmbedding = buildTasteProfileEmbedding({ games, embeddingsByGame, signalModel });
   const map = new Map<string, number>();
 
   if (!profileEmbedding) {

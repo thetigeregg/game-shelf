@@ -4,12 +4,7 @@ export type RecommendationRunTrigger = 'manual' | 'scheduler' | 'stale-read';
 export type RecommendationRebuildQueueReason = 'missing' | 'stale' | 'forced';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
 export type RecommendationLaneKey =
-  | 'overall'
-  | 'hiddenGems'
-  | 'exploration'
-  | 'blended'
-  | 'popular'
-  | 'recent';
+  'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
 
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export const DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES: ReadonlyArray<GameStatus | ''> = [
@@ -18,13 +13,7 @@ export const DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES: ReadonlyArray<GameStatus
 ];
 
 export type TokenFamily =
-  | 'genres'
-  | 'developers'
-  | 'publishers'
-  | 'franchises'
-  | 'collections'
-  | 'themes'
-  | 'keywords';
+  'genres' | 'developers' | 'publishers' | 'franchises' | 'collections' | 'themes' | 'keywords';
 
 export interface NormalizedGameRecord {
   igdbGameId: string;
@@ -69,6 +58,7 @@ export interface PreferenceWeight {
 }
 
 export interface PreferenceProfile {
+  /** Games with a rating; status-only games feed the weights but not this count. */
   ratedGameCount: number;
   weights: Map<string, PreferenceWeight>;
 }

@@ -1,5 +1,5 @@
 import { buildTokenEntries } from './normalize.js';
-import { ratingToSignal } from './rating.js';
+import { DEFAULT_TASTE_SIGNAL_MODEL, TasteSignalModel } from './signal.js';
 import { NormalizedGameRecord, PreferenceProfile, PreferenceWeight, TokenFamily } from './types.js';
 
 export const SHRINKAGE_K = 5;
@@ -16,13 +16,23 @@ export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
 
 export function buildPreferenceProfile(
   games: NormalizedGameRecord[],
-  options: { structuredKeywordsByGame?: Map<string, string[]> } = {}
+  options: {
+    structuredKeywordsByGame?: Map<string, string[]>;
+    signalModel?: TasteSignalModel;
+  } = {}
 ): PreferenceProfile {
-  const ratedGames = games.filter((game) => game.rating !== null);
+  const signalModel = options.signalModel ?? DEFAULT_TASTE_SIGNAL_MODEL;
   const weightMap = new Map<string, PreferenceWeight>();
+  let ratedGameCount = 0;
 
-  for (const game of ratedGames) {
-    const signal = ratingToSignal(game.rating);
+  for (const game of games) {
+    const signal = signalModel.signalOf(game);
+
+    // Only real ratings count toward the "enough data for taste" gate; status
+    // signals shape the profile but are too weak to vouch for it on their own.
+    if (game.rating !== null) {
+      ratedGameCount += 1;
+    }
 
     if (signal === null) {
       continue;
@@ -57,9 +67,7 @@ export function buildPreferenceProfile(
   }
 
   return {
-    ratedGameCount: ratedGames.length,
+    ratedGameCount,
     weights: weightMap,
   };
 }
-
-export { ratingToSignal } from './rating.js';

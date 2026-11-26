@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPreferenceProfile, ratingToSignal } from './profile.js';
+import { buildPreferenceProfile } from './profile.js';
+import { buildTasteSignalModel } from './signal.js';
 import { NormalizedGameRecord } from './types.js';
 
 function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameRecord {
@@ -31,14 +32,6 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     ...overrides,
   };
 }
-
-void test('ratingToSignal maps 1..5 half-step ratings to centered signal', () => {
-  assert.equal(ratingToSignal(1), -1);
-  assert.equal(ratingToSignal(3), 0);
-  assert.equal(ratingToSignal(5), 1);
-  assert.equal(ratingToSignal(2.5), -0.25);
-  assert.equal(ratingToSignal(null), null);
-});
 
 void test('preference profile applies shrinkage to token weights', () => {
   const games: NormalizedGameRecord[] = [
@@ -72,4 +65,30 @@ void test('preference profile uses cleaned structured keywords when provided', (
   assert.ok(raw.weights.has('keywords:turn-based'));
   assert.equal(cleaned.weights.has('keywords:turn-based'), false);
   assert.ok(cleaned.weights.has('keywords:turn-based combat'));
+});
+
+void test('preference profile uses the signal model, including status-only games', () => {
+  const games: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: '1', rating: 4, genres: ['RPG'] }),
+    buildGame({ igdbGameId: '2', status: 'dropped', genres: ['Sport'] }),
+    buildGame({ igdbGameId: '3', status: 'wantToPlay', genres: ['Racing'] }),
+    buildGame({ igdbGameId: '4', status: 'completed', genres: ['RPG'] }),
+  ];
+
+  const withoutStatus = buildPreferenceProfile(games);
+  assert.equal(withoutStatus.ratedGameCount, 1);
+  assert.equal(withoutStatus.weights.get('genres:sport'), undefined);
+
+  const signalModel = buildTasteSignalModel(games, {
+    ratingMeanCenterWeight: 0,
+    statusSignalWeight: 1,
+  });
+  const withStatus = buildPreferenceProfile(games, { signalModel });
+  // Status-only games feed the weights but not the rated-games gate.
+  assert.equal(withStatus.ratedGameCount, 1);
+  // The unrated completed RPG is a neutral sighting: it adds to the count, not the sum.
+  assert.equal(withStatus.weights.get('genres:rpg')?.sum, 0.5);
+  assert.equal(withStatus.weights.get('genres:rpg')?.count, 2);
+  assert.equal(withStatus.weights.get('genres:sport')?.sum, -0.75);
+  assert.equal(withStatus.weights.get('genres:racing'), undefined);
 });

@@ -67,6 +67,32 @@ Any field of `RECOMMENDATION_SCORING_DEFAULTS` (`server/src/recommendations/scor
 can be overridden with a flag of the same name. If production sets `RECOMMENDATIONS_*` env vars,
 pass the same values to mirror it.
 
+## Sweeping a setting
+
+To choose a value for a setting, run one pass per candidate value. For example, the
+personal-signal settings:
+
+```sh
+cd server
+for center in 0 0.5 1; do
+  for status in 0 0.5 1; do
+    echo "ratingMeanCenterWeight=$center statusSignalWeight=$status"
+    npm run rec:eval -s -- --input=/path/to/rec-eval-export.json \
+      --ratingMeanCenterWeight=$center --statusSignalWeight=$status | grep -E 'hit@|MRR|AUC'
+  done
+done
+```
+
+- `ratingMeanCenterWeight`: `0` treats 3★ as neutral. `1` treats your own average rating as
+  neutral, shrunk toward 3★ by 5 pseudo-ratings.
+- `statusSignalWeight`: how much unrated library games count toward taste based on their status.
+  At `1`, replay counts +0.75 and dropped -0.75. A 5★ rating counts +1. Completed counts as 0,
+  which still records the game's tags as played.
+
+Look at AUC and the liked percentile first. Hit@k moves in steps of 1/liked games, so small
+differences there are noise. Set the winner with `RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT` and
+`RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT`.
+
 ## Comparing two versions
 
 Run the same export against both versions. A worktree keeps the baseline separate from your

@@ -138,6 +138,8 @@ async function main(): Promise<void> {
       keywordsMinLibraryCount: config.recommendationsKeywordsMinLibraryCount,
       keywordsWeight: config.recommendationsKeywordsWeight,
       themesWeight: config.recommendationsThemesWeight,
+      ratingMeanCenterWeight: config.recommendationsRatingMeanCenterWeight,
+      statusSignalWeight: config.recommendationsStatusSignalWeight,
       similarityThemeWeight: config.recommendationsSimilarityThemeWeight,
       similarityGenreWeight: config.recommendationsSimilarityGenreWeight,
       similaritySeriesWeight: config.recommendationsSimilaritySeriesWeight,

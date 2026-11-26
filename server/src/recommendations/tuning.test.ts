@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildTasteSignalModel } from './signal.js';
 import { computeCorrelation, tuneRecommendationWeights } from './tuning.js';
-import { NormalizedGameRecord } from './types.js';
+import { NormalizedGameRecord, TunedRecommendationWeights } from './types.js';
 
 function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameRecord {
   return {
@@ -217,6 +218,36 @@ void test('tuneRecommendationWeights still rewards taste tags shared across rate
   });
 
   assert.ok(tuned.tasteWeight > 2);
+});
+
+void test('tuneRecommendationWeights lets status-only games inform taste without being targets', () => {
+  // Each rated game has its own developer, shared only with an unrated
+  // companion that was replayed (if the rated game was liked) or dropped.
+  const games = RATINGS.flatMap((rating, index) => [
+    buildGame({ igdbGameId: `g${String(index)}`, rating, developers: [`Dev ${String(index)}`] }),
+    buildGame({
+      igdbGameId: `s${String(index)}`,
+      status: rating >= 3.5 ? 'replay' : 'dropped',
+      developers: [`Dev ${String(index)}`],
+    }),
+  ]);
+  const signalModel = buildTasteSignalModel(games, {
+    ratingMeanCenterWeight: 0,
+    statusSignalWeight: 1,
+  });
+  const tune = (minimumRated: number, withStatus: boolean): TunedRecommendationWeights =>
+    tuneRecommendationWeights({
+      games,
+      semanticSimilarityByGame: new Map(),
+      minimumRated,
+      defaults: TUNING_DEFAULTS,
+      signalModel: withStatus ? signalModel : undefined,
+    });
+
+  assert.equal(tune(8, false).tasteWeight, 0.5);
+  assert.ok(tune(8, true).tasteWeight > 2);
+  // Only the 8 rated games are prediction targets.
+  assert.deepEqual(tune(9, true), TUNING_DEFAULTS);
 });
 
 void test('tuneRecommendationWeights computes semantic similarity leave-one-out from embeddings', () => {

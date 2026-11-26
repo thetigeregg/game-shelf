@@ -5,6 +5,7 @@ import {
   buildSemanticSimilarityMap,
   CosineCalibration,
 } from './semantic.js';
+import { buildTasteSignalModel, TasteSignalModel } from './signal.js';
 import { tuneRecommendationWeights } from './tuning.js';
 import {
   NormalizedGameRecord,
@@ -29,6 +30,10 @@ export interface RecommendationScoringOptions {
   tuningMinRated: number;
   keywordsWeight: number;
   themesWeight: number;
+  /** 0 = 3★ is neutral; 1 = the user's own shrunk mean rating is neutral. */
+  ratingMeanCenterWeight: number;
+  /** 0 = unrated games carry no taste signal; up to 1 = full status signal (completed, dropped…). */
+  statusSignalWeight: number;
 }
 
 export interface RecommendationScoringContext {
@@ -40,6 +45,7 @@ export interface RecommendationScoringContext {
   embeddingsByGame: Map<string, number[]>;
   /** Library-specific cosine range, shared by diversity and the similarity graph. */
   cosineCalibration: CosineCalibration | null;
+  signalModel: TasteSignalModel;
 }
 
 export function buildTokenFamilyWeights(
@@ -66,7 +72,12 @@ export function prepareScoringContext(params: {
   cosineCalibration?: CosineCalibration | null;
 }): RecommendationScoringContext {
   const { games, embeddingsByGame, structuredKeywordsByGame, options } = params;
-  const semanticSimilarityByGame = buildSemanticSimilarityMap({ games, embeddingsByGame });
+  const signalModel = buildTasteSignalModel(games, options);
+  const semanticSimilarityByGame = buildSemanticSimilarityMap({
+    games,
+    embeddingsByGame,
+    signalModel,
+  });
   const tokenFamilyWeight = buildTokenFamilyWeights(options);
   const tunedWeights = tuneRecommendationWeights({
     games,
@@ -74,6 +85,7 @@ export function prepareScoringContext(params: {
     embeddingsByGame,
     structuredKeywordsByGame,
     tokenFamilyWeight,
+    signalModel,
     minimumRated: options.tuningMinRated,
     defaults: {
       tasteWeight: 1,
@@ -84,7 +96,7 @@ export function prepareScoringContext(params: {
   });
 
   return {
-    profile: buildPreferenceProfile(games, { structuredKeywordsByGame }),
+    profile: buildPreferenceProfile(games, { structuredKeywordsByGame, signalModel }),
     semanticSimilarityByGame,
     tunedWeights,
     structuredKeywordsByGame,
@@ -94,6 +106,7 @@ export function prepareScoringContext(params: {
       params.cosineCalibration === undefined
         ? buildCosineCalibration(embeddingsByGame)
         : params.cosineCalibration,
+    signalModel,
   };
 }
 

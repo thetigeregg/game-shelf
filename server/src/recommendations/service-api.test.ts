@@ -36,6 +36,8 @@ function baseOptions() {
     keywordsMinLibraryCount: 3,
     keywordsWeight: 0.6,
     themesWeight: 1.3,
+    ratingMeanCenterWeight: 0,
+    statusSignalWeight: 0,
     similarityThemeWeight: 0.35,
     similarityGenreWeight: 0.25,
     similaritySeriesWeight: 0.2,

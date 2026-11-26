@@ -1,11 +1,7 @@
 import { buildTokenEntries } from './normalize.js';
-import {
-  TOKEN_FAMILY_WEIGHT,
-  SHRINKAGE_K,
-  buildPreferenceProfile,
-  ratingToSignal,
-} from './profile.js';
+import { TOKEN_FAMILY_WEIGHT, SHRINKAGE_K, buildPreferenceProfile } from './profile.js';
 import { buildGameKey, cosineSimilarity } from './semantic.js';
+import { DEFAULT_TASTE_SIGNAL_MODEL, TasteSignalModel } from './signal.js';
 import {
   NormalizedGameRecord,
   PreferenceProfile,
@@ -34,6 +30,12 @@ export function tuneRecommendationWeights(params: {
   embeddingsByGame?: Map<string, number[]>;
   structuredKeywordsByGame?: Map<string, string[]>;
   tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
+  /**
+   * How ratings (and, if enabled, statuses) become taste signal. Only rated
+   * games are prediction targets; status-only games still shape the profile
+   * and centroid they are scored against.
+   */
+  signalModel?: TasteSignalModel;
 }): TunedRecommendationWeights {
   const {
     games,
@@ -44,21 +46,27 @@ export function tuneRecommendationWeights(params: {
     structuredKeywordsByGame,
     tokenFamilyWeight,
   } = params;
+  // The mean-centred neutral point is computed from all ratings, the target's
+  // included. Accepted: it is a shrunk mean, so one rating barely moves it, and
+  // recomputing it per target isn't worth the cost.
+  const signalModel = params.signalModel ?? DEFAULT_TASTE_SIGNAL_MODEL;
   const rated = games.filter((game) => game.rating !== null);
 
   if (rated.length < minimumRated) {
     return defaults;
   }
 
-  const profile = buildPreferenceProfile(games, { structuredKeywordsByGame });
-  const centroid = embeddingsByGame ? buildCentroidAccumulator(rated, embeddingsByGame) : null;
+  const profile = buildPreferenceProfile(games, { structuredKeywordsByGame, signalModel });
+  const centroid = embeddingsByGame
+    ? buildCentroidAccumulator(games, embeddingsByGame, signalModel)
+    : null;
   const y: number[] = [];
   const structured: number[] = [];
   const semantic: number[] = [];
   const critic: number[] = [];
 
   for (const game of rated) {
-    const signal = ratingToSignal(game.rating);
+    const signal = signalModel.signalOf(game);
     if (signal === null) {
       continue;
     }
@@ -152,16 +160,17 @@ interface CentroidAccumulator {
   totalWeight: number;
 }
 
-/** Unnormalised rating-weighted sum of liked games' embeddings (same inputs as the taste centroid). */
+/** Unnormalised signal-weighted sum of liked games' embeddings (same inputs as the taste centroid). */
 function buildCentroidAccumulator(
-  rated: NormalizedGameRecord[],
-  embeddingsByGame: Map<string, number[]>
+  games: NormalizedGameRecord[],
+  embeddingsByGame: Map<string, number[]>,
+  signalModel: TasteSignalModel
 ): CentroidAccumulator | null {
   let sum: number[] | null = null;
   let totalWeight = 0;
 
-  for (const game of rated) {
-    const signal = ratingToSignal(game.rating);
+  for (const game of games) {
+    const signal = signalModel.signalOf(game);
     const embedding = embeddingsByGame.get(buildGameKey(game.igdbGameId, game.platformIgdbId));
 
     if (signal === null || signal <= 0 || !embedding) {

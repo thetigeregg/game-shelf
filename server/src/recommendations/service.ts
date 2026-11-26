@@ -60,6 +60,8 @@ export interface RecommendationServiceOptions {
   keywordsMinLibraryCount: number;
   keywordsWeight: number;
   themesWeight: number;
+  ratingMeanCenterWeight: number;
+  statusSignalWeight: number;
   similarityThemeWeight: number;
   similarityGenreWeight: number;
   similaritySeriesWeight: number;
@@ -775,6 +777,8 @@ export class RecommendationService implements RecommendationServiceApi {
       keywordsMinLibraryCount: this.options.keywordsMinLibraryCount,
       keywordsWeight: this.options.keywordsWeight,
       themesWeight: this.options.themesWeight,
+      ratingMeanCenterWeight: this.options.ratingMeanCenterWeight,
+      statusSignalWeight: this.options.statusSignalWeight,
       similarityThemeWeight: this.options.similarityThemeWeight,
       similarityGenreWeight: this.options.similarityGenreWeight,
       similaritySeriesWeight: this.options.similaritySeriesWeight,

@@ -71,6 +71,18 @@ function readNumberEnv(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** A 0..1 weight. Out-of-range values are clamped with a warning, so the value that runs is the one hashed. */
+function readUnitIntervalEnv(name: string, fallback: number): number {
+  const value = readNumberEnv(name, fallback);
+  const clamped = Math.min(1, Math.max(0, value));
+
+  if (clamped !== value) {
+    console.warn(`[config] ${name}=${String(value)} is outside 0..1; using ${String(clamped)}`);
+  }
+
+  return clamped;
+}
+
 function readBooleanEnv(name: string, fallback: boolean): boolean {
   const raw = readEnv(name);
 
@@ -870,11 +882,11 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_THEMES_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.themesWeight
   ),
-  recommendationsRatingMeanCenterWeight: readNumberEnv(
+  recommendationsRatingMeanCenterWeight: readUnitIntervalEnv(
     'RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.ratingMeanCenterWeight
   ),
-  recommendationsStatusSignalWeight: readNumberEnv(
+  recommendationsStatusSignalWeight: readUnitIntervalEnv(
     'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.statusSignalWeight
   ),

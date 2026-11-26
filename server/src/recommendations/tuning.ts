@@ -46,6 +46,9 @@ export function tuneRecommendationWeights(params: {
     structuredKeywordsByGame,
     tokenFamilyWeight,
   } = params;
+  // The mean-centred neutral point is computed from all ratings, the target's
+  // included. Accepted: it is a shrunk mean, so one rating barely moves it, and
+  // recomputing it per target isn't worth the cost.
   const signalModel = params.signalModel ?? DEFAULT_TASTE_SIGNAL_MODEL;
   const rated = games.filter((game) => game.rating !== null);
 

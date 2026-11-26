@@ -17,7 +17,7 @@ export interface TasteSignalOptions {
    * someone who rates most games 4★ reads 4★ as "fine" and 3★ as a miss.
    */
   ratingMeanCenterWeight: number;
-  /** Scales the weak signal unrated games get from their status; 0 ignores status. */
+  /** Scales the weak signal unrated library games get from their status; 0 ignores status. */
   statusSignalWeight: number;
 }
 
@@ -86,7 +86,9 @@ export function buildTasteSignalModel(
         return rating === null ? null : ratingSignal(rating, center);
       }
 
-      if (statusWeight === 0 || game.status === null) {
+      // Library games only: wishlist (and discovery) games are recommendation
+      // candidates themselves, and their status would boost their own score.
+      if (statusWeight === 0 || game.status === null || game.listType !== 'collection') {
         return null;
       }
 

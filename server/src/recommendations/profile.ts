@@ -28,7 +28,9 @@ export function buildPreferenceProfile(
   for (const game of games) {
     const signal = signalModel.signalOf(game);
 
-    if (game.rating !== null || signal !== null) {
+    // Only real ratings count toward the "enough data for taste" gate; status
+    // signals shape the profile but are too weak to vouch for it on their own.
+    if (game.rating !== null) {
       ratedGameCount += 1;
     }
 

@@ -65,10 +65,16 @@ void test('buildTasteProfileEmbedding builds weighted centroid from positive rat
 
 void test('buildTasteProfileEmbedding adds unrated replayed games when status signals are on', () => {
   const games = [
-    { igdbGameId: '1', platformIgdbId: 6, rating: 5, status: 'completed' },
-    { igdbGameId: '2', platformIgdbId: 6, rating: null, status: 'replay' },
-    { igdbGameId: '3', platformIgdbId: 6, rating: null, status: 'dropped' },
-    { igdbGameId: '4', platformIgdbId: 6, rating: null, status: 'completed' },
+    { igdbGameId: '1', platformIgdbId: 6, listType: 'collection', rating: 5, status: 'completed' },
+    { igdbGameId: '2', platformIgdbId: 6, listType: 'collection', rating: null, status: 'replay' },
+    { igdbGameId: '3', platformIgdbId: 6, listType: 'collection', rating: null, status: 'dropped' },
+    {
+      igdbGameId: '4',
+      platformIgdbId: 6,
+      listType: 'collection',
+      rating: null,
+      status: 'completed',
+    },
   ] as never;
   const embeddingsByGame = new Map<string, number[]>([
     ['1::6', [1, 0, 0, 0]],

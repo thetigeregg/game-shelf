@@ -84,7 +84,8 @@ void test('preference profile uses the signal model, including status-only games
     statusSignalWeight: 1,
   });
   const withStatus = buildPreferenceProfile(games, { signalModel });
-  assert.equal(withStatus.ratedGameCount, 3);
+  // Status-only games feed the weights but not the rated-games gate.
+  assert.equal(withStatus.ratedGameCount, 1);
   // The unrated completed RPG is a neutral sighting: it adds to the count, not the sum.
   assert.equal(withStatus.weights.get('genres:rpg')?.sum, 0.5);
   assert.equal(withStatus.weights.get('genres:rpg')?.count, 2);

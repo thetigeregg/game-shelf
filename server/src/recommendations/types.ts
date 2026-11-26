@@ -58,7 +58,7 @@ export interface PreferenceWeight {
 }
 
 export interface PreferenceProfile {
-  /** Rated games plus unrated games that carry a status signal. */
+  /** Games with a rating; status-only games feed the weights but not this count. */
   ratedGameCount: number;
   weights: Map<string, PreferenceWeight>;
 }

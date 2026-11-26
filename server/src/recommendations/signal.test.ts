@@ -8,8 +8,12 @@ import {
 } from './signal.js';
 import { GameStatus, NormalizedGameRecord } from './types.js';
 
-function game(rating: number | null, status: GameStatus | null = null): NormalizedGameRecord {
-  return { rating, status } as NormalizedGameRecord;
+function game(
+  rating: number | null,
+  status: GameStatus | null = null,
+  listType: NormalizedGameRecord['listType'] = 'collection'
+): NormalizedGameRecord {
+  return { rating, status, listType } as NormalizedGameRecord;
 }
 
 function ratings(values: number[]): NormalizedGameRecord[] {
@@ -97,6 +101,10 @@ void test('status signals give unrated played games a weak, scaled signal', () =
   assert.equal(model.signalOf(game(null, 'paused')), null);
   assert.equal(model.signalOf(game(null, 'wantToPlay')), null);
   assert.equal(model.signalOf(game(null)), null);
+  // Wishlist games are candidates themselves: their status must not boost them.
+  assert.equal(model.signalOf(game(null, 'replay', 'wishlist')), null);
+  assert.equal(model.signalOf(game(null, 'dropped', 'discovery')), null);
+  assert.equal(model.signalOf(game(4, 'replay', 'wishlist')), 0.5);
   // A rating always wins over status.
   assert.equal(model.signalOf(game(3, 'dropped')), 0);
   assert.equal(model.signalOf(game(0.5, 'completed')), null);

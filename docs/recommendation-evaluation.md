@@ -85,7 +85,7 @@ done
 
 - `ratingMeanCenterWeight`: `0` treats 3★ as neutral. `1` treats your own average rating as
   neutral, shrunk toward 3★ by 5 pseudo-ratings.
-- `statusSignalWeight`: how much unrated games count toward taste based on their status.
+- `statusSignalWeight`: how much unrated library games count toward taste based on their status.
   At `1`, replay counts +0.75 and dropped -0.75. A 5★ rating counts +1. Completed counts as 0,
   which still records the game's tags as played.
 

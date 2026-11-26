@@ -53,6 +53,66 @@ void test('config clamps popularity feed row limit to a sane maximum', () => {
   }
 });
 
+void test('config clamps personal-signal weights to 0..1 and warns', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-shelf-config-'));
+  const envFile = path.join(tempDir, '.env');
+
+  fs.writeFileSync(
+    envFile,
+    'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT=25\nRECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT=-1\n',
+    'utf8'
+  );
+
+  try {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      DOTENV_CONFIG_QUIET: 'true',
+      ENV_FILE: envFile,
+      NODE_ENV: 'test',
+    };
+    delete env.RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT;
+    delete env.RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT;
+
+    const child = spawnSync(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '--input-type=module',
+        '--eval',
+        `
+          const imported = await import(${JSON.stringify(
+            `${configModuleUrl}?case=personal-signal-clamp`
+          )});
+          process.stdout.write(JSON.stringify({
+            status: imported.config.recommendationsStatusSignalWeight,
+            center: imported.config.recommendationsRatingMeanCenterWeight,
+          }));
+        `,
+      ],
+      {
+        cwd: serverRootDir,
+        env,
+        encoding: 'utf8',
+      }
+    );
+
+    assert.equal(child.status, 0, child.stderr || child.stdout);
+    const output = child.stdout.match(/\{[^}]*\}\s*$/)?.[0] ?? '';
+    assert.deepEqual(JSON.parse(output), { status: 1, center: 0 });
+    assert.match(
+      child.stderr,
+      /RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT=25 is outside 0\.\.1; using 1/
+    );
+    assert.match(
+      child.stderr,
+      /RECOMMENDATIONS_RATING_MEAN_CENTER_WEIGHT=-1 is outside 0\.\.1; using 0/
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 void test('config reads outbound IGDB metadata proxy window overrides from env', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-shelf-config-'));
   const envFile = path.join(tempDir, '.env');

@@ -240,6 +240,7 @@ export interface AppConfig {
   recommendationsThemesWeight: number;
   recommendationsRatingMeanCenterWeight: number;
   recommendationsStatusSignalWeight: number;
+  recommendationsIgdbSimilarWeight: number;
   recommendationsSimilarityThemeWeight: number;
   recommendationsSimilarityGenreWeight: number;
   recommendationsSimilaritySeriesWeight: number;
@@ -889,6 +890,13 @@ export const config: AppConfig = {
   recommendationsStatusSignalWeight: readUnitIntervalEnv(
     'RECOMMENDATIONS_STATUS_SIGNAL_WEIGHT',
     RECOMMENDATION_SCORING_DEFAULTS.statusSignalWeight
+  ),
+  recommendationsIgdbSimilarWeight: Math.max(
+    0,
+    readNumberEnv(
+      'RECOMMENDATIONS_IGDB_SIMILAR_WEIGHT',
+      RECOMMENDATION_SCORING_DEFAULTS.igdbSimilarWeight
+    )
   ),
   recommendationsSimilarityThemeWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',

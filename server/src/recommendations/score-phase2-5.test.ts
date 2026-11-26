@@ -29,6 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
+    similarGameIgdbIds: [],
     ...overrides,
   };
 }
@@ -57,6 +58,7 @@ void test('phase2.5 scoring integrates new components with bounded penalties', (
       semanticWeight: 2,
       criticWeight: 1,
       runtimeWeight: 1,
+      igdbSimilarWeight: 0,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,

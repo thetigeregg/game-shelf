@@ -6,6 +6,7 @@ import {
   PairSimilarityWeights,
 } from './diversity.js';
 import { computeRepeatPenalty } from './history.js';
+import { IgdbLinkEvidence } from './igdb-links.js';
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT } from './profile.js';
 import {
@@ -31,6 +32,7 @@ interface BaseScore {
   tokenKeys: Set<string>;
   baseComponents: RecommendationScoreComponents;
   tasteMatches: TasteMatch[];
+  igdbLikedTitles: string[];
 }
 
 interface GreedyEntry extends BaseScore, DiversityCandidate {
@@ -71,6 +73,8 @@ export interface RankedScore {
   total: number;
   components: RecommendationScoreComponents;
   tasteMatches: TasteMatch[];
+  /** Liked games IGDB lists as similar to this one, for the explanation. */
+  igdbLikedTitles: string[];
 }
 
 export function buildRankedScores(params: {
@@ -92,6 +96,8 @@ export function buildRankedScores(params: {
   /** Per-game embeddings, used to tell near-duplicate picks apart. */
   embeddingsByGame?: Map<string, number[]>;
   cosineCalibration?: CosineCalibration | null;
+  /** IGDB similar-games evidence keyed by IGDB game id. */
+  igdbLinksByGame?: Map<string, IgdbLinkEvidence>;
 }): RankedScore[] {
   const {
     candidates,
@@ -111,6 +117,7 @@ export function buildRankedScores(params: {
     tokenFamilyWeight,
     embeddingsByGame,
     cosineCalibration = null,
+    igdbLinksByGame,
   } = params;
 
   const baseScores = candidates.map((game) =>
@@ -126,6 +133,7 @@ export function buildRankedScores(params: {
       historyByGame,
       structuredKeywordsByGame,
       tokenFamilyWeight,
+      igdbLinksByGame,
     })
   );
   const pairWeights: PairSimilarityWeights = {
@@ -173,6 +181,7 @@ export function buildRankedScores(params: {
         total: calculateTotalScore(components),
         components,
         tasteMatches: entry.tasteMatches,
+        igdbLikedTitles: entry.igdbLikedTitles,
       };
 
       if (!best || compareRankedScores(ranked, best) < 0) {
@@ -211,6 +220,7 @@ export function buildRankedScores(params: {
       exploration: round4(item.components.exploration),
       diversityPenalty: round4(item.components.diversityPenalty),
       repeatPenalty: round4(item.components.repeatPenalty),
+      igdbSimilar: round4(item.components.igdbSimilar),
     },
     tasteMatches: item.tasteMatches.map((match) => ({
       ...match,
@@ -252,6 +262,7 @@ function buildBaseScore(params: {
   historyByGame: Map<string, { recommendationCount: number }>;
   structuredKeywordsByGame?: Map<string, string[]>;
   tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
+  igdbLinksByGame?: Map<string, IgdbLinkEvidence>;
 }): BaseScore {
   const {
     game,
@@ -265,9 +276,13 @@ function buildBaseScore(params: {
     historyByGame,
     structuredKeywordsByGame,
     tokenFamilyWeight,
+    igdbLinksByGame,
   } = params;
 
   const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
+  // Same "enough ratings" gate as taste: with a handful of ratings the links
+  // say more about which games were rated than about taste.
+  const igdbLinks = profile.ratedGameCount < 5 ? undefined : igdbLinksByGame?.get(game.igdbGameId);
   const tokenKeys = new Set(tokens.map((token) => token.key));
   const tasteEvaluation = evaluateTaste(
     tokens,
@@ -298,6 +313,7 @@ function buildBaseScore(params: {
     exploration,
     diversityPenalty: 0,
     repeatPenalty: computeRepeatPenalty(recommendationCount, repeatPenaltyStep),
+    igdbSimilar: (igdbLinks?.score ?? 0) * tunedWeights.igdbSimilarWeight,
   };
 
   return {
@@ -305,6 +321,7 @@ function buildBaseScore(params: {
     tokenKeys,
     baseComponents,
     tasteMatches: tasteEvaluation.matches,
+    igdbLikedTitles: igdbLinks && igdbLinks.score > 0 ? igdbLinks.likedTitles : [],
   };
 }
 
@@ -483,7 +500,8 @@ function calculateTotalScore(components: RecommendationScoreComponents): number 
     components.semantic +
     components.exploration +
     components.diversityPenalty +
-    components.repeatPenalty
+    components.repeatPenalty +
+    components.igdbSimilar
   );
 }
 

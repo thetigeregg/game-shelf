@@ -38,6 +38,7 @@ function baseOptions() {
     themesWeight: 1.3,
     ratingMeanCenterWeight: 0,
     statusSignalWeight: 0,
+    igdbSimilarWeight: 0,
     similarityThemeWeight: 0.35,
     similarityGenreWeight: 0.25,
     similaritySeriesWeight: 0.2,
@@ -94,6 +95,7 @@ function sampleGame(): NormalizedGameRecord {
     publishers: ['Nintendo'],
     franchises: ['Mario'],
     collections: ['Super Mario'],
+    similarGameIgdbIds: [],
   };
 }
 
@@ -113,6 +115,7 @@ function sampleItem(): RankedRecommendationItem {
       exploration: 0,
       diversityPenalty: 0,
       repeatPenalty: 0,
+      igdbSimilar: 0,
     },
     explanations: {
       headline: 'h',

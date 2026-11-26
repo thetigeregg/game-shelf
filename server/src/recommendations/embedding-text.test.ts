@@ -28,6 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     publishers: [],
     franchises: [],
     collections: [],
+    similarGameIgdbIds: [],
     ...overrides,
   };
 }

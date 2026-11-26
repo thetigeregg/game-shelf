@@ -59,6 +59,7 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     genres: normalizeStringArray(payload['genres']),
     themes: normalizeStringArray(payload['themes']),
     keywords: normalizeStringArray(payload['keywords']),
+    similarGameIgdbIds: normalizeIdArray(payload['similarGameIgdbIds']),
     developers: normalizeStringArray(payload['developers']),
     publishers: normalizeStringArray(payload['publishers']),
     franchises: normalizeStringArray(payload['franchises']),
@@ -255,6 +256,24 @@ function normalizeRuntimeHours(payload: Record<string, unknown>): number | null 
   }
 
   return null;
+}
+
+/** IGDB ids as strings; accepts numbers too, drops anything non-numeric. */
+function normalizeIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const ids = value
+    .map((entry) =>
+      typeof entry === 'number' && Number.isInteger(entry) && entry > 0
+        ? String(entry)
+        : typeof entry === 'string'
+          ? entry.trim()
+          : ''
+    )
+    .filter((entry) => /^\d+$/.test(entry));
+  return [...new Set(ids)];
 }
 
 function normalizeStringArray(value: unknown): string[] {

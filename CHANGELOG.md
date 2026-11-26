@@ -4400,3 +4400,7 @@
 ## v1.95.2 - 2026-11-26
 
 - 79d77e72 fix(popularity): stop IGDB score overwriting user star ratings (#691)
+
+## v1.96.0 - 2026-11-26
+
+- e025ffb2 feat(recommendations): add mean-centred ratings and status signals (#692)

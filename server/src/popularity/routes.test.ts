@@ -97,6 +97,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
       popularityScore: number;
       platforms: Array<{ id: number; name: string }>;
       firstReleaseDate: number | null;
+      rating: number | null;
     }>;
   };
   assert.equal(body.items.length, 1);
@@ -105,6 +106,8 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(body.items[0]?.popularityScore, 121.2);
   assert.equal(body.items[0]?.platforms[0]?.id, 6);
   assert.equal(body.items[0]?.firstReleaseDate, 1_700_000_000);
+  // Rows written before igdbRating existed keep IGDB's score in `rating`.
+  assert.equal(body.items[0]?.rating, 85);
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
@@ -172,6 +175,8 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
         popularity_score: '142.6',
         payload: {
           title: 'Legacy Platform Game',
+          igdbRating: 72.5,
+          rating: 4,
         },
       },
     ]) as unknown as Pool,
@@ -188,12 +193,38 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
     items: Array<{
       id: string;
       platforms: Array<{ id: number; name: string }>;
+      rating: number | null;
     }>;
   };
 
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.id, '101');
   assert.deepEqual(body.items[0]?.platforms, [{ id: 167, name: 'Unknown platform' }]);
+  assert.equal(body.items[0]?.rating, 72.5);
+
+  await app.close();
+});
+
+void test("GET /v1/games/trending never reports an owned row's star rating as IGDB's", async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '102',
+        platform_igdb_id: 6,
+        popularity_score: '150',
+        payload: { title: 'Owned Game', listType: 'collection', rating: 4 },
+      },
+    ]) as unknown as Pool,
+    { rowLimit: 50, threshold: 50 }
+  );
+
+  const response = await app.inject({ method: 'GET', url: '/v1/games/trending' });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as { items: Array<{ rating: number | null }> };
+  assert.equal(body.items[0]?.rating, null);
 
   await app.close();
 });

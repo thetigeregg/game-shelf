@@ -613,8 +613,10 @@ export class PopularityIngestService {
         ),
         -- Games the user has added to their collection/wishlist own their cover
         -- choice (coverUrl/coverSource/customCoverUrl), which may deliberately
-        -- point at TheGamesDB. Only discovery-pool rows (never user-curated) get
-        -- their cover refreshed from this popularity feed.
+        -- point at TheGamesDB, and their own star rating (rating). Only
+        -- discovery-pool rows (never user-curated) get their cover from this
+        -- feed. On rows the user doesn't own, rating can only be IGDB's score
+        -- from before it moved to igdbRating, so it is dropped.
         merged AS (
           SELECT
             g.igdb_game_id,
@@ -622,8 +624,10 @@ export class PopularityIngestService {
             g.payload AS current_payload,
             CASE
               WHEN COALESCE(g.payload ->> 'listType', '') = 'discovery'
-                THEN g.payload || typed.payload
-              ELSE g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])
+                THEN (g.payload - 'rating') || typed.payload
+              WHEN COALESCE(g.payload ->> 'listType', '') IN ('collection', 'wishlist')
+                THEN g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl,rating}'::text[])
+              ELSE (g.payload - 'rating') || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])
             END AS next_payload
           FROM games AS g
           INNER JOIN typed
@@ -728,7 +732,7 @@ export class PopularityIngestService {
         COALESCE(pm.max_value, 0) * 3
         + ${sqlNumericPayload('hypes')} * 2
         + ${sqlNumericPayload('follows')} * 1
-        + ${sqlNumericPayload('rating')} * 5
+        + ${SQL_IGDB_RATING} * 5
         + LN(COALESCE(NULLIF(${sqlNumericPayload('total_rating_count')}, 0), NULLIF(${sqlNumericPayload('totalRatingCount')}, 0), 0) + 1) * 4
       )
       FROM popularity_max AS pm
@@ -1012,7 +1016,7 @@ function buildGamePayload(
     releaseDate: item.releaseDate,
     releaseYear: item.releaseYear,
     first_release_date: toUnixFromIso(item.releaseDate),
-    rating: item.rating,
+    igdbRating: item.rating,
     total_rating_count: item.totalRatingCount,
     totalRatingCount: item.totalRatingCount,
     hypes: item.hypes,
@@ -1033,6 +1037,11 @@ function buildGamePayload(
   };
 }
 
+/**
+ * IGDB's community score goes in `igdbRating`, never `rating`: on library and
+ * wishlist rows `rating` is the user's own 1-5 star rating, and this payload is
+ * merged over the stored one.
+ */
 function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> {
   return {
     title: item.title,
@@ -1040,7 +1049,7 @@ function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> 
     releaseDate: item.releaseDate,
     releaseYear: item.releaseYear,
     first_release_date: toUnixFromIso(item.releaseDate),
-    rating: item.rating,
+    igdbRating: item.rating,
     total_rating_count: item.totalRatingCount,
     totalRatingCount: item.totalRatingCount,
     hypes: item.hypes,
@@ -1180,6 +1189,13 @@ function buildCoverUrl(imageId: unknown): string | null {
 
   return `https://images.igdb.com/igdb/image/upload/t_cover_big/${trimmed}.jpg`;
 }
+
+/**
+ * IGDB's community score. Rows written before it moved to `igdbRating` keep it
+ * in `rating`, which is only IGDB's on rows the user doesn't own; on library
+ * and wishlist rows `rating` is the user's star rating.
+ */
+const SQL_IGDB_RATING = `CASE WHEN g.payload ? 'igdbRating' THEN ${sqlNumericPayload('igdbRating')} WHEN COALESCE(g.payload->>'listType', '') IN ('collection', 'wishlist') THEN 0 ELSE ${sqlNumericPayload('rating')} END`;
 
 function sqlNumericPayload(field: string): string {
   return `CASE WHEN BTRIM(COALESCE(g.payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(g.payload->>'${field}'))::double precision ELSE 0 END`;

@@ -4404,3 +4404,7 @@
 ## v1.96.0 - 2026-11-26
 
 - e025ffb2 feat(recommendations): add mean-centred ratings and status signals (#692)
+
+## v1.97.0 - 2026-11-26
+
+- 876ca591 feat(recommendations): boost games IGDB lists as similar to rated ones (#693)

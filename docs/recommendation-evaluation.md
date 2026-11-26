@@ -88,7 +88,7 @@ done
 - `statusSignalWeight`: how much unrated library games count toward taste based on their status.
   At `1`, replay counts +0.75 and dropped -0.75. A 5★ rating counts +1. Completed counts as 0,
   which still records the game's tags as played.
-- `igdbSimilarWeight`: multiplier on the auto-tuned boost for games IGDB lists as similar to
+- `igdbSimilarWeight`: multiplier (0–3) on the auto-tuned boost for games IGDB lists as similar to
   games you rated (either direction). `0` turns it off.
 
 Look at AUC and the liked percentile first. Hit@k moves in steps of 1/liked games, so small

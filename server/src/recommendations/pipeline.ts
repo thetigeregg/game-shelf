@@ -35,7 +35,7 @@ export interface RecommendationScoringOptions {
   ratingMeanCenterWeight: number;
   /** 0 = unrated games carry no taste signal; up to 1 = full status signal (completed, dropped…). */
   statusSignalWeight: number;
-  /** Multiplier on the tuned IGDB similar-games weight; 0 turns the signal off. */
+  /** Multiplier (0..3) on the tuned IGDB similar-games weight; 0 turns the signal off. */
   igdbSimilarWeight: number;
 }
 
@@ -102,7 +102,7 @@ export function prepareScoringContext(params: {
       igdbSimilarWeight: 1,
     },
   });
-  tunedWeights.igdbSimilarWeight *= Math.max(0, options.igdbSimilarWeight);
+  tunedWeights.igdbSimilarWeight *= Math.min(3, Math.max(0, options.igdbSimilarWeight));
 
   return {
     profile: buildPreferenceProfile(games, { structuredKeywordsByGame, signalModel }),

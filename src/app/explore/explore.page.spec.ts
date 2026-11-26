@@ -114,6 +114,7 @@ const mockLaneItem = {
     exploration: 0,
     diversityPenalty: 0,
     repeatPenalty: 0,
+    igdbSimilar: 0,
   },
   explanations: {
     headline: 'Fits your profile',
@@ -2698,6 +2699,32 @@ describe('ExplorePage explore modes UX', () => {
     expect(privatePage.getCoverUrl(row)).toContain('placeholder');
     expect(privatePage.getScoreBadge(row).text).toContain('Score');
     expect(privatePage.getConfidenceBadge(row).text).toContain('Confidence');
+    // IGDB similar-games evidence counts toward confidence like taste and semantic.
+    const igdbBacked = {
+      ...row,
+      scoreComponents: {
+        ...row.scoreComponents,
+        taste: 0.5,
+        semantic: 0,
+        criticBoost: 0,
+        diversityPenalty: 0,
+        repeatPenalty: 0,
+        igdbSimilar: 0,
+      },
+    };
+    expect(privatePage.getConfidenceBadge(igdbBacked).text).toBe('Confidence Exploratory');
+    expect(
+      privatePage.getConfidenceBadge({
+        ...igdbBacked,
+        scoreComponents: { ...igdbBacked.scoreComponents, igdbSimilar: 2.4 },
+      }).text
+    ).toBe('Confidence High');
+    expect(
+      privatePage.getConfidenceBadge({
+        ...igdbBacked,
+        scoreComponents: { ...igdbBacked.scoreComponents, igdbSimilar: -2 },
+      }).text
+    ).toBe('Confidence Exploratory');
 
     privatePage.activeLanesResponse = {
       ...mockLanesResponse,
@@ -3253,6 +3280,7 @@ describe('ExplorePage explore modes UX', () => {
                 exploration: 0.1,
                 diversityPenalty: 0,
                 repeatPenalty: 0,
+                igdbSimilar: 0,
               },
               explanations: {
                 headline: '',
@@ -3333,6 +3361,7 @@ describe('ExplorePage explore modes UX', () => {
                 exploration: 0.1,
                 diversityPenalty: 0,
                 repeatPenalty: 0,
+                igdbSimilar: 0,
               },
             },
             {
@@ -3351,6 +3380,7 @@ describe('ExplorePage explore modes UX', () => {
                 exploration: 0.1,
                 diversityPenalty: 0,
                 repeatPenalty: 0,
+                igdbSimilar: 0,
               },
             },
           ],

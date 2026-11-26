@@ -832,6 +832,7 @@ export class RecommendationService implements RecommendationServiceApi {
         publishers: [...game.publishers].sort(),
         franchises: [...game.franchises].sort(),
         collections: [...game.collections].sort(),
+        similarGameIgdbIds: [...game.similarGameIgdbIds].sort(),
       }))
       .sort((left, right) => {
         if (left.igdbGameId !== right.igdbGameId) {

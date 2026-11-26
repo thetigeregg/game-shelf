@@ -70,7 +70,7 @@ void test('IGDB similar-games explanations name the liked games', () => {
   assert.equal(bullet.label, 'IGDB lists it as similar to Celeste, Hollow Knight');
   assert.deepEqual(bullet.evidence, ['igdb-similar:Celeste', 'igdb-similar:Hollow Knight']);
   assert.equal(bullet.delta, 0.9);
-  assert.equal(named.headline, 'Similar to games you loved');
+  assert.equal(named.headline, 'Similar to games you rated highly');
 
   const unnamed = buildExplanation({ components, tasteMatches: [] });
   assert.equal(
@@ -86,7 +86,7 @@ void test('IGDB similar-games explanations name the liked games', () => {
     negative.bullets.find((entry) => entry.type === 'similar')?.label,
     'IGDB lists it as similar to games you rated low'
   );
-  assert.notEqual(negative.headline, 'Similar to games you loved');
+  assert.notEqual(negative.headline, 'Similar to games you rated highly');
 
   const none = buildExplanation({
     components: { ...components, igdbSimilar: 0 },

@@ -161,7 +161,7 @@ function buildHeadline(components: RecommendationScoreComponents, matches: Taste
   }
 
   if (strongest === 'igdbSimilar') {
-    return 'Similar to games you loved';
+    return 'Similar to games you rated highly';
   }
 
   if (strongest === 'runtimeFit') {

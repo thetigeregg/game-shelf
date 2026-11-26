@@ -173,6 +173,8 @@ export interface RecommendationScoreComponents {
   exploration: number;
   diversityPenalty: number;
   repeatPenalty: number;
+  /** Boost from games IGDB lists as similar to ones the user rated. */
+  igdbSimilar: number;
 }
 
 export interface RecommendationExplanationBullet {
@@ -185,7 +187,8 @@ export interface RecommendationExplanationBullet {
     | 'semantic'
     | 'exploration'
     | 'diversity'
-    | 'repeat';
+    | 'repeat'
+    | 'similar';
   label: string;
   evidence: string[];
   delta: number;

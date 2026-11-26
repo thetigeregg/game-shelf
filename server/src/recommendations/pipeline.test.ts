@@ -59,4 +59,5 @@ void test('prepareScoringContext builds IGDB link evidence and applies the weigh
   assert.equal(context.tunedWeights.igdbSimilarWeight, 0.5);
   assert.equal(prepare(0).tunedWeights.igdbSimilarWeight, 0);
   assert.equal(prepare(-2).tunedWeights.igdbSimilarWeight, 0);
+  assert.equal(prepare(10).tunedWeights.igdbSimilarWeight, 3);
 });

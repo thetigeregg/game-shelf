@@ -676,6 +676,7 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
       assert.ok(payload.includes('"similarGameIgdbIds":["22","33"]'));
       assert.ok(payload.includes('"developers":["Studio One"]'));
       assert.ok(payload.includes('"publishers":["Publisher Two"]'));
+      assert.ok(!payload.includes('"rating":'));
       return queryResult([], 1);
     }
 
@@ -804,7 +805,23 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       assert.ok(payload.includes('"coverUrl":null'));
       assert.ok(payload.includes('"releaseDate":"2026-02-27T00:00:00.000Z"'));
       assert.ok(payload.includes('"first_release_date":1772150400'));
-      assert.ok(payload.includes('"rating":89.06299654196357'));
+      // IGDB's score must never land in `rating`, the user's own star rating.
+      assert.ok(payload.includes('"igdbRating":89.06299654196357'));
+      assert.ok(!payload.includes('"rating":'));
+      // Case-sensitive checks on the raw SQL: JSON keys and listType values are exact.
+      assert.ok(
+        sql.includes(
+          "THEN g.payload || (typed.payload - '{coverUrl,coverSource,customCoverUrl,rating}'::text[])"
+        )
+      );
+      assert.ok(sql.includes("IN ('collection', 'wishlist')"));
+      // Rows the user doesn't own drop the legacy IGDB `rating`.
+      assert.ok(sql.includes("THEN (g.payload - 'rating') || typed.payload"));
+      assert.ok(
+        sql.includes(
+          "ELSE (g.payload - 'rating') || (typed.payload - '{coverUrl,coverSource,customCoverUrl}'::text[])"
+        )
+      );
       assert.ok(payload.includes('"total_rating_count":115'));
       assert.ok(payload.includes('"totalRatingCount":115'));
       assert.ok(payload.includes('"hypes":309'));
@@ -831,6 +848,14 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
     }
 
     if (normalized.includes('with target_game_ids as')) {
+      // Scores read igdbRating, and never a library/wishlist row's star rating.
+      assert.ok(sql.includes("WHEN g.payload ? 'igdbRating' THEN"));
+      assert.ok(sql.includes("g.payload->>'igdbRating'"));
+      assert.ok(
+        sql.includes(
+          "WHEN COALESCE(g.payload->>'listType', '') IN ('collection', 'wishlist') THEN 0"
+        )
+      );
       return queryResult([{ popularity_score: 1082.5 }], 1);
     }
 
@@ -941,10 +966,13 @@ void test('runOnce refresh query preserves cover fields for non-discovery rows',
     ) {
       existingGamesRefreshCount += 1;
       // Only discovery-pool rows should get coverUrl/coverSource/customCoverUrl
-      // refreshed automatically; collection/wishlist entries own their cover choice.
+      // refreshed automatically; collection/wishlist entries own their cover
+      // choice and their star rating.
       assert.ok(normalized.includes("coalesce(g.payload ->> 'listtype', '') = 'discovery'"));
       assert.ok(
-        normalized.includes("typed.payload - '{coverurl,coversource,customcoverurl}'::text[]")
+        normalized.includes(
+          "typed.payload - '{coverurl,coversource,customcoverurl,rating}'::text[]"
+        )
       );
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
       assert.ok(payload.includes('"coverUrl"'));
@@ -958,6 +986,14 @@ void test('runOnce refresh query preserves cover fields for non-discovery rows',
     }
 
     if (normalized.includes('with target_game_ids as')) {
+      // Scores read igdbRating, and never a library/wishlist row's star rating.
+      assert.ok(sql.includes("WHEN g.payload ? 'igdbRating' THEN"));
+      assert.ok(sql.includes("g.payload->>'igdbRating'"));
+      assert.ok(
+        sql.includes(
+          "WHEN COALESCE(g.payload->>'listType', '') IN ('collection', 'wishlist') THEN 0"
+        )
+      );
       return queryResult([{ popularity_score: 1082.5 }], 1);
     }
 

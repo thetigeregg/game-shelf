@@ -4396,3 +4396,7 @@
 ## v1.95.1 - 2026-11-25
 
 - 5f84ebd0 fix(recommendations): fix diversity, tuning leakage and repeat penalty (#690)
+
+## v1.95.2 - 2026-11-26
+
+- 79d77e72 fix(popularity): stop IGDB score overwriting user star ratings (#691)

@@ -231,12 +231,14 @@ function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
     platforms = [{ id: row.platform_igdb_id, name: platformName }];
   }
 
+  const rating = firstNumeric(payload, ratingKeysFor(payload));
+
   return {
     id: row.igdb_game_id,
     platformIgdbId: row.platform_igdb_id,
     name,
     coverUrl: firstString(payload, ['coverUrl', 'cover_url']),
-    rating: firstNumeric(payload, ['rating', 'reviewScore']),
+    rating,
     popularityScore: score,
     firstReleaseDate: normalizeFirstReleaseDate(payload),
     platforms,
@@ -341,6 +343,19 @@ function firstString(payload: Record<string, unknown>, keys: string[]): string |
     }
   }
   return null;
+}
+
+/**
+ * A legacy `rating` is IGDB's score only on rows the user doesn't own; on
+ * library and wishlist rows it is their own star rating.
+ */
+function ratingKeysFor(payload: Record<string, unknown>): string[] {
+  const listType = payload['listType'];
+  if (listType === 'collection' || listType === 'wishlist') {
+    return ['igdbRating', 'reviewScore'];
+  }
+
+  return ['igdbRating', 'rating', 'reviewScore'];
 }
 
 function firstNumeric(payload: Record<string, unknown>, keys: string[]): number | null {
